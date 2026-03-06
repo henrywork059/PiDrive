@@ -17,15 +17,19 @@ class FrameFilterPanel(QGroupBox):
         self.mode_combo.addItems(["All Modes", "manual", "auto", "train", "user"])
         self.mode_combo.currentIndexChanged.connect(lambda *_: self.apply_callback())
 
-        apply_btn = QPushButton("Apply Filter")
+        apply_btn = QPushButton("Apply")
         apply_btn.clicked.connect(self.apply_callback)
-        clear_btn = QPushButton("Clear Filter")
+        clear_btn = QPushButton("Clear")
         clear_btn.clicked.connect(self.clear_callback)
 
         form = QVBoxLayout(self)
-        form.addWidget(QLabel("Filter the loaded preview rows before selecting a frame."))
+        help_label = QLabel("Filter the loaded preview rows before selecting or deleting a frame.")
+        help_label.setProperty('role', 'muted')
+        help_label.setWordWrap(True)
+        form.addWidget(help_label)
 
         row1 = QHBoxLayout()
+        row1.addWidget(QLabel("Text"))
         row1.addWidget(self.text_edit, 1)
         form.addLayout(row1)
 

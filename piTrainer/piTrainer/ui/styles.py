@@ -83,20 +83,39 @@ def build_stylesheet() -> str:
         selection-background-color: #335b9a;
         selection-color: #ffffff;
     }
-    #sessionListWidget::indicator {
+    #sessionListWidget {
+        padding: 6px;
+    }
+    #sessionRow {
+        background: #121a24;
+        border: 1px solid #2a3444;
+        border-radius: 8px;
+    }
+    #sessionRow:hover {
+        background: #172232;
+        border: 1px solid #3e5d86;
+    }
+    #sessionRowCheckbox {
+        spacing: 12px;
+        color: #f5f8ff;
+        background: transparent;
+        font-weight: 600;
+    }
+    #sessionRowCheckbox::indicator {
         width: 20px;
         height: 20px;
         border-radius: 4px;
-        border: 2px solid #66c6ff;
+        border: 2px solid #7fd3ff;
         background: #102033;
+        margin-right: 4px;
     }
-    #sessionListWidget::indicator:hover {
-        border-color: #9be0ff;
-        background: #17304d;
+    #sessionRowCheckbox::indicator:hover {
+        border-color: #b4ecff;
+        background: #15304b;
     }
-    #sessionListWidget::indicator:checked {
+    #sessionRowCheckbox::indicator:checked {
         background: #18b2ff;
-        border: 2px solid #d6f4ff;
+        border: 2px solid #eef9ff;
     }
     QHeaderView::section {
         background: #1c2430;
