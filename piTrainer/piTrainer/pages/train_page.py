@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QDockWidget
 
 from ..app_state import AppState
 from ..panels.common.log_panel import LogPanel
@@ -10,14 +11,15 @@ from ..panels.train.train_control_panel import TrainControlPanel
 from ..panels.train.train_history_panel import TrainHistoryPanel
 from ..services.train.split_service import split_dataframe
 from ..services.train.worker import TrainingWorker
+from .dock_page import DockPage
 
 
-class TrainPage(QWidget):
+class TrainPage(DockPage):
     def __init__(self, state: AppState, main_window) -> None:
-        super().__init__()
         self.state = state
         self.main_window = main_window
         self.worker: TrainingWorker | None = None
+        super().__init__('train', 'Drag panels to rearrange the Train workspace.')
 
         self.split_summary_panel = SplitSummaryPanel()
         self.config_panel = TrainConfigPanel(self.state)
@@ -27,27 +29,31 @@ class TrainPage(QWidget):
             stop_callback=self.stop_training,
         )
         self.history_panel = TrainHistoryPanel()
-        self.log_panel = LogPanel("Training Log")
+        self.log_panel = LogPanel('Training Log')
+        self.build_default_layout()
+        self.restore_layout()
 
-        left = QVBoxLayout()
-        left.addWidget(self.split_summary_panel)
-        left.addWidget(self.config_panel)
-        left.addWidget(self.control_panel)
-        left.addWidget(self.log_panel, 1)
-
-        right = QVBoxLayout()
-        right.addWidget(self.history_panel, 1)
-
-        layout = QHBoxLayout(self)
-        layout.addLayout(left, 1)
-        layout.addLayout(right, 2)
+    def build_default_layout(self) -> None:
+        for dock in self.findChildren(QDockWidget):
+            self.removeDockWidget(dock)
+            dock.deleteLater()
+        summary_dock = self.add_panel('summary', 'Split Summary', self.split_summary_panel, Qt.LeftDockWidgetArea)
+        config_dock = self.add_panel('config', 'Training Config', self.config_panel, Qt.LeftDockWidgetArea)
+        control_dock = self.add_panel('control', 'Training Controls', self.control_panel, Qt.LeftDockWidgetArea)
+        log_dock = self.add_panel('log', 'Training Log', self.log_panel, Qt.BottomDockWidgetArea)
+        history_dock = self.add_panel('history', 'Training History', self.history_panel, Qt.RightDockWidgetArea)
+        self.splitDockWidget(summary_dock, config_dock, Qt.Vertical)
+        self.splitDockWidget(config_dock, control_dock, Qt.Vertical)
+        self.tabifyDockWidget(control_dock, log_dock)
+        log_dock.raise_()
+        self.resizeDocks([summary_dock, config_dock, control_dock], [130, 300, 160], Qt.Vertical)
 
     def refresh_from_state(self) -> None:
         self.split_summary_panel.set_counts(
             total_rows=len(self.state.filtered_df),
             train_rows=len(self.state.train_df),
             val_rows=len(self.state.val_df),
-            sessions=len(set(self.state.filtered_df.get("session", []))) if not self.state.filtered_df.empty else 0,
+            sessions=len(set(self.state.filtered_df.get('session', []))) if not self.state.filtered_df.empty else 0,
             model_ready=self.state.model is not None,
         )
         self.history_panel.set_history(self.state.history)
@@ -58,23 +64,21 @@ class TrainPage(QWidget):
         self.state.train_df = train_df
         self.state.val_df = val_df
         self.refresh_from_state()
-        self.log_panel.append_line(
-            f"Prepared split: train={len(train_df)} rows, val={len(val_df)} rows."
-        )
-        self.main_window.set_status_message("Prepared training split.")
+        self.log_panel.append_line(f'Prepared split: train={len(train_df)} rows, val={len(val_df)} rows.')
+        self.main_window.set_status_message('Prepared training split.')
 
     def start_training(self) -> None:
         if self.worker is not None and self.worker.isRunning():
-            self.log_panel.append_line("Training is already running.")
+            self.log_panel.append_line('Training is already running.')
             return
         self.config_panel.push_to_state()
         if self.state.filtered_df.empty:
-            self.log_panel.append_line("No data loaded. Load sessions on the Data page first.")
+            self.log_panel.append_line('No data loaded. Load sessions on the Data page first.')
             return
         if self.state.train_df.empty and self.state.val_df.empty:
             self.prepare_split()
         self.history_panel.clear_history()
-        self.log_panel.append_line("Starting training worker...")
+        self.log_panel.append_line('Starting training worker...')
         self.control_panel.set_running(True)
 
         self.worker = TrainingWorker(self.state.train_df, self.state.val_df, self.state.train_config)
@@ -88,13 +92,13 @@ class TrainPage(QWidget):
     def stop_training(self) -> None:
         if self.worker is not None and self.worker.isRunning():
             self.worker.request_stop()
-            self.log_panel.append_line("Stop requested. Training will stop after the current epoch.")
+            self.log_panel.append_line('Stop requested. Training will stop after the current epoch.')
 
     def _on_training_error(self, message: str) -> None:
         self.state.last_error = message
         self.control_panel.set_running(False)
-        self.log_panel.append_line(f"ERROR: {message}")
-        self.main_window.set_status_message("Training failed.")
+        self.log_panel.append_line(f'ERROR: {message}')
+        self.main_window.set_status_message('Training failed.')
 
     def _on_training_finished(self, model, history: dict) -> None:
         self.state.model = model
@@ -102,7 +106,7 @@ class TrainPage(QWidget):
         self.control_panel.set_running(False)
         self.control_panel.set_progress(100)
         self.history_panel.set_history(history)
-        self.log_panel.append_line("Training finished successfully.")
+        self.log_panel.append_line('Training finished successfully.')
         self.refresh_from_state()
         self.main_window.on_training_finished()
 

@@ -150,3 +150,10 @@ It also keeps optional metadata such as:
 - Training and export need TensorFlow.
 - If TensorFlow is missing, the Data page still works, and the app will show a friendly message on Train / Export.
 - The UI is desktop-native and does **not** require a browser.
+
+
+## Dockable panels and shortcuts
+
+- Drag panel title bars to move, re-dock, or float panels.
+- Press `Ctrl+Shift+R` to reset the current page layout.
+- Press `F1` in the app to see the shortcut list.
