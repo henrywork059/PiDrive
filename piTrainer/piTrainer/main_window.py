@@ -75,20 +75,19 @@ class MainWindow(QMainWindow):
 
     def show_shortcuts(self) -> None:
         lines = [
-            'Ctrl+1 / Ctrl+2 / Ctrl+3 → Switch to Data / Train / Export',
-            'Ctrl+Tab / Ctrl+Shift+Tab → Next / Previous page',
-            'F5 → Refresh sessions',
-            'Ctrl+L → Load selected sessions',
-            'Ctrl+A → Select all sessions',
-            'Ctrl+Shift+A → Clear selected sessions',
-            'Ctrl+P → Prepare split',
-            'Ctrl+R → Start training',
-            'Esc → Stop training',
-            'Ctrl+E → Export model',
-            'Ctrl+Shift+R → Reset current page layout',
-            'F1 → Show this shortcut list',
+            'Ctrl+1 / Ctrl+2 / Ctrl+3 -> Switch to Data / Train / Export',
+            'Ctrl+Tab / Ctrl+Shift+Tab -> Next / Previous page',
+            'F5 -> Refresh sessions',
+            'Ctrl+L -> Load selected sessions',
+            'Ctrl+A -> Select all sessions',
+            'Ctrl+Shift+A -> Clear selected sessions',
+            'Ctrl+P -> Prepare split',
+            'Ctrl+R -> Start training',
+            'Esc -> Stop training',
+            'Ctrl+E -> Export model',
+            'Ctrl+Shift+R -> Reset current page layout',
+            'F1 -> Show this shortcut list',
         ]
-        QMessageBox.information(self, 'Shortcuts', chr(10).join(lines))
         QMessageBox.information(self, 'Shortcuts', chr(10).join(lines))
 
     def set_status_message(self, message: str) -> None:

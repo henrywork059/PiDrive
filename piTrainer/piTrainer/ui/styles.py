@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 
-
 def build_stylesheet() -> str:
     return """
     QWidget {
@@ -12,10 +11,30 @@ def build_stylesheet() -> str:
     QMainWindow {
         background: #12161f;
     }
+    QMainWindow::separator {
+        background: #56a7ff;
+        width: 4px;
+        height: 4px;
+    }
     QStatusBar {
         background: #12161f;
         color: #c6cad4;
         border-top: 1px solid #2a3140;
+    }
+    QDockWidget {
+        color: #f7fbff;
+        font-weight: 700;
+    }
+    QDockWidget::title {
+        background: #244c7a;
+        color: #ffffff;
+        padding: 8px 12px;
+        border: 1px solid #56a7ff;
+        border-bottom: none;
+    }
+    #dockPageFiller {
+        background: #0f141c;
+        border: none;
     }
     QGroupBox {
         border: 1px solid #2f3747;
@@ -98,7 +117,24 @@ def build_stylesheet() -> str:
         border-radius: 5px;
     }
     QCheckBox {
-        color: #e6e8ee;
+        color: #f3f7ff;
+        spacing: 8px;
+    }
+    QCheckBox::indicator {
+        width: 18px;
+        height: 18px;
+        border-radius: 4px;
+        border: 2px solid #7fbaff;
+        background: #101722;
+    }
+    QCheckBox::indicator:hover {
+        border-color: #a9d2ff;
+        background: #162132;
+    }
+    QCheckBox::indicator:checked {
+        background: #56a7ff;
+        border: 2px solid #cfe7ff;
+        image: none;
     }
     QLabel[role='muted'] {
         color: #8b94a7;

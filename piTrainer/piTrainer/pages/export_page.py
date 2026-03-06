@@ -16,12 +16,13 @@ class ExportPage(DockPage):
     def __init__(self, state: AppState, main_window) -> None:
         self.state = state
         self.main_window = main_window
-        super().__init__('export', 'Drag panels to rearrange the Export workspace.')
+        super().__init__('export')
 
         self.model_status_panel = ModelStatusPanel()
         self.options_panel = ExportOptionsPanel(self.state)
         self.actions_panel = ExportActionsPanel(self.export_model)
         self.log_panel = LogPanel('Export Log')
+        self.set_workspace_widget(self.log_panel)
         self.build_default_layout()
         self.restore_layout()
 
@@ -32,11 +33,9 @@ class ExportPage(DockPage):
         status_dock = self.add_panel('status', 'Model Status', self.model_status_panel, Qt.LeftDockWidgetArea)
         options_dock = self.add_panel('options', 'Export Options', self.options_panel, Qt.LeftDockWidgetArea)
         actions_dock = self.add_panel('actions', 'Export Actions', self.actions_panel, Qt.LeftDockWidgetArea)
-        log_dock = self.add_panel('log', 'Export Log', self.log_panel, Qt.RightDockWidgetArea)
         self.splitDockWidget(status_dock, options_dock, Qt.Vertical)
         self.splitDockWidget(options_dock, actions_dock, Qt.Vertical)
-        self.resizeDocks([status_dock, options_dock, actions_dock], [140, 260, 150], Qt.Vertical)
-        self.resizeDocks([options_dock, log_dock], [300, 500], Qt.Horizontal)
+        self.resizeDocks([status_dock, options_dock, actions_dock], [150, 260, 150], Qt.Vertical)
 
     def refresh_from_state(self) -> None:
         model_ready = self.state.model is not None

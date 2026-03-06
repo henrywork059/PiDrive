@@ -1,31 +1,24 @@
 from __future__ import annotations
 
 import pandas as pd
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import QGroupBox, QHBoxLayout, QLabel, QTableWidget, QTableWidgetItem, QVBoxLayout
+from PySide6.QtWidgets import QGroupBox, QTableWidget, QTableWidgetItem, QVBoxLayout
 
 from ...services.data.preview_service import dataframe_preview_rows, preview_columns
-from ...utils.image_utils import load_scaled_pixmap
 
 
 class PreviewPanel(QGroupBox):
-    def __init__(self) -> None:
-        super().__init__("Preview")
+    def __init__(self, selection_callback=None) -> None:
+        super().__init__("Record Preview")
         self.df = pd.DataFrame()
+        self.selection_callback = selection_callback
 
         self.table = QTableWidget(0, 0)
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
         self.table.setSelectionMode(QTableWidget.SingleSelection)
-        self.table.itemSelectionChanged.connect(self._update_image_preview)
+        self.table.itemSelectionChanged.connect(self._handle_selection_change)
 
-        self.image_label = QLabel("No preview")
-        self.image_label.setAlignment(Qt.AlignCenter)
-        self.image_label.setMinimumHeight(280)
-
-        layout = QHBoxLayout(self)
-        layout.addWidget(self.table, 2)
-        layout.addWidget(self.image_label, 1)
+        layout = QVBoxLayout(self)
+        layout.addWidget(self.table)
 
     def set_dataframe(self, df: pd.DataFrame) -> None:
         self.df = df.copy()
@@ -41,21 +34,20 @@ class PreviewPanel(QGroupBox):
                 self.table.setItem(row_idx, col_idx, QTableWidgetItem(str(value)))
         if rows:
             self.table.selectRow(0)
-            self._update_image_preview()
-        else:
-            self.image_label.setText("No preview")
+            self._handle_selection_change()
+        elif self.selection_callback is not None:
+            self.selection_callback("")
 
-    def _update_image_preview(self) -> None:
+    def _handle_selection_change(self) -> None:
+        if self.selection_callback is None:
+            return
         selected = self.table.selectedItems()
         if not selected:
-            self.image_label.setText("No preview")
+            self.selection_callback("")
             return
         row = selected[0].row()
         if row >= len(self.df):
+            self.selection_callback("")
             return
         image_path = str(self.df.iloc[row].get("abs_image", ""))
-        pixmap = load_scaled_pixmap(image_path, width=420, height=300)
-        if pixmap is None:
-            self.image_label.setText("Image not available")
-            return
-        self.image_label.setPixmap(pixmap)
+        self.selection_callback(image_path)

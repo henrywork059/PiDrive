@@ -5,6 +5,7 @@ from PySide6.QtWidgets import QDockWidget
 
 from ..app_state import AppState
 from ..panels.data.dataset_stats_panel import DatasetStatsPanel
+from ..panels.data.image_preview_panel import ImagePreviewPanel
 from ..panels.data.preview_panel import PreviewPanel
 from ..panels.data.root_path_panel import RootPathPanel
 from ..panels.data.session_list_panel import SessionListPanel
@@ -18,12 +19,14 @@ class DataPage(DockPage):
     def __init__(self, state: AppState, main_window) -> None:
         self.state = state
         self.main_window = main_window
-        super().__init__('data', 'Drag panels to rearrange the Data workspace.')
+        super().__init__('data')
 
         self.root_path_panel = RootPathPanel(self.state, self.refresh_sessions)
         self.session_list_panel = SessionListPanel(self.state, self.load_selected_sessions)
         self.stats_panel = DatasetStatsPanel()
-        self.preview_panel = PreviewPanel()
+        self.image_preview_panel = ImagePreviewPanel()
+        self.preview_panel = PreviewPanel(selection_callback=self.image_preview_panel.set_image_path)
+        self.set_workspace_widget(self.preview_panel)
         self.build_default_layout()
         self.restore_layout()
 
@@ -34,11 +37,12 @@ class DataPage(DockPage):
         root_dock = self.add_panel('root_path', 'Records Root', self.root_path_panel, Qt.LeftDockWidgetArea)
         session_dock = self.add_panel('sessions', 'Sessions', self.session_list_panel, Qt.LeftDockWidgetArea)
         stats_dock = self.add_panel('stats', 'Dataset Stats', self.stats_panel, Qt.RightDockWidgetArea)
-        preview_dock = self.add_panel('preview', 'Preview', self.preview_panel, Qt.RightDockWidgetArea)
+        image_dock = self.add_panel('image_preview', 'Image Preview', self.image_preview_panel, Qt.RightDockWidgetArea)
         self.splitDockWidget(root_dock, session_dock, Qt.Vertical)
-        self.splitDockWidget(stats_dock, preview_dock, Qt.Vertical)
-        self.resizeDocks([root_dock, session_dock], [160, 520], Qt.Vertical)
-        self.resizeDocks([stats_dock, preview_dock], [180, 520], Qt.Vertical)
+        self.splitDockWidget(stats_dock, image_dock, Qt.Vertical)
+        self.resizeDocks([root_dock, session_dock], [170, 560], Qt.Vertical)
+        self.resizeDocks([stats_dock, image_dock], [180, 560], Qt.Vertical)
+        self.resizeDocks([root_dock, stats_dock], [260, 360], Qt.Horizontal)
 
     def refresh_sessions(self) -> None:
         self.state.available_sessions = list_sessions(self.state.records_root_path)
@@ -62,4 +66,6 @@ class DataPage(DockPage):
         stats = calculate_basic_stats(filtered)
         self.stats_panel.set_stats(stats)
         self.preview_panel.set_dataframe(filtered)
+        if filtered.empty:
+            self.image_preview_panel.clear_preview()
         self.main_window.on_dataset_loaded()

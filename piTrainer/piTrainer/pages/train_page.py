@@ -19,7 +19,7 @@ class TrainPage(DockPage):
         self.state = state
         self.main_window = main_window
         self.worker: TrainingWorker | None = None
-        super().__init__('train', 'Drag panels to rearrange the Train workspace.')
+        super().__init__('train')
 
         self.split_summary_panel = SplitSummaryPanel()
         self.config_panel = TrainConfigPanel(self.state)
@@ -30,6 +30,7 @@ class TrainPage(DockPage):
         )
         self.history_panel = TrainHistoryPanel()
         self.log_panel = LogPanel('Training Log')
+        self.set_workspace_widget(self.history_panel)
         self.build_default_layout()
         self.restore_layout()
 
@@ -41,12 +42,10 @@ class TrainPage(DockPage):
         config_dock = self.add_panel('config', 'Training Config', self.config_panel, Qt.LeftDockWidgetArea)
         control_dock = self.add_panel('control', 'Training Controls', self.control_panel, Qt.LeftDockWidgetArea)
         log_dock = self.add_panel('log', 'Training Log', self.log_panel, Qt.BottomDockWidgetArea)
-        history_dock = self.add_panel('history', 'Training History', self.history_panel, Qt.RightDockWidgetArea)
         self.splitDockWidget(summary_dock, config_dock, Qt.Vertical)
         self.splitDockWidget(config_dock, control_dock, Qt.Vertical)
-        self.tabifyDockWidget(control_dock, log_dock)
-        log_dock.raise_()
-        self.resizeDocks([summary_dock, config_dock, control_dock], [130, 300, 160], Qt.Vertical)
+        self.resizeDocks([summary_dock, config_dock, control_dock], [140, 320, 150], Qt.Vertical)
+        self.resizeDocks([summary_dock, log_dock], [260, 200], Qt.Horizontal)
 
     def refresh_from_state(self) -> None:
         self.split_summary_panel.set_counts(

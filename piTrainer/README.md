@@ -1,4 +1,4 @@
-# piTrainer_0_2_1
+# piTrainer_0_2_3
 
 A PySide6 desktop training app for PiCar datasets.
 
@@ -157,3 +157,11 @@ It also keeps optional metadata such as:
 - Drag panel title bars to move, re-dock, or float panels.
 - Press `Ctrl+Shift+R` to reset the current page layout.
 - Press `F1` in the app to see the shortcut list.
+
+
+## Layout improvements in 0_2_3
+
+- Data, Train, and Export no longer show a useless empty middle message area in the default layout.
+- Dock title bars now use a brighter blue so drag targets are clearer.
+- Checkboxes use a brighter border/fill for better visibility in dark mode.
+- The Data page now separates the record table and image preview into different panels.
