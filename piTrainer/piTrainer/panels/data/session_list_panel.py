@@ -9,9 +9,11 @@ from ...app_state import AppState
 class SessionListPanel(QGroupBox):
     def __init__(self, state: AppState, load_callback) -> None:
         super().__init__("Sessions")
+        self.setObjectName('sessionListPanel')
         self.state = state
         self.load_callback = load_callback
         self.list_widget = QListWidget()
+        self.list_widget.setObjectName('sessionListWidget')
         self.list_widget.setSelectionMode(QAbstractItemView.NoSelection)
 
         select_all_btn = QPushButton("Select All")

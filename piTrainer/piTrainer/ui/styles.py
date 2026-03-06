@@ -11,6 +11,12 @@ def build_stylesheet() -> str:
     QMainWindow {
         background: #12161f;
     }
+    QToolBar {
+        background: #171c26;
+        border-bottom: 1px solid #2a3140;
+        spacing: 6px;
+        padding: 4px;
+    }
     QMainWindow::separator {
         background: #56a7ff;
         width: 4px;
@@ -76,6 +82,21 @@ def build_stylesheet() -> str:
         border-radius: 6px;
         selection-background-color: #335b9a;
         selection-color: #ffffff;
+    }
+    #sessionListWidget::indicator {
+        width: 20px;
+        height: 20px;
+        border-radius: 4px;
+        border: 2px solid #66c6ff;
+        background: #102033;
+    }
+    #sessionListWidget::indicator:hover {
+        border-color: #9be0ff;
+        background: #17304d;
+    }
+    #sessionListWidget::indicator:checked {
+        background: #18b2ff;
+        border: 2px solid #d6f4ff;
     }
     QHeaderView::section {
         background: #1c2430;

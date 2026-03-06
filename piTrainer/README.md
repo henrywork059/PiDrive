@@ -1,8 +1,8 @@
-# piTrainer_0_2_3
+# piTrainer_0_2_4
 
 A PySide6 desktop training app for PiCar datasets.
 
-This version replaces the earlier Streamlit browser UI with a native desktop GUI built in **PySide6** and now starts in **dark mode by default**.
+This version replaces the earlier Streamlit browser UI with a native desktop GUI built in **PySide6** and starts in **dark mode by default**.
 It keeps the PiCar record format and splits the app into:
 
 - **pages**: one script per page
@@ -13,7 +13,10 @@ It keeps the PiCar record format and splits the app into:
 
 - Load PiCar recordings from `data/records/<session>/records.jsonl` and `images/`
 - Select one or more sessions
+- Filter loaded preview frames by text and mode
 - Preview records and sample images
+- Auto-play the preview frames
+- Delete the selected frame from both `records.jsonl` and the matching image file
 - Inspect dataset stats
 - Split train / validation sets by session to reduce leakage
 - Train a small CNN for steering and throttle on PC
@@ -23,14 +26,14 @@ It keeps the PiCar record format and splits the app into:
 ## Folder structure
 
 ```text
-piTrainer_0_2_1/
+piTrainer_0_2_4/
 ├── main.py
 ├── README.md
 ├── requirements.txt
 ├── run_windows.bat
 ├── run_linux_mac.sh
 ├── PATCH_NOTES/
-│   └── PATCH_NOTES_piTrainer_0_2_0.md
+│   └── PATCH_NOTES_piTrainer_0_2_4.md
 └── piTrainer/
     ├── app.py
     ├── app_state.py
@@ -56,7 +59,7 @@ python -m venv .venv
 Windows:
 
 ```bash
-.venv\Scriptsctivate
+.venv\Scripts\activate
 ```
 
 macOS / Linux:
@@ -83,14 +86,19 @@ python main.py
 Panels:
 - Root path panel
 - Session list panel
+- Frame filter panel
+- Data control panel
 - Dataset stats panel
-- Preview panel
+- Record preview panel
+- Image preview panel
 
 Sub-functional scripts used by the page:
 - session discovery
 - JSONL record loading
 - stats calculation
 - preview row/image extraction
+- preview filtering
+- record deletion
 
 ### Page 2: Train
 Panels:
@@ -99,69 +107,16 @@ Panels:
 - Training control panel
 - Training history panel
 
-Sub-functional scripts used by the page:
-- session-based split
-- TensorFlow dataset creation
-- model build / compile
-- background training worker
-
 ### Page 3: Export
 Panels:
 - Model status panel
 - Export options panel
 - Export actions panel
 
-Sub-functional scripts used by the page:
-- save `.keras`
-- export `.tflite`
-- representative dataset generation for INT8 export
-
-## PiCar record format expected
-
-The loader expects session folders like this:
-
-```text
-data/
-└── records/
-    └── my_session/
-        ├── records.jsonl
-        └── images/
-```
-
-The loader is tolerant to field name variations, including:
-
-- steering: `steering`, `angle`, `user/angle`, `user_angle`, `target_steering`
-- throttle: `throttle`, `user/throttle`, `user_throttle`, `target_throttle`
-- image path: `image`, `img`, `filepath`, `file`, `filename`, `path`
-- mode: `mode`, `drive_mode`
-
-It also keeps optional metadata such as:
-
-- `frame_id`
-- `session`
-- `mode`
-- `cam_w`, `cam_h`
-- `camera_w`, `camera_h`
-- `format`
-
 ## Notes
 
 - The GUI launches in dark mode by default.
 - Training and export need TensorFlow.
-- If TensorFlow is missing, the Data page still works, and the app will show a friendly message on Train / Export.
-- The UI is desktop-native and does **not** require a browser.
-
-
-## Dockable panels and shortcuts
-
-- Drag panel title bars to move, re-dock, or float panels.
-- Press `Ctrl+Shift+R` to reset the current page layout.
-- Press `F1` in the app to see the shortcut list.
-
-
-## Layout improvements in 0_2_3
-
-- Data, Train, and Export no longer show a useless empty middle message area in the default layout.
-- Dock title bars now use a brighter blue so drag targets are clearer.
-- Checkboxes use a brighter border/fill for better visibility in dark mode.
-- The Data page now separates the record table and image preview into different panels.
+- The Data page has a **Show Shortcuts** button, an **Auto Play Frames** button, and a **Delete Selected Frame** button.
+- Press `Space` to start or stop frame autoplay.
+- The session list checkbox color has been brightened for dark mode visibility.
