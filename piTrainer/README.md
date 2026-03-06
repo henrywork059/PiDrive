@@ -1,8 +1,8 @@
-# piTrainer_0_2_0
+# piTrainer_0_2_1
 
 A PySide6 desktop training app for PiCar datasets.
 
-This version replaces the earlier Streamlit browser UI with a native desktop GUI built in **PySide6**.
+This version replaces the earlier Streamlit browser UI with a native desktop GUI built in **PySide6** and now starts in **dark mode by default**.
 It keeps the PiCar record format and splits the app into:
 
 - **pages**: one script per page
@@ -23,7 +23,7 @@ It keeps the PiCar record format and splits the app into:
 ## Folder structure
 
 ```text
-piTrainer_0_2_0/
+piTrainer_0_2_1/
 ├── main.py
 ├── README.md
 ├── requirements.txt
@@ -146,6 +146,7 @@ It also keeps optional metadata such as:
 
 ## Notes
 
+- The GUI launches in dark mode by default.
 - Training and export need TensorFlow.
 - If TensorFlow is missing, the Data page still works, and the app will show a friendly message on Train / Export.
 - The UI is desktop-native and does **not** require a browser.
