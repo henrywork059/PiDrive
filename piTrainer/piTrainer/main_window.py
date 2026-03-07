@@ -6,6 +6,7 @@ from PySide6.QtWidgets import QMainWindow, QMessageBox, QStatusBar, QTabWidget
 from .app_state import AppState
 from .pages.data_page import DataPage
 from .pages.export_page import ExportPage
+from .pages.preprocess_page import PreprocessPage
 from .pages.train_page import TrainPage
 
 
@@ -22,10 +23,12 @@ class MainWindow(QMainWindow):
         self.tabs.setTabPosition(QTabWidget.North)
 
         self.data_page = DataPage(self.state, self)
+        self.preprocess_page = PreprocessPage(self.state, self)
         self.train_page = TrainPage(self.state, self)
         self.export_page = ExportPage(self.state, self)
 
         self.tabs.addTab(self.data_page, 'Data')
+        self.tabs.addTab(self.preprocess_page, 'Preprocess')
         self.tabs.addTab(self.train_page, 'Train')
         self.tabs.addTab(self.export_page, 'Export')
 
@@ -38,6 +41,7 @@ class MainWindow(QMainWindow):
 
         self._setup_shortcuts()
         self.data_page.refresh_sessions()
+        self.preprocess_page.refresh_from_state()
         self.train_page.refresh_from_state()
         self.export_page.refresh_from_state()
 
@@ -45,6 +49,7 @@ class MainWindow(QMainWindow):
         QShortcut(QKeySequence('Ctrl+1'), self, activated=lambda: self.tabs.setCurrentIndex(0))
         QShortcut(QKeySequence('Ctrl+2'), self, activated=lambda: self.tabs.setCurrentIndex(1))
         QShortcut(QKeySequence('Ctrl+3'), self, activated=lambda: self.tabs.setCurrentIndex(2))
+        QShortcut(QKeySequence('Ctrl+4'), self, activated=lambda: self.tabs.setCurrentIndex(3))
         QShortcut(QKeySequence('Ctrl+Tab'), self, activated=self.next_tab)
         QShortcut(QKeySequence('Ctrl+Shift+Tab'), self, activated=self.previous_tab)
         QShortcut(QKeySequence('F5'), self, activated=self.data_page.refresh_sessions)
@@ -75,7 +80,7 @@ class MainWindow(QMainWindow):
 
     def show_shortcuts(self) -> None:
         lines = [
-            'Ctrl+1 / Ctrl+2 / Ctrl+3 -> Switch to Data / Train / Export',
+            'Ctrl+1 / Ctrl+2 / Ctrl+3 / Ctrl+4 -> Switch to Data / Preprocess / Train / Export',
             'Ctrl+Tab / Ctrl+Shift+Tab -> Next / Previous page',
             'F5 -> Refresh sessions',
             'Ctrl+L -> Load selected sessions',
@@ -94,7 +99,9 @@ class MainWindow(QMainWindow):
         self.status.showMessage(message, 5000)
 
     def on_dataset_loaded(self) -> None:
+        self.preprocess_page.refresh_from_state()
         self.train_page.refresh_from_state()
+        self.preprocess_page.refresh_from_state()
         self.export_page.refresh_from_state()
         self.set_status_message(
             f'Loaded {len(self.state.filtered_df)} usable records from {len(self.state.selected_sessions)} session(s).'
@@ -106,6 +113,7 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event) -> None:
         self.data_page.save_layout()
+        self.preprocess_page.save_layout()
         self.train_page.save_layout()
         self.export_page.save_layout()
         self.train_page.shutdown_worker()

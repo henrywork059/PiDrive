@@ -258,6 +258,12 @@ class DataPage(DockPage):
         self.apply_preview_filter(select_identity=identity)
         self.main_window.set_status_message(message)
 
+
+    def refresh_from_state(self) -> None:
+        self.current_preview_source_df = self.state.filtered_df.copy()
+        self.stats_panel.set_stats(calculate_basic_stats(self.state.filtered_df))
+        self.apply_preview_filter()
+
     def start_preview_playback(self) -> None:
         active = self.preview_panel.start_autoplay()
         self.main_window.set_status_message('Frame playback started.' if active else 'Need at least 2 filtered frames to play.')
