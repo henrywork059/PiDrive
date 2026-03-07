@@ -68,7 +68,7 @@ class PreviewPanel(QGroupBox):
             self.table.selectRow(0)
             self._handle_selection_change()
         elif self.selection_callback is not None:
-            self.selection_callback("")
+            self.selection_callback(None)
 
     def selected_record(self):
         row = self.current_row()
@@ -123,11 +123,10 @@ class PreviewPanel(QGroupBox):
             return
         row = self.current_row()
         if row < 0 or row >= len(self.df):
-            self.selection_callback("")
+            self.selection_callback(None)
             self._refresh_summary()
             return
-        image_path = str(self.df.iloc[row].get("abs_image", ""))
-        self.selection_callback(image_path)
+        self.selection_callback(self.selected_record())
         self._refresh_summary()
 
     def _set_autoplay_button_state(self, active: bool) -> None:

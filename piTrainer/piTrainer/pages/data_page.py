@@ -7,9 +7,11 @@ from PySide6.QtWidgets import QDockWidget, QMessageBox
 from ..app_state import AppState
 from ..panels.data.data_actions_panel import DataActionsPanel
 from ..panels.data.data_control_panel import DataControlPanel
+from ..panels.data.data_plot_panel import DataPlotPanel
 from ..panels.data.dataset_stats_panel import DatasetStatsPanel
 from ..panels.data.frame_filter_panel import FrameFilterPanel
 from ..panels.data.image_preview_panel import ImagePreviewPanel
+from ..panels.data.overlay_control_panel import OverlayControlPanel
 from ..panels.data.preview_panel import PreviewPanel
 from ..panels.data.root_path_panel import RootPathPanel
 from ..panels.data.session_list_panel import SessionListPanel
@@ -31,12 +33,14 @@ class DataPage(DockPage):
         self.root_path_panel = RootPathPanel(self.state, self.refresh_sessions)
         self.session_list_panel = SessionListPanel(self.state, self.load_selected_sessions)
         self.filter_panel = FrameFilterPanel(self.apply_preview_filter, self.clear_preview_filter)
+        self.overlay_panel = OverlayControlPanel(self.on_overlay_options_changed)
         self.stats_panel = DatasetStatsPanel()
         self.image_preview_panel = ImagePreviewPanel()
         self.preview_panel = PreviewPanel(
-            selection_callback=self.image_preview_panel.set_image_path,
+            selection_callback=self.on_preview_record_selected,
             autoplay_callback=self.toggle_autoplay,
         )
+        self.plot_panel = DataPlotPanel()
         self.data_actions_panel = DataActionsPanel(
             refresh_callback=self.refresh_sessions,
             load_callback=self.load_selected_sessions,
@@ -55,28 +59,32 @@ class DataPage(DockPage):
         root_dock = self.add_panel('root_path', 'Records Root', self.root_path_panel, Qt.LeftDockWidgetArea)
         session_dock = self.add_panel('sessions', 'Sessions', self.session_list_panel, Qt.LeftDockWidgetArea)
         filter_dock = self.add_panel('frame_filter', 'Frame Filter', self.filter_panel, Qt.LeftDockWidgetArea)
+        overlay_dock = self.add_panel('overlay_controls', 'Overlay Controls', self.overlay_panel, Qt.LeftDockWidgetArea)
         action_dock = self.add_panel('data_actions', 'Data Actions', self.data_actions_panel, Qt.LeftDockWidgetArea)
         control_dock = self.add_panel('data_control', 'Data Control', self.data_control_panel, Qt.LeftDockWidgetArea)
         preview_dock = self.add_panel('record_preview', 'Record Preview', self.preview_panel, Qt.RightDockWidgetArea)
         image_dock = self.add_panel('image_preview', 'Image Preview', self.image_preview_panel, Qt.RightDockWidgetArea)
+        plot_dock = self.add_panel('data_plot', 'Data Plot', self.plot_panel, Qt.RightDockWidgetArea)
         stats_dock = self.add_panel('stats', 'Dataset Stats', self.stats_panel, Qt.RightDockWidgetArea)
 
         self.splitDockWidget(root_dock, session_dock, Qt.Vertical)
         self.splitDockWidget(session_dock, filter_dock, Qt.Vertical)
-        self.splitDockWidget(filter_dock, action_dock, Qt.Vertical)
+        self.splitDockWidget(filter_dock, overlay_dock, Qt.Vertical)
+        self.splitDockWidget(overlay_dock, action_dock, Qt.Vertical)
         self.splitDockWidget(action_dock, control_dock, Qt.Vertical)
 
         self.splitDockWidget(root_dock, preview_dock, Qt.Horizontal)
         self.splitDockWidget(preview_dock, image_dock, Qt.Horizontal)
-        self.splitDockWidget(image_dock, stats_dock, Qt.Vertical)
+        self.splitDockWidget(image_dock, plot_dock, Qt.Vertical)
+        self.splitDockWidget(plot_dock, stats_dock, Qt.Vertical)
 
         self.resizeDocks(
-            [root_dock, session_dock, filter_dock, action_dock, control_dock],
-            [110, 310, 210, 150, 110],
+            [root_dock, session_dock, filter_dock, overlay_dock, action_dock, control_dock],
+            [110, 300, 220, 160, 140, 100],
             Qt.Vertical,
         )
-        self.resizeDocks([image_dock, stats_dock], [520, 220], Qt.Vertical)
-        self.resizeDocks([root_dock, preview_dock, image_dock], [300, 560, 320], Qt.Horizontal)
+        self.resizeDocks([image_dock, plot_dock, stats_dock], [360, 300, 180], Qt.Vertical)
+        self.resizeDocks([root_dock, preview_dock, image_dock], [300, 560, 380], Qt.Horizontal)
 
     def refresh_sessions(self) -> None:
         self.state.available_sessions = list_sessions(self.state.records_root_path)
@@ -112,6 +120,7 @@ class DataPage(DockPage):
             steering_range=self.filter_panel.steering_range() if self.filter_panel.steering_filter_enabled() else None,
         )
         self.preview_panel.set_dataframe(filtered_preview)
+        self.plot_panel.set_dataframe(filtered_preview)
         if filtered_preview.empty:
             self.image_preview_panel.clear_preview()
         self.main_window.set_status_message(f"Showing {len(filtered_preview)} preview frame(s).")
@@ -119,6 +128,20 @@ class DataPage(DockPage):
     def clear_preview_filter(self) -> None:
         self.filter_panel.reset()
         self.apply_preview_filter()
+
+    def on_overlay_options_changed(self, options: dict[str, bool]) -> None:
+        self.image_preview_panel.set_overlay_options(options)
+        enabled = [name for name, active in options.items() if active]
+        if enabled:
+            self.main_window.set_status_message(f"Overlay enabled: {', '.join(enabled)}")
+        else:
+            self.main_window.set_status_message('Overlay cleared.')
+
+    def on_preview_record_selected(self, record) -> None:
+        if not record:
+            self.image_preview_panel.clear_preview()
+            return
+        self.image_preview_panel.set_record(record)
 
     def toggle_autoplay(self) -> None:
         active = self.preview_panel.toggle_autoplay()
