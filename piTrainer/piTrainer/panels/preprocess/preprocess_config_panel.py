@@ -1,6 +1,17 @@
 from __future__ import annotations
 
-from PySide6.QtWidgets import QCheckBox, QComboBox, QDoubleSpinBox, QFormLayout, QGroupBox, QHBoxLayout, QLabel, QSpinBox, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QCheckBox,
+    QComboBox,
+    QDoubleSpinBox,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QSpinBox,
+    QVBoxLayout,
+    QWidget,
+)
 
 from ...app_state import AppState
 
@@ -14,8 +25,9 @@ class PreprocessConfigPanel(QGroupBox):
         self.state = state
 
         help_label = QLabel(
-            'Build a preprocessing recipe for the currently loaded dataset. Apply it to update the active training rows '
-            'without touching the original source files.'
+            'Build a preprocessing recipe for the currently loaded dataset. You can filter rows, balance overly common '
+            'near-straight driving samples, resize training images, and synthesize extra training rows such as mirrored '
+            'steering samples or color-shifted copies, without touching the original source files.'
         )
         help_label.setWordWrap(True)
         help_label.setProperty('role', 'muted')
@@ -49,6 +61,25 @@ class PreprocessConfigPanel(QGroupBox):
         self.speed_min.setValue(-1.0)
         self.speed_max.setValue(1.0)
 
+        self.balance_straight = QCheckBox('Balance near-zero steering rows')
+        self.straight_threshold = QDoubleSpinBox()
+        self.straight_threshold.setRange(0.001, 1.0)
+        self.straight_threshold.setDecimals(3)
+        self.straight_threshold.setSingleStep(0.01)
+        self.straight_threshold.setValue(0.05)
+
+        self.straight_keep_ratio = QDoubleSpinBox()
+        self.straight_keep_ratio.setRange(0.01, 1.0)
+        self.straight_keep_ratio.setDecimals(2)
+        self.straight_keep_ratio.setSingleStep(0.05)
+        self.straight_keep_ratio.setValue(0.35)
+
+        self.mirror_enabled = QCheckBox('Add one left-right mirrored copy per row')
+        self.color_variants = QSpinBox()
+        self.color_variants.setRange(0, 4)
+        self.color_variants.setValue(0)
+        self.color_variants.setToolTip('Adds deterministic color-shifted copies for each filtered row.')
+
         self.image_h = QSpinBox()
         self.image_h.setRange(32, 1080)
         self.image_w = QSpinBox()
@@ -56,6 +87,7 @@ class PreprocessConfigPanel(QGroupBox):
 
         self._range_row_steer = self._make_range_row(self.steering_min, self.steering_max)
         self._range_row_speed = self._make_range_row(self.speed_min, self.speed_max)
+        self._straight_row = self._make_range_row(self.straight_threshold, self.straight_keep_ratio)
 
         form = QFormLayout()
         form.addRow('Source rows', self.source_combo)
@@ -65,6 +97,10 @@ class PreprocessConfigPanel(QGroupBox):
         form.addRow('Steering min / max', self._range_row_steer)
         form.addRow(self.enable_speed_range)
         form.addRow('Speed min / max', self._range_row_speed)
+        form.addRow(self.balance_straight)
+        form.addRow('Straight threshold / keep ratio', self._straight_row)
+        form.addRow(self.mirror_enabled)
+        form.addRow('Color variants per row', self.color_variants)
         form.addRow('Output image height', self.image_h)
         form.addRow('Output image width', self.image_w)
 
@@ -75,10 +111,11 @@ class PreprocessConfigPanel(QGroupBox):
 
         self.enable_steering_range.toggled.connect(self._update_enabled_state)
         self.enable_speed_range.toggled.connect(self._update_enabled_state)
+        self.balance_straight.toggled.connect(self._update_enabled_state)
         self.sync_from_state()
         self._update_enabled_state()
 
-    def _make_range_row(self, left: QDoubleSpinBox, right: QDoubleSpinBox) -> QWidget:
+    def _make_range_row(self, left, right) -> QWidget:
         container = QWidget()
         row = QHBoxLayout(container)
         row.setContentsMargins(0, 0, 0, 0)
@@ -89,10 +126,13 @@ class PreprocessConfigPanel(QGroupBox):
     def _update_enabled_state(self) -> None:
         steer_enabled = self.enable_steering_range.isChecked()
         speed_enabled = self.enable_speed_range.isChecked()
+        balance_enabled = self.balance_straight.isChecked()
         self.steering_min.setEnabled(steer_enabled)
         self.steering_max.setEnabled(steer_enabled)
         self.speed_min.setEnabled(speed_enabled)
         self.speed_max.setEnabled(speed_enabled)
+        self.straight_threshold.setEnabled(balance_enabled)
+        self.straight_keep_ratio.setEnabled(balance_enabled)
 
     def sync_from_state(self) -> None:
         self.image_h.setValue(self.state.train_config.img_h)
@@ -105,10 +145,15 @@ class PreprocessConfigPanel(QGroupBox):
         self.require_images.setChecked(True)
         self.enable_steering_range.setChecked(False)
         self.enable_speed_range.setChecked(False)
+        self.balance_straight.setChecked(False)
+        self.mirror_enabled.setChecked(False)
+        self.color_variants.setValue(0)
         self.steering_min.setValue(-1.0)
         self.steering_max.setValue(1.0)
         self.speed_min.setValue(-1.0)
         self.speed_max.setValue(1.0)
+        self.straight_threshold.setValue(0.05)
+        self.straight_keep_ratio.setValue(0.35)
         self.image_h.setValue(self.state.train_config.img_h)
         self.image_w.setValue(self.state.train_config.img_w)
         self._update_enabled_state()
@@ -129,6 +174,11 @@ class PreprocessConfigPanel(QGroupBox):
             'require_images': self.require_images.isChecked(),
             'steering_range': steering_range,
             'speed_range': speed_range,
+            'balance_straight': self.balance_straight.isChecked(),
+            'straight_threshold': self.straight_threshold.value(),
+            'straight_keep_ratio': self.straight_keep_ratio.value(),
+            'mirror_enabled': self.mirror_enabled.isChecked(),
+            'color_variants': self.color_variants.value(),
             'image_height': self.image_h.value(),
             'image_width': self.image_w.value(),
         }

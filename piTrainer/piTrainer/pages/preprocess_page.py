@@ -88,8 +88,10 @@ class PreprocessPage(DockPage):
         preview_text = format_preprocess_preview(summary, self.config_panel.recipe())
         self.result_panel.set_preview_text(preview_text)
         self.summary_panel.set_preview_counts(summary)
-        self.main_window.set_status_message(f"Preprocess preview ready: {len(result_df)} row(s) would remain.")
-        self.log_panel.append_line(f"Previewed preprocess recipe -> {len(result_df)} row(s) remain.")
+        self.main_window.set_status_message(f"Preprocess preview ready: {len(result_df)} active row(s) after synthesis.")
+        self.log_panel.append_line(
+            f"Previewed preprocess recipe -> {summary['rows_after']} active row(s), generated {summary['generated_rows']} synthetic row(s)."
+        )
 
     def apply_recipe(self) -> None:
         source_df = self._source_df()
@@ -117,8 +119,9 @@ class PreprocessPage(DockPage):
         self.main_window.data_page.refresh_from_state()
         self.main_window.train_page.refresh_from_state()
         self.main_window.export_page.refresh_from_state()
+        self.main_window.validation_page.refresh_from_state()
         message = (
-            f"Applied preprocessing: {summary['rows_after']} row(s) active for training. "
+            f"Applied preprocessing: {summary['rows_after']} active row(s), including {summary['generated_rows']} synthetic row(s). "
             f"Image size set to {recipe['image_width']}x{recipe['image_height']}."
         )
         self.main_window.set_status_message(message)
@@ -136,6 +139,7 @@ class PreprocessPage(DockPage):
         self.main_window.data_page.refresh_from_state()
         self.main_window.train_page.refresh_from_state()
         self.main_window.export_page.refresh_from_state()
+        self.main_window.validation_page.refresh_from_state()
         self.log_panel.append_line('Reset preprocessing recipe and restored the baseline loaded dataset filter.')
         self.main_window.set_status_message('Preprocess settings reset to defaults.')
 

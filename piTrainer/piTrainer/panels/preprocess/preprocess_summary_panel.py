@@ -40,9 +40,13 @@ class PreprocessSummaryPanel(QGroupBox):
         if not filtered_df.empty and throttle.notna().any():
             throttle_text = f"{float(throttle.min()):.3f} to {float(throttle.max()):.3f}"
 
+        synthetic_rows = 0
+        if not filtered_df.empty and 'aug_variant' in filtered_df.columns:
+            synthetic_rows = int(filtered_df['aug_variant'].fillna('original').astype(str).ne('original').sum())
+
         self.info_label.setText(
             'Selected sessions: {selected} | Loaded rows: {dataset_rows} across {dataset_sessions} session(s)\n'
-            'Active training rows: {filtered_rows} across {filtered_sessions} session(s)\n'
+            'Active training rows: {filtered_rows} across {filtered_sessions} session(s) | Synthetic rows: {synthetic_rows}\n'
             'Active steering range: {steering_text} | Active speed range: {throttle_text}\n'
             'Current train image size: {img_w}x{img_h}'.format(
                 selected=selected,
@@ -50,6 +54,7 @@ class PreprocessSummaryPanel(QGroupBox):
                 dataset_sessions=dataset_sessions,
                 filtered_rows=filtered_rows,
                 filtered_sessions=filtered_sessions,
+                synthetic_rows=synthetic_rows,
                 steering_text=steering_text,
                 throttle_text=throttle_text,
                 img_w=train_config.img_w,
@@ -59,7 +64,9 @@ class PreprocessSummaryPanel(QGroupBox):
 
     def set_preview_counts(self, summary: dict[str, float | int | str]) -> None:
         self.preview_label.setText(
-            'Preview result -> rows: {rows_after}/{rows_before} | sessions: {sessions_after}/{sessions_before} | '
+            'Preview -> rows: {rows_after}/{rows_before} | kept real rows: {original_rows_after_filter} | '
+            'straight kept: {straight_rows_after_balance}/{straight_rows_before_balance} | '
+            'generated: {generated_rows} (mirror {mirror_rows_added}, color {color_rows_added}) | '
             'steering: {steering_min:.3f} to {steering_max:.3f} | speed: {throttle_min:.3f} to {throttle_max:.3f}'.format(
                 **summary
             )
