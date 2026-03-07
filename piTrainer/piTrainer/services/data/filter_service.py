@@ -3,7 +3,25 @@ from __future__ import annotations
 import pandas as pd
 
 
-def filter_preview_dataframe(df: pd.DataFrame, text: str = "", mode: str = "") -> pd.DataFrame:
+RangeTuple = tuple[float, float] | None
+
+
+def _apply_range_filter(filtered: pd.DataFrame, column: str, value_range: RangeTuple) -> pd.DataFrame:
+    if value_range is None or column not in filtered.columns:
+        return filtered
+    min_value, max_value = value_range
+    numeric = pd.to_numeric(filtered[column], errors='coerce')
+    mask = numeric.notna() & (numeric >= min_value) & (numeric <= max_value)
+    return filtered[mask].copy()
+
+
+def filter_preview_dataframe(
+    df: pd.DataFrame,
+    text: str = "",
+    mode: str = "",
+    speed_range: RangeTuple = None,
+    steering_range: RangeTuple = None,
+) -> pd.DataFrame:
     if df.empty:
         return df.copy()
     filtered = df.copy()
@@ -21,4 +39,6 @@ def filter_preview_dataframe(df: pd.DataFrame, text: str = "", mode: str = "") -
     if mode and "mode" in filtered.columns:
         filtered = filtered[filtered["mode"].fillna("").astype(str).str.lower() == mode].copy()
 
+    filtered = _apply_range_filter(filtered, 'throttle', speed_range)
+    filtered = _apply_range_filter(filtered, 'steering', steering_range)
     return filtered.reset_index(drop=True)

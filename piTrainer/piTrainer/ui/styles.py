@@ -34,7 +34,7 @@ def build_stylesheet() -> str:
     QDockWidget::title {
         background: #244c7a;
         color: #ffffff;
-        padding: 8px 12px;
+        padding: 7px 11px;
         border: 1px solid #56a7ff;
         border-bottom: none;
     }
@@ -57,8 +57,8 @@ def build_stylesheet() -> str:
         padding: 0 4px 0 4px;
     }
     QPushButton {
-        min-height: 30px;
-        padding: 4px 10px;
+        min-height: 27px;
+        padding: 4px 9px;
         background: #263245;
         color: #eef2fb;
         border: 1px solid #3b4d67;
@@ -96,10 +96,9 @@ def build_stylesheet() -> str:
         border: 1px solid #3e5d86;
     }
     #sessionRowCheckbox {
-        spacing: 12px;
-        color: #f5f8ff;
+        spacing: 0px;
         background: transparent;
-        font-weight: 600;
+        margin-top: 1px;
     }
     #sessionRowCheckbox::indicator {
         width: 20px;
@@ -107,7 +106,6 @@ def build_stylesheet() -> str:
         border-radius: 4px;
         border: 2px solid #7fd3ff;
         background: #102033;
-        margin-right: 4px;
     }
     #sessionRowCheckbox::indicator:hover {
         border-color: #b4ecff;
@@ -116,6 +114,12 @@ def build_stylesheet() -> str:
     #sessionRowCheckbox::indicator:checked {
         background: #18b2ff;
         border: 2px solid #eef9ff;
+    }
+    #sessionRowLabel {
+        color: #f5f8ff;
+        background: transparent;
+        font-weight: 600;
+        padding-top: 1px;
     }
     QHeaderView::section {
         background: #1c2430;

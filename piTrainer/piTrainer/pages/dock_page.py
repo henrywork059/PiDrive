@@ -21,12 +21,18 @@ class DockPage(QMainWindow):
         self.setCentralWidget(filler)
 
     def set_workspace_widget(self, widget: QWidget) -> None:
+        """Backward-compatible helper for older pages.
+
+        Newer pages should prefer making the main content a dock panel rather than
+        replacing the central filler widget.
+        """
         widget.setObjectName(f"{self.page_id}_workspace_widget")
         self.setCentralWidget(widget)
 
     def add_panel(self, panel_id: str, title: str, widget: QWidget, area: Qt.DockWidgetArea) -> QDockWidget:
         dock = QDockWidget(title, self)
         dock.setObjectName(f"{self.page_id}_{panel_id}_dock")
+        dock.setAllowedAreas(Qt.AllDockWidgetAreas)
         dock.setWidget(widget)
         dock.setFeatures(
             QDockWidget.DockWidgetMovable

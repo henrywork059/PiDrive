@@ -44,7 +44,6 @@ class DataPage(DockPage):
             shortcuts_callback=self.main_window.show_shortcuts,
         )
         self.data_control_panel = DataControlPanel(delete_frame_callback=self.delete_selected_frame)
-        self.set_workspace_widget(self.preview_panel)
         self.build_default_layout()
         self.restore_layout()
 
@@ -52,21 +51,32 @@ class DataPage(DockPage):
         for dock in self.findChildren(QDockWidget):
             self.removeDockWidget(dock)
             dock.deleteLater()
+
         root_dock = self.add_panel('root_path', 'Records Root', self.root_path_panel, Qt.LeftDockWidgetArea)
         session_dock = self.add_panel('sessions', 'Sessions', self.session_list_panel, Qt.LeftDockWidgetArea)
         filter_dock = self.add_panel('frame_filter', 'Frame Filter', self.filter_panel, Qt.LeftDockWidgetArea)
-        action_dock = self.add_panel('data_actions', 'Quick Actions', self.data_actions_panel, Qt.LeftDockWidgetArea)
+        action_dock = self.add_panel('data_actions', 'Data Actions', self.data_actions_panel, Qt.LeftDockWidgetArea)
         control_dock = self.add_panel('data_control', 'Data Control', self.data_control_panel, Qt.LeftDockWidgetArea)
+        preview_dock = self.add_panel('record_preview', 'Record Preview', self.preview_panel, Qt.RightDockWidgetArea)
         image_dock = self.add_panel('image_preview', 'Image Preview', self.image_preview_panel, Qt.RightDockWidgetArea)
         stats_dock = self.add_panel('stats', 'Dataset Stats', self.stats_panel, Qt.RightDockWidgetArea)
+
         self.splitDockWidget(root_dock, session_dock, Qt.Vertical)
         self.splitDockWidget(session_dock, filter_dock, Qt.Vertical)
         self.splitDockWidget(filter_dock, action_dock, Qt.Vertical)
         self.splitDockWidget(action_dock, control_dock, Qt.Vertical)
+
+        self.splitDockWidget(root_dock, preview_dock, Qt.Horizontal)
+        self.splitDockWidget(preview_dock, image_dock, Qt.Horizontal)
         self.splitDockWidget(image_dock, stats_dock, Qt.Vertical)
-        self.resizeDocks([root_dock, session_dock, filter_dock, action_dock, control_dock], [120, 340, 140, 180, 130], Qt.Vertical)
-        self.resizeDocks([image_dock, stats_dock], [560, 220], Qt.Vertical)
-        self.resizeDocks([root_dock, image_dock], [360, 360], Qt.Horizontal)
+
+        self.resizeDocks(
+            [root_dock, session_dock, filter_dock, action_dock, control_dock],
+            [110, 310, 210, 150, 110],
+            Qt.Vertical,
+        )
+        self.resizeDocks([image_dock, stats_dock], [520, 220], Qt.Vertical)
+        self.resizeDocks([root_dock, preview_dock, image_dock], [300, 560, 320], Qt.Horizontal)
 
     def refresh_sessions(self) -> None:
         self.state.available_sessions = list_sessions(self.state.records_root_path)
@@ -98,6 +108,8 @@ class DataPage(DockPage):
             self.current_preview_source_df,
             text=self.filter_panel.filter_text(),
             mode=self.filter_panel.selected_mode(),
+            speed_range=self.filter_panel.speed_range() if self.filter_panel.speed_filter_enabled() else None,
+            steering_range=self.filter_panel.steering_range() if self.filter_panel.steering_filter_enabled() else None,
         )
         self.preview_panel.set_dataframe(filtered_preview)
         if filtered_preview.empty:

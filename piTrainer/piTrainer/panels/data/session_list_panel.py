@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QGroupBox,
     QHBoxLayout,
+    QLabel,
     QListWidget,
     QListWidgetItem,
     QPushButton,
@@ -17,13 +18,41 @@ from PySide6.QtWidgets import (
 from ...app_state import AppState
 
 
+class SessionRowWidget(QFrame):
+    def __init__(self, session: str, checked: bool) -> None:
+        super().__init__()
+        self.setObjectName('sessionRow')
+        self.checkbox = QCheckBox()
+        self.checkbox.setObjectName('sessionRowCheckbox')
+        self.checkbox.setChecked(checked)
+        self.checkbox.setCursor(Qt.PointingHandCursor)
+        self.name_label = QLabel(session)
+        self.name_label.setObjectName('sessionRowLabel')
+        self.name_label.setWordWrap(True)
+        self.name_label.setTextInteractionFlags(Qt.NoTextInteraction)
+
+        row_layout = QHBoxLayout(self)
+        row_layout.setContentsMargins(10, 8, 10, 8)
+        row_layout.setSpacing(10)
+        row_layout.addWidget(self.checkbox, 0, Qt.AlignTop)
+        row_layout.addWidget(self.name_label, 1)
+
+    def session_name(self) -> str:
+        return self.name_label.text()
+
+    def mouseReleaseEvent(self, event) -> None:  # noqa: N802
+        if event.button() == Qt.LeftButton:
+            self.checkbox.setChecked(not self.checkbox.isChecked())
+        super().mouseReleaseEvent(event)
+
+
 class SessionListPanel(QGroupBox):
     def __init__(self, state: AppState, load_callback) -> None:
         super().__init__("Sessions")
         self.setObjectName('sessionListPanel')
         self.state = state
         self.load_callback = load_callback
-        self._checkboxes: list[QCheckBox] = []
+        self._rows: list[SessionRowWidget] = []
 
         self.list_widget = QListWidget()
         self.list_widget.setObjectName('sessionListWidget')
@@ -49,23 +78,13 @@ class SessionListPanel(QGroupBox):
         layout.addLayout(buttons)
 
     def _build_row_widget(self, session: str, checked: bool) -> QWidget:
-        row = QFrame()
-        row.setObjectName('sessionRow')
-        row_layout = QHBoxLayout(row)
-        row_layout.setContentsMargins(10, 6, 10, 6)
-        row_layout.setSpacing(10)
-
-        checkbox = QCheckBox(session)
-        checkbox.setObjectName('sessionRowCheckbox')
-        checkbox.setChecked(checked)
-        checkbox.setCursor(Qt.PointingHandCursor)
-        row_layout.addWidget(checkbox, 1)
-        self._checkboxes.append(checkbox)
+        row = SessionRowWidget(session, checked)
+        self._rows.append(row)
         return row
 
     def set_sessions(self, sessions: list[str]) -> None:
         old_selected = set(self.state.selected_sessions)
-        self._checkboxes.clear()
+        self._rows.clear()
         self.list_widget.clear()
         for session in sessions:
             item = QListWidgetItem()
@@ -75,12 +94,12 @@ class SessionListPanel(QGroupBox):
             self.list_widget.setItemWidget(item, row_widget)
 
     def selected_sessions(self) -> list[str]:
-        return [checkbox.text() for checkbox in self._checkboxes if checkbox.isChecked()]
+        return [row.session_name() for row in self._rows if row.checkbox.isChecked()]
 
     def select_all(self) -> None:
-        for checkbox in self._checkboxes:
-            checkbox.setChecked(True)
+        for row in self._rows:
+            row.checkbox.setChecked(True)
 
     def clear_all(self) -> None:
-        for checkbox in self._checkboxes:
-            checkbox.setChecked(False)
+        for row in self._rows:
+            row.checkbox.setChecked(False)
