@@ -103,3 +103,8 @@ class SessionListPanel(QGroupBox):
     def clear_all(self) -> None:
         for row in self._rows:
             row.checkbox.setChecked(False)
+
+    def set_selected_sessions(self, sessions: list[str]) -> None:
+        selected = set(sessions)
+        for row in self._rows:
+            row.checkbox.setChecked(row.session_name() in selected)

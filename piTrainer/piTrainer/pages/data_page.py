@@ -11,6 +11,7 @@ from ..panels.data.data_plot_panel import DataPlotPanel
 from ..panels.data.dataset_stats_panel import DatasetStatsPanel
 from ..panels.data.frame_filter_panel import FrameFilterPanel
 from ..panels.data.image_preview_panel import ImagePreviewPanel
+from ..panels.data.merge_sessions_panel import MergeSessionsPanel
 from ..panels.data.overlay_control_panel import OverlayControlPanel
 from ..panels.data.playback_control_panel import PlaybackControlPanel
 from ..panels.data.preview_panel import PreviewPanel
@@ -18,6 +19,7 @@ from ..panels.data.root_path_panel import RootPathPanel
 from ..panels.data.session_list_panel import SessionListPanel
 from ..services.data.delete_service import delete_frame_from_session
 from ..services.data.filter_service import filter_preview_dataframe
+from ..services.data.merge_service import merge_sessions
 from ..services.data.record_loader_service import build_filtered_dataframe, load_records_dataframe
 from ..services.data.session_service import list_sessions
 from ..services.data.stats_service import calculate_basic_stats
@@ -33,6 +35,7 @@ class DataPage(DockPage):
 
         self.root_path_panel = RootPathPanel(self.state, self.refresh_sessions)
         self.session_list_panel = SessionListPanel(self.state, self.load_selected_sessions)
+        self.merge_sessions_panel = MergeSessionsPanel(self.merge_selected_sessions)
         self.filter_panel = FrameFilterPanel(self.apply_preview_filter, self.clear_preview_filter)
         self.overlay_panel = OverlayControlPanel(self.on_overlay_options_changed)
         self.stats_panel = DatasetStatsPanel()
@@ -66,6 +69,7 @@ class DataPage(DockPage):
 
         root_dock = self.add_panel('root_path', 'Records Root', self.root_path_panel, Qt.LeftDockWidgetArea)
         session_dock = self.add_panel('sessions', 'Sessions', self.session_list_panel, Qt.LeftDockWidgetArea)
+        merge_dock = self.add_panel('merge_sessions', 'Merge Sessions', self.merge_sessions_panel, Qt.LeftDockWidgetArea)
         filter_dock = self.add_panel('frame_filter', 'Frame Filter', self.filter_panel, Qt.LeftDockWidgetArea)
         overlay_dock = self.add_panel('overlay_controls', 'Overlay Controls', self.overlay_panel, Qt.LeftDockWidgetArea)
         playback_dock = self.add_panel('playback_control', 'Playback Control', self.playback_panel, Qt.LeftDockWidgetArea)
@@ -77,7 +81,8 @@ class DataPage(DockPage):
         stats_dock = self.add_panel('stats', 'Dataset Stats', self.stats_panel, Qt.RightDockWidgetArea)
 
         self.splitDockWidget(root_dock, session_dock, Qt.Vertical)
-        self.splitDockWidget(session_dock, filter_dock, Qt.Vertical)
+        self.splitDockWidget(session_dock, merge_dock, Qt.Vertical)
+        self.splitDockWidget(merge_dock, filter_dock, Qt.Vertical)
         self.splitDockWidget(filter_dock, overlay_dock, Qt.Vertical)
         self.splitDockWidget(overlay_dock, playback_dock, Qt.Vertical)
         self.splitDockWidget(playback_dock, action_dock, Qt.Vertical)
@@ -89,8 +94,8 @@ class DataPage(DockPage):
         self.splitDockWidget(plot_dock, stats_dock, Qt.Vertical)
 
         self.resizeDocks(
-            [root_dock, session_dock, filter_dock, overlay_dock, playback_dock, action_dock, control_dock],
-            [110, 280, 230, 170, 150, 130, 100],
+            [root_dock, session_dock, merge_dock, filter_dock, overlay_dock, playback_dock, action_dock, control_dock],
+            [110, 280, 150, 230, 170, 150, 130, 100],
             Qt.Vertical,
         )
         self.resizeDocks([image_dock, plot_dock, stats_dock], [360, 300, 180], Qt.Vertical)
@@ -106,6 +111,9 @@ class DataPage(DockPage):
     def load_selected_sessions(self) -> None:
         selected = self.session_list_panel.selected_sessions()
         self.state.selected_sessions = selected
+        self._load_sessions(selected)
+
+    def _load_sessions(self, selected: list[str]) -> None:
         df = load_records_dataframe(self.state.records_root_path, selected)
         filtered = build_filtered_dataframe(df, self.state.train_config.only_manual)
         self.state.dataset_df = df
@@ -121,6 +129,46 @@ class DataPage(DockPage):
         self.apply_preview_filter()
         self.main_window.on_dataset_loaded()
 
+    def merge_selected_sessions(self) -> None:
+        selected = self.session_list_panel.selected_sessions()
+        if len(selected) < 2:
+            QMessageBox.information(self, 'Merge Sessions', 'Select at least 2 sessions first.')
+            return
+
+        merged_name = self.merge_sessions_panel.merged_session_name()
+        if not merged_name:
+            merged_name = f'merged_{selected[0]}_{selected[-1]}'
+            self.merge_sessions_panel.set_merged_session_name(merged_name)
+
+        confirm = QMessageBox.question(
+            self,
+            'Merge Sessions',
+            'Create a new merged session by copying records and images from the selected sessions?'
+            f"\n\nSource sessions: {', '.join(selected)}"
+            f"\nTarget session: {merged_name}",
+        )
+        if confirm != QMessageBox.Yes:
+            return
+
+        ok, message, details = merge_sessions(self.state.records_root_path, selected, merged_name)
+        if not ok:
+            QMessageBox.warning(self, 'Merge Sessions', message)
+            self.main_window.set_status_message(message)
+            return
+
+        target_session = str(details.get('target_session', merged_name))
+        self.state.selected_sessions = selected.copy()
+        self.refresh_sessions()
+        if self.merge_sessions_panel.should_load_after_merge():
+            self.state.selected_sessions = [target_session]
+            self.session_list_panel.set_selected_sessions([target_session])
+            self._load_sessions([target_session])
+        else:
+            self.session_list_panel.set_selected_sessions(selected)
+            self.main_window.set_status_message(message)
+
+        QMessageBox.information(self, 'Merge Sessions', message)
+
     def apply_preview_filter(self) -> None:
         filtered_preview = filter_preview_dataframe(
             self.current_preview_source_df,
@@ -133,7 +181,7 @@ class DataPage(DockPage):
         self.plot_panel.set_dataframe(filtered_preview)
         if filtered_preview.empty:
             self.image_preview_panel.clear_preview()
-        self.main_window.set_status_message(f"Showing {len(filtered_preview)} preview frame(s).")
+        self.main_window.set_status_message(f'Showing {len(filtered_preview)} preview frame(s).')
 
     def clear_preview_filter(self) -> None:
         self.filter_panel.reset()
@@ -163,7 +211,9 @@ class DataPage(DockPage):
 
     def restart_preview_playback(self) -> None:
         active = self.preview_panel.restart_autoplay()
-        self.main_window.set_status_message('Frame playback restarted.' if active else 'Need at least 1 filtered frame to restart.')
+        self.main_window.set_status_message(
+            'Frame playback restarted.' if active else 'Need at least 1 filtered frame to restart.'
+        )
 
     def on_playback_speed_changed(self, fps: float) -> None:
         self.preview_panel.set_playback_fps(fps)
