@@ -34,7 +34,7 @@ def build_stylesheet() -> str:
     QDockWidget::title {
         background: #244c7a;
         color: #ffffff;
-        padding: 7px 11px;
+        padding: 6px 10px;
         border: 1px solid #56a7ff;
         border-bottom: none;
     }
@@ -57,8 +57,8 @@ def build_stylesheet() -> str:
         padding: 0 4px 0 4px;
     }
     QPushButton {
-        min-height: 27px;
-        padding: 4px 9px;
+        min-height: 24px;
+        padding: 3px 8px;
         background: #263245;
         color: #eef2fb;
         border: 1px solid #3b4d67;
