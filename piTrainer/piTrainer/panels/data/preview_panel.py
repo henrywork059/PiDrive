@@ -16,12 +16,12 @@ from ...services.data.preview_service import dataframe_preview_rows, preview_col
 
 class PreviewPanel(QGroupBox):
     def __init__(self, selection_callback=None, playback_state_callback=None) -> None:
-        super().__init__("Record Preview")
+        super().__init__('Record Preview')
         self.df = pd.DataFrame()
         self.selection_callback = selection_callback
         self.playback_state_callback = playback_state_callback
 
-        self.summary_label = QLabel("Load sessions to preview recorded frames.")
+        self.summary_label = QLabel('Load sessions to preview recorded frames.')
         self.summary_label.setProperty('role', 'muted')
         self.summary_label.setWordWrap(True)
 
@@ -40,6 +40,17 @@ class PreviewPanel(QGroupBox):
         layout.addWidget(self.table)
         self._refresh_summary()
 
+    @staticmethod
+    def record_identity(record) -> tuple[str, str, str, str]:
+        if not record:
+            return ('', '', '', '')
+        return (
+            str(record.get('session', '')),
+            str(record.get('frame_id', '')),
+            str(record.get('ts', '')),
+            str(record.get('abs_image', '')),
+        )
+
     def set_dataframe(self, df: pd.DataFrame) -> None:
         self.stop_autoplay()
         self.df = df.reset_index(drop=True).copy()
@@ -51,7 +62,7 @@ class PreviewPanel(QGroupBox):
         self.table.setHorizontalHeaderLabels(columns)
         for row_idx, row in enumerate(rows):
             for col_idx, col in enumerate(columns):
-                value = row.get(col, "")
+                value = row.get(col, '')
                 self.table.setItem(row_idx, col_idx, QTableWidgetItem(str(value)))
         self._refresh_summary()
         if rows:
@@ -72,6 +83,17 @@ class PreviewPanel(QGroupBox):
         if not selected:
             return -1
         return selected[0].row()
+
+    def select_record_identity(self, identity: tuple[str, str, str, str]) -> bool:
+        if not identity:
+            return False
+        for row_idx in range(len(self.df)):
+            record = self.df.iloc[row_idx].to_dict()
+            if self.record_identity(record) == identity:
+                self.table.selectRow(row_idx)
+                self._handle_selection_change()
+                return True
+        return False
 
     def set_playback_fps(self, fps: float) -> None:
         safe_fps = max(0.5, float(fps))
@@ -137,17 +159,19 @@ class PreviewPanel(QGroupBox):
         total = len(self.df)
         row = self.current_row()
         if total == 0:
-            self.summary_label.setText("No frames to preview. Load sessions or change the filter.")
+            self.summary_label.setText('No frames to preview. Load sessions or change the filter.')
             return
         if row < 0:
-            self.summary_label.setText(f"Showing {total} frame(s). Select a row to inspect it.")
+            self.summary_label.setText(f'Showing {total} frame(s). Select a row to inspect it.')
             return
         record = self.selected_record() or {}
         session = str(record.get('session', ''))
         frame_id = str(record.get('frame_id', ''))
         mode = str(record.get('mode', ''))
+        steering = float(record.get('steering', 0.0) or 0.0)
+        throttle = float(record.get('throttle', 0.0) or 0.0)
         self.summary_label.setText(
-            f"Showing {total} frame(s). Selected: row {row + 1}, session '{session}', frame '{frame_id}', mode '{mode}'."
+            f"Showing {total} frame(s). Selected: row {row + 1}, session '{session}', frame '{frame_id}', mode '{mode}', steering {steering:.3f}, speed {throttle:.3f}."
         )
 
     def _emit_playback_state(self) -> None:
