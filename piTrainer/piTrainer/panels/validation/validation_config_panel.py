@@ -95,3 +95,8 @@ class ValidationConfigPanel(QGroupBox):
 
     def max_rows(self) -> int:
         return int(self.max_rows_spin.value())
+
+
+    def set_saved_model_path(self, path: str) -> None:
+        self.model_path_edit.setText(str(path))
+        self.model_source_combo.setCurrentText('Load .keras / .h5 model')

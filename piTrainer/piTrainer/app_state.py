@@ -26,6 +26,10 @@ class TrainConfig:
     reduce_lr_on_plateau: bool = True
     reduce_lr_patience: int = 2
     reduce_lr_factor: float = 0.5
+    split_mode: str = 'By session'
+    dropout_rate: float = 0.2
+    steering_loss_weight: float = 1.0
+    throttle_loss_weight: float = 1.0
 
 
 @dataclass
@@ -50,7 +54,11 @@ class AppState:
     export_config: ExportConfig = field(default_factory=ExportConfig)
     model: Any = None
     history: dict[str, list[float]] = field(default_factory=dict)
-    last_error: str = ""
+    last_error: str = ''
+    preprocess_recipe: dict[str, Any] = field(default_factory=dict)
+    last_saved_model_path: str = ''
+    last_saved_preprocess_path: str = ''
+    last_saved_preprocess_settings_path: str = ''
 
     @property
     def records_root_path(self) -> Path:

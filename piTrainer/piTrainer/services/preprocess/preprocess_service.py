@@ -1,16 +1,20 @@
 from __future__ import annotations
 
+import json
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
+from ...utils.path_utils import ensure_dir, safe_filename
+
 MANUAL_MODES = {'manual', 'user', 'train'}
 COLOR_PRESETS = [
-    {'aug_brightness_delta': 0.06, 'aug_contrast_factor': 1.08, 'aug_saturation_factor': 1.08, 'aug_hue_delta': 0.01},
-    {'aug_brightness_delta': -0.05, 'aug_contrast_factor': 0.94, 'aug_saturation_factor': 0.92, 'aug_hue_delta': -0.01},
-    {'aug_brightness_delta': 0.03, 'aug_contrast_factor': 1.12, 'aug_saturation_factor': 0.90, 'aug_hue_delta': 0.015},
-    {'aug_brightness_delta': -0.02, 'aug_contrast_factor': 0.88, 'aug_saturation_factor': 1.12, 'aug_hue_delta': -0.015},
+    {'aug_brightness_delta': 0.020, 'aug_contrast_factor': 1.02, 'aug_saturation_factor': 1.01, 'aug_hue_delta': 0.004},
+    {'aug_brightness_delta': -0.018, 'aug_contrast_factor': 0.99, 'aug_saturation_factor': 0.99, 'aug_hue_delta': -0.004},
+    {'aug_brightness_delta': 0.012, 'aug_contrast_factor': 1.01, 'aug_saturation_factor': 0.98, 'aug_hue_delta': 0.006},
+    {'aug_brightness_delta': -0.010, 'aug_contrast_factor': 1.00, 'aug_saturation_factor': 1.02, 'aug_hue_delta': -0.006},
 ]
 AUGMENT_DEFAULTS = {
     'aug_flip_lr': False,
@@ -20,6 +24,63 @@ AUGMENT_DEFAULTS = {
     'aug_hue_delta': 0.0,
     'aug_variant': 'original',
 }
+
+
+def default_settings_path(out_dir: Path) -> Path:
+    return ensure_dir(out_dir / 'preprocess') / 'preprocess_settings.json'
+
+
+def default_data_root(out_dir: Path) -> Path:
+    return ensure_dir(out_dir / 'preprocess') / 'saved_datasets'
+
+
+def _make_serializable(recipe: dict[str, object]) -> dict[str, object]:
+    serializable: dict[str, object] = {}
+    for key, value in recipe.items():
+        if isinstance(value, tuple):
+            serializable[key] = list(value)
+        elif isinstance(value, Path):
+            serializable[key] = str(value)
+        else:
+            serializable[key] = value
+    return serializable
+
+
+def save_preprocess_settings(recipe: dict[str, object], out_dir: Path) -> Path:
+    path = default_settings_path(out_dir)
+    path.write_text(json.dumps(_make_serializable(recipe), indent=2), encoding='utf-8')
+    return path
+
+
+def load_preprocess_settings(out_dir: Path) -> dict[str, object]:
+    path = default_settings_path(out_dir)
+    if not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding='utf-8'))
+    except Exception:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def save_preprocessed_dataset(df: pd.DataFrame, recipe: dict[str, object], out_dir: Path) -> Path:
+    root = default_data_root(out_dir)
+    stamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    folder = ensure_dir(root / safe_filename(f'preprocessed_{stamp}', default='preprocessed_dataset'))
+    csv_path = folder / 'preprocessed_records.csv'
+    jsonl_path = folder / 'preprocessed_records.jsonl'
+    recipe_path = folder / 'preprocess_recipe.json'
+
+    export_df = df.copy()
+    export_df.to_csv(csv_path, index=False)
+    with jsonl_path.open('w', encoding='utf-8') as handle:
+        for row in export_df.to_dict(orient='records'):
+            for key, value in list(row.items()):
+                if isinstance(value, (np.floating, np.integer)):
+                    row[key] = value.item()
+            handle.write(json.dumps(row, ensure_ascii=False) + '\n')
+    recipe_path.write_text(json.dumps(_make_serializable(recipe), indent=2), encoding='utf-8')
+    return folder
 
 
 def _mode_mask(df: pd.DataFrame, mode_filter: str) -> pd.Series:
@@ -197,7 +258,7 @@ def _build_augmented_dataset(filtered: pd.DataFrame, recipe: dict[str, object]) 
         color_df = base.copy()
         for column, value in params.items():
             color_df[column] = value
-        color_df['aug_variant'] = f'color_{variant_index + 1}'
+        color_df['aug_variant'] = f'color_mild_{variant_index + 1}'
         pieces.append(color_df)
         color_rows_added += int(len(color_df))
 
@@ -368,9 +429,7 @@ def build_preprocess_summary(dataset_df: pd.DataFrame, selected_sessions: list[s
     return '\n'.join(lines)
 
 
-def format_preprocess_preview(
-    summary: dict[str, float | int | str], recipe: dict[str, object], applied: bool = False
-) -> str:
+def format_preprocess_preview(summary: dict[str, float | int | str], recipe: dict[str, object], applied: bool = False) -> str:
     title = 'Applied preprocessing recipe' if applied else 'Preprocessing recipe preview'
     lines = [
         title,
@@ -396,26 +455,17 @@ def format_preprocess_preview(
         f"Drop duplicate images: {'Yes' if recipe.get('drop_duplicate_images', False) else 'No'}",
         f"Steering range: {recipe.get('steering_range') or 'Disabled'}",
         f"Speed range: {recipe.get('speed_range') or 'Disabled'}",
-        (
-            'Balance near-zero steering rows: '
-            f"{'Enabled' if recipe.get('balance_straight', False) else 'Disabled'}"
-        ),
+        'Balance near-zero steering rows: ' + ('Enabled' if recipe.get('balance_straight', False) else 'Disabled'),
         f"Straight threshold: {float(recipe.get('straight_threshold', 0.05) or 0.05):.3f}",
         f"Straight keep ratio: {float(recipe.get('straight_keep_ratio', 0.35) or 0.35):.2f}",
         f"Turn boost: {'Enabled' if recipe.get('turn_boost', False) else 'Disabled'}",
         f"Mirror copies: {'Enabled' if recipe.get('mirror_enabled', False) else 'Disabled'}",
-        f"Color variants per row: {int(recipe.get('color_variants', 0) or 0)}",
+        f"Mild exposure / WB variants per row: {int(recipe.get('color_variants', 0) or 0)}",
         f"Added mirrored rows: {summary['mirror_rows_added']}",
-        f"Added color rows: {summary['color_rows_added']}",
+        f"Added mild color rows: {summary['color_rows_added']}",
         f"Output image size: {recipe.get('image_width')}x{recipe.get('image_height')}",
         '',
-        (
-            'Active steering min/max/mean: '
-            f"{summary['steering_min']:.3f} / {summary['steering_max']:.3f} / {summary['steering_mean']:.3f}"
-        ),
-        (
-            'Active speed min/max/mean: '
-            f"{summary['throttle_min']:.3f} / {summary['throttle_max']:.3f} / {summary['throttle_mean']:.3f}"
-        ),
+        'Active steering min/max/mean: ' f"{summary['steering_min']:.3f} / {summary['steering_max']:.3f} / {summary['steering_mean']:.3f}",
+        'Active speed min/max/mean: ' f"{summary['throttle_min']:.3f} / {summary['throttle_max']:.3f} / {summary['throttle_mean']:.3f}",
     ]
     return '\n'.join(lines)
