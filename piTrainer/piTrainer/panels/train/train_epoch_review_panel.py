@@ -25,7 +25,7 @@ class _FrameReviewCard(QWidget):
 
     def set_payload(self, payload: dict | None) -> None:
         if not payload:
-            self.image.setPixmap(None)
+            self.image.clear()
             self.image.setText('No frame yet')
             self.meta.setText('')
             return
@@ -34,7 +34,7 @@ class _FrameReviewCard(QWidget):
             self.image.setText('')
             self.image.setPixmap(pixmap)
         else:
-            self.image.setPixmap(None)
+            self.image.clear()
             self.image.setText('Image not available')
         self.meta.setText(
             (
