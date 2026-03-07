@@ -90,26 +90,39 @@ def _draw_speed_bar(painter: QPainter, pixmap: QPixmap, throttle_value: float) -
     _draw_label(painter, label_rect, f"SPD {throttle_value:.2f}")
 
 
+def _steering_fill_color(value: float) -> QColor:
+    if value < 0:
+        return QColor(255, 184, 88, 225)
+    return QColor(86, 167, 255, 225)
+
+
 def _draw_steering_bar(painter: QPainter, pixmap: QPixmap, steering_value: float) -> None:
     width = pixmap.width()
     height = pixmap.height()
     track = QRectF(width * 0.20, height - 44, width * 0.44, 20)
-    center_x = track.center().x()
-    half_width = (track.width() - 8.0) / 2.0
+    inner = QRectF(track.left() + 4, track.top() + 4, track.width() - 8, track.height() - 8)
+    center_x = inner.center().x()
+    half_width = inner.width() / 2.0
     value = clip_steering(steering_value)
     fill_width = half_width * abs(value)
 
     _draw_track(painter, track)
 
     painter.save()
-    painter.setPen(QPen(QColor(255, 255, 255, 150), 1))
+    painter.setPen(QPen(QColor(255, 255, 255, 155), 1))
     painter.drawLine(QPointF(center_x, track.top() - 4), QPointF(center_x, track.bottom() + 4))
-    if fill_width > 0:
-        left = center_x if value >= 0 else center_x - fill_width
-        fill_rect = QRectF(left, track.top() + 4, fill_width, track.height() - 8)
+
+    if fill_width > 0.0:
+        if value >= 0:
+            fill_rect = QRectF(center_x, inner.top(), fill_width, inner.height())
+        else:
+            fill_rect = QRectF(center_x - fill_width, inner.top(), fill_width, inner.height())
         painter.setPen(Qt.NoPen)
-        painter.setBrush(QColor(86, 167, 255, 220))
-        painter.drawRoundedRect(fill_rect, 6, 6)
+        painter.setBrush(_steering_fill_color(value))
+        painter.drawRect(fill_rect)
+
+    painter.setPen(QPen(QColor(255, 255, 255, 90), 1))
+    painter.drawLine(QPointF(inner.left(), inner.center().y()), QPointF(inner.right(), inner.center().y()))
     painter.restore()
 
     _draw_label(painter, QRectF(track.right() + 8, track.top() - 2, 92, 24), f"STR {steering_value:.2f}")
@@ -124,21 +137,28 @@ def _draw_steering_arc(painter: QPainter, pixmap: QPixmap, steering_value: float
 
     painter.save()
     painter.setRenderHint(QPainter.Antialiasing, True)
-    painter.setPen(QPen(QColor(255, 255, 255, 120), 6))
+
+    guide_pen = QPen(QColor(255, 255, 255, 120), 6)
+    guide_pen.setCapStyle(Qt.FlatCap)
+    painter.setPen(guide_pen)
     painter.drawArc(rect, 0, 180 * 16)
 
-    span_angle = int(180 * value * 16)
-    painter.setPen(QPen(QColor(255, 188, 88, 230), 8))
-    painter.drawArc(rect, 90 * 16, -span_angle)
+    span_angle = int(90 * value * 16)
+    if span_angle != 0:
+        value_pen = QPen(_steering_fill_color(value), 8)
+        value_pen.setCapStyle(Qt.FlatCap)
+        painter.setPen(value_pen)
+        painter.drawArc(rect, 90 * 16, -span_angle)
 
     center = rect.center()
     radius = rect.width() / 2.0
-    painter.setPen(QPen(QColor(255, 255, 255, 160), 2))
+    painter.setPen(QPen(QColor(255, 255, 255, 170), 2))
     painter.drawLine(QPointF(center.x(), center.y()), QPointF(center.x(), rect.top()))
+
     end_angle_deg = 90.0 - 90.0 * value
     end_x = center.x() + radius * cos(radians(end_angle_deg))
     end_y = center.y() - radius * sin(radians(end_angle_deg))
-    painter.setPen(QPen(QColor(255, 188, 88, 230), 3))
+    painter.setPen(QPen(_steering_fill_color(value), 3))
     painter.drawLine(QPointF(center.x(), center.y()), QPointF(end_x, end_y))
     painter.restore()
 
