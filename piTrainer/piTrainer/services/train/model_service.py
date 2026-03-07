@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 
-
 def build_small_cnn(img_h: int, img_w: int):
     import tensorflow as tf
 
@@ -16,6 +15,32 @@ def build_small_cnn(img_h: int, img_w: int):
     steering = tf.keras.layers.Dense(1, name="steering")(x)
     throttle = tf.keras.layers.Dense(1, name="throttle")(x)
     return tf.keras.Model(inputs, {"steering": steering, "throttle": throttle}, name="picar_small_cnn")
+
+
+
+def build_medium_cnn(img_h: int, img_w: int):
+    import tensorflow as tf
+
+    inputs = tf.keras.Input(shape=(img_h, img_w, 3), name="image")
+    x = tf.keras.layers.Conv2D(24, 5, strides=2, activation="relu")(inputs)
+    x = tf.keras.layers.Conv2D(32, 5, strides=2, activation="relu")(x)
+    x = tf.keras.layers.Conv2D(48, 3, strides=2, activation="relu")(x)
+    x = tf.keras.layers.Conv2D(64, 3, strides=2, activation="relu")(x)
+    x = tf.keras.layers.Conv2D(64, 3, strides=1, activation="relu")(x)
+    x = tf.keras.layers.Flatten()(x)
+    x = tf.keras.layers.Dense(192, activation="relu")(x)
+    x = tf.keras.layers.Dropout(0.3)(x)
+    x = tf.keras.layers.Dense(96, activation="relu")(x)
+    steering = tf.keras.layers.Dense(1, name="steering")(x)
+    throttle = tf.keras.layers.Dense(1, name="throttle")(x)
+    return tf.keras.Model(inputs, {"steering": steering, "throttle": throttle}, name="picar_medium_cnn")
+
+
+
+def build_model(img_h: int, img_w: int, model_size: str = 'Small CNN'):
+    if str(model_size) == 'Medium CNN':
+        return build_medium_cnn(img_h, img_w)
+    return build_small_cnn(img_h, img_w)
 
 
 

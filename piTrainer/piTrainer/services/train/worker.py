@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import random
+
+import numpy as np
 from PySide6.QtCore import QThread, Signal
 
 from ...app_state import TrainConfig
 from .dataset_service import make_tf_dataset
-from .model_service import build_small_cnn, compile_model
+from .model_service import build_model, compile_model
 
 
 class TrainingWorker(QThread):
@@ -35,6 +38,12 @@ class TrainingWorker(QThread):
             if self.train_df.empty:
                 raise RuntimeError("Training dataframe is empty.")
 
+            seed = int(getattr(self.config, 'seed', 42) or 42)
+            random.seed(seed)
+            np.random.seed(seed)
+            tf.keras.utils.set_random_seed(seed)
+            self.log_message.emit(f'Set training random seed to {seed}.')
+
             self.log_message.emit("Building TensorFlow datasets...")
             train_ds = make_tf_dataset(
                 self.train_df,
@@ -55,11 +64,12 @@ class TrainingWorker(QThread):
                     augment=False,
                 )
 
-            self.log_message.emit("Building model...")
-            model = build_small_cnn(self.config.img_h, self.config.img_w)
+            self.log_message.emit(f"Building model ({self.config.model_size})...")
+            model = build_model(self.config.img_h, self.config.img_w, self.config.model_size)
             model = compile_model(model, self.config.learning_rate)
 
             worker = self
+            monitor = 'val_loss' if val_ds is not None else 'loss'
 
             class EpochCallback(tf.keras.callbacks.Callback):
                 def on_epoch_end(self, epoch, logs=None):  # noqa: N802
@@ -82,6 +92,34 @@ class TrainingWorker(QThread):
                         self.model.stop_training = True
 
             callbacks = [EpochCallback()]
+            if getattr(self.config, 'early_stopping', False):
+                callbacks.append(
+                    tf.keras.callbacks.EarlyStopping(
+                        monitor=monitor,
+                        patience=max(1, int(getattr(self.config, 'early_stopping_patience', 4) or 4)),
+                        restore_best_weights=True,
+                    )
+                )
+                self.log_message.emit(
+                    f'Enabled early stopping on {monitor} with patience '
+                    f"{max(1, int(getattr(self.config, 'early_stopping_patience', 4) or 4))}."
+                )
+            if getattr(self.config, 'reduce_lr_on_plateau', False):
+                callbacks.append(
+                    tf.keras.callbacks.ReduceLROnPlateau(
+                        monitor=monitor,
+                        patience=max(1, int(getattr(self.config, 'reduce_lr_patience', 2) or 2)),
+                        factor=float(getattr(self.config, 'reduce_lr_factor', 0.5) or 0.5),
+                        min_lr=1e-6,
+                        verbose=0,
+                    )
+                )
+                self.log_message.emit(
+                    f'Enabled reduce-on-plateau on {monitor} with patience '
+                    f"{max(1, int(getattr(self.config, 'reduce_lr_patience', 2) or 2))} and factor "
+                    f"{float(getattr(self.config, 'reduce_lr_factor', 0.5) or 0.5):.2f}."
+                )
+
             history = model.fit(
                 train_ds,
                 validation_data=val_ds,

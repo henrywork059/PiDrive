@@ -19,6 +19,13 @@ class TrainConfig:
     augment: bool = True
     session_split: bool = True
     shuffle: bool = True
+    model_size: str = 'Small CNN'
+    seed: int = 42
+    early_stopping: bool = True
+    early_stopping_patience: int = 4
+    reduce_lr_on_plateau: bool = True
+    reduce_lr_patience: int = 2
+    reduce_lr_factor: float = 0.5
 
 
 @dataclass

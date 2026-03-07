@@ -48,7 +48,7 @@ class PreprocessSummaryPanel(QGroupBox):
             'Selected sessions: {selected} | Loaded rows: {dataset_rows} across {dataset_sessions} session(s)\n'
             'Active training rows: {filtered_rows} across {filtered_sessions} session(s) | Synthetic rows: {synthetic_rows}\n'
             'Active steering range: {steering_text} | Active speed range: {throttle_text}\n'
-            'Current train image size: {img_w}x{img_h}'.format(
+            'Current train image size: {img_w}x{img_h} | Model: {model_size} | Seed: {seed}'.format(
                 selected=selected,
                 dataset_rows=dataset_rows,
                 dataset_sessions=dataset_sessions,
@@ -59,14 +59,18 @@ class PreprocessSummaryPanel(QGroupBox):
                 throttle_text=throttle_text,
                 img_w=train_config.img_w,
                 img_h=train_config.img_h,
+                model_size=getattr(train_config, 'model_size', 'Small CNN'),
+                seed=getattr(train_config, 'seed', 42),
             )
         )
 
     def set_preview_counts(self, summary: dict[str, float | int | str]) -> None:
         self.preview_label.setText(
-            'Preview -> rows: {rows_after}/{rows_before} | kept real rows: {original_rows_after_filter} | '
+            'Preview -> rows: {rows_after}/{rows_before} | dedup removed: {duplicate_rows_removed} | '
+            'stride kept: {rows_after_stride}/{rows_after_dedup} | '
             'straight kept: {straight_rows_after_balance}/{straight_rows_before_balance} | '
-            'generated: {generated_rows} (mirror {mirror_rows_added}, color {color_rows_added}) | '
+            'turn boost added: {turn_rows_added} | generated: {generated_rows} '
+            '(mirror {mirror_rows_added}, color {color_rows_added}) | '
             'steering: {steering_min:.3f} to {steering_max:.3f} | speed: {throttle_min:.3f} to {throttle_max:.3f}'.format(
                 **summary
             )
