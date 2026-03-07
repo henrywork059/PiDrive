@@ -12,6 +12,7 @@ from ..panels.data.dataset_stats_panel import DatasetStatsPanel
 from ..panels.data.frame_filter_panel import FrameFilterPanel
 from ..panels.data.image_preview_panel import ImagePreviewPanel
 from ..panels.data.overlay_control_panel import OverlayControlPanel
+from ..panels.data.playback_control_panel import PlaybackControlPanel
 from ..panels.data.preview_panel import PreviewPanel
 from ..panels.data.root_path_panel import RootPathPanel
 from ..panels.data.session_list_panel import SessionListPanel
@@ -38,7 +39,13 @@ class DataPage(DockPage):
         self.image_preview_panel = ImagePreviewPanel()
         self.preview_panel = PreviewPanel(
             selection_callback=self.on_preview_record_selected,
-            autoplay_callback=self.toggle_autoplay,
+            playback_state_callback=self.on_playback_state_changed,
+        )
+        self.playback_panel = PlaybackControlPanel(
+            play_callback=self.start_preview_playback,
+            stop_callback=self.stop_preview_playback,
+            restart_callback=self.restart_preview_playback,
+            speed_change_callback=self.on_playback_speed_changed,
         )
         self.plot_panel = DataPlotPanel()
         self.data_actions_panel = DataActionsPanel(
@@ -50,6 +57,7 @@ class DataPage(DockPage):
         self.data_control_panel = DataControlPanel(delete_frame_callback=self.delete_selected_frame)
         self.build_default_layout()
         self.restore_layout()
+        self.preview_panel.set_playback_fps(self.playback_panel.playback_fps())
 
     def build_default_layout(self) -> None:
         for dock in self.findChildren(QDockWidget):
@@ -60,6 +68,7 @@ class DataPage(DockPage):
         session_dock = self.add_panel('sessions', 'Sessions', self.session_list_panel, Qt.LeftDockWidgetArea)
         filter_dock = self.add_panel('frame_filter', 'Frame Filter', self.filter_panel, Qt.LeftDockWidgetArea)
         overlay_dock = self.add_panel('overlay_controls', 'Overlay Controls', self.overlay_panel, Qt.LeftDockWidgetArea)
+        playback_dock = self.add_panel('playback_control', 'Playback Control', self.playback_panel, Qt.LeftDockWidgetArea)
         action_dock = self.add_panel('data_actions', 'Data Actions', self.data_actions_panel, Qt.LeftDockWidgetArea)
         control_dock = self.add_panel('data_control', 'Data Control', self.data_control_panel, Qt.LeftDockWidgetArea)
         preview_dock = self.add_panel('record_preview', 'Record Preview', self.preview_panel, Qt.RightDockWidgetArea)
@@ -70,7 +79,8 @@ class DataPage(DockPage):
         self.splitDockWidget(root_dock, session_dock, Qt.Vertical)
         self.splitDockWidget(session_dock, filter_dock, Qt.Vertical)
         self.splitDockWidget(filter_dock, overlay_dock, Qt.Vertical)
-        self.splitDockWidget(overlay_dock, action_dock, Qt.Vertical)
+        self.splitDockWidget(overlay_dock, playback_dock, Qt.Vertical)
+        self.splitDockWidget(playback_dock, action_dock, Qt.Vertical)
         self.splitDockWidget(action_dock, control_dock, Qt.Vertical)
 
         self.splitDockWidget(root_dock, preview_dock, Qt.Horizontal)
@@ -79,8 +89,8 @@ class DataPage(DockPage):
         self.splitDockWidget(plot_dock, stats_dock, Qt.Vertical)
 
         self.resizeDocks(
-            [root_dock, session_dock, filter_dock, overlay_dock, action_dock, control_dock],
-            [110, 300, 220, 160, 140, 100],
+            [root_dock, session_dock, filter_dock, overlay_dock, playback_dock, action_dock, control_dock],
+            [110, 280, 230, 170, 150, 130, 100],
             Qt.Vertical,
         )
         self.resizeDocks([image_dock, plot_dock, stats_dock], [360, 300, 180], Qt.Vertical)
@@ -143,13 +153,27 @@ class DataPage(DockPage):
             return
         self.image_preview_panel.set_record(record)
 
-    def toggle_autoplay(self) -> None:
-        active = self.preview_panel.toggle_autoplay()
-        self.main_window.set_status_message('Frame autoplay started.' if active else 'Frame autoplay stopped.')
+    def start_preview_playback(self) -> None:
+        active = self.preview_panel.start_autoplay()
+        self.main_window.set_status_message('Frame playback started.' if active else 'Need at least 2 filtered frames to play.')
+
+    def stop_preview_playback(self) -> None:
+        self.preview_panel.stop_autoplay()
+        self.main_window.set_status_message('Frame playback stopped.')
+
+    def restart_preview_playback(self) -> None:
+        active = self.preview_panel.restart_autoplay()
+        self.main_window.set_status_message('Frame playback restarted.' if active else 'Need at least 1 filtered frame to restart.')
+
+    def on_playback_speed_changed(self, fps: float) -> None:
+        self.preview_panel.set_playback_fps(fps)
+
+    def on_playback_state_changed(self, state: dict[str, float | int | bool]) -> None:
+        self.playback_panel.set_playback_active(bool(state.get('active', False)))
+        self.playback_panel.set_frame_position(int(state.get('current_index', 0)), int(state.get('total', 0)))
 
     def delete_selected_frame(self) -> None:
         self.preview_panel.stop_autoplay()
-        self.preview_panel.set_autoplay_active(False)
         record = self.preview_panel.selected_record()
         if not record:
             QMessageBox.information(self, 'Delete Selected Frame', 'Select one frame from Record Preview first.')

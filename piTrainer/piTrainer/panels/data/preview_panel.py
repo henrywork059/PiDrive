@@ -5,9 +5,7 @@ from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QGroupBox,
-    QHBoxLayout,
     QLabel,
-    QPushButton,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -17,18 +15,15 @@ from ...services.data.preview_service import dataframe_preview_rows, preview_col
 
 
 class PreviewPanel(QGroupBox):
-    def __init__(self, selection_callback=None, autoplay_callback=None) -> None:
+    def __init__(self, selection_callback=None, playback_state_callback=None) -> None:
         super().__init__("Record Preview")
         self.df = pd.DataFrame()
         self.selection_callback = selection_callback
-        self.autoplay_callback = autoplay_callback
+        self.playback_state_callback = playback_state_callback
 
         self.summary_label = QLabel("Load sessions to preview recorded frames.")
         self.summary_label.setProperty('role', 'muted')
         self.summary_label.setWordWrap(True)
-
-        self.autoplay_btn = QPushButton("Auto Play Frames")
-        self.autoplay_btn.clicked.connect(self._handle_autoplay_clicked)
 
         self.table = QTableWidget(0, 0)
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
@@ -36,22 +31,17 @@ class PreviewPanel(QGroupBox):
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.table.itemSelectionChanged.connect(self._handle_selection_change)
 
-        header = QHBoxLayout()
-        header.addWidget(self.summary_label, 1)
-        header.addWidget(self.autoplay_btn)
-
         self.autoplay_timer = QTimer(self)
         self.autoplay_timer.setInterval(250)
         self.autoplay_timer.timeout.connect(self._advance_autoplay)
 
         layout = QVBoxLayout(self)
-        layout.addLayout(header)
+        layout.addWidget(self.summary_label)
         layout.addWidget(self.table)
         self._refresh_summary()
 
     def set_dataframe(self, df: pd.DataFrame) -> None:
         self.stop_autoplay()
-        self._set_autoplay_button_state(False)
         self.df = df.reset_index(drop=True).copy()
         rows = dataframe_preview_rows(self.df)
         columns = preview_columns(rows)
@@ -69,6 +59,7 @@ class PreviewPanel(QGroupBox):
             self._handle_selection_change()
         elif self.selection_callback is not None:
             self.selection_callback(None)
+        self._emit_playback_state()
 
     def selected_record(self):
         row = self.current_row()
@@ -82,36 +73,47 @@ class PreviewPanel(QGroupBox):
             return -1
         return selected[0].row()
 
-    def toggle_autoplay(self) -> bool:
-        if self.autoplay_timer.isActive():
-            self.stop_autoplay()
-            self._set_autoplay_button_state(False)
-            return False
+    def set_playback_fps(self, fps: float) -> None:
+        safe_fps = max(0.5, float(fps))
+        interval_ms = max(1, int(round(1000.0 / safe_fps)))
+        self.autoplay_timer.setInterval(interval_ms)
+        self._emit_playback_state()
+
+    def playback_fps(self) -> float:
+        interval = max(1, int(self.autoplay_timer.interval()))
+        return 1000.0 / float(interval)
+
+    def start_autoplay(self) -> bool:
         if len(self.df) <= 1:
-            self._set_autoplay_button_state(False)
+            self._emit_playback_state()
             return False
         self.autoplay_timer.start()
-        self._set_autoplay_button_state(True)
+        self._emit_playback_state()
         return True
 
     def stop_autoplay(self) -> None:
         if self.autoplay_timer.isActive():
             self.autoplay_timer.stop()
+        self._emit_playback_state()
 
-    def set_autoplay_active(self, active: bool) -> None:
-        self._set_autoplay_button_state(active)
+    def restart_autoplay(self) -> bool:
+        if self.table.rowCount() <= 0:
+            self.stop_autoplay()
+            return False
+        self.table.selectRow(0)
+        self._handle_selection_change()
+        return self.start_autoplay()
 
-    def _handle_autoplay_clicked(self) -> None:
-        if self.autoplay_callback is not None:
-            self.autoplay_callback()
-        else:
-            self.toggle_autoplay()
+    def autoplay_active(self) -> bool:
+        return bool(self.autoplay_timer.isActive())
+
+    def total_rows(self) -> int:
+        return int(self.table.rowCount())
 
     def _advance_autoplay(self) -> None:
         total = self.table.rowCount()
         if total <= 1:
             self.stop_autoplay()
-            self._set_autoplay_button_state(False)
             return
         row = self.current_row()
         next_row = 0 if row < 0 else (row + 1) % total
@@ -125,12 +127,11 @@ class PreviewPanel(QGroupBox):
         if row < 0 or row >= len(self.df):
             self.selection_callback(None)
             self._refresh_summary()
+            self._emit_playback_state()
             return
         self.selection_callback(self.selected_record())
         self._refresh_summary()
-
-    def _set_autoplay_button_state(self, active: bool) -> None:
-        self.autoplay_btn.setText("Stop Auto Play" if active else "Auto Play Frames")
+        self._emit_playback_state()
 
     def _refresh_summary(self) -> None:
         total = len(self.df)
@@ -148,3 +149,15 @@ class PreviewPanel(QGroupBox):
         self.summary_label.setText(
             f"Showing {total} frame(s). Selected: row {row + 1}, session '{session}', frame '{frame_id}', mode '{mode}'."
         )
+
+    def _emit_playback_state(self) -> None:
+        if self.playback_state_callback is not None:
+            row = self.current_row()
+            self.playback_state_callback(
+                {
+                    'active': self.autoplay_active(),
+                    'current_index': 0 if row < 0 else row,
+                    'total': self.total_rows(),
+                    'fps': self.playback_fps(),
+                }
+            )
