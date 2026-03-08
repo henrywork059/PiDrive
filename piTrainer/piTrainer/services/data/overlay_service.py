@@ -179,15 +179,27 @@ def _draw_path_preview(painter: QPainter, pixmap: QPixmap, steering_value: float
     span_y = max(28.0, height - margin_top - margin_bottom)
 
     travel = span_y * (0.18 + 0.82 * speed)
-    bend = steering * span_x
-    control_y_1 = start.y() - travel * 0.28
-    control_y_2 = start.y() - travel * 0.72
-    cp1 = QPointF(start.x() + bend * 0.18, control_y_1)
-    cp2 = QPointF(start.x() + bend * 0.78, control_y_2)
-    end = QPointF(start.x() + bend, start.y() - travel)
+    # Make the visual read as a trajectory, not just a direction vector.
+    # We integrate heading over small steps so the line bends progressively.
+    steps = 22
+    heading = 0.0
+    heading_step = steering * 0.09
+    segment = travel / float(steps)
+    current_x = start.x()
+    current_y = start.y()
+    points: list[QPointF] = [start]
+    for _ in range(steps):
+        heading += heading_step
+        current_x += sin(heading) * segment * 1.35
+        current_y -= cos(heading) * segment
+        current_x = max(margin_x, min(width - margin_x, current_x))
+        current_y = max(margin_top, min(height - margin_bottom, current_y))
+        points.append(QPointF(current_x, current_y))
 
+    end = points[-1]
     path = QPainterPath(start)
-    path.cubicTo(cp1, cp2, end)
+    for point in points[1:]:
+        path.lineTo(point)
 
     painter.save()
     painter.setRenderHint(QPainter.Antialiasing, True)

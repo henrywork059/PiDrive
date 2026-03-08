@@ -4,7 +4,7 @@ import pandas as pd
 
 
 
-def dataframe_preview_rows(df: pd.DataFrame, limit: int = 50) -> list[dict]:
+def dataframe_preview_rows(df: pd.DataFrame, limit: int | None = None) -> list[dict]:
     if df.empty:
         return []
     rows = []
@@ -13,7 +13,7 @@ def dataframe_preview_rows(df: pd.DataFrame, limit: int = 50) -> list[dict]:
         for col in ["session", "frame_id", "mode", "steering", "throttle", "ts", "cam_w", "cam_h", "format"]
         if col in df.columns
     ]
-    sample = df.head(limit)
+    sample = df if limit is None else df.head(limit)
     for _, row in sample.iterrows():
         rows.append({col: row.get(col, "") for col in keep_columns})
     return rows
