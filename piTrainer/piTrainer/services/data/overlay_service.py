@@ -52,9 +52,9 @@ def drive_values_from_point(x: float, y: float, width: float, height: float) -> 
     return steering, speed
 
 
-def _draw_label(painter: QPainter, rect: QRectF, text: str) -> None:
+def _draw_label(painter: QPainter, rect: QRectF, text: str, color: QColor | None = None) -> None:
     painter.save()
-    painter.setPen(QColor('#f7fbff'))
+    painter.setPen(color or QColor('#f7fbff'))
     painter.drawText(rect, Qt.AlignCenter, text)
     painter.restore()
 
@@ -165,9 +165,7 @@ def _draw_steering_arc(painter: QPainter, pixmap: QPixmap, steering_value: float
     _draw_label(painter, QRectF(rect.left() - 8, rect.bottom() - 4, rect.width() + 16, 24), f"STR ARC {steering_value:.2f}")
 
 
-def _draw_path_preview(painter: QPainter, pixmap: QPixmap, steering_value: float, speed_value: float) -> None:
-    width = float(pixmap.width())
-    height = float(pixmap.height())
+def _path_points(width: float, height: float, steering_value: float, speed_value: float) -> tuple[QPointF, list[QPointF]]:
     steering = clip_steering(steering_value)
     speed = clip_speed(speed_value)
 
@@ -175,12 +173,9 @@ def _draw_path_preview(painter: QPainter, pixmap: QPixmap, steering_value: float
     margin_top = max(18.0, height * 0.08)
     margin_bottom = max(22.0, height * 0.08)
     start = QPointF(width / 2.0, height - margin_bottom)
-    span_x = max(28.0, (width / 2.0) - margin_x)
     span_y = max(28.0, height - margin_top - margin_bottom)
 
     travel = span_y * (0.18 + 0.82 * speed)
-    # Make the visual read as a trajectory, not just a direction vector.
-    # We integrate heading over small steps so the line bends progressively.
     steps = 22
     heading = 0.0
     heading_step = steering * 0.09
@@ -195,11 +190,29 @@ def _draw_path_preview(painter: QPainter, pixmap: QPixmap, steering_value: float
         current_x = max(margin_x, min(width - margin_x, current_x))
         current_y = max(margin_top, min(height - margin_bottom, current_y))
         points.append(QPointF(current_x, current_y))
+    return start, points
 
-    end = points[-1]
+
+def _path_from_points(start: QPointF, points: list[QPointF]) -> QPainterPath:
     path = QPainterPath(start)
     for point in points[1:]:
         path.lineTo(point)
+    return path
+
+
+def _draw_single_path(
+    painter: QPainter,
+    pixmap: QPixmap,
+    steering_value: float,
+    speed_value: float,
+    main_color: QColor,
+    label: str | None = None,
+) -> None:
+    width = float(pixmap.width())
+    height = float(pixmap.height())
+    start, points = _path_points(width, height, steering_value, speed_value)
+    end = points[-1]
+    path = _path_from_points(start, points)
 
     painter.save()
     painter.setRenderHint(QPainter.Antialiasing, True)
@@ -209,26 +222,37 @@ def _draw_path_preview(painter: QPainter, pixmap: QPixmap, steering_value: float
     painter.setPen(guide_pen)
     painter.drawLine(QPointF(start.x(), height - max(12.0, height * 0.04)), start)
 
-    glow_pen = QPen(QColor(36, 212, 255, 90), 10, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+    glow_pen = QPen(QColor(main_color.red(), main_color.green(), main_color.blue(), 90), 10, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
     painter.setPen(glow_pen)
     painter.drawPath(path)
 
-    path_pen = QPen(QColor(36, 212, 255, 235), 4, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+    path_pen = QPen(main_color, 4, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
     painter.setPen(path_pen)
     painter.drawPath(path)
 
-    start_brush = QColor(255, 255, 255, 220)
-    end_brush = QColor(36, 212, 255, 245)
     painter.setPen(Qt.NoPen)
-    painter.setBrush(start_brush)
+    painter.setBrush(QColor(255, 255, 255, 220))
     painter.drawEllipse(start, 4.0, 4.0)
-    painter.setBrush(end_brush)
+    painter.setBrush(main_color)
     painter.drawEllipse(end, 5.0, 5.0)
     painter.restore()
 
-    _draw_label(
+    if label:
+        _draw_label(
+            painter,
+            QRectF(start.x() - 102, max(6.0, start.y() - 60.0), 204, 24),
+            label,
+            main_color,
+        )
+
+
+def _draw_path_preview(painter: QPainter, pixmap: QPixmap, steering_value: float, speed_value: float) -> None:
+    _draw_single_path(
         painter,
-        QRectF(start.x() - 102, max(6.0, start.y() - 60.0), 204, 24),
+        pixmap,
+        steering_value,
+        speed_value,
+        QColor(36, 212, 255, 235),
         f"PATH SPD {speed_value:.2f} | STR {steering_value:.2f}",
     )
 
@@ -292,6 +316,58 @@ def apply_overlays(pixmap: QPixmap, record: dict[str, Any] | None, options: dict
         _draw_path_preview(painter, rendered, steering_value, throttle_value)
     if options.get('drive_arrow'):
         _draw_drive_arrow(painter, rendered, steering_value, throttle_value)
+
+    painter.end()
+    return rendered
+
+
+def apply_prediction_comparison_overlay(
+    pixmap: QPixmap,
+    steering_true: float,
+    speed_true: float,
+    steering_pred: float,
+    speed_pred: float,
+) -> QPixmap:
+    if pixmap.isNull():
+        return pixmap
+
+    rendered = QPixmap(pixmap)
+    painter = QPainter(rendered)
+    painter.setRenderHint(QPainter.Antialiasing, True)
+
+    # Ground-truth / trained target path first.
+    _draw_single_path(
+        painter,
+        rendered,
+        steering_true,
+        speed_true,
+        QColor(74, 208, 120, 235),
+        None,
+    )
+    # Prediction path on top for direct comparison.
+    _draw_single_path(
+        painter,
+        rendered,
+        steering_pred,
+        speed_pred,
+        QColor(255, 164, 76, 235),
+        None,
+    )
+
+    legend_rect = QRectF(16, 10, min(250.0, rendered.width() * 0.44), 42)
+    painter.save()
+    painter.setPen(QPen(QColor(255, 255, 255, 70), 1))
+    painter.setBrush(QBrush(QColor(18, 22, 31, 165)))
+    painter.drawRoundedRect(legend_rect, 8, 8)
+    painter.setPen(QPen(QColor(74, 208, 120, 235), 3))
+    painter.drawLine(QPointF(legend_rect.left() + 12, legend_rect.top() + 14), QPointF(legend_rect.left() + 34, legend_rect.top() + 14))
+    painter.setPen(QColor('#f7fbff'))
+    painter.drawText(QRectF(legend_rect.left() + 40, legend_rect.top() + 3, legend_rect.width() - 45, 20), Qt.AlignLeft | Qt.AlignVCenter, 'Target / trained path')
+    painter.setPen(QPen(QColor(255, 164, 76, 235), 3))
+    painter.drawLine(QPointF(legend_rect.left() + 12, legend_rect.top() + 29), QPointF(legend_rect.left() + 34, legend_rect.top() + 29))
+    painter.setPen(QColor('#f7fbff'))
+    painter.drawText(QRectF(legend_rect.left() + 40, legend_rect.top() + 18, legend_rect.width() - 45, 20), Qt.AlignLeft | Qt.AlignVCenter, 'Predicted path')
+    painter.restore()
 
     painter.end()
     return rendered

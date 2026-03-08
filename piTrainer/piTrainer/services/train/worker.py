@@ -36,7 +36,9 @@ class TrainingWorker(QThread):
             self._review_rows = None
             self._review_x = None
             return
-        review_df = self.train_df[self.train_df['abs_image'].astype(str).map(lambda p: Path(p).exists())].copy().reset_index(drop=True)
+        review_df = self.train_df[self.train_df['abs_image'].astype(str).map(lambda p: Path(p).exists())].copy()
+        review_df['source_row_number'] = review_df.index.astype(int) + 1
+        review_df = review_df.reset_index(drop=True)
         if review_df.empty:
             self._review_rows = None
             self._review_x = None
@@ -76,6 +78,9 @@ class TrainingWorker(QThread):
             return {
                 'session': str(row.get('session', '')),
                 'frame_id': str(row.get('frame_id', '')),
+                'frame_number': str(row.get('frame_number', row.get('frame_no', row.get('source_row_number', idx + 1)))),
+                'review_frame_number': int(idx + 1),
+                'review_total': int(len(self._review_rows)),
                 'abs_image': str(row.get('abs_image', '')),
                 'steering_true': float(steering_true[idx]),
                 'steering_pred': float(steering_pred[idx]),

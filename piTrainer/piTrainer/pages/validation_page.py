@@ -8,12 +8,10 @@ from ..app_state import AppState
 from ..panels.common.log_panel import LogPanel
 from ..panels.validation.validation_actions_panel import ValidationActionsPanel
 from ..panels.validation.validation_config_panel import ValidationConfigPanel
+from ..panels.validation.validation_frame_review_panel import ValidationFrameReviewPanel
 from ..panels.validation.validation_plot_panel import ValidationPlotPanel
 from ..panels.validation.validation_summary_panel import ValidationSummaryPanel
-from ..services.validation.validation_service import (
-    build_validation_summary_text,
-    run_validation,
-)
+from ..services.validation.validation_service import build_validation_summary_text, run_validation
 from .dock_page import DockPage
 
 
@@ -32,6 +30,7 @@ class ValidationPage(DockPage):
             clear_callback=self.clear_results,
         )
         self.plot_panel = ValidationPlotPanel()
+        self.frame_review_panel = ValidationFrameReviewPanel()
         self.log_panel = LogPanel('Validation Log')
 
         self.build_default_layout()
@@ -47,16 +46,18 @@ class ValidationPage(DockPage):
         config_dock = self.add_panel('config', 'Validation Config', self.config_panel, Qt.LeftDockWidgetArea)
         actions_dock = self.add_panel('actions', 'Validation Actions', self.actions_panel, Qt.LeftDockWidgetArea)
         plot_dock = self.add_panel('plot', 'Validation Plot', self.plot_panel, Qt.RightDockWidgetArea)
+        frame_dock = self.add_panel('frame_review', 'Validation Frame Review', self.frame_review_panel, Qt.RightDockWidgetArea)
         log_dock = self.add_panel('log', 'Validation Log', self.log_panel, Qt.RightDockWidgetArea)
 
         self.splitDockWidget(summary_dock, config_dock, Qt.Vertical)
         self.splitDockWidget(config_dock, actions_dock, Qt.Vertical)
         self.splitDockWidget(summary_dock, plot_dock, Qt.Horizontal)
-        self.splitDockWidget(plot_dock, log_dock, Qt.Vertical)
+        self.splitDockWidget(plot_dock, frame_dock, Qt.Vertical)
+        self.splitDockWidget(frame_dock, log_dock, Qt.Vertical)
 
         self.resizeDocks([summary_dock, config_dock, actions_dock], [180, 260, 150], Qt.Vertical)
-        self.resizeDocks([plot_dock, log_dock], [480, 210], Qt.Vertical)
-        self.resizeDocks([summary_dock, plot_dock], [320, 720], Qt.Horizontal)
+        self.resizeDocks([plot_dock, frame_dock, log_dock], [290, 360, 190], Qt.Vertical)
+        self.resizeDocks([summary_dock, plot_dock], [320, 780], Qt.Horizontal)
 
     def refresh_from_state(self) -> None:
         self.summary_panel.set_model_state(
@@ -71,9 +72,11 @@ class ValidationPage(DockPage):
         if self.last_result:
             self.summary_panel.set_result_text(build_validation_summary_text(self.last_result))
             self.plot_panel.set_result(self.last_result)
+            self.frame_review_panel.set_result(self.last_result)
         else:
             self.summary_panel.set_result_text('No validation run yet. Choose a model source and click Run Validation.')
             self.plot_panel.set_result(None)
+            self.frame_review_panel.set_result(None)
 
     def browse_model(self) -> None:
         self.config_panel.browse_model_file(self)
@@ -118,6 +121,7 @@ class ValidationPage(DockPage):
         self.last_result = result
         self.summary_panel.set_result_text(build_validation_summary_text(result))
         self.plot_panel.set_result(result)
+        self.frame_review_panel.set_result(result)
         self.log_panel.append_line(
             'Validation complete: '
             f"rows={result['rows_used']}, steering_mae={result['steering_mae']:.4f}, speed_mae={result['throttle_mae']:.4f}"
@@ -128,6 +132,7 @@ class ValidationPage(DockPage):
     def clear_results(self) -> None:
         self.last_result = None
         self.plot_panel.set_result(None)
+        self.frame_review_panel.set_result(None)
         self.summary_panel.set_result_text('Validation results cleared.')
         self.log_panel.clear()
         self.main_window.set_status_message('Validation results cleared.')

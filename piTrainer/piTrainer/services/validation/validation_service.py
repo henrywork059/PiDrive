@@ -23,6 +23,7 @@ def _load_model(in_memory_model, model_source: str, model_path: str):
 
 def _prepare_inputs(dataset_df: pd.DataFrame, img_h: int, img_w: int, max_rows: int):
     rows = dataset_df.copy()
+    rows['source_row_number'] = rows.index.astype(int) + 1
     rows = rows[rows['abs_image'].astype(str).map(lambda p: Path(p).exists())].reset_index(drop=True)
     if max_rows and max_rows > 0:
         rows = rows.head(max_rows).reset_index(drop=True)
@@ -77,17 +78,23 @@ def run_validation(
 
     steering_error = steering_pred - steering_true
     throttle_error = throttle_pred - throttle_true
+    combined_error = np.abs(steering_error) + np.abs(throttle_error)
 
     return {
         'rows_used': int(len(rows)),
         'dataset_name': 'validation',
         'frame_ids': rows.get('frame_id', pd.Series(range(len(rows)))).astype(str).tolist(),
+        'frame_numbers': rows.get('frame_number', rows.get('frame_no', rows.get('source_row_number', pd.Series(range(1, len(rows) + 1))))).astype(str).tolist(),
+        'sessions': rows.get('session', pd.Series([''] * len(rows))).astype(str).tolist(),
+        'modes': rows.get('mode', pd.Series([''] * len(rows))).astype(str).tolist(),
+        'abs_images': rows.get('abs_image', pd.Series([''] * len(rows))).astype(str).tolist(),
         'steering_true': steering_true,
         'throttle_true': throttle_true,
         'steering_pred': steering_pred,
         'throttle_pred': throttle_pred,
         'steering_error': steering_error,
         'throttle_error': throttle_error,
+        'combined_error': combined_error,
         'steering_mae': float(np.mean(np.abs(steering_error))),
         'throttle_mae': float(np.mean(np.abs(throttle_error))),
         'steering_rmse': float(np.sqrt(np.mean(np.square(steering_error)))),
@@ -102,8 +109,38 @@ def build_validation_summary_text(result: dict) -> str:
         f"Rows used: {result['rows_used']}\n"
         f"Steering MAE / RMSE / Bias: {result['steering_mae']:.4f} / {result['steering_rmse']:.4f} / {result['steering_bias']:.4f}\n"
         f"Speed MAE / RMSE / Bias: {result['throttle_mae']:.4f} / {result['throttle_rmse']:.4f} / {result['throttle_bias']:.4f}\n"
-        'Use the plot panel to inspect prediction agreement and error spread.'
+        'Use the plot panel and frame-review panel to inspect prediction agreement and overlay differences.'
     )
+
+
+def validation_preview_rows(result: dict | None) -> list[dict]:
+    if not result:
+        return []
+    rows = []
+    total = int(result.get('rows_used', 0) or 0)
+    frame_ids = list(result.get('frame_ids', []))
+    frame_numbers = list(result.get('frame_numbers', []))
+    sessions = list(result.get('sessions', []))
+    steering_true = np.asarray(result.get('steering_true', []))
+    throttle_true = np.asarray(result.get('throttle_true', []))
+    steering_pred = np.asarray(result.get('steering_pred', []))
+    throttle_pred = np.asarray(result.get('throttle_pred', []))
+    combined_error = np.asarray(result.get('combined_error', []))
+    for idx in range(total):
+        rows.append(
+            {
+                'row_number': int(idx + 1),
+                'session': str(sessions[idx]) if idx < len(sessions) else '',
+                'frame_id': str(frame_ids[idx]) if idx < len(frame_ids) else '',
+                'frame_number': str(frame_numbers[idx]) if idx < len(frame_numbers) else '',
+                'target_steering': float(steering_true[idx]) if idx < len(steering_true) else 0.0,
+                'pred_steering': float(steering_pred[idx]) if idx < len(steering_pred) else 0.0,
+                'target_speed': float(throttle_true[idx]) if idx < len(throttle_true) else 0.0,
+                'pred_speed': float(throttle_pred[idx]) if idx < len(throttle_pred) else 0.0,
+                'combined_error': float(combined_error[idx]) if idx < len(combined_error) else 0.0,
+            }
+        )
+    return rows
 
 
 def render_validation_plot(ax, result: dict, plot_type: str) -> None:

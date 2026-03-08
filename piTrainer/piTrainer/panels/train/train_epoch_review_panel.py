@@ -3,6 +3,7 @@ from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QGridLayout, QGroupBox, QLabel, QVBoxLayout, QWidget
 
+from ...services.data.overlay_service import apply_prediction_comparison_overlay
 from ...utils.image_utils import load_scaled_pixmap
 
 
@@ -29,23 +30,41 @@ class _FrameReviewCard(QWidget):
             self.image.setText('No frame yet')
             self.meta.setText('')
             return
+
         pixmap = load_scaled_pixmap(str(payload.get('abs_image', '')), 300, 200)
         if pixmap is not None:
+            rendered = apply_prediction_comparison_overlay(
+                pixmap,
+                steering_true=float(payload.get('steering_true', 0.0) or 0.0),
+                speed_true=float(payload.get('throttle_true', 0.0) or 0.0),
+                steering_pred=float(payload.get('steering_pred', 0.0) or 0.0),
+                speed_pred=float(payload.get('throttle_pred', 0.0) or 0.0),
+            )
             self.image.setText('')
-            self.image.setPixmap(pixmap)
+            self.image.setPixmap(rendered)
         else:
             self.image.clear()
             self.image.setText('Image not available')
+
+        frame_id = str(payload.get('frame_id', '')).strip() or '(none)'
+        frame_number = str(payload.get('frame_number', '')).strip() or '(none)'
+        review_frame = int(payload.get('review_frame_number', 0) or 0)
+        review_total = int(payload.get('review_total', 0) or 0)
         self.meta.setText(
             (
                 'Session: {session}\n'
-                'Frame: {frame_id}\n'
+                'Frame ID: {frame_id}\n'
+                'Frame No.: {frame_number}\n'
+                'Review frame: {review_frame}/{review_total}\n'
                 'Combined error: {combined_error:.4f}\n'
-                'Steer GT/Pred: {steering_true:.3f} / {steering_pred:.3f}\n'
-                'Speed GT/Pred: {throttle_true:.3f} / {throttle_pred:.3f}'
+                'Target Steer/Speed: {steering_true:.3f} / {throttle_true:.3f}\n'
+                'Pred Steer/Speed: {steering_pred:.3f} / {throttle_pred:.3f}'
             ).format(
                 session=str(payload.get('session', '')),
-                frame_id=str(payload.get('frame_id', '')),
+                frame_id=frame_id,
+                frame_number=frame_number,
+                review_frame=review_frame,
+                review_total=review_total,
                 combined_error=float(payload.get('combined_error', 0.0) or 0.0),
                 steering_true=float(payload.get('steering_true', 0.0) or 0.0),
                 steering_pred=float(payload.get('steering_pred', 0.0) or 0.0),
@@ -79,7 +98,7 @@ class TrainEpochReviewPanel(QGroupBox):
             self.clear_review()
             return
         self.epoch_label.setText(
-            'Epoch {epoch}: current best-fit and worst-fit frames on the review sample.'.format(
+            'Epoch {epoch}: current best-fit and worst-fit frames with target vs predicted paths.'.format(
                 epoch=int(payload.get('epoch', 0) or 0)
             )
         )
