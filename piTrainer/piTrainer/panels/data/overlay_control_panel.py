@@ -8,16 +8,20 @@ class OverlayControlPanel(QGroupBox):
         super().__init__('Overlay Controls')
         self.change_callback = change_callback
 
-        help_label = QLabel('Choose which driving values to draw on top of the preview frame.')
+        help_label = QLabel('Choose which driving values to draw on top of the preview frame. Path Preview shows a likely short trajectory. Drive Arrow stays available as an optional debug view.')
         help_label.setProperty('role', 'muted')
         help_label.setWordWrap(True)
 
+        self.path_preview_cb = QCheckBox('Show path preview')
         self.speed_vertical_cb = QCheckBox('Show speed as vertical bar')
         self.steering_horizontal_cb = QCheckBox('Show steering as horizontal bar')
         self.steering_arc_cb = QCheckBox('Show steering as semi-circle bar')
-        self.drive_arrow_cb = QCheckBox('Show drive arrow (speed + steering)')
+        self.drive_arrow_cb = QCheckBox('Show drive arrow (optional debug)')
+
+        self.path_preview_cb.setChecked(True)
 
         for checkbox in [
+            self.path_preview_cb,
             self.speed_vertical_cb,
             self.steering_horizontal_cb,
             self.steering_arc_cb,
@@ -30,6 +34,7 @@ class OverlayControlPanel(QGroupBox):
 
         layout = QVBoxLayout(self)
         layout.addWidget(help_label)
+        layout.addWidget(self.path_preview_cb)
         layout.addWidget(self.speed_vertical_cb)
         layout.addWidget(self.steering_horizontal_cb)
         layout.addWidget(self.steering_arc_cb)
@@ -39,6 +44,7 @@ class OverlayControlPanel(QGroupBox):
 
     def options(self) -> dict[str, bool]:
         return {
+            'path_preview': self.path_preview_cb.isChecked(),
             'speed_vertical': self.speed_vertical_cb.isChecked(),
             'steering_horizontal': self.steering_horizontal_cb.isChecked(),
             'steering_arc': self.steering_arc_cb.isChecked(),
@@ -47,6 +53,7 @@ class OverlayControlPanel(QGroupBox):
 
     def reset(self) -> None:
         for checkbox in [
+            self.path_preview_cb,
             self.speed_vertical_cb,
             self.steering_horizontal_cb,
             self.steering_arc_cb,

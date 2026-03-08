@@ -63,6 +63,7 @@ class ImagePreviewPanel(QGroupBox):
         self.record_edited_callback = record_edited_callback
         self.current_record: dict[str, Any] | None = None
         self.overlay_options: dict[str, bool] = {
+            'path_preview': True,
             'speed_vertical': False,
             'steering_horizontal': False,
             'steering_arc': False,
@@ -122,6 +123,7 @@ class ImagePreviewPanel(QGroupBox):
 
     def set_overlay_options(self, options: dict[str, bool]) -> None:
         self.overlay_options = {
+            'path_preview': bool(options.get('path_preview', True)),
             'speed_vertical': bool(options.get('speed_vertical', False)),
             'steering_horizontal': bool(options.get('steering_horizontal', False)),
             'steering_arc': bool(options.get('steering_arc', False)),

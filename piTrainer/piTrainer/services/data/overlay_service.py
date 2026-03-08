@@ -4,7 +4,7 @@ from math import cos, radians, sin
 from typing import Any
 
 from PySide6.QtCore import QPointF, QRectF, Qt
-from PySide6.QtGui import QColor, QBrush, QPainter, QPen, QPixmap
+from PySide6.QtGui import QColor, QBrush, QPainter, QPainterPath, QPen, QPixmap
 
 
 def _to_float(value: Any, default: float = 0.0) -> float:
@@ -165,6 +165,62 @@ def _draw_steering_arc(painter: QPainter, pixmap: QPixmap, steering_value: float
     _draw_label(painter, QRectF(rect.left() - 8, rect.bottom() - 4, rect.width() + 16, 24), f"STR ARC {steering_value:.2f}")
 
 
+def _draw_path_preview(painter: QPainter, pixmap: QPixmap, steering_value: float, speed_value: float) -> None:
+    width = float(pixmap.width())
+    height = float(pixmap.height())
+    steering = clip_steering(steering_value)
+    speed = clip_speed(speed_value)
+
+    margin_x = max(18.0, width * 0.06)
+    margin_top = max(18.0, height * 0.08)
+    margin_bottom = max(22.0, height * 0.08)
+    start = QPointF(width / 2.0, height - margin_bottom)
+    span_x = max(28.0, (width / 2.0) - margin_x)
+    span_y = max(28.0, height - margin_top - margin_bottom)
+
+    travel = span_y * (0.18 + 0.82 * speed)
+    bend = steering * span_x
+    control_y_1 = start.y() - travel * 0.28
+    control_y_2 = start.y() - travel * 0.72
+    cp1 = QPointF(start.x() + bend * 0.18, control_y_1)
+    cp2 = QPointF(start.x() + bend * 0.78, control_y_2)
+    end = QPointF(start.x() + bend, start.y() - travel)
+
+    path = QPainterPath(start)
+    path.cubicTo(cp1, cp2, end)
+
+    painter.save()
+    painter.setRenderHint(QPainter.Antialiasing, True)
+
+    guide_pen = QPen(QColor(255, 255, 255, 70), 2, Qt.DashLine)
+    guide_pen.setCapStyle(Qt.RoundCap)
+    painter.setPen(guide_pen)
+    painter.drawLine(QPointF(start.x(), height - max(12.0, height * 0.04)), start)
+
+    glow_pen = QPen(QColor(36, 212, 255, 90), 10, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+    painter.setPen(glow_pen)
+    painter.drawPath(path)
+
+    path_pen = QPen(QColor(36, 212, 255, 235), 4, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+    painter.setPen(path_pen)
+    painter.drawPath(path)
+
+    start_brush = QColor(255, 255, 255, 220)
+    end_brush = QColor(36, 212, 255, 245)
+    painter.setPen(Qt.NoPen)
+    painter.setBrush(start_brush)
+    painter.drawEllipse(start, 4.0, 4.0)
+    painter.setBrush(end_brush)
+    painter.drawEllipse(end, 5.0, 5.0)
+    painter.restore()
+
+    _draw_label(
+        painter,
+        QRectF(start.x() - 102, max(6.0, start.y() - 60.0), 204, 24),
+        f"PATH SPD {speed_value:.2f} | STR {steering_value:.2f}",
+    )
+
+
 def _draw_drive_arrow(painter: QPainter, pixmap: QPixmap, steering_value: float, speed_value: float) -> None:
     width = float(pixmap.width())
     height = float(pixmap.height())
@@ -220,6 +276,8 @@ def apply_overlays(pixmap: QPixmap, record: dict[str, Any] | None, options: dict
         _draw_steering_bar(painter, rendered, steering_value)
     if options.get('steering_arc'):
         _draw_steering_arc(painter, rendered, steering_value)
+    if options.get('path_preview'):
+        _draw_path_preview(painter, rendered, steering_value, throttle_value)
     if options.get('drive_arrow'):
         _draw_drive_arrow(painter, rendered, steering_value, throttle_value)
 
