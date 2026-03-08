@@ -118,6 +118,17 @@ class MainWindow(QMainWindow):
         self.export_page.refresh_from_state()
         self.set_status_message('Training finished.')
 
+    def open_validation_frame_in_data_editor(self, record: dict | None) -> None:
+        if not record:
+            self.set_status_message('No validation frame selected to open in Data.')
+            return
+        self.tabs.setCurrentIndex(0)
+        ok = self.data_page.focus_record(record)
+        if ok:
+            self.set_status_message('Opened the validation frame in the Data editor.')
+        else:
+            self.set_status_message('Could not open that validation frame in the Data editor.')
+
     def closeEvent(self, event) -> None:
         self.data_page.save_layout()
         self.preprocess_page.save_layout()

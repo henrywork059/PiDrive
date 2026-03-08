@@ -3,8 +3,14 @@ from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QCheckBox,
+    QComboBox,
+    QDoubleSpinBox,
+    QGridLayout,
     QGroupBox,
+    QHBoxLayout,
     QLabel,
+    QPushButton,
     QSplitter,
     QTableWidget,
     QTableWidgetItem,
@@ -18,16 +24,32 @@ from ...utils.image_utils import load_scaled_pixmap
 
 
 class ValidationFrameReviewPanel(QGroupBox):
-    def __init__(self) -> None:
+    def __init__(self, edit_in_data_callback=None) -> None:
         super().__init__('Validation Frame Review')
+        self.edit_in_data_callback = edit_in_data_callback
         self.result: dict | None = None
+        self.all_rows: list[dict] = []
         self.rows: list[dict] = []
 
         self.help_label = QLabel(
-            'Browse validated frames and compare the target/trained path against the predicted path directly on the image.'
+            'Browse validated frames, filter bad predictions, and open a selected frame back in the Data tab for raw-label editing.'
         )
         self.help_label.setWordWrap(True)
         self.help_label.setProperty('role', 'muted')
+
+        self.bad_only_checkbox = QCheckBox('Show only bad predictions')
+        self.bad_only_checkbox.toggled.connect(self._apply_filters)
+        self.error_threshold_spin = QDoubleSpinBox()
+        self.error_threshold_spin.setRange(0.0, 10.0)
+        self.error_threshold_spin.setDecimals(3)
+        self.error_threshold_spin.setSingleStep(0.05)
+        self.error_threshold_spin.setValue(0.250)
+        self.error_threshold_spin.valueChanged.connect(self._apply_filters)
+        self.sort_combo = QComboBox()
+        self.sort_combo.addItems(['Worst first', 'Original order', 'Best first'])
+        self.sort_combo.currentTextChanged.connect(self._apply_filters)
+        self.count_label = QLabel('0 frame(s)')
+        self.count_label.setProperty('role', 'muted')
 
         self.table = QTableWidget(0, 0)
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
@@ -44,10 +66,33 @@ class ValidationFrameReviewPanel(QGroupBox):
         self.meta_label.setWordWrap(True)
         self.meta_label.setProperty('role', 'muted')
 
+        self.best_button = QPushButton('Best')
+        self.best_button.clicked.connect(self._select_best)
+        self.worst_button = QPushButton('Worst')
+        self.worst_button.clicked.connect(self._select_worst)
+        self.edit_button = QPushButton('Edit in Data')
+        self.edit_button.clicked.connect(self._edit_current_frame)
+
+        top_controls = QGridLayout()
+        top_controls.addWidget(self.bad_only_checkbox, 0, 0)
+        top_controls.addWidget(QLabel('Bad threshold'), 0, 1)
+        top_controls.addWidget(self.error_threshold_spin, 0, 2)
+        top_controls.addWidget(QLabel('Order'), 0, 3)
+        top_controls.addWidget(self.sort_combo, 0, 4)
+        top_controls.addWidget(self.count_label, 0, 5)
+        top_controls.setColumnStretch(5, 1)
+
+        action_row = QHBoxLayout()
+        action_row.addWidget(self.best_button)
+        action_row.addWidget(self.worst_button)
+        action_row.addStretch(1)
+        action_row.addWidget(self.edit_button)
+
         preview_widget = QWidget()
         preview_layout = QVBoxLayout(preview_widget)
         preview_layout.addWidget(self.image_label, 1)
         preview_layout.addWidget(self.meta_label)
+        preview_layout.addLayout(action_row)
 
         splitter = QSplitter(Qt.Vertical)
         splitter.addWidget(self.table)
@@ -57,23 +102,44 @@ class ValidationFrameReviewPanel(QGroupBox):
 
         layout = QVBoxLayout(self)
         layout.addWidget(self.help_label)
+        layout.addLayout(top_controls)
         layout.addWidget(splitter, 1)
 
     def set_result(self, result: dict | None) -> None:
         self.result = result
-        self.rows = validation_preview_rows(result)
+        self.all_rows = validation_preview_rows(result)
+        self._apply_filters()
+
+    def selected_row(self) -> dict | None:
+        selected = self.table.selectedItems()
+        if not selected:
+            return None
+        row_idx = selected[0].row()
+        if row_idx < 0 or row_idx >= len(self.rows):
+            return None
+        return self.rows[row_idx]
+
+    def _apply_filters(self) -> None:
+        rows = list(self.all_rows)
+        if self.bad_only_checkbox.isChecked():
+            threshold = float(self.error_threshold_spin.value())
+            rows = [row for row in rows if float(row.get('combined_error', 0.0) or 0.0) >= threshold]
+        order = self.sort_combo.currentText()
+        if order == 'Worst first':
+            rows.sort(key=lambda row: float(row.get('combined_error', 0.0) or 0.0), reverse=True)
+        elif order == 'Best first':
+            rows.sort(key=lambda row: float(row.get('combined_error', 0.0) or 0.0))
+        self.rows = rows
+        self._populate_table()
+        self.count_label.setText(f'{len(self.rows)} frame(s)')
+        self._refresh_preview()
+
+    def _populate_table(self) -> None:
         columns = [
-            'row_number',
-            'session',
-            'frame_id',
-            'frame_number',
-            'target_steering',
-            'pred_steering',
-            'target_speed',
-            'pred_speed',
-            'combined_error',
+            'row_number', 'session', 'frame_id', 'frame_number', 'mode',
+            'target_steering', 'pred_steering', 'target_speed', 'pred_speed', 'combined_error',
         ]
-        headers = ['Row', 'Session', 'Frame ID', 'Frame No.', 'Target Str', 'Pred Str', 'Target Spd', 'Pred Spd', 'Error']
+        headers = ['Row', 'Session', 'Frame ID', 'Frame No.', 'Mode', 'Target Str', 'Pred Str', 'Target Spd', 'Pred Spd', 'Error']
         self.table.clear()
         self.table.setRowCount(len(self.rows))
         self.table.setColumnCount(len(columns))
@@ -91,27 +157,35 @@ class ValidationFrameReviewPanel(QGroupBox):
         else:
             self.image_label.clear()
             self.image_label.setText('No validation frame selected.')
-            self.meta_label.setText('Run validation to populate frame overlays.')
+            self.meta_label.setText('Run validation to populate frame overlays or loosen the bad-frame filter.')
+
+    def _select_best(self) -> None:
+        if not self.rows:
+            return
+        best_index = min(range(len(self.rows)), key=lambda index: float(self.rows[index].get('combined_error', 0.0) or 0.0))
+        self.table.selectRow(best_index)
+        self._refresh_preview()
+
+    def _select_worst(self) -> None:
+        if not self.rows:
+            return
+        worst_index = max(range(len(self.rows)), key=lambda index: float(self.rows[index].get('combined_error', 0.0) or 0.0))
+        self.table.selectRow(worst_index)
+        self._refresh_preview()
+
+    def _edit_current_frame(self) -> None:
+        row = self.selected_row()
+        if row and self.edit_in_data_callback is not None:
+            self.edit_in_data_callback(dict(row))
 
     def _refresh_preview(self) -> None:
-        if not self.result or not self.rows:
-            self.image_label.clear()
-            self.image_label.setText('No validation frame selected.')
-            self.meta_label.setText('Run validation to populate frame overlays.')
-            return
-        selected = self.table.selectedItems()
-        if not selected:
+        row = self.selected_row()
+        if row is None:
             self.image_label.clear()
             self.image_label.setText('Select a validation row to preview it.')
             self.meta_label.setText('')
             return
-        row_idx = selected[0].row()
-        if row_idx < 0 or row_idx >= len(self.rows):
-            return
-        row = self.rows[row_idx]
-        abs_images = list(self.result.get('abs_images', []))
-        image_path = abs_images[row_idx] if row_idx < len(abs_images) else ''
-        pixmap = load_scaled_pixmap(str(image_path), 620, 420)
+        pixmap = load_scaled_pixmap(str(row.get('abs_image', '')), 620, 420)
         if pixmap is None:
             self.image_label.clear()
             self.image_label.setText('Image not available')
@@ -127,13 +201,14 @@ class ValidationFrameReviewPanel(QGroupBox):
             self.image_label.setPixmap(rendered)
         self.meta_label.setText(
             (
-                'Row {row_number} | Session: {session} | Frame ID: {frame_id} | Frame No.: {frame_number}\n'
+                'Row {row_number} | Session: {session} | Mode: {mode} | Frame ID: {frame_id} | Frame No.: {frame_number}\n'
                 'Target Steer/Speed: {target_steering:.3f} / {target_speed:.3f} | '
                 'Pred Steer/Speed: {pred_steering:.3f} / {pred_speed:.3f} | '
                 'Combined error: {combined_error:.4f}'
             ).format(
                 row_number=int(row.get('row_number', 0) or 0),
                 session=str(row.get('session', '')),
+                mode=str(row.get('mode', '')),
                 frame_id=str(row.get('frame_id', '')),
                 frame_number=str(row.get('frame_number', '')),
                 target_steering=float(row.get('target_steering', 0.0) or 0.0),

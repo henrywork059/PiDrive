@@ -26,6 +26,9 @@ class TrainConfigPanel(QGroupBox):
         self.dropout_rate = QDoubleSpinBox(); self.dropout_rate.setRange(0.0, 0.8); self.dropout_rate.setDecimals(2); self.dropout_rate.setSingleStep(0.05); self.dropout_rate.setValue(float(getattr(cfg, 'dropout_rate', 0.2) or 0.2))
         self.steering_loss_weight = QDoubleSpinBox(); self.steering_loss_weight.setRange(0.1, 10.0); self.steering_loss_weight.setDecimals(2); self.steering_loss_weight.setSingleStep(0.1); self.steering_loss_weight.setValue(float(getattr(cfg, 'steering_loss_weight', 1.0) or 1.0))
         self.throttle_loss_weight = QDoubleSpinBox(); self.throttle_loss_weight.setRange(0.1, 10.0); self.throttle_loss_weight.setDecimals(2); self.throttle_loss_weight.setSingleStep(0.1); self.throttle_loss_weight.setValue(float(getattr(cfg, 'throttle_loss_weight', 1.0) or 1.0))
+        self.clipnorm = QDoubleSpinBox(); self.clipnorm.setRange(0.0, 10.0); self.clipnorm.setDecimals(2); self.clipnorm.setSingleStep(0.1); self.clipnorm.setValue(float(getattr(cfg, 'clipnorm', 0.0) or 0.0))
+        self.l2_reg = QDoubleSpinBox(); self.l2_reg.setRange(0.0, 0.1); self.l2_reg.setDecimals(5); self.l2_reg.setSingleStep(0.0005); self.l2_reg.setValue(float(getattr(cfg, 'l2_reg', 0.0) or 0.0))
+        self.review_sample_count = QSpinBox(); self.review_sample_count.setRange(4, 256); self.review_sample_count.setSingleStep(4); self.review_sample_count.setValue(int(getattr(cfg, 'review_sample_count', 24) or 24))
 
         self.early_stopping = QCheckBox('Enable early stopping'); self.early_stopping.setChecked(getattr(cfg, 'early_stopping', True))
         self.early_stopping_patience = QSpinBox(); self.early_stopping_patience.setRange(1, 100); self.early_stopping_patience.setValue(getattr(cfg, 'early_stopping_patience', 4))
@@ -49,6 +52,9 @@ class TrainConfigPanel(QGroupBox):
         layout.addRow("Dropout rate", self.dropout_rate)
         layout.addRow("Steering loss weight", self.steering_loss_weight)
         layout.addRow("Speed loss weight", self.throttle_loss_weight)
+        layout.addRow("Gradient clipnorm", self.clipnorm)
+        layout.addRow("L2 regularization", self.l2_reg)
+        layout.addRow("Epoch review samples", self.review_sample_count)
         layout.addRow("Random seed", self.seed)
         layout.addRow(self.early_stopping)
         layout.addRow("Early-stop patience", self.early_stopping_patience)
@@ -71,4 +77,4 @@ class TrainConfigPanel(QGroupBox):
 
     def push_to_state(self) -> None:
         cfg = self.state.train_config
-        cfg.img_h = self.img_h.value(); cfg.img_w = self.img_w.value(); cfg.batch_size = self.batch_size.value(); cfg.epochs = self.epochs.value(); cfg.learning_rate = self.learning_rate.value(); cfg.val_ratio = self.val_ratio.value(); cfg.model_size = self.model_size.currentText(); cfg.seed = self.seed.value(); cfg.early_stopping = self.early_stopping.isChecked(); cfg.early_stopping_patience = self.early_stopping_patience.value(); cfg.reduce_lr_on_plateau = self.reduce_lr.isChecked(); cfg.reduce_lr_patience = self.reduce_lr_patience.value(); cfg.reduce_lr_factor = self.reduce_lr_factor.value(); cfg.only_manual = self.only_manual.isChecked(); cfg.augment = self.augment.isChecked(); cfg.shuffle = self.shuffle.isChecked(); cfg.split_mode = self.split_mode.currentText(); cfg.session_split = cfg.split_mode == 'By session'; cfg.dropout_rate = self.dropout_rate.value(); cfg.steering_loss_weight = self.steering_loss_weight.value(); cfg.throttle_loss_weight = self.throttle_loss_weight.value()
+        cfg.img_h = self.img_h.value(); cfg.img_w = self.img_w.value(); cfg.batch_size = self.batch_size.value(); cfg.epochs = self.epochs.value(); cfg.learning_rate = self.learning_rate.value(); cfg.val_ratio = self.val_ratio.value(); cfg.model_size = self.model_size.currentText(); cfg.seed = self.seed.value(); cfg.early_stopping = self.early_stopping.isChecked(); cfg.early_stopping_patience = self.early_stopping_patience.value(); cfg.reduce_lr_on_plateau = self.reduce_lr.isChecked(); cfg.reduce_lr_patience = self.reduce_lr_patience.value(); cfg.reduce_lr_factor = self.reduce_lr_factor.value(); cfg.only_manual = self.only_manual.isChecked(); cfg.augment = self.augment.isChecked(); cfg.shuffle = self.shuffle.isChecked(); cfg.split_mode = self.split_mode.currentText(); cfg.session_split = cfg.split_mode == 'By session'; cfg.dropout_rate = self.dropout_rate.value(); cfg.steering_loss_weight = self.steering_loss_weight.value(); cfg.throttle_loss_weight = self.throttle_loss_weight.value(); cfg.clipnorm = self.clipnorm.value(); cfg.l2_reg = self.l2_reg.value(); cfg.review_sample_count = self.review_sample_count.value()

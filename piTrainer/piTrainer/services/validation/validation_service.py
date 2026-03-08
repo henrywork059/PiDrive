@@ -87,6 +87,7 @@ def run_validation(
         'frame_numbers': rows.get('frame_number', rows.get('frame_no', rows.get('source_row_number', pd.Series(range(1, len(rows) + 1))))).astype(str).tolist(),
         'sessions': rows.get('session', pd.Series([''] * len(rows))).astype(str).tolist(),
         'modes': rows.get('mode', pd.Series([''] * len(rows))).astype(str).tolist(),
+        'timestamps': rows.get('ts', pd.Series([''] * len(rows))).astype(str).tolist(),
         'abs_images': rows.get('abs_image', pd.Series([''] * len(rows))).astype(str).tolist(),
         'steering_true': steering_true,
         'throttle_true': throttle_true,
@@ -109,7 +110,7 @@ def build_validation_summary_text(result: dict) -> str:
         f"Rows used: {result['rows_used']}\n"
         f"Steering MAE / RMSE / Bias: {result['steering_mae']:.4f} / {result['steering_rmse']:.4f} / {result['steering_bias']:.4f}\n"
         f"Speed MAE / RMSE / Bias: {result['throttle_mae']:.4f} / {result['throttle_rmse']:.4f} / {result['throttle_bias']:.4f}\n"
-        'Use the plot panel and frame-review panel to inspect prediction agreement and overlay differences.'
+        'Use the plot panel and frame-review panel to inspect prediction agreement, bad frames, and overlay differences.'
     )
 
 
@@ -121,6 +122,9 @@ def validation_preview_rows(result: dict | None) -> list[dict]:
     frame_ids = list(result.get('frame_ids', []))
     frame_numbers = list(result.get('frame_numbers', []))
     sessions = list(result.get('sessions', []))
+    modes = list(result.get('modes', []))
+    timestamps = list(result.get('timestamps', []))
+    abs_images = list(result.get('abs_images', []))
     steering_true = np.asarray(result.get('steering_true', []))
     throttle_true = np.asarray(result.get('throttle_true', []))
     steering_pred = np.asarray(result.get('steering_pred', []))
@@ -129,10 +133,14 @@ def validation_preview_rows(result: dict | None) -> list[dict]:
     for idx in range(total):
         rows.append(
             {
+                'result_index': int(idx),
                 'row_number': int(idx + 1),
                 'session': str(sessions[idx]) if idx < len(sessions) else '',
+                'mode': str(modes[idx]) if idx < len(modes) else '',
                 'frame_id': str(frame_ids[idx]) if idx < len(frame_ids) else '',
                 'frame_number': str(frame_numbers[idx]) if idx < len(frame_numbers) else '',
+                'ts': str(timestamps[idx]) if idx < len(timestamps) else '',
+                'abs_image': str(abs_images[idx]) if idx < len(abs_images) else '',
                 'target_steering': float(steering_true[idx]) if idx < len(steering_true) else 0.0,
                 'pred_steering': float(steering_pred[idx]) if idx < len(steering_pred) else 0.0,
                 'target_speed': float(throttle_true[idx]) if idx < len(throttle_true) else 0.0,

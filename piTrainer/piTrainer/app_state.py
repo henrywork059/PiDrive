@@ -30,6 +30,9 @@ class TrainConfig:
     dropout_rate: float = 0.2
     steering_loss_weight: float = 1.0
     throttle_loss_weight: float = 1.0
+    clipnorm: float = 0.0
+    l2_reg: float = 0.0
+    review_sample_count: int = 24
 
 
 @dataclass

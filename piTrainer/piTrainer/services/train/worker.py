@@ -43,7 +43,7 @@ class TrainingWorker(QThread):
             self._review_rows = None
             self._review_x = None
             return
-        sample_size = min(24, len(review_df))
+        sample_size = min(max(4, int(getattr(self.config, 'review_sample_count', 24) or 24)), len(review_df))
         if len(review_df) > sample_size:
             review_df = review_df.sample(n=sample_size, random_state=int(getattr(self.config, 'seed', 42) or 42)).reset_index(drop=True)
         from PIL import Image
@@ -117,8 +117,24 @@ class TrainingWorker(QThread):
                 self.log_message.emit(f'Prepared {len(self._review_rows)} review frame(s) for epoch best/worst inspection.')
 
             self.log_message.emit(f"Building model ({self.config.model_size})...")
-            model = build_model(self.config.img_h, self.config.img_w, self.config.model_size, float(getattr(self.config, 'dropout_rate', 0.2) or 0.2))
-            model = compile_model(model, self.config.learning_rate, float(getattr(self.config, 'steering_loss_weight', 1.0) or 1.0), float(getattr(self.config, 'throttle_loss_weight', 1.0) or 1.0))
+            model = build_model(
+                self.config.img_h,
+                self.config.img_w,
+                self.config.model_size,
+                float(getattr(self.config, 'dropout_rate', 0.2) or 0.2),
+                float(getattr(self.config, 'l2_reg', 0.0) or 0.0),
+            )
+            model = compile_model(
+                model,
+                self.config.learning_rate,
+                float(getattr(self.config, 'steering_loss_weight', 1.0) or 1.0),
+                float(getattr(self.config, 'throttle_loss_weight', 1.0) or 1.0),
+                float(getattr(self.config, 'clipnorm', 0.0) or 0.0),
+            )
+            if float(getattr(self.config, 'clipnorm', 0.0) or 0.0) > 0.0:
+                self.log_message.emit(f'Enabled gradient clipnorm = {float(getattr(self.config, "clipnorm", 0.0) or 0.0):.2f}.')
+            if float(getattr(self.config, 'l2_reg', 0.0) or 0.0) > 0.0:
+                self.log_message.emit(f'Enabled L2 regularization = {float(getattr(self.config, "l2_reg", 0.0) or 0.0):.5f}.')
 
             worker = self
             monitor = 'val_loss' if val_ds is not None else 'loss'

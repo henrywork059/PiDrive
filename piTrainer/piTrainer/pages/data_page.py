@@ -146,6 +146,28 @@ class DataPage(DockPage):
         self.apply_preview_filter()
         self.main_window.on_dataset_loaded()
 
+    def focus_record(self, record: dict | None) -> bool:
+        if not record:
+            return False
+        session = str(record.get('session', '')).strip()
+        if not session:
+            return False
+
+        current_sessions = set(self.state.dataset_df.get('session', pd.Series(dtype=str)).astype(str).tolist()) if not self.state.dataset_df.empty else set()
+        need_reload = session not in current_sessions
+        self.state.selected_sessions = [session]
+        self.session_source_panel.set_selected_sessions([session])
+        if need_reload:
+            self._load_sessions([session])
+
+        identity = self._record_identity(record)
+        self.filter_panel.reset()
+        self.apply_preview_filter(select_identity=identity)
+        found = self.preview_panel.select_record_identity(identity)
+        if found:
+            self.on_preview_record_selected(self.preview_panel.selected_record())
+        return bool(found)
+
     def merge_selected_sessions(self) -> None:
         selected = self.session_source_panel.selected_sessions()
         if len(selected) < 2:

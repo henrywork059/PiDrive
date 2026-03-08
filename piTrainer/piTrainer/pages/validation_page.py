@@ -30,7 +30,7 @@ class ValidationPage(DockPage):
             clear_callback=self.clear_results,
         )
         self.plot_panel = ValidationPlotPanel()
-        self.frame_review_panel = ValidationFrameReviewPanel()
+        self.frame_review_panel = ValidationFrameReviewPanel(edit_in_data_callback=self.main_window.open_validation_frame_in_data_editor)
         self.log_panel = LogPanel('Validation Log')
 
         self.build_default_layout()
