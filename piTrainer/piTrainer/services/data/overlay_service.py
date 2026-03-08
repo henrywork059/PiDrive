@@ -166,24 +166,39 @@ def _draw_steering_arc(painter: QPainter, pixmap: QPixmap, steering_value: float
     _draw_label(painter, QRectF(rect.left() - 8, rect.bottom() - 4, rect.width() + 16, 24), f"STR ARC {steering_value:.2f}")
 
 
-def _path_geometry(width: float, height: float, steering_value: float, speed_value: float) -> tuple[QPointF, QPointF]:
+def _path_geometry(width: float, height: float, steering_value: float, speed_value: float) -> tuple[QPointF, QPointF, QPointF, QPointF]:
     start, end = drive_arrow_points(width, height, steering_value, speed_value)
-    return start, end
-
-
-def _sample_path_points(start: QPointF, end: QPointF, steering_value: float, steps: int = 28) -> list[QPointF]:
+    steering = clip_steering(steering_value)
+    speed = clip_speed(speed_value)
     lateral = end.x() - start.x()
-    vertical = end.y() - start.y()
-    steering = abs(clip_steering(steering_value))
-    curve_power = 2.15 - 0.65 * steering
-    curve_power = max(1.25, min(2.15, curve_power))
-    points: list[QPointF] = []
-    for index in range(steps + 1):
-        t = index / float(steps)
-        x = start.x() + lateral * (t ** curve_power)
-        y = start.y() + vertical * t
-        points.append(QPointF(x, y))
-    return points
+    vertical = max(18.0, start.y() - end.y())
+    abs_steer = abs(steering)
+
+    # Start tangent is almost vertical so the motion reads like the car moving forward first,
+    # then progressively turning toward the target point.
+    entry_lift = vertical * (0.30 + 0.08 * speed)
+    control_1 = QPointF(start.x(), start.y() - entry_lift)
+
+    # End tangent leans into the turn so the path looks like a real turning motion rather
+    # than a generic vector bent toward the endpoint.
+    exit_run = max(abs(lateral) * 0.55, width * (0.08 + 0.10 * abs_steer))
+    exit_drop = vertical * (0.16 + 0.18 * abs_steer)
+    if lateral >= 0:
+        control_2 = QPointF(end.x() - exit_run, end.y() + exit_drop)
+    else:
+        control_2 = QPointF(end.x() + exit_run, end.y() + exit_drop)
+    return start, control_1, control_2, end
+
+
+def _cubic_point(start: QPointF, control_1: QPointF, control_2: QPointF, end: QPointF, t: float) -> QPointF:
+    u = 1.0 - t
+    x = (u ** 3) * start.x() + 3 * (u ** 2) * t * control_1.x() + 3 * u * (t ** 2) * control_2.x() + (t ** 3) * end.x()
+    y = (u ** 3) * start.y() + 3 * (u ** 2) * t * control_1.y() + 3 * u * (t ** 2) * control_2.y() + (t ** 3) * end.y()
+    return QPointF(x, y)
+
+
+def _sample_path_points(start: QPointF, control_1: QPointF, control_2: QPointF, end: QPointF, steps: int = 32) -> list[QPointF]:
+    return [_cubic_point(start, control_1, control_2, end, index / float(steps)) for index in range(steps + 1)]
 
 
 def _offset_polyline(points: list[QPointF], offset: float) -> list[QPointF]:
@@ -221,9 +236,9 @@ def _draw_single_path(
 ) -> None:
     width = float(pixmap.width())
     height = float(pixmap.height())
-    start, end = _path_geometry(width, height, steering_value, speed_value)
-    center_points = _sample_path_points(start, end, steering_value)
-    lane_half_width = max(7.0, min(width, height) * 0.014)
+    start, control_1, control_2, end = _path_geometry(width, height, steering_value, speed_value)
+    center_points = _sample_path_points(start, control_1, control_2, end)
+    lane_half_width = max(7.0, min(width, height) * (0.014 + 0.005 * abs(clip_steering(steering_value))))
     left_points = _offset_polyline(center_points, -lane_half_width)
     right_points = _offset_polyline(center_points, lane_half_width)
 
@@ -254,8 +269,6 @@ def _draw_single_path(
     painter.drawEllipse(start, 4.0, 4.0)
     painter.setBrush(main_color)
     painter.drawEllipse(end, 6.0, 6.0)
-    painter.setPen(QPen(main_color, 2, Qt.DashLine))
-    painter.drawLine(QPointF(width / 2.0, end.y()), end)
     painter.restore()
 
     if label:

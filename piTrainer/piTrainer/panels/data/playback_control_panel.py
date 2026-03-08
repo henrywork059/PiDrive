@@ -42,8 +42,8 @@ class PlaybackControlPanel(QGroupBox):
 
         speed_label = QLabel('Speed (frames/sec)')
         self.speed_spin = QDoubleSpinBox()
-        self.speed_spin.setRange(0.5, 30.0)
-        self.speed_spin.setSingleStep(0.5)
+        self.speed_spin.setRange(0.5, 100.0)
+        self.speed_spin.setSingleStep(1.0)
         self.speed_spin.setDecimals(1)
         self.speed_spin.setValue(4.0)
         self.speed_spin.valueChanged.connect(self.speed_change_callback)
