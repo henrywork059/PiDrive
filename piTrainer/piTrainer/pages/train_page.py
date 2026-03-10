@@ -42,9 +42,7 @@ class TrainPage(DockPage):
         self.restore_layout()
 
     def build_default_layout(self) -> None:
-        for dock in self.findChildren(QDockWidget):
-            self.removeDockWidget(dock)
-            dock.deleteLater()
+        self.clear_docks()
         summary_dock = self.add_panel('summary', 'Split Summary', self.split_summary_panel, Qt.LeftDockWidgetArea)
         config_dock = self.add_panel('config', 'Training Config', self.config_panel, Qt.LeftDockWidgetArea)
         control_dock = self.add_panel('control', 'Training Controls', self.control_panel, Qt.LeftDockWidgetArea)
@@ -56,9 +54,9 @@ class TrainPage(DockPage):
         self.splitDockWidget(summary_dock, review_dock, Qt.Horizontal)
         self.splitDockWidget(review_dock, history_dock, Qt.Vertical)
         self.splitDockWidget(history_dock, log_dock, Qt.Vertical)
-        self.resizeDocks([summary_dock, config_dock, control_dock], [140, 380, 170], Qt.Vertical)
-        self.resizeDocks([review_dock, history_dock, log_dock], [330, 300, 180], Qt.Vertical)
-        self.resizeDocks([summary_dock, review_dock], [320, 700], Qt.Horizontal)
+        self.resizeDocks([summary_dock, config_dock, control_dock], [170, 430, 150], Qt.Vertical)
+        self.resizeDocks([review_dock, history_dock, log_dock], [360, 230, 160], Qt.Vertical)
+        self.resizeDocks([summary_dock, review_dock], [340, 780], Qt.Horizontal)
 
     def refresh_from_state(self) -> None:
         self.split_summary_panel.set_counts(

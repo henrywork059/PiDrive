@@ -63,41 +63,41 @@ class DataPage(DockPage):
         self.preview_panel.set_playback_fps(self.playback_panel.playback_fps())
 
     def build_default_layout(self) -> None:
-        for dock in self.findChildren(QDockWidget):
-            self.removeDockWidget(dock)
-            dock.deleteLater()
+        self.clear_docks()
 
         source_dock = self.add_panel('session_source', 'Session Source', self.session_source_panel, Qt.LeftDockWidgetArea)
-        merge_dock = self.add_panel('merge_sessions', 'Merge Sessions', self.merge_sessions_panel, Qt.LeftDockWidgetArea)
         filter_dock = self.add_panel('frame_filter', 'Frame Filter', self.filter_panel, Qt.LeftDockWidgetArea)
+        action_dock = self.add_panel('data_actions', 'Data Actions', self.data_actions_panel, Qt.LeftDockWidgetArea)
         overlay_dock = self.add_panel('overlay_controls', 'Overlay Controls', self.overlay_panel, Qt.LeftDockWidgetArea)
         playback_dock = self.add_panel('playback_control', 'Playback Control', self.playback_panel, Qt.LeftDockWidgetArea)
-        action_dock = self.add_panel('data_actions', 'Data Actions', self.data_actions_panel, Qt.LeftDockWidgetArea)
+        merge_dock = self.add_panel('merge_sessions', 'Merge Sessions', self.merge_sessions_panel, Qt.LeftDockWidgetArea)
         control_dock = self.add_panel('data_control', 'Data Control', self.data_control_panel, Qt.LeftDockWidgetArea)
+
         preview_dock = self.add_panel('record_preview', 'Record Preview', self.preview_panel, Qt.RightDockWidgetArea)
         image_dock = self.add_panel('image_preview', 'Image Preview', self.image_preview_panel, Qt.RightDockWidgetArea)
         plot_dock = self.add_panel('data_plot', 'Data Plot', self.plot_panel, Qt.RightDockWidgetArea)
         stats_dock = self.add_panel('stats', 'Dataset Stats', self.stats_panel, Qt.RightDockWidgetArea)
 
-        self.splitDockWidget(source_dock, merge_dock, Qt.Vertical)
-        self.splitDockWidget(merge_dock, filter_dock, Qt.Vertical)
-        self.splitDockWidget(filter_dock, overlay_dock, Qt.Vertical)
+        self.splitDockWidget(source_dock, filter_dock, Qt.Vertical)
+        self.splitDockWidget(filter_dock, action_dock, Qt.Vertical)
+        self.splitDockWidget(action_dock, overlay_dock, Qt.Vertical)
         self.splitDockWidget(overlay_dock, playback_dock, Qt.Vertical)
-        self.splitDockWidget(playback_dock, action_dock, Qt.Vertical)
-        self.splitDockWidget(action_dock, control_dock, Qt.Vertical)
+        self.splitDockWidget(playback_dock, merge_dock, Qt.Vertical)
+        self.splitDockWidget(merge_dock, control_dock, Qt.Vertical)
 
         self.splitDockWidget(source_dock, preview_dock, Qt.Horizontal)
         self.splitDockWidget(preview_dock, image_dock, Qt.Horizontal)
-        self.splitDockWidget(image_dock, plot_dock, Qt.Vertical)
-        self.splitDockWidget(plot_dock, stats_dock, Qt.Vertical)
+        self.splitDockWidget(preview_dock, plot_dock, Qt.Vertical)
+        self.splitDockWidget(image_dock, stats_dock, Qt.Vertical)
 
         self.resizeDocks(
-            [source_dock, merge_dock, filter_dock, overlay_dock, playback_dock, action_dock, control_dock],
-            [340, 150, 230, 190, 150, 130, 100],
+            [source_dock, filter_dock, action_dock, overlay_dock, playback_dock, merge_dock, control_dock],
+            [220, 220, 120, 160, 150, 150, 110],
             Qt.Vertical,
         )
-        self.resizeDocks([image_dock, plot_dock, stats_dock], [430, 300, 180], Qt.Vertical)
-        self.resizeDocks([source_dock, preview_dock, image_dock], [360, 560, 420], Qt.Horizontal)
+        self.resizeDocks([preview_dock, plot_dock], [470, 220], Qt.Vertical)
+        self.resizeDocks([image_dock, stats_dock], [470, 170], Qt.Vertical)
+        self.resizeDocks([source_dock, preview_dock, image_dock], [320, 590, 490], Qt.Horizontal)
 
     @staticmethod
     def _record_identity(record) -> tuple[str, str, str, str]:

@@ -49,9 +49,7 @@ class PreprocessPage(DockPage):
         self.refresh_from_state()
 
     def build_default_layout(self) -> None:
-        for dock in self.findChildren(QDockWidget):
-            self.removeDockWidget(dock)
-            dock.deleteLater()
+        self.clear_docks()
 
         summary_dock = self.add_panel('summary', 'Source Summary', self.summary_panel, Qt.LeftDockWidgetArea)
         filter_dock = self.add_panel('filter', 'Preprocess Filters', self.filter_panel, Qt.LeftDockWidgetArea)
@@ -66,9 +64,9 @@ class PreprocessPage(DockPage):
         self.splitDockWidget(summary_dock, result_dock, Qt.Horizontal)
         self.splitDockWidget(result_dock, log_dock, Qt.Vertical)
 
-        self.resizeDocks([summary_dock, filter_dock, config_dock, actions_dock], [170, 340, 240, 190], Qt.Vertical)
-        self.resizeDocks([result_dock, log_dock], [440, 220], Qt.Vertical)
-        self.resizeDocks([summary_dock, result_dock], [340, 700], Qt.Horizontal)
+        self.resizeDocks([summary_dock, filter_dock, config_dock, actions_dock], [180, 300, 250, 170], Qt.Vertical)
+        self.resizeDocks([result_dock, log_dock], [520, 170], Qt.Vertical)
+        self.resizeDocks([summary_dock, result_dock], [330, 760], Qt.Horizontal)
 
     def _load_saved_recipe_if_available(self) -> None:
         recipe = load_preprocess_settings(self.state.out_dir_path)

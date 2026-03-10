@@ -29,6 +29,12 @@ class DockPage(QMainWindow):
         widget.setObjectName(f"{self.page_id}_workspace_widget")
         self.setCentralWidget(widget)
 
+
+    def clear_docks(self) -> None:
+        for dock in self.findChildren(QDockWidget):
+            self.removeDockWidget(dock)
+            dock.deleteLater()
+
     def add_panel(self, panel_id: str, title: str, widget: QWidget, area: Qt.DockWidgetArea) -> QDockWidget:
         dock = QDockWidget(title, self)
         dock.setObjectName(f"{self.page_id}_{panel_id}_dock")

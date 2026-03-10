@@ -26,9 +26,7 @@ class ExportPage(DockPage):
         self.restore_layout()
 
     def build_default_layout(self) -> None:
-        for dock in self.findChildren(QDockWidget):
-            self.removeDockWidget(dock)
-            dock.deleteLater()
+        self.clear_docks()
         status_dock = self.add_panel('status', 'Model Status', self.model_status_panel, Qt.LeftDockWidgetArea)
         options_dock = self.add_panel('options', 'Export Options', self.options_panel, Qt.LeftDockWidgetArea)
         actions_dock = self.add_panel('actions', 'Export Actions', self.actions_panel, Qt.LeftDockWidgetArea)
@@ -36,8 +34,8 @@ class ExportPage(DockPage):
         self.splitDockWidget(status_dock, options_dock, Qt.Vertical)
         self.splitDockWidget(options_dock, actions_dock, Qt.Vertical)
         self.splitDockWidget(status_dock, log_dock, Qt.Horizontal)
-        self.resizeDocks([status_dock, options_dock, actions_dock], [150, 260, 150], Qt.Vertical)
-        self.resizeDocks([status_dock, log_dock], [280, 620], Qt.Horizontal)
+        self.resizeDocks([status_dock, options_dock, actions_dock], [170, 310, 150], Qt.Vertical)
+        self.resizeDocks([status_dock, log_dock], [320, 760], Qt.Horizontal)
 
     def refresh_from_state(self) -> None:
         model_ready = self.state.model is not None

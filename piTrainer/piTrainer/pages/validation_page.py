@@ -38,9 +38,7 @@ class ValidationPage(DockPage):
         self.refresh_from_state()
 
     def build_default_layout(self) -> None:
-        for dock in self.findChildren(QDockWidget):
-            self.removeDockWidget(dock)
-            dock.deleteLater()
+        self.clear_docks()
 
         summary_dock = self.add_panel('summary', 'Validation Summary', self.summary_panel, Qt.LeftDockWidgetArea)
         config_dock = self.add_panel('config', 'Validation Config', self.config_panel, Qt.LeftDockWidgetArea)
@@ -55,9 +53,9 @@ class ValidationPage(DockPage):
         self.splitDockWidget(plot_dock, frame_dock, Qt.Vertical)
         self.splitDockWidget(frame_dock, log_dock, Qt.Vertical)
 
-        self.resizeDocks([summary_dock, config_dock, actions_dock], [180, 260, 150], Qt.Vertical)
-        self.resizeDocks([plot_dock, frame_dock, log_dock], [290, 360, 190], Qt.Vertical)
-        self.resizeDocks([summary_dock, plot_dock], [320, 780], Qt.Horizontal)
+        self.resizeDocks([summary_dock, config_dock, actions_dock], [170, 290, 150], Qt.Vertical)
+        self.resizeDocks([plot_dock, frame_dock, log_dock], [250, 430, 150], Qt.Vertical)
+        self.resizeDocks([summary_dock, plot_dock], [340, 780], Qt.Horizontal)
 
     def refresh_from_state(self) -> None:
         self.summary_panel.set_model_state(
