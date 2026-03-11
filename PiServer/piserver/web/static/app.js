@@ -286,14 +286,39 @@ function workspaceMetrics() {
   };
 }
 
+function dockingEnabled() {
+  return window.innerWidth > 700;
+}
+
+function pointFromEvent(event) {
+  if (event.touches && event.touches.length) return event.touches[0];
+  if (event.changedTouches && event.changedTouches.length) return event.changedTouches[0];
+  return event;
+}
+
+function finishDockInteraction() {
+  if (state.dragging) {
+    state.dragging.panel.classList.remove("dragging");
+    state.dragging = null;
+    saveLayout(state.page, currentLayout());
+  }
+  if (state.resizing) {
+    state.resizing.panel.classList.remove("resizing");
+    state.resizing = null;
+    saveLayout(state.page, currentLayout());
+  }
+}
+
 function setupDocking() {
-  if (window.matchMedia("(max-width: 960px)").matches) return;
+  const usePointer = !!window.PointerEvent;
   panelEls().forEach((panel) => {
     const head = panel.querySelector(".panel-head");
     const handle = panel.querySelector(".resize-handle");
 
-    head.addEventListener("pointerdown", (event) => {
-      if (event.target.closest("button, select, input, label")) return;
+    const startDrag = (rawEvent) => {
+      if (!dockingEnabled()) return;
+      const event = pointFromEvent(rawEvent);
+      if (rawEvent.target && rawEvent.target.closest && rawEvent.target.closest("button, select, input, label")) return;
       const { rect, cellW, cellH } = workspaceMetrics();
       const box = readPanelBox(panel);
       panel.classList.add("dragging");
@@ -303,10 +328,13 @@ function setupDocking() {
         offsetX: event.clientX - rect.left - (box.c - 1) * cellW,
         offsetY: event.clientY - rect.top - (box.r - 1) * cellH,
       };
-      head.setPointerCapture(event.pointerId);
-    });
+      if (rawEvent.cancelable) rawEvent.preventDefault();
+      if (head.setPointerCapture && rawEvent.pointerId !== undefined) head.setPointerCapture(rawEvent.pointerId);
+    };
 
-    handle.addEventListener("pointerdown", (event) => {
+    const startResize = (rawEvent) => {
+      if (!dockingEnabled()) return;
+      const event = pointFromEvent(rawEvent);
       const box = readPanelBox(panel);
       panel.classList.add("resizing");
       state.resizing = {
@@ -315,12 +343,24 @@ function setupDocking() {
         startY: event.clientY,
         box,
       };
-      handle.setPointerCapture(event.pointerId);
-      event.stopPropagation();
-    });
+      if (rawEvent.cancelable) rawEvent.preventDefault();
+      if (handle.setPointerCapture && rawEvent.pointerId !== undefined) handle.setPointerCapture(rawEvent.pointerId);
+      rawEvent.stopPropagation?.();
+    };
+
+    if (usePointer) {
+      head.addEventListener("pointerdown", startDrag);
+      handle.addEventListener("pointerdown", startResize);
+    } else {
+      head.addEventListener("mousedown", startDrag);
+      head.addEventListener("touchstart", startDrag, { passive: false });
+      handle.addEventListener("mousedown", startResize);
+      handle.addEventListener("touchstart", startResize, { passive: false });
+    }
   });
 
-  window.addEventListener("pointermove", (event) => {
+  const move = (rawEvent) => {
+    const event = pointFromEvent(rawEvent);
     if (state.dragging) {
       const { rect, cellW, cellH } = workspaceMetrics();
       const drag = state.dragging;
@@ -329,6 +369,7 @@ function setupDocking() {
       const c = clamp(Math.round(left / cellW) + 1, 1, gridCols - drag.box.w + 1);
       const r = clamp(Math.round(top / cellH) + 1, 1, gridRows - drag.box.h + 1);
       setPanelBox(drag.panel, { ...drag.box, c, r });
+      if (rawEvent.cancelable) rawEvent.preventDefault();
     }
     if (state.resizing) {
       const resize = state.resizing;
@@ -338,21 +379,20 @@ function setupDocking() {
       const newW = clamp(Math.round(resize.box.w + dx / cellW), 3, gridCols - resize.box.c + 1);
       const newH = clamp(Math.round(resize.box.h + dy / cellH), 2, gridRows - resize.box.r + 1);
       setPanelBox(resize.panel, { ...resize.box, w: newW, h: newH });
+      if (rawEvent.cancelable) rawEvent.preventDefault();
     }
-  });
+  };
 
-  window.addEventListener("pointerup", () => {
-    if (state.dragging) {
-      state.dragging.panel.classList.remove("dragging");
-      state.dragging = null;
-      saveLayout(state.page, currentLayout());
-    }
-    if (state.resizing) {
-      state.resizing.panel.classList.remove("resizing");
-      state.resizing = null;
-      saveLayout(state.page, currentLayout());
-    }
-  });
+  if (usePointer) {
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", finishDockInteraction);
+  } else {
+    window.addEventListener("mousemove", move);
+    window.addEventListener("touchmove", move, { passive: false });
+    window.addEventListener("mouseup", finishDockInteraction);
+    window.addEventListener("touchend", finishDockInteraction);
+    window.addEventListener("touchcancel", finishDockInteraction);
+  }
 }
 
 function setBanner(id, text, tone = "muted") {
@@ -509,7 +549,6 @@ function renderModeWorkspace() {
     document.getElementById("manualModeNote").textContent = `Drive mode stays on ${mode.label} while you tune motor trims and speed limits.`;
     document.getElementById("manualSpeedLabel").textContent = `${mode.label} speed limit`;
     populateCalibrationControls();
-  populateCameraControls();
   } else if (cameraPage) {
     document.getElementById("manualPanelTitle").textContent = "Camera test drive";
     document.getElementById("manualPanelMini").textContent = "view check";
@@ -752,6 +791,15 @@ async function runSystemAction(endpoint, bannerId) {
 
 async function switchPage(page) {
   const nextPage = normalizePage(page);
+  const previousPage = state.page;
+  const previousDriveMode = state.driveMode;
+
+  setActivePage(nextPage);
+  if (!["calibration", "camera"].includes(nextPage)) {
+    state.driveMode = nextPage;
+    renderModeWorkspace();
+  }
+
   try {
     const data = await fetchJson("/api/page/select", {
       method: "POST",
@@ -762,6 +810,9 @@ async function switchPage(page) {
       updateStatusUi(data.state);
     }
   } catch (error) {
+    state.page = previousPage;
+    state.driveMode = previousDriveMode;
+    setActivePage(previousPage);
     setBanner("statusBanner", error.message, "muted");
   }
 }

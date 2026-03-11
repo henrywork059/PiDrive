@@ -153,3 +153,9 @@ This helps stop accidental updates while the car is moving.
 - web UI: `piserver/web/templates/index.html`, `piserver/web/static/app.js`, `piserver/web/static/styles.css`
 - backend wiring: `piserver/app.py`
 - Git update behavior: `piserver/services/update_service.py`
+
+
+## 0_1_7 UI compatibility notes
+- Mode tabs now switch locally first, then sync to the backend.
+- Static JS/CSS now use a version query so browsers reload the new files after an update.
+- Panel dragging/resizing is intended for desktop and tablet widths above about 700px. Drag panels by the panel header.

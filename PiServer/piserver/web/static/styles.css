@@ -408,7 +408,7 @@ input[type=range] {
   }
 }
 
-@media (max-width: 960px) {
+@media (max-width: 700px) {
   html, body {
     overflow: auto;
   }
