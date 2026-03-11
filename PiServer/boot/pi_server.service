@@ -1,0 +1,16 @@
+[Unit]
+Description=PiServer web control backend
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/PiServer
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/home/pi/PiServer/.venv/bin/python /home/pi/PiServer/server.py
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

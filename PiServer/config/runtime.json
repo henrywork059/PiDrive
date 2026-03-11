@@ -1,0 +1,6 @@
+{
+  "active_algorithm": "manual",
+  "max_throttle": 0.55,
+  "steer_mix": 0.5,
+  "current_page": "manual"
+}

@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PiServer</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-title">PiServer</div>
+      <div class="brand-subtitle">runtime web control + dock workspace</div>
+    </div>
+
+    <div class="page-tabs" id="pageTabs">
+      <button class="tab-btn active" data-page="manual">Manual</button>
+      <button class="tab-btn" data-page="training">Training</button>
+      <button class="tab-btn" data-page="auto">Auto</button>
+    </div>
+
+    <div class="toolbar-actions">
+      <button class="ghost-btn" id="saveLayoutBtn">Save layout</button>
+      <button class="ghost-btn" id="resetLayoutBtn">Reset layout</button>
+    </div>
+  </header>
+
+  <main class="workspace-shell">
+    <section id="workspace" class="workspace-grid">
+      <article class="dock-panel" data-panel="status">
+        <div class="panel-head">
+          <span>Status</span>
+          <span class="panel-mini">live</span>
+        </div>
+        <div class="panel-body">
+          <div class="metric-grid">
+            <div class="metric-card"><label>Algorithm</label><strong id="metricAlgorithm">manual</strong></div>
+            <div class="metric-card"><label>Model</label><strong id="metricModel">none</strong></div>
+            <div class="metric-card"><label>FPS</label><strong id="metricFps">0.0</strong></div>
+            <div class="metric-card"><label>Recording</label><strong id="metricRec">off</strong></div>
+            <div class="metric-card"><label>Left / Right</label><strong id="metricWheels">0.00 / 0.00</strong></div>
+            <div class="metric-card"><label>Camera</label><strong id="metricCamera">unknown</strong></div>
+          </div>
+          <div id="statusBanner" class="banner muted">Ready.</div>
+        </div>
+        <div class="resize-handle"></div>
+      </article>
+
+      <article class="dock-panel" data-panel="viewer">
+        <div class="panel-head">
+          <span>Live viewer</span>
+          <span class="panel-mini">MJPEG</span>
+        </div>
+        <div class="panel-body viewer-body">
+          <img id="videoFeed" src="/video_feed" alt="PiServer live feed" />
+        </div>
+        <div class="resize-handle"></div>
+      </article>
+
+      <article class="dock-panel" data-panel="drive">
+        <div class="panel-head">
+          <span>Drive + algorithm</span>
+          <span class="panel-mini">runtime</span>
+        </div>
+        <div class="panel-body scroll-body">
+          <div class="field">
+            <label for="algorithmSelect">Active algorithm</label>
+            <select id="algorithmSelect"></select>
+          </div>
+
+          <div class="field">
+            <label for="maxThrottle">Max throttle</label>
+            <input id="maxThrottle" type="range" min="0" max="100" value="55" />
+            <div class="value-text"><span id="maxThrottleValue">0.55</span></div>
+          </div>
+
+          <div class="field">
+            <label for="steerMix">Steer mix</label>
+            <input id="steerMix" type="range" min="0" max="100" value="50" />
+            <div class="value-text"><span id="steerMixValue">0.50</span></div>
+          </div>
+
+          <div class="field">
+            <label for="modelFile">Upload TFLite model</label>
+            <input id="modelFile" type="file" accept=".tflite" />
+            <div class="stack-row">
+              <button id="uploadModelBtn">Upload</button>
+              <button id="refreshModelsBtn" class="ghost-btn">Refresh list</button>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="modelSelect">Available models</label>
+            <select id="modelSelect"></select>
+            <button id="loadModelBtn">Load model</button>
+          </div>
+
+          <div id="modelMessage" class="banner muted">No model action yet.</div>
+        </div>
+        <div class="resize-handle"></div>
+      </article>
+
+      <article class="dock-panel" data-panel="manual">
+        <div class="panel-head">
+          <span>Manual control</span>
+          <span class="panel-mini">drag pad</span>
+        </div>
+        <div class="panel-body scroll-body">
+          <div id="joystickArea" class="joystick-area">
+            <div id="joystickDot" class="joystick-dot"></div>
+          </div>
+          <div class="value-text" id="joystickText">Steering 0.00 · Throttle 0.00</div>
+
+          <div class="field">
+            <label for="manualSpeed">Manual speed scale</label>
+            <input id="manualSpeed" type="range" min="0" max="100" value="55" />
+            <div class="value-text"><span id="manualSpeedValue">0.55</span></div>
+          </div>
+
+          <div class="stack-row">
+            <button id="stopBtn" class="danger-btn">Stop</button>
+            <button id="estopBtn" class="warn-btn">E-Stop</button>
+            <button id="clearEstopBtn" class="ghost-btn">Clear</button>
+          </div>
+        </div>
+        <div class="resize-handle"></div>
+      </article>
+
+      <article class="dock-panel" data-panel="record">
+        <div class="panel-head">
+          <span>Recording</span>
+          <span class="panel-mini">session</span>
+        </div>
+        <div class="panel-body">
+          <div class="stack-row">
+            <button id="recordToggleBtn">Toggle record</button>
+            <span id="recordStateBadge" class="badge off">off</span>
+          </div>
+          <p class="small-note">
+            Records live control output with timestamped image names and JSONL metadata.
+          </p>
+        </div>
+        <div class="resize-handle"></div>
+      </article>
+
+      <article class="dock-panel" data-panel="system">
+        <div class="panel-head">
+          <span>System</span>
+          <span class="panel-mini">update</span>
+        </div>
+        <div class="panel-body scroll-body">
+          <div class="field">
+            <label>Git</label>
+            <div class="value-text" id="gitStatusText">Checking…</div>
+          </div>
+          <div class="stack-row">
+            <button id="saveConfigBtn">Save config</button>
+            <button id="reloadConfigBtn" class="ghost-btn">Reload config</button>
+          </div>
+          <div class="stack-row">
+            <button id="gitPullBtn">Update from Git</button>
+            <button id="restartBtn" class="ghost-btn">Restart service</button>
+          </div>
+          <div id="systemMessage" class="banner muted">System actions are blocked unless throttle is zero and E-stop is enabled.</div>
+        </div>
+        <div class="resize-handle"></div>
+      </article>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
