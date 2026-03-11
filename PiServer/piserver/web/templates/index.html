@@ -150,15 +150,17 @@
         </div>
         <div class="panel-body scroll-body">
           <div class="field">
-            <label>Git</label>
+            <label>Git repo</label>
             <div class="value-text" id="gitStatusText">Checking…</div>
+            <div class="small-note" id="gitRepoText">Looking for repo…</div>
           </div>
           <div class="stack-row">
             <button id="saveConfigBtn">Save config</button>
             <button id="reloadConfigBtn" class="ghost-btn">Reload config</button>
           </div>
           <div class="stack-row">
-            <button id="gitPullBtn">Update from Git</button>
+            <button id="checkRepoBtn" class="ghost-btn">Check repo</button>
+            <button id="gitPullBtn">Update from Repo</button>
             <button id="restartBtn" class="ghost-btn">Restart service</button>
           </div>
           <div id="systemMessage" class="banner muted">System actions are blocked unless throttle is zero and E-stop is enabled.</div>

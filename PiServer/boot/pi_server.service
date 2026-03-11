@@ -6,9 +6,9 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=pi
-WorkingDirectory=/home/pi/PiServer
+WorkingDirectory=/home/pi/PiDrive/PiServer
 Environment=PYTHONUNBUFFERED=1
-ExecStart=/home/pi/PiServer/.venv/bin/python /home/pi/PiServer/server.py
+ExecStart=/usr/bin/python3 /home/pi/PiDrive/PiServer/server.py
 Restart=always
 RestartSec=2
 

@@ -255,10 +255,28 @@ function updateStatusUi(data) {
   badge.classList.toggle("off", !data.recording);
 
   if (data.git) {
-    const gitText = data.git.ok
-      ? `${data.git.branch} · ${data.git.commit}${data.git.dirty ? " · modified" : ""}`
-      : (data.git.message || "No Git repo");
-    document.getElementById("gitStatusText").textContent = gitText;
+    updateGitUi(data.git);
+  }
+}
+
+function updateGitUi(git) {
+  const statusEl = document.getElementById("gitStatusText");
+  const repoEl = document.getElementById("gitRepoText");
+  if (!statusEl) return;
+  const gitText = git.ok
+    ? `${git.branch} · ${git.commit}${git.dirty ? " · modified" : ""}`
+    : (git.message || "No Git repo");
+  statusEl.textContent = gitText;
+  if (repoEl) {
+    if (git.ok) {
+      const parts = [];
+      if (git.repo_root) parts.push(`Repo: ${git.repo_root}`);
+      if (git.project_relpath) parts.push(`Path: ${git.project_relpath}`);
+      if (git.remote) parts.push(`Remote: ${git.remote}`);
+      repoEl.textContent = parts.join(" | ") || (git.message || "Repo detected.");
+    } else {
+      repoEl.textContent = git.project_dir ? `Project: ${git.project_dir}` : (git.message || "No repo detected.");
+    }
   }
 }
 
@@ -354,6 +372,16 @@ async function setEstop(enabled) {
     body: JSON.stringify({ enabled })
   });
   await pollStatus();
+}
+
+async function checkRepo(force = true) {
+  try {
+    const data = await fetchJson(`/api/system/repo_status${force ? "?force=1" : ""}`);
+    updateGitUi(data);
+    setBanner("systemMessage", data.message || (data.ok ? "Repo detected." : "No repo detected."), "muted");
+  } catch (error) {
+    setBanner("systemMessage", error.message, "muted");
+  }
 }
 
 async function runSystemAction(endpoint, bannerId) {
@@ -506,6 +534,7 @@ function setupEvents() {
     }
   });
 
+  document.getElementById("checkRepoBtn").addEventListener("click", () => checkRepo(true));
   document.getElementById("gitPullBtn").addEventListener("click", () => runSystemAction("/api/system/update", "systemMessage"));
   document.getElementById("restartBtn").addEventListener("click", () => runSystemAction("/api/system/restart", "systemMessage"));
   document.getElementById("estopBtn").addEventListener("click", () => setEstop(true));
@@ -536,6 +565,7 @@ async function init() {
   const status = await fetchJson("/api/status");
   updateStatusUi(status);
   syncControlsFromStatus(status);
+  await checkRepo(false);
   setInterval(pollStatus, 700);
 }
 

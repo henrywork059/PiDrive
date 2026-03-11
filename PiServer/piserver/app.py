@@ -87,6 +87,11 @@ def create_app() -> Flask:
         snap["git"] = git
         return jsonify(snap)
 
+    @app.route("/api/system/repo_status")
+    def api_system_repo_status():
+        force = request.args.get("force", "0") in {"1", "true", "yes"}
+        return jsonify(update_service.git_status(force=force))
+
     @app.route("/api/algorithms")
     def api_algorithms():
         payload = []

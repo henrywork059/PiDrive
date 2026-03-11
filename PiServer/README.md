@@ -145,3 +145,32 @@ Image names are timestamp-based so they sort naturally and do not repeat between
 - runtime defaults: `config/runtime.json`
 - web UI: `piserver/web/templates/index.html`, `piserver/web/static/app.js`, `piserver/web/static/styles.css`
 - backend wiring: `piserver/app.py`
+
+
+## Repo-backed update setup (0_1_11)
+
+To use **Update from Repo**, run PiServer from a real Git checkout, not from a plain copied folder.
+A simple setup on the Pi is:
+
+```bash
+cd /home/pi
+git clone --filter=blob:none --sparse https://github.com/henrywork059/PiDrive.git
+cd PiDrive
+git sparse-checkout set PiServer
+cd PiServer
+python3 -m pip install -r requirements.txt --break-system-packages
+python3 server.py
+```
+
+The included `boot/pi_server.service` now points to `/home/pi/PiDrive/PiServer` and uses `/usr/bin/python3` so it works without a virtual environment.
+
+When PiServer is running from that repo-backed folder, the web UI can:
+- check the active repo, branch, commit, and remote
+- run `git pull --ff-only` from the parent `PiDrive` repo
+- restart the service after an update
+
+Update is blocked when:
+- recording is on
+- throttle is not zero
+- E-stop is not engaged
+- Git has local modified files
