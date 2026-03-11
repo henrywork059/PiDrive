@@ -23,6 +23,8 @@ class RecorderService:
         self.min_interval = 0.1
         self.last_record_time = 0.0
         self.counter = 0
+        self.flush_interval = 0.75
+        self._last_flush_time = 0.0
 
     def start(self):
         if self.recording:
@@ -31,10 +33,11 @@ class RecorderService:
         self.session_path = self.root / self.session_name
         self.images_dir = self.session_path / "images"
         self.images_dir.mkdir(parents=True, exist_ok=True)
-        self.index_file = (self.session_path / "records.jsonl").open("a", encoding="utf-8")
+        self.index_file = (self.session_path / "records.jsonl").open("a", encoding="utf-8", buffering=1)
         self.recording = True
         self.last_record_time = 0.0
         self.counter = 0
+        self._last_flush_time = time.time()
         print(f"[REC] session started: {self.session_path}")
 
     def stop(self):
@@ -43,6 +46,7 @@ class RecorderService:
         self.recording = False
         try:
             if self.index_file is not None:
+                self.index_file.flush()
                 self.index_file.close()
         except Exception:
             pass
@@ -88,7 +92,9 @@ class RecorderService:
             "camera_format": str(snapshot.get("camera_format", "BGR888")),
         }
         self.index_file.write(json.dumps(rec, ensure_ascii=False) + "\n")
-        self.index_file.flush()
+        if (now - self._last_flush_time) >= self.flush_interval:
+            self.index_file.flush()
+            self._last_flush_time = now
 
     def list_sessions(self):
         items = []

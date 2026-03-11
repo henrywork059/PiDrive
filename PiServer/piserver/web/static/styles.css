@@ -32,6 +32,52 @@ html, body {
   overflow: hidden;
 }
 
+button, select, input[type=file] {
+  border-radius: 12px;
+  border: 1px solid rgba(135, 155, 195, 0.25);
+  background: rgba(22, 29, 41, 0.95);
+  color: var(--text);
+  padding: 10px 12px;
+  font-size: 0.92rem;
+  min-height: 42px;
+}
+
+button {
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.18s ease, border-color 0.18s ease;
+}
+
+button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(160, 182, 230, 0.45);
+  background: rgba(30, 39, 56, 0.98);
+}
+
+button.active,
+.tab-btn.active,
+.subtab-btn.active {
+  background: linear-gradient(180deg, rgba(79, 125, 235, 0.9), rgba(61, 91, 182, 0.92));
+  border-color: rgba(151, 180, 255, 0.65);
+}
+
+.ghost-btn {
+  background: rgba(19, 24, 33, 0.78);
+}
+
+.danger-btn {
+  background: rgba(114, 31, 44, 0.96);
+  border-color: rgba(255, 111, 120, 0.42);
+}
+
+.warn-btn {
+  background: rgba(118, 72, 18, 0.95);
+  border-color: rgba(255, 180, 84, 0.4);
+}
+
+.hidden {
+  display: none !important;
+}
+
 .topbar {
   display: flex;
   align-items: center;
@@ -58,52 +104,11 @@ html, body {
   margin-top: 2px;
 }
 
-.page-tabs, .toolbar-actions, .stack-row {
+.page-tabs, .toolbar-actions, .stack-row, .mode-work-tabs {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
   align-items: center;
-}
-
-button, select, input[type=file] {
-  border-radius: 12px;
-  border: 1px solid rgba(135, 155, 195, 0.25);
-  background: rgba(22, 29, 41, 0.95);
-  color: var(--text);
-  padding: 10px 12px;
-  font-size: 0.92rem;
-  min-height: 42px;
-}
-
-button {
-  cursor: pointer;
-  transition: transform 0.12s ease, background 0.18s ease, border-color 0.18s ease;
-}
-
-button:hover {
-  transform: translateY(-1px);
-  border-color: rgba(160, 182, 230, 0.45);
-  background: rgba(30, 39, 56, 0.98);
-}
-
-button.active,
-.tab-btn.active {
-  background: linear-gradient(180deg, rgba(79, 125, 235, 0.9), rgba(61, 91, 182, 0.92));
-  border-color: rgba(151, 180, 255, 0.65);
-}
-
-.ghost-btn {
-  background: rgba(19, 24, 33, 0.78);
-}
-
-.danger-btn {
-  background: rgba(114, 31, 44, 0.96);
-  border-color: rgba(255, 111, 120, 0.42);
-}
-
-.warn-btn {
-  background: rgba(118, 72, 18, 0.95);
-  border-color: rgba(255, 180, 84, 0.4);
 }
 
 .workspace-shell {
@@ -185,18 +190,24 @@ button.active,
 
 .metric-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
 
-.metric-card {
+.metric-card,
+.info-card,
+.hero-pill {
   background: var(--panel-alt);
   border: 1px solid rgba(130, 150, 190, 0.14);
   border-radius: 14px;
   padding: 12px;
 }
 
-.metric-card label {
+.metric-card label,
+.info-card label,
+.section-eyebrow,
+.hero-pill span,
+.field label {
   display: block;
   color: var(--muted);
   font-size: 0.78rem;
@@ -205,22 +216,14 @@ button.active,
   letter-spacing: 0.06em;
 }
 
-.metric-card strong {
+.metric-card strong,
+.hero-pill strong {
   display: block;
   font-size: 1rem;
 }
 
 .field {
   margin-bottom: 16px;
-}
-
-.field label {
-  display: block;
-  color: var(--muted);
-  margin-bottom: 8px;
-  font-size: 0.86rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
 }
 
 select, input[type=file] {
@@ -255,6 +258,10 @@ input[type=range] {
   margin-top: 12px;
 }
 
+.small-note.no-top {
+  margin-top: 0;
+}
+
 .badge {
   display: inline-flex;
   align-items: center;
@@ -279,6 +286,41 @@ input[type=range] {
   border-color: rgba(255, 111, 120, 0.36);
 }
 
+.mode-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.mode-hero h3 {
+  margin: 0 0 8px;
+  font-size: 1.2rem;
+}
+
+.hero-pill-grid,
+.info-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.mode-work-tabs {
+  margin-bottom: 14px;
+}
+
+.subtab-btn {
+  min-height: 38px;
+  padding: 8px 12px;
+}
+
+.mode-view {
+  display: block;
+}
+
+.mode-view.hidden {
+  display: none;
+}
+
 .joystick-area {
   position: relative;
   width: 100%;
@@ -292,6 +334,11 @@ input[type=range] {
   background-size: 10% 10%, 10% 10%, auto;
   touch-action: none;
   overflow: hidden;
+}
+
+.joystick-area.locked {
+  opacity: 0.5;
+  filter: saturate(0.7);
 }
 
 .joystick-area::before,
@@ -351,6 +398,16 @@ input[type=range] {
   z-index: 50;
 }
 
+@media (max-width: 1280px) {
+  .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mode-hero {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 960px) {
   html, body {
     overflow: auto;
@@ -388,5 +445,30 @@ input[type=range] {
 
   .metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+
+.compact-field {
+  margin-bottom: 14px;
+}
+
+.compact-field.no-bottom {
+  margin-bottom: 0;
+}
+
+.calibration-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.top-gap {
+  margin-top: 14px;
+}
+
+@media (max-width: 1280px) {
+  .calibration-grid {
+    grid-template-columns: 1fr;
   }
 }

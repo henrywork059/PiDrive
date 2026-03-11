@@ -61,18 +61,39 @@ class MotorService:
         self.right = _MotorDriver(IN3_PIN, IN4_PIN)
         self.last_left = 0.0
         self.last_right = 0.0
+        self.left_motor_scale = 1.0
+        self.right_motor_scale = 1.0
+        self.global_speed_limit = 0.75
+        self.turn_gain = 1.0
         atexit.register(self.close)
 
+    def update_calibration(
+        self,
+        *,
+        left_motor_scale: float | None = None,
+        right_motor_scale: float | None = None,
+        global_speed_limit: float | None = None,
+        turn_gain: float | None = None,
+    ):
+        if left_motor_scale is not None:
+            self.left_motor_scale = max(0.2, min(1.8, float(left_motor_scale)))
+        if right_motor_scale is not None:
+            self.right_motor_scale = max(0.2, min(1.8, float(right_motor_scale)))
+        if global_speed_limit is not None:
+            self.global_speed_limit = max(0.0, min(1.0, float(global_speed_limit)))
+        if turn_gain is not None:
+            self.turn_gain = max(0.1, min(2.0, float(turn_gain)))
+
     def _map_drive(self, steering: float, throttle: float, steer_mix: float):
-        throttle = max(0.0, min(1.0, float(throttle)))
+        throttle = max(0.0, min(float(throttle), float(self.global_speed_limit)))
         steering = max(-1.0, min(1.0, float(steering)))
-        steer_mix = max(0.0, min(1.0, float(steer_mix)))
+        steer_mix = max(0.0, min(1.0, float(steer_mix))) * float(self.turn_gain)
 
         left = throttle - steer_mix * steering
         right = throttle + steer_mix * steering
 
-        left = max(0.0, min(1.0, left))
-        right = max(0.0, min(1.0, right))
+        left = max(0.0, min(1.0, left * self.left_motor_scale))
+        right = max(0.0, min(1.0, right * self.right_motor_scale))
         return left, right
 
     def update(self, steering: float, throttle: float, steer_mix: float):
@@ -85,7 +106,9 @@ class MotorService:
         if not GPIO_AVAILABLE:
             print(
                 f"[MOTOR SIM] steering={steering:+.2f} throttle={throttle:.2f} "
-                f"mix={steer_mix:.2f} left={left:.2f} right={right:.2f}"
+                f"mix={steer_mix:.2f} turn_gain={self.turn_gain:.2f} "
+                f"left_scale={self.left_motor_scale:.2f} right_scale={self.right_motor_scale:.2f} "
+                f"left={left:.2f} right={right:.2f}"
             )
         return left, right
 

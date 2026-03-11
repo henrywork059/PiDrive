@@ -1,6 +1,40 @@
 {
   "active_algorithm": "manual",
+  "drive_mode": "manual",
+  "current_page": "manual",
   "max_throttle": 0.55,
   "steer_mix": 0.5,
-  "current_page": "manual"
+  "mode_profiles": {
+    "manual": {
+      "max_throttle": 0.55,
+      "steer_mix": 0.5
+    },
+    "lane": {
+      "max_throttle": 0.4,
+      "steer_mix": 0.58
+    },
+    "full_auto": {
+      "max_throttle": 0.45,
+      "steer_mix": 0.55
+    }
+  },
+  "calibration": {
+    "left_motor_scale": 1.0,
+    "right_motor_scale": 1.0,
+    "global_speed_limit": 0.75,
+    "turn_gain": 1.0,
+    "camera_width": 426,
+    "camera_height": 240,
+    "camera_fps": 30,
+    "camera_format": "BGR888",
+    "auto_exposure": true,
+    "exposure_time": 12000,
+    "analogue_gain": 1.5,
+    "exposure_compensation": 0.0,
+    "auto_white_balance": true,
+    "brightness": 0.0,
+    "contrast": 1.0,
+    "saturation": 1.0,
+    "sharpness": 1.0
+  }
 }

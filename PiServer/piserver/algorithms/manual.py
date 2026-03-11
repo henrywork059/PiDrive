@@ -8,5 +8,5 @@ class ManualAlgorithm(BaseAlgorithm):
     label = "Manual drive"
     mode = "manual"
 
-    def compute(self, state, camera_service, model_service):
+    def compute(self, state, frame, model_service, frame_seq: int | None = None):
         return float(state.manual_steering), float(state.manual_throttle)

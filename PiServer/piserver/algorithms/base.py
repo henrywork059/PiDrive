@@ -6,5 +6,5 @@ class BaseAlgorithm:
     label = "Base"
     mode = "manual"
 
-    def compute(self, state, camera_service, model_service):
+    def compute(self, state, frame, model_service, frame_seq: int | None = None):
         return 0.0, 0.0

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from pathlib import Path
+import time
 
-from flask import Flask, Response, jsonify, render_template, request
+from flask import Flask, Response, jsonify, render_template, request, stream_with_context
 
 from piserver.algorithms import build_registry
 from piserver.core.config_store import ConfigStore
@@ -21,14 +22,19 @@ WEB_DIR = Path(__file__).resolve().parent / "web"
 
 
 def mjpeg_generator(camera_service):
-    while True:
-        frame = camera_service.get_jpeg_frame()
-        if frame is None:
-            continue
-        yield (
-            b"--frame\r\n"
-            b"Content-Type: image/jpeg\r\n\r\n" + frame + b"\r\n"
-        )
+    last_seq = -1
+    camera_service.add_stream_client()
+    try:
+        while True:
+            last_seq = camera_service.wait_for_frame(last_seq, timeout=1.0)
+            frame = camera_service.get_jpeg_frame()
+            if frame is None:
+                time.sleep(0.05)
+                continue
+            yield (b"--frame\r\n"
+                   b"Content-Type: image/jpeg\r\n\r\n" + frame + b"\r\n")
+    finally:
+        camera_service.remove_stream_client()
 
 
 def create_app() -> Flask:
@@ -39,8 +45,6 @@ def create_app() -> Flask:
     )
 
     camera_service = CameraService()
-    camera_service.start()
-
     motor_service = MotorService()
     model_service = ModelService(BASE_DIR / "models")
     recorder_service = RecorderService(BASE_DIR / "data" / "records")
@@ -55,6 +59,24 @@ def create_app() -> Flask:
         config_store=config_store,
         loop_hz=20,
     )
+    calibration = control_service.snapshot().get("calibration", {})
+    camera_service.apply_settings(
+        width=calibration.get("camera_width"),
+        height=calibration.get("camera_height"),
+        fps=calibration.get("camera_fps"),
+        camera_format=calibration.get("camera_format"),
+        auto_exposure=calibration.get("auto_exposure"),
+        exposure_time=calibration.get("exposure_time"),
+        analogue_gain=calibration.get("analogue_gain"),
+        exposure_compensation=calibration.get("exposure_compensation"),
+        auto_white_balance=calibration.get("auto_white_balance"),
+        brightness=calibration.get("brightness"),
+        contrast=calibration.get("contrast"),
+        saturation=calibration.get("saturation"),
+        sharpness=calibration.get("sharpness"),
+    )
+    control_service.apply_calibration(reconfigure_camera=False)
+    camera_service.start()
     control_service.start()
 
     update_service = UpdateService(BASE_DIR)
@@ -76,24 +98,28 @@ def create_app() -> Flask:
     @app.route("/video_feed")
     def video_feed():
         return Response(
-            mjpeg_generator(camera_service),
+            stream_with_context(mjpeg_generator(camera_service)),
             mimetype="multipart/x-mixed-replace; boundary=frame",
         )
 
     @app.route("/api/status")
     def api_status():
         snap = control_service.snapshot()
-        git = update_service.git_status()
-        snap["git"] = git
+        include_git = str(request.args.get("include_git", "0")).strip().lower() in {"1", "true", "yes"}
+        if include_git:
+            snap["git"] = update_service.git_status()
         return jsonify(snap)
+
+    @app.route("/api/system/git_status")
+    def api_git_status():
+        force = str(request.args.get("force", "0")).strip().lower() in {"1", "true", "yes"}
+        return jsonify(update_service.git_status(force=force))
 
     @app.route("/api/algorithms")
     def api_algorithms():
         payload = []
         for algo in algorithms.values():
-            payload.append(
-                {"name": algo.name, "label": algo.label, "mode": getattr(algo, "mode", algo.name)}
-            )
+            payload.append({"name": algo.name, "label": algo.label, "mode": getattr(algo, "mode", algo.name)})
         return jsonify({"algorithms": payload})
 
     @app.route("/api/control", methods=["POST"])
@@ -110,7 +136,46 @@ def create_app() -> Flask:
         )
         if "algorithm" in data:
             control_service.select_algorithm(data.get("algorithm"))
-        return jsonify(control_service.snapshot())
+        return jsonify({"ok": True})
+
+    @app.route("/api/page/select", methods=["POST"])
+    @app.route("/api/mode/select", methods=["POST"])
+    def api_page_select():
+        data = request.get_json(silent=True) or {}
+        page = data.get("page", data.get("mode", "manual"))
+        state = control_service.select_page(page)
+        return jsonify({"ok": True, "state": state})
+
+    @app.route("/api/calibration/update", methods=["POST"])
+    def api_calibration_update():
+        data = request.get_json(silent=True) or {}
+        state = control_service.update_calibration(
+            left_motor_scale=data.get("left_motor_scale"),
+            right_motor_scale=data.get("right_motor_scale"),
+            global_speed_limit=data.get("global_speed_limit"),
+            turn_gain=data.get("turn_gain"),
+        )
+        return jsonify({"ok": True, "state": state, "message": "Calibration applied."})
+
+    @app.route("/api/camera/update", methods=["POST"])
+    def api_camera_update():
+        data = request.get_json(silent=True) or {}
+        state = control_service.update_calibration(
+            camera_width=data.get("camera_width"),
+            camera_height=data.get("camera_height"),
+            camera_fps=data.get("camera_fps"),
+            camera_format=data.get("camera_format"),
+            auto_exposure=data.get("auto_exposure"),
+            exposure_time=data.get("exposure_time"),
+            analogue_gain=data.get("analogue_gain"),
+            exposure_compensation=data.get("exposure_compensation"),
+            auto_white_balance=data.get("auto_white_balance"),
+            brightness=data.get("brightness"),
+            contrast=data.get("contrast"),
+            saturation=data.get("saturation"),
+            sharpness=data.get("sharpness"),
+        )
+        return jsonify({"ok": True, "state": state, "message": "Camera settings applied."})
 
     @app.route("/api/algorithm/select", methods=["POST"])
     def api_algorithm_select():
@@ -125,12 +190,7 @@ def create_app() -> Flask:
 
     @app.route("/api/model/list")
     def api_model_list():
-        return jsonify(
-            {
-                "models": model_service.list_models(),
-                "active": model_service.get_active_name(),
-            }
-        )
+        return jsonify({"models": model_service.list_models(), "active": model_service.get_active_name()})
 
     @app.route("/api/model/upload", methods=["POST"])
     def api_model_upload():
@@ -171,7 +231,8 @@ def create_app() -> Flask:
         if not allowed:
             return jsonify({"ok": False, "message": reason}), 400
         ok, text = update_service.git_pull()
-        return jsonify({"ok": ok, "message": text})
+        code = 200 if ok else 400
+        return jsonify({"ok": ok, "message": text}), code
 
     @app.route("/api/system/restart", methods=["POST"])
     def api_system_restart():
@@ -179,6 +240,7 @@ def create_app() -> Flask:
         if not allowed:
             return jsonify({"ok": False, "message": reason}), 400
         ok, text = update_service.restart_service()
-        return jsonify({"ok": ok, "message": text})
+        code = 200 if ok else 400
+        return jsonify({"ok": ok, "message": text}), code
 
     return app
