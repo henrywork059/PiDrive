@@ -1,19 +1,16 @@
 # PiServer
 
-PiServer is the web-control backend for the PiCar project.
+PiServer is a refactored web-control backend for the PiCar project.
 
-## What this cumulative build includes
+## What this build changes
 
-This `0_1_6` package includes the requested features from **0_1_1 through 0_1_6**:
-
-- top drive-mode tabs for **Manual**, **Lane Detection**, and **Full Auto**
-- mode-specific settings that change with the selected drive mode
-- a dedicated **Calibration** tab for motor trim, overall speed cap, and turning ratio
-- a dedicated **Camera** tab for stream, exposure, white balance, and image tuning
-- runtime save/reload of all mode, calibration, and camera settings
-- dock-style web workspace with saved layout per page
-- demand-driven camera / lighter background load for Raspberry Pi
-- Git status / **Update from Git** / service restart from the web UI
+- Starts as one persistent backend service instead of one fixed script flow.
+- Keeps the web UI available whenever the Pi is on.
+- Lets you switch algorithms at runtime from the web page.
+- Separates camera, motor, model, recording, control loop, and update logic into modules.
+- Adds a dock-style web workspace with saved panel layouts in the browser.
+- Adds runtime config save/reload.
+- Adds safe Git pull / service restart actions from the web UI.
 
 ## Folder layout
 
@@ -34,13 +31,19 @@ PiServer/
     web/
 ```
 
-## Run it on the Pi without venv
+## Quick start on Raspberry Pi
 
-If your PiServer folder is at `~/PiDrive/PiServer`:
+1. Put the folder on the Pi, for example in `~/PiServer`
+2. Create a virtual environment
+3. Install dependencies
+4. Start the server
+5. Open the Pi IP address in your browser
 
 ```bash
-cd ~/PiDrive/PiServer
-python3 -m pip install -r requirements.txt --break-system-packages
+cd ~/PiServer
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 python3 server.py
 ```
 
@@ -50,38 +53,24 @@ Then open:
 http://<pi-ip>:5000
 ```
 
-Find the Pi IP with:
+## Optional Pi-only packages
 
-```bash
-hostname -I
-```
+These are optional and only needed if the hardware/software is available on the Pi:
 
-## Git-backed install for the web update button
+- `picamera2`
+- `tflite-runtime`
+- `RPi.GPIO`
 
-The **Update from Git** button only works when PiServer is running from a real Git checkout.
-A plain unzip at `/home/pi/PiServer` is not enough for `git pull`.
-
-Recommended setup:
-
-```bash
-cd /home/pi
-git clone --filter=blob:none --sparse https://github.com/henrywork059/PiDrive.git
-cd PiDrive
-git sparse-checkout set PiServer
-cd PiServer
-python3 -m pip install -r requirements.txt --break-system-packages
-python3 server.py
-```
-
-That gives this runtime path:
-
-```text
-/home/pi/PiDrive/PiServer
-```
+If they are missing, PiServer falls back safely:
+- camera -> OpenCV webcam or generated placeholder frame
+- model inference -> disabled
+- motor output -> simulated console output
 
 ## Auto-start on boot
 
-This service file is set for the Git-backed layout above.
+The file `boot/pi_server.service` is included.
+
+Example install:
 
 ```bash
 sudo cp boot/pi_server.service /etc/systemd/system/pi_server.service
@@ -91,60 +80,64 @@ sudo systemctl start pi_server.service
 sudo systemctl status pi_server.service
 ```
 
-Useful logs:
+Edit the `WorkingDirectory` and `ExecStart` paths inside the service file if your install path is different.
 
-```bash
-journalctl -u pi_server.service -n 100 --no-pager
-```
+## Web features
 
-## Web tabs
+- Manual / Training / Auto workspace tabs
+- Draggable + resizable dock-style panels on larger screens
+- Live MJPEG viewer
+- Runtime algorithm switching
+- Runtime parameter tuning
+- TFLite model upload/list/load
+- Recording toggle
+- Runtime config save/reload
+- Git status / pull
+- Service restart
+- Emergency stop
 
-### Drive mode tabs
+## Runtime behavior design
 
-- **Manual**
-- **Lane Detection**
-- **Full Auto**
+PiServer now uses a background control loop:
 
-### Calibration tab
+- camera service runs continuously
+- web server stays alive
+- control service runs at fixed rate
+- selected algorithm computes steering/throttle
+- motor service applies output
+- recorder stores data if recording is enabled
 
-- left motor trim
-- right motor trim
-- global max speed
-- turning ratio
+That means:
+- manual changes can happen live
+- selected algorithm can change live
+- config values can change live
+- larger code changes can be pulled from Git and restarted safely
 
-### Camera tab
+## Recording format
 
-- resolution
-- FPS
-- format
-- auto exposure on/off
-- locked exposure time
-- analogue gain
-- exposure compensation
-- auto white balance on/off
-- brightness
-- contrast
-- saturation
-- sharpness
+Each session is stored under `data/records/<session>/`
 
-All of these save into `config/runtime.json` when you use **Save Config**.
+Each JSONL row stores:
 
-## Git / restart safety
+- `frame_id`
+- `session`
+- `ts`
+- `image`
+- `steering`
+- `throttle`
+- `mode`
+- `camera_width`
+- `camera_height`
+- `camera_format`
 
-Update and restart actions are blocked unless:
+Image names are timestamp-based so they sort naturally and do not repeat between sessions.
 
-- recording is off
-- throttle is zero
-- emergency stop is enabled
+## Safety notes
 
-This helps stop accidental updates while the car is moving.
-
-## Notes on camera tuning
-
-- Keep **Auto Exposure** on while first testing framing.
-- Turn it off only when you want a more stable locked exposure during driving.
-- Resolution / FPS / format changes reopen the camera backend.
-- Exposure and image tuning values are applied live when possible.
+- Git update and service restart actions are blocked unless the vehicle is stopped.
+- Emergency stop overrides algorithm output.
+- Motor output is always clamped by runtime limits.
+- Keep this web UI on a trusted local network only.
 
 ## Main files to edit later
 
@@ -152,10 +145,3 @@ This helps stop accidental updates while the car is moving.
 - runtime defaults: `config/runtime.json`
 - web UI: `piserver/web/templates/index.html`, `piserver/web/static/app.js`, `piserver/web/static/styles.css`
 - backend wiring: `piserver/app.py`
-- Git update behavior: `piserver/services/update_service.py`
-
-
-## 0_1_7 UI compatibility notes
-- Mode tabs now switch locally first, then sync to the backend.
-- Static JS/CSS now use a version query so browsers reload the new files after an update.
-- Panel dragging/resizing is intended for desktop and tablet widths above about 700px. Drag panels by the panel header.

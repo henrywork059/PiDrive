@@ -4,21 +4,19 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>PiServer</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=0_1_7" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
 </head>
 <body>
   <header class="topbar">
     <div class="brand">
       <div class="brand-title">PiServer</div>
-      <div class="brand-subtitle">always-on runtime web control + dock workspace</div>
+      <div class="brand-subtitle">runtime web control + dock workspace</div>
     </div>
 
     <div class="page-tabs" id="pageTabs">
       <button class="tab-btn active" data-page="manual">Manual</button>
-      <button class="tab-btn" data-page="lane">Lane Detection</button>
-      <button class="tab-btn" data-page="full_auto">Full Auto</button>
-      <button class="tab-btn" data-page="calibration">Calibration</button>
-      <button class="tab-btn" data-page="camera">Camera</button>
+      <button class="tab-btn" data-page="training">Training</button>
+      <button class="tab-btn" data-page="auto">Auto</button>
     </div>
 
     <div class="toolbar-actions">
@@ -36,14 +34,12 @@
         </div>
         <div class="panel-body">
           <div class="metric-grid">
-            <div class="metric-card"><label>Drive Mode</label><strong id="metricModeLabel">Manual</strong></div>
-            <div class="metric-card"><label>Algorithm</label><strong id="metricAlgorithm">Manual</strong></div>
+            <div class="metric-card"><label>Algorithm</label><strong id="metricAlgorithm">manual</strong></div>
             <div class="metric-card"><label>Model</label><strong id="metricModel">none</strong></div>
             <div class="metric-card"><label>FPS</label><strong id="metricFps">0.0</strong></div>
             <div class="metric-card"><label>Recording</label><strong id="metricRec">off</strong></div>
             <div class="metric-card"><label>Left / Right</label><strong id="metricWheels">0.00 / 0.00</strong></div>
             <div class="metric-card"><label>Camera</label><strong id="metricCamera">unknown</strong></div>
-            <div class="metric-card"><label>E-Stop</label><strong id="metricEstop">clear</strong></div>
           </div>
           <div id="statusBanner" class="banner muted">Ready.</div>
         </div>
@@ -63,224 +59,60 @@
 
       <article class="dock-panel" data-panel="drive">
         <div class="panel-head">
-          <span id="workspacePanelTitle">Mode workspace</span>
-          <span class="panel-mini" id="currentModeBadge">Manual</span>
+          <span>Drive + algorithm</span>
+          <span class="panel-mini">runtime</span>
         </div>
         <div class="panel-body scroll-body">
-          <div class="mode-work-tabs" id="modeWorkspaceTabs">
-            <button class="subtab-btn active" data-view="overview">Overview</button>
-            <button class="subtab-btn" id="modeSettingsTab" data-view="settings">Manual Settings</button>
+          <div class="field">
+            <label for="algorithmSelect">Active algorithm</label>
+            <select id="algorithmSelect"></select>
           </div>
 
-          <section id="modeOverviewView" class="mode-view active">
-            <div class="mode-hero">
-              <div>
-                <div class="section-eyebrow">Selected mode</div>
-                <h3 id="currentModeTitle">Manual</h3>
-                <p id="currentModeDescription" class="small-note no-top"></p>
-              </div>
-              <div class="hero-pill-grid">
-                <div class="hero-pill">
-                  <span>Drive logic</span>
-                  <strong id="modeCurrentAlgorithm">Manual</strong>
-                </div>
-                <div class="hero-pill">
-                  <span>Input rule</span>
-                  <strong id="modeInputRule">Joystick controls steering and throttle.</strong>
-                </div>
-                <div class="hero-pill">
-                  <span>Model</span>
-                  <strong id="modeModelRequirement">Not required</strong>
-                </div>
-              </div>
+          <div class="field">
+            <label for="maxThrottle">Max throttle</label>
+            <input id="maxThrottle" type="range" min="0" max="100" value="55" />
+            <div class="value-text"><span id="maxThrottleValue">0.55</span></div>
+          </div>
+
+          <div class="field">
+            <label for="steerMix">Steer mix</label>
+            <input id="steerMix" type="range" min="0" max="100" value="50" />
+            <div class="value-text"><span id="steerMixValue">0.50</span></div>
+          </div>
+
+          <div class="field">
+            <label for="modelFile">Upload TFLite model</label>
+            <input id="modelFile" type="file" accept=".tflite" />
+            <div class="stack-row">
+              <button id="uploadModelBtn">Upload</button>
+              <button id="refreshModelsBtn" class="ghost-btn">Refresh list</button>
             </div>
+          </div>
 
-            <div class="info-stack">
-              <div class="info-card">
-                <label>How this mode behaves</label>
-                <p id="modeBehaviorText" class="small-note no-top"></p>
-              </div>
-              <div class="info-card">
-                <label>Safety reminder</label>
-                <p class="small-note no-top">Stop the car before running Git update or restart. Full Auto locks the joystick pad except the stop buttons.</p>
-              </div>
-            </div>
-          </section>
+          <div class="field">
+            <label for="modelSelect">Available models</label>
+            <select id="modelSelect"></select>
+            <button id="loadModelBtn">Load model</button>
+          </div>
 
-          <section id="modeSettingsView" class="mode-view hidden">
-            <div class="field">
-              <label for="modeMaxThrottle" id="modeMaxThrottleLabel">Manual speed limit</label>
-              <input id="modeMaxThrottle" type="range" min="0" max="100" value="55" />
-              <div class="value-text"><span id="modeMaxThrottleValue">0.55</span></div>
-            </div>
-
-            <div class="field">
-              <label for="modeSteerMix" id="modeSteerMixLabel">Wheel steering mix</label>
-              <input id="modeSteerMix" type="range" min="0" max="100" value="50" />
-              <div class="value-text"><span id="modeSteerMixValue">0.50</span></div>
-            </div>
-
-            <div id="modelToolsGroup" class="hidden">
-              <div class="field">
-                <label for="modelFile">Upload TFLite model</label>
-                <input id="modelFile" type="file" accept=".tflite" />
-                <div class="stack-row">
-                  <button id="uploadModelBtn">Upload</button>
-                  <button id="refreshModelsBtn" class="ghost-btn">Refresh list</button>
-                </div>
-              </div>
-
-              <div class="field">
-                <label for="modelSelect">Available models</label>
-                <select id="modelSelect"></select>
-                <button id="loadModelBtn">Load model</button>
-              </div>
-            </div>
-
-            <div id="modeSettingsNote" class="banner muted">Manual mode settings control direct driver response.</div>
-            <div id="modelMessage" class="banner muted">No model action yet.</div>
-          </section>
-
-          <section id="calibrationView" class="mode-view hidden">
-            <div class="calibration-grid">
-              <div class="info-card">
-                <label>Motor basis</label>
-                <div class="field compact-field">
-                  <label for="leftMotorScale">Left motor trim</label>
-                  <input id="leftMotorScale" type="range" min="50" max="150" value="100" />
-                  <div class="value-text"><span id="leftMotorScaleValue">1.00</span></div>
-                </div>
-                <div class="field compact-field">
-                  <label for="rightMotorScale">Right motor trim</label>
-                  <input id="rightMotorScale" type="range" min="50" max="150" value="100" />
-                  <div class="value-text"><span id="rightMotorScaleValue">1.00</span></div>
-                </div>
-                <div class="field compact-field">
-                  <label for="globalSpeedLimit">Global max speed</label>
-                  <input id="globalSpeedLimit" type="range" min="10" max="100" value="75" />
-                  <div class="value-text"><span id="globalSpeedLimitValue">0.75</span></div>
-                </div>
-                <div class="field compact-field no-bottom">
-                  <label for="turnGain">Turning ratio</label>
-                  <input id="turnGain" type="range" min="20" max="180" value="100" />
-                  <div class="value-text"><span id="turnGainValue">1.00</span></div>
-                </div>
-              </div>
-
-
-            </div>
-
-            <div class="stack-row top-gap">
-              <button id="applyCalibrationBtn">Apply calibration</button>
-              <button id="refreshCalibrationBtn" class="ghost-btn">Load current values</button>
-            </div>
-            <div id="calibrationMessage" class="banner muted">Adjust trims, turning ratio, and overall speed limit here.</div>
-          </section>
-
-          <section id="cameraView" class="mode-view hidden">
-            <div class="calibration-grid">
-              <div class="info-card">
-                <label>Camera stream</label>
-                <div class="field compact-field">
-                  <label for="cameraResolution">Camera resolution</label>
-                  <select id="cameraResolution">
-                    <option value="320x240">320 × 240</option>
-                    <option value="426x240">426 × 240</option>
-                    <option value="640x360">640 × 360</option>
-                    <option value="640x480">640 × 480</option>
-                    <option value="800x600">800 × 600</option>
-                  </select>
-                </div>
-                <div class="field compact-field">
-                  <label for="cameraFps">Camera FPS target</label>
-                  <select id="cameraFps">
-                    <option value="15">15 FPS</option>
-                    <option value="24">24 FPS</option>
-                    <option value="30">30 FPS</option>
-                    <option value="45">45 FPS</option>
-                    <option value="60">60 FPS</option>
-                  </select>
-                </div>
-                <div class="field compact-field no-bottom">
-                  <label for="cameraFormat">Camera format</label>
-                  <select id="cameraFormat">
-                    <option value="BGR888">BGR888</option>
-                    <option value="RGB888">RGB888</option>
-                    <option value="XRGB8888">XRGB8888</option>
-                  </select>
-                </div>
-              </div>
-
-              <div class="info-card">
-                <label>Exposure and colour</label>
-                <div class="field compact-field">
-                  <label><input id="cameraAutoExposure" type="checkbox" checked /> Auto exposure</label>
-                </div>
-                <div class="field compact-field">
-                  <label for="cameraExposureTime">Locked exposure time</label>
-                  <input id="cameraExposureTime" type="range" min="100" max="60000" step="100" value="12000" />
-                  <div class="value-text"><span id="cameraExposureTimeValue">12000</span></div>
-                </div>
-                <div class="field compact-field">
-                  <label for="cameraAnalogueGain">Analogue gain</label>
-                  <input id="cameraAnalogueGain" type="range" min="10" max="160" step="1" value="15" />
-                  <div class="value-text"><span id="cameraAnalogueGainValue">1.5</span></div>
-                </div>
-                <div class="field compact-field">
-                  <label for="cameraExposureCompensation">Exposure compensation</label>
-                  <input id="cameraExposureCompensation" type="range" min="-80" max="80" step="1" value="0" />
-                  <div class="value-text"><span id="cameraExposureCompensationValue">0.0</span></div>
-                </div>
-                <div class="field compact-field">
-                  <label><input id="cameraAutoWhiteBalance" type="checkbox" checked /> Auto white balance</label>
-                </div>
-                <div class="field compact-field">
-                  <label for="cameraBrightness">Brightness</label>
-                  <input id="cameraBrightness" type="range" min="-100" max="100" step="1" value="0" />
-                  <div class="value-text"><span id="cameraBrightnessValue">0.0</span></div>
-                </div>
-                <div class="field compact-field">
-                  <label for="cameraContrast">Contrast</label>
-                  <input id="cameraContrast" type="range" min="0" max="400" step="1" value="100" />
-                  <div class="value-text"><span id="cameraContrastValue">1.0</span></div>
-                </div>
-                <div class="field compact-field">
-                  <label for="cameraSaturation">Saturation</label>
-                  <input id="cameraSaturation" type="range" min="0" max="400" step="1" value="100" />
-                  <div class="value-text"><span id="cameraSaturationValue">1.0</span></div>
-                </div>
-                <div class="field compact-field no-bottom">
-                  <label for="cameraSharpness">Sharpness</label>
-                  <input id="cameraSharpness" type="range" min="0" max="400" step="1" value="100" />
-                  <div class="value-text"><span id="cameraSharpnessValue">1.0</span></div>
-                </div>
-              </div>
-            </div>
-
-            <div class="stack-row top-gap">
-              <button id="applyCameraBtn">Apply camera settings</button>
-              <button id="refreshCameraBtn" class="ghost-btn">Load current camera values</button>
-            </div>
-            <div id="cameraMessage" class="banner muted">Camera controls are grouped here so exposure and image tuning stay in one place. Save config to keep them.</div>
-          </section>
+          <div id="modelMessage" class="banner muted">No model action yet.</div>
         </div>
         <div class="resize-handle"></div>
       </article>
 
       <article class="dock-panel" data-panel="manual">
         <div class="panel-head">
-          <span id="manualPanelTitle">Manual control</span>
-          <span class="panel-mini" id="manualPanelMini">drag pad</span>
+          <span>Manual control</span>
+          <span class="panel-mini">drag pad</span>
         </div>
         <div class="panel-body scroll-body">
           <div id="joystickArea" class="joystick-area">
             <div id="joystickDot" class="joystick-dot"></div>
           </div>
           <div class="value-text" id="joystickText">Steering 0.00 · Throttle 0.00</div>
-          <div class="small-note" id="manualModeNote">Joystick controls steering and throttle directly in Manual mode.</div>
 
           <div class="field">
-            <label for="manualSpeed" id="manualSpeedLabel">Manual speed scale</label>
+            <label for="manualSpeed">Manual speed scale</label>
             <input id="manualSpeed" type="range" min="0" max="100" value="55" />
             <div class="value-text"><span id="manualSpeedValue">0.55</span></div>
           </div>
@@ -329,13 +161,13 @@
             <button id="gitPullBtn">Update from Git</button>
             <button id="restartBtn" class="ghost-btn">Restart service</button>
           </div>
-          <div id="systemMessage" class="banner muted">System actions are blocked unless throttle is zero and E-stop is enabled. Update from Git also requires PiServer to run from a real PiDrive git clone.</div>
+          <div id="systemMessage" class="banner muted">System actions are blocked unless throttle is zero and E-stop is enabled.</div>
         </div>
         <div class="resize-handle"></div>
       </article>
     </section>
   </main>
 
-  <script src="{{ url_for('static', filename='app.js') }}?v=0_1_7"></script>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>
