@@ -392,32 +392,50 @@ input[type=range] {
 }
 
 
-body[data-page="update"] .dock-panel[data-panel="drive"],
-body[data-page="update"] .dock-panel[data-panel="manual"],
-body[data-page="update"] .dock-panel[data-panel="record"] {
+
+
+.field-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.field-grid.two-col {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.check-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(135, 155, 195, 0.25);
+  background: rgba(22, 29, 41, 0.95);
+  color: var(--text);
+}
+
+.check-line input {
+  width: 18px;
+  height: 18px;
+}
+
+body:not([data-page="camera"]) .dock-panel[data-panel="camera"] {
   display: none;
 }
 
-body[data-page="update"] .non-update-actions {
-  opacity: 0.38;
-  pointer-events: none;
+body[data-page="camera"] .dock-panel[data-panel="drive"],
+body[data-page="camera"] .dock-panel[data-panel="manual"],
+body[data-page="camera"] .dock-panel[data-panel="record"] {
+  display: none;
 }
 
-body[data-page="update"] .update-only-note {
-  border-top: 1px solid rgba(130, 150, 190, 0.16);
-  padding-top: 12px;
+body[data-page="camera"] .dock-panel[data-panel="camera"] {
+  display: flex;
 }
 
-.update-tab-btn {
-  border-color: rgba(255, 180, 84, 0.36);
-}
-
-.maintenance-active .update-tab-btn.active {
-  background: linear-gradient(180deg, rgba(204, 124, 32, 0.92), rgba(133, 78, 14, 0.92));
-  border-color: rgba(255, 193, 94, 0.62);
-}
-
-.joystick-area:has(:disabled),
-.maintenance-active .joystick-area {
-  opacity: 0.55;
+@media (max-width: 960px) {
+  .field-grid.two-col {
+    grid-template-columns: 1fr;
+  }
 }

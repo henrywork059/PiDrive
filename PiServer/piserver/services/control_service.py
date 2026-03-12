@@ -139,7 +139,7 @@ class ControlService:
                 self.state.max_throttle = max(0.0, min(1.0, float(max_throttle)))
             if steer_mix is not None:
                 self.state.steer_mix = max(0.0, min(1.0, float(steer_mix)))
-            if current_page and str(current_page) != "update":
+            if current_page:
                 self.state.current_page = str(current_page)
             self.state.system_message = "Runtime parameters updated."
         return True, "OK"
@@ -165,32 +165,6 @@ class ControlService:
         if enabled:
             self._hard_stop_outputs()
 
-    def set_maintenance_mode(self, enabled: bool, current_page: str | None = None) -> tuple[bool, str]:
-        enabled = bool(enabled)
-        with self.lock:
-            if enabled:
-                if self.recorder_service.recording:
-                    self.recorder_service.stop()
-                self.state.recording = False
-                self.state.maintenance_mode = True
-                self.state.safety_stop = True
-                self._apply_safe_stop_locked()
-                self.state.current_page = "update"
-                self.state.system_message = "Update tab open. Maintenance mode active and driving functions paused."
-                message = self.state.system_message
-            else:
-                self.state.maintenance_mode = False
-                self.state.safety_stop = True
-                self._apply_safe_stop_locked()
-                if current_page and str(current_page) != "update":
-                    self.state.current_page = str(current_page)
-                elif self.state.current_page == "update":
-                    self.state.current_page = "manual"
-                self.state.system_message = "Maintenance mode exited. System remains stopped until you resume manually."
-                message = self.state.system_message
-        self._hard_stop_outputs()
-        return True, message
-
     def get_runtime_config(self) -> dict:
         with self.lock:
             return {
@@ -198,6 +172,7 @@ class ControlService:
                 "max_throttle": self.state.max_throttle,
                 "steer_mix": self.state.steer_mix,
                 "current_page": self.state.current_page,
+                "camera": self.camera_service.get_config(),
             }
 
     def save_runtime_config(self) -> dict:
@@ -219,21 +194,13 @@ class ControlService:
             if "steer_mix" in data:
                 self.state.steer_mix = max(0.0, min(1.0, float(data["steer_mix"])))
             if "current_page" in data:
-                page = str(data["current_page"])
-                self.state.current_page = page if page != "update" else "manual"
+                self.state.current_page = str(data["current_page"])
             self.state.system_message = "Runtime config loaded." if not initial else "Runtime config applied."
+        camera_cfg = data.get("camera")
+        if isinstance(camera_cfg, dict):
+            self.camera_service.apply_settings(camera_cfg, restart=not initial)
 
     def reload_runtime_config(self) -> dict:
         data = self.config_store.load()
         self.apply_runtime_config(data)
         return self.get_runtime_config()
-
-    def can_run_system_action(self) -> tuple[bool, str]:
-        snap = self.snapshot()
-        if not snap.get("maintenance_mode"):
-            return False, "Open the Update tab before update/restart."
-        if snap["recording"]:
-            return False, "Stop recording before update/restart."
-        if snap["applied_throttle"] > 0.01 or snap["manual_throttle"] > 0.01:
-            return False, "Throttle must be zero before update/restart."
-        return True, "OK"

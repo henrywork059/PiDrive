@@ -15,7 +15,7 @@ from piserver.services.recorder_service import RecorderService
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 WEB_DIR = Path(__file__).resolve().parent / "web"
-APP_VERSION = "0_1_14"
+APP_VERSION = "0_1_15"
 
 
 def mjpeg_generator(camera_service):
@@ -36,13 +36,17 @@ def create_app() -> Flask:
         static_folder=str(WEB_DIR / "static"),
     )
 
+    config_store = ConfigStore(BASE_DIR / "config" / "runtime.json")
+    initial_config = config_store.load()
+
     camera_service = CameraService()
+    if isinstance(initial_config.get("camera"), dict):
+        camera_service.apply_settings(initial_config.get("camera"), restart=False)
     camera_service.start()
 
     motor_service = MotorService()
     model_service = ModelService(BASE_DIR / "models")
     recorder_service = RecorderService(BASE_DIR / "data" / "records")
-    config_store = ConfigStore(BASE_DIR / "config" / "runtime.json")
     algorithms = build_registry()
     control_service = ControlService(
         camera_service=camera_service,
@@ -150,11 +154,13 @@ def create_app() -> Flask:
 
     @app.route("/api/config/save", methods=["POST"])
     def api_config_save():
-        return jsonify({"ok": True, "config": control_service.save_runtime_config()})
+        config = control_service.save_runtime_config()
+        return jsonify({"ok": True, "config": config, "message": "Config saved."})
 
     @app.route("/api/config/reload", methods=["POST"])
     def api_config_reload():
-        return jsonify({"ok": True, "config": control_service.reload_runtime_config()})
+        config = control_service.reload_runtime_config()
+        return jsonify({"ok": True, "config": config, "message": "Config reloaded."})
 
     @app.route("/api/system/estop", methods=["POST"])
     def api_estop():
@@ -164,5 +170,16 @@ def create_app() -> Flask:
         if enabled:
             motor_service.stop()
         return jsonify({"ok": True, "state": control_service.snapshot()})
+
+    @app.route("/api/camera/config")
+    def api_camera_config():
+        return jsonify({"ok": True, "config": camera_service.get_config()})
+
+    @app.route("/api/camera/apply", methods=["POST"])
+    def api_camera_apply():
+        data = request.get_json(silent=True) or {}
+        ok, message, config = camera_service.apply_settings(data, restart=True)
+        code = 200 if ok else 400
+        return jsonify({"ok": ok, "message": message, "config": config, "state": control_service.snapshot()}), code
 
     return app

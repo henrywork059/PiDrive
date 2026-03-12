@@ -17,6 +17,7 @@
       <button class="tab-btn active" data-page="manual">Manual</button>
       <button class="tab-btn" data-page="training">Training</button>
       <button class="tab-btn" data-page="auto">Auto</button>
+      <button class="tab-btn" data-page="camera">Camera</button>
     </div>
 
     <div class="toolbar-actions">
@@ -49,11 +50,11 @@
 
       <article class="dock-panel" data-panel="viewer">
         <div class="panel-head">
-          <span>Live viewer</span>
+          <span>Camera preview</span>
           <span class="panel-mini">MJPEG</span>
         </div>
         <div class="panel-body viewer-body">
-          <img id="videoFeed" src="/video_feed" alt="PiServer live feed" />
+          <img id="videoFeed" src="/video_feed" alt="PiServer camera preview" />
         </div>
         <div class="resize-handle"></div>
       </article>
@@ -144,6 +145,81 @@
         <div class="resize-handle"></div>
       </article>
 
+      <article class="dock-panel" data-panel="camera">
+        <div class="panel-head">
+          <span>Camera settings</span>
+          <span class="panel-mini">apply + restart</span>
+        </div>
+        <div class="panel-body scroll-body">
+          <div class="field-grid two-col">
+            <div class="field">
+              <label for="cameraWidth">Width</label>
+              <input id="cameraWidth" type="number" min="64" max="3840" step="1" value="426" />
+            </div>
+            <div class="field">
+              <label for="cameraHeight">Height</label>
+              <input id="cameraHeight" type="number" min="48" max="2160" step="1" value="240" />
+            </div>
+            <div class="field">
+              <label for="cameraFps">FPS</label>
+              <input id="cameraFps" type="number" min="1" max="120" step="1" value="30" />
+            </div>
+            <div class="field">
+              <label for="cameraFormat">Format</label>
+              <select id="cameraFormat">
+                <option value="BGR888">BGR888</option>
+                <option value="RGB888">RGB888</option>
+                <option value="XBGR8888">XBGR8888</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field-grid two-col">
+            <label class="check-line"><input id="cameraAutoExposure" type="checkbox" checked /> Auto exposure</label>
+            <label class="check-line"><input id="cameraAwb" type="checkbox" checked /> Auto white balance</label>
+          </div>
+
+          <div class="field-grid two-col">
+            <div class="field">
+              <label for="cameraExposureUs">Exposure (µs)</label>
+              <input id="cameraExposureUs" type="number" min="100" max="200000" step="100" value="12000" />
+            </div>
+            <div class="field">
+              <label for="cameraAnalogueGain">Analogue gain</label>
+              <input id="cameraAnalogueGain" type="number" min="0" max="64" step="0.1" value="1.0" />
+            </div>
+            <div class="field">
+              <label for="cameraExposureComp">Exposure compensation</label>
+              <input id="cameraExposureComp" type="number" min="-8" max="8" step="0.1" value="0" />
+            </div>
+            <div class="field">
+              <label for="cameraBrightness">Brightness</label>
+              <input id="cameraBrightness" type="number" min="-1" max="1" step="0.1" value="0" />
+            </div>
+            <div class="field">
+              <label for="cameraContrast">Contrast</label>
+              <input id="cameraContrast" type="number" min="0" max="32" step="0.1" value="1" />
+            </div>
+            <div class="field">
+              <label for="cameraSaturation">Saturation</label>
+              <input id="cameraSaturation" type="number" min="0" max="32" step="0.1" value="1" />
+            </div>
+            <div class="field">
+              <label for="cameraSharpness">Sharpness</label>
+              <input id="cameraSharpness" type="number" min="0" max="16" step="0.1" value="1" />
+            </div>
+          </div>
+
+          <div class="stack-row">
+            <button id="cameraApplyBtn">Apply + Restart camera</button>
+            <button id="cameraReloadBtn" class="ghost-btn">Reload camera settings</button>
+          </div>
+          <div id="cameraMessage" class="banner muted">Load camera settings to begin.</div>
+          <div class="small-note">Some controls only apply when PiServer is using the Picamera2 backend. On OpenCV fallback, only a subset may take effect.</div>
+        </div>
+        <div class="resize-handle"></div>
+      </article>
+
       <article class="dock-panel" data-panel="system">
         <div class="panel-head">
           <span>System + config</span>
@@ -152,7 +228,7 @@
         <div class="panel-body scroll-body">
           <div class="field">
             <label>Update workflow</label>
-            <div class="small-note">Web update and restart controls were removed in this patch. Use <code>git pull</code> in the terminal, then restart PiServer manually.</div>
+            <div class="small-note">Use <code>git pull</code> in the terminal, then restart PiServer manually.</div>
           </div>
           <div class="stack-row">
             <button id="saveConfigBtn">Save config</button>

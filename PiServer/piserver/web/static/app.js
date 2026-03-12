@@ -8,7 +8,8 @@ const defaultLayouts = {
     drive: { c: 16, r: 1, w: 9, h: 5 },
     manual: { c: 16, r: 6, w: 9, h: 5 },
     record: { c: 1, r: 13, w: 8, h: 2 },
-    system: { c: 9, r: 13, w: 16, h: 2 }
+    system: { c: 9, r: 13, w: 16, h: 2 },
+    camera: { c: 16, r: 1, w: 9, h: 5 }
   },
   training: {
     status: { c: 1, r: 1, w: 8, h: 2 },
@@ -16,7 +17,8 @@ const defaultLayouts = {
     drive: { c: 15, r: 1, w: 10, h: 6 },
     manual: { c: 15, r: 7, w: 10, h: 5 },
     record: { c: 1, r: 12, w: 8, h: 3 },
-    system: { c: 9, r: 12, w: 16, h: 3 }
+    system: { c: 9, r: 12, w: 16, h: 3 },
+    camera: { c: 15, r: 1, w: 10, h: 6 }
   },
   auto: {
     status: { c: 1, r: 1, w: 7, h: 2 },
@@ -24,7 +26,17 @@ const defaultLayouts = {
     drive: { c: 17, r: 1, w: 8, h: 6 },
     manual: { c: 17, r: 7, w: 8, h: 4 },
     record: { c: 1, r: 13, w: 7, h: 2 },
-    system: { c: 8, r: 13, w: 17, h: 2 }
+    system: { c: 8, r: 13, w: 17, h: 2 },
+    camera: { c: 17, r: 1, w: 8, h: 6 }
+  },
+  camera: {
+    status: { c: 1, r: 1, w: 8, h: 2 },
+    viewer: { c: 1, r: 3, w: 15, h: 10 },
+    camera: { c: 16, r: 1, w: 9, h: 12 },
+    system: { c: 1, r: 13, w: 15, h: 2 },
+    drive: { c: 16, r: 1, w: 9, h: 6 },
+    manual: { c: 16, r: 7, w: 9, h: 4 },
+    record: { c: 16, r: 11, w: 9, h: 2 }
   }
 };
 
@@ -33,11 +45,12 @@ const state = {
   manualSteering: 0,
   manualThrottle: 0,
   maxThrottle: 0.55,
-  steerMix: 0.50,
+  steerMix: 0.5,
   dragging: null,
   resizing: null,
   latestStatus: null,
-  statusTimer: null
+  statusTimer: null,
+  cameraConfig: null
 };
 
 function clamp(value, min, max) {
@@ -141,38 +154,47 @@ function setupDocking() {
     });
 
     handle.addEventListener("pointerdown", (event) => {
+      event.stopPropagation();
+      const { rect, cellW, cellH } = workspaceMetrics();
       const box = readPanelBox(panel);
       panel.classList.add("resizing");
       state.resizing = {
         panel,
+        box,
         startX: event.clientX,
         startY: event.clientY,
-        box
+        cellW,
+        cellH,
+        rect
       };
       handle.setPointerCapture(event.pointerId);
-      event.stopPropagation();
     });
   });
 
   window.addEventListener("pointermove", (event) => {
     if (state.dragging) {
       const { rect, cellW, cellH } = workspaceMetrics();
-      const drag = state.dragging;
-      const left = event.clientX - rect.left - drag.offsetX;
-      const top = event.clientY - rect.top - drag.offsetY;
-      const c = clamp(Math.round(left / cellW) + 1, 1, gridCols - drag.box.w + 1);
-      const r = clamp(Math.round(top / cellH) + 1, 1, gridRows - drag.box.h + 1);
-      setPanelBox(drag.panel, { ...drag.box, c, r });
+      const col = Math.round((event.clientX - rect.left - state.dragging.offsetX) / cellW) + 1;
+      const row = Math.round((event.clientY - rect.top - state.dragging.offsetY) / cellH) + 1;
+      const box = {
+        ...state.dragging.box,
+        c: clamp(col, 1, gridCols - state.dragging.box.w + 1),
+        r: clamp(row, 1, gridRows - state.dragging.box.h + 1)
+      };
+      setPanelBox(state.dragging.panel, box);
     }
 
     if (state.resizing) {
-      const resize = state.resizing;
-      const { cellW, cellH } = workspaceMetrics();
-      const dx = event.clientX - resize.startX;
-      const dy = event.clientY - resize.startY;
-      const newW = clamp(Math.round(resize.box.w + dx / cellW), 3, gridCols - resize.box.c + 1);
-      const newH = clamp(Math.round(resize.box.h + dy / cellH), 2, gridRows - resize.box.r + 1);
-      setPanelBox(resize.panel, { ...resize.box, w: newW, h: newH });
+      const dx = event.clientX - state.resizing.startX;
+      const dy = event.clientY - state.resizing.startY;
+      const dw = Math.round(dx / state.resizing.cellW);
+      const dh = Math.round(dy / state.resizing.cellH);
+      const box = {
+        ...state.resizing.box,
+        w: clamp(state.resizing.box.w + dw, 3, gridCols - state.resizing.box.c + 1),
+        h: clamp(state.resizing.box.h + dh, 2, gridRows - state.resizing.box.r + 1)
+      };
+      setPanelBox(state.resizing.panel, box);
     }
   });
 
@@ -360,6 +382,72 @@ async function runSystemAction(endpoint, bannerId) {
   await pollStatus();
 }
 
+function readCameraForm() {
+  return {
+    width: Number(document.getElementById("cameraWidth").value || 426),
+    height: Number(document.getElementById("cameraHeight").value || 240),
+    fps: Number(document.getElementById("cameraFps").value || 30),
+    format: document.getElementById("cameraFormat").value || "BGR888",
+    auto_exposure: document.getElementById("cameraAutoExposure").checked,
+    exposure_us: Number(document.getElementById("cameraExposureUs").value || 12000),
+    analogue_gain: Number(document.getElementById("cameraAnalogueGain").value || 1.0),
+    exposure_compensation: Number(document.getElementById("cameraExposureComp").value || 0.0),
+    auto_white_balance: document.getElementById("cameraAwb").checked,
+    brightness: Number(document.getElementById("cameraBrightness").value || 0.0),
+    contrast: Number(document.getElementById("cameraContrast").value || 1.0),
+    saturation: Number(document.getElementById("cameraSaturation").value || 1.0),
+    sharpness: Number(document.getElementById("cameraSharpness").value || 1.0)
+  };
+}
+
+function fillCameraForm(config = {}) {
+  state.cameraConfig = config;
+  document.getElementById("cameraWidth").value = config.width ?? 426;
+  document.getElementById("cameraHeight").value = config.height ?? 240;
+  document.getElementById("cameraFps").value = config.fps ?? 30;
+  document.getElementById("cameraFormat").value = config.format || "BGR888";
+  document.getElementById("cameraAutoExposure").checked = Boolean(config.auto_exposure ?? true);
+  document.getElementById("cameraExposureUs").value = config.exposure_us ?? 12000;
+  document.getElementById("cameraAnalogueGain").value = config.analogue_gain ?? 1.0;
+  document.getElementById("cameraExposureComp").value = config.exposure_compensation ?? 0.0;
+  document.getElementById("cameraAwb").checked = Boolean(config.auto_white_balance ?? true);
+  document.getElementById("cameraBrightness").value = config.brightness ?? 0.0;
+  document.getElementById("cameraContrast").value = config.contrast ?? 1.0;
+  document.getElementById("cameraSaturation").value = config.saturation ?? 1.0;
+  document.getElementById("cameraSharpness").value = config.sharpness ?? 1.0;
+}
+
+function refreshVideoFeed() {
+  const img = document.getElementById("videoFeed");
+  img.src = `/video_feed?t=${Date.now()}`;
+}
+
+async function loadCameraConfig() {
+  const data = await fetchJson("/api/camera/config");
+  fillCameraForm(data.config || {});
+  const backend = data.config?.backend ? ` Backend: ${data.config.backend}.` : "";
+  setBanner("cameraMessage", `Camera settings loaded.${backend}`, "muted");
+}
+
+async function applyCameraConfig() {
+  const payload = readCameraForm();
+  const button = document.getElementById("cameraApplyBtn");
+  button.disabled = true;
+  try {
+    const data = await fetchJson("/api/camera/apply", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    fillCameraForm(data.config || payload);
+    refreshVideoFeed();
+    await pollStatus();
+    setBanner("cameraMessage", data.message || "Camera restarted.", "muted");
+  } finally {
+    button.disabled = false;
+  }
+}
+
 function setupJoystick() {
   const area = document.getElementById("joystickArea");
   const dot = document.getElementById("joystickDot");
@@ -415,6 +503,13 @@ function setupEvents() {
       if (!nextPage || nextPage === state.page) return;
       renderActivePage(nextPage);
       await sendControlUpdate({ current_page: nextPage });
+      if (nextPage === "camera") {
+        try {
+          await loadCameraConfig();
+        } catch (error) {
+          setBanner("cameraMessage", error.message, "muted");
+        }
+      }
     });
   });
 
@@ -501,8 +596,27 @@ function setupEvents() {
       const status = await fetchJson("/api/status");
       syncControlsFromStatus(status);
       updateStatusUi(status);
+      await loadCameraConfig();
+      refreshVideoFeed();
     } catch (error) {
       setBanner("systemMessage", error.message, "muted");
+    }
+  });
+
+  document.getElementById("cameraApplyBtn").addEventListener("click", async () => {
+    try {
+      await applyCameraConfig();
+    } catch (error) {
+      setBanner("cameraMessage", error.message, "muted");
+    }
+  });
+
+  document.getElementById("cameraReloadBtn").addEventListener("click", async () => {
+    try {
+      await loadCameraConfig();
+      refreshVideoFeed();
+    } catch (error) {
+      setBanner("cameraMessage", error.message, "muted");
     }
   });
 
@@ -534,6 +648,7 @@ async function init() {
   setupEvents();
   await refreshAlgorithms();
   await refreshModels();
+  await loadCameraConfig();
   const status = await fetchJson("/api/status");
   updateStatusUi(status);
   syncControlsFromStatus(status);
