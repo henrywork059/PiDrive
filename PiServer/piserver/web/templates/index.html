@@ -17,7 +17,6 @@
       <button class="tab-btn active" data-page="manual">Manual</button>
       <button class="tab-btn" data-page="training">Training</button>
       <button class="tab-btn" data-page="auto">Auto</button>
-      <button class="tab-btn update-tab-btn" data-page="update">Update</button>
     </div>
 
     <div class="toolbar-actions">
@@ -147,29 +146,19 @@
 
       <article class="dock-panel" data-panel="system">
         <div class="panel-head">
-          <span>Update + system</span>
-          <span class="panel-mini">maintenance</span>
+          <span>System + config</span>
+          <span class="panel-mini">local</span>
         </div>
         <div class="panel-body scroll-body">
           <div class="field">
-            <label>Git repo</label>
-            <div class="value-text" id="gitStatusText">Checking…</div>
-            <div class="small-note" id="gitRepoText">Looking for repo…</div>
+            <label>Update workflow</label>
+            <div class="small-note">Web update and restart controls were removed in this patch. Use <code>git pull</code> in the terminal, then restart PiServer manually.</div>
           </div>
-          <div class="field update-only-note">
-            <label>Update mode</label>
-            <div class="small-note">Open the <strong>Update</strong> tab to pause driving, force throttle to zero, stop recording, and enable repo update / restart actions.</div>
-          </div>
-          <div class="stack-row non-update-actions">
+          <div class="stack-row">
             <button id="saveConfigBtn">Save config</button>
             <button id="reloadConfigBtn" class="ghost-btn">Reload config</button>
           </div>
-          <div class="stack-row update-actions">
-            <button id="checkRepoBtn" class="ghost-btn">Check repo</button>
-            <button id="gitPullBtn">Update from Repo</button>
-            <button id="restartBtn" class="ghost-btn">Restart Server</button>
-          </div>
-          <div id="systemMessage" class="banner muted">Open the Update tab before update or restart.</div>
+          <div id="systemMessage" class="banner muted">Ready.</div>
         </div>
         <div class="resize-handle"></div>
       </article>
