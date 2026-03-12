@@ -36,7 +36,8 @@ const state = {
   steerMix: 0.50,
   dragging: null,
   resizing: null,
-  latestStatus: null
+  latestStatus: null,
+  restartPending: false
 };
 
 function clamp(value, min, max) {
@@ -213,6 +214,10 @@ function setBanner(id, text, tone = "muted") {
   el.className = `banner ${tone}`;
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function updateRangeText() {
   document.getElementById("maxThrottleValue").textContent = state.maxThrottle.toFixed(2);
   document.getElementById("steerMixValue").textContent = state.steerMix.toFixed(2);
@@ -257,6 +262,14 @@ function updateStatusUi(data) {
   if (data.git) {
     updateGitUi(data.git);
   }
+  if (data.restart) {
+    state.restartPending = !!data.restart.pending;
+    const restartBtn = document.getElementById("restartBtn");
+    if (restartBtn) {
+      restartBtn.disabled = state.restartPending;
+      restartBtn.textContent = state.restartPending ? "Restarting…" : "Restart Server";
+    }
+  }
 }
 
 function updateGitUi(git) {
@@ -285,7 +298,9 @@ async function pollStatus() {
     const data = await fetchJson("/api/status");
     updateStatusUi(data);
   } catch (error) {
-    setBanner("systemMessage", error.message, "muted");
+    if (!state.restartPending) {
+      setBanner("systemMessage", error.message, "muted");
+    }
   }
 }
 
@@ -391,6 +406,48 @@ async function runSystemAction(endpoint, bannerId) {
     await pollStatus();
   } catch (error) {
     setBanner(bannerId, error.message, "muted");
+  }
+}
+
+async function requestRestart() {
+  const restartBtn = document.getElementById("restartBtn");
+  try {
+    state.restartPending = true;
+    if (restartBtn) {
+      restartBtn.disabled = true;
+      restartBtn.textContent = "Restarting…";
+    }
+    const data = await fetchJson("/api/system/restart", { method: "POST" });
+    setBanner("systemMessage", data.message || "Restart scheduled.", "muted");
+
+    const deadline = Date.now() + 20000;
+    while (Date.now() < deadline) {
+      await sleep(1200);
+      try {
+        const status = await fetchJson("/api/status");
+        updateStatusUi(status);
+        syncControlsFromStatus(status);
+        await checkRepo(false);
+        setBanner("systemMessage", "PiServer is back online.", "muted");
+        return;
+      } catch (error) {
+        // wait for the process to come back
+      }
+    }
+
+    state.restartPending = false;
+    if (restartBtn) {
+      restartBtn.disabled = false;
+      restartBtn.textContent = "Restart Server";
+    }
+    setBanner("systemMessage", "Restart was requested. Refresh this page in a few seconds if it does not reconnect automatically.", "muted");
+  } catch (error) {
+    state.restartPending = false;
+    if (restartBtn) {
+      restartBtn.disabled = false;
+      restartBtn.textContent = "Restart Server";
+    }
+    setBanner("systemMessage", error.message, "muted");
   }
 }
 
@@ -536,7 +593,7 @@ function setupEvents() {
 
   document.getElementById("checkRepoBtn").addEventListener("click", () => checkRepo(true));
   document.getElementById("gitPullBtn").addEventListener("click", () => runSystemAction("/api/system/update", "systemMessage"));
-  document.getElementById("restartBtn").addEventListener("click", () => runSystemAction("/api/system/restart", "systemMessage"));
+  document.getElementById("restartBtn").addEventListener("click", requestRestart);
   document.getElementById("estopBtn").addEventListener("click", () => setEstop(true));
   document.getElementById("clearEstopBtn").addEventListener("click", () => setEstop(false));
 }

@@ -174,3 +174,17 @@ Update is blocked when:
 - throttle is not zero
 - E-stop is not engaged
 - Git has local modified files
+
+
+## Restart from web (0_1_12)
+
+`Restart Server` now re-launches the current PiServer process directly, so it works both when you start PiServer with `python3 server.py` and when you run it from a `systemd` service.
+
+Typical flow after an update:
+
+1. Click `Update from Repo`
+2. Read the update result in the System panel
+3. Click `Restart Server`
+4. Wait a few seconds for the page to reconnect
+
+The update result now shows whether the Git commit changed. If a new commit was pulled, the message tells you to restart so the new code is loaded.

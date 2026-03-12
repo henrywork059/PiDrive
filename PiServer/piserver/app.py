@@ -85,6 +85,7 @@ def create_app() -> Flask:
         snap = control_service.snapshot()
         git = update_service.git_status()
         snap["git"] = git
+        snap["restart"] = update_service.restart_status()
         return jsonify(snap)
 
     @app.route("/api/system/repo_status")

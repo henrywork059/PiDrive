@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import os
 import subprocess
+import sys
+import threading
 import time
 from pathlib import Path
 
@@ -13,6 +16,10 @@ class UpdateService:
         self.repo_root = self._discover_repo_root(self.project_dir)
         self._git_cache: dict | None = None
         self._git_cache_at = 0.0
+        self._restart_lock = threading.Lock()
+        self._restart_pending = False
+        self._restart_requested_at = 0.0
+        self._restart_error = ""
 
     def _discover_repo_root(self, start_dir: Path) -> Path | None:
         start_dir = Path(start_dir).resolve()
@@ -112,15 +119,60 @@ class UpdateService:
         if status.get("dirty"):
             return False, "Git has local modified files. Commit, stash, or discard them before updating."
         repo_root = Path(status["repo_root"])
+        before_commit = status.get("commit", "unknown")
         ok, text = self._run(["git", "pull", "--ff-only"], cwd=repo_root, timeout=120)
-        self.git_status(force=True)
+        after_status = self.git_status(force=True)
+        after_commit = after_status.get("commit", "unknown")
         if ok:
             final = text or "Git pull finished."
             if repo_root != self.project_dir:
                 final += f"\nUpdated parent repo: {repo_root}"
+            if before_commit != after_commit:
+                final += f"\nCommit: {before_commit} -> {after_commit}"
+                final += "\nRestart Server to load the updated code."
+            else:
+                final += "\nNo new commit was applied."
             return True, final
         return False, text or "Git pull failed."
 
-    def restart_service(self) -> tuple[bool, str]:
-        ok, text = self._run(["systemctl", "restart", self.service_name], cwd=self.project_dir, timeout=60)
-        return ok, text or ("Restart requested." if ok else "Service restart failed.")
+    def restart_status(self) -> dict:
+        with self._restart_lock:
+            pending = self._restart_pending
+            requested_at = self._restart_requested_at
+            error = self._restart_error
+        message = error or "Restart re-launches the current PiServer process."
+        return {
+            "ok": True,
+            "supported": True,
+            "mode": "self-exec",
+            "pending": pending,
+            "requested_at": requested_at,
+            "message": message,
+        }
+
+    def _perform_process_restart(self) -> None:
+        server_script = (self.project_dir / "server.py").resolve()
+        argv = [sys.executable, str(server_script)]
+        os.chdir(self.project_dir)
+        os.execv(sys.executable, argv)
+
+    def _delayed_restart(self, delay: float) -> None:
+        time.sleep(max(0.0, delay))
+        try:
+            self._perform_process_restart()
+        except Exception as exc:
+            with self._restart_lock:
+                self._restart_pending = False
+                self._restart_error = f"Restart failed: {exc}"
+
+    def restart_service(self, delay: float = 0.8) -> tuple[bool, str]:
+        with self._restart_lock:
+            if self._restart_pending:
+                return False, "Restart is already pending."
+            self._restart_pending = True
+            self._restart_requested_at = time.time()
+            self._restart_error = ""
+
+        thread = threading.Thread(target=self._delayed_restart, args=(delay,), daemon=True)
+        thread.start()
+        return True, "Restart scheduled. The page should reconnect automatically in a few seconds."
