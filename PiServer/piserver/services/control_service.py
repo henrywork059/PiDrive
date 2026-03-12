@@ -71,7 +71,7 @@ class ControlService:
                 self.state.camera_error = str(getattr(self.camera_service, "last_error", "") or "")
                 self.state.active_model = self.model_service.get_active_name()
 
-                if self.state.maintenance_mode or self.state.safety_stop:
+                if getattr(self.state, "maintenance_mode", False) or self.state.safety_stop:
                     steer, throttle = 0.0, 0.0
                 else:
                     algo = self.algorithms.get(self.state.active_algorithm, self.algorithms["manual"])
@@ -93,7 +93,7 @@ class ControlService:
                 self.state.last_update = time.time()
                 snapshot = self.state.snapshot()
 
-            if self.recorder_service.recording and not snapshot.get("maintenance_mode"):
+            if self.recorder_service.recording and not bool(snapshot.get("maintenance_mode", False)):
                 self.recorder_service.maybe_record(frame, snapshot)
 
             elapsed = time.time() - start
@@ -106,11 +106,11 @@ class ControlService:
 
     def is_maintenance_active(self) -> bool:
         with self.lock:
-            return bool(self.state.maintenance_mode)
+            return bool(getattr(self.state, "maintenance_mode", False))
 
     def set_manual_controls(self, steering=None, throttle=None):
         with self.lock:
-            if self.state.maintenance_mode:
+            if getattr(self.state, "maintenance_mode", False):
                 self.state.system_message = "Maintenance mode active. Manual controls are disabled."
                 return False, self.state.system_message
             if steering is not None:
@@ -125,7 +125,7 @@ class ControlService:
         if name not in self.algorithms:
             return False, "Unknown algorithm."
         with self.lock:
-            if self.state.maintenance_mode:
+            if getattr(self.state, "maintenance_mode", False):
                 self.state.system_message = "Maintenance mode active. Algorithm switching is disabled."
                 return False, self.state.system_message
             self.state.active_algorithm = name
@@ -134,7 +134,7 @@ class ControlService:
 
     def set_runtime_parameters(self, max_throttle=None, steer_mix=None, current_page=None):
         with self.lock:
-            if self.state.maintenance_mode and any(v is not None for v in (max_throttle, steer_mix)):
+            if getattr(self.state, "maintenance_mode", False) and any(v is not None for v in (max_throttle, steer_mix)):
                 self.state.system_message = "Maintenance mode active. Runtime tuning is disabled."
                 return False, self.state.system_message
             if max_throttle is not None:
@@ -148,7 +148,7 @@ class ControlService:
 
     def toggle_recording(self) -> tuple[bool, bool, str]:
         with self.lock:
-            if self.state.maintenance_mode:
+            if getattr(self.state, "maintenance_mode", False):
                 self.state.system_message = "Maintenance mode active. Recording is disabled."
                 return False, bool(self.recorder_service.recording), self.state.system_message
             self.recorder_service.toggle()
