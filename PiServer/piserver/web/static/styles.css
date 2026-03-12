@@ -390,3 +390,34 @@ input[type=range] {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+
+body[data-page="update"] .dock-panel[data-panel="drive"],
+body[data-page="update"] .dock-panel[data-panel="manual"],
+body[data-page="update"] .dock-panel[data-panel="record"] {
+  display: none;
+}
+
+body[data-page="update"] .non-update-actions {
+  opacity: 0.38;
+  pointer-events: none;
+}
+
+body[data-page="update"] .update-only-note {
+  border-top: 1px solid rgba(130, 150, 190, 0.16);
+  padding-top: 12px;
+}
+
+.update-tab-btn {
+  border-color: rgba(255, 180, 84, 0.36);
+}
+
+.maintenance-active .update-tab-btn.active {
+  background: linear-gradient(180deg, rgba(204, 124, 32, 0.92), rgba(133, 78, 14, 0.92));
+  border-color: rgba(255, 193, 94, 0.62);
+}
+
+.joystick-area:has(:disabled),
+.maintenance-active .joystick-area {
+  opacity: 0.55;
+}

@@ -18,6 +18,7 @@ from piserver.services import (
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 WEB_DIR = Path(__file__).resolve().parent / "web"
+APP_VERSION = "0_1_13"
 
 
 def mjpeg_generator(camera_service):
@@ -69,9 +70,12 @@ def create_app() -> Flask:
         "algorithms": algorithms,
     }
 
+    def maintenance_block(message: str = "Maintenance mode active. Only update actions are allowed."):
+        return jsonify({"ok": False, "message": message}), 423
+
     @app.route("/")
     def index():
-        return render_template("index.html")
+        return render_template("index.html", app_version=APP_VERSION)
 
     @app.route("/video_feed")
     def video_feed():
@@ -83,8 +87,7 @@ def create_app() -> Flask:
     @app.route("/api/status")
     def api_status():
         snap = control_service.snapshot()
-        git = update_service.git_status()
-        snap["git"] = git
+        snap["git"] = update_service.git_status()
         snap["restart"] = update_service.restart_status()
         return jsonify(snap)
 
@@ -104,22 +107,32 @@ def create_app() -> Flask:
 
     @app.route("/api/control", methods=["POST"])
     def api_control():
+        if control_service.is_maintenance_active():
+            return maintenance_block()
         data = request.get_json(silent=True) or {}
-        control_service.set_manual_controls(
+        ok_controls, msg_controls = control_service.set_manual_controls(
             steering=data.get("steering"),
             throttle=data.get("throttle"),
         )
-        control_service.set_runtime_parameters(
+        ok_runtime, msg_runtime = control_service.set_runtime_parameters(
             max_throttle=data.get("max_throttle"),
             steer_mix=data.get("steer_mix"),
             current_page=data.get("current_page"),
         )
         if "algorithm" in data:
-            control_service.select_algorithm(data.get("algorithm"))
+            ok_algo, msg_algo = control_service.select_algorithm(data.get("algorithm"))
+            if not ok_algo:
+                return jsonify({"ok": False, "message": msg_algo, "state": control_service.snapshot()}), 400
+        if not ok_controls:
+            return jsonify({"ok": False, "message": msg_controls, "state": control_service.snapshot()}), 400
+        if not ok_runtime:
+            return jsonify({"ok": False, "message": msg_runtime, "state": control_service.snapshot()}), 400
         return jsonify(control_service.snapshot())
 
     @app.route("/api/algorithm/select", methods=["POST"])
     def api_algorithm_select():
+        if control_service.is_maintenance_active():
+            return maintenance_block()
         data = request.get_json(silent=True) or {}
         ok, msg = control_service.select_algorithm(data.get("name"))
         code = 200 if ok else 400
@@ -127,7 +140,9 @@ def create_app() -> Flask:
 
     @app.route("/api/record/toggle", methods=["POST"])
     def api_record_toggle():
-        return jsonify({"recording": control_service.toggle_recording()})
+        ok, recording, message = control_service.toggle_recording()
+        code = 200 if ok else 423
+        return jsonify({"ok": ok, "recording": recording, "message": message, "state": control_service.snapshot()}), code
 
     @app.route("/api/model/list")
     def api_model_list():
@@ -140,6 +155,8 @@ def create_app() -> Flask:
 
     @app.route("/api/model/upload", methods=["POST"])
     def api_model_upload():
+        if control_service.is_maintenance_active():
+            return maintenance_block()
         file = request.files.get("file")
         if file is None:
             return jsonify({"ok": False, "error": "No file uploaded."}), 400
@@ -149,6 +166,8 @@ def create_app() -> Flask:
 
     @app.route("/api/model/load", methods=["POST"])
     def api_model_load():
+        if control_service.is_maintenance_active():
+            return maintenance_block()
         data = request.get_json(silent=True) or {}
         ok, msg = model_service.load_model(data.get("filename", ""))
         code = 200 if ok else 400
@@ -156,10 +175,14 @@ def create_app() -> Flask:
 
     @app.route("/api/config/save", methods=["POST"])
     def api_config_save():
+        if control_service.is_maintenance_active():
+            return maintenance_block()
         return jsonify({"ok": True, "config": control_service.save_runtime_config()})
 
     @app.route("/api/config/reload", methods=["POST"])
     def api_config_reload():
+        if control_service.is_maintenance_active():
+            return maintenance_block()
         return jsonify({"ok": True, "config": control_service.reload_runtime_config()})
 
     @app.route("/api/system/estop", methods=["POST"])
@@ -170,6 +193,15 @@ def create_app() -> Flask:
         if enabled:
             motor_service.stop()
         return jsonify({"ok": True, "state": control_service.snapshot()})
+
+    @app.route("/api/system/maintenance", methods=["POST"])
+    def api_system_maintenance():
+        data = request.get_json(silent=True) or {}
+        enabled = bool(data.get("enabled", True))
+        current_page = data.get("current_page")
+        ok, message = control_service.set_maintenance_mode(enabled, current_page=current_page)
+        code = 200 if ok else 400
+        return jsonify({"ok": ok, "message": message, "state": control_service.snapshot()}), code
 
     @app.route("/api/system/update", methods=["POST"])
     def api_system_update():

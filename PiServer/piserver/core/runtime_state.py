@@ -14,6 +14,7 @@ class RuntimeState:
     active_model: str = "none"
     recording: bool = False
     safety_stop: bool = False
+    maintenance_mode: bool = False
     max_throttle: float = 0.55
     steer_mix: float = 0.5
     current_page: str = "manual"

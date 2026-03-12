@@ -25,11 +25,20 @@ const defaultLayouts = {
     manual: { c: 17, r: 7, w: 8, h: 4 },
     record: { c: 1, r: 13, w: 7, h: 2 },
     system: { c: 8, r: 13, w: 17, h: 2 }
+  },
+  update: {
+    status: { c: 1, r: 1, w: 8, h: 3 },
+    viewer: { c: 1, r: 4, w: 15, h: 11 },
+    drive: { c: 16, r: 1, w: 9, h: 4 },
+    manual: { c: 16, r: 5, w: 9, h: 4 },
+    record: { c: 16, r: 9, w: 9, h: 3 },
+    system: { c: 16, r: 1, w: 9, h: 14 }
   }
 };
 
 const state = {
   page: "manual",
+  previousPage: "manual",
   manualSteering: 0,
   manualThrottle: 0,
   maxThrottle: 0.55,
@@ -37,7 +46,9 @@ const state = {
   dragging: null,
   resizing: null,
   latestStatus: null,
-  restartPending: false
+  restartPending: false,
+  maintenanceMode: false,
+  maintenanceBusy: false
 };
 
 function clamp(value, min, max) {
@@ -52,14 +63,18 @@ function layoutStorageKey(page) {
   return `${layoutKeyPrefix}${page}`;
 }
 
+function deepCloneLayout(layout) {
+  return JSON.parse(JSON.stringify(layout));
+}
+
 function loadLayout(page) {
   try {
     const raw = localStorage.getItem(layoutStorageKey(page));
-    if (!raw) return structuredClone(defaultLayouts[page]);
+    if (!raw) return deepCloneLayout(defaultLayouts[page] || defaultLayouts.manual);
     const parsed = JSON.parse(raw);
-    return Object.assign(structuredClone(defaultLayouts[page]), parsed);
+    return Object.assign(deepCloneLayout(defaultLayouts[page] || defaultLayouts.manual), parsed);
   } catch {
-    return structuredClone(defaultLayouts[page]);
+    return deepCloneLayout(defaultLayouts[page] || defaultLayouts.manual);
   }
 }
 
@@ -84,7 +99,7 @@ function currentLayout() {
   const out = {};
   panelEls().forEach((panel) => {
     out[panel.dataset.panel] = {
-      c: Number(panel.style.getPropertyValue("--c") || panel.style.getPropertyValue("c") || panel.dataset.c || 1),
+      c: Number(panel.style.getPropertyValue("--c") || panel.dataset.c || 1),
       r: Number(panel.style.getPropertyValue("--r") || panel.dataset.r || 1),
       w: Number(panel.style.getPropertyValue("--w") || panel.dataset.w || 6),
       h: Number(panel.style.getPropertyValue("--h") || panel.dataset.h || 3)
@@ -128,6 +143,7 @@ function setupDocking() {
 
     head.addEventListener("pointerdown", (event) => {
       if (event.target.closest("button, select, input")) return;
+      if (state.page === "update" && ["drive", "manual", "record"].includes(panel.dataset.panel)) return;
       const { rect, cellW, cellH } = workspaceMetrics();
       const box = readPanelBox(panel);
       panel.classList.add("dragging");
@@ -141,6 +157,7 @@ function setupDocking() {
     });
 
     handle.addEventListener("pointerdown", (event) => {
+      if (state.page === "update" && ["drive", "manual", "record"].includes(panel.dataset.panel)) return;
       const box = readPanelBox(panel);
       panel.classList.add("resizing");
       state.resizing = {
@@ -189,13 +206,14 @@ function setupDocking() {
   });
 }
 
-function setActivePage(page) {
+function renderActivePage(page) {
   state.page = page;
+  document.body.dataset.page = page;
   document.querySelectorAll(".tab-btn").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.page === page);
   });
   applyLayout(page);
-  sendControlUpdate({ current_page: page });
+  updateMaintenanceUi();
 }
 
 async function fetchJson(url, options = {}) {
@@ -224,7 +242,36 @@ function updateRangeText() {
   document.getElementById("manualSpeedValue").textContent = state.maxThrottle.toFixed(2);
 }
 
+function updateMaintenanceUi() {
+  document.body.classList.toggle("maintenance-active", !!state.maintenanceMode);
+  const badge = document.getElementById("maintenanceBadge");
+  if (badge) {
+    badge.textContent = state.maintenanceMode ? "update" : "run";
+    badge.classList.toggle("on", !!state.maintenanceMode);
+    badge.classList.toggle("off", !state.maintenanceMode);
+  }
+
+  const disableWhenMaintenance = [
+    "algorithmSelect", "maxThrottle", "steerMix", "modelFile", "uploadModelBtn", "refreshModelsBtn",
+    "modelSelect", "loadModelBtn", "manualSpeed", "stopBtn", "estopBtn", "clearEstopBtn",
+    "recordToggleBtn", "saveConfigBtn", "reloadConfigBtn"
+  ];
+  disableWhenMaintenance.forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.disabled = !!state.maintenanceMode;
+  });
+
+  const gitPullBtn = document.getElementById("gitPullBtn");
+  const restartBtn = document.getElementById("restartBtn");
+  const checkRepoBtn = document.getElementById("checkRepoBtn");
+  if (gitPullBtn) gitPullBtn.disabled = !state.maintenanceMode;
+  if (checkRepoBtn) checkRepoBtn.disabled = state.maintenanceBusy;
+  if (restartBtn) restartBtn.disabled = state.restartPending || !state.maintenanceMode;
+}
+
 async function sendControlUpdate(extra = {}) {
+  if (state.maintenanceMode) return;
   const body = {
     steering: state.manualSteering,
     throttle: state.manualThrottle,
@@ -246,6 +293,7 @@ async function sendControlUpdate(extra = {}) {
 
 function updateStatusUi(data) {
   state.latestStatus = data;
+  state.maintenanceMode = !!data.maintenance_mode;
   document.getElementById("metricAlgorithm").textContent = data.active_algorithm;
   document.getElementById("metricModel").textContent = data.active_model || "none";
   document.getElementById("metricFps").textContent = Number(data.fps || 0).toFixed(1);
@@ -264,12 +312,8 @@ function updateStatusUi(data) {
   }
   if (data.restart) {
     state.restartPending = !!data.restart.pending;
-    const restartBtn = document.getElementById("restartBtn");
-    if (restartBtn) {
-      restartBtn.disabled = state.restartPending;
-      restartBtn.textContent = state.restartPending ? "Restarting…" : "Restart Server";
-    }
   }
+  updateMaintenanceUi();
 }
 
 function updateGitUi(git) {
@@ -297,6 +341,7 @@ async function pollStatus() {
   try {
     const data = await fetchJson("/api/status");
     updateStatusUi(data);
+    syncControlsFromStatus(data);
   } catch (error) {
     if (!state.restartPending) {
       setBanner("systemMessage", error.message, "muted");
@@ -389,6 +434,63 @@ async function setEstop(enabled) {
   await pollStatus();
 }
 
+async function setMaintenanceMode(enabled, nextPage = null) {
+  state.maintenanceBusy = true;
+  updateMaintenanceUi();
+  try {
+    const data = await fetchJson("/api/system/maintenance", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled, current_page: nextPage })
+    });
+    updateStatusUi(data.state || state.latestStatus || {});
+    syncControlsFromStatus(data.state || state.latestStatus || {});
+    setBanner("systemMessage", data.message || (enabled ? "Maintenance mode active." : "Maintenance mode exited."), "muted");
+    return data;
+  } finally {
+    state.maintenanceBusy = false;
+    updateMaintenanceUi();
+  }
+}
+
+async function enterUpdatePage() {
+  const previousPage = state.page === "update" ? state.previousPage || "manual" : state.page;
+  state.previousPage = previousPage;
+  renderActivePage("update");
+  try {
+    await setMaintenanceMode(true, "update");
+    await checkRepo(true);
+  } catch (error) {
+    renderActivePage(previousPage);
+    setBanner("systemMessage", error.message, "muted");
+  }
+}
+
+async function leaveUpdatePage(targetPage) {
+  try {
+    await setMaintenanceMode(false, targetPage);
+    renderActivePage(targetPage);
+  } catch (error) {
+    renderActivePage("update");
+    setBanner("systemMessage", error.message, "muted");
+  }
+}
+
+async function setActivePage(page) {
+  if (!page || page === state.page) return;
+  if (page === "update") {
+    await enterUpdatePage();
+    return;
+  }
+  if (state.page === "update") {
+    await leaveUpdatePage(page);
+    return;
+  }
+  state.previousPage = page;
+  renderActivePage(page);
+  await sendControlUpdate({ current_page: page });
+}
+
 async function checkRepo(force = true) {
   try {
     const data = await fetchJson(`/api/system/repo_status${force ? "?force=1" : ""}`);
@@ -413,10 +515,8 @@ async function requestRestart() {
   const restartBtn = document.getElementById("restartBtn");
   try {
     state.restartPending = true;
-    if (restartBtn) {
-      restartBtn.disabled = true;
-      restartBtn.textContent = "Restarting…";
-    }
+    updateMaintenanceUi();
+    if (restartBtn) restartBtn.textContent = "Restarting…";
     const data = await fetchJson("/api/system/restart", { method: "POST" });
     setBanner("systemMessage", data.message || "Restart scheduled.", "muted");
 
@@ -430,23 +530,19 @@ async function requestRestart() {
         await checkRepo(false);
         setBanner("systemMessage", "PiServer is back online.", "muted");
         return;
-      } catch (error) {
-        // wait for the process to come back
+      } catch {
+        // wait for reconnect
       }
     }
 
     state.restartPending = false;
-    if (restartBtn) {
-      restartBtn.disabled = false;
-      restartBtn.textContent = "Restart Server";
-    }
+    updateMaintenanceUi();
+    if (restartBtn) restartBtn.textContent = "Restart Server";
     setBanner("systemMessage", "Restart was requested. Refresh this page in a few seconds if it does not reconnect automatically.", "muted");
   } catch (error) {
     state.restartPending = false;
-    if (restartBtn) {
-      restartBtn.disabled = false;
-      restartBtn.textContent = "Restart Server";
-    }
+    updateMaintenanceUi();
+    if (restartBtn) restartBtn.textContent = "Restart Server";
     setBanner("systemMessage", error.message, "muted");
   }
 }
@@ -457,6 +553,7 @@ function setupJoystick() {
   const text = document.getElementById("joystickText");
 
   function moveDot(clientX, clientY) {
+    if (state.maintenanceMode) return;
     const rect = area.getBoundingClientRect();
     const x = clamp((clientX - rect.left) / rect.width, 0, 1);
     const y = clamp((clientY - rect.top) / rect.height, 0, 1);
@@ -482,14 +579,16 @@ function setupJoystick() {
     dot.style.top = "100%";
     dot.style.transform = "translate(-50%, -100%)";
     text.textContent = "Steering 0.00 · Throttle 0.00";
-    sendControlUpdate();
+    if (!state.maintenanceMode) sendControlUpdate();
   }
 
   area.addEventListener("pointerdown", (event) => {
+    if (state.maintenanceMode) return;
     area.setPointerCapture(event.pointerId);
     moveDot(event.clientX, event.clientY);
   });
   area.addEventListener("pointermove", (event) => {
+    if (state.maintenanceMode) return;
     if (event.buttons) moveDot(event.clientX, event.clientY);
   });
   area.addEventListener("pointerup", resetDot);
@@ -501,7 +600,9 @@ function setupJoystick() {
 
 function setupEvents() {
   document.querySelectorAll(".tab-btn").forEach((btn) => {
-    btn.addEventListener("click", () => setActivePage(btn.dataset.page));
+    btn.addEventListener("click", async () => {
+      await setActivePage(btn.dataset.page);
+    });
   });
 
   document.getElementById("saveLayoutBtn").addEventListener("click", () => {
@@ -599,6 +700,7 @@ function setupEvents() {
 }
 
 function syncControlsFromStatus(data) {
+  if (!data || typeof data !== "object") return;
   state.maxThrottle = Number(data.max_throttle || 0.55);
   state.steerMix = Number(data.steer_mix || 0.5);
   document.getElementById("maxThrottle").value = Math.round(state.maxThrottle * 100);
@@ -606,13 +708,16 @@ function syncControlsFromStatus(data) {
   document.getElementById("steerMix").value = Math.round(state.steerMix * 100);
   document.getElementById("algorithmSelect").value = data.active_algorithm || "manual";
   updateRangeText();
-  if (data.current_page) {
-    setActivePage(data.current_page);
+
+  const desiredPage = data.maintenance_mode ? "update" : (data.current_page || state.page || "manual");
+  if (desiredPage !== state.page) {
+    if (desiredPage !== "update") state.previousPage = desiredPage;
+    renderActivePage(desiredPage);
   }
 }
 
 async function init() {
-  applyLayout(state.page);
+  renderActivePage(state.page);
   updateRangeText();
   setupDocking();
   setupJoystick();
@@ -623,7 +728,7 @@ async function init() {
   updateStatusUi(status);
   syncControlsFromStatus(status);
   await checkRepo(false);
-  setInterval(pollStatus, 700);
+  setInterval(pollStatus, 800);
 }
 
 window.addEventListener("load", init);

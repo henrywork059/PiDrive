@@ -188,3 +188,22 @@ Typical flow after an update:
 4. Wait a few seconds for the page to reconnect
 
 The update result now shows whether the Git commit changed. If a new commit was pulled, the message tells you to restart so the new code is loaded.
+
+
+## Update tab maintenance mode (0_1_13)
+
+A dedicated **Update** tab is now the safe place for repo maintenance.
+
+When you open the `Update` tab:
+- PiServer enters maintenance mode
+- throttle is forced to zero
+- recording stops
+- emergency stop is engaged automatically
+- drive/model/record runtime actions are blocked
+
+While the `Update` tab stays open, only these actions are intended to be used:
+- `Check repo`
+- `Update from Repo`
+- `Restart Server`
+
+When you leave the `Update` tab, PiServer exits maintenance mode but stays stopped. Clear E-stop and resume driving manually when you are ready.

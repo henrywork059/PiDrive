@@ -4,9 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>PiServer</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v={{ app_version }}" />
 </head>
-<body>
+<body data-page="manual">
   <header class="topbar">
     <div class="brand">
       <div class="brand-title">PiServer</div>
@@ -17,9 +17,11 @@
       <button class="tab-btn active" data-page="manual">Manual</button>
       <button class="tab-btn" data-page="training">Training</button>
       <button class="tab-btn" data-page="auto">Auto</button>
+      <button class="tab-btn update-tab-btn" data-page="update">Update</button>
     </div>
 
     <div class="toolbar-actions">
+      <div id="maintenanceBadge" class="badge off">run</div>
       <button class="ghost-btn" id="saveLayoutBtn">Save layout</button>
       <button class="ghost-btn" id="resetLayoutBtn">Reset layout</button>
     </div>
@@ -145,8 +147,8 @@
 
       <article class="dock-panel" data-panel="system">
         <div class="panel-head">
-          <span>System</span>
-          <span class="panel-mini">update</span>
+          <span>Update + system</span>
+          <span class="panel-mini">maintenance</span>
         </div>
         <div class="panel-body scroll-body">
           <div class="field">
@@ -154,22 +156,26 @@
             <div class="value-text" id="gitStatusText">Checking…</div>
             <div class="small-note" id="gitRepoText">Looking for repo…</div>
           </div>
-          <div class="stack-row">
+          <div class="field update-only-note">
+            <label>Update mode</label>
+            <div class="small-note">Open the <strong>Update</strong> tab to pause driving, force throttle to zero, stop recording, and enable repo update / restart actions.</div>
+          </div>
+          <div class="stack-row non-update-actions">
             <button id="saveConfigBtn">Save config</button>
             <button id="reloadConfigBtn" class="ghost-btn">Reload config</button>
           </div>
-          <div class="stack-row">
+          <div class="stack-row update-actions">
             <button id="checkRepoBtn" class="ghost-btn">Check repo</button>
             <button id="gitPullBtn">Update from Repo</button>
-            <button id="restartBtn" class="ghost-btn">Restart service</button>
+            <button id="restartBtn" class="ghost-btn">Restart Server</button>
           </div>
-          <div id="systemMessage" class="banner muted">System actions are blocked unless throttle is zero and E-stop is enabled.</div>
+          <div id="systemMessage" class="banner muted">Open the Update tab before update or restart.</div>
         </div>
         <div class="resize-handle"></div>
       </article>
     </section>
   </main>
 
-  <script src="{{ url_for('static', filename='app.js') }}"></script>
+  <script src="{{ url_for('static', filename='app.js') }}?v={{ app_version }}"></script>
 </body>
 </html>
