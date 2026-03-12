@@ -27,6 +27,7 @@ class CameraService:
         self.target_fps = int(fps)
         self.camera_format = "BGR888"
         self.backend = "placeholder"
+        self.backend_format = "unknown"
 
         self.auto_exposure = True
         self.exposure_us = 12000
@@ -38,6 +39,8 @@ class CameraService:
         self.saturation = 1.0
         self.sharpness = 1.0
 
+        self.preview_live = False
+        self.last_error = ""
         self._frame = None
         self._frame_lock = threading.Lock()
         self._service_lock = threading.RLock()
@@ -46,6 +49,8 @@ class CameraService:
         self._capture = None
         self._picam2 = None
         self._thread = None
+        self._last_open_attempt = 0.0
+        self._retry_interval_s = 2.0
 
     def _clamp_float(self, value, default: float, min_value: float, max_value: float) -> float:
         try:
@@ -105,6 +110,9 @@ class CameraService:
                 "saturation": float(self.saturation),
                 "sharpness": float(self.sharpness),
                 "backend": str(self.backend),
+                "backend_format": str(self.backend_format),
+                "preview_live": bool(self.preview_live),
+                "last_error": str(self.last_error),
             }
 
     def _set_picamera_controls(self) -> None:
@@ -127,60 +135,117 @@ class CameraService:
         except Exception:
             pass
 
-    def _open_backend_locked(self) -> None:
-        self.backend = "placeholder"
+    def _release_backends_locked(self) -> None:
+        try:
+            if self._picam2 is not None:
+                self._picam2.stop()
+                self._picam2.close()
+        except Exception:
+            pass
+        try:
+            if self._capture is not None:
+                self._capture.release()
+        except Exception:
+            pass
         self._picam2 = None
         self._capture = None
 
-        if Picamera2 is not None:
+    def _open_picamera2_locked(self) -> tuple[bool, str]:
+        if Picamera2 is None:
+            return False, "Picamera2 not installed."
+        requested = str(self.camera_format or "RGB888").upper()
+        safe_formats = [requested]
+        if requested != "RGB888":
+            safe_formats.append("RGB888")
+        if requested != "BGR888":
+            safe_formats.append("BGR888")
+        if requested != "XBGR8888":
+            safe_formats.append("XBGR8888")
+
+        last_error = "Unable to configure Picamera2."
+        for fmt in safe_formats:
             try:
                 self._picam2 = Picamera2()
+                frame_duration = max(1, int(1_000_000 / max(self.target_fps, 1)))
                 cfg = self._picam2.create_video_configuration(
-                    main={"size": (self.width, self.height), "format": self.camera_format},
-                    controls={"FrameDurationLimits": (int(1_000_000 / max(self.target_fps, 1)), int(1_000_000 / max(self.target_fps, 1)))},
+                    main={"size": (self.width, self.height), "format": fmt},
+                    controls={"FrameDurationLimits": (frame_duration, frame_duration)},
+                    buffer_count=3,
+                    queue=False,
                 )
                 self._picam2.configure(cfg)
                 self._picam2.start()
                 self._set_picamera_controls()
                 self.backend = "picamera2"
-                return
-            except Exception:
+                self.backend_format = fmt
+                self.last_error = ""
+                self.preview_live = False
+                return True, f"Picamera2 started with {fmt}."
+            except Exception as exc:
+                last_error = f"Picamera2 failed with {fmt}: {exc}"
                 try:
                     if self._picam2 is not None:
                         self._picam2.close()
                 except Exception:
                     pass
                 self._picam2 = None
+        return False, last_error
 
-        if cv2 is not None:
-            cap = None
+    def _open_opencv_locked(self) -> tuple[bool, str]:
+        if cv2 is None:
+            return False, "OpenCV not available."
+        cap = None
+        try:
+            cap = cv2.VideoCapture(0)
+            if cap is None or not cap.isOpened():
+                if cap is not None:
+                    cap.release()
+                return False, "OpenCV camera index 0 did not open."
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
+            cap.set(cv2.CAP_PROP_FPS, self.target_fps)
             try:
-                cap = cv2.VideoCapture(0)
-                if cap is not None and cap.isOpened():
-                    cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
-                    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
-                    cap.set(cv2.CAP_PROP_FPS, self.target_fps)
-                    try:
-                        cap.set(cv2.CAP_PROP_BRIGHTNESS, self.brightness)
-                        cap.set(cv2.CAP_PROP_CONTRAST, self.contrast)
-                        cap.set(cv2.CAP_PROP_SATURATION, self.saturation)
-                        if not self.auto_exposure:
-                            cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
-                            cap.set(cv2.CAP_PROP_EXPOSURE, float(self.exposure_us))
-                        else:
-                            cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.75)
-                    except Exception:
-                        pass
-                    self._capture = cap
-                    self.backend = "opencv"
-                    return
+                cap.set(cv2.CAP_PROP_BRIGHTNESS, self.brightness)
+                cap.set(cv2.CAP_PROP_CONTRAST, self.contrast)
+                cap.set(cv2.CAP_PROP_SATURATION, self.saturation)
+                if not self.auto_exposure:
+                    cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
+                    cap.set(cv2.CAP_PROP_EXPOSURE, float(self.exposure_us))
+                else:
+                    cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.75)
             except Exception:
-                try:
-                    if cap is not None:
-                        cap.release()
-                except Exception:
-                    pass
-                self._capture = None
+                pass
+            self._capture = cap
+            self.backend = "opencv"
+            self.backend_format = "BGR"
+            self.last_error = ""
+            self.preview_live = False
+            return True, "OpenCV camera started."
+        except Exception as exc:
+            try:
+                if cap is not None:
+                    cap.release()
+            except Exception:
+                pass
+            return False, f"OpenCV failed: {exc}"
+
+    def _open_backend_locked(self) -> None:
+        self._release_backends_locked()
+        self.backend = "placeholder"
+        self.backend_format = "unknown"
+        self.preview_live = False
+        self._last_open_attempt = time.time()
+
+        ok, message = self._open_picamera2_locked()
+        if ok:
+            return
+        picam_error = message
+
+        ok, message = self._open_opencv_locked()
+        if ok:
+            return
+
+        self.last_error = f"{picam_error} | {message}"
 
     def start(self) -> None:
         with self._service_lock:
@@ -194,22 +259,46 @@ class CameraService:
     def restart(self) -> tuple[bool, str, dict]:
         self.close()
         self.start()
-        return True, f"Camera restarted using {self.backend}.", self.get_config()
+        config = self.get_config()
+        if config.get("preview_live"):
+            return True, f"Camera restarted using {self.backend}.", config
+        return False, f"Camera restarted but live preview is not available. {config.get('last_error', '').strip()}".strip(), config
 
     def _placeholder_frame(self):
         if cv2 is None or np is None:
             return None
         frame = np.zeros((self.height, self.width, 3), dtype=np.uint8)
         frame[:] = (18, 20, 26)
-        cv2.putText(frame, "PiServer camera placeholder", (20, 50),
+        cv2.putText(frame, "PiServer camera unavailable", (20, 50),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (200, 210, 240), 2, cv2.LINE_AA)
         cv2.putText(frame, f"Backend: {self.backend}", (20, 86),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (130, 180, 255), 2, cv2.LINE_AA)
-        cv2.putText(frame, f"{self.width}x{self.height} @ {self.target_fps}fps", (20, 122),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (180, 190, 200), 2, cv2.LINE_AA)
+        if self.last_error:
+            msg = self.last_error[:64]
+            cv2.putText(frame, msg, (20, 122),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.55, (180, 190, 200), 1, cv2.LINE_AA)
         cv2.putText(frame, time.strftime("%Y-%m-%d %H:%M:%S"), (20, 158),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (180, 190, 200), 2, cv2.LINE_AA)
         return frame
+
+    def _normalize_frame(self, frame):
+        if cv2 is None or frame is None:
+            return frame
+        try:
+            if getattr(frame, "ndim", 0) == 2:
+                return cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+            if getattr(frame, "ndim", 0) == 3:
+                channels = int(frame.shape[2])
+                fmt = str(self.backend_format or self.camera_format or "").upper()
+                if channels == 4:
+                    if "RGB" in fmt and "BGR" not in fmt:
+                        return cv2.cvtColor(frame, cv2.COLOR_RGBA2BGR)
+                    return cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
+                if channels == 3 and fmt == "RGB888":
+                    return cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            return frame
+        except Exception:
+            return frame
 
     def _loop(self):
         last_tick = time.time()
@@ -223,23 +312,40 @@ class CameraService:
                 picam = self._picam2
                 capture = self._capture
                 target_fps = max(int(self.target_fps), 1)
+                should_retry = picam is None and capture is None and (time.time() - self._last_open_attempt) >= self._retry_interval_s
+                if should_retry:
+                    self._open_backend_locked()
+                    picam = self._picam2
+                    capture = self._capture
 
             frame = None
+            live = False
             if picam is not None:
                 try:
                     frame = picam.capture_array()
-                except Exception:
+                    live = frame is not None
+                except Exception as exc:
+                    self.last_error = f"Picamera2 capture failed: {exc}"
                     frame = None
             elif capture is not None:
                 try:
                     ok, frame = capture.read()
+                    live = bool(ok and frame is not None)
                     if not ok:
                         frame = None
-                except Exception:
+                except Exception as exc:
+                    self.last_error = f"OpenCV capture failed: {exc}"
                     frame = None
 
             if frame is None:
+                with self._service_lock:
+                    self.preview_live = False
                 frame = self._placeholder_frame()
+            else:
+                frame = self._normalize_frame(frame)
+                with self._service_lock:
+                    self.preview_live = bool(live)
+                    self.last_error = ""
 
             if frame is not None:
                 with self._frame_lock:
@@ -288,16 +394,5 @@ class CameraService:
             thread.join(timeout=1.0)
 
         with self._service_lock:
-            try:
-                if self._picam2 is not None:
-                    self._picam2.stop()
-                    self._picam2.close()
-            except Exception:
-                pass
-            try:
-                if self._capture is not None:
-                    self._capture.release()
-            except Exception:
-                pass
-            self._picam2 = None
-            self._capture = None
+            self._release_backends_locked()
+            self.preview_live = False

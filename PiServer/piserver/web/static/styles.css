@@ -439,3 +439,9 @@ body[data-page="camera"] .dock-panel[data-panel="camera"] {
     grid-template-columns: 1fr;
   }
 }
+
+
+.preview-meta {
+  margin-top: 0.65rem;
+  line-height: 1.4;
+}

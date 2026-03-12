@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import time
 
 from flask import Flask, Response, jsonify, render_template, request
 
@@ -22,6 +23,7 @@ def mjpeg_generator(camera_service):
     while True:
         frame = camera_service.get_jpeg_frame()
         if frame is None:
+            time.sleep(0.05)
             continue
         yield (
             b"--frame\r\n"

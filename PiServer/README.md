@@ -11,7 +11,7 @@ PiServer is a refactored web-control backend for the PiCar project.
 - Adds a dock-style web workspace with saved panel layouts in the browser.
 - Adds runtime config save/reload.
 - Removes the web update / restart workflow. Code updates are now meant to be done from the terminal with `git pull`.
-- Adds a dedicated Camera tab with preview, camera settings, and an apply + restart camera action.
+- Adds a dedicated Camera tab with a real MJPEG preview, camera settings, and an apply + restart camera action.
 
 ## Folder layout
 
@@ -61,6 +61,8 @@ These are optional and only needed if the hardware/software is available on the 
 
 If they are missing, PiServer falls back safely:
 - camera -> OpenCV webcam or generated placeholder frame
+
+For a real Raspberry Pi CSI camera preview, install and enable `picamera2` / libcamera on the Pi.
 - model inference -> disabled
 - motor output -> simulated console output
 
@@ -84,7 +86,7 @@ Edit the `WorkingDirectory` and `ExecStart` paths inside the service file if you
 
 - Manual / Training / Auto / Camera workspace tabs
 - Draggable + resizable dock-style panels on larger screens
-- Live MJPEG viewer
+- Live MJPEG viewer with camera-backend status
 - Runtime algorithm switching
 - Runtime parameter tuning
 - TFLite model upload/list/load

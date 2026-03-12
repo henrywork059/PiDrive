@@ -281,6 +281,13 @@ function updateStatusUi(data) {
   document.getElementById("metricWheels").textContent = `${Number(data.motor_left || 0).toFixed(2)} / ${Number(data.motor_right || 0).toFixed(2)}`;
   document.getElementById("metricCamera").textContent = `${data.camera_width || 0}×${data.camera_height || 0} ${data.camera_format || "unknown"}`;
 
+  const previewMeta = document.getElementById("cameraPreviewMeta");
+  if (previewMeta) {
+    const liveText = data.camera_preview_live ? "live preview" : "placeholder preview";
+    const errorText = data.camera_error ? ` · ${data.camera_error}` : "";
+    previewMeta.textContent = `Backend: ${data.camera_backend || "unknown"} · ${liveText}${errorText}`;
+  }
+
   const recBadge = document.getElementById("recordStateBadge");
   recBadge.textContent = data.recording ? "on" : "off";
   recBadge.classList.toggle("on", !!data.recording);
@@ -425,8 +432,11 @@ function refreshVideoFeed() {
 async function loadCameraConfig() {
   const data = await fetchJson("/api/camera/config");
   fillCameraForm(data.config || {});
-  const backend = data.config?.backend ? ` Backend: ${data.config.backend}.` : "";
-  setBanner("cameraMessage", `Camera settings loaded.${backend}`, "muted");
+  const cfg = data.config || {};
+  const backend = cfg.backend ? ` Backend: ${cfg.backend}.` : "";
+  const live = cfg.preview_live ? " Live preview ready." : " Preview is using placeholder.";
+  const error = cfg.last_error ? ` ${cfg.last_error}` : "";
+  setBanner("cameraMessage", `Camera settings loaded.${backend}${live}${error}`.trim(), "muted");
 }
 
 async function applyCameraConfig() {
@@ -442,7 +452,7 @@ async function applyCameraConfig() {
     fillCameraForm(data.config || payload);
     refreshVideoFeed();
     await pollStatus();
-    setBanner("cameraMessage", data.message || "Camera restarted.", "muted");
+    setBanner("cameraMessage", data.message || "Camera restarted.", data.ok ? "muted" : "warn");
   } finally {
     button.disabled = false;
   }
@@ -505,6 +515,7 @@ function setupEvents() {
       await sendControlUpdate({ current_page: nextPage });
       if (nextPage === "camera") {
         try {
+          refreshVideoFeed();
           await loadCameraConfig();
         } catch (error) {
           setBanner("cameraMessage", error.message, "muted");

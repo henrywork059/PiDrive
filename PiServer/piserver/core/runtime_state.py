@@ -14,7 +14,6 @@ class RuntimeState:
     active_model: str = "none"
     recording: bool = False
     safety_stop: bool = False
-    maintenance_mode: bool = False
     max_throttle: float = 0.55
     steer_mix: float = 0.5
     current_page: str = "manual"
@@ -23,6 +22,8 @@ class RuntimeState:
     camera_width: int = 426
     camera_height: int = 240
     camera_format: str = "BGR888"
+    camera_preview_live: bool = False
+    camera_error: str = ""
     motor_left: float = 0.0
     motor_right: float = 0.0
     system_message: str = "Ready"

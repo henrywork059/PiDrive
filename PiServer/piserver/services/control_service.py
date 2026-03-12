@@ -67,6 +67,8 @@ class ControlService:
                 self.state.camera_width = int(getattr(self.camera_service, "width", 0))
                 self.state.camera_height = int(getattr(self.camera_service, "height", 0))
                 self.state.camera_format = str(getattr(self.camera_service, "camera_format", "BGR888"))
+                self.state.camera_preview_live = bool(getattr(self.camera_service, "preview_live", False))
+                self.state.camera_error = str(getattr(self.camera_service, "last_error", "") or "")
                 self.state.active_model = self.model_service.get_active_name()
 
                 if self.state.maintenance_mode or self.state.safety_stop:
