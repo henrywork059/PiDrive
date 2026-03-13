@@ -26,11 +26,11 @@ _CALIBRATION_FRAMES = 30
 class CameraService:
     """Camera backend used by PiServer.
 
-    This version stays closer to the older working PiCar camera flow:
-    - Picamera2 is the preferred backend.
-    - Frames are captured in a background loop.
-    - A short one-off colour calibration stabilises preview colours.
-    - OpenCV fallback is only used when Picamera2 is unavailable.
+    This version stays close to the older working PiCar camera flow,
+    but reduces preview latency by:
+    - keeping a cached JPEG preview frame,
+    - only re-encoding at a bounded preview FPS,
+    - sending only the latest preview frame to the browser.
     """
 
     def __init__(self, width: int = 426, height: int = 240, fps: int = 30):
@@ -40,6 +40,9 @@ class CameraService:
         self.camera_format = "BGR888"
         self.backend = "placeholder"
         self.backend_format = "unknown"
+
+        self.preview_fps = 12
+        self.preview_quality = 60
 
         self.auto_exposure = True
         self.exposure_us = 12000
@@ -64,6 +67,10 @@ class CameraService:
         self._thread = None
         self._last_open_attempt = 0.0
         self._retry_interval_s = 2.0
+
+        self._jpeg_frame: Optional[bytes] = None
+        self._jpeg_seq = 0
+        self._jpeg_cond = threading.Condition()
 
         self._color_gains = None
         self._calibration_frames = 0
@@ -95,6 +102,8 @@ class CameraService:
             self.height = self._clamp_int(settings.get("height", self.height), self.height, 48, 2160)
             self.target_fps = self._clamp_int(settings.get("fps", self.target_fps), self.target_fps, 1, 120)
             self.camera_format = str(settings.get("format", self.camera_format) or self.camera_format)
+            self.preview_fps = self._clamp_int(settings.get("preview_fps", self.preview_fps), self.preview_fps, 1, 30)
+            self.preview_quality = self._clamp_int(settings.get("preview_quality", self.preview_quality), self.preview_quality, 30, 95)
             self.auto_exposure = bool(settings.get("auto_exposure", self.auto_exposure))
             self.exposure_us = self._clamp_int(settings.get("exposure_us", self.exposure_us), self.exposure_us, 100, 200000)
             self.analogue_gain = self._clamp_float(settings.get("analogue_gain", self.analogue_gain), self.analogue_gain, 0.0, 64.0)
@@ -123,6 +132,8 @@ class CameraService:
                 "height": int(self.height),
                 "fps": int(self.target_fps),
                 "format": str(self.camera_format),
+                "preview_fps": int(self.preview_fps),
+                "preview_quality": int(self.preview_quality),
                 "auto_exposure": bool(self.auto_exposure),
                 "exposure_us": int(self.exposure_us),
                 "analogue_gain": float(self.analogue_gain),
@@ -188,10 +199,18 @@ class CameraService:
             try:
                 picam = Picamera2()
                 frame_duration = max(1, int(1_000_000 / max(self.target_fps, 1)))
-                cfg = picam.create_video_configuration(
-                    main={"size": (self.width, self.height), "format": fmt},
-                    controls={"FrameDurationLimits": (frame_duration, frame_duration)},
-                )
+                try:
+                    cfg = picam.create_video_configuration(
+                        main={"size": (self.width, self.height), "format": fmt},
+                        controls={"FrameDurationLimits": (frame_duration, frame_duration)},
+                        queue=False,
+                        buffer_count=2,
+                    )
+                except TypeError:
+                    cfg = picam.create_video_configuration(
+                        main={"size": (self.width, self.height), "format": fmt},
+                        controls={"FrameDurationLimits": (frame_duration, frame_duration)},
+                    )
                 picam.configure(cfg)
                 picam.start()
                 self._picam2 = picam
@@ -204,7 +223,8 @@ class CameraService:
             except Exception as exc:
                 last_error = f"Picamera2 failed with {fmt}: {exc}"
                 try:
-                    picam.close()  # type: ignore[name-defined]
+                    if picam is not None:
+                        picam.close()
                 except Exception:
                     pass
                 self._picam2 = None
@@ -223,6 +243,10 @@ class CameraService:
             cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
             cap.set(cv2.CAP_PROP_FPS, self.target_fps)
+            try:
+                cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+            except Exception:
+                pass
             self._capture = cap
             self.backend = "opencv"
             self.backend_format = "BGR"
@@ -355,27 +379,58 @@ class CameraService:
                 return None, False, f"OpenCV capture failed: {exc}"
         return None, False, "No active camera backend."
 
+    def _encode_preview_jpeg(self, frame) -> Optional[bytes]:
+        if cv2 is None or frame is None:
+            return None
+        try:
+            preview = frame
+            if int(self.width) > 0 and int(self.height) > 0:
+                target_size = (int(self.width), int(self.height))
+                if tuple(frame.shape[1::-1]) != target_size:
+                    preview = cv2.resize(frame, target_size, interpolation=cv2.INTER_AREA)
+            ok, buf = cv2.imencode(
+                ".jpg",
+                preview,
+                [int(cv2.IMWRITE_JPEG_QUALITY), int(self.preview_quality)],
+            )
+            return buf.tobytes() if ok else None
+        except Exception:
+            return None
+
+    def _publish_jpeg(self, jpeg_bytes: Optional[bytes]) -> None:
+        if jpeg_bytes is None:
+            return
+        with self._jpeg_cond:
+            self._jpeg_frame = jpeg_bytes
+            self._jpeg_seq += 1
+            self._jpeg_cond.notify_all()
+
     def _loop(self):
         fps_count = 0
         fps_window_start = time.time()
+        last_preview_emit = 0.0
         while True:
+            start_time = time.time()
             with self._service_lock:
                 if not self._running:
                     break
                 target_fps = max(int(self.target_fps), 1)
+                preview_period = 1.0 / max(int(self.preview_fps), 1)
                 should_retry = self._picam2 is None and self._capture is None and (time.time() - self._last_open_attempt) >= self._retry_interval_s
                 if should_retry:
                     self._open_backend_locked()
 
             frame, live, error_text = self._capture_one_frame()
+            preview_source = None
             if frame is None:
                 with self._service_lock:
                     self.preview_live = False
                     self.last_error = error_text
-                frame = self._placeholder_frame()
+                preview_source = self._placeholder_frame()
             else:
                 self._maybe_update_gains(frame)
                 corrected = self._apply_gains(frame)
+                preview_source = corrected
                 with self._service_lock:
                     self.preview_live = bool(live)
                     self.last_error = ""
@@ -390,11 +445,19 @@ class CameraService:
                     fps_count = 0
                     fps_window_start = now
 
-            if frame is not None and self._frame is None:
+            if preview_source is not None and self._frame is None:
                 with self._frame_lock:
-                    self._frame = frame.copy()
+                    self._frame = preview_source.copy()
 
-            time.sleep(1.0 / target_fps)
+            loop_end = time.time()
+            if preview_source is not None and (loop_end - last_preview_emit) >= preview_period:
+                self._publish_jpeg(self._encode_preview_jpeg(preview_source))
+                last_preview_emit = loop_end
+
+            elapsed = loop_end - start_time
+            sleep_time = max(0.0, (1.0 / target_fps) - elapsed)
+            if sleep_time > 0:
+                time.sleep(sleep_time)
 
     def get_latest_frame(self):
         with self._frame_lock:
@@ -409,17 +472,14 @@ class CameraService:
             return self._raw_frame.copy()
 
     def get_jpeg_frame(self) -> Optional[bytes]:
-        if cv2 is None:
-            return None
-        frame = self.get_latest_frame()
-        if frame is None:
-            return None
-        try:
-            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        except Exception:
-            rgb = frame
-        ok, buf = cv2.imencode(".jpg", rgb, [int(cv2.IMWRITE_JPEG_QUALITY), 75])
-        return buf.tobytes() if ok else None
+        with self._jpeg_cond:
+            return self._jpeg_frame
+
+    def wait_for_jpeg(self, last_seq: int = 0, timeout: float = 1.0) -> tuple[Optional[bytes], int]:
+        with self._jpeg_cond:
+            if self._jpeg_seq == last_seq and self._running:
+                self._jpeg_cond.wait(timeout=max(0.0, float(timeout)))
+            return self._jpeg_frame, self._jpeg_seq
 
     def get_fps(self) -> float:
         return float(self._fps)
@@ -430,6 +490,9 @@ class CameraService:
             self._running = False
             thread = self._thread
             self._thread = None
+
+        with self._jpeg_cond:
+            self._jpeg_cond.notify_all()
 
         if thread is not None and thread.is_alive() and thread is not threading.current_thread():
             thread.join(timeout=1.0)

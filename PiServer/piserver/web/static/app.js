@@ -389,11 +389,31 @@ async function runSystemAction(endpoint, bannerId) {
   await pollStatus();
 }
 
+function setCameraResolutionPreset() {
+  const preset = document.getElementById("cameraResolutionPreset");
+  if (!preset) return;
+  const width = Number(document.getElementById("cameraWidth").value || 0);
+  const height = Number(document.getElementById("cameraHeight").value || 0);
+  const value = `${width}x${height}`;
+  const known = Array.from(preset.options).some((opt) => opt.value === value);
+  preset.value = known ? value : "custom";
+}
+
+function applyCameraResolutionPreset() {
+  const preset = document.getElementById("cameraResolutionPreset");
+  if (!preset || !preset.value || preset.value === "custom") return;
+  const [width, height] = preset.value.split("x").map((v) => Number(v));
+  if (width > 0) document.getElementById("cameraWidth").value = width;
+  if (height > 0) document.getElementById("cameraHeight").value = height;
+}
+
 function readCameraForm() {
   return {
     width: Number(document.getElementById("cameraWidth").value || 426),
     height: Number(document.getElementById("cameraHeight").value || 240),
     fps: Number(document.getElementById("cameraFps").value || 30),
+    preview_fps: Number(document.getElementById("cameraPreviewFps").value || 12),
+    preview_quality: Number(document.getElementById("cameraPreviewQuality").value || 60),
     format: document.getElementById("cameraFormat").value || "BGR888",
     auto_exposure: document.getElementById("cameraAutoExposure").checked,
     exposure_us: Number(document.getElementById("cameraExposureUs").value || 12000),
@@ -412,6 +432,8 @@ function fillCameraForm(config = {}) {
   document.getElementById("cameraWidth").value = config.width ?? 426;
   document.getElementById("cameraHeight").value = config.height ?? 240;
   document.getElementById("cameraFps").value = config.fps ?? 30;
+  document.getElementById("cameraPreviewFps").value = config.preview_fps ?? 12;
+  document.getElementById("cameraPreviewQuality").value = config.preview_quality ?? 60;
   document.getElementById("cameraFormat").value = config.format || "BGR888";
   document.getElementById("cameraAutoExposure").checked = Boolean(config.auto_exposure ?? true);
   document.getElementById("cameraExposureUs").value = config.exposure_us ?? 12000;
@@ -422,6 +444,7 @@ function fillCameraForm(config = {}) {
   document.getElementById("cameraContrast").value = config.contrast ?? 1.0;
   document.getElementById("cameraSaturation").value = config.saturation ?? 1.0;
   document.getElementById("cameraSharpness").value = config.sharpness ?? 1.0;
+  setCameraResolutionPreset();
 }
 
 function refreshVideoFeed() {
@@ -435,8 +458,9 @@ async function loadCameraConfig() {
   const cfg = data.config || {};
   const backend = cfg.backend ? ` Backend: ${cfg.backend}.` : "";
   const live = cfg.preview_live ? " Live preview ready." : " Preview is using placeholder.";
+  const perf = ` Preview ${cfg.preview_fps ?? 12} FPS @ JPEG ${cfg.preview_quality ?? 60}.`;
   const error = cfg.last_error ? ` ${cfg.last_error}` : "";
-  setBanner("cameraMessage", `Camera settings loaded.${backend}${live}${error}`.trim(), "muted");
+  setBanner("cameraMessage", `Camera settings loaded.${backend}${live}${perf}${error}`.trim(), "muted");
 }
 
 async function applyCameraConfig() {
@@ -621,6 +645,10 @@ function setupEvents() {
       setBanner("cameraMessage", error.message, "muted");
     }
   });
+
+  document.getElementById("cameraResolutionPreset").addEventListener("change", applyCameraResolutionPreset);
+  document.getElementById("cameraWidth").addEventListener("change", setCameraResolutionPreset);
+  document.getElementById("cameraHeight").addEventListener("change", setCameraResolutionPreset);
 
   document.getElementById("cameraReloadBtn").addEventListener("click", async () => {
     try {
