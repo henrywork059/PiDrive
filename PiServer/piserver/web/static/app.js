@@ -50,7 +50,11 @@ const state = {
   resizing: null,
   latestStatus: null,
   statusTimer: null,
-  cameraConfig: null
+  cameraConfig: null,
+  previewTimer: null,
+  previewActive: false,
+  previewInFlight: false,
+  previewObjectUrl: null
 };
 
 function clamp(value, min, max) {
@@ -298,6 +302,7 @@ function updateStatusUi(data) {
 }
 
 async function pollStatus() {
+  if (document.hidden) return;
   try {
     const data = await fetchJson("/api/status");
     updateStatusUi(data);
@@ -407,6 +412,24 @@ function applyCameraResolutionPreset() {
   if (height > 0) document.getElementById("cameraHeight").value = height;
 }
 
+function streamQualityPresets() {
+  return {
+    low_latency: { preview_fps: 10, preview_quality: 40 },
+    balanced: { preview_fps: 12, preview_quality: 60 },
+    high: { preview_fps: 15, preview_quality: 75 },
+    manual: null
+  };
+}
+
+function applyStreamQualityPreset() {
+  const select = document.getElementById("cameraStreamQuality");
+  if (!select) return;
+  const preset = streamQualityPresets()[select.value];
+  if (!preset) return;
+  document.getElementById("cameraPreviewFps").value = preset.preview_fps;
+  document.getElementById("cameraPreviewQuality").value = preset.preview_quality;
+}
+
 function readCameraForm() {
   return {
     width: Number(document.getElementById("cameraWidth").value || 426),
@@ -414,6 +437,7 @@ function readCameraForm() {
     fps: Number(document.getElementById("cameraFps").value || 30),
     preview_fps: Number(document.getElementById("cameraPreviewFps").value || 12),
     preview_quality: Number(document.getElementById("cameraPreviewQuality").value || 60),
+    stream_quality: document.getElementById("cameraStreamQuality").value || "balanced",
     format: document.getElementById("cameraFormat").value || "BGR888",
     auto_exposure: document.getElementById("cameraAutoExposure").checked,
     exposure_us: Number(document.getElementById("cameraExposureUs").value || 12000),
@@ -434,6 +458,7 @@ function fillCameraForm(config = {}) {
   document.getElementById("cameraFps").value = config.fps ?? 30;
   document.getElementById("cameraPreviewFps").value = config.preview_fps ?? 12;
   document.getElementById("cameraPreviewQuality").value = config.preview_quality ?? 60;
+  document.getElementById("cameraStreamQuality").value = config.stream_quality || "balanced";
   document.getElementById("cameraFormat").value = config.format || "BGR888";
   document.getElementById("cameraAutoExposure").checked = Boolean(config.auto_exposure ?? true);
   document.getElementById("cameraExposureUs").value = config.exposure_us ?? 12000;
@@ -447,9 +472,91 @@ function fillCameraForm(config = {}) {
   setCameraResolutionPreset();
 }
 
+function previewDelayMs() {
+  const fps = Number(document.getElementById("cameraPreviewFps")?.value || state.cameraConfig?.preview_fps || 12);
+  return Math.max(40, Math.round(1000 / Math.max(1, fps)));
+}
+
+async function sendPreviewState(enabled) {
+  try {
+    await fetchJson("/api/camera/preview_state", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled })
+    });
+  } catch {
+    // keep UI responsive even if preview-state sync fails
+  }
+}
+
+function stopPreviewLoop(clearImage = false) {
+  state.previewActive = false;
+  if (state.previewTimer) {
+    clearTimeout(state.previewTimer);
+    state.previewTimer = null;
+  }
+  if (clearImage && state.previewObjectUrl) {
+    try { URL.revokeObjectURL(state.previewObjectUrl); } catch {}
+    state.previewObjectUrl = null;
+  }
+}
+
+function schedulePreviewFrame(immediate = false) {
+  if (!state.previewActive) return;
+  if (state.previewTimer) clearTimeout(state.previewTimer);
+  state.previewTimer = setTimeout(requestPreviewFrame, immediate ? 0 : previewDelayMs());
+}
+
+async function requestPreviewFrame() {
+  if (!state.previewActive || document.hidden) {
+    return;
+  }
+  if (state.previewInFlight) {
+    schedulePreviewFrame(false);
+    return;
+  }
+  state.previewInFlight = true;
+  try {
+    const response = await fetch(`/api/camera/frame.jpg?t=${Date.now()}`, { cache: "no-store" });
+    if (response.status === 204) {
+      return;
+    }
+    if (!response.ok) {
+      throw new Error(`Preview request failed (${response.status})`);
+    }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const img = document.getElementById("videoFeed");
+    const previous = state.previewObjectUrl;
+    img.src = url;
+    state.previewObjectUrl = url;
+    if (previous) {
+      try { URL.revokeObjectURL(previous); } catch {}
+    }
+  } catch (error) {
+    const msg = error && error.message ? error.message : "Preview update failed.";
+    setBanner("cameraMessage", msg, "muted");
+  } finally {
+    state.previewInFlight = false;
+    schedulePreviewFrame(false);
+  }
+}
+
 function refreshVideoFeed() {
-  const img = document.getElementById("videoFeed");
-  img.src = `/video_feed?t=${Date.now()}`;
+  state.previewActive = !document.hidden;
+  sendPreviewState(state.previewActive);
+  schedulePreviewFrame(true);
+}
+
+function syncPreviewActivity() {
+  const enabled = !document.hidden;
+  state.previewActive = enabled;
+  sendPreviewState(enabled);
+  if (enabled) {
+    schedulePreviewFrame(true);
+  } else {
+    stopPreviewLoop(false);
+  }
 }
 
 async function loadCameraConfig() {
@@ -458,9 +565,10 @@ async function loadCameraConfig() {
   const cfg = data.config || {};
   const backend = cfg.backend ? ` Backend: ${cfg.backend}.` : "";
   const live = cfg.preview_live ? " Live preview ready." : " Preview is using placeholder.";
-  const perf = ` Preview ${cfg.preview_fps ?? 12} FPS @ JPEG ${cfg.preview_quality ?? 60}.`;
+  const perf = ` Stream ${cfg.stream_quality || "balanced"}, preview ${cfg.preview_fps ?? 12} FPS @ JPEG ${cfg.preview_quality ?? 60}.`;
+  const extra = cfg.processing_enabled ? " AI/recording path active." : " AI/recording path idle.";
   const error = cfg.last_error ? ` ${cfg.last_error}` : "";
-  setBanner("cameraMessage", `Camera settings loaded.${backend}${live}${perf}${error}`.trim(), "muted");
+  setBanner("cameraMessage", `Camera settings loaded.${backend}${live}${perf}${extra}${error}`.trim(), "muted");
 }
 
 async function applyCameraConfig() {
@@ -468,15 +576,19 @@ async function applyCameraConfig() {
   const button = document.getElementById("cameraApplyBtn");
   button.disabled = true;
   try {
+    stopPreviewLoop(false);
+    await sendPreviewState(false);
     const data = await fetchJson("/api/camera/apply", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     });
     fillCameraForm(data.config || payload);
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    await loadCameraConfig();
     refreshVideoFeed();
     await pollStatus();
-    setBanner("cameraMessage", data.message || "Camera restarted.", data.ok ? "muted" : "warn");
+    setBanner("cameraMessage", data.message || "Camera restarted to apply settings.", data.ok ? "muted" : "warn");
   } finally {
     button.disabled = false;
   }
@@ -647,6 +759,7 @@ function setupEvents() {
   });
 
   document.getElementById("cameraResolutionPreset").addEventListener("change", applyCameraResolutionPreset);
+  document.getElementById("cameraStreamQuality").addEventListener("change", applyStreamQualityPreset);
   document.getElementById("cameraWidth").addEventListener("change", setCameraResolutionPreset);
   document.getElementById("cameraHeight").addEventListener("change", setCameraResolutionPreset);
 
@@ -688,6 +801,9 @@ async function init() {
   await refreshAlgorithms();
   await refreshModels();
   await loadCameraConfig();
+  syncPreviewActivity();
+  document.addEventListener("visibilitychange", syncPreviewActivity);
+  window.addEventListener("beforeunload", () => { sendPreviewState(false); stopPreviewLoop(false); });
   const status = await fetchJson("/api/status");
   updateStatusUi(status);
   syncControlsFromStatus(status);

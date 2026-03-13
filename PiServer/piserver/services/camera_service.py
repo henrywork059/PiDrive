@@ -21,16 +21,22 @@ except Exception:  # pragma: no cover
 
 
 _CALIBRATION_FRAMES = 30
+_STREAM_QUALITY_PRESETS = {
+    "low_latency": {"preview_fps": 10, "preview_quality": 40},
+    "balanced": {"preview_fps": 12, "preview_quality": 60},
+    "high": {"preview_fps": 15, "preview_quality": 75},
+    "manual": {},
+}
 
 
 class CameraService:
     """Camera backend used by PiServer.
 
-    This version stays close to the older working PiCar camera flow,
-    but reduces preview latency by:
-    - keeping a cached JPEG preview frame,
-    - only re-encoding at a bounded preview FPS,
-    - sending only the latest preview frame to the browser.
+    Key latency behaviours:
+    - always keep the newest processed frame only
+    - only encode preview JPEGs when preview is enabled
+    - reduce capture rate when AI/recording is not using full-rate frames
+    - allow the browser to poll the newest still frame instead of buffering MJPEG
     """
 
     def __init__(self, width: int = 426, height: int = 240, fps: int = 30):
@@ -43,6 +49,8 @@ class CameraService:
 
         self.preview_fps = 12
         self.preview_quality = 60
+        self.stream_quality = "balanced"
+        self.idle_fps = 3
 
         self.auto_exposure = True
         self.exposure_us = 12000
@@ -55,6 +63,8 @@ class CameraService:
         self.sharpness = 1.0
 
         self.preview_live = False
+        self.preview_enabled = True
+        self.processing_enabled = False
         self.last_error = ""
         self._frame = None
         self._raw_frame = None
@@ -90,6 +100,26 @@ class CameraService:
             value = default
         return max(min_value, min(max_value, value))
 
+    def _normalize_stream_quality_locked(self) -> None:
+        quality = str(self.stream_quality or "balanced").strip().lower()
+        if quality not in _STREAM_QUALITY_PRESETS:
+            quality = "balanced"
+        self.stream_quality = quality
+        preset = _STREAM_QUALITY_PRESETS.get(quality, {})
+        if preset:
+            self.preview_fps = self._clamp_int(
+                preset.get("preview_fps", self.preview_fps),
+                self.preview_fps,
+                1,
+                30,
+            )
+            self.preview_quality = self._clamp_int(
+                preset.get("preview_quality", self.preview_quality),
+                self.preview_quality,
+                20,
+                95,
+            )
+
     def _reset_color_calibration_locked(self) -> None:
         self._color_gains = None
         self._calibration_frames = 0
@@ -103,7 +133,9 @@ class CameraService:
             self.target_fps = self._clamp_int(settings.get("fps", self.target_fps), self.target_fps, 1, 120)
             self.camera_format = str(settings.get("format", self.camera_format) or self.camera_format)
             self.preview_fps = self._clamp_int(settings.get("preview_fps", self.preview_fps), self.preview_fps, 1, 30)
-            self.preview_quality = self._clamp_int(settings.get("preview_quality", self.preview_quality), self.preview_quality, 30, 95)
+            self.preview_quality = self._clamp_int(settings.get("preview_quality", self.preview_quality), self.preview_quality, 20, 95)
+            self.stream_quality = str(settings.get("stream_quality", self.stream_quality) or self.stream_quality)
+            self._normalize_stream_quality_locked()
             self.auto_exposure = bool(settings.get("auto_exposure", self.auto_exposure))
             self.exposure_us = self._clamp_int(settings.get("exposure_us", self.exposure_us), self.exposure_us, 100, 200000)
             self.analogue_gain = self._clamp_float(settings.get("analogue_gain", self.analogue_gain), self.analogue_gain, 0.0, 64.0)
@@ -123,7 +155,7 @@ class CameraService:
 
         if restart and running:
             return self.restart()
-        return True, "Camera settings updated.", self.get_config()
+        return True, "Camera settings updated. Restart the camera to apply format/resolution changes.", self.get_config()
 
     def get_config(self) -> dict:
         with self._service_lock:
@@ -134,6 +166,7 @@ class CameraService:
                 "format": str(self.camera_format),
                 "preview_fps": int(self.preview_fps),
                 "preview_quality": int(self.preview_quality),
+                "stream_quality": str(self.stream_quality),
                 "auto_exposure": bool(self.auto_exposure),
                 "exposure_us": int(self.exposure_us),
                 "analogue_gain": float(self.analogue_gain),
@@ -146,8 +179,22 @@ class CameraService:
                 "backend": str(self.backend),
                 "backend_format": str(self.backend_format),
                 "preview_live": bool(self.preview_live),
+                "preview_enabled": bool(self.preview_enabled),
+                "processing_enabled": bool(self.processing_enabled),
                 "last_error": str(self.last_error),
             }
+
+    def set_preview_enabled(self, enabled: bool) -> bool:
+        enabled = bool(enabled)
+        with self._service_lock:
+            self.preview_enabled = enabled
+        return enabled
+
+    def set_processing_enabled(self, enabled: bool) -> bool:
+        enabled = bool(enabled)
+        with self._service_lock:
+            self.processing_enabled = enabled
+        return enabled
 
     def _set_picamera_controls_locked(self) -> None:
         if self._picam2 is None:
@@ -294,7 +341,7 @@ class CameraService:
         self.start()
         config = self.get_config()
         if config.get("preview_live"):
-            return True, f"Camera restarted using {self.backend}.", config
+            return True, f"Camera restarted using {self.backend}. New settings are live.", config
         return False, f"Camera restarted but live preview is not available. {config.get('last_error', '').strip()}".strip(), config
 
     def _maybe_update_gains(self, frame) -> None:
@@ -384,15 +431,11 @@ class CameraService:
             return None
         try:
             preview = frame
-            if int(self.width) > 0 and int(self.height) > 0:
-                target_size = (int(self.width), int(self.height))
-                if tuple(frame.shape[1::-1]) != target_size:
-                    preview = cv2.resize(frame, target_size, interpolation=cv2.INTER_AREA)
-            ok, buf = cv2.imencode(
-                ".jpg",
-                preview,
-                [int(cv2.IMWRITE_JPEG_QUALITY), int(self.preview_quality)],
-            )
+            target_size = (int(self.width), int(self.height))
+            if int(self.width) > 0 and int(self.height) > 0 and tuple(frame.shape[1::-1]) != target_size:
+                preview = cv2.resize(frame, target_size, interpolation=cv2.INTER_AREA)
+            params = [int(cv2.IMWRITE_JPEG_QUALITY), int(self.preview_quality)]
+            ok, buf = cv2.imencode(".jpg", preview, params)
             return buf.tobytes() if ok else None
         except Exception:
             return None
@@ -405,6 +448,13 @@ class CameraService:
             self._jpeg_seq += 1
             self._jpeg_cond.notify_all()
 
+    def _desired_capture_fps_locked(self) -> int:
+        if self.processing_enabled:
+            return max(1, int(self.target_fps))
+        if self.preview_enabled:
+            return max(1, min(int(self.target_fps), int(self.preview_fps)))
+        return max(1, int(self.idle_fps))
+
     def _loop(self):
         fps_count = 0
         fps_window_start = time.time()
@@ -414,8 +464,9 @@ class CameraService:
             with self._service_lock:
                 if not self._running:
                     break
-                target_fps = max(int(self.target_fps), 1)
+                target_fps = self._desired_capture_fps_locked()
                 preview_period = 1.0 / max(int(self.preview_fps), 1)
+                preview_enabled = bool(self.preview_enabled)
                 should_retry = self._picam2 is None and self._capture is None and (time.time() - self._last_open_attempt) >= self._retry_interval_s
                 if should_retry:
                     self._open_backend_locked()
@@ -435,8 +486,8 @@ class CameraService:
                     self.preview_live = bool(live)
                     self.last_error = ""
                 with self._frame_lock:
-                    self._raw_frame = frame.copy()
-                    self._frame = corrected.copy()
+                    self._raw_frame = frame
+                    self._frame = corrected
                 fps_count += 1
                 now = time.time()
                 elapsed = now - fps_window_start
@@ -447,29 +498,29 @@ class CameraService:
 
             if preview_source is not None and self._frame is None:
                 with self._frame_lock:
-                    self._frame = preview_source.copy()
+                    self._frame = preview_source
 
             loop_end = time.time()
-            if preview_source is not None and (loop_end - last_preview_emit) >= preview_period:
+            if preview_enabled and preview_source is not None and (loop_end - last_preview_emit) >= preview_period:
                 self._publish_jpeg(self._encode_preview_jpeg(preview_source))
                 last_preview_emit = loop_end
 
             elapsed = loop_end - start_time
-            sleep_time = max(0.0, (1.0 / target_fps) - elapsed)
+            sleep_time = max(0.0, (1.0 / max(target_fps, 1)) - elapsed)
             if sleep_time > 0:
                 time.sleep(sleep_time)
 
-    def get_latest_frame(self):
+    def get_latest_frame(self, copy: bool = True):
         with self._frame_lock:
             if self._frame is None:
                 return None
-            return self._frame.copy()
+            return self._frame.copy() if copy else self._frame
 
-    def get_raw_frame(self):
+    def get_raw_frame(self, copy: bool = True):
         with self._frame_lock:
             if self._raw_frame is None:
                 return None
-            return self._raw_frame.copy()
+            return self._raw_frame.copy() if copy else self._raw_frame
 
     def get_jpeg_frame(self) -> Optional[bytes]:
         with self._jpeg_cond:

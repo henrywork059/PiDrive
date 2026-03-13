@@ -9,7 +9,7 @@ class AutoSteerAlgorithm(BaseAlgorithm):
     mode = "auto_steer"
 
     def compute(self, state, camera_service, model_service):
-        frame = camera_service.get_latest_frame()
+        frame = camera_service.get_latest_frame(copy=False)
         uv = model_service.predict_uv_from_frame(frame)
         if uv is None:
             return float(state.manual_steering), float(state.manual_throttle)

@@ -54,7 +54,7 @@
           <span class="panel-mini">MJPEG</span>
         </div>
         <div class="panel-body viewer-body">
-          <img id="videoFeed" src="/video_feed" alt="PiServer camera preview" />
+          <img id="videoFeed" src="" alt="PiServer camera preview" />
           <div id="cameraPreviewMeta" class="small-note preview-meta">Waiting for camera status…</div>
         </div>
         <div class="resize-handle"></div>
@@ -178,12 +178,21 @@
               <input id="cameraFps" type="number" min="1" max="120" step="1" value="30" />
             </div>
             <div class="field">
+              <label for="cameraStreamQuality">Streaming quality</label>
+              <select id="cameraStreamQuality">
+                <option value="low_latency">Low latency</option>
+                <option value="balanced" selected>Balanced</option>
+                <option value="high">High quality</option>
+                <option value="manual">Manual</option>
+              </select>
+            </div>
+            <div class="field">
               <label for="cameraPreviewFps">Preview FPS</label>
               <input id="cameraPreviewFps" type="number" min="1" max="30" step="1" value="12" />
             </div>
             <div class="field">
               <label for="cameraPreviewQuality">Preview JPEG quality</label>
-              <input id="cameraPreviewQuality" type="number" min="30" max="95" step="1" value="60" />
+              <input id="cameraPreviewQuality" type="number" min="20" max="95" step="1" value="60" />
             </div>
             <div class="field">
               <label for="cameraFormat">Format</label>
@@ -194,7 +203,7 @@
               </select>
             </div>
           </div>
-          <div class="small-note">Lower capture resolution and lower preview FPS usually reduce latency on the Pi.</div>
+          <div class="small-note">Lower capture resolution, low-latency stream quality, and lower preview FPS usually reduce delay on the Pi. Apply + restart camera after changing settings.</div>
 
           <div class="field-grid two-col">
             <label class="check-line"><input id="cameraAutoExposure" type="checkbox" checked /> Auto exposure</label>

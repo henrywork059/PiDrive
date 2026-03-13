@@ -60,7 +60,7 @@ class ControlService:
         period = 1.0 / self.loop_hz
         while self.running:
             start = time.time()
-            frame = self.camera_service.get_latest_frame()
+            frame = None
             with self.lock:
                 self.state.fps = self.camera_service.get_fps()
                 self.state.camera_backend = getattr(self.camera_service, "backend", "unknown")
@@ -70,6 +70,11 @@ class ControlService:
                 self.state.camera_preview_live = bool(getattr(self.camera_service, "preview_live", False))
                 self.state.camera_error = str(getattr(self.camera_service, "last_error", "") or "")
                 self.state.active_model = self.model_service.get_active_name()
+                processing_needed = (not self.state.safety_stop) and (self.state.active_algorithm != "manual" or bool(self.recorder_service.recording))
+                try:
+                    self.camera_service.set_processing_enabled(processing_needed)
+                except Exception:
+                    pass
 
                 if getattr(self.state, "maintenance_mode", False) or self.state.safety_stop:
                     steer, throttle = 0.0, 0.0
@@ -94,6 +99,7 @@ class ControlService:
                 snapshot = self.state.snapshot()
 
             if self.recorder_service.recording and not bool(snapshot.get("maintenance_mode", False)):
+                frame = self.camera_service.get_latest_frame(copy=True)
                 self.recorder_service.maybe_record(frame, snapshot)
 
             elapsed = time.time() - start
