@@ -1,13 +1,7 @@
-from .camera_service import CameraService
-from .motor_service import MotorService
-from .model_service import ModelService
-from .recorder_service import RecorderService
-from .control_service import ControlService
+"""PiServer services package.
 
-__all__ = [
-    "CameraService",
-    "MotorService",
-    "ModelService",
-    "RecorderService",
-    "ControlService",
-]
+Keep this init lightweight so importing a single service module does not
+force-import every other service at package import time.
+"""
+
+__all__ = []
