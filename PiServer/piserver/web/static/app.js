@@ -568,7 +568,7 @@ async function loadCameraConfig() {
   const perf = ` Stream ${cfg.stream_quality || "balanced"}, preview ${cfg.preview_fps ?? 12} FPS @ JPEG ${cfg.preview_quality ?? 60}.`;
   const extra = cfg.processing_enabled ? " AI/recording path active." : " AI/recording path idle.";
   const error = cfg.last_error ? ` ${cfg.last_error}` : "";
-  setBanner("cameraMessage", `Camera settings loaded.${backend}${live}${perf}${extra}${error}`.trim(), "muted");
+  setBanner("cameraMessage", `Saved camera settings loaded.${backend}${live}${perf}${extra}${error}`.trim(), "muted");
 }
 
 async function applyCameraConfig() {
@@ -588,7 +588,7 @@ async function applyCameraConfig() {
     await loadCameraConfig();
     refreshVideoFeed();
     await pollStatus();
-    setBanner("cameraMessage", data.message || "Camera restarted to apply settings.", data.ok ? "muted" : "warn");
+    setBanner("cameraMessage", data.message || "Camera restarted and settings saved.", data.ok ? "muted" : "warn");
   } finally {
     button.disabled = false;
   }
@@ -762,15 +762,6 @@ function setupEvents() {
   document.getElementById("cameraStreamQuality").addEventListener("change", applyStreamQualityPreset);
   document.getElementById("cameraWidth").addEventListener("change", setCameraResolutionPreset);
   document.getElementById("cameraHeight").addEventListener("change", setCameraResolutionPreset);
-
-  document.getElementById("cameraReloadBtn").addEventListener("click", async () => {
-    try {
-      await loadCameraConfig();
-      refreshVideoFeed();
-    } catch (error) {
-      setBanner("cameraMessage", error.message, "muted");
-    }
-  });
 
   document.getElementById("estopBtn").addEventListener("click", () => setEstop(true));
   document.getElementById("clearEstopBtn").addEventListener("click", () => setEstop(false));
