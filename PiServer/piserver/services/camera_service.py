@@ -345,29 +345,13 @@ class CameraService:
         return False, f"Camera restarted but live preview is not available. {config.get('last_error', '').strip()}".strip(), config
 
     def _maybe_update_gains(self, frame) -> None:
-        if np is None or self._color_gains is not None or frame is None:
-            return
-        self._calibration_frames += 1
-        if self._calibration_frames == 1:
-            self._sum_means = np.zeros(3, dtype="float64")
-        self._sum_means += frame.mean(axis=(0, 1))
-        if self._calibration_frames >= _CALIBRATION_FRAMES:
-            means = self._sum_means / float(self._calibration_frames)
-            means = np.clip(means, 1.0, 1024.0)
-            g_ref = means[1]
-            gains = np.clip(g_ref / means, 0.5, 2.5)
-            self._color_gains = gains
+        # Disabled on purpose: 0_1_15 / 0_1_16 had correct colours without
+        # extra per-channel gain correction. Keeping the raw colour path avoids
+        # the blue->orange shift reported after later preview changes.
+        return
 
     def _apply_gains(self, frame):
-        if np is None or self._color_gains is None or frame is None:
-            return frame
-        try:
-            corrected = frame.astype("float32")
-            for idx in range(3):
-                corrected[:, :, idx] *= float(self._color_gains[idx])
-            return corrected.clip(0, 255).astype("uint8")
-        except Exception:
-            return frame
+        return frame
 
     def _normalize_frame(self, frame):
         if cv2 is None or frame is None:

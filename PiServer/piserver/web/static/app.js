@@ -548,6 +548,17 @@ function refreshVideoFeed() {
   schedulePreviewFrame(true);
 }
 
+function forceRefreshVideoFeed() {
+  stopPreviewLoop(true);
+  const img = document.getElementById("videoFeed");
+  if (img) {
+    img.src = "";
+  }
+  state.previewActive = !document.hidden;
+  sendPreviewState(state.previewActive);
+  schedulePreviewFrame(true);
+}
+
 function syncPreviewActivity() {
   const enabled = !document.hidden;
   state.previewActive = enabled;
@@ -576,7 +587,7 @@ async function applyCameraConfig() {
   const button = document.getElementById("cameraApplyBtn");
   button.disabled = true;
   try {
-    stopPreviewLoop(false);
+    stopPreviewLoop(true);
     await sendPreviewState(false);
     const data = await fetchJson("/api/camera/apply", {
       method: "POST",
@@ -584,9 +595,11 @@ async function applyCameraConfig() {
       body: JSON.stringify(payload)
     });
     fillCameraForm(data.config || payload);
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 350));
     await loadCameraConfig();
-    refreshVideoFeed();
+    forceRefreshVideoFeed();
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    forceRefreshVideoFeed();
     await pollStatus();
     setBanner("cameraMessage", data.message || "Camera restarted and settings saved.", data.ok ? "muted" : "warn");
   } finally {
