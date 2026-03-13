@@ -136,6 +136,10 @@ button.active,
   grid-row: var(--r) / span var(--h);
 }
 
+.panel-hidden {
+  display: none;
+}
+
 .panel-head {
   display: flex;
   align-items: center;
@@ -444,4 +448,9 @@ body[data-page="camera"] .dock-panel[data-panel="camera"] {
 .preview-meta {
   margin-top: 0.65rem;
   line-height: 1.4;
+}
+
+
+.quick-drive-row button {
+  flex: 1 1 120px;
 }

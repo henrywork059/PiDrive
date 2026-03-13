@@ -161,3 +161,11 @@ If you run PiServer with `systemd`, restart it after pulling:
 ```bash
 sudo systemctl restart pi_server.service
 ```
+
+
+## PiServer 0_2_1 highlights
+
+- Manual tab now supports forward and reverse drive from the joystick.
+- Manual tab also supports keyboard driving with `W/A/S/D` or arrow keys while the page is focused.
+- New Motor tab lets you set left/right direction, per-motor max speed, and bias trim from the web UI.
+- Applying motor settings stops the motors for safety and saves them into the runtime config.

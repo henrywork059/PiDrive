@@ -26,6 +26,12 @@ class RuntimeState:
     camera_error: str = ""
     motor_left: float = 0.0
     motor_right: float = 0.0
+    motor_left_direction: int = 1
+    motor_right_direction: int = 1
+    motor_left_max_speed: float = 1.0
+    motor_right_max_speed: float = 1.0
+    motor_left_bias: float = 0.0
+    motor_right_bias: float = 0.0
     system_message: str = "Ready"
     last_update: float = 0.0
 

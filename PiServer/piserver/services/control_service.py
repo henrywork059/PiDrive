@@ -6,6 +6,10 @@ import time
 from piserver.core.runtime_state import RuntimeState
 
 
+def _clamp(value: float, minimum: float, maximum: float) -> float:
+    return max(minimum, min(maximum, float(value)))
+
+
 class ControlService:
     def __init__(
         self,
@@ -56,11 +60,19 @@ class ControlService:
         self.state.motor_left = 0.0
         self.state.motor_right = 0.0
 
+    def _update_motor_state_locked(self):
+        cfg = self.motor_service.get_config()
+        self.state.motor_left_direction = int(cfg.get("left_direction", 1))
+        self.state.motor_right_direction = int(cfg.get("right_direction", 1))
+        self.state.motor_left_max_speed = float(cfg.get("left_max_speed", 1.0))
+        self.state.motor_right_max_speed = float(cfg.get("right_max_speed", 1.0))
+        self.state.motor_left_bias = float(cfg.get("left_bias", 0.0))
+        self.state.motor_right_bias = float(cfg.get("right_bias", 0.0))
+
     def _loop(self):
         period = 1.0 / self.loop_hz
         while self.running:
             start = time.time()
-            frame = None
             with self.lock:
                 self.state.fps = self.camera_service.get_fps()
                 self.state.camera_backend = getattr(self.camera_service, "backend", "unknown")
@@ -70,20 +82,24 @@ class ControlService:
                 self.state.camera_preview_live = bool(getattr(self.camera_service, "preview_live", False))
                 self.state.camera_error = str(getattr(self.camera_service, "last_error", "") or "")
                 self.state.active_model = self.model_service.get_active_name()
-                processing_needed = (not self.state.safety_stop) and (self.state.active_algorithm != "manual" or bool(self.recorder_service.recording))
+                self._update_motor_state_locked()
+
+                processing_needed = (not self.state.safety_stop) and (
+                    self.state.active_algorithm != "manual" or bool(self.recorder_service.recording)
+                )
                 try:
                     self.camera_service.set_processing_enabled(processing_needed)
                 except Exception:
                     pass
 
-                if getattr(self.state, "maintenance_mode", False) or self.state.safety_stop:
+                if self.state.safety_stop:
                     steer, throttle = 0.0, 0.0
                 else:
                     algo = self.algorithms.get(self.state.active_algorithm, self.algorithms["manual"])
                     steer, throttle = algo.compute(self.state, self.camera_service, self.model_service)
 
-                steer = max(-1.0, min(1.0, float(steer)))
-                throttle = max(0.0, min(float(throttle), float(self.state.max_throttle)))
+                steer = _clamp(float(steer), -1.0, 1.0)
+                throttle = _clamp(float(throttle), -float(self.state.max_throttle), float(self.state.max_throttle))
 
                 left, right = self.motor_service.update(
                     steering=steer,
@@ -98,7 +114,7 @@ class ControlService:
                 self.state.last_update = time.time()
                 snapshot = self.state.snapshot()
 
-            if self.recorder_service.recording and not bool(snapshot.get("maintenance_mode", False)):
+            if self.recorder_service.recording:
                 frame = self.camera_service.get_latest_frame(copy=True)
                 self.recorder_service.maybe_record(frame, snapshot)
 
@@ -110,19 +126,12 @@ class ControlService:
         with self.lock:
             return self.state.snapshot()
 
-    def is_maintenance_active(self) -> bool:
-        with self.lock:
-            return bool(getattr(self.state, "maintenance_mode", False))
-
     def set_manual_controls(self, steering=None, throttle=None):
         with self.lock:
-            if getattr(self.state, "maintenance_mode", False):
-                self.state.system_message = "Maintenance mode active. Manual controls are disabled."
-                return False, self.state.system_message
             if steering is not None:
-                self.state.manual_steering = max(-1.0, min(1.0, float(steering)))
+                self.state.manual_steering = _clamp(float(steering), -1.0, 1.0)
             if throttle is not None:
-                self.state.manual_throttle = max(0.0, min(1.0, float(throttle)))
+                self.state.manual_throttle = _clamp(float(throttle), -1.0, 1.0)
             self.state.system_message = "Manual controls updated."
         return True, "OK"
 
@@ -131,22 +140,16 @@ class ControlService:
         if name not in self.algorithms:
             return False, "Unknown algorithm."
         with self.lock:
-            if getattr(self.state, "maintenance_mode", False):
-                self.state.system_message = "Maintenance mode active. Algorithm switching is disabled."
-                return False, self.state.system_message
             self.state.active_algorithm = name
             self.state.system_message = f"Algorithm switched to {name}."
         return True, name
 
     def set_runtime_parameters(self, max_throttle=None, steer_mix=None, current_page=None):
         with self.lock:
-            if getattr(self.state, "maintenance_mode", False) and any(v is not None for v in (max_throttle, steer_mix)):
-                self.state.system_message = "Maintenance mode active. Runtime tuning is disabled."
-                return False, self.state.system_message
             if max_throttle is not None:
-                self.state.max_throttle = max(0.0, min(1.0, float(max_throttle)))
+                self.state.max_throttle = _clamp(float(max_throttle), 0.0, 1.0)
             if steer_mix is not None:
-                self.state.steer_mix = max(0.0, min(1.0, float(steer_mix)))
+                self.state.steer_mix = _clamp(float(steer_mix), 0.0, 1.0)
             if current_page:
                 self.state.current_page = str(current_page)
             self.state.system_message = "Runtime parameters updated."
@@ -154,9 +157,6 @@ class ControlService:
 
     def toggle_recording(self) -> tuple[bool, bool, str]:
         with self.lock:
-            if getattr(self.state, "maintenance_mode", False):
-                self.state.system_message = "Maintenance mode active. Recording is disabled."
-                return False, bool(self.recorder_service.recording), self.state.system_message
             self.recorder_service.toggle()
             self.state.recording = bool(self.recorder_service.recording)
             self.state.system_message = "Recording started." if self.state.recording else "Recording stopped."
@@ -181,6 +181,7 @@ class ControlService:
                 "steer_mix": self.state.steer_mix,
                 "current_page": self.state.current_page,
                 "camera": self.camera_service.get_config(),
+                "motor": self.motor_service.get_config(),
             }
 
     def save_runtime_config(self) -> dict:
@@ -193,16 +194,21 @@ class ControlService:
     def apply_runtime_config(self, data: dict, initial: bool = False):
         if not isinstance(data, dict):
             return
+        motor_cfg = data.get("motor")
+        if isinstance(motor_cfg, dict):
+            self.motor_service.apply_settings(motor_cfg)
+
         with self.lock:
             algo = data.get("active_algorithm")
             if algo in self.algorithms:
                 self.state.active_algorithm = algo
             if "max_throttle" in data:
-                self.state.max_throttle = max(0.0, min(1.0, float(data["max_throttle"])))
+                self.state.max_throttle = _clamp(float(data["max_throttle"]), 0.0, 1.0)
             if "steer_mix" in data:
-                self.state.steer_mix = max(0.0, min(1.0, float(data["steer_mix"])))
+                self.state.steer_mix = _clamp(float(data["steer_mix"]), 0.0, 1.0)
             if "current_page" in data:
                 self.state.current_page = str(data["current_page"])
+            self._update_motor_state_locked()
             self.state.system_message = "Runtime config loaded." if not initial else "Runtime config applied."
         camera_cfg = data.get("camera")
         if isinstance(camera_cfg, dict):

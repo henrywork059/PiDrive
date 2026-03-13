@@ -16,7 +16,7 @@ from piserver.services.recorder_service import RecorderService
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 WEB_DIR = Path(__file__).resolve().parent / "web"
-APP_VERSION = "0_1_22"
+APP_VERSION = "0_2_1"
 
 
 def mjpeg_generator(camera_service):
@@ -200,6 +200,36 @@ def create_app() -> Flask:
         if enabled:
             motor_service.stop()
         return jsonify({"ok": True, "state": control_service.snapshot()})
+
+
+
+    @app.route("/api/motor/config")
+    def api_motor_config():
+        return jsonify({"ok": True, "config": motor_service.get_config()})
+
+    @app.route("/api/motor/apply", methods=["POST"])
+    def api_motor_apply():
+        data = request.get_json(silent=True) or {}
+        config = motor_service.apply_settings(data)
+        saved = False
+        save_error = ""
+        try:
+            config_store.save(control_service.get_runtime_config())
+            saved = True
+        except Exception as exc:
+            save_error = str(exc)
+        message = "Motor settings applied. Motors stopped for safety."
+        if saved:
+            message += " Settings saved."
+        elif save_error:
+            message += f" Settings were not saved: {save_error}"
+        return jsonify({
+            "ok": True,
+            "saved": saved,
+            "message": message,
+            "config": config,
+            "state": control_service.snapshot(),
+        })
 
     @app.route("/api/camera/config")
     def api_camera_config():
