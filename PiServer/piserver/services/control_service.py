@@ -10,6 +10,13 @@ def _clamp(value: float, minimum: float, maximum: float) -> float:
     return max(minimum, min(maximum, float(value)))
 
 
+def _parse_float(value, default: float) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return float(default)
+
+
 class ControlService:
     def __init__(
         self,
@@ -32,6 +39,7 @@ class ControlService:
         self.lock = threading.RLock()
         self.running = False
         self.thread = None
+        self._processing_enabled_cached = None
 
         self.apply_runtime_config(self.config_store.load(), initial=True)
 
@@ -87,25 +95,36 @@ class ControlService:
                 processing_needed = (not self.state.safety_stop) and (
                     self.state.active_algorithm != "manual" or bool(self.recorder_service.recording)
                 )
-                try:
-                    self.camera_service.set_processing_enabled(processing_needed)
-                except Exception:
-                    pass
+                if processing_needed != self._processing_enabled_cached:
+                    try:
+                        self.camera_service.set_processing_enabled(processing_needed)
+                        self._processing_enabled_cached = processing_needed
+                    except Exception:
+                        pass
 
                 if self.state.safety_stop:
                     steer, throttle = 0.0, 0.0
                 else:
                     algo = self.algorithms.get(self.state.active_algorithm, self.algorithms["manual"])
-                    steer, throttle = algo.compute(self.state, self.camera_service, self.model_service)
+                    try:
+                        steer, throttle = algo.compute(self.state, self.camera_service, self.model_service)
+                    except Exception as exc:
+                        steer, throttle = 0.0, 0.0
+                        self.state.system_message = f"Algorithm error: {exc}"
 
                 steer = _clamp(float(steer), -1.0, 1.0)
                 throttle = _clamp(float(throttle), -float(self.state.max_throttle), float(self.state.max_throttle))
 
-                left, right = self.motor_service.update(
-                    steering=steer,
-                    throttle=throttle,
-                    steer_mix=self.state.steer_mix,
-                )
+                try:
+                    left, right = self.motor_service.update(
+                        steering=steer,
+                        throttle=throttle,
+                        steer_mix=self.state.steer_mix,
+                    )
+                except Exception as exc:
+                    left, right = 0.0, 0.0
+                    self._hard_stop_outputs()
+                    self.state.system_message = f"Motor update failed: {exc}"
                 self.state.applied_steering = steer
                 self.state.applied_throttle = throttle
                 self.state.motor_left = left
@@ -129,9 +148,9 @@ class ControlService:
     def set_manual_controls(self, steering=None, throttle=None):
         with self.lock:
             if steering is not None:
-                self.state.manual_steering = _clamp(float(steering), -1.0, 1.0)
+                self.state.manual_steering = _clamp(_parse_float(steering, self.state.manual_steering), -1.0, 1.0)
             if throttle is not None:
-                self.state.manual_throttle = _clamp(float(throttle), -1.0, 1.0)
+                self.state.manual_throttle = _clamp(_parse_float(throttle, self.state.manual_throttle), -1.0, 1.0)
             self.state.system_message = "Manual controls updated."
         return True, "OK"
 
@@ -147,9 +166,9 @@ class ControlService:
     def set_runtime_parameters(self, max_throttle=None, steer_mix=None, current_page=None):
         with self.lock:
             if max_throttle is not None:
-                self.state.max_throttle = _clamp(float(max_throttle), 0.0, 1.0)
+                self.state.max_throttle = _clamp(_parse_float(max_throttle, self.state.max_throttle), 0.0, 1.0)
             if steer_mix is not None:
-                self.state.steer_mix = _clamp(float(steer_mix), 0.0, 1.0)
+                self.state.steer_mix = _clamp(_parse_float(steer_mix, self.state.steer_mix), 0.0, 1.0)
             if current_page:
                 self.state.current_page = str(current_page)
             self.state.system_message = "Runtime parameters updated."
@@ -203,9 +222,9 @@ class ControlService:
             if algo in self.algorithms:
                 self.state.active_algorithm = algo
             if "max_throttle" in data:
-                self.state.max_throttle = _clamp(float(data["max_throttle"]), 0.0, 1.0)
+                self.state.max_throttle = _clamp(_parse_float(data["max_throttle"], self.state.max_throttle), 0.0, 1.0)
             if "steer_mix" in data:
-                self.state.steer_mix = _clamp(float(data["steer_mix"]), 0.0, 1.0)
+                self.state.steer_mix = _clamp(_parse_float(data["steer_mix"], self.state.steer_mix), 0.0, 1.0)
             if "current_page" in data:
                 self.state.current_page = str(data["current_page"])
             self._update_motor_state_locked()
