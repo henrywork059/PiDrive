@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from pathlib import Path
+import atexit
 import time
+from pathlib import Path
 
 from flask import Flask, Response, jsonify, render_template, request
 
@@ -13,10 +14,9 @@ from piserver.services.model_service import ModelService
 from piserver.services.motor_service import MotorService
 from piserver.services.recorder_service import RecorderService
 
-
 BASE_DIR = Path(__file__).resolve().parents[1]
 WEB_DIR = Path(__file__).resolve().parent / "web"
-APP_VERSION = "0_2_1"
+APP_VERSION = "0_2_7"
 
 
 def mjpeg_generator(camera_service):
@@ -64,6 +64,22 @@ def create_app() -> Flask:
     )
     control_service.start()
 
+    def cleanup_services():
+        try:
+            control_service.stop()
+        except Exception:
+            pass
+        try:
+            camera_service.stop()
+        except Exception:
+            pass
+        try:
+            motor_service.close()
+        except Exception:
+            pass
+
+    atexit.register(cleanup_services)
+
     app.config["services"] = {
         "camera": camera_service,
         "motor": motor_service,
@@ -87,7 +103,6 @@ def create_app() -> Flask:
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
         return response
-
 
     @app.route("/api/camera/frame.jpg")
     def api_camera_frame():
@@ -159,12 +174,7 @@ def create_app() -> Flask:
 
     @app.route("/api/model/list")
     def api_model_list():
-        return jsonify(
-            {
-                "models": model_service.list_models(),
-                "active": model_service.get_active_name(),
-            }
-        )
+        return jsonify({"models": model_service.list_models(), "active": model_service.get_active_name()})
 
     @app.route("/api/model/upload", methods=["POST"])
     def api_model_upload():
@@ -201,8 +211,6 @@ def create_app() -> Flask:
             motor_service.stop()
         return jsonify({"ok": True, "state": control_service.snapshot()})
 
-
-
     @app.route("/api/motor/config")
     def api_motor_config():
         return jsonify({"ok": True, "config": motor_service.get_config()})
@@ -210,7 +218,11 @@ def create_app() -> Flask:
     @app.route("/api/motor/apply", methods=["POST"])
     def api_motor_apply():
         data = request.get_json(silent=True) or {}
-        config = motor_service.apply_settings(data)
+        try:
+            config = motor_service.apply_settings(data)
+            control_service.invalidate_processing_state_cache()
+        except Exception as exc:
+            return jsonify({"ok": False, "message": f"Motor settings failed: {exc}"}), 400
         saved = False
         save_error = ""
         try:
@@ -239,6 +251,7 @@ def create_app() -> Flask:
     def api_camera_apply():
         data = request.get_json(silent=True) or {}
         ok, message, config = camera_service.apply_settings(data, restart=True)
+        control_service.invalidate_processing_state_cache()
         saved = False
         save_error = ""
         try:

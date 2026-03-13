@@ -1,4 +1,4 @@
-from piserver.app import create_app
+from piserver import create_app
 
 app = create_app()
 

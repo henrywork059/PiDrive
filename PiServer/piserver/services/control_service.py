@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import threading
 import time
+from typing import Any
 
 from piserver.core.runtime_state import RuntimeState
 
@@ -10,7 +11,7 @@ def _clamp(value: float, minimum: float, maximum: float) -> float:
     return max(minimum, min(maximum, float(value)))
 
 
-def _parse_float(value, default: float) -> float:
+def _parse_float(value: Any, default: float) -> float:
     try:
         return float(value)
     except (TypeError, ValueError):
@@ -47,12 +48,19 @@ class ControlService:
         if self.running:
             return
         self.running = True
-        self.thread = threading.Thread(target=self._loop, daemon=True)
+        self.thread = threading.Thread(target=self._loop, daemon=True, name="PiServerControlLoop")
         self.thread.start()
 
     def stop(self):
         self.running = False
         self._hard_stop_outputs()
+        thread = self.thread
+        if thread and thread.is_alive() and thread is not threading.current_thread():
+            thread.join(timeout=1.0)
+
+    def invalidate_processing_state_cache(self):
+        with self.lock:
+            self._processing_enabled_cached = None
 
     def _hard_stop_outputs(self):
         try:
@@ -112,8 +120,12 @@ class ControlService:
                         steer, throttle = 0.0, 0.0
                         self.state.system_message = f"Algorithm error: {exc}"
 
-                steer = _clamp(float(steer), -1.0, 1.0)
-                throttle = _clamp(float(throttle), -float(self.state.max_throttle), float(self.state.max_throttle))
+                steer = _clamp(_parse_float(steer, 0.0), -1.0, 1.0)
+                throttle = _clamp(
+                    _parse_float(throttle, 0.0),
+                    -float(self.state.max_throttle),
+                    float(self.state.max_throttle),
+                )
 
                 try:
                     left, right = self.motor_service.update(
@@ -123,6 +135,7 @@ class ControlService:
                     )
                 except Exception as exc:
                     left, right = 0.0, 0.0
+                    steer, throttle = 0.0, 0.0
                     self._hard_stop_outputs()
                     self.state.system_message = f"Motor update failed: {exc}"
                 self.state.applied_steering = steer
@@ -232,6 +245,7 @@ class ControlService:
         camera_cfg = data.get("camera")
         if isinstance(camera_cfg, dict):
             self.camera_service.apply_settings(camera_cfg, restart=not initial)
+            self.invalidate_processing_state_cache()
 
     def reload_runtime_config(self) -> dict:
         data = self.config_store.load()
