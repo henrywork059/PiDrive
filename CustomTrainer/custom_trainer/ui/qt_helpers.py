@@ -3,6 +3,7 @@ from __future__ import annotations
 import locale
 import os
 import subprocess
+import threading
 from pathlib import Path
 from typing import Sequence
 
@@ -42,6 +43,9 @@ class CommandWorker(QObject):
         super().__init__()
         self.command = list(command)
         self.cwd = cwd
+        self._process: subprocess.Popen[bytes] | None = None
+        self._lock = threading.Lock()
+        self._stop_requested = False
 
     @Slot()
     def run(self) -> None:
@@ -59,6 +63,8 @@ class CommandWorker(QObject):
                 bufsize=0,
                 env=env,
             )
+            with self._lock:
+                self._process = process
             assert process.stdout is not None
             while True:
                 raw_line = process.stdout.readline()
@@ -70,5 +76,28 @@ class CommandWorker(QObject):
         except Exception as exc:
             self.line.emit(f'[error] {exc}')
             code = -1
+        finally:
+            with self._lock:
+                self._process = None
+        if self._stop_requested:
+            self.line.emit('[stopped] Stop requested by user.')
         self.line.emit(f'[exit code] {code}')
         self.finished.emit(code)
+
+    @Slot()
+    def request_stop(self) -> None:
+        with self._lock:
+            process = self._process
+            self._stop_requested = True
+        if process is None:
+            return
+        self.line.emit('[stop] Terminating running process...')
+        try:
+            process.terminate()
+            try:
+                process.wait(timeout=2.0)
+            except subprocess.TimeoutExpired:
+                self.line.emit('[stop] Process did not exit in time. Killing it...')
+                process.kill()
+        except Exception as exc:
+            self.line.emit(f'[stop-error] {exc}')

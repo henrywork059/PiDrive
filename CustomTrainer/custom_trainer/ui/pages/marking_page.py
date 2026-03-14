@@ -62,7 +62,7 @@ class MarkingPage(QWidget):
         self._build()
         self._connect()
         self.refresh_class_widgets()
-        QShortcut(QKeySequence('Delete'), self.image_list, activated=self.delete_selected_frames)
+        QShortcut(QKeySequence('X'), self.image_list, activated=self.delete_selected_frames)
 
     def _build(self) -> None:
         source_box = QGroupBox('Session Source', self)
@@ -129,10 +129,10 @@ class MarkingPage(QWidget):
         help_label = QLabel(
             'Draw: left-drag\n'
             'Select box: right-click\n'
-            'Move selected box: W / A / S / D\n'
-            'Change frame: Up / Down\n'
-            'Delete selected frame(s): Del\n'
-            'Delete selected box: Backspace',
+            'Move selected box: Arrow keys (Shift = faster)\n'
+            'Change frame: A / D\n'
+            'Delete selected frame(s): X\n'
+            'Delete selected box: Backspace / Delete',
             tools_box,
         )
         help_label.setProperty('role', 'muted')
@@ -173,6 +173,7 @@ class MarkingPage(QWidget):
         self.canvas.boxes_changed.connect(self.on_boxes_changed)
         self.canvas.request_prev_frame.connect(self.prev_image)
         self.canvas.request_next_frame.connect(self.next_image)
+        self.canvas.request_delete_frame.connect(self.delete_selected_frames)
 
     def _path_row(self) -> QWidget:
         row = QWidget(self)
@@ -235,7 +236,6 @@ class MarkingPage(QWidget):
             self.session_list.addItem(item)
         self.state.class_names = load_class_names(root, sessions[0])
         self.refresh_class_widgets()
-        QShortcut(QKeySequence('Delete'), self.image_list, activated=self.delete_selected_frames)
         total_images = sum(len(session.image_paths) for session in sessions)
         self.summary_value.setText(f'{len(sessions)} sessions loaded • {total_images} images total')
         migrated = sync_legacy_labels(sessions)
@@ -261,7 +261,6 @@ class MarkingPage(QWidget):
         session = self.state.sessions[index]
         self.state.class_names = load_class_names(self.state.sessions_root, session)
         self.refresh_class_widgets()
-        QShortcut(QKeySequence('Delete'), self.image_list, activated=self.delete_selected_frames)
         self.populate_image_list(session)
         self.log(f'Opened session: {session.name}')
         self.set_status(f'Session loaded: {session.name}')
@@ -476,7 +475,6 @@ class MarkingPage(QWidget):
             return
         self.state.class_names = class_names
         self.refresh_class_widgets()
-        QShortcut(QKeySequence('Delete'), self.image_list, activated=self.delete_selected_frames)
         path = save_class_names(target_root, class_names)
         dataset_root = self.state.sessions_root or target_root
         dataset_yaml, _ = ensure_dataset_yaml(dataset_root, class_names, overwrite=True)

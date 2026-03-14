@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from typing import Callable
 
-from PySide6.QtCore import QThread
+from PySide6.QtCore import QThread, Qt
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QComboBox,
     QFileDialog,
@@ -21,6 +22,8 @@ from custom_trainer.services.device_service import probe_runtime
 from custom_trainer.services.ultralytics_runner import build_predict_command, build_val_command
 from custom_trainer.state import AppState
 from custom_trainer.ui.qt_helpers import CommandWorker
+
+_IMAGE_SUFFIXES = {'.jpg', '.jpeg', '.png', '.bmp', '.webp'}
 
 
 class ValidatePage(QWidget):
@@ -46,11 +49,23 @@ class ValidatePage(QWidget):
         self.status_note.setProperty('role', 'muted')
         self.val_button = QPushButton('Run Validation', self)
         self.predict_button = QPushButton('Run Prediction', self)
+        self.stop_button = QPushButton('Stop Task', self)
+        self.stop_button.setEnabled(False)
+        self.preview_label = QLabel('No preview source selected.', self)
+        self.preview_label.setAlignment(Qt.AlignCenter)
+        self.preview_label.setMinimumSize(420, 280)
+        self.preview_label.setStyleSheet('background: #0d1118; border: 1px solid #263244;')
+        self.preview_info = QLabel('Prediction source preview will appear here.', self)
+        self.preview_info.setWordWrap(True)
+        self.preview_info.setProperty('role', 'muted')
+
         self.val_button.clicked.connect(self.start_val)
         self.predict_button.clicked.connect(self.start_predict)
+        self.stop_button.clicked.connect(self.stop_task)
 
         self._build()
         self.refresh_devices(log_runtime=False)
+        self.refresh_preview()
 
     def _build(self) -> None:
         config_box = QGroupBox('Validation / Prediction Config', self)
@@ -67,22 +82,35 @@ class ValidatePage(QWidget):
         actions = QHBoxLayout(actions_box)
         use_current_button = QPushButton('Use Current Sessions Root', actions_box)
         use_current_button.clicked.connect(self.use_current_root_defaults)
+        latest_best_button = QPushButton('Use Latest best.pt', actions_box)
+        latest_best_button.clicked.connect(self.use_latest_best_weights)
+        refresh_preview_button = QPushButton('Refresh Preview', actions_box)
+        refresh_preview_button.clicked.connect(self.refresh_preview)
         refresh_devices_button = QPushButton('Refresh Devices', actions_box)
         refresh_devices_button.clicked.connect(lambda: self.refresh_devices(log_runtime=True))
         actions.addWidget(use_current_button)
+        actions.addWidget(latest_best_button)
+        actions.addWidget(refresh_preview_button)
         actions.addWidget(refresh_devices_button)
         actions.addWidget(self.val_button)
         actions.addWidget(self.predict_button)
+        actions.addWidget(self.stop_button)
         actions.addStretch(1)
 
         status_box = QGroupBox('Status', self)
         status_layout = QVBoxLayout(status_box)
         status_layout.addWidget(self.status_note)
 
+        preview_box = QGroupBox('Validation Frame Preview', self)
+        preview_layout = QVBoxLayout(preview_box)
+        preview_layout.addWidget(self.preview_label, 1)
+        preview_layout.addWidget(self.preview_info)
+
         root = QVBoxLayout(self)
         root.addWidget(config_box)
         root.addWidget(actions_box)
         root.addWidget(status_box)
+        root.addWidget(preview_box, 1)
         root.addStretch(1)
 
     def _path_row(self, line_edit: QLineEdit, handler: Callable[[], None]) -> QWidget:
@@ -143,6 +171,7 @@ class ValidatePage(QWidget):
         path, _ = QFileDialog.getOpenFileName(self, 'Choose source image/video', filter='Media (*.jpg *.jpeg *.png *.bmp *.webp *.mp4 *.avi);;All Files (*)')
         if path:
             self.source_edit.setText(path)
+            self.refresh_preview()
 
     def use_current_root_defaults(self) -> None:
         dataset_yaml = self.state.preferred_dataset_yaml()
@@ -152,7 +181,57 @@ class ValidatePage(QWidget):
         if current_image is not None:
             self.source_edit.setText(str(current_image))
         self.refresh_devices(log_runtime=False)
+        self.refresh_preview()
         self.set_status('Validation defaults filled from the current sessions root.')
+
+    def use_latest_best_weights(self) -> None:
+        best = self.state.latest_best_weights()
+        if best is None:
+            QMessageBox.information(self, 'No best.pt found', 'Train a model first, then try again.')
+            return
+        self.weights_edit.setText(str(best))
+        self.set_status('Loaded latest best.pt into Validation.')
+
+    def refresh_preview(self) -> None:
+        source_text = self.source_edit.text().strip()
+        if not source_text:
+            current = self.state.current_image_path
+            if current is not None:
+                source_text = str(current)
+        if not source_text:
+            self.preview_label.setPixmap(QPixmap())
+            self.preview_label.setText('No preview source selected.')
+            self.preview_info.setText('Pick an image source, or use the current frame from Marking.')
+            return
+        from pathlib import Path
+        source_path = Path(source_text)
+        if not source_path.exists():
+            self.preview_label.setPixmap(QPixmap())
+            self.preview_label.setText('Preview source not found.')
+            self.preview_info.setText(f'Source path does not exist:\n{source_text}')
+            return
+        if source_path.suffix.lower() not in _IMAGE_SUFFIXES:
+            self.preview_label.setPixmap(QPixmap())
+            self.preview_label.setText('Preview unavailable for non-image sources.')
+            self.preview_info.setText(f'Source: {source_path.name}\nPreview is shown for image files only.')
+            return
+        pixmap = QPixmap(str(source_path))
+        if pixmap.isNull():
+            self.preview_label.setPixmap(QPixmap())
+            self.preview_label.setText('Preview unavailable for this file.')
+        else:
+            scaled = pixmap.scaled(self.preview_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            self.preview_label.setPixmap(scaled)
+            self.preview_label.setText('')
+        self.preview_info.setText(
+            f'Source: {source_path.name}\n'
+            f'Weights: {self.weights_edit.text().strip() or "not set"}\n'
+            f'Dataset YAML: {self.yaml_edit.text().strip() or "not set"}'
+        )
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        self.refresh_preview()
 
     def start_val(self) -> None:
         if self.thread is not None:
@@ -196,6 +275,14 @@ class ValidatePage(QWidget):
         )
         self._launch(command, 'Prediction started...')
 
+    def stop_task(self) -> None:
+        if self.worker is None:
+            return
+        self.worker.request_stop()
+        self.stop_button.setEnabled(False)
+        self.status_note.setText('Stopping task...')
+        self.set_status('Stopping validation/prediction task...')
+
     def _launch(self, command: list[str], status_message: str) -> None:
         self.thread = QThread(self)
         self.worker = CommandWorker(command)
@@ -208,6 +295,7 @@ class ValidatePage(QWidget):
         self.thread.finished.connect(self._clear_thread)
         self.val_button.setEnabled(False)
         self.predict_button.setEnabled(False)
+        self.stop_button.setEnabled(True)
         self.status_note.setText(status_message)
         self.set_status(status_message)
         self.thread.start()
@@ -215,6 +303,7 @@ class ValidatePage(QWidget):
     def _on_finished(self, exit_code: int) -> None:
         self.val_button.setEnabled(True)
         self.predict_button.setEnabled(True)
+        self.stop_button.setEnabled(False)
         self.status_note.setText(f'Finished with exit code {exit_code}.')
         self.set_status(f'Validation or prediction finished with exit code {exit_code}.')
 

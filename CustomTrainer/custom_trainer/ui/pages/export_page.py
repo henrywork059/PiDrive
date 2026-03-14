@@ -51,7 +51,10 @@ class ExportPage(QWidget):
         self.status_note = QLabel('Idle', self)
         self.status_note.setProperty('role', 'muted')
         self.export_button = QPushButton('Export Model', self)
+        self.stop_button = QPushButton('Stop Export', self)
+        self.stop_button.setEnabled(False)
         self.export_button.clicked.connect(self.start_export)
+        self.stop_button.clicked.connect(self.stop_export)
 
         self._build()
         self.refresh_devices(log_runtime=False)
@@ -72,11 +75,15 @@ class ExportPage(QWidget):
         action_layout = QHBoxLayout(action_box)
         use_current_button = QPushButton('Use Current Sessions Root', action_box)
         use_current_button.clicked.connect(self.use_current_root_defaults)
+        latest_best_button = QPushButton('Use Latest best.pt', action_box)
+        latest_best_button.clicked.connect(self.use_latest_best_weights)
         refresh_devices_button = QPushButton('Refresh Devices', action_box)
         refresh_devices_button.clicked.connect(lambda: self.refresh_devices(log_runtime=True))
         action_layout.addWidget(use_current_button)
+        action_layout.addWidget(latest_best_button)
         action_layout.addWidget(refresh_devices_button)
         action_layout.addWidget(self.export_button)
+        action_layout.addWidget(self.stop_button)
         action_layout.addStretch(1)
 
         status_box = QGroupBox('Status', self)
@@ -92,6 +99,9 @@ class ExportPage(QWidget):
             '- image size: 320 or 416\n'
             '- quantization: int8 first, then float16 if needed\n'
             '- device: Auto for desktop export, CPU for safest Pi-side compatibility\n\n'
+            'Useful additions in this build:\n'
+            '- Use Latest best.pt to grab your newest training result quickly\n'
+            '- Stop Export to terminate a long export task from the GUI\n\n'
             'Use dataset.yaml when exporting INT8 so calibration data is available.'
         )
         info_layout = QVBoxLayout(info_box)
@@ -164,6 +174,14 @@ class ExportPage(QWidget):
         self.refresh_devices(log_runtime=False)
         self.set_status('Export defaults filled from the current sessions root.')
 
+    def use_latest_best_weights(self) -> None:
+        best = self.state.latest_best_weights()
+        if best is None:
+            QMessageBox.information(self, 'No best.pt found', 'Train a model first, then try again.')
+            return
+        self.weights_edit.setText(str(best))
+        self.set_status('Loaded latest best.pt into Export.')
+
     def start_export(self) -> None:
         if self.thread is not None:
             QMessageBox.information(self, 'Busy', 'An export task is already running.')
@@ -203,12 +221,22 @@ class ExportPage(QWidget):
         self.thread.finished.connect(self.thread.deleteLater)
         self.thread.finished.connect(self._clear_thread)
         self.export_button.setEnabled(False)
+        self.stop_button.setEnabled(True)
         self.status_note.setText('Export started...')
         self.set_status('Export started...')
         self.thread.start()
 
+    def stop_export(self) -> None:
+        if self.worker is None:
+            return
+        self.worker.request_stop()
+        self.stop_button.setEnabled(False)
+        self.status_note.setText('Stopping export...')
+        self.set_status('Stopping export...')
+
     def _on_finished(self, exit_code: int) -> None:
         self.export_button.setEnabled(True)
+        self.stop_button.setEnabled(False)
         self.status_note.setText(f'Finished with exit code {exit_code}.')
         self.set_status(f'Export finished with exit code {exit_code}.')
 

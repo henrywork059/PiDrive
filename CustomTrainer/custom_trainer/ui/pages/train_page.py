@@ -3,7 +3,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Callable
 
-from PySide6.QtCore import QThread
+from PySide6.QtCore import QThread, Qt
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QComboBox,
     QFileDialog,
@@ -49,10 +50,22 @@ class TrainPage(QWidget):
         self.status_note = QLabel('Idle', self)
         self.status_note.setProperty('role', 'muted')
         self.start_button = QPushButton('Start Training', self)
+        self.stop_button = QPushButton('Stop Training', self)
+        self.stop_button.setEnabled(False)
+        self.preview_label = QLabel('No frame preview yet.', self)
+        self.preview_label.setAlignment(Qt.AlignCenter)
+        self.preview_label.setMinimumSize(420, 280)
+        self.preview_label.setStyleSheet('background: #0d1118; border: 1px solid #263244;')
+        self.preview_info = QLabel('Open Marking and select a frame to mirror a quick preview here.', self)
+        self.preview_info.setWordWrap(True)
+        self.preview_info.setProperty('role', 'muted')
+
         self.start_button.clicked.connect(self.start_training)
+        self.stop_button.clicked.connect(self.stop_training)
 
         self._build()
         self.refresh_devices(log_runtime=False)
+        self.refresh_preview()
 
     def _build(self) -> None:
         config_box = QGroupBox('Training Config', self)
@@ -71,16 +84,25 @@ class TrainPage(QWidget):
         action_layout = QHBoxLayout(action_box)
         use_current_button = QPushButton('Use Current Sessions Root', action_box)
         use_current_button.clicked.connect(self.use_current_root_defaults)
+        refresh_preview_button = QPushButton('Refresh Preview', action_box)
+        refresh_preview_button.clicked.connect(self.refresh_preview)
         refresh_devices_button = QPushButton('Refresh Devices', action_box)
         refresh_devices_button.clicked.connect(lambda: self.refresh_devices(log_runtime=True))
         action_layout.addWidget(use_current_button)
+        action_layout.addWidget(refresh_preview_button)
         action_layout.addWidget(refresh_devices_button)
         action_layout.addWidget(self.start_button)
+        action_layout.addWidget(self.stop_button)
         action_layout.addStretch(1)
 
         status_box = QGroupBox('Status', self)
         status_layout = QVBoxLayout(status_box)
         status_layout.addWidget(self.status_note)
+
+        preview_box = QGroupBox('Training Preview', self)
+        preview_layout = QVBoxLayout(preview_box)
+        preview_layout.addWidget(self.preview_label, 1)
+        preview_layout.addWidget(self.preview_info)
 
         info_box = QGroupBox('Workflow Notes', self)
         info_text = QPlainTextEdit(self)
@@ -89,8 +111,8 @@ class TrainPage(QWidget):
             '1. Use Marking to load your sessions folder and label images.\n'
             '2. Point this page to the dataset.yaml for your YOLO dataset.\n'
             '3. Use Auto or CUDA:0 to train on GPU when your Python environment has CUDA-enabled PyTorch.\n'
-            '4. Start with yolov8n.pt or another small model to verify the pipeline.\n'
-            '5. Export after you have a good run.'
+            '4. Use Stop Training to terminate a run cleanly from the GUI.\n'
+            '5. After training, Validation and Export can auto-pick the latest best.pt.'
         )
         info_layout = QVBoxLayout(info_box)
         info_layout.addWidget(info_text)
@@ -99,6 +121,7 @@ class TrainPage(QWidget):
         root.addWidget(config_box)
         root.addWidget(action_box)
         root.addWidget(status_box)
+        root.addWidget(preview_box, 1)
         root.addWidget(info_box, 1)
 
     def _path_row(self, line_edit: QLineEdit, handler: Callable[[], None]) -> QWidget:
@@ -163,7 +186,39 @@ class TrainPage(QWidget):
             self.project_edit.setText(str(self.state.sessions_root / 'runs'))
         self.name_edit.setText(f'train_{datetime.now().strftime("%Y%m%d_%H%M%S")}')
         self.refresh_devices(log_runtime=False)
+        self.refresh_preview()
         self.set_status('Training defaults filled from the current sessions root.')
+
+    def refresh_preview(self) -> None:
+        image_path = self.state.current_preview_image()
+        session = self.state.current_session
+        dataset_yaml = self.state.preferred_dataset_yaml()
+        if image_path is None or not image_path.exists():
+            self.preview_label.setPixmap(QPixmap())
+            self.preview_label.setText('No frame preview yet.')
+            self.preview_info.setText(
+                'Open Marking and select a frame to mirror a quick preview here.\n'
+                f'Dataset YAML: {dataset_yaml if dataset_yaml else "not set"}'
+            )
+            return
+        pixmap = QPixmap(str(image_path))
+        if pixmap.isNull():
+            self.preview_label.setPixmap(QPixmap())
+            self.preview_label.setText('Preview unavailable for this file.')
+        else:
+            scaled = pixmap.scaled(self.preview_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            self.preview_label.setPixmap(scaled)
+            self.preview_label.setText('')
+        session_name = session.name if session is not None else 'none'
+        self.preview_info.setText(
+            f'Session: {session_name}\n'
+            f'Current frame: {image_path.name}\n'
+            f'Dataset YAML: {dataset_yaml if dataset_yaml else "not set"}'
+        )
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        self.refresh_preview()
 
     def start_training(self) -> None:
         if self.thread is not None:
@@ -191,6 +246,14 @@ class TrainPage(QWidget):
         )
         self._launch(command, 'Training started...')
 
+    def stop_training(self) -> None:
+        if self.worker is None:
+            return
+        self.worker.request_stop()
+        self.stop_button.setEnabled(False)
+        self.status_note.setText('Stopping training...')
+        self.set_status('Stopping training...')
+
     def _launch(self, command: list[str], status_message: str) -> None:
         self.thread = QThread(self)
         self.worker = CommandWorker(command)
@@ -202,6 +265,7 @@ class TrainPage(QWidget):
         self.thread.finished.connect(self.thread.deleteLater)
         self.thread.finished.connect(self._clear_thread)
         self.start_button.setEnabled(False)
+        self.stop_button.setEnabled(True)
         self.status_note.setText(status_message)
         self.set_status(status_message)
         self.thread.start()
@@ -210,6 +274,8 @@ class TrainPage(QWidget):
         self.status_note.setText(f'Finished with exit code {exit_code}.')
         self.set_status(f'Training finished with exit code {exit_code}.')
         self.start_button.setEnabled(True)
+        self.stop_button.setEnabled(False)
+        self.refresh_preview()
 
     def _clear_thread(self) -> None:
         self.thread = None
