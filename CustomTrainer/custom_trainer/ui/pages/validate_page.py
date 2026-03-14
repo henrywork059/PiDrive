@@ -1,125 +1,158 @@
 from __future__ import annotations
 
-import threading
-import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
 from typing import Callable
 
-from custom_trainer.services.ultralytics_runner import build_predict_command, build_val_command, run_command
+from PySide6.QtCore import QThread
+from PySide6.QtWidgets import (
+    QFileDialog,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
+
+from custom_trainer.services.ultralytics_runner import build_predict_command, build_val_command
 from custom_trainer.state import AppState
+from custom_trainer.ui.qt_helpers import CommandWorker
 
 
-class ValidatePage(ttk.Frame):
-    def __init__(self, master: tk.Misc, state: AppState, log: Callable[[str], None]) -> None:
-        super().__init__(master)
+class ValidatePage(QWidget):
+    def __init__(self, state: AppState, log: Callable[[str], None], set_status: Callable[[str], None], parent: QWidget | None = None) -> None:
+        super().__init__(parent)
         self.state = state
         self.log = log
-        self.is_running = False
+        self.set_status = set_status
+        self.thread: QThread | None = None
+        self.worker: CommandWorker | None = None
 
-        self.columnconfigure(1, weight=1)
-
-        self.weights_var = tk.StringVar()
-        self.yaml_var = tk.StringVar()
-        self.source_var = tk.StringVar()
-        self.imgsz_var = tk.StringVar(value="640")
-        self.conf_var = tk.StringVar(value="0.25")
-        self.device_var = tk.StringVar(value="cpu")
+        self.weights_edit = QLineEdit(self)
+        self.yaml_edit = QLineEdit(self)
+        self.source_edit = QLineEdit(self)
+        self.imgsz_edit = QLineEdit('640', self)
+        self.conf_edit = QLineEdit('0.25', self)
+        self.device_edit = QLineEdit('cpu', self)
+        self.status_note = QLabel('Idle', self)
+        self.status_note.setProperty('role', 'muted')
+        self.val_button = QPushButton('Run Validation', self)
+        self.predict_button = QPushButton('Run Prediction', self)
+        self.val_button.clicked.connect(self.start_val)
+        self.predict_button.clicked.connect(self.start_predict)
 
         self._build()
 
     def _build(self) -> None:
-        row = 0
-        ttk.Label(self, text="Weights (.pt)").grid(row=row, column=0, sticky="w", padx=6, pady=6)
-        ttk.Entry(self, textvariable=self.weights_var).grid(row=row, column=1, sticky="ew", padx=6, pady=6)
-        ttk.Button(self, text="Browse", command=self.choose_weights).grid(row=row, column=2, padx=6, pady=6)
+        config_box = QGroupBox('Validation / Prediction Config', self)
+        form = QFormLayout(config_box)
+        form.addRow('Weights (.pt)', self._path_row(self.weights_edit, self.choose_weights))
+        form.addRow('dataset.yaml', self._path_row(self.yaml_edit, self.choose_yaml))
+        form.addRow('Predict Source', self._path_row(self.source_edit, self.choose_source))
+        form.addRow('Image Size', self.imgsz_edit)
+        form.addRow('Confidence', self.conf_edit)
+        form.addRow('Device', self.device_edit)
 
-        row += 1
-        ttk.Label(self, text="dataset.yaml").grid(row=row, column=0, sticky="w", padx=6, pady=6)
-        ttk.Entry(self, textvariable=self.yaml_var).grid(row=row, column=1, sticky="ew", padx=6, pady=6)
-        ttk.Button(self, text="Browse", command=self.choose_yaml).grid(row=row, column=2, padx=6, pady=6)
+        actions_box = QGroupBox('Actions', self)
+        actions = QHBoxLayout(actions_box)
+        actions.addWidget(self.val_button)
+        actions.addWidget(self.predict_button)
 
-        row += 1
-        ttk.Label(self, text="Predict Source").grid(row=row, column=0, sticky="w", padx=6, pady=6)
-        ttk.Entry(self, textvariable=self.source_var).grid(row=row, column=1, sticky="ew", padx=6, pady=6)
-        ttk.Button(self, text="Browse", command=self.choose_source).grid(row=row, column=2, padx=6, pady=6)
+        status_box = QGroupBox('Status', self)
+        status_layout = QVBoxLayout(status_box)
+        status_layout.addWidget(self.status_note)
 
-        row += 1
-        ttk.Label(self, text="Image Size").grid(row=row, column=0, sticky="w", padx=6, pady=6)
-        ttk.Entry(self, textvariable=self.imgsz_var).grid(row=row, column=1, sticky="ew", padx=6, pady=6)
+        root = QVBoxLayout(self)
+        root.addWidget(config_box)
+        root.addWidget(actions_box)
+        root.addWidget(status_box)
+        root.addStretch(1)
 
-        row += 1
-        ttk.Label(self, text="Confidence").grid(row=row, column=0, sticky="w", padx=6, pady=6)
-        ttk.Entry(self, textvariable=self.conf_var).grid(row=row, column=1, sticky="ew", padx=6, pady=6)
-
-        row += 1
-        ttk.Label(self, text="Device").grid(row=row, column=0, sticky="w", padx=6, pady=6)
-        ttk.Entry(self, textvariable=self.device_var).grid(row=row, column=1, sticky="ew", padx=6, pady=6)
-
-        row += 1
-        buttons = ttk.Frame(self)
-        buttons.grid(row=row, column=0, columnspan=3, sticky="ew", padx=6, pady=12)
-        buttons.columnconfigure(0, weight=1)
-        buttons.columnconfigure(1, weight=1)
-        ttk.Button(buttons, text="Run Validation", command=self.start_val).grid(row=0, column=0, sticky="ew", padx=4)
-        ttk.Button(buttons, text="Run Prediction", command=self.start_predict).grid(row=0, column=1, sticky="ew", padx=4)
+    def _path_row(self, line_edit: QLineEdit, handler: Callable[[], None]) -> QWidget:
+        container = QWidget(self)
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(line_edit, 1)
+        button = QPushButton('Browse', container)
+        button.clicked.connect(handler)
+        layout.addWidget(button)
+        return container
 
     def choose_weights(self) -> None:
-        path = filedialog.askopenfilename(title="Choose weights", filetypes=[("PyTorch Weights", "*.pt"), ("All Files", "*")])
+        path, _ = QFileDialog.getOpenFileName(self, 'Choose weights', filter='PyTorch Weights (*.pt);;All Files (*)')
         if path:
-            self.weights_var.set(path)
+            self.weights_edit.setText(path)
 
     def choose_yaml(self) -> None:
-        path = filedialog.askopenfilename(title="Choose dataset.yaml", filetypes=[("YAML", "*.yaml *.yml")])
+        path, _ = QFileDialog.getOpenFileName(self, 'Choose dataset.yaml', filter='YAML (*.yaml *.yml)')
         if path:
-            self.yaml_var.set(path)
+            self.yaml_edit.setText(path)
 
     def choose_source(self) -> None:
-        path = filedialog.askopenfilename(title="Choose source image/video", filetypes=[("Media", "*.jpg *.jpeg *.png *.bmp *.webp *.mp4 *.avi"), ("All Files", "*")])
+        path, _ = QFileDialog.getOpenFileName(self, 'Choose source image/video', filter='Media (*.jpg *.jpeg *.png *.bmp *.webp *.mp4 *.avi);;All Files (*)')
         if path:
-            self.source_var.set(path)
+            self.source_edit.setText(path)
 
     def start_val(self) -> None:
-        if self.is_running:
-            messagebox.showinfo("Busy", "Another validation/prediction task is already running.")
+        if self.thread is not None:
+            QMessageBox.information(self, 'Busy', 'Another validation/prediction task is already running.')
             return
         try:
-            imgsz = int(self.imgsz_var.get())
+            imgsz = int(self.imgsz_edit.text())
         except ValueError:
-            messagebox.showerror("Invalid image size", "Image size must be an integer.")
+            QMessageBox.critical(self, 'Invalid image size', 'Image size must be an integer.')
             return
         command = build_val_command(
-            weights=self.weights_var.get().strip(),
-            data=self.yaml_var.get().strip(),
+            weights=self.weights_edit.text().strip(),
+            data=self.yaml_edit.text().strip(),
             imgsz=imgsz,
-            device=self.device_var.get().strip(),
+            device=self.device_edit.text().strip(),
         )
-        self._launch(command)
+        self._launch(command, 'Validation started...')
 
     def start_predict(self) -> None:
-        if self.is_running:
-            messagebox.showinfo("Busy", "Another validation/prediction task is already running.")
+        if self.thread is not None:
+            QMessageBox.information(self, 'Busy', 'Another validation/prediction task is already running.')
             return
         try:
-            imgsz = int(self.imgsz_var.get())
-            conf = float(self.conf_var.get())
+            imgsz = int(self.imgsz_edit.text())
+            conf = float(self.conf_edit.text())
         except ValueError:
-            messagebox.showerror("Invalid values", "Image size must be integer and confidence must be numeric.")
+            QMessageBox.critical(self, 'Invalid values', 'Image size must be integer and confidence must be numeric.')
             return
         command = build_predict_command(
-            weights=self.weights_var.get().strip(),
-            source=self.source_var.get().strip(),
+            weights=self.weights_edit.text().strip(),
+            source=self.source_edit.text().strip(),
             imgsz=imgsz,
             conf=conf,
-            device=self.device_var.get().strip(),
+            device=self.device_edit.text().strip(),
         )
-        self._launch(command)
+        self._launch(command, 'Prediction started...')
 
-    def _launch(self, command: list[str]) -> None:
-        self.is_running = True
-        threading.Thread(target=self._run, args=(command,), daemon=True).start()
+    def _launch(self, command: list[str], status_message: str) -> None:
+        self.thread = QThread(self)
+        self.worker = CommandWorker(command)
+        self.worker.moveToThread(self.thread)
+        self.thread.started.connect(self.worker.run)
+        self.worker.line.connect(self.log)
+        self.worker.finished.connect(self._on_finished)
+        self.worker.finished.connect(self.thread.quit)
+        self.thread.finished.connect(self.thread.deleteLater)
+        self.thread.finished.connect(self._clear_thread)
+        self.val_button.setEnabled(False)
+        self.predict_button.setEnabled(False)
+        self.status_note.setText(status_message)
+        self.set_status(status_message)
+        self.thread.start()
 
-    def _run(self, command: list[str]) -> None:
-        try:
-            run_command(command, self.log)
-        finally:
-            self.is_running = False
+    def _on_finished(self, exit_code: int) -> None:
+        self.val_button.setEnabled(True)
+        self.predict_button.setEnabled(True)
+        self.status_note.setText(f'Finished with exit code {exit_code}.')
+        self.set_status(f'Validation/prediction finished with exit code {exit_code}.')
+
+    def _clear_thread(self) -> None:
+        self.thread = None
+        self.worker = None

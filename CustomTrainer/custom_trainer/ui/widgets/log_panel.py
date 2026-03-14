@@ -1,24 +1,41 @@
 from __future__ import annotations
 
-import tkinter as tk
-from tkinter import ttk
+from PySide6.QtCore import Signal, Slot
+from PySide6.QtWidgets import QHBoxLayout, QPushButton, QPlainTextEdit, QVBoxLayout, QWidget
 
 
-class LogPanel(ttk.Frame):
-    def __init__(self, master: tk.Misc) -> None:
-        super().__init__(master)
-        self.text = tk.Text(self, height=12, wrap="word")
-        self.scroll = ttk.Scrollbar(self, orient="vertical", command=self.text.yview)
-        self.text.configure(yscrollcommand=self.scroll.set)
-        self.text.grid(row=0, column=0, sticky="nsew")
-        self.scroll.grid(row=0, column=1, sticky="ns")
-        self.columnconfigure(0, weight=1)
-        self.rowconfigure(0, weight=1)
+class LogPanel(QWidget):
+    append_requested = Signal(str)
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.text = QPlainTextEdit(self)
+        self.text.setReadOnly(True)
+        self.text.setPlaceholderText('Run actions to see logs here...')
+
+        clear_button = QPushButton('Clear Log', self)
+        clear_button.clicked.connect(self.clear)
+
+        controls = QHBoxLayout()
+        controls.addStretch(1)
+        controls.addWidget(clear_button)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.addLayout(controls)
+        layout.addWidget(self.text, 1)
+
+        self.append_requested.connect(self.append_line)
 
     def log(self, message: str) -> None:
-        self.text.insert("end", message + "\n")
-        self.text.see("end")
-        self.text.update_idletasks()
+        self.append_requested.emit(message)
 
+    @Slot(str)
+    def append_line(self, message: str) -> None:
+        self.text.appendPlainText(message)
+        bar = self.text.verticalScrollBar()
+        bar.setValue(bar.maximum())
+
+    @Slot()
     def clear(self) -> None:
-        self.text.delete("1.0", "end")
+        self.text.clear()
