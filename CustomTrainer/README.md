@@ -1,13 +1,13 @@
-# CustomTrainer 0_1_3
+# CustomTrainer 0_1_8
 
-CustomTrainer now keeps the **single session-based Marking tab** from 0_1_2 and restores the extra workflow pages you asked for:
+CustomTrainer keeps the **single session-based Marking tab** and the extra workflow pages:
 
 - **Marking**
 - **Training**
 - **Validation**
 - **Export**
 
-The app still follows the PySide6 desktop-shell direction of piTrainer, but the labeling workflow stays focused on **one main Marking page** that loads all sessions from a chosen root folder.
+The app follows the PySide6 desktop-shell direction of piTrainer, while the labeling workflow stays focused on one main Marking page that loads all sessions from a chosen root folder.
 
 ## Main workflow
 
@@ -28,21 +28,24 @@ The app still follows the PySide6 desktop-shell direction of piTrainer, but the 
 - edit and save `classes.txt`
 - keyboard shortcuts for save / image navigation / box editing
 
-## Restored tabs
+## Training / Validation / Export
 
 ### Training
 - start an Ultralytics YOLO training run from the GUI
 - fill defaults from the current sessions root
+- device picker now supports **Auto / CUDA / CPU** detection
 
 ### Validation
 - run YOLO validation from the GUI
 - run prediction on a selected source
 - fill defaults from the current sessions root and currently selected image
+- device picker now supports **Auto / CUDA / CPU** detection
 
 ### Export
 - export weights to TFLite / ONNX / OpenVINO / TorchScript
 - INT8 / float16 / float32 choices
 - fill dataset.yaml from the current sessions root
+- device picker now supports **Auto / CUDA / CPU** detection
 
 ## Install
 
@@ -50,7 +53,7 @@ The app still follows the PySide6 desktop-shell direction of piTrainer, but the 
 python -m venv .venv
 
 # Windows
-.venv\Scriptsctivate
+.venv\Scripts\activate
 
 # Linux / macOS
 source .venv/bin/activate
@@ -58,6 +61,13 @@ source .venv/bin/activate
 pip install -r requirements.txt
 python run_custom_trainer.py
 ```
+
+## GPU notes
+
+- The app can now **auto-detect runtime devices** and pass the correct device into Ultralytics.
+- **Auto** chooses the best available backend in this order: CUDA GPU, Apple MPS, then CPU.
+- If you explicitly request CUDA but your environment only has a CPU build of PyTorch, the app will show a clear error instead of silently falling back.
+- To actually train on an NVIDIA GPU, your Python environment must use a **CUDA-enabled PyTorch build**. A CPU-only build such as `torch ... +cpu` cannot use the GPU.
 
 ## Shortcuts
 

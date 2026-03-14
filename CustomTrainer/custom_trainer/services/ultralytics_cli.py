@@ -2,11 +2,19 @@ from __future__ import annotations
 
 import argparse
 import sys
-from pathlib import Path
+
+from custom_trainer.services.device_service import resolve_device, runtime_summary
 
 
-def _normalize_existing_path(value: str) -> str:
-    return str(Path(value).expanduser().resolve(strict=False))
+def _configure_stdio() -> None:
+    for stream_name in ('stdout', 'stderr'):
+        stream = getattr(sys, stream_name, None)
+        reconfigure = getattr(stream, 'reconfigure', None)
+        if callable(reconfigure):
+            try:
+                reconfigure(encoding='utf-8', errors='replace')
+            except Exception:
+                pass
 
 
 def _ensure_ultralytics():
@@ -18,19 +26,22 @@ def _ensure_ultralytics():
     return YOLO
 
 
+def _resolved_device(args_device: str | None) -> str:
+    requested = args_device or 'auto'
+    resolved = resolve_device(requested)
+    print(f'[device] Requested={requested} | Resolved={resolved} | {runtime_summary()}', flush=True)
+    return resolved
+
+
 def cmd_train(args: argparse.Namespace) -> int:
     YOLO = _ensure_ultralytics()
-    data_path = Path(args.data).expanduser()
-    if not data_path.exists():
-        print(f"[error] dataset.yaml not found: {data_path}", flush=True)
-        return 1
     model = YOLO(args.model)
     result = model.train(
-        data=_normalize_existing_path(args.data),
+        data=args.data,
         epochs=args.epochs,
         imgsz=args.imgsz,
         batch=args.batch,
-        device=args.device or 'cpu',
+        device=_resolved_device(args.device),
         project=args.project or 'runs',
         name=args.name or 'customtrainer_train',
     )
@@ -40,15 +51,11 @@ def cmd_train(args: argparse.Namespace) -> int:
 
 def cmd_val(args: argparse.Namespace) -> int:
     YOLO = _ensure_ultralytics()
-    data_path = Path(args.data).expanduser()
-    if not data_path.exists():
-        print(f"[error] dataset.yaml not found: {data_path}", flush=True)
-        return 1
     model = YOLO(args.weights)
     result = model.val(
-        data=_normalize_existing_path(args.data),
+        data=args.data,
         imgsz=args.imgsz,
-        device=args.device or 'cpu',
+        device=_resolved_device(args.device),
     )
     print(result, flush=True)
     return 0
@@ -61,7 +68,7 @@ def cmd_predict(args: argparse.Namespace) -> int:
         source=args.source,
         imgsz=args.imgsz,
         conf=args.conf,
-        device=args.device or 'cpu',
+        device=_resolved_device(args.device),
         save=True,
         verbose=True,
     )
@@ -75,17 +82,13 @@ def cmd_export(args: argparse.Namespace) -> int:
     kwargs = {
         'format': args.format,
         'imgsz': args.imgsz,
-        'device': args.device or 'cpu',
+        'device': _resolved_device(args.device),
         'nms': args.nms,
     }
     if args.int8:
         kwargs['int8'] = True
         if args.data:
-            data_path = Path(args.data).expanduser()
-            if not data_path.exists():
-                print(f"[error] dataset.yaml not found: {data_path}", flush=True)
-                return 1
-            kwargs['data'] = _normalize_existing_path(args.data)
+            kwargs['data'] = args.data
     if args.half:
         kwargs['half'] = True
     result = model.export(**kwargs)
@@ -103,7 +106,7 @@ def build_parser() -> argparse.ArgumentParser:
     train.add_argument('--epochs', type=int, default=100)
     train.add_argument('--imgsz', type=int, default=640)
     train.add_argument('--batch', type=int, default=16)
-    train.add_argument('--device', default='cpu')
+    train.add_argument('--device', default='auto')
     train.add_argument('--project', default='runs')
     train.add_argument('--name', default='customtrainer_train')
     train.set_defaults(func=cmd_train)
@@ -112,7 +115,7 @@ def build_parser() -> argparse.ArgumentParser:
     val.add_argument('--weights', required=True)
     val.add_argument('--data', required=True)
     val.add_argument('--imgsz', type=int, default=640)
-    val.add_argument('--device', default='cpu')
+    val.add_argument('--device', default='auto')
     val.set_defaults(func=cmd_val)
 
     predict = sub.add_parser('predict')
@@ -120,14 +123,14 @@ def build_parser() -> argparse.ArgumentParser:
     predict.add_argument('--source', required=True)
     predict.add_argument('--imgsz', type=int, default=640)
     predict.add_argument('--conf', type=float, default=0.25)
-    predict.add_argument('--device', default='cpu')
+    predict.add_argument('--device', default='auto')
     predict.set_defaults(func=cmd_predict)
 
     export = sub.add_parser('export')
     export.add_argument('--weights', required=True)
     export.add_argument('--format', default='tflite')
     export.add_argument('--imgsz', type=int, default=320)
-    export.add_argument('--device', default='cpu')
+    export.add_argument('--device', default='auto')
     export.add_argument('--data', default='')
     export.add_argument('--int8', action='store_true')
     export.add_argument('--half', action='store_true')
@@ -137,6 +140,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    _configure_stdio()
     parser = build_parser()
     args = parser.parse_args(argv)
     try:

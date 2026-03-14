@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Callable
 
 from PySide6.QtCore import QThread
 from PySide6.QtWidgets import (
+    QComboBox,
     QFileDialog,
     QFormLayout,
     QGroupBox,
@@ -17,27 +17,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from custom_trainer.services.dataset_service import ensure_dataset_yaml
+from custom_trainer.services.device_service import probe_runtime
 from custom_trainer.services.ultralytics_runner import build_predict_command, build_val_command
 from custom_trainer.state import AppState
 from custom_trainer.ui.qt_helpers import CommandWorker
-
-
-def _prepare_dataset_yaml(state: AppState, yaml_text: str, class_names: list[str], log: Callable[[str], None]) -> str:
-    yaml_path = Path(yaml_text).expanduser() if yaml_text.strip() else None
-    if yaml_path is not None and yaml_path.exists():
-        return str(yaml_path)
-    if state.sessions_root is None:
-        return yaml_text.strip()
-    preferred = state.preferred_dataset_yaml()
-    matches_default = yaml_path is None or preferred is None or yaml_path == preferred
-    if matches_default:
-        created_path, created = ensure_dataset_yaml(state.sessions_root, class_names)
-        if created_path is not None:
-            if created:
-                log(f'Created dataset YAML: {created_path}')
-            return str(created_path)
-    return yaml_text.strip()
 
 
 class ValidatePage(QWidget):
@@ -54,7 +37,11 @@ class ValidatePage(QWidget):
         self.source_edit = QLineEdit(self)
         self.imgsz_edit = QLineEdit('640', self)
         self.conf_edit = QLineEdit('0.25', self)
-        self.device_edit = QLineEdit('cpu', self)
+        self.device_combo = QComboBox(self)
+        self.device_combo.setEditable(True)
+        self.device_summary = QLabel('Detecting runtime...', self)
+        self.device_summary.setProperty('role', 'muted')
+        self.device_summary.setWordWrap(True)
         self.status_note = QLabel('Idle', self)
         self.status_note.setProperty('role', 'muted')
         self.val_button = QPushButton('Run Validation', self)
@@ -63,6 +50,7 @@ class ValidatePage(QWidget):
         self.predict_button.clicked.connect(self.start_predict)
 
         self._build()
+        self.refresh_devices(log_runtime=False)
 
     def _build(self) -> None:
         config_box = QGroupBox('Validation / Prediction Config', self)
@@ -72,13 +60,17 @@ class ValidatePage(QWidget):
         form.addRow('Predict Source', self._path_row(self.source_edit, self.choose_source))
         form.addRow('Image Size', self.imgsz_edit)
         form.addRow('Confidence', self.conf_edit)
-        form.addRow('Device', self.device_edit)
+        form.addRow('Device', self._device_row())
+        form.addRow('', self.device_summary)
 
         actions_box = QGroupBox('Actions', self)
         actions = QHBoxLayout(actions_box)
         use_current_button = QPushButton('Use Current Sessions Root', actions_box)
         use_current_button.clicked.connect(self.use_current_root_defaults)
+        refresh_devices_button = QPushButton('Refresh Devices', actions_box)
+        refresh_devices_button.clicked.connect(lambda: self.refresh_devices(log_runtime=True))
         actions.addWidget(use_current_button)
+        actions.addWidget(refresh_devices_button)
         actions.addWidget(self.val_button)
         actions.addWidget(self.predict_button)
         actions.addStretch(1)
@@ -103,6 +95,40 @@ class ValidatePage(QWidget):
         layout.addWidget(button)
         return container
 
+    def _device_row(self) -> QWidget:
+        container = QWidget(self)
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self.device_combo, 1)
+        return container
+
+    def refresh_devices(self, *, log_runtime: bool) -> None:
+        probe = probe_runtime()
+        current = self.device_combo.currentText().strip()
+        self.device_combo.blockSignals(True)
+        self.device_combo.clear()
+        for label, value in probe.options:
+            self.device_combo.addItem(label, value)
+        target_value = current or probe.default_value
+        index = next((i for i in range(self.device_combo.count()) if self.device_combo.itemData(i) == target_value), -1)
+        if index >= 0:
+            self.device_combo.setCurrentIndex(index)
+        else:
+            self.device_combo.setEditText(target_value)
+        self.device_combo.blockSignals(False)
+        self.device_summary.setText(probe.summary)
+        if log_runtime:
+            self.log(f'[device] {probe.summary}')
+            self.set_status('Device list refreshed.')
+
+    def current_device_value(self) -> str:
+        current_index = self.device_combo.currentIndex()
+        if current_index >= 0:
+            data = self.device_combo.itemData(current_index)
+            if isinstance(data, str) and data.strip():
+                return data.strip()
+        return self.device_combo.currentText().strip() or 'auto'
+
     def choose_weights(self) -> None:
         path, _ = QFileDialog.getOpenFileName(self, 'Choose weights', filter='PyTorch Weights (*.pt);;All Files (*)')
         if path:
@@ -119,14 +145,13 @@ class ValidatePage(QWidget):
             self.source_edit.setText(path)
 
     def use_current_root_defaults(self) -> None:
-        dataset_yaml, created = ensure_dataset_yaml(self.state.sessions_root, self.state.class_names)
+        dataset_yaml = self.state.preferred_dataset_yaml()
         if dataset_yaml is not None:
             self.yaml_edit.setText(str(dataset_yaml))
-            if created:
-                self.log(f'Created dataset YAML: {dataset_yaml}')
         current_image = self.state.current_image_path
         if current_image is not None:
             self.source_edit.setText(str(current_image))
+        self.refresh_devices(log_runtime=False)
         self.set_status('Validation defaults filled from the current sessions root.')
 
     def start_val(self) -> None:
@@ -141,16 +166,11 @@ class ValidatePage(QWidget):
         if not self.weights_edit.text().strip() or not self.yaml_edit.text().strip():
             QMessageBox.critical(self, 'Missing inputs', 'Choose weights and dataset.yaml first.')
             return
-        yaml_path = _prepare_dataset_yaml(self.state, self.yaml_edit.text(), self.state.class_names, self.log)
-        self.yaml_edit.setText(yaml_path)
-        if not yaml_path or not Path(yaml_path).exists():
-            QMessageBox.critical(self, 'Missing dataset.yaml', 'dataset.yaml does not exist. Load sessions on Marking first or choose a valid dataset.yaml.')
-            return
         command = build_val_command(
             weights=self.weights_edit.text().strip(),
-            data=yaml_path,
+            data=self.yaml_edit.text().strip(),
             imgsz=imgsz,
-            device=self.device_edit.text().strip(),
+            device=self.current_device_value(),
         )
         self._launch(command, 'Validation started...')
 
@@ -172,7 +192,7 @@ class ValidatePage(QWidget):
             source=self.source_edit.text().strip(),
             imgsz=imgsz,
             conf=conf,
-            device=self.device_edit.text().strip(),
+            device=self.current_device_value(),
         )
         self._launch(command, 'Prediction started...')
 
