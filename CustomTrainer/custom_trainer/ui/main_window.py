@@ -15,7 +15,7 @@ from custom_trainer.ui.widgets.log_panel import LogPanel
 class CustomTrainerMainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle('CustomTrainer 0_1_11')
+        self.setWindowTitle('CustomTrainer 0_1_12')
         self.resize(1560, 980)
         self.state = AppState()
 
@@ -87,7 +87,7 @@ class CustomTrainerMainWindow(QMainWindow):
                     'X -> Delete selected frame(s)',
                     'Backspace / Delete -> Delete selected box',
                     'Ctrl + Click in frame list -> Multi-select frames',
-                    'Training / Validation / Export now include Stop buttons',
+                    'Validation prediction preview now shows boxed model output',
                 ]
             ),
         )

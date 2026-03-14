@@ -1,4 +1,4 @@
-# CustomTrainer 0_1_11
+# CustomTrainer 0_1_12
 
 CustomTrainer keeps the **single session-based Marking tab** and the extra workflow pages:
 
@@ -44,6 +44,7 @@ The app follows the PySide6 desktop-shell direction of piTrainer, while the labe
 - run YOLO validation from the GUI
 - run prediction on a selected source
 - frame preview for the current validation / prediction image
+- prediction preview updates to the model-rendered boxed result after Run Prediction
 - **Use Latest best.pt** button
 - **Stop Task** button
 
@@ -90,5 +91,6 @@ python run_custom_trainer.py
 ## Notes
 
 - Training / Validation / Export use Ultralytics through an internal Python runner module, so they do not depend on the external `yolo` shell command.
+- Validation prediction runs now save into the session-oriented runs folder and the preview panel loads the boxed output automatically.
 - Single-session folders such as `session/images/*.jpg` save labels to `session/labels/*.txt`.
 - Older misplaced labels under `session/images/labels/*.txt` or `session/labels/images/*.txt` are auto-repaired into the canonical YOLO path when sessions are scanned.
