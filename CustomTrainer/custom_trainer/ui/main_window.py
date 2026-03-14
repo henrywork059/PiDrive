@@ -15,7 +15,7 @@ from custom_trainer.ui.widgets.log_panel import LogPanel
 class CustomTrainerMainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle('CustomTrainer 0_1_3')
+        self.setWindowTitle('CustomTrainer 0_1_6')
         self.resize(1560, 980)
         self.state = AppState()
 
