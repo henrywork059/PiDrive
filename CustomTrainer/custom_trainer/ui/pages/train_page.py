@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from pathlib import Path
 from typing import Callable
 
 from PySide6.QtCore import QThread
@@ -18,9 +19,27 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from custom_trainer.services.dataset_service import ensure_dataset_yaml
 from custom_trainer.services.ultralytics_runner import build_train_command
 from custom_trainer.state import AppState
 from custom_trainer.ui.qt_helpers import CommandWorker
+
+
+def _prepare_dataset_yaml(state: AppState, yaml_text: str, class_names: list[str], log: Callable[[str], None]) -> str:
+    yaml_path = Path(yaml_text).expanduser() if yaml_text.strip() else None
+    if yaml_path is not None and yaml_path.exists():
+        return str(yaml_path)
+    if state.sessions_root is None:
+        return yaml_text.strip()
+    preferred = state.preferred_dataset_yaml()
+    matches_default = yaml_path is None or preferred is None or yaml_path == preferred
+    if matches_default:
+        created_path, created = ensure_dataset_yaml(state.sessions_root, class_names)
+        if created_path is not None:
+            if created:
+                log(f'Created dataset YAML: {created_path}')
+            return str(created_path)
+    return yaml_text.strip()
 
 
 class TrainPage(QWidget):
@@ -110,9 +129,11 @@ class TrainPage(QWidget):
             self.yaml_edit.setText(path)
 
     def use_current_root_defaults(self) -> None:
-        dataset_yaml = self.state.preferred_dataset_yaml()
+        dataset_yaml, created = ensure_dataset_yaml(self.state.sessions_root, self.state.class_names)
         if dataset_yaml is not None:
             self.yaml_edit.setText(str(dataset_yaml))
+            if created:
+                self.log(f'Created dataset YAML: {dataset_yaml}')
         if self.state.sessions_root is not None:
             self.project_edit.setText(str(self.state.sessions_root / 'runs'))
         self.name_edit.setText(f'train_{datetime.now().strftime("%Y%m%d_%H%M%S")}')
@@ -132,9 +153,14 @@ class TrainPage(QWidget):
         except ValueError:
             QMessageBox.critical(self, 'Invalid numbers', 'Epochs, image size, and batch must be integers.')
             return
+        yaml_path = _prepare_dataset_yaml(self.state, self.yaml_edit.text(), self.state.class_names, self.log)
+        self.yaml_edit.setText(yaml_path)
+        if not yaml_path or not Path(yaml_path).exists():
+            QMessageBox.critical(self, 'Missing dataset.yaml', 'dataset.yaml does not exist. Load sessions on Marking first or choose a valid dataset.yaml.')
+            return
         command = build_train_command(
             model=self.model_edit.text().strip(),
-            data=self.yaml_edit.text().strip(),
+            data=yaml_path,
             epochs=epochs,
             imgsz=imgsz,
             batch=batch,

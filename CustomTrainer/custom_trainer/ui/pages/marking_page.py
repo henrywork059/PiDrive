@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from custom_trainer.services.dataset_service import ensure_dataset_yaml
 from custom_trainer.services.session_service import SessionInfo, discover_sessions, load_class_names, save_class_names
 from custom_trainer.services.yolo_io import pixel_to_yolo, read_yolo_label_file, write_yolo_label_file, yolo_to_pixel
 from custom_trainer.state import AppState
@@ -227,7 +228,10 @@ class MarkingPage(QWidget):
         self.refresh_class_widgets()
         total_images = sum(len(session.image_paths) for session in sessions)
         self.summary_value.setText(f'{len(sessions)} sessions loaded • {total_images} images total')
+        dataset_yaml, created = ensure_dataset_yaml(root, self.state.class_names)
         self.log(f'Scanned {len(sessions)} sessions from {root}')
+        if dataset_yaml is not None and created:
+            self.log(f'Created dataset YAML: {dataset_yaml}')
         self.set_status(f'Loaded {len(sessions)} sessions.')
         self.session_list.setCurrentRow(0)
 
@@ -372,7 +376,11 @@ class MarkingPage(QWidget):
         self.state.class_names = class_names
         self.refresh_class_widgets()
         path = save_class_names(target_root, class_names)
+        dataset_root = self.state.sessions_root or target_root
+        dataset_yaml, _ = ensure_dataset_yaml(dataset_root, class_names, overwrite=True)
         self.log(f'Saved class list: {path}')
+        if dataset_yaml is not None:
+            self.log(f'Updated dataset YAML: {dataset_yaml}')
         self.set_status('classes.txt saved.')
 
     def on_class_combo_changed(self, index: int) -> None:

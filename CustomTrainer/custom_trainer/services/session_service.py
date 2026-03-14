@@ -38,44 +38,97 @@ def list_images(root: Path) -> list[Path]:
     )
 
 
+def _images_inside(path: Path) -> list[Path]:
+    if not path.is_dir():
+        return []
+    return list_images(path)
+
+
 def looks_like_session_dir(path: Path) -> tuple[bool, Path | None]:
     if not path.is_dir():
         return False, None
-    direct_images = list_images(path)
-    if direct_images:
+    direct_image_files = sorted(
+        [child for child in path.iterdir() if child.is_file() and child.suffix.lower() in IMAGE_SUFFIXES],
+        key=lambda item: item.as_posix().lower(),
+    )
+    if direct_image_files:
         return True, path
     images_dir = path / 'images'
-    if images_dir.is_dir() and list_images(images_dir):
+    if images_dir.is_dir() and _images_inside(images_dir):
         return True, images_dir
     return False, None
 
 
+def _build_session_info(name: str, session_dir: Path, image_root: Path, labels_root: Path) -> SessionInfo | None:
+    image_paths = list_images(image_root)
+    if not image_paths:
+        return None
+    return SessionInfo(
+        name=name,
+        session_dir=session_dir,
+        image_root=image_root,
+        image_paths=image_paths,
+        labels_root=labels_root,
+    )
+
+
+def _discover_dataset_root_sessions(root: Path) -> list[SessionInfo]:
+    images_root = root / 'images'
+    if not images_root.is_dir():
+        return []
+    sessions: list[SessionInfo] = []
+    for child in sorted(images_root.iterdir()):
+        if not child.is_dir():
+            continue
+        ok, image_root = looks_like_session_dir(child)
+        if not ok or image_root is None:
+            continue
+        relative_child = child.relative_to(images_root)
+        labels_root = root / 'labels' / relative_child
+        if image_root != child:
+            labels_root = labels_root / image_root.relative_to(child)
+        session = _build_session_info(relative_child.as_posix(), child, image_root, labels_root)
+        if session is not None:
+            sessions.append(session)
+    return sessions
+
+
 def discover_sessions(root: Path) -> list[SessionInfo]:
+    dataset_style_sessions = _discover_dataset_root_sessions(root)
+    if dataset_style_sessions:
+        return dataset_style_sessions
+
     sessions: list[SessionInfo] = []
     seen: set[Path] = set()
-    candidates = [root] + [child for child in sorted(root.iterdir()) if child.is_dir()]
+    candidates = [child for child in sorted(root.iterdir()) if child.is_dir()]
     for candidate in candidates:
         ok, image_root = looks_like_session_dir(candidate)
         if not ok or image_root is None:
             continue
-        session_dir = candidate
-        if session_dir.resolve() in seen:
+        resolved = candidate.resolve()
+        if resolved in seen:
             continue
-        image_paths = list_images(image_root)
-        if not image_paths:
+        labels_root = candidate / 'labels'
+        if image_root != candidate:
+            labels_root = labels_root / image_root.relative_to(candidate)
+        session = _build_session_info(candidate.name, candidate, image_root, labels_root)
+        if session is None:
             continue
-        labels_root = session_dir / 'labels'
-        sessions.append(
-            SessionInfo(
-                name=session_dir.name,
-                session_dir=session_dir,
-                image_root=image_root,
-                image_paths=image_paths,
-                labels_root=labels_root,
-            )
-        )
-        seen.add(session_dir.resolve())
-    return sessions
+        sessions.append(session)
+        seen.add(resolved)
+
+    if sessions:
+        return sessions
+
+    ok, image_root = looks_like_session_dir(root)
+    if ok and image_root is not None:
+        labels_root = root / 'labels'
+        if image_root != root:
+            labels_root = labels_root / image_root.relative_to(root)
+        session = _build_session_info(root.name, root, image_root, labels_root)
+        if session is not None:
+            return [session]
+    return []
 
 
 def load_class_names(root_hint: Path | None, session: SessionInfo | None) -> list[str]:
@@ -120,8 +173,8 @@ def load_class_names(root_hint: Path | None, session: SessionInfo | None) -> lis
 def save_class_names(target_dir: Path, class_names: list[str]) -> Path:
     target_dir.mkdir(parents=True, exist_ok=True)
     path = target_dir / 'classes.txt'
-    text = '\n'.join(name.strip() for name in class_names if name.strip())
+    text = "\n".join(name.strip() for name in class_names if name.strip())
     if text:
-        text += '\n'
+        text += "\n"
     path.write_text(text, encoding='utf-8')
     return path

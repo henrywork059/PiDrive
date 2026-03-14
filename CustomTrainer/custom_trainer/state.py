@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from custom_trainer.services.dataset_service import default_dataset_yaml_path, find_dataset_yaml
 from custom_trainer.services.session_service import SessionInfo
 
 
@@ -32,8 +33,7 @@ class AppState:
     def preferred_dataset_yaml(self) -> Path | None:
         if self.sessions_root is None:
             return None
-        for name in ('dataset.yaml', 'data.yaml'):
-            path = self.sessions_root / name
-            if path.exists():
-                return path
-        return self.sessions_root / 'dataset.yaml'
+        existing = find_dataset_yaml(self.sessions_root)
+        if existing is not None:
+            return existing
+        return default_dataset_yaml_path(self.sessions_root)

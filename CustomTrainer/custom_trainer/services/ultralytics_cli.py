@@ -5,15 +5,8 @@ import sys
 from pathlib import Path
 
 
-def _configure_stdio() -> None:
-    for stream_name in ('stdout', 'stderr'):
-        stream = getattr(sys, stream_name, None)
-        reconfigure = getattr(stream, 'reconfigure', None)
-        if callable(reconfigure):
-            try:
-                reconfigure(encoding='utf-8', errors='replace')
-            except Exception:
-                pass
+def _normalize_existing_path(value: str) -> str:
+    return str(Path(value).expanduser().resolve(strict=False))
 
 
 def _ensure_ultralytics():
@@ -27,9 +20,13 @@ def _ensure_ultralytics():
 
 def cmd_train(args: argparse.Namespace) -> int:
     YOLO = _ensure_ultralytics()
+    data_path = Path(args.data).expanduser()
+    if not data_path.exists():
+        print(f"[error] dataset.yaml not found: {data_path}", flush=True)
+        return 1
     model = YOLO(args.model)
     result = model.train(
-        data=args.data,
+        data=_normalize_existing_path(args.data),
         epochs=args.epochs,
         imgsz=args.imgsz,
         batch=args.batch,
@@ -43,9 +40,13 @@ def cmd_train(args: argparse.Namespace) -> int:
 
 def cmd_val(args: argparse.Namespace) -> int:
     YOLO = _ensure_ultralytics()
+    data_path = Path(args.data).expanduser()
+    if not data_path.exists():
+        print(f"[error] dataset.yaml not found: {data_path}", flush=True)
+        return 1
     model = YOLO(args.weights)
     result = model.val(
-        data=args.data,
+        data=_normalize_existing_path(args.data),
         imgsz=args.imgsz,
         device=args.device or 'cpu',
     )
@@ -80,7 +81,11 @@ def cmd_export(args: argparse.Namespace) -> int:
     if args.int8:
         kwargs['int8'] = True
         if args.data:
-            kwargs['data'] = args.data
+            data_path = Path(args.data).expanduser()
+            if not data_path.exists():
+                print(f"[error] dataset.yaml not found: {data_path}", flush=True)
+                return 1
+            kwargs['data'] = _normalize_existing_path(args.data)
     if args.half:
         kwargs['half'] = True
     result = model.export(**kwargs)
@@ -132,7 +137,6 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    _configure_stdio()
     parser = build_parser()
     args = parser.parse_args(argv)
     try:

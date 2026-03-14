@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Callable
 
 from PySide6.QtCore import QThread
@@ -19,9 +20,27 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from custom_trainer.services.dataset_service import ensure_dataset_yaml
 from custom_trainer.services.ultralytics_runner import build_export_command
 from custom_trainer.state import AppState
 from custom_trainer.ui.qt_helpers import CommandWorker
+
+
+def _prepare_dataset_yaml(state: AppState, yaml_text: str, class_names: list[str], log: Callable[[str], None]) -> str:
+    yaml_path = Path(yaml_text).expanduser() if yaml_text.strip() else None
+    if yaml_path is not None and yaml_path.exists():
+        return str(yaml_path)
+    if state.sessions_root is None:
+        return yaml_text.strip()
+    preferred = state.preferred_dataset_yaml()
+    matches_default = yaml_path is None or preferred is None or yaml_path == preferred
+    if matches_default:
+        created_path, created = ensure_dataset_yaml(state.sessions_root, class_names)
+        if created_path is not None:
+            if created:
+                log(f'Created dataset YAML: {created_path}')
+            return str(created_path)
+    return yaml_text.strip()
 
 
 class ExportPage(QWidget):
@@ -114,9 +133,11 @@ class ExportPage(QWidget):
             self.yaml_edit.setText(path)
 
     def use_current_root_defaults(self) -> None:
-        dataset_yaml = self.state.preferred_dataset_yaml()
+        dataset_yaml, created = ensure_dataset_yaml(self.state.sessions_root, self.state.class_names)
         if dataset_yaml is not None:
             self.yaml_edit.setText(str(dataset_yaml))
+            if created:
+                self.log(f'Created dataset YAML: {dataset_yaml}')
         self.set_status('Export defaults filled from the current sessions root.')
 
     def start_export(self) -> None:
@@ -134,9 +155,11 @@ class ExportPage(QWidget):
         quant = self.quant_combo.currentText().strip()
         int8 = quant == 'int8'
         half = quant == 'float16'
-        data = self.yaml_edit.text().strip() if int8 else ''
-        if int8 and not data:
-            QMessageBox.critical(self, 'dataset.yaml required', 'INT8 export needs dataset.yaml for calibration.')
+        data = _prepare_dataset_yaml(self.state, self.yaml_edit.text(), self.state.class_names, self.log) if int8 else ''
+        if int8:
+            self.yaml_edit.setText(data)
+        if int8 and (not data or not Path(data).exists()):
+            QMessageBox.critical(self, 'dataset.yaml required', 'INT8 export needs a valid dataset.yaml for calibration.')
             return
         command = build_export_command(
             weights=self.weights_edit.text().strip(),

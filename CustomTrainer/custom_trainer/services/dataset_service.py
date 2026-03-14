@@ -1,48 +1,53 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Iterable
 
 import yaml
 
-from custom_trainer.state import DatasetSummary
-from custom_trainer.utils.file_utils import list_images, stem_set
-from custom_trainer.utils.yolo_io import read_yolo_label_file
+
+_DATASET_FILENAMES = ('dataset.yaml', 'data.yaml')
 
 
-def scan_dataset(images_dir: Path, labels_dir: Path) -> DatasetSummary:
-    images = list_images(images_dir)
-    labels = sorted(labels_dir.glob('*.txt')) if labels_dir.exists() else []
-    image_stems = stem_set(images)
-    label_stems = stem_set(labels)
-    summary = DatasetSummary(
-        image_count=len(images),
-        label_count=len(labels),
-        missing_labels=len(image_stems - label_stems),
-        extra_labels=len(label_stems - image_stems),
-    )
-    histogram: dict[int, int] = {}
-    for label_path in labels:
-        for box in read_yolo_label_file(label_path):
-            histogram[box.class_id] = histogram.get(box.class_id, 0) + 1
-    summary.class_histogram = histogram
-    return summary
+def find_dataset_yaml(root: Path | None) -> Path | None:
+    if root is None:
+        return None
+    for name in _DATASET_FILENAMES:
+        path = root / name
+        if path.exists() and path.is_file():
+            return path
+    return None
 
 
-def create_dataset_yaml(
-    yaml_path: Path,
-    train_images: str,
-    val_images: str,
-    class_names: list[str],
-    test_images: str | None = None,
-) -> Path:
-    data = {
-        'path': str(yaml_path.parent.resolve()),
-        'train': train_images,
-        'val': val_images,
-        'names': {idx: name for idx, name in enumerate(class_names)},
+def default_dataset_yaml_path(root: Path) -> Path:
+    return root / 'dataset.yaml'
+
+
+def build_dataset_spec(class_names: Iterable[str]) -> dict:
+    clean_names = [str(name).strip() for name in class_names if str(name).strip()]
+    if not clean_names:
+        clean_names = ['object']
+    return {
+        'train': 'images',
+        'val': 'images',
+        'names': clean_names,
     }
-    if test_images:
-        data['test'] = test_images
-    yaml_path.parent.mkdir(parents=True, exist_ok=True)
-    yaml_path.write_text(yaml.safe_dump(data, sort_keys=False), encoding='utf-8')
-    return yaml_path
+
+
+def write_dataset_yaml(path: Path, class_names: Iterable[str]) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    spec = build_dataset_spec(class_names)
+    text = yaml.safe_dump(spec, sort_keys=False, allow_unicode=True)
+    path.write_text(text, encoding='utf-8')
+    return path
+
+
+def ensure_dataset_yaml(root: Path | None, class_names: Iterable[str], overwrite: bool = False) -> tuple[Path | None, bool]:
+    if root is None:
+        return None, False
+    existing = find_dataset_yaml(root)
+    if existing is not None and not overwrite:
+        return existing, False
+    path = existing or default_dataset_yaml_path(root)
+    write_dataset_yaml(path, class_names)
+    return path, True
