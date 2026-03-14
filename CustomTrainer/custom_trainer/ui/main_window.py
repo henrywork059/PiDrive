@@ -15,7 +15,7 @@ from custom_trainer.ui.widgets.log_panel import LogPanel
 class CustomTrainerMainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle('CustomTrainer 0_1_9')
+        self.setWindowTitle('CustomTrainer 0_1_10')
         self.resize(1560, 980)
         self.state = AppState()
 
@@ -78,10 +78,13 @@ class CustomTrainerMainWindow(QMainWindow):
                     'Ctrl+1..Ctrl+4 -> Switch pages',
                     'Ctrl+Tab / Ctrl+Shift+Tab -> Next / previous page',
                     'Ctrl+S -> Save current labels on Marking page',
-                    'PageUp / PageDown -> Previous / next image on Marking page',
+                    'PageUp / PageDown or Up / Down -> Previous / next image',
                     'Right-click box -> Select box',
                     'Left-drag -> Create box',
-                    'Delete / Arrow keys / Shift+Arrow keys -> Edit selected box',
+                    'W / A / S / D -> Move selected box',
+                    'Backspace -> Delete selected box',
+                    'Ctrl + Click in frame list -> Multi-select frames',
+                    'Delete on frame list -> Delete selected frame(s)',
                 ]
             ),
         )

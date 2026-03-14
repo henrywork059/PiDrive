@@ -4,10 +4,11 @@ from pathlib import Path
 from typing import Callable
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QPixmap
+from PySide6.QtGui import QKeySequence, QPixmap, QShortcut
 from PySide6.QtWidgets import (
     QComboBox,
     QFileDialog,
+    QAbstractItemView,
     QFormLayout,
     QGridLayout,
     QGroupBox,
@@ -45,6 +46,7 @@ class MarkingPage(QWidget):
         self.root_edit = QLineEdit(self)
         self.session_list = QListWidget(self)
         self.image_list = QListWidget(self)
+        self.image_list.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.class_combo = QComboBox(self)
         self.class_editor = QPlainTextEdit(self)
         self.summary_value = QLabel('No sessions loaded.', self)
@@ -60,6 +62,7 @@ class MarkingPage(QWidget):
         self._build()
         self._connect()
         self.refresh_class_widgets()
+        QShortcut(QKeySequence('Delete'), self.image_list, activated=self.delete_selected_frames)
 
     def _build(self) -> None:
         source_box = QGroupBox('Session Source', self)
@@ -112,25 +115,29 @@ class MarkingPage(QWidget):
         next_button = QPushButton('Next Image', tools_box)
         save_button = QPushButton('Save Labels', tools_box)
         delete_button = QPushButton('Delete Selected Box', tools_box)
+        delete_frames_button = QPushButton('Delete Selected Frame(s)', tools_box)
         prev_button.clicked.connect(self.prev_image)
         next_button.clicked.connect(self.next_image)
         save_button.clicked.connect(self.save_current_labels)
         delete_button.clicked.connect(self.delete_selected_box)
+        delete_frames_button.clicked.connect(self.delete_selected_frames)
         tools_layout.addWidget(prev_button, 0, 0)
         tools_layout.addWidget(next_button, 0, 1)
         tools_layout.addWidget(save_button, 1, 0)
         tools_layout.addWidget(delete_button, 1, 1)
+        tools_layout.addWidget(delete_frames_button, 2, 0, 1, 2)
         help_label = QLabel(
             'Draw: left-drag\n'
-            'Select: right-click\n'
-            'Move selected box: arrow keys\n'
-            'Fast move: Shift + arrow keys\n'
-            'Delete: Delete key',
+            'Select box: right-click\n'
+            'Move selected box: W / A / S / D\n'
+            'Change frame: Up / Down\n'
+            'Delete selected frame(s): Del\n'
+            'Delete selected box: Backspace',
             tools_box,
         )
         help_label.setProperty('role', 'muted')
         help_label.setWordWrap(True)
-        tools_layout.addWidget(help_label, 2, 0, 1, 2)
+        tools_layout.addWidget(help_label, 3, 0, 1, 2)
 
         info_box = QGroupBox('Current Item', self)
         info_layout = QVBoxLayout(info_box)
@@ -164,6 +171,8 @@ class MarkingPage(QWidget):
         self.class_combo.currentIndexChanged.connect(self.on_class_combo_changed)
         self.canvas.selection_changed.connect(self.on_selection_changed)
         self.canvas.boxes_changed.connect(self.on_boxes_changed)
+        self.canvas.request_prev_frame.connect(self.prev_image)
+        self.canvas.request_next_frame.connect(self.next_image)
 
     def _path_row(self) -> QWidget:
         row = QWidget(self)
@@ -226,6 +235,7 @@ class MarkingPage(QWidget):
             self.session_list.addItem(item)
         self.state.class_names = load_class_names(root, sessions[0])
         self.refresh_class_widgets()
+        QShortcut(QKeySequence('Delete'), self.image_list, activated=self.delete_selected_frames)
         total_images = sum(len(session.image_paths) for session in sessions)
         self.summary_value.setText(f'{len(sessions)} sessions loaded • {total_images} images total')
         migrated = sync_legacy_labels(sessions)
@@ -251,6 +261,7 @@ class MarkingPage(QWidget):
         session = self.state.sessions[index]
         self.state.class_names = load_class_names(self.state.sessions_root, session)
         self.refresh_class_widgets()
+        QShortcut(QKeySequence('Delete'), self.image_list, activated=self.delete_selected_frames)
         self.populate_image_list(session)
         self.log(f'Opened session: {session.name}')
         self.set_status(f'Session loaded: {session.name}')
@@ -337,6 +348,7 @@ class MarkingPage(QWidget):
             self.current_label_path = session.label_path_for_image(self.current_image_path)
         yolo_boxes = [pixel_to_yolo(box, width, height) for box in self.canvas.boxes]
         write_yolo_label_file(self.current_label_path, yolo_boxes)
+        self._invalidate_label_cache()
         self.is_dirty = False
         self.refresh_current_image_item_marker()
         self.log(f'Saved labels: {self.current_label_path}')
@@ -352,6 +364,82 @@ class MarkingPage(QWidget):
         marker = '●' if has_labels else '○'
         self.image_list.item(row).setText(f'{marker} {self.current_image_path.name}')
         self.summary_value.setText(f'Session: {session.name} • {len(session.image_paths)} images • {session.labeled_count} labeled')
+
+    def _invalidate_label_cache(self) -> None:
+        session = self.state.current_session
+        if session is None:
+            return
+        candidates = [
+            session.session_dir / 'labels.cache',
+            session.labels_root.parent / 'labels.cache',
+            session.labels_root / 'labels.cache',
+        ]
+        seen: set[str] = set()
+        for candidate in candidates:
+            key = candidate.as_posix().lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            try:
+                if candidate.exists():
+                    candidate.unlink()
+            except Exception:
+                pass
+
+    def delete_selected_frames(self) -> None:
+        session = self.state.current_session
+        if session is None:
+            return
+        rows = sorted({index.row() for index in self.image_list.selectedIndexes() if index.row() >= 0})
+        if not rows:
+            return
+        count = len(rows)
+        extra = ''
+        if self.is_dirty and self.state.current_image_index in rows:
+            extra = '\n\nThe current frame has unsaved box edits that will be lost.'
+        result = QMessageBox.question(
+            self,
+            'Delete selected frames',
+            f'Delete {count} selected frame(s) and their label files from disk?{extra}',
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if result != QMessageBox.Yes:
+            return
+
+        row_set = set(rows)
+        image_paths = [session.image_paths[row] for row in rows if 0 <= row < len(session.image_paths)]
+        deleted = 0
+        for image_path in image_paths:
+            for candidate in session.label_candidates_for_image(image_path):
+                try:
+                    if candidate.exists() and candidate.is_file():
+                        candidate.unlink()
+                except Exception:
+                    pass
+            try:
+                if image_path.exists():
+                    image_path.unlink()
+                    deleted += 1
+            except Exception:
+                pass
+
+        session.image_paths = [path for index, path in enumerate(session.image_paths) if index not in row_set]
+        self._invalidate_label_cache()
+        self.is_dirty = False
+        self.current_image_path = None
+        self.current_label_path = None
+        self.current_image_size = (0, 0)
+        self.canvas.clear_scene()
+        self.populate_image_list(session)
+        if session.image_paths:
+            next_row = min(rows[0], len(session.image_paths) - 1)
+            self.image_list.setCurrentRow(next_row)
+        else:
+            self.image_info.setText('No image selected.')
+            self.selection_info.setText('Right-click a box to select it.')
+        self.log(f'Deleted {deleted} frame(s) from session: {session.name}')
+        self.set_status(f'Deleted {deleted} frame(s).')
 
     def prev_image(self) -> None:
         if self.image_list.count() == 0:
@@ -388,6 +476,7 @@ class MarkingPage(QWidget):
             return
         self.state.class_names = class_names
         self.refresh_class_widgets()
+        QShortcut(QKeySequence('Delete'), self.image_list, activated=self.delete_selected_frames)
         path = save_class_names(target_root, class_names)
         dataset_root = self.state.sessions_root or target_root
         dataset_yaml, _ = ensure_dataset_yaml(dataset_root, class_names, overwrite=True)

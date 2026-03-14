@@ -1,4 +1,4 @@
-# CustomTrainer 0_1_9
+# CustomTrainer 0_1_10
 
 CustomTrainer keeps the **single session-based Marking tab** and the extra workflow pages:
 
@@ -88,3 +88,11 @@ python run_custom_trainer.py
 
 - Single-session folders such as `session/images/*.jpg` now save labels to `session/labels/*.txt`.
 - Older misplaced labels under `session/images/labels/*.txt` or `session/labels/images/*.txt` are auto-repaired into the canonical YOLO path when sessions are scanned.
+
+## Marking shortcuts update
+
+- `W / A / S / D` move the selected box
+- `Up / Down` change frame
+- `Ctrl + Click` in the frame list multi-selects frames
+- `Delete` on the frame list deletes selected frames
+- `Backspace` deletes the selected box

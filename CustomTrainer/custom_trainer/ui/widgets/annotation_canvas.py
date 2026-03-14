@@ -13,6 +13,8 @@ from custom_trainer.services.yolo_io import PixelBox
 class AnnotationCanvas(QWidget):
     selection_changed = Signal(int)
     boxes_changed = Signal()
+    request_prev_frame = Signal()
+    request_next_frame = Signal()
 
     def __init__(self, class_id_getter: Callable[[], int], parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -202,16 +204,22 @@ class AnnotationCanvas(QWidget):
             return
         step = 10.0 if event.modifiers() & Qt.ShiftModifier else 1.0
         handled = False
-        if event.key() == Qt.Key_Delete:
-            handled = self.delete_selected()
-        elif event.key() == Qt.Key_Left:
+        if event.key() == Qt.Key_A:
             handled = self.nudge_selected(-step, 0.0)
-        elif event.key() == Qt.Key_Right:
+        elif event.key() == Qt.Key_D:
             handled = self.nudge_selected(step, 0.0)
-        elif event.key() == Qt.Key_Up:
+        elif event.key() == Qt.Key_W:
             handled = self.nudge_selected(0.0, -step)
-        elif event.key() == Qt.Key_Down:
+        elif event.key() == Qt.Key_S:
             handled = self.nudge_selected(0.0, step)
+        elif event.key() == Qt.Key_Backspace:
+            handled = self.delete_selected()
+        elif event.key() == Qt.Key_Up:
+            self.request_prev_frame.emit()
+            handled = True
+        elif event.key() == Qt.Key_Down:
+            self.request_next_frame.emit()
+            handled = True
         if handled:
             event.accept()
             return
