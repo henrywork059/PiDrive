@@ -8,29 +8,6 @@ import yaml
 IMAGE_SUFFIXES = {'.jpg', '.jpeg', '.png', '.bmp', '.webp'}
 
 
-@dataclass
-class SessionInfo:
-    name: str
-    session_dir: Path
-    image_root: Path
-    image_paths: list[Path]
-    labels_root: Path
-
-    @property
-    def labeled_count(self) -> int:
-        return sum(1 for image_path in self.image_paths if self.label_path_for_image(image_path).exists())
-
-    def label_path_for_image(self, image_path: Path) -> Path:
-        sidecar = image_path.with_suffix('.txt')
-        mirrored = self.labels_root / image_path.relative_to(self.image_root)
-        mirrored = mirrored.with_suffix('.txt')
-        if mirrored.exists():
-            return mirrored
-        if sidecar.exists():
-            return sidecar
-        return mirrored
-
-
 def list_images(root: Path) -> list[Path]:
     return sorted(
         [path for path in root.rglob('*') if path.is_file() and path.suffix.lower() in IMAGE_SUFFIXES],
@@ -42,6 +19,113 @@ def _images_inside(path: Path) -> list[Path]:
     if not path.is_dir():
         return []
     return list_images(path)
+
+
+def yolo_expected_label_path(image_path: Path) -> Path:
+    """Return the canonical YOLO label path for an image path.
+
+    Typical supported layouts:
+    - dataset root: root/images/<session>/frame.jpg -> root/labels/<session>/frame.txt
+    - single session: session/images/frame.jpg -> session/labels/frame.txt
+    - flat session: session/frame.jpg -> session/labels/frame.txt
+    """
+    parent = image_path.parent
+    stem_name = f'{image_path.stem}.txt'
+    if parent.name.lower() == 'images':
+        return parent.parent / 'labels' / stem_name
+
+    parts = list(image_path.parts)
+    for idx in range(len(parts) - 2, -1, -1):
+        if parts[idx].lower() == 'images':
+            patched = parts.copy()
+            patched[idx] = 'labels'
+            return Path(*patched).with_suffix('.txt')
+
+    return parent / 'labels' / stem_name
+
+
+def legacy_inline_labels_dir_path(image_path: Path) -> Path:
+    return image_path.parent / 'labels' / f'{image_path.stem}.txt'
+
+
+@dataclass
+class SessionInfo:
+    name: str
+    session_dir: Path
+    image_root: Path
+    image_paths: list[Path]
+    labels_root: Path
+
+    def _relative_image_path(self, image_path: Path) -> Path:
+        try:
+            return image_path.relative_to(self.image_root)
+        except ValueError:
+            return Path(image_path.name)
+
+    def label_path_for_image(self, image_path: Path) -> Path:
+        relative = self._relative_image_path(image_path).with_suffix('.txt')
+        return self.labels_root / relative
+
+    def label_candidates_for_image(self, image_path: Path) -> list[Path]:
+        relative = self._relative_image_path(image_path).with_suffix('.txt')
+        canonical = self.label_path_for_image(image_path)
+        candidates = [
+            canonical,
+            yolo_expected_label_path(image_path),
+            self.labels_root / 'images' / relative,
+            self.session_dir / 'labels' / relative,
+            legacy_inline_labels_dir_path(image_path),
+            image_path.with_suffix('.txt'),
+        ]
+
+        unique: list[Path] = []
+        seen: set[str] = set()
+        for candidate in candidates:
+            key = candidate.resolve().as_posix() if candidate.exists() else candidate.as_posix().lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            unique.append(candidate)
+        return unique
+
+    def find_existing_label_path(self, image_path: Path) -> Path | None:
+        for candidate in self.label_candidates_for_image(image_path):
+            if candidate.exists() and candidate.is_file():
+                return candidate
+        return None
+
+    def ensure_canonical_label_path(self, image_path: Path) -> tuple[Path, bool]:
+        canonical = self.label_path_for_image(image_path)
+        if canonical.exists() and canonical.is_file():
+            return canonical, False
+
+        for candidate in self.label_candidates_for_image(image_path):
+            if candidate == canonical or not candidate.exists() or not candidate.is_file():
+                continue
+            try:
+                text = candidate.read_text(encoding='utf-8')
+            except Exception:
+                continue
+            if not text.strip():
+                continue
+            canonical.parent.mkdir(parents=True, exist_ok=True)
+            canonical.write_text(text, encoding='utf-8')
+            return canonical, True
+        return canonical, False
+
+    @property
+    def labeled_count(self) -> int:
+        count = 0
+        for image_path in self.image_paths:
+            label_path = self.find_existing_label_path(image_path)
+            if label_path is None:
+                continue
+            try:
+                if label_path.read_text(encoding='utf-8').strip():
+                    count += 1
+            except Exception:
+                continue
+        return count
 
 
 def looks_like_session_dir(path: Path) -> tuple[bool, Path | None]:
@@ -85,8 +169,6 @@ def _discover_dataset_root_sessions(root: Path) -> list[SessionInfo]:
             continue
         relative_child = child.relative_to(images_root)
         labels_root = root / 'labels' / relative_child
-        if image_root != child:
-            labels_root = labels_root / image_root.relative_to(child)
         session = _build_session_info(relative_child.as_posix(), child, image_root, labels_root)
         if session is not None:
             sessions.append(session)
@@ -97,6 +179,13 @@ def discover_sessions(root: Path) -> list[SessionInfo]:
     dataset_style_sessions = _discover_dataset_root_sessions(root)
     if dataset_style_sessions:
         return dataset_style_sessions
+
+    ok, image_root = looks_like_session_dir(root)
+    if ok and image_root is not None:
+        labels_root = root / 'labels'
+        session = _build_session_info(root.name, root, image_root, labels_root)
+        if session is not None:
+            return [session]
 
     sessions: list[SessionInfo] = []
     seen: set[Path] = set()
@@ -109,26 +198,23 @@ def discover_sessions(root: Path) -> list[SessionInfo]:
         if resolved in seen:
             continue
         labels_root = candidate / 'labels'
-        if image_root != candidate:
-            labels_root = labels_root / image_root.relative_to(candidate)
         session = _build_session_info(candidate.name, candidate, image_root, labels_root)
         if session is None:
             continue
         sessions.append(session)
         seen.add(resolved)
 
-    if sessions:
-        return sessions
+    return sessions
 
-    ok, image_root = looks_like_session_dir(root)
-    if ok and image_root is not None:
-        labels_root = root / 'labels'
-        if image_root != root:
-            labels_root = labels_root / image_root.relative_to(root)
-        session = _build_session_info(root.name, root, image_root, labels_root)
-        if session is not None:
-            return [session]
-    return []
+
+def sync_legacy_labels(sessions: list[SessionInfo]) -> int:
+    migrated = 0
+    for session in sessions:
+        for image_path in session.image_paths:
+            _, copied = session.ensure_canonical_label_path(image_path)
+            if copied:
+                migrated += 1
+    return migrated
 
 
 def load_class_names(root_hint: Path | None, session: SessionInfo | None) -> list[str]:

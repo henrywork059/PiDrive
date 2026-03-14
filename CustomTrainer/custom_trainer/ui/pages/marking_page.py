@@ -25,7 +25,7 @@ from PySide6.QtWidgets import (
 )
 
 from custom_trainer.services.dataset_service import ensure_dataset_yaml
-from custom_trainer.services.session_service import SessionInfo, discover_sessions, load_class_names, save_class_names
+from custom_trainer.services.session_service import SessionInfo, discover_sessions, load_class_names, save_class_names, sync_legacy_labels
 from custom_trainer.services.yolo_io import pixel_to_yolo, read_yolo_label_file, write_yolo_label_file, yolo_to_pixel
 from custom_trainer.state import AppState
 from custom_trainer.ui.widgets.annotation_canvas import AnnotationCanvas
@@ -228,8 +228,11 @@ class MarkingPage(QWidget):
         self.refresh_class_widgets()
         total_images = sum(len(session.image_paths) for session in sessions)
         self.summary_value.setText(f'{len(sessions)} sessions loaded • {total_images} images total')
+        migrated = sync_legacy_labels(sessions)
         dataset_yaml, created = ensure_dataset_yaml(root, self.state.class_names)
         self.log(f'Scanned {len(sessions)} sessions from {root}')
+        if migrated:
+            self.log(f'Repaired {migrated} legacy label file(s) into canonical YOLO paths.')
         if dataset_yaml is not None and created:
             self.log(f'Created dataset YAML: {dataset_yaml}')
         self.set_status(f'Loaded {len(sessions)} sessions.')
@@ -259,8 +262,13 @@ class MarkingPage(QWidget):
         self.current_image_size = (0, 0)
         self.canvas.clear_scene()
         for image_path in session.image_paths:
-            label_path = session.label_path_for_image(image_path)
-            has_content = label_path.exists() and label_path.read_text(encoding='utf-8').strip()
+            label_path = session.find_existing_label_path(image_path)
+            has_content = False
+            if label_path is not None:
+                try:
+                    has_content = bool(label_path.read_text(encoding='utf-8').strip())
+                except Exception:
+                    has_content = False
             marker = '●' if has_content else '○'
             item = QListWidgetItem(f'{marker} {image_path.name}')
             item.setToolTip(str(image_path))
@@ -281,10 +289,12 @@ class MarkingPage(QWidget):
             return
         self.state.current_image_index = index
         image_path = session.image_paths[index]
-        label_path = session.label_path_for_image(image_path)
+        label_path, migrated = session.ensure_canonical_label_path(image_path)
         boxes = read_yolo_label_file(label_path)
         self.current_image_path = image_path
         self.current_label_path = label_path
+        if migrated:
+            self.log(f'Repaired legacy label path for {image_path.name} -> {label_path}')
         probe = QPixmap(str(image_path))
         self.current_image_size = (probe.width(), probe.height())
         pixel_boxes = [yolo_to_pixel(box, probe.width(), probe.height()) for box in boxes]
@@ -322,6 +332,9 @@ class MarkingPage(QWidget):
         width, height = self.current_image_size
         if width <= 0 or height <= 0:
             return False
+        session = self.state.current_session
+        if session is not None:
+            self.current_label_path = session.label_path_for_image(self.current_image_path)
         yolo_boxes = [pixel_to_yolo(box, width, height) for box in self.canvas.boxes]
         write_yolo_label_file(self.current_label_path, yolo_boxes)
         self.is_dirty = False

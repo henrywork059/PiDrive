@@ -1,4 +1,4 @@
-# CustomTrainer 0_1_8
+# CustomTrainer 0_1_9
 
 CustomTrainer keeps the **single session-based Marking tab** and the extra workflow pages:
 
@@ -83,3 +83,8 @@ python run_custom_trainer.py
 
 - Training / Validation / Export use **Ultralytics** through an internal Python runner module, so they do not depend on the external `yolo` shell command.
 - You still need a valid `dataset.yaml` and model weights for training, validation, and export.
+
+## Label path notes
+
+- Single-session folders such as `session/images/*.jpg` now save labels to `session/labels/*.txt`.
+- Older misplaced labels under `session/images/labels/*.txt` or `session/labels/images/*.txt` are auto-repaired into the canonical YOLO path when sessions are scanned.
