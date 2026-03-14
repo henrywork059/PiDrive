@@ -4,15 +4,15 @@ from pathlib import Path
 from typing import Callable
 
 from PySide6.QtCore import QPointF, QRectF, Qt, Signal
-from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPaintEvent, QPen, QPixmap
+from PySide6.QtGui import QColor, QKeyEvent, QMouseEvent, QPainter, QPaintEvent, QPen, QPixmap
 from PySide6.QtWidgets import QWidget
 
-from custom_trainer.utils.yolo_io import PixelBox
+from custom_trainer.services.yolo_io import PixelBox
 
 
 class AnnotationCanvas(QWidget):
-    boxes_changed = Signal()
     selection_changed = Signal(int)
+    boxes_changed = Signal()
 
     def __init__(self, class_id_getter: Callable[[], int], parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -25,8 +25,21 @@ class AnnotationCanvas(QWidget):
         self.selected_index: int | None = None
         self.drag_start: QPointF | None = None
         self.drag_end: QPointF | None = None
-        self.setMinimumSize(480, 360)
+        self.setMinimumSize(720, 540)
+        self.setFocusPolicy(Qt.StrongFocus)
         self.setMouseTracking(True)
+
+    def clear_scene(self) -> None:
+        self.image_path = None
+        self.pixmap = QPixmap()
+        self.image_width = 0
+        self.image_height = 0
+        self.boxes = []
+        self.selected_index = None
+        self.drag_start = None
+        self.drag_end = None
+        self.update()
+        self.selection_changed.emit(-1)
 
     def set_scene(self, image_path: Path, boxes: list[PixelBox]) -> None:
         self.image_path = image_path
@@ -38,14 +51,11 @@ class AnnotationCanvas(QWidget):
         self.drag_start = None
         self.drag_end = None
         self.update()
-
-    def set_boxes(self, boxes: list[PixelBox]) -> None:
-        self.boxes = list(boxes)
-        self.update()
+        self.selection_changed.emit(-1)
 
     def display_rect(self) -> QRectF:
         if self.pixmap.isNull():
-            return QRectF(0, 0, self.width(), self.height())
+            return QRectF(self.rect())
         scaled = self.pixmap.size().scaled(self.size(), Qt.KeepAspectRatio)
         x = (self.width() - scaled.width()) / 2
         y = (self.height() - scaled.height()) / 2
@@ -54,7 +64,7 @@ class AnnotationCanvas(QWidget):
     def widget_to_image(self, point: QPointF) -> QPointF:
         rect = self.display_rect()
         if rect.width() <= 0 or rect.height() <= 0:
-            return QPointF()
+            return QPointF(0, 0)
         rel_x = (point.x() - rect.x()) / rect.width()
         rel_y = (point.y() - rect.y()) / rect.height()
         rel_x = min(max(rel_x, 0.0), 1.0)
@@ -71,42 +81,45 @@ class AnnotationCanvas(QWidget):
 
     def paintEvent(self, event: QPaintEvent) -> None:
         painter = QPainter(self)
-        painter.fillRect(self.rect(), QColor('#0f141c'))
+        painter.fillRect(self.rect(), QColor('#0d1118'))
         if self.pixmap.isNull():
-            painter.setPen(QColor('#8b94a7'))
-            painter.drawText(self.rect(), Qt.AlignCenter, 'Load an image folder to start annotating.')
+            painter.setPen(QColor('#8f9db4'))
+            painter.drawText(self.rect(), Qt.AlignCenter, 'Load a sessions folder, then choose a session and image.')
             return
         rect = self.display_rect()
         painter.drawPixmap(rect.toRect(), self.pixmap)
 
-        normal_pen = QPen(QColor('#7CFC00'))
-        normal_pen.setWidth(2)
+        box_pen = QPen(QColor('#76ff03'))
+        box_pen.setWidth(2)
         selected_pen = QPen(QColor('#ffd54a'))
         selected_pen.setWidth(3)
-        text_color = QColor('#f7fbff')
+        draw_pen = QPen(QColor('#4f9cf8'))
+        draw_pen.setWidth(2)
+        draw_pen.setStyle(Qt.DashLine)
 
         for index, box in enumerate(self.boxes):
             box_rect = self.image_to_widget_rect(box)
-            painter.setPen(selected_pen if index == self.selected_index else normal_pen)
+            painter.setPen(selected_pen if index == self.selected_index else box_pen)
             painter.drawRect(box_rect)
-            painter.setPen(text_color)
+            painter.setPen(QColor('#ffffff'))
             painter.drawText(box_rect.adjusted(4, 4, -4, -4), str(box.class_id))
 
         if self.drag_start is not None and self.drag_end is not None:
-            painter.setPen(QPen(QColor('#56a7ff'), 2, Qt.DashLine))
+            painter.setPen(draw_pen)
             painter.drawRect(QRectF(self.drag_start, self.drag_end).normalized())
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
         if self.pixmap.isNull():
             return
         pos = event.position()
+        self.setFocus(Qt.MouseFocusReason)
+        if event.button() == Qt.RightButton:
+            self.select_box_at(pos)
+            return
         if event.button() == Qt.LeftButton and self.display_rect().contains(pos):
             self.drag_start = pos
             self.drag_end = pos
             self.update()
-            return
-        if event.button() == Qt.RightButton:
-            self.select_box_at(pos)
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
         if self.drag_start is None:
@@ -121,11 +134,19 @@ class AnnotationCanvas(QWidget):
         end = self.widget_to_image(self.drag_end)
         self.drag_start = None
         self.drag_end = None
-        if abs(end.x() - start.x()) < 5 or abs(end.y() - start.y()) < 5:
+        width = abs(end.x() - start.x())
+        height = abs(end.y() - start.y())
+        if width < 5 or height < 5:
             self.update()
             return
-        class_id = self.class_id_getter()
-        self.boxes.append(PixelBox(class_id=class_id, x1=start.x(), y1=start.y(), x2=end.x(), y2=end.y()))
+        box = PixelBox(
+            class_id=self.class_id_getter(),
+            x1=min(start.x(), end.x()),
+            y1=min(start.y(), end.y()),
+            x2=max(start.x(), end.x()),
+            y2=max(start.y(), end.y()),
+        )
+        self.boxes.append(box)
         self.selected_index = len(self.boxes) - 1
         self.selection_changed.emit(self.selected_index)
         self.boxes_changed.emit()
@@ -154,3 +175,44 @@ class AnnotationCanvas(QWidget):
         self.boxes_changed.emit()
         self.update()
         return True
+
+    def set_selected_class_id(self, class_id: int) -> bool:
+        if self.selected_index is None:
+            return False
+        self.boxes[self.selected_index].class_id = int(class_id)
+        self.boxes_changed.emit()
+        self.update()
+        return True
+
+    def nudge_selected(self, dx: float, dy: float) -> bool:
+        if self.selected_index is None:
+            return False
+        box = self.boxes[self.selected_index]
+        box.x1 = min(max(0.0, box.x1 + dx), float(self.image_width))
+        box.x2 = min(max(0.0, box.x2 + dx), float(self.image_width))
+        box.y1 = min(max(0.0, box.y1 + dy), float(self.image_height))
+        box.y2 = min(max(0.0, box.y2 + dy), float(self.image_height))
+        self.boxes_changed.emit()
+        self.update()
+        return True
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        if self.selected_index is None:
+            super().keyPressEvent(event)
+            return
+        step = 10.0 if event.modifiers() & Qt.ShiftModifier else 1.0
+        handled = False
+        if event.key() == Qt.Key_Delete:
+            handled = self.delete_selected()
+        elif event.key() == Qt.Key_Left:
+            handled = self.nudge_selected(-step, 0.0)
+        elif event.key() == Qt.Key_Right:
+            handled = self.nudge_selected(step, 0.0)
+        elif event.key() == Qt.Key_Up:
+            handled = self.nudge_selected(0.0, -step)
+        elif event.key() == Qt.Key_Down:
+            handled = self.nudge_selected(0.0, step)
+        if handled:
+            event.accept()
+            return
+        super().keyPressEvent(event)

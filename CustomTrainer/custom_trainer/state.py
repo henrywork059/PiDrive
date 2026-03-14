@@ -2,25 +2,20 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
-
-@dataclass
-class DatasetSummary:
-    image_count: int = 0
-    label_count: int = 0
-    missing_labels: int = 0
-    extra_labels: int = 0
-    class_histogram: dict[int, int] = field(default_factory=dict)
+from custom_trainer.services.session_service import SessionInfo
 
 
 @dataclass
 class AppState:
-    project_root: Optional[Path] = None
-    images_dir: Optional[Path] = None
-    labels_dir: Optional[Path] = None
-    dataset_yaml: Optional[Path] = None
-    classes: list[str] = field(default_factory=lambda: ['he3', 'mineral', 'radiation', 'he3_zone'])
-    model_path: str = 'yolov8n.pt'
-    runs_dir: Optional[Path] = None
-    last_summary: DatasetSummary = field(default_factory=DatasetSummary)
+    sessions_root: Path | None = None
+    sessions: list[SessionInfo] = field(default_factory=list)
+    current_session_index: int = -1
+    current_image_index: int = -1
+    class_names: list[str] = field(default_factory=lambda: ['object'])
+
+    @property
+    def current_session(self) -> SessionInfo | None:
+        if 0 <= self.current_session_index < len(self.sessions):
+            return self.sessions[self.current_session_index]
+        return None
