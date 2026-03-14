@@ -57,8 +57,12 @@ class ValidatePage(QWidget):
 
         actions_box = QGroupBox('Actions', self)
         actions = QHBoxLayout(actions_box)
+        use_current_button = QPushButton('Use Current Sessions Root', actions_box)
+        use_current_button.clicked.connect(self.use_current_root_defaults)
+        actions.addWidget(use_current_button)
         actions.addWidget(self.val_button)
         actions.addWidget(self.predict_button)
+        actions.addStretch(1)
 
         status_box = QGroupBox('Status', self)
         status_layout = QVBoxLayout(status_box)
@@ -95,14 +99,26 @@ class ValidatePage(QWidget):
         if path:
             self.source_edit.setText(path)
 
+    def use_current_root_defaults(self) -> None:
+        dataset_yaml = self.state.preferred_dataset_yaml()
+        if dataset_yaml is not None:
+            self.yaml_edit.setText(str(dataset_yaml))
+        current_image = self.state.current_image_path
+        if current_image is not None:
+            self.source_edit.setText(str(current_image))
+        self.set_status('Validation defaults filled from the current sessions root.')
+
     def start_val(self) -> None:
         if self.thread is not None:
-            QMessageBox.information(self, 'Busy', 'Another validation/prediction task is already running.')
+            QMessageBox.information(self, 'Busy', 'Another validation or prediction task is already running.')
             return
         try:
             imgsz = int(self.imgsz_edit.text())
         except ValueError:
             QMessageBox.critical(self, 'Invalid image size', 'Image size must be an integer.')
+            return
+        if not self.weights_edit.text().strip() or not self.yaml_edit.text().strip():
+            QMessageBox.critical(self, 'Missing inputs', 'Choose weights and dataset.yaml first.')
             return
         command = build_val_command(
             weights=self.weights_edit.text().strip(),
@@ -114,13 +130,16 @@ class ValidatePage(QWidget):
 
     def start_predict(self) -> None:
         if self.thread is not None:
-            QMessageBox.information(self, 'Busy', 'Another validation/prediction task is already running.')
+            QMessageBox.information(self, 'Busy', 'Another validation or prediction task is already running.')
             return
         try:
             imgsz = int(self.imgsz_edit.text())
             conf = float(self.conf_edit.text())
         except ValueError:
             QMessageBox.critical(self, 'Invalid values', 'Image size must be integer and confidence must be numeric.')
+            return
+        if not self.weights_edit.text().strip() or not self.source_edit.text().strip():
+            QMessageBox.critical(self, 'Missing inputs', 'Choose weights and a prediction source first.')
             return
         command = build_predict_command(
             weights=self.weights_edit.text().strip(),
@@ -151,7 +170,7 @@ class ValidatePage(QWidget):
         self.val_button.setEnabled(True)
         self.predict_button.setEnabled(True)
         self.status_note.setText(f'Finished with exit code {exit_code}.')
-        self.set_status(f'Validation/prediction finished with exit code {exit_code}.')
+        self.set_status(f'Validation or prediction finished with exit code {exit_code}.')
 
     def _clear_thread(self) -> None:
         self.thread = None

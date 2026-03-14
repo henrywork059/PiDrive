@@ -4,7 +4,9 @@ from pathlib import Path
 from typing import Callable
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
+    QComboBox,
     QFileDialog,
     QFormLayout,
     QGridLayout,
@@ -15,13 +17,11 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QMessageBox,
-    QPushButton,
     QPlainTextEdit,
+    QPushButton,
     QSplitter,
-    QTabWidget,
     QVBoxLayout,
     QWidget,
-    QComboBox,
 )
 
 from custom_trainer.services.session_service import SessionInfo, discover_sessions, load_class_names, save_class_names
@@ -61,37 +61,38 @@ class MarkingPage(QWidget):
         self.refresh_class_widgets()
 
     def _build(self) -> None:
-        top_tabs = QTabWidget(self)
-        page = QWidget(top_tabs)
-        top_tabs.addTab(page, 'Marking')
-
-        source_box = QGroupBox('Session Source', page)
+        source_box = QGroupBox('Session Source', self)
         source_form = QFormLayout(source_box)
         source_form.addRow('Sessions Root', self._path_row())
-        scan_button = QPushButton('Scan Sessions', source_box)
+        source_buttons = QWidget(source_box)
+        source_buttons_layout = QHBoxLayout(source_buttons)
+        source_buttons_layout.setContentsMargins(0, 0, 0, 0)
+        scan_button = QPushButton('Scan Sessions', source_buttons)
         scan_button.clicked.connect(self.scan_sessions)
-        source_form.addRow('', scan_button)
+        source_buttons_layout.addWidget(scan_button)
+        source_buttons_layout.addStretch(1)
+        source_form.addRow('', source_buttons)
 
-        sessions_box = QGroupBox('Sessions', page)
+        sessions_box = QGroupBox('Sessions', self)
         sessions_layout = QVBoxLayout(sessions_box)
         sessions_layout.addWidget(self.session_list)
 
-        images_box = QGroupBox('Images', page)
+        images_box = QGroupBox('Images', self)
         images_layout = QVBoxLayout(images_box)
         images_layout.addWidget(self.image_list)
 
-        left_panel = QWidget(page)
+        left_panel = QWidget(self)
         left_layout = QVBoxLayout(left_panel)
         left_layout.setContentsMargins(0, 0, 0, 0)
         left_layout.addWidget(source_box)
         left_layout.addWidget(sessions_box, 1)
         left_layout.addWidget(images_box, 2)
 
-        preview_box = QGroupBox('Image Preview', page)
+        preview_box = QGroupBox('Image Preview', self)
         preview_layout = QVBoxLayout(preview_box)
         preview_layout.addWidget(self.canvas, 1)
 
-        classes_box = QGroupBox('Classes', page)
+        classes_box = QGroupBox('Classes', self)
         classes_layout = QVBoxLayout(classes_box)
         classes_layout.addWidget(QLabel('Current class for new boxes / apply to selected box', classes_box))
         classes_layout.addWidget(self.class_combo)
@@ -104,7 +105,7 @@ class MarkingPage(QWidget):
         save_classes_button.clicked.connect(self.save_classes)
         classes_layout.addWidget(save_classes_button)
 
-        tools_box = QGroupBox('Annotation Tools', page)
+        tools_box = QGroupBox('Annotation Tools', self)
         tools_layout = QGridLayout(tools_box)
         prev_button = QPushButton('Prev Image', tools_box)
         next_button = QPushButton('Next Image', tools_box)
@@ -130,21 +131,21 @@ class MarkingPage(QWidget):
         help_label.setWordWrap(True)
         tools_layout.addWidget(help_label, 2, 0, 1, 2)
 
-        info_box = QGroupBox('Current Item', page)
+        info_box = QGroupBox('Current Item', self)
         info_layout = QVBoxLayout(info_box)
         info_layout.addWidget(self.summary_value)
         info_layout.addWidget(self.image_info)
         info_layout.addWidget(self.selection_info)
         info_layout.addStretch(1)
 
-        right_panel = QWidget(page)
+        right_panel = QWidget(self)
         right_layout = QVBoxLayout(right_panel)
         right_layout.setContentsMargins(0, 0, 0, 0)
         right_layout.addWidget(classes_box, 2)
         right_layout.addWidget(tools_box)
         right_layout.addWidget(info_box)
 
-        splitter = QSplitter(Qt.Horizontal, page)
+        splitter = QSplitter(Qt.Horizontal, self)
         splitter.addWidget(left_panel)
         splitter.addWidget(preview_box)
         splitter.addWidget(right_panel)
@@ -153,11 +154,8 @@ class MarkingPage(QWidget):
         splitter.setStretchFactor(2, 2)
         splitter.setSizes([320, 900, 320])
 
-        page_layout = QVBoxLayout(page)
-        page_layout.addWidget(splitter, 1)
-
         root = QVBoxLayout(self)
-        root.addWidget(top_tabs, 1)
+        root.addWidget(splitter, 1)
 
     def _connect(self) -> None:
         self.session_list.currentRowChanged.connect(self.on_session_changed)
@@ -180,6 +178,7 @@ class MarkingPage(QWidget):
         path = QFileDialog.getExistingDirectory(self, 'Choose sessions root folder')
         if path:
             self.root_edit.setText(path)
+            self.scan_sessions()
 
     def current_class_id(self) -> int:
         return int(self.class_combo.currentData() or 0)
@@ -257,15 +256,13 @@ class MarkingPage(QWidget):
         self.canvas.clear_scene()
         for image_path in session.image_paths:
             label_path = session.label_path_for_image(image_path)
-            marker = '●' if label_path.exists() and label_path.read_text(encoding='utf-8').strip() else '○'
-            text = f'{marker} {image_path.name}'
-            item = QListWidgetItem(text)
+            has_content = label_path.exists() and label_path.read_text(encoding='utf-8').strip()
+            marker = '●' if has_content else '○'
+            item = QListWidgetItem(f'{marker} {image_path.name}')
             item.setToolTip(str(image_path))
             self.image_list.addItem(item)
         labeled = session.labeled_count
-        self.summary_value.setText(
-            f'Session: {session.name} • {len(session.image_paths)} images • {labeled} labeled'
-        )
+        self.summary_value.setText(f'Session: {session.name} • {len(session.image_paths)} images • {labeled} labeled')
         if session.image_paths:
             self.image_list.setCurrentRow(0)
 
@@ -284,9 +281,6 @@ class MarkingPage(QWidget):
         boxes = read_yolo_label_file(label_path)
         self.current_image_path = image_path
         self.current_label_path = label_path
-        pixmap = self.canvas.pixmap
-        pixel_boxes = []
-        from PySide6.QtGui import QPixmap
         probe = QPixmap(str(image_path))
         self.current_image_size = (probe.width(), probe.height())
         pixel_boxes = [yolo_to_pixel(box, probe.width(), probe.height()) for box in boxes]
@@ -340,9 +334,7 @@ class MarkingPage(QWidget):
         has_labels = self.current_label_path.exists() and self.current_label_path.read_text(encoding='utf-8').strip()
         marker = '●' if has_labels else '○'
         self.image_list.item(row).setText(f'{marker} {self.current_image_path.name}')
-        self.summary_value.setText(
-            f'Session: {session.name} • {len(session.image_paths)} images • {session.labeled_count} labeled'
-        )
+        self.summary_value.setText(f'Session: {session.name} • {len(session.image_paths)} images • {session.labeled_count} labeled')
 
     def prev_image(self) -> None:
         if self.image_list.count() == 0:

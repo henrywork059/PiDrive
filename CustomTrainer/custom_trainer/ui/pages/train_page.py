@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Callable
 
 from PySide6.QtCore import QThread
@@ -11,8 +12,8 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMessageBox,
-    QPushButton,
     QPlainTextEdit,
+    QPushButton,
     QVBoxLayout,
     QWidget,
 )
@@ -23,13 +24,7 @@ from custom_trainer.ui.qt_helpers import CommandWorker
 
 
 class TrainPage(QWidget):
-    def __init__(
-        self,
-        state: AppState,
-        log: Callable[[str], None],
-        set_status: Callable[[str], None],
-        parent: QWidget | None = None,
-    ) -> None:
+    def __init__(self, state: AppState, log: Callable[[str], None], set_status: Callable[[str], None], parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.state = state
         self.log = log
@@ -37,46 +32,53 @@ class TrainPage(QWidget):
         self.thread: QThread | None = None
         self.worker: CommandWorker | None = None
 
-        self.model_edit = QLineEdit(state.model_path, self)
+        self.model_edit = QLineEdit('yolov8n.pt', self)
         self.yaml_edit = QLineEdit(self)
-        self.epochs_edit = QLineEdit("100", self)
-        self.imgsz_edit = QLineEdit("640", self)
-        self.batch_edit = QLineEdit("16", self)
-        self.device_edit = QLineEdit("cpu", self)
-        self.project_edit = QLineEdit("runs", self)
-        self.name_edit = QLineEdit("customtrainer_train", self)
-        self.status_note = QLabel("Idle", self)
-        self.status_note.setProperty("role", "muted")
-
-        self.start_button = QPushButton("Start Training", self)
+        self.epochs_edit = QLineEdit('100', self)
+        self.imgsz_edit = QLineEdit('640', self)
+        self.batch_edit = QLineEdit('16', self)
+        self.device_edit = QLineEdit('cpu', self)
+        self.project_edit = QLineEdit('runs', self)
+        self.name_edit = QLineEdit('customtrainer_train', self)
+        self.status_note = QLabel('Idle', self)
+        self.status_note.setProperty('role', 'muted')
+        self.start_button = QPushButton('Start Training', self)
         self.start_button.clicked.connect(self.start_training)
 
         self._build()
 
     def _build(self) -> None:
-        config_box = QGroupBox("Training Config", self)
+        config_box = QGroupBox('Training Config', self)
         form = QFormLayout(config_box)
-        form.addRow("Model (.pt / preset)", self._path_row(self.model_edit, self.choose_model))
-        form.addRow("dataset.yaml", self._path_row(self.yaml_edit, self.choose_yaml))
-        form.addRow("Epochs", self.epochs_edit)
-        form.addRow("Image Size", self.imgsz_edit)
-        form.addRow("Batch", self.batch_edit)
-        form.addRow("Device", self.device_edit)
-        form.addRow("Runs Project Dir", self.project_edit)
-        form.addRow("Run Name", self.name_edit)
+        form.addRow('Model (.pt / preset)', self._path_row(self.model_edit, self.choose_model))
+        form.addRow('dataset.yaml', self._path_row(self.yaml_edit, self.choose_yaml))
+        form.addRow('Epochs', self.epochs_edit)
+        form.addRow('Image Size', self.imgsz_edit)
+        form.addRow('Batch', self.batch_edit)
+        form.addRow('Device', self.device_edit)
+        form.addRow('Runs Project Dir', self.project_edit)
+        form.addRow('Run Name', self.name_edit)
 
-        action_box = QGroupBox("Actions", self)
-        action_layout = QVBoxLayout(action_box)
+        action_box = QGroupBox('Actions', self)
+        action_layout = QHBoxLayout(action_box)
+        use_current_button = QPushButton('Use Current Sessions Root', action_box)
+        use_current_button.clicked.connect(self.use_current_root_defaults)
+        action_layout.addWidget(use_current_button)
         action_layout.addWidget(self.start_button)
-        action_layout.addWidget(self.status_note)
+        action_layout.addStretch(1)
 
-        info_box = QGroupBox("Recommended Workflow", self)
+        status_box = QGroupBox('Status', self)
+        status_layout = QVBoxLayout(status_box)
+        status_layout.addWidget(self.status_note)
+
+        info_box = QGroupBox('Workflow Notes', self)
         info_text = QPlainTextEdit(self)
         info_text.setReadOnly(True)
         info_text.setPlainText(
-            "Start with a small model such as yolov8n.\n"
-            "Use moderate image sizes first to validate the pipeline.\n"
-            "Use the Export page after you have a stable training run."
+            '1. Use Marking to load your sessions folder and label images.\n'
+            '2. Point this page to the dataset.yaml for your YOLO dataset.\n'
+            '3. Start with yolov8n.pt or another small model to verify the pipeline.\n'
+            '4. Export after you have a good run.'
         )
         info_layout = QVBoxLayout(info_box)
         info_layout.addWidget(info_text)
@@ -84,6 +86,7 @@ class TrainPage(QWidget):
         root = QVBoxLayout(self)
         root.addWidget(config_box)
         root.addWidget(action_box)
+        root.addWidget(status_box)
         root.addWidget(info_box, 1)
 
     def _path_row(self, line_edit: QLineEdit, handler: Callable[[], None]) -> QWidget:
@@ -91,38 +94,43 @@ class TrainPage(QWidget):
         layout = QHBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(line_edit, 1)
-        button = QPushButton("Browse", container)
+        button = QPushButton('Browse', container)
         button.clicked.connect(handler)
         layout.addWidget(button)
         return container
 
     def choose_model(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(
-            self,
-            "Choose model weights",
-            filter="PyTorch Weights (*.pt);;All Files (*)",
-        )
+        path, _ = QFileDialog.getOpenFileName(self, 'Choose model weights', filter='PyTorch Weights (*.pt);;All Files (*)')
         if path:
             self.model_edit.setText(path)
 
     def choose_yaml(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(self, "Choose dataset.yaml", filter="YAML (*.yaml *.yml)")
+        path, _ = QFileDialog.getOpenFileName(self, 'Choose dataset.yaml', filter='YAML (*.yaml *.yml)')
         if path:
             self.yaml_edit.setText(path)
 
+    def use_current_root_defaults(self) -> None:
+        dataset_yaml = self.state.preferred_dataset_yaml()
+        if dataset_yaml is not None:
+            self.yaml_edit.setText(str(dataset_yaml))
+        if self.state.sessions_root is not None:
+            self.project_edit.setText(str(self.state.sessions_root / 'runs'))
+        self.name_edit.setText(f'train_{datetime.now().strftime("%Y%m%d_%H%M%S")}')
+        self.set_status('Training defaults filled from the current sessions root.')
+
     def start_training(self) -> None:
         if self.thread is not None:
-            QMessageBox.information(self, "Training running", "A training process is already running.")
+            QMessageBox.information(self, 'Training running', 'A training process is already running.')
             return
         if not self.yaml_edit.text().strip():
-            QMessageBox.critical(self, "Missing dataset.yaml", "Choose dataset.yaml first.")
+            QMessageBox.critical(self, 'Missing dataset.yaml', 'Choose dataset.yaml first.')
             return
         try:
             epochs = int(self.epochs_edit.text())
             imgsz = int(self.imgsz_edit.text())
             batch = int(self.batch_edit.text())
         except ValueError:
-            QMessageBox.critical(self, "Invalid numbers", "Epochs, image size, and batch must be integers.")
+            QMessageBox.critical(self, 'Invalid numbers', 'Epochs, image size, and batch must be integers.')
             return
         command = build_train_command(
             model=self.model_edit.text().strip(),
@@ -134,7 +142,7 @@ class TrainPage(QWidget):
             project=self.project_edit.text().strip(),
             name=self.name_edit.text().strip(),
         )
-        self._launch(command, "Training started...")
+        self._launch(command, 'Training started...')
 
     def _launch(self, command: list[str], status_message: str) -> None:
         self.thread = QThread(self)
@@ -152,8 +160,8 @@ class TrainPage(QWidget):
         self.thread.start()
 
     def _on_finished(self, exit_code: int) -> None:
-        self.status_note.setText(f"Finished with exit code {exit_code}.")
-        self.set_status(f"Training finished with exit code {exit_code}.")
+        self.status_note.setText(f'Finished with exit code {exit_code}.')
+        self.set_status(f'Training finished with exit code {exit_code}.')
         self.start_button.setEnabled(True)
 
     def _clear_thread(self) -> None:

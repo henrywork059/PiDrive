@@ -1,65 +1,48 @@
-# CustomTrainer 0_1_2
+# CustomTrainer 0_1_3
 
-CustomTrainer is now focused on a **single PySide6 marking workflow** that behaves much closer to **piTrainer**:
+CustomTrainer now keeps the **single session-based Marking tab** from 0_1_2 and restores the extra workflow pages you asked for:
 
-- load a sessions root folder
-- automatically scan and list all sessions inside that folder
-- browse images inside a selected session
-- label images in one main marking tab
-- save YOLO `.txt` labels beside the session structure
+- **Marking**
+- **Training**
+- **Validation**
+- **Export**
 
-## What changed in 0_1_2
+The app still follows the PySide6 desktop-shell direction of piTrainer, but the labeling workflow stays focused on **one main Marking page** that loads all sessions from a chosen root folder.
 
-This patch intentionally simplifies the app.
+## Main workflow
 
-- removed the multi-page trainer/export shell from the 0_1_1 UI flow
-- kept the **PySide6 desktop style** and dark blue panel language similar to piTrainer
-- changed the main workflow to a **single Marking tab**
-- added **session-root scanning** so the app loads all sessions in a chosen folder
-- added a **session list** and **image list** similar to piTrainer's data-loading workflow
-- added a built-in **YOLO image labeler** with:
-  - draw box by left-drag
-  - select box by right-click
-  - move selected box with arrow keys
-  - delete selected box
-  - change selected box class
-  - save labels to YOLO text files
-- added class loading from `classes.txt`, `dataset.yaml`, or `data.yaml`
-- added class editing and saving back to `classes.txt`
-- kept the docked log console and status bar for desktop workflow feedback
+1. Open **Marking**
+2. Choose the folder that contains all your sessions
+3. The app scans and lists every session it finds
+4. Pick a session, then pick an image
+5. Draw / edit YOLO boxes and save labels
+6. Move to **Training**, **Validation**, or **Export** when needed
 
-## Supported session layouts
+## Marking page features
 
-CustomTrainer will scan the chosen folder and treat these as sessions when images are found:
+- scan a sessions root folder
+- load and list all sessions in that folder
+- load images from the selected session
+- label images in one marking tab
+- save YOLO `.txt` files
+- edit and save `classes.txt`
+- keyboard shortcuts for save / image navigation / box editing
 
-### Layout A
+## Restored tabs
 
-```text
-sessions_root/
-  session_001/
-    images/
-    labels/
-```
+### Training
+- start an Ultralytics YOLO training run from the GUI
+- fill defaults from the current sessions root
 
-### Layout B
+### Validation
+- run YOLO validation from the GUI
+- run prediction on a selected source
+- fill defaults from the current sessions root and currently selected image
 
-```text
-sessions_root/
-  session_001/
-    frame_0001.jpg
-    frame_0002.jpg
-    labels/
-```
-
-### Layout C
-
-```text
-session_folder/
-  images/
-  labels/
-```
-
-If no label file exists yet, CustomTrainer will create one when you save.
+### Export
+- export weights to TFLite / ONNX / OpenVINO / TorchScript
+- INT8 / float16 / float32 choices
+- fill dataset.yaml from the current sessions root
 
 ## Install
 
@@ -67,7 +50,7 @@ If no label file exists yet, CustomTrainer will create one when you save.
 python -m venv .venv
 
 # Windows
-.venv\Scripts\activate
+.venv\Scriptsctivate
 
 # Linux / macOS
 source .venv/bin/activate
@@ -78,8 +61,9 @@ python run_custom_trainer.py
 
 ## Shortcuts
 
-- `Ctrl+S` save current labels
-- `PageUp / PageDown` previous / next image
+- `Ctrl+1..Ctrl+4` switch tabs
+- `Ctrl+S` save current labels on Marking
+- `PageUp / PageDown` previous / next image on Marking
 - `Delete` delete selected box
 - `Arrow keys` move selected box
 - `Shift + Arrow keys` move selected box faster
@@ -87,6 +71,5 @@ python run_custom_trainer.py
 
 ## Notes
 
-- this patch is focused on **marking / labeling only**
-- it is designed to feel closer to piTrainer's session-loading desktop workflow
-- labels are saved in YOLO format as `.txt`
+- Training / Validation / Export use **Ultralytics** through an internal Python runner module, so they do not depend on the external `yolo` shell command.
+- You still need a valid `dataset.yaml` and model weights for training, validation, and export.

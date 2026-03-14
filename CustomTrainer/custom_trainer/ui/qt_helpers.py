@@ -33,7 +33,7 @@ class CommandWorker(QObject):
                 self.line.emit(line.rstrip())
             process.wait()
             code = int(process.returncode or 0)
-        except Exception as exc:  # pragma: no cover - defensive runtime path
+        except Exception as exc:
             self.line.emit(f'[error] {exc}')
             code = -1
         self.line.emit(f'[exit code] {code}')

@@ -1,111 +1,65 @@
 from __future__ import annotations
 
-import subprocess
 import sys
 from pathlib import Path
-from typing import Callable, Iterable, Sequence
-
-LogFn = Callable[[str], None]
 
 
-def run_command(command: Sequence[str], log: LogFn, cwd: Path | None = None) -> int:
-    log("$ " + " ".join(command))
-    process = subprocess.Popen(
-        list(command),
-        cwd=str(cwd) if cwd else None,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        bufsize=1,
-    )
-    assert process.stdout is not None
-    for line in process.stdout:
-        log(line.rstrip())
-    process.wait()
-    log(f"[exit code] {process.returncode}")
-    return process.returncode
+def _base_command(action: str) -> list[str]:
+    return [sys.executable, '-m', 'custom_trainer.services.ultralytics_cli', action]
 
 
-def build_train_command(
-    model: str,
-    data: str,
-    epochs: int,
-    imgsz: int,
-    batch: int,
-    device: str,
-    project: str,
-    name: str,
-) -> list[str]:
-    return [
-        sys.executable,
-        "-m",
-        "ultralytics",
-        "train",
-        f"model={model}",
-        f"data={data}",
-        f"epochs={epochs}",
-        f"imgsz={imgsz}",
-        f"batch={batch}",
-        f"device={device}",
-        f"project={project}",
-        f"name={name}",
-    ]
+def _maybe_append(command: list[str], flag: str, value: str | int | float | None) -> None:
+    if value is None:
+        return
+    text = str(value).strip()
+    if not text:
+        return
+    command.extend([flag, text])
 
 
-def build_val_command(weights: str, data: str, imgsz: int, device: str) -> list[str]:
-    return [
-        sys.executable,
-        "-m",
-        "ultralytics",
-        "val",
-        f"model={weights}",
-        f"data={data}",
-        f"imgsz={imgsz}",
-        f"device={device}",
-    ]
+def build_train_command(*, model: str, data: str, epochs: int, imgsz: int, batch: int, device: str, project: str, name: str) -> list[str]:
+    command = _base_command('train')
+    _maybe_append(command, '--model', model or 'yolov8n.pt')
+    _maybe_append(command, '--data', data)
+    _maybe_append(command, '--epochs', epochs)
+    _maybe_append(command, '--imgsz', imgsz)
+    _maybe_append(command, '--batch', batch)
+    _maybe_append(command, '--device', device)
+    _maybe_append(command, '--project', project)
+    _maybe_append(command, '--name', name)
+    return command
 
 
-def build_predict_command(weights: str, source: str, imgsz: int, conf: float, device: str) -> list[str]:
-    return [
-        sys.executable,
-        "-m",
-        "ultralytics",
-        "predict",
-        f"model={weights}",
-        f"source={source}",
-        f"imgsz={imgsz}",
-        f"conf={conf}",
-        f"device={device}",
-        "save=True",
-    ]
+def build_val_command(*, weights: str, data: str, imgsz: int, device: str) -> list[str]:
+    command = _base_command('val')
+    _maybe_append(command, '--weights', weights)
+    _maybe_append(command, '--data', data)
+    _maybe_append(command, '--imgsz', imgsz)
+    _maybe_append(command, '--device', device)
+    return command
 
 
-def build_export_command(
-    weights: str,
-    export_format: str,
-    imgsz: int,
-    device: str,
-    int8: bool = False,
-    half: bool = False,
-    nms: bool = False,
-    data: str = "",
-) -> list[str]:
-    command = [
-        sys.executable,
-        "-m",
-        "ultralytics",
-        "export",
-        f"model={weights}",
-        f"format={export_format}",
-        f"imgsz={imgsz}",
-        f"device={device}",
-    ]
+def build_predict_command(*, weights: str, source: str, imgsz: int, conf: float, device: str) -> list[str]:
+    command = _base_command('predict')
+    _maybe_append(command, '--weights', weights)
+    _maybe_append(command, '--source', source)
+    _maybe_append(command, '--imgsz', imgsz)
+    _maybe_append(command, '--conf', conf)
+    _maybe_append(command, '--device', device)
+    return command
+
+
+def build_export_command(*, weights: str, export_format: str, imgsz: int, device: str, int8: bool, half: bool, nms: bool, data: str) -> list[str]:
+    command = _base_command('export')
+    _maybe_append(command, '--weights', weights)
+    _maybe_append(command, '--format', export_format)
+    _maybe_append(command, '--imgsz', imgsz)
+    _maybe_append(command, '--device', device)
     if int8:
-        command.append("int8=True")
+        command.append('--int8')
     if half:
-        command.append("half=True")
+        command.append('--half')
     if nms:
-        command.append("nms=True")
-    if data:
-        command.append(f"data={data}")
+        command.append('--nms')
+    _maybe_append(command, '--data', data)
     return command
