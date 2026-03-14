@@ -5,6 +5,17 @@ import sys
 from pathlib import Path
 
 
+def _configure_stdio() -> None:
+    for stream_name in ('stdout', 'stderr'):
+        stream = getattr(sys, stream_name, None)
+        reconfigure = getattr(stream, 'reconfigure', None)
+        if callable(reconfigure):
+            try:
+                reconfigure(encoding='utf-8', errors='replace')
+            except Exception:
+                pass
+
+
 def _ensure_ultralytics():
     try:
         from ultralytics import YOLO
@@ -121,6 +132,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    _configure_stdio()
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
