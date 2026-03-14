@@ -1,0 +1,6 @@
+# Standard-library only draft package.
+# Add your real runtime dependencies later, for example:
+# opencv-python
+# numpy
+# tflite-runtime
+# flask
