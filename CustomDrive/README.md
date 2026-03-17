@@ -17,45 +17,54 @@ It runs the same finite-state mission loop in two mirrored modes:
 6. approach + release
 7. repeat by configured cycle count
 
-## Install
+## Layout
 
-```bash
-cd CustomDrive
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+```text
+CustomDrive/
+├── run_custom_drive_demo.py
+├── run_custom_drive_web.py
+├── custom_drive/
+│   ├── config.py
+│   ├── models.py
+│   ├── interfaces.py
+│   ├── mission_state.py
+│   ├── route_script.py
+│   ├── visual_servo.py
+│   ├── mission_controller.py
+│   ├── fake_robot.py
+│   ├── demo_runtime.py
+│   ├── web_app.py
+│   ├── web/
+│   │   ├── templates/index.html
+│   │   └── static/{app.js,styles.css}
+│   └── picar_bridge.py
+└── PATCH_NOTES/
 ```
 
-## Shared runtime settings (GUI + no GUI)
-
-Settings are saved in:
-
-- `CustomDrive/config/runtime_settings.json`
-
-These settings are loaded by **both**:
-
-- `python run_custom_drive_web.py`
-- `python run_custom_drive_demo.py`
-
-You can edit settings from the GUI **Settings** panel and click **Save Settings**, or save from CLI:
-
-```bash
-cd CustomDrive
-python run_custom_drive_demo.py --mode live --save-settings \
-  --cam-width 640 --cam-height 360 --cam-fps 30 \
-  --left-max-speed 0.9 --right-max-speed 0.92
-```
-
-## Run no-GUI (best performance)
-
-### Simulation mode (default)
+## Run demo (no GUI, best performance)
 
 ```bash
 cd CustomDrive
 python run_custom_drive_demo.py --mode sim --cycles 2
 ```
 
-### Live mode (real camera + motor via PiServer services)
+This is the terminal-only runner and remains the fastest path for profiling logic without web overhead.
+
+## Run web GUI demo (PiServer-style monitoring)
+
+```bash
+cd CustomDrive
+python run_custom_drive_web.py
+```
+
+Then open `http://localhost:5050` to:
+
+- start/stop continuous mission stepping
+- run single-step updates for debugging
+- reset mission with a different cycle count
+- see mission state, drive command, detection boxes, and robot action logs
+
+Both the terminal and web entry points use the same `DemoMissionRuntime`, so behavior stays mirrored between GUI and no-GUI flows.
 
 ```bash
 cd CustomDrive

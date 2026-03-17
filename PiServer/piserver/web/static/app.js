@@ -59,6 +59,7 @@ const state = {
   statusTimer: null,
   cameraConfig: null,
   motorConfig: null,
+  motorFormDirty: false,
   previewTimer: null,
   previewActive: false,
   previewInFlight: false,
@@ -501,7 +502,15 @@ function readMotorForm() {
   };
 }
 
-function fillMotorForm(config = {}) {
+function setMotorFormDirty(dirty = true) {
+  state.motorFormDirty = Boolean(dirty);
+  if (state.motorFormDirty) {
+    setBanner("motorMessage", "Unsaved motor changes. Click Apply motor settings to save and use them.", "muted");
+  }
+}
+
+function fillMotorForm(config = {}, force = false) {
+  if (!force && state.page === "motor" && state.motorFormDirty) return;
   state.motorConfig = config;
   document.getElementById("leftDirection").value = String(config.left_direction ?? 1);
   document.getElementById("rightDirection").value = String(config.right_direction ?? 1);
@@ -510,12 +519,13 @@ function fillMotorForm(config = {}) {
   document.getElementById("rightMaxSpeed").value = Math.round(Number(config.right_max_speed ?? 1.0) * 100);
   document.getElementById("leftBias").value = Number(config.left_bias ?? 0).toFixed(2);
   document.getElementById("rightBias").value = Number(config.right_bias ?? 0).toFixed(2);
+  state.motorFormDirty = false;
   updateRangeText();
 }
 
 async function loadMotorConfig() {
   const data = await fetchJson("/api/motor/config");
-  fillMotorForm(data.config || {});
+  fillMotorForm(data.config || {}, true);
   const cfg = data.config || {};
   const steerMode = Number(cfg.steering_direction || 1) < 0 ? "reversed" : "normal";
   setBanner(
@@ -532,7 +542,7 @@ async function applyMotorConfig() {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
   });
-  fillMotorForm(data.config || payload);
+  fillMotorForm(data.config || payload, true);
   setBanner("motorMessage", data.message || "Motor settings applied.", "muted");
   await pollStatus();
 }
@@ -916,6 +926,12 @@ function setupEvents() {
       setBanner("motorMessage", error.message, "muted");
     }
   });
+  ["leftDirection", "rightDirection", "steeringDirection", "leftMaxSpeed", "rightMaxSpeed", "leftBias", "rightBias"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("input", () => setMotorFormDirty(true));
+    el.addEventListener("change", () => setMotorFormDirty(true));
+  });
   document.getElementById("leftMaxSpeed").addEventListener("input", updateRangeText);
   document.getElementById("rightMaxSpeed").addEventListener("input", updateRangeText);
 
@@ -931,7 +947,8 @@ function syncControlsFromStatus(data) {
   document.getElementById("manualSpeed").value = Math.round(state.maxThrottle * 100);
   document.getElementById("steerMix").value = Math.round(state.steerMix * 100);
   document.getElementById("algorithmSelect").value = data.active_algorithm || "manual";
-  if (typeof data.motor_left_max_speed === "number") {
+  const allowMotorFormSync = !(state.page === "motor" && state.motorFormDirty);
+  if (typeof data.motor_left_max_speed === "number" && allowMotorFormSync) {
     const left = document.getElementById("leftMaxSpeed");
     const right = document.getElementById("rightMaxSpeed");
     if (left) left.value = Math.round(Number(data.motor_left_max_speed || 1) * 100);

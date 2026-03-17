@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>CustomDrive Mission GUI</title>
+  <title>CustomDrive Demo GUI</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
 </head>
 <body>
   <header>
     <h1>CustomDrive Mission Monitor</h1>
-    <p>Real mission controller UI with live/sim mode.</p>
+    <p>Web GUI for the same mission runtime used by the terminal demo.</p>
   </header>
 
   <main>
@@ -17,10 +17,10 @@
       <button id="startBtn">Start Auto</button>
       <button id="stopBtn">Stop Auto</button>
       <button id="stepBtn">Step Once</button>
-      <label>Mode
-        <select id="modeSel"><option value="sim">sim</option><option value="live">live</option></select>
+      <label>
+        Max cycles
+        <input id="maxCycles" type="number" min="1" value="2" />
       </label>
-      <label>Max cycles <input id="maxCycles" type="number" min="1" value="2" /></label>
       <button id="resetBtn">Reset</button>
     </section>
 
@@ -30,27 +30,11 @@
         <div id="status"></div>
       </div>
       <div class="panel">
-        <h2>Video Feed (live mode)</h2>
-        <img id="videoFeed" src="/video_feed" alt="video feed" />
-      </div>
-      <div class="panel settings">
-        <h2>Settings (shared GUI + no GUI)</h2>
-        <div class="settings-grid">
-          <label>Cam Width <input id="cam_width" type="number" /></label>
-          <label>Cam Height <input id="cam_height" type="number" /></label>
-          <label>Cam FPS <input id="cam_fps" type="number" /></label>
-          <label>Preview FPS <input id="cam_preview_fps" type="number" /></label>
-          <label>Preview Quality <input id="cam_preview_quality" type="number" /></label>
-          <label>Steer Mix <input id="rt_steer_mix" type="number" step="0.01" /></label>
-          <label>Left Max <input id="mot_left_max_speed" type="number" step="0.01" /></label>
-          <label>Right Max <input id="mot_right_max_speed" type="number" step="0.01" /></label>
-          <label>Left Bias <input id="mot_left_bias" type="number" step="0.01" /></label>
-          <label>Right Bias <input id="mot_right_bias" type="number" step="0.01" /></label>
-        </div>
-        <button id="saveSettingsBtn">Save Settings</button>
+        <h2>Perception Frame</h2>
+        <svg id="frame" viewBox="0 0 640 360"></svg>
       </div>
       <div class="panel logs">
-        <h2>Runtime Logs</h2>
+        <h2>Robot Logs</h2>
         <pre id="logs"></pre>
       </div>
     </section>
