@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CustomDrive Demo GUI</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+</head>
+<body>
+  <header>
+    <h1>CustomDrive Mission Monitor</h1>
+    <p>Web GUI for the same mission runtime used by the terminal demo.</p>
+  </header>
+
+  <main>
+    <section class="panel controls">
+      <button id="startBtn">Start Auto</button>
+      <button id="stopBtn">Stop Auto</button>
+      <button id="stepBtn">Step Once</button>
+      <label>
+        Max cycles
+        <input id="maxCycles" type="number" min="1" value="2" />
+      </label>
+      <button id="resetBtn">Reset</button>
+    </section>
+
+    <section class="grid">
+      <div class="panel">
+        <h2>Status</h2>
+        <div id="status"></div>
+      </div>
+      <div class="panel">
+        <h2>Perception Frame</h2>
+        <svg id="frame" viewBox="0 0 640 360"></svg>
+      </div>
+      <div class="panel logs">
+        <h2>Robot Logs</h2>
+        <pre id="logs"></pre>
+      </div>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+from __future__ import annotations
+
+from custom_drive.web_app import create_app
+
+app = create_app()
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5050, threaded=True)

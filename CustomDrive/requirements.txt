@@ -3,4 +3,4 @@
 # opencv-python
 # numpy
 # tflite-runtime
-# flask
+flask
