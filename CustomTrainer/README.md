@@ -1,3 +1,30 @@
+# CustomTrainer
+
+CustomTrainer is a PySide6 desktop YOLO workflow with session-based annotation and model lifecycle pages.
+
+## Main tabs
+
+- **Marking**: browse sessions, draw/edit bounding boxes, maintain `classes.txt`, save YOLO labels.
+- **Train**: run Ultralytics training jobs with device selection.
+- **Validate**: run validation/prediction and review results.
+- **Export**: export trained weights (TFLite/ONNX/OpenVINO/TorchScript).
+- **Pi Deploy**: deploy-focused utilities for Raspberry Pi runtime artifacts.
+
+## Layout
+
+```text
+CustomTrainer/
+├── run_custom_trainer.py
+├── requirements.txt
+├── custom_trainer/
+│   ├── app.py
+│   ├── state.py
+│   ├── services/
+│   ├── ui/
+│   ├── utils/
+│   └── assets/pi_runtime/
+└── PATCH_NOTES/
+```
 # CustomTrainer 0_1_12
 
 CustomTrainer keeps the **single session-based Marking tab** and the extra workflow pages:
@@ -54,42 +81,23 @@ The app follows the PySide6 desktop-shell direction of piTrainer, while the labe
 - **Use Latest best.pt** button
 - **Stop Export** button
 
-## Install
+## Install and run
 
 ```bash
+cd CustomTrainer
 python -m venv .venv
-
-# Windows
-.venv\Scripts\activate
-
-# Linux / macOS
-source .venv/bin/activate
-
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 python run_custom_trainer.py
 ```
 
-## GPU notes
-
-- The app can auto-detect runtime devices and pass the correct device into Ultralytics.
-- **Auto** chooses the best available backend in this order: CUDA GPU, Apple MPS, then CPU.
-- If you explicitly request CUDA but your environment only has a CPU build of PyTorch, the app will show a clear error instead of silently falling back.
-- To actually train on an NVIDIA GPU, your Python environment must use a CUDA-enabled PyTorch build.
-
-## Shortcuts
-
-- `Ctrl+1..Ctrl+4` switch tabs
-- `Ctrl+S` save current labels on Marking
-- `PageUp / PageDown` previous / next image
-- `Arrow keys` move selected box
-- `Shift + Arrow keys` move selected box faster
-- `A / D` previous / next frame on the image canvas
-- `X` delete selected frame(s)
-- `Backspace / Delete` delete selected box
-- `F1` show shortcuts
-
 ## Notes
 
+- Training/validation/export run through internal Python service wrappers (no external `yolo` shell dependency required).
+- Device selection supports Auto/CUDA/CPU paths.
+- Session scanning can repair older misplaced label paths into canonical YOLO layout.
+
+See `custom_trainer/assets/pi_runtime/README_PI.md` for Pi-side TFLite runtime notes.
 - Training / Validation / Export use Ultralytics through an internal Python runner module, so they do not depend on the external `yolo` shell command.
 - Validation prediction runs now save into the session-oriented runs folder and the preview panel loads the boxed output automatically.
 - Single-session folders such as `session/images/*.jpg` save labels to `session/labels/*.txt`.
