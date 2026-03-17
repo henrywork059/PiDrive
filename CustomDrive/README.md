@@ -17,6 +17,7 @@ It focuses on a repeatable mission loop:
 ```text
 CustomDrive/
 ├── run_custom_drive_demo.py
+├── run_custom_drive_web.py
 ├── custom_drive/
 │   ├── config.py
 │   ├── models.py
@@ -26,18 +27,39 @@ CustomDrive/
 │   ├── visual_servo.py
 │   ├── mission_controller.py
 │   ├── fake_robot.py
+│   ├── demo_runtime.py
+│   ├── web_app.py
+│   ├── web/
+│   │   ├── templates/index.html
+│   │   └── static/{app.js,styles.css}
 │   └── picar_bridge.py
 └── PATCH_NOTES/
 ```
 
-## Run demo
+## Run demo (no GUI, best performance)
 
 ```bash
 cd CustomDrive
 python run_custom_drive_demo.py
 ```
 
-The demo uses `FakeRobot` and scripted detections to exercise state transitions without hardware.
+This is the terminal-only runner and remains the fastest path for profiling logic without web overhead.
+
+## Run web GUI demo (PiServer-style monitoring)
+
+```bash
+cd CustomDrive
+python run_custom_drive_web.py
+```
+
+Then open `http://localhost:5050` to:
+
+- start/stop continuous mission stepping
+- run single-step updates for debugging
+- reset mission with a different cycle count
+- see mission state, drive command, detection boxes, and robot action logs
+
+Both the terminal and web entry points use the same `DemoMissionRuntime`, so behavior stays mirrored between GUI and no-GUI flows.
 
 ## Integration intent
 
