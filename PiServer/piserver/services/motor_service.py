@@ -69,6 +69,7 @@ class MotorService:
 
         self.left_direction = 1
         self.right_direction = 1
+        self.steering_direction = 1
         self.left_max_speed = 1.0
         self.right_max_speed = 1.0
         self.left_bias = 0.0
@@ -80,6 +81,7 @@ class MotorService:
         return {
             "left_direction": self.left_direction,
             "right_direction": self.right_direction,
+            "steering_direction": self.steering_direction,
             "left_max_speed": self.left_max_speed,
             "right_max_speed": self.right_max_speed,
             "left_bias": self.left_bias,
@@ -95,6 +97,8 @@ class MotorService:
             self.left_direction = -1 if int(data.get("left_direction", 1)) < 0 else 1
         if "right_direction" in data:
             self.right_direction = -1 if int(data.get("right_direction", 1)) < 0 else 1
+        if "steering_direction" in data:
+            self.steering_direction = -1 if int(data.get("steering_direction", 1)) < 0 else 1
         if "left_max_speed" in data:
             self.left_max_speed = _clamp(float(data.get("left_max_speed", 1.0)), 0.0, 1.0)
         if "right_max_speed" in data:
@@ -121,6 +125,8 @@ class MotorService:
         throttle = _clamp(throttle, -1.0, 1.0)
         steering = _clamp(steering, -1.0, 1.0)
         steer_mix = _clamp(steer_mix, 0.0, 1.0)
+
+        steering *= -1.0 if int(self.steering_direction) < 0 else 1.0
 
         left = throttle - steer_mix * steering
         right = throttle + steer_mix * steering

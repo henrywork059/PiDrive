@@ -262,10 +262,10 @@
       <article class="dock-panel" data-panel="motor">
         <div class="panel-head">
           <span>Motor settings</span>
-          <span class="panel-mini">direction + bias</span>
+          <span class="panel-mini">direction + steering trim</span>
         </div>
         <div class="panel-body scroll-body">
-          <div class="small-note">Use this tab to fix reversed wiring and trim left/right balance. Applying settings stops the motors for safety and saves them to the runtime config.</div>
+          <div class="small-note">Use this tab to fix reversed wiring, choose whether steering left means car left or car right, and trim left/right balance. Applying settings stops the motors for safety and saves them to the runtime config.</div>
           <div class="field-grid two-col">
             <div class="field">
               <label for="leftDirection">Left motor direction</label>
@@ -279,6 +279,13 @@
               <select id="rightDirection">
                 <option value="1">Normal</option>
                 <option value="-1">Reverse</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="steeringDirection">Steering direction</label>
+              <select id="steeringDirection">
+                <option value="1">Normal (left = car left)</option>
+                <option value="-1">Reverse (left = car right)</option>
               </select>
             </div>
             <div class="field">

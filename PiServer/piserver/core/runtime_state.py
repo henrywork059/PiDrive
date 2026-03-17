@@ -28,6 +28,7 @@ class RuntimeState:
     motor_right: float = 0.0
     motor_left_direction: int = 1
     motor_right_direction: int = 1
+    motor_steering_direction: int = 1
     motor_left_max_speed: float = 1.0
     motor_right_max_speed: float = 1.0
     motor_left_bias: float = 0.0

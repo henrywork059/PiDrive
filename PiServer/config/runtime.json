@@ -2,5 +2,14 @@
   "active_algorithm": "manual",
   "max_throttle": 0.55,
   "steer_mix": 0.5,
-  "current_page": "manual"
+  "current_page": "manual",
+  "motor": {
+    "left_direction": 1,
+    "right_direction": 1,
+    "steering_direction": 1,
+    "left_max_speed": 1.0,
+    "right_max_speed": 1.0,
+    "left_bias": 0.0,
+    "right_bias": 0.0
+  }
 }

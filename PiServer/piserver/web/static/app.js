@@ -493,6 +493,7 @@ function readMotorForm() {
   return {
     left_direction: Number(document.getElementById("leftDirection").value || 1),
     right_direction: Number(document.getElementById("rightDirection").value || 1),
+    steering_direction: Number(document.getElementById("steeringDirection").value || 1),
     left_max_speed: Number(document.getElementById("leftMaxSpeed").value || 100) / 100,
     right_max_speed: Number(document.getElementById("rightMaxSpeed").value || 100) / 100,
     left_bias: Number(document.getElementById("leftBias").value || 0),
@@ -504,6 +505,7 @@ function fillMotorForm(config = {}) {
   state.motorConfig = config;
   document.getElementById("leftDirection").value = String(config.left_direction ?? 1);
   document.getElementById("rightDirection").value = String(config.right_direction ?? 1);
+  document.getElementById("steeringDirection").value = String(config.steering_direction ?? 1);
   document.getElementById("leftMaxSpeed").value = Math.round(Number(config.left_max_speed ?? 1.0) * 100);
   document.getElementById("rightMaxSpeed").value = Math.round(Number(config.right_max_speed ?? 1.0) * 100);
   document.getElementById("leftBias").value = Number(config.left_bias ?? 0).toFixed(2);
@@ -515,9 +517,10 @@ async function loadMotorConfig() {
   const data = await fetchJson("/api/motor/config");
   fillMotorForm(data.config || {});
   const cfg = data.config || {};
+  const steerMode = Number(cfg.steering_direction || 1) < 0 ? "reversed" : "normal";
   setBanner(
     "motorMessage",
-    `Saved motor settings loaded. Left ${Number(cfg.left_direction || 1) < 0 ? "reverse" : "normal"}, right ${Number(cfg.right_direction || 1) < 0 ? "reverse" : "normal"}.`,
+    `Saved motor settings loaded. Left ${Number(cfg.left_direction || 1) < 0 ? "reverse" : "normal"}, right ${Number(cfg.right_direction || 1) < 0 ? "reverse" : "normal"}, steering ${steerMode}.`,
     "muted"
   );
 }
@@ -935,6 +938,7 @@ function syncControlsFromStatus(data) {
     if (right) right.value = Math.round(Number(data.motor_right_max_speed || 1) * 100);
     document.getElementById("leftDirection").value = String(Number(data.motor_left_direction || 1) < 0 ? -1 : 1);
     document.getElementById("rightDirection").value = String(Number(data.motor_right_direction || 1) < 0 ? -1 : 1);
+    document.getElementById("steeringDirection").value = String(Number(data.motor_steering_direction || 1) < 0 ? -1 : 1);
     document.getElementById("leftBias").value = Number(data.motor_left_bias || 0).toFixed(2);
     document.getElementById("rightBias").value = Number(data.motor_right_bias || 0).toFixed(2);
   }

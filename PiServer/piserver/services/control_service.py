@@ -80,6 +80,7 @@ class ControlService:
         cfg = self.motor_service.get_config()
         self.state.motor_left_direction = int(cfg.get("left_direction", 1))
         self.state.motor_right_direction = int(cfg.get("right_direction", 1))
+        self.state.motor_steering_direction = int(cfg.get("steering_direction", 1))
         self.state.motor_left_max_speed = float(cfg.get("left_max_speed", 1.0))
         self.state.motor_right_max_speed = float(cfg.get("right_max_speed", 1.0))
         self.state.motor_left_bias = float(cfg.get("left_bias", 0.0))
