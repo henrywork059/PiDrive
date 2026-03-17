@@ -1,8 +1,13 @@
 # CustomDrive
 
-CustomDrive is a mission-controller scaffold for competition-style autonomous tasks.
+CustomDrive is a mission-controller package for competition-style autonomous tasks.
 
-It focuses on a repeatable mission loop:
+It runs the same finite-state mission loop in two mirrored modes:
+
+1. **No GUI (terminal-first)** for lowest overhead and quickest iteration.
+2. **Web GUI (PiServer-style)** for live observability and operator control.
+
+## Mission loop
 
 1. navigate to search area
 2. detect and align to target
@@ -40,7 +45,7 @@ CustomDrive/
 
 ```bash
 cd CustomDrive
-python run_custom_drive_demo.py
+python run_custom_drive_demo.py --mode sim --cycles 2
 ```
 
 This is the terminal-only runner and remains the fastest path for profiling logic without web overhead.
@@ -61,15 +66,38 @@ Then open `http://localhost:5050` to:
 
 Both the terminal and web entry points use the same `DemoMissionRuntime`, so behavior stays mirrored between GUI and no-GUI flows.
 
-## Integration intent
+```bash
+cd CustomDrive
+python run_custom_drive_demo.py --mode live --cycles 2
+```
 
-The scaffold is designed to be wired into an existing Pi camera/motor stack later via `picar_bridge.py` and real detection/perception adapters.
+## Run Web GUI
 
-## Current limitations
+### Simulation mode
 
-This package does not yet include:
+```bash
+cd CustomDrive
+python run_custom_drive_web.py
+```
 
-- real detector inference
-- real gripper/arm hardware driver
-- obstacle avoidance
-- odometry/IMU-based recovery
+Open `http://localhost:5050`.
+
+### Live mode
+
+```bash
+cd CustomDrive
+CUSTOMDRIVE_MODE=live python run_custom_drive_web.py
+```
+
+Open `http://localhost:5050` and verify:
+
+- mission state and command telemetry updates
+- video feed is live in the right panel
+- Start/Stop/Step/Reset controls work
+- Settings can be saved and reused in terminal mode
+
+## Notes
+
+- In `live` mode, perception uses camera frames and color-based object proposals for `he3` and `he3_zone` labels.
+- If camera/GPIO dependencies are unavailable, runtime falls back to `sim` safely.
+- Terminal and GUI entrypoints both run the same mission controller logic, so behaviour stays mirrored.
