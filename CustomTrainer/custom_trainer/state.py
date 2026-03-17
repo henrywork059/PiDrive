@@ -50,6 +50,14 @@ class AppState:
             return existing
         return default_dataset_yaml_path(self.sessions_root)
 
+    def preferred_runs_dir(self) -> Path:
+        if self.sessions_root is not None:
+            return self.sessions_root / 'runs'
+        session = self.current_session
+        if session is not None:
+            return session.session_dir / 'runs'
+        return Path('runs')
+
     def latest_best_weights(self) -> Path | None:
         search_roots: list[Path] = []
         if self.sessions_root is not None:

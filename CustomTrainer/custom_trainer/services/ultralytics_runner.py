@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import sys
-from pathlib import Path
 
 
 def _base_command(action: str) -> list[str]:
@@ -30,22 +29,35 @@ def build_train_command(*, model: str, data: str, epochs: int, imgsz: int, batch
     return command
 
 
-def build_val_command(*, weights: str, data: str, imgsz: int, device: str) -> list[str]:
+def build_val_command(*, weights: str, data: str, imgsz: int, device: str, project: str | None = None, name: str | None = None) -> list[str]:
     command = _base_command('val')
     _maybe_append(command, '--weights', weights)
     _maybe_append(command, '--data', data)
     _maybe_append(command, '--imgsz', imgsz)
     _maybe_append(command, '--device', device)
+    _maybe_append(command, '--project', project)
+    _maybe_append(command, '--name', name)
     return command
 
 
-def build_predict_command(*, weights: str, source: str, imgsz: int, conf: float, device: str) -> list[str]:
+def build_predict_command(
+    *,
+    weights: str,
+    source: str,
+    imgsz: int,
+    conf: float,
+    device: str,
+    project: str | None = None,
+    name: str | None = None,
+) -> list[str]:
     command = _base_command('predict')
     _maybe_append(command, '--weights', weights)
     _maybe_append(command, '--source', source)
     _maybe_append(command, '--imgsz', imgsz)
     _maybe_append(command, '--conf', conf)
     _maybe_append(command, '--device', device)
+    _maybe_append(command, '--project', project)
+    _maybe_append(command, '--name', name)
     return command
 
 

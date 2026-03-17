@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+from pathlib import Path
 from typing import Callable
 
 from PySide6.QtCore import QThread, Qt
@@ -34,6 +36,12 @@ class ValidatePage(QWidget):
         self.set_status = set_status
         self.thread: QThread | None = None
         self.worker: CommandWorker | None = None
+        self.current_task_kind = ''
+        self.last_preview_image_path: Path | None = None
+        self.last_preview_source = ''
+        self.last_prediction_summary: list[str] = []
+        self.last_metrics_text = ''
+        self.last_save_dir = ''
 
         self.weights_edit = QLineEdit(self)
         self.yaml_edit = QLineEdit(self)
@@ -62,6 +70,7 @@ class ValidatePage(QWidget):
         self.val_button.clicked.connect(self.start_val)
         self.predict_button.clicked.connect(self.start_predict)
         self.stop_button.clicked.connect(self.stop_task)
+        self.source_edit.textChanged.connect(self._reset_prediction_preview)
 
         self._build()
         self.refresh_devices(log_runtime=False)
@@ -191,19 +200,42 @@ class ValidatePage(QWidget):
             return
         self.weights_edit.setText(str(best))
         self.set_status('Loaded latest best.pt into Validation.')
+        self.refresh_preview()
+
+    def _current_source_text(self) -> str:
+        source_text = self.source_edit.text().strip()
+        if source_text:
+            return source_text
+        current = self.state.current_image_path
+        if current is not None:
+            return str(current)
+        return ''
+
+    def _render_pixmap(self, image_path: Path, empty_text: str) -> bool:
+        pixmap = QPixmap(str(image_path))
+        if pixmap.isNull():
+            self.preview_label.setPixmap(QPixmap())
+            self.preview_label.setText(empty_text)
+            return False
+        scaled = pixmap.scaled(self.preview_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        self.preview_label.setPixmap(scaled)
+        self.preview_label.setText('')
+        return True
+
+    def _reset_prediction_preview(self) -> None:
+        current_source = self.source_edit.text().strip()
+        if current_source != self.last_preview_source:
+            self.last_preview_image_path = None
+            self.last_prediction_summary = []
+            self.last_save_dir = ''
 
     def refresh_preview(self) -> None:
-        source_text = self.source_edit.text().strip()
-        if not source_text:
-            current = self.state.current_image_path
-            if current is not None:
-                source_text = str(current)
+        source_text = self._current_source_text()
         if not source_text:
             self.preview_label.setPixmap(QPixmap())
             self.preview_label.setText('No preview source selected.')
             self.preview_info.setText('Pick an image source, or use the current frame from Marking.')
             return
-        from pathlib import Path
         source_path = Path(source_text)
         if not source_path.exists():
             self.preview_label.setPixmap(QPixmap())
@@ -215,23 +247,44 @@ class ValidatePage(QWidget):
             self.preview_label.setText('Preview unavailable for non-image sources.')
             self.preview_info.setText(f'Source: {source_path.name}\nPreview is shown for image files only.')
             return
-        pixmap = QPixmap(str(source_path))
-        if pixmap.isNull():
-            self.preview_label.setPixmap(QPixmap())
-            self.preview_label.setText('Preview unavailable for this file.')
-        else:
-            scaled = pixmap.scaled(self.preview_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            self.preview_label.setPixmap(scaled)
-            self.preview_label.setText('')
-        self.preview_info.setText(
-            f'Source: {source_path.name}\n'
-            f'Weights: {self.weights_edit.text().strip() or "not set"}\n'
-            f'Dataset YAML: {self.yaml_edit.text().strip() or "not set"}'
+
+        showing_prediction = (
+            self.last_preview_image_path is not None
+            and self.last_preview_image_path.exists()
+            and source_text == self.last_preview_source
         )
+        display_path = self.last_preview_image_path if showing_prediction else source_path
+        self._render_pixmap(display_path, 'Preview unavailable for this file.')
+
+        info_lines = [
+            f'Source: {source_path.name}',
+            f'Weights: {self.weights_edit.text().strip() or "not set"}',
+            f'Dataset YAML: {self.yaml_edit.text().strip() or "not set"}',
+        ]
+        if self.last_metrics_text:
+            info_lines.append(f'Latest validation: {self.last_metrics_text}')
+        if showing_prediction:
+            info_lines.append('Showing model prediction overlay.')
+            info_lines.extend(self.last_prediction_summary[:6])
+            if self.last_save_dir:
+                info_lines.append(f'Saved to: {self.last_save_dir}')
+        else:
+            info_lines.append('Raw source preview. Run Prediction to render boxed detections here.')
+        self.preview_info.setText('\n'.join(info_lines))
+
+    def _prediction_output_args(self, prefix: str) -> tuple[str, str]:
+        project_dir = self.state.preferred_runs_dir() / 'detect'
+        run_name = f'{prefix}_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+        return str(project_dir), run_name
 
     def showEvent(self, event) -> None:
         super().showEvent(event)
         self.refresh_preview()
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        if self.isVisible():
+            self.refresh_preview()
 
     def start_val(self) -> None:
         if self.thread is not None:
@@ -245,12 +298,17 @@ class ValidatePage(QWidget):
         if not self.weights_edit.text().strip() or not self.yaml_edit.text().strip():
             QMessageBox.critical(self, 'Missing inputs', 'Choose weights and dataset.yaml first.')
             return
+        project_dir, run_name = self._prediction_output_args('val')
         command = build_val_command(
             weights=self.weights_edit.text().strip(),
             data=self.yaml_edit.text().strip(),
             imgsz=imgsz,
             device=self.current_device_value(),
+            project=project_dir,
+            name=run_name,
         )
+        self.current_task_kind = 'val'
+        self.last_metrics_text = ''
         self._launch(command, 'Validation started...')
 
     def start_predict(self) -> None:
@@ -263,16 +321,25 @@ class ValidatePage(QWidget):
         except ValueError:
             QMessageBox.critical(self, 'Invalid values', 'Image size must be integer and confidence must be numeric.')
             return
-        if not self.weights_edit.text().strip() or not self.source_edit.text().strip():
+        source_text = self._current_source_text()
+        if not self.weights_edit.text().strip() or not source_text:
             QMessageBox.critical(self, 'Missing inputs', 'Choose weights and a prediction source first.')
             return
+        project_dir, run_name = self._prediction_output_args('predict')
+        self.last_preview_source = source_text
+        self.last_preview_image_path = None
+        self.last_prediction_summary = []
+        self.last_save_dir = ''
         command = build_predict_command(
             weights=self.weights_edit.text().strip(),
-            source=self.source_edit.text().strip(),
+            source=source_text,
             imgsz=imgsz,
             conf=conf,
             device=self.current_device_value(),
+            project=project_dir,
+            name=run_name,
         )
+        self.current_task_kind = 'predict'
         self._launch(command, 'Prediction started...')
 
     def stop_task(self) -> None:
@@ -283,12 +350,35 @@ class ValidatePage(QWidget):
         self.status_note.setText('Stopping task...')
         self.set_status('Stopping validation/prediction task...')
 
+    def _handle_worker_line(self, line: str) -> None:
+        self.log(line)
+        if line.startswith('[preview-image] '):
+            preview_path = Path(line.removeprefix('[preview-image] ').strip())
+            self.last_preview_image_path = preview_path
+            self.refresh_preview()
+            return
+        if line.startswith('[predict] '):
+            self.last_prediction_summary = [line.removeprefix('[predict] ').strip()]
+            self.refresh_preview()
+            return
+        if line.startswith('[predict-box] '):
+            self.last_prediction_summary.append(line.removeprefix('[predict-box] ').strip())
+            self.refresh_preview()
+            return
+        if line.startswith('[metrics] '):
+            self.last_metrics_text = line.removeprefix('[metrics] ').strip()
+            self.refresh_preview()
+            return
+        if line.startswith('[save-dir] '):
+            self.last_save_dir = line.removeprefix('[save-dir] ').strip()
+            self.refresh_preview()
+
     def _launch(self, command: list[str], status_message: str) -> None:
         self.thread = QThread(self)
         self.worker = CommandWorker(command)
         self.worker.moveToThread(self.thread)
         self.thread.started.connect(self.worker.run)
-        self.worker.line.connect(self.log)
+        self.worker.line.connect(self._handle_worker_line)
         self.worker.finished.connect(self._on_finished)
         self.worker.finished.connect(self.thread.quit)
         self.thread.finished.connect(self.thread.deleteLater)
@@ -304,9 +394,17 @@ class ValidatePage(QWidget):
         self.val_button.setEnabled(True)
         self.predict_button.setEnabled(True)
         self.stop_button.setEnabled(False)
-        self.status_note.setText(f'Finished with exit code {exit_code}.')
-        self.set_status(f'Validation or prediction finished with exit code {exit_code}.')
+        if self.current_task_kind == 'predict' and exit_code == 0 and self.last_preview_image_path is not None:
+            message = 'Prediction finished. Preview updated with boxed detections.'
+        elif self.current_task_kind == 'val' and exit_code == 0 and self.last_metrics_text:
+            message = f'Validation finished. {self.last_metrics_text}'
+        else:
+            message = f'Validation or prediction finished with exit code {exit_code}.'
+        self.status_note.setText(message)
+        self.set_status(message)
+        self.refresh_preview()
 
     def _clear_thread(self) -> None:
         self.thread = None
         self.worker = None
+        self.current_task_kind = ''
