@@ -2,15 +2,10 @@
 
 CustomDrive is a mission-controller package for competition-style autonomous tasks.
 
-It now supports **two launch modes** that share the same saved run settings file:
+It now runs the same finite-state mission loop in two mirrored modes:
 
-1. **GUI mode** for browser-based monitoring and control.
-2. **Headless mode** for running without any display.
-
-Inside either launch mode, the runtime backend can still be either:
-
-- **Simulation (`sim`)** for fast PC-side testing.
-- **Live (`live`)** using the existing **PiServer** camera + motor services.
+1. **Simulation (`sim`)** for fast PC-side state-machine testing.
+2. **Live (`live`)** using the existing **PiServer** camera + motor services, with simple color-based perception and the same mission loop.
 
 ## Mission loop
 
@@ -28,9 +23,8 @@ Inside either launch mode, the runtime backend can still be either:
 - real camera frame polling in live mode
 - real drive output through the PiServer motor mixer
 - configurable color-based perception for `he3` and `he3_zone`
-- web GUI with live JPEG camera view + detection overlay
+- web monitor with live JPEG camera view + detection overlay
 - shared runtime settings file for camera / motor / mission perception tuning
-- shared **run settings** file used by both GUI mode and headless mode
 
 ## What is still placeholder / optional
 
@@ -45,10 +39,7 @@ Inside either launch mode, the runtime backend can still be either:
 CustomDrive/
 ├── run_custom_drive_demo.py
 ├── run_custom_drive_web.py
-├── run_custom_drive_headless.py
-├── run_custom_drive_gui.py
 ├── config/runtime_settings.json
-├── config/run_settings.json
 ├── custom_drive/
 │   ├── config.py
 │   ├── models.py
@@ -63,7 +54,6 @@ CustomDrive/
 │   ├── demo_runtime.py
 │   ├── live_runtime.py
 │   ├── runtime_settings.py
-│   ├── run_settings.py
 │   ├── web_app.py
 │   └── web/
 └── PATCH_NOTES/
@@ -86,88 +76,57 @@ For **live mode**, make sure the Pi also has the camera/runtime dependencies ava
 - Picamera2 on Raspberry Pi OS when using the Pi camera
 - RPi.GPIO when using live motor output
 
-## Launch mode 1: headless
+## Run terminal mode
 
-Headless mode runs without displaying a GUI.
-
-```bash
-cd CustomDrive
-python run_custom_drive_headless.py
-```
-
-Compatibility launcher:
-
-```bash
-python run_custom_drive_demo.py
-```
-
-Optional overrides:
-
-```bash
-python run_custom_drive_headless.py --mode live --cycles 2 --tick 0.1
-```
-
-If you do not pass overrides, the runner uses:
-
-```text
-CustomDrive/config/run_settings.json
-```
-
-## Launch mode 2: GUI
-
-GUI mode starts the browser monitor.
+### Simulation
 
 ```bash
 cd CustomDrive
-python run_custom_drive_gui.py
+python run_custom_drive_demo.py --mode sim --cycles 2
 ```
 
-Compatibility launcher:
+### Live
 
 ```bash
-python run_custom_drive_web.py
+cd CustomDrive
+python run_custom_drive_demo.py --mode live --cycles 2
 ```
 
-Optional override:
+Notes:
+
+- `live` mode uses the same state machine, but swaps in PiServer camera/motor services.
+- if the camera backend cannot start, the runtime still stays up and reports the camera error in status output
+- without a real arm bound, pickup/release still fails by default unless you enable `runtime.allow_virtual_grab_without_arm`
+
+## Run web GUI
+
+### Simulation
 
 ```bash
-python run_custom_drive_gui.py --mode sim
+cd CustomDrive
+python run_custom_drive_web.py --mode sim
+```
+
+### Live
+
+```bash
+cd CustomDrive
+python run_custom_drive_web.py --mode live
 ```
 
 Then open `http://localhost:5050`.
 
-The GUI now shows:
+The web GUI now shows:
 
 - mission state and drive telemetry
 - detection overlays
 - live JPEG camera preview in `live` mode
+- fallback reason if live mode could not be created
 - robot action logs
-- a **Saved Run Settings** panel that edits the shared run settings file
-
-## Saved run settings
-
-CustomDrive now stores launch/run defaults in:
-
-```text
-CustomDrive/config/run_settings.json
-```
-
-That file is shared by both:
-
-- GUI mode
-- headless mode
-
-Current keys:
-
-- `runtime_mode`: `sim` or `live`
-- `max_cycles`: default pickup/drop cycles
-- `headless_tick_s`: default loop delay for headless mode
-- `gui_tick_s`: default GUI auto-run loop delay
-- `auto_start_gui`: auto-start mission when GUI opens
 
 ## Runtime settings
 
-Hardware and perception tuning still live in:
+CustomDrive stores settings in:
 
 ```text
 CustomDrive/config/runtime_settings.json

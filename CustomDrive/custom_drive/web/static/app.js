@@ -12,15 +12,11 @@ function fmt(n, digits = 2) {
   return Number.isFinite(value) ? value.toFixed(digits) : '0.00';
 }
 
-let runSettingsLoaded = false;
-
 function renderStatus(status) {
   const s = document.getElementById('status');
   const camera = status.camera || {};
-  const runSettings = status.run_settings || {};
   s.innerHTML = `
-    <div><b>Launch mode:</b> GUI</div>
-    <div><b>Runtime backend:</b> ${status.mode} (requested: ${status.mode_requested || status.mode})</div>
+    <div><b>Mode:</b> ${status.mode} (requested: ${status.mode_requested || status.mode})</div>
     <div><b>Running:</b> ${status.running}</div>
     <div><b>State:</b> ${status.state}</div>
     <div><b>Detail:</b> ${status.detail}</div>
@@ -31,7 +27,6 @@ function renderStatus(status) {
     <div><b>Camera:</b> ${camera.backend || '-'} | live=${camera.preview_live ?? false} | fps=${fmt(camera.fps || 0, 1)}</div>
     <div><b>Perception:</b> ${status.perception_ready ?? true} ${status.perception_message ? `| ${status.perception_message}` : ''}</div>
     <div><b>Arm bound:</b> ${status.arm_bound ?? false} | <b>Virtual grab:</b> ${status.virtual_grab ?? false}</div>
-    <div><b>Saved run defaults:</b> backend=${runSettings.runtime_mode || '-'} | cycles=${runSettings.max_cycles ?? '-'} | headless_tick=${fmt(runSettings.headless_tick_s || 0.2)} | gui_tick=${fmt(runSettings.gui_tick_s || 0.2)}</div>
     ${status.fallback_reason ? `<div><b>Mode note:</b> ${status.fallback_reason}</div>` : ''}
     ${camera.error ? `<div><b>Camera error:</b> ${camera.error}</div>` : ''}
   `;
@@ -42,11 +37,6 @@ function renderStatus(status) {
   ).join('\n');
 
   renderViewer(status);
-
-  if (!runSettingsLoaded && status.run_settings) {
-    populateRunSettingsForm(status.run_settings);
-    runSettingsLoaded = true;
-  }
 }
 
 function renderViewer(status) {
@@ -97,58 +87,6 @@ function renderViewer(status) {
   }
 }
 
-function populateRunSettingsForm(settings) {
-  document.getElementById('savedRuntimeMode').value = settings.runtime_mode || 'sim';
-  document.getElementById('savedMaxCycles').value = settings.max_cycles ?? 2;
-  document.getElementById('savedHeadlessTick').value = settings.headless_tick_s ?? 0.2;
-  document.getElementById('savedGuiTick').value = settings.gui_tick_s ?? 0.2;
-  document.getElementById('savedAutoStartGui').checked = Boolean(settings.auto_start_gui);
-
-  document.getElementById('maxCycles').value = settings.max_cycles ?? 2;
-  document.getElementById('tickSeconds').value = settings.gui_tick_s ?? 0.2;
-}
-
-function collectRunSettingsForm() {
-  return {
-    runtime_mode: document.getElementById('savedRuntimeMode').value || 'sim',
-    max_cycles: Number(document.getElementById('savedMaxCycles').value || 2),
-    headless_tick_s: Number(document.getElementById('savedHeadlessTick').value || 0.2),
-    gui_tick_s: Number(document.getElementById('savedGuiTick').value || 0.2),
-    auto_start_gui: document.getElementById('savedAutoStartGui').checked,
-  };
-}
-
-function setSaveMessage(message, isError = false) {
-  const el = document.getElementById('saveMessage');
-  el.textContent = message || '';
-  el.classList.toggle('error', Boolean(isError));
-}
-
-async function loadRunSettings() {
-  const res = await fetch('/api/run-settings');
-  const data = await res.json();
-  if (data.ok && data.run_settings) {
-    populateRunSettingsForm(data.run_settings);
-    runSettingsLoaded = true;
-    setSaveMessage('Saved run settings reloaded.');
-  }
-}
-
-async function saveRunSettings() {
-  const payload = collectRunSettingsForm();
-  const data = await postJSON('/api/run-settings', payload);
-  if (data.ok) {
-    if (data.run_settings) {
-      populateRunSettingsForm(data.run_settings);
-      runSettingsLoaded = true;
-    }
-    setSaveMessage(data.message || 'Run settings saved.');
-    await refresh();
-  } else {
-    setSaveMessage(data.message || 'Failed to save run settings.', true);
-  }
-}
-
 async function refresh() {
   const res = await fetch('/api/status');
   const status = await res.json();
@@ -173,8 +111,6 @@ document.getElementById('resetBtn').onclick = async () => {
   await postJSON('/api/reset', { max_cycles });
   await refresh();
 };
-document.getElementById('saveRunSettingsBtn').onclick = saveRunSettings;
-document.getElementById('reloadRunSettingsBtn').onclick = loadRunSettings;
 
 setInterval(refresh, 500);
-loadRunSettings().then(refresh);
+refresh();

@@ -11,6 +11,7 @@ from .fake_robot import FakeRobot
 from .mission_controller import MissionController
 from .mission_state import MissionState
 from .models import BoundingBox, Detection, FramePerception
+from .runtime_settings import load_settings, save_settings
 
 FRAME_W = 640
 FRAME_H = 360
@@ -65,8 +66,11 @@ def scripted_perception(controller: MissionController) -> FramePerception:
 
 
 class DemoMissionRuntime:
+    mode = "sim"
+
     def __init__(self, max_cycles: int = 2):
         self.max_cycles = max_cycles
+        self.settings = load_settings()
         self.tick_s = 0.2
         self._lock = threading.RLock()
         self._thread: Optional[threading.Thread] = None
@@ -114,8 +118,28 @@ class DemoMissionRuntime:
             self._thread = threading.Thread(target=self._background_loop, name="customdrive-demo", daemon=True)
             self._thread.start()
 
-    def stop_background(self) -> None:
+    def stop_background(self, join: bool = False) -> None:
         self._stop_event.set()
+        thread = self._thread
+        if join and thread and thread.is_alive() and thread is not threading.current_thread():
+            thread.join(timeout=1.0)
+
+    def close(self) -> None:
+        self.stop_background(join=True)
+
+    def get_settings(self) -> dict[str, Any]:
+        return dict(self.settings)
+
+    def save_settings(self, data: dict[str, Any] | None) -> dict[str, Any]:
+        merged = dict(self.settings)
+        if isinstance(data, dict):
+            for key, value in data.items():
+                if isinstance(value, dict) and isinstance(merged.get(key), dict):
+                    merged[key].update(value)
+                else:
+                    merged[key] = value
+        self.settings = save_settings(merged)
+        return dict(self.settings)
 
     def _background_loop(self) -> None:
         while not self._stop_event.is_set():
@@ -143,6 +167,7 @@ class DemoMissionRuntime:
 
         recent_logs = [asdict(item) for item in self.robot.history[-25:]]
         return {
+            "mode": self.mode,
             "state": snapshot.state,
             "detail": snapshot.detail,
             "retries": snapshot.retries,

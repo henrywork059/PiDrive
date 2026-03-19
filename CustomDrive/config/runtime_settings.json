@@ -19,6 +19,51 @@
   "runtime": {
     "steer_mix": 0.75,
     "tick_s_live": 0.1,
-    "tick_s_sim": 0.2
+    "tick_s_sim": 0.2,
+    "allow_virtual_grab_without_arm": false
+  },
+  "perception": {
+    "enabled": true,
+    "blur_kernel": 5,
+    "open_iterations": 1,
+    "close_iterations": 1,
+    "min_box_area_ratio": 0.0025,
+    "max_detections_per_label": 3,
+    "labels": {
+      "he3": {
+        "ranges": [
+          {
+            "lower": [
+              5,
+              100,
+              90
+            ],
+            "upper": [
+              35,
+              255,
+              255
+            ]
+          }
+        ],
+        "min_box_area_ratio": 0.0025
+      },
+      "he3_zone": {
+        "ranges": [
+          {
+            "lower": [
+              90,
+              80,
+              70
+            ],
+            "upper": [
+              135,
+              255,
+              255
+            ]
+          }
+        ],
+        "min_box_area_ratio": 0.004
+      }
+    }
   }
 }
