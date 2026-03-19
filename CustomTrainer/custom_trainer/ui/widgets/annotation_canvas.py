@@ -3,9 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Callable
 
-from PySide6.QtCore import QPointF, QRectF, Qt, Signal
+from PySide6.QtCore import QPointF, QRectF, QSize, Qt, Signal
 from PySide6.QtGui import QColor, QKeyEvent, QMouseEvent, QPainter, QPaintEvent, QPen, QPixmap
-from PySide6.QtWidgets import QWidget
+from PySide6.QtWidgets import QSizePolicy, QWidget
 
 from custom_trainer.services.yolo_io import PixelBox
 
@@ -28,9 +28,16 @@ class AnnotationCanvas(QWidget):
         self.selected_index: int | None = None
         self.drag_start: QPointF | None = None
         self.drag_end: QPointF | None = None
-        self.setMinimumSize(720, 540)
+        self.setMinimumSize(360, 240)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.setFocusPolicy(Qt.StrongFocus)
         self.setMouseTracking(True)
+
+    def minimumSizeHint(self) -> QSize:
+        return QSize(360, 240)
+
+    def sizeHint(self) -> QSize:
+        return QSize(960, 720)
 
     def clear_scene(self) -> None:
         self.image_path = None

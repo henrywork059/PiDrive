@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from pathlib import Path
 from typing import Callable
 
 from PySide6.QtCore import QThread, Qt
@@ -16,12 +17,14 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
 
+from custom_trainer.services.dataset_service import ensure_dataset_yaml
 from custom_trainer.services.device_service import probe_runtime
-from custom_trainer.services.ultralytics_runner import build_train_command
+from custom_trainer.services.ultralytics_runner import build_train_command, runner_working_directory
 from custom_trainer.state import AppState
 from custom_trainer.ui.qt_helpers import CommandWorker
 
@@ -54,11 +57,14 @@ class TrainPage(QWidget):
         self.stop_button.setEnabled(False)
         self.preview_label = QLabel('No frame preview yet.', self)
         self.preview_label.setAlignment(Qt.AlignCenter)
-        self.preview_label.setMinimumSize(420, 280)
+        self.preview_label.setMinimumSize(360, 240)
         self.preview_label.setStyleSheet('background: #0d1118; border: 1px solid #263244;')
         self.preview_info = QLabel('Open Marking and select a frame to mirror a quick preview here.', self)
         self.preview_info.setWordWrap(True)
         self.preview_info.setProperty('role', 'muted')
+        self.run_log_output = QPlainTextEdit(self)
+        self.run_log_output.setReadOnly(True)
+        self.run_log_output.setPlaceholderText('Training command and runtime log will appear here...')
 
         self.start_button.clicked.connect(self.start_training)
         self.stop_button.clicked.connect(self.stop_training)
@@ -104,6 +110,21 @@ class TrainPage(QWidget):
         preview_layout.addWidget(self.preview_label, 1)
         preview_layout.addWidget(self.preview_info)
 
+        run_log_box = QGroupBox('Run Log', self)
+        run_log_layout = QVBoxLayout(run_log_box)
+        run_log_actions = QHBoxLayout()
+        clear_log_button = QPushButton('Clear Log', run_log_box)
+        clear_log_button.clicked.connect(self.run_log_output.clear)
+        run_log_actions.addStretch(1)
+        run_log_actions.addWidget(clear_log_button)
+        run_log_layout.addLayout(run_log_actions)
+        run_log_layout.addWidget(self.run_log_output, 1)
+
+        monitor_tabs = QTabWidget(self)
+        monitor_tabs.setDocumentMode(True)
+        monitor_tabs.addTab(preview_box, 'Preview')
+        monitor_tabs.addTab(run_log_box, 'Run Log')
+
         info_box = QGroupBox('Workflow Notes', self)
         info_text = QPlainTextEdit(self)
         info_text.setReadOnly(True)
@@ -112,7 +133,9 @@ class TrainPage(QWidget):
             '2. Point this page to the dataset.yaml for your YOLO dataset.\n'
             '3. Use Auto or CUDA:0 to train on GPU when your Python environment has CUDA-enabled PyTorch.\n'
             '4. Use Stop Training to terminate a run cleanly from the GUI.\n'
-            '5. After training, Validation and Export can auto-pick the latest best.pt.'
+            '5. The Run Log tab shows the exact training command, working folder, and runtime output.\n'
+            '6. If dataset.yaml is missing but a sessions root is loaded, the app will try to create one automatically.\n'
+            '7. After training, Validation and Export can auto-pick the latest best.pt.'
         )
         info_layout = QVBoxLayout(info_box)
         info_layout.addWidget(info_text)
@@ -121,7 +144,7 @@ class TrainPage(QWidget):
         root.addWidget(config_box)
         root.addWidget(action_box)
         root.addWidget(status_box)
-        root.addWidget(preview_box, 1)
+        root.addWidget(monitor_tabs, 1)
         root.addWidget(info_box, 1)
 
     def _path_row(self, line_edit: QLineEdit, handler: Callable[[], None]) -> QWidget:
@@ -141,6 +164,9 @@ class TrainPage(QWidget):
         layout.addWidget(self.device_combo, 1)
         return container
 
+    def _append_run_log(self, message: str) -> None:
+        self.run_log_output.appendPlainText(message)
+
     def refresh_devices(self, *, log_runtime: bool) -> None:
         probe = probe_runtime()
         current = self.device_combo.currentText().strip()
@@ -157,7 +183,9 @@ class TrainPage(QWidget):
         self.device_combo.blockSignals(False)
         self.device_summary.setText(probe.summary)
         if log_runtime:
-            self.log(f'[device] {probe.summary}')
+            message = f'[device] {probe.summary}'
+            self._append_run_log(message)
+            self.log(message)
             self.set_status('Device list refreshed.')
 
     def current_device_value(self) -> str:
@@ -220,12 +248,33 @@ class TrainPage(QWidget):
         super().showEvent(event)
         self.refresh_preview()
 
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        if self.isVisible():
+            self.refresh_preview()
+
+    def _ensure_training_yaml(self) -> Path | None:
+        yaml_text = self.yaml_edit.text().strip()
+        yaml_path = Path(yaml_text).expanduser() if yaml_text else None
+        if yaml_path is not None and yaml_path.exists() and yaml_path.is_file():
+            return yaml_path
+        ensured_path, _created = ensure_dataset_yaml(self.state.sessions_root, self.state.class_names)
+        if ensured_path is not None and ensured_path.exists() and ensured_path.is_file():
+            self.yaml_edit.setText(str(ensured_path))
+            return ensured_path
+        return None
+
     def start_training(self) -> None:
         if self.thread is not None:
             QMessageBox.information(self, 'Training running', 'A training process is already running.')
             return
-        if not self.yaml_edit.text().strip():
-            QMessageBox.critical(self, 'Missing dataset.yaml', 'Choose dataset.yaml first.')
+        yaml_path = self._ensure_training_yaml()
+        if yaml_path is None:
+            QMessageBox.critical(
+                self,
+                'Missing dataset.yaml',
+                'Choose dataset.yaml first, or load a valid sessions root so the app can generate one automatically.',
+            )
             return
         try:
             epochs = int(self.epochs_edit.text())
@@ -234,17 +283,25 @@ class TrainPage(QWidget):
         except ValueError:
             QMessageBox.critical(self, 'Invalid numbers', 'Epochs, image size, and batch must be integers.')
             return
+        model_text = self.model_edit.text().strip() or 'yolov8n.pt'
+        if any(sep in model_text for sep in ('/', '\\')) and not Path(model_text).expanduser().exists():
+            QMessageBox.critical(self, 'Model not found', f'The selected model path does not exist:\n{model_text}')
+            return
+        project_dir = self.project_edit.text().strip() or str(self.state.preferred_runs_dir())
+        self.project_edit.setText(project_dir)
+        run_name = self.name_edit.text().strip() or f'train_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+        self.name_edit.setText(run_name)
         command = build_train_command(
-            model=self.model_edit.text().strip(),
-            data=self.yaml_edit.text().strip(),
+            model=model_text,
+            data=str(yaml_path),
             epochs=epochs,
             imgsz=imgsz,
             batch=batch,
             device=self.current_device_value(),
-            project=self.project_edit.text().strip(),
-            name=self.name_edit.text().strip(),
+            project=project_dir,
+            name=run_name,
         )
-        self._launch(command, 'Training started...')
+        self._launch(command, 'Training started...', cwd=runner_working_directory())
 
     def stop_training(self) -> None:
         if self.worker is None:
@@ -254,11 +311,14 @@ class TrainPage(QWidget):
         self.status_note.setText('Stopping training...')
         self.set_status('Stopping training...')
 
-    def _launch(self, command: list[str], status_message: str) -> None:
+    def _launch(self, command: list[str], status_message: str, *, cwd: Path) -> None:
+        self.run_log_output.clear()
+        self._append_run_log(f'[cwd] {cwd}')
         self.thread = QThread(self)
-        self.worker = CommandWorker(command)
+        self.worker = CommandWorker(command, cwd=cwd)
         self.worker.moveToThread(self.thread)
         self.thread.started.connect(self.worker.run)
+        self.worker.line.connect(self._append_run_log)
         self.worker.line.connect(self.log)
         self.worker.finished.connect(self._on_finished)
         self.worker.finished.connect(self.thread.quit)

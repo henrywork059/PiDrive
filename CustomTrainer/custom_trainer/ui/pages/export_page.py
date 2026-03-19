@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
 )
 
 from custom_trainer.services.device_service import probe_runtime
-from custom_trainer.services.ultralytics_runner import build_export_command
+from custom_trainer.services.ultralytics_runner import runner_working_directory, build_export_command
 from custom_trainer.state import AppState
 from custom_trainer.ui.qt_helpers import CommandWorker
 
@@ -212,7 +212,7 @@ class ExportPage(QWidget):
             data=data,
         )
         self.thread = QThread(self)
-        self.worker = CommandWorker(command)
+        self.worker = CommandWorker(command, cwd=runner_working_directory())
         self.worker.moveToThread(self.thread)
         self.thread.started.connect(self.worker.run)
         self.worker.line.connect(self.log)

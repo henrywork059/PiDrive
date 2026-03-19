@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QKeySequence, QShortcut
+from PySide6.QtCore import QTimer, Qt
+from PySide6.QtGui import QGuiApplication, QKeySequence, QShortcut
 from PySide6.QtWidgets import QDockWidget, QMainWindow, QMessageBox, QStatusBar, QTabWidget
 
 from custom_trainer.state import AppState
@@ -15,8 +15,10 @@ from custom_trainer.ui.widgets.log_panel import LogPanel
 class CustomTrainerMainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle('CustomTrainer 0_1_12')
-        self.resize(1560, 980)
+        self.setWindowTitle('CustomTrainer 0_1_10')
+        self.resize(1500, 920)
+        self.setMinimumSize(960, 680)
+        self._startup_geometry_applied = False
         self.state = AppState()
 
         self.tabs = QTabWidget(self)
@@ -39,6 +41,8 @@ class CustomTrainerMainWindow(QMainWindow):
         self.log_dock = QDockWidget('Log Console', self)
         self.log_dock.setWidget(self.log_panel)
         self.log_dock.setAllowedAreas(Qt.BottomDockWidgetArea | Qt.RightDockWidgetArea)
+        self.log_dock.setFeatures(QDockWidget.DockWidgetMovable | QDockWidget.DockWidgetFloatable)
+        self.log_dock.setMinimumHeight(96)
         self.addDockWidget(Qt.BottomDockWidgetArea, self.log_dock)
 
         self.status = QStatusBar(self)
@@ -46,6 +50,28 @@ class CustomTrainerMainWindow(QMainWindow):
         self.setStatusBar(self.status)
         self.set_status_message('Ready')
         self._setup_shortcuts()
+        self._schedule_startup_geometry_fix()
+
+
+    def _schedule_startup_geometry_fix(self) -> None:
+        QTimer.singleShot(0, self._apply_startup_geometry)
+
+    def _apply_startup_geometry(self) -> None:
+        if self._startup_geometry_applied:
+            return
+        self._startup_geometry_applied = True
+        screen = self.screen() or QGuiApplication.primaryScreen()
+        if screen is None:
+            return
+        available = screen.availableGeometry()
+        margin_w = 80
+        margin_h = 80
+        target_width = max(960, min(1500, available.width() - margin_w))
+        target_height = max(680, min(920, available.height() - margin_h))
+        self.resize(target_width, target_height)
+        self.move(available.x() + max(0, (available.width() - target_width) // 2), available.y() + max(0, (available.height() - target_height) // 2))
+        log_height = max(96, min(180, available.height() // 5))
+        self.resizeDocks([self.log_dock], [log_height], Qt.Vertical)
 
     def _setup_shortcuts(self) -> None:
         for idx in range(self.tabs.count()):

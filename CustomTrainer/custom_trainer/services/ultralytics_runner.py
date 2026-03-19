@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 
 
 def _base_command(action: str) -> list[str]:
     return [sys.executable, '-m', 'custom_trainer.services.ultralytics_cli', action]
+
+
+def runner_working_directory() -> Path:
+    return Path(__file__).resolve().parents[2]
 
 
 def _maybe_append(command: list[str], flag: str, value: str | int | float | None) -> None:
