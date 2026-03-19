@@ -71,6 +71,23 @@ def _print_metrics(result: object) -> None:
         print('[metrics] ' + ' | '.join(pieces), flush=True)
 
 
+def _bool_arg(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    text = str(value).strip().lower()
+    return text not in {'0', 'false', 'no', 'off', ''}
+
+
+def _ensure_output_path(output_dir: Path, source_name: str, index: int) -> Path:
+    source_path = Path(source_name)
+    stem = source_path.stem or f'frame_{index:05d}'
+    suffix = source_path.suffix or '.jpg'
+    target = output_dir / f'{stem}{suffix}'
+    if not target.exists():
+        return target
+    return output_dir / f'{stem}_{index:05d}{suffix}'
+
+
 def cmd_train(args: argparse.Namespace) -> int:
     YOLO = _ensure_ultralytics()
     model = YOLO(args.model)
@@ -109,25 +126,31 @@ def cmd_val(args: argparse.Namespace) -> int:
 def cmd_predict(args: argparse.Namespace) -> int:
     YOLO = _ensure_ultralytics()
     model = YOLO(args.weights)
+    output_dir = Path(args.project or 'runs/detect') / (args.name or 'predict')
+    output_dir.mkdir(parents=True, exist_ok=True)
+    print(f'[save-dir] {output_dir}', flush=True)
+    source_path = Path(args.source)
     results = model.predict(
         source=args.source,
         imgsz=args.imgsz,
         conf=args.conf,
         device=_resolved_device(args.device),
-        save=True,
+        save=False,
         verbose=True,
-        project=args.project or None,
-        name=args.name or None,
+        stream=True,
     )
-    source_path = Path(args.source)
-    for result in results:
+    show_labels = _bool_arg(args.show_labels)
+    show_conf = _bool_arg(args.show_conf)
+    show_boxes = _bool_arg(args.show_boxes)
+    for index, result in enumerate(results, start=1):
+        result_path = Path(getattr(result, 'path', source_path))
         boxes = getattr(result, 'boxes', None)
         box_count = int(len(boxes)) if boxes is not None else 0
-        image_name = Path(getattr(result, 'path', source_path)).name
+        image_name = result_path.name
         print(f'[predict] {image_name} -> {box_count} box(es)', flush=True)
         if boxes is not None:
             names = getattr(result, 'names', {}) or {}
-            for index, box in enumerate(boxes, start=1):
+            for box_index, box in enumerate(boxes, start=1):
                 try:
                     xyxy = [int(round(float(v))) for v in box.xyxy[0].tolist()]
                 except Exception:
@@ -141,14 +164,19 @@ def cmd_predict(args: argparse.Namespace) -> int:
                 except Exception:
                     cls_id = -1
                 label = names.get(cls_id, str(cls_id))
-                print(f'[predict-box] #{index} {label} conf={conf:.3f} xyxy={xyxy}', flush=True)
-        save_dir = getattr(result, 'save_dir', None)
-        if save_dir:
-            print(f'[save-dir] {save_dir}', flush=True)
-            if source_path.suffix.lower() in _IMAGE_SUFFIXES:
-                preview_path = Path(save_dir) / source_path.name
-                if preview_path.exists():
-                    print(f'[preview-image] {preview_path}', flush=True)
+                print(f'[predict-box] #{box_index} {label} conf={conf:.3f} xyxy={xyxy}', flush=True)
+        if result_path.suffix.lower() in _IMAGE_SUFFIXES or source_path.is_dir():
+            save_path = _ensure_output_path(output_dir, result_path.name, index)
+            result.plot(
+                conf=show_conf,
+                line_width=args.line_width,
+                font_size=args.font_size,
+                labels=show_labels,
+                boxes=show_boxes,
+                save=True,
+                filename=str(save_path),
+            )
+            print(f'[preview-image] {save_path}', flush=True)
     return 0
 
 
@@ -204,6 +232,11 @@ def build_parser() -> argparse.ArgumentParser:
     predict.add_argument('--device', default='auto')
     predict.add_argument('--project', default='')
     predict.add_argument('--name', default='')
+    predict.add_argument('--line-width', type=int, default=None)
+    predict.add_argument('--font-size', type=int, default=None)
+    predict.add_argument('--show-labels', default='1')
+    predict.add_argument('--show-conf', default='1')
+    predict.add_argument('--show-boxes', default='1')
     predict.set_defaults(func=cmd_predict)
 
     export = sub.add_parser('export')

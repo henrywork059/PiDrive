@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Callable
 
-from PySide6.QtCore import QThread
+from PySide6.QtCore import QThread, Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -15,12 +15,14 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
+    QSplitter,
     QVBoxLayout,
     QWidget,
 )
 
 from custom_trainer.services.device_service import probe_runtime
-from custom_trainer.services.ultralytics_runner import runner_working_directory, build_export_command
+from custom_trainer.services.ui_state_service import get_splitter_state, set_splitter_state
+from custom_trainer.services.ultralytics_runner import build_export_command, runner_working_directory
 from custom_trainer.state import AppState
 from custom_trainer.ui.qt_helpers import CommandWorker
 
@@ -53,6 +55,9 @@ class ExportPage(QWidget):
         self.export_button = QPushButton('Export Model', self)
         self.stop_button = QPushButton('Stop Export', self)
         self.stop_button.setEnabled(False)
+        self.run_log_output = QPlainTextEdit(self)
+        self.run_log_output.setReadOnly(True)
+        self.run_log_output.setPlaceholderText('Export log will appear here...')
         self.export_button.clicked.connect(self.start_export)
         self.stop_button.clicked.connect(self.stop_export)
 
@@ -90,6 +95,16 @@ class ExportPage(QWidget):
         status_layout = QVBoxLayout(status_box)
         status_layout.addWidget(self.status_note)
 
+        run_log_box = QGroupBox('Run Log', self)
+        run_log_layout = QVBoxLayout(run_log_box)
+        clear_log_layout = QHBoxLayout()
+        clear_log_layout.addStretch(1)
+        clear_log_button = QPushButton('Clear Log', run_log_box)
+        clear_log_button.clicked.connect(self.run_log_output.clear)
+        clear_log_layout.addWidget(clear_log_button)
+        run_log_layout.addLayout(clear_log_layout)
+        run_log_layout.addWidget(self.run_log_output, 1)
+
         info_box = QGroupBox('Pi Export Notes', self)
         info = QPlainTextEdit(self)
         info.setReadOnly(True)
@@ -101,17 +116,53 @@ class ExportPage(QWidget):
             '- device: Auto for desktop export, CPU for safest Pi-side compatibility\n\n'
             'Useful additions in this build:\n'
             '- Use Latest best.pt to grab your newest training result quickly\n'
-            '- Stop Export to terminate a long export task from the GUI\n\n'
+            '- Stop Export to terminate a long export task from the GUI\n'
+            '- Run Log captures the export command output directly on this page\n\n'
             'Use dataset.yaml when exporting INT8 so calibration data is available.'
         )
         info_layout = QVBoxLayout(info_box)
         info_layout.addWidget(info)
 
+        left_panel = QWidget(self)
+        left_layout = QVBoxLayout(left_panel)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.addWidget(config_box)
+        left_layout.addWidget(action_box)
+        left_layout.addWidget(status_box)
+        left_layout.addStretch(1)
+
+        self.side_splitter = QSplitter(Qt.Vertical, self)
+        self.side_splitter.addWidget(run_log_box)
+        self.side_splitter.addWidget(info_box)
+        self.side_splitter.setStretchFactor(0, 3)
+        self.side_splitter.setStretchFactor(1, 2)
+        self.side_splitter.setSizes([360, 260])
+
+        self.main_splitter = QSplitter(Qt.Horizontal, self)
+        self.main_splitter.addWidget(left_panel)
+        self.main_splitter.addWidget(self.side_splitter)
+        self.main_splitter.setStretchFactor(0, 2)
+        self.main_splitter.setStretchFactor(1, 3)
+        self.main_splitter.setSizes([420, 720])
+
         root = QVBoxLayout(self)
-        root.addWidget(config_box)
-        root.addWidget(action_box)
-        root.addWidget(status_box)
-        root.addWidget(info_box, 1)
+        root.addWidget(self.main_splitter, 1)
+
+    def restore_splitters(self) -> None:
+        for name, splitter in (
+            ('export_main_splitter', self.main_splitter),
+            ('export_side_splitter', self.side_splitter),
+        ):
+            sizes = get_splitter_state(name)
+            if sizes:
+                splitter.setSizes(sizes)
+
+    def save_splitters(self) -> None:
+        for name, splitter in (
+            ('export_main_splitter', self.main_splitter),
+            ('export_side_splitter', self.side_splitter),
+        ):
+            set_splitter_state(name, splitter.sizes())
 
     def _path_row(self, line_edit: QLineEdit, handler: Callable[[], None]) -> QWidget:
         container = QWidget(self)
@@ -130,6 +181,9 @@ class ExportPage(QWidget):
         layout.addWidget(self.device_combo, 1)
         return container
 
+    def _append_run_log(self, line: str) -> None:
+        self.run_log_output.appendPlainText(line)
+
     def refresh_devices(self, *, log_runtime: bool) -> None:
         probe = probe_runtime()
         current = self.device_combo.currentText().strip()
@@ -146,6 +200,7 @@ class ExportPage(QWidget):
         self.device_combo.blockSignals(False)
         self.device_summary.setText(probe.summary)
         if log_runtime:
+            self._append_run_log(f'[device] {probe.summary}')
             self.log(f'[device] {probe.summary}')
             self.set_status('Device list refreshed.')
 
@@ -211,11 +266,13 @@ class ExportPage(QWidget):
             nms=self.nms_check.isChecked(),
             data=data,
         )
+        self.run_log_output.clear()
+        self._append_run_log(f'[cwd] {runner_working_directory()}')
         self.thread = QThread(self)
         self.worker = CommandWorker(command, cwd=runner_working_directory())
         self.worker.moveToThread(self.thread)
         self.thread.started.connect(self.worker.run)
-        self.worker.line.connect(self.log)
+        self.worker.line.connect(self._handle_worker_line)
         self.worker.finished.connect(self._on_finished)
         self.worker.finished.connect(self.thread.quit)
         self.thread.finished.connect(self.thread.deleteLater)
@@ -233,6 +290,10 @@ class ExportPage(QWidget):
         self.stop_button.setEnabled(False)
         self.status_note.setText('Stopping export...')
         self.set_status('Stopping export...')
+
+    def _handle_worker_line(self, line: str) -> None:
+        self._append_run_log(line)
+        self.log(line)
 
     def _on_finished(self, exit_code: int) -> None:
         self.export_button.setEnabled(True)

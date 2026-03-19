@@ -15,7 +15,7 @@ from custom_trainer.ui.widgets.log_panel import LogPanel
 class CustomTrainerMainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle('CustomTrainer 0_1_10')
+        self.setWindowTitle('CustomTrainer 0_1_11')
         self.resize(1500, 920)
         self.setMinimumSize(960, 680)
         self._startup_geometry_applied = False
@@ -51,7 +51,7 @@ class CustomTrainerMainWindow(QMainWindow):
         self.set_status_message('Ready')
         self._setup_shortcuts()
         self._schedule_startup_geometry_fix()
-
+        QTimer.singleShot(0, self._restore_startup_state)
 
     def _schedule_startup_geometry_fix(self) -> None:
         QTimer.singleShot(0, self._apply_startup_geometry)
@@ -69,9 +69,21 @@ class CustomTrainerMainWindow(QMainWindow):
         target_width = max(960, min(1500, available.width() - margin_w))
         target_height = max(680, min(920, available.height() - margin_h))
         self.resize(target_width, target_height)
-        self.move(available.x() + max(0, (available.width() - target_width) // 2), available.y() + max(0, (available.height() - target_height) // 2))
+        self.move(
+            available.x() + max(0, (available.width() - target_width) // 2),
+            available.y() + max(0, (available.height() - target_height) // 2),
+        )
         log_height = max(96, min(180, available.height() // 5))
         self.resizeDocks([self.log_dock], [log_height], Qt.Vertical)
+
+    def _restore_startup_state(self) -> None:
+        self.marking_page.restore_last_sessions_root(auto_scan=True)
+        self.marking_page.restore_splitters()
+        self.train_page.restore_splitters()
+        self.validate_page.restore_splitters()
+        self.export_page.restore_splitters()
+        self.train_page.refresh_preview()
+        self.validate_page.refresh_preview()
 
     def _setup_shortcuts(self) -> None:
         for idx in range(self.tabs.count()):
@@ -113,7 +125,14 @@ class CustomTrainerMainWindow(QMainWindow):
                     'X -> Delete selected frame(s)',
                     'Backspace / Delete -> Delete selected box',
                     'Ctrl + Click in frame list -> Multi-select frames',
-                    'Validation prediction preview now shows boxed model output',
+                    'Validation prediction browser now lets you step through saved frames.',
                 ]
             ),
         )
+
+    def closeEvent(self, event) -> None:
+        self.marking_page.save_splitters()
+        self.train_page.save_splitters()
+        self.validate_page.save_splitters()
+        self.export_page.save_splitters()
+        super().closeEvent(event)

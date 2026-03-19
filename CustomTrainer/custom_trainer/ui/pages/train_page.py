@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import csv
 from datetime import datetime
 from pathlib import Path
 from typing import Callable
 
-from PySide6.QtCore import QThread, Qt
+from PySide6.QtCore import QThread, QTimer, Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QComboBox,
@@ -17,16 +18,18 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
-    QTabWidget,
+    QSplitter,
     QVBoxLayout,
     QWidget,
 )
 
 from custom_trainer.services.dataset_service import ensure_dataset_yaml
 from custom_trainer.services.device_service import probe_runtime
+from custom_trainer.services.ui_state_service import get_splitter_state, set_splitter_state
 from custom_trainer.services.ultralytics_runner import build_train_command, runner_working_directory
 from custom_trainer.state import AppState
 from custom_trainer.ui.qt_helpers import CommandWorker
+from custom_trainer.ui.widgets.line_plot_widget import LinePlotWidget
 
 
 class TrainPage(QWidget):
@@ -37,6 +40,10 @@ class TrainPage(QWidget):
         self.set_status = set_status
         self.thread: QThread | None = None
         self.worker: CommandWorker | None = None
+        self.current_run_dir: Path | None = None
+        self.current_results_csv: Path | None = None
+        self._last_plot_signature: tuple[str, int, int] | None = None
+        self._metric_columns: list[str] = []
 
         self.model_edit = QLineEdit('yolov8n.pt', self)
         self.yaml_edit = QLineEdit(self)
@@ -57,7 +64,7 @@ class TrainPage(QWidget):
         self.stop_button.setEnabled(False)
         self.preview_label = QLabel('No frame preview yet.', self)
         self.preview_label.setAlignment(Qt.AlignCenter)
-        self.preview_label.setMinimumSize(360, 240)
+        self.preview_label.setMinimumSize(360, 220)
         self.preview_label.setStyleSheet('background: #0d1118; border: 1px solid #263244;')
         self.preview_info = QLabel('Open Marking and select a frame to mirror a quick preview here.', self)
         self.preview_info.setWordWrap(True)
@@ -65,6 +72,16 @@ class TrainPage(QWidget):
         self.run_log_output = QPlainTextEdit(self)
         self.run_log_output.setReadOnly(True)
         self.run_log_output.setPlaceholderText('Training command and runtime log will appear here...')
+        self.metric_combo = QComboBox(self)
+        self.metric_combo.currentIndexChanged.connect(self._refresh_plot_from_current_csv)
+        self.plot_status = QLabel('No training results.csv loaded yet.', self)
+        self.plot_status.setProperty('role', 'muted')
+        self.plot_status.setWordWrap(True)
+        self.plot_widget = LinePlotWidget(self)
+        self.plot_widget.clear()
+        self.plot_timer = QTimer(self)
+        self.plot_timer.setInterval(1500)
+        self.plot_timer.timeout.connect(self._poll_training_progress)
 
         self.start_button.clicked.connect(self.start_training)
         self.stop_button.clicked.connect(self.stop_training)
@@ -110,6 +127,21 @@ class TrainPage(QWidget):
         preview_layout.addWidget(self.preview_label, 1)
         preview_layout.addWidget(self.preview_info)
 
+        plot_box = QGroupBox('Training Progress Plot', self)
+        plot_layout = QVBoxLayout(plot_box)
+        plot_controls = QHBoxLayout()
+        plot_controls.addWidget(QLabel('Metric', plot_box))
+        plot_controls.addWidget(self.metric_combo, 1)
+        refresh_plot_button = QPushButton('Refresh Plot', plot_box)
+        refresh_plot_button.clicked.connect(self._poll_training_progress)
+        clear_plot_button = QPushButton('Clear Plot', plot_box)
+        clear_plot_button.clicked.connect(lambda: self._reset_training_plot('Training plot cleared.'))
+        plot_controls.addWidget(refresh_plot_button)
+        plot_controls.addWidget(clear_plot_button)
+        plot_layout.addLayout(plot_controls)
+        plot_layout.addWidget(self.plot_widget, 1)
+        plot_layout.addWidget(self.plot_status)
+
         run_log_box = QGroupBox('Run Log', self)
         run_log_layout = QVBoxLayout(run_log_box)
         run_log_actions = QHBoxLayout()
@@ -120,11 +152,6 @@ class TrainPage(QWidget):
         run_log_layout.addLayout(run_log_actions)
         run_log_layout.addWidget(self.run_log_output, 1)
 
-        monitor_tabs = QTabWidget(self)
-        monitor_tabs.setDocumentMode(True)
-        monitor_tabs.addTab(preview_box, 'Preview')
-        monitor_tabs.addTab(run_log_box, 'Run Log')
-
         info_box = QGroupBox('Workflow Notes', self)
         info_text = QPlainTextEdit(self)
         info_text.setReadOnly(True)
@@ -133,19 +160,64 @@ class TrainPage(QWidget):
             '2. Point this page to the dataset.yaml for your YOLO dataset.\n'
             '3. Use Auto or CUDA:0 to train on GPU when your Python environment has CUDA-enabled PyTorch.\n'
             '4. Use Stop Training to terminate a run cleanly from the GUI.\n'
-            '5. The Run Log tab shows the exact training command, working folder, and runtime output.\n'
-            '6. If dataset.yaml is missing but a sessions root is loaded, the app will try to create one automatically.\n'
-            '7. After training, Validation and Export can auto-pick the latest best.pt.'
+            '5. The Run Log shows the exact training command, working folder, and runtime output.\n'
+            '6. The Training Progress Plot reads results.csv live while training when Ultralytics writes it.\n'
+            '7. Validation and Export can auto-pick the latest best.pt after training.'
         )
         info_layout = QVBoxLayout(info_box)
         info_layout.addWidget(info_text)
 
+        left_panel = QWidget(self)
+        left_layout = QVBoxLayout(left_panel)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.addWidget(config_box)
+        left_layout.addWidget(action_box)
+        left_layout.addWidget(status_box)
+        left_layout.addStretch(1)
+
+        self.monitor_splitter = QSplitter(Qt.Vertical, self)
+        self.monitor_splitter.addWidget(plot_box)
+        self.monitor_splitter.addWidget(run_log_box)
+        self.monitor_splitter.setStretchFactor(0, 3)
+        self.monitor_splitter.setStretchFactor(1, 2)
+        self.monitor_splitter.setSizes([420, 280])
+
+        self.side_splitter = QSplitter(Qt.Vertical, self)
+        self.side_splitter.addWidget(preview_box)
+        self.side_splitter.addWidget(info_box)
+        self.side_splitter.setStretchFactor(0, 2)
+        self.side_splitter.setStretchFactor(1, 1)
+        self.side_splitter.setSizes([360, 220])
+
+        self.main_splitter = QSplitter(Qt.Horizontal, self)
+        self.main_splitter.addWidget(left_panel)
+        self.main_splitter.addWidget(self.monitor_splitter)
+        self.main_splitter.addWidget(self.side_splitter)
+        self.main_splitter.setStretchFactor(0, 2)
+        self.main_splitter.setStretchFactor(1, 4)
+        self.main_splitter.setStretchFactor(2, 2)
+        self.main_splitter.setSizes([360, 760, 360])
+
         root = QVBoxLayout(self)
-        root.addWidget(config_box)
-        root.addWidget(action_box)
-        root.addWidget(status_box)
-        root.addWidget(monitor_tabs, 1)
-        root.addWidget(info_box, 1)
+        root.addWidget(self.main_splitter, 1)
+
+    def restore_splitters(self) -> None:
+        for name, splitter in (
+            ('train_main_splitter', self.main_splitter),
+            ('train_monitor_splitter', self.monitor_splitter),
+            ('train_side_splitter', self.side_splitter),
+        ):
+            sizes = get_splitter_state(name)
+            if sizes:
+                splitter.setSizes(sizes)
+
+    def save_splitters(self) -> None:
+        for name, splitter in (
+            ('train_main_splitter', self.main_splitter),
+            ('train_monitor_splitter', self.monitor_splitter),
+            ('train_side_splitter', self.side_splitter),
+        ):
+            set_splitter_state(name, splitter.sizes())
 
     def _path_row(self, line_edit: QLineEdit, handler: Callable[[], None]) -> QWidget:
         container = QWidget(self)
@@ -264,6 +336,17 @@ class TrainPage(QWidget):
             return ensured_path
         return None
 
+    def _reset_training_plot(self, message: str) -> None:
+        self.current_run_dir = None
+        self.current_results_csv = None
+        self._last_plot_signature = None
+        self._metric_columns = []
+        self.metric_combo.blockSignals(True)
+        self.metric_combo.clear()
+        self.metric_combo.blockSignals(False)
+        self.plot_widget.clear(message)
+        self.plot_status.setText(message)
+
     def start_training(self) -> None:
         if self.thread is not None:
             QMessageBox.information(self, 'Training running', 'A training process is already running.')
@@ -301,7 +384,14 @@ class TrainPage(QWidget):
             project=project_dir,
             name=run_name,
         )
+        expected_run_dir = Path(project_dir).expanduser() / run_name
+        expected_results_csv = expected_run_dir / 'results.csv'
+        self._reset_training_plot(f'Waiting for training metrics in {expected_results_csv}')
+        self.current_run_dir = expected_run_dir
+        self.current_results_csv = expected_results_csv
+        self.plot_status.setText(f'Waiting for training metrics in {expected_run_dir}')
         self._launch(command, 'Training started...', cwd=runner_working_directory())
+        self.plot_timer.start()
 
     def stop_training(self) -> None:
         if self.worker is None:
@@ -311,6 +401,151 @@ class TrainPage(QWidget):
         self.status_note.setText('Stopping training...')
         self.set_status('Stopping training...')
 
+    def _find_results_csv(self) -> Path | None:
+        candidates: list[Path] = []
+        if self.current_results_csv is not None:
+            candidates.append(self.current_results_csv)
+        if self.current_run_dir is not None:
+            candidates.append(self.current_run_dir / 'results.csv')
+        project_text = self.project_edit.text().strip()
+        run_name = self.name_edit.text().strip()
+        if project_text:
+            project_dir = Path(project_text).expanduser()
+            if run_name:
+                candidates.extend(sorted(project_dir.glob(f'{run_name}*/results.csv')))
+            candidates.extend(sorted(project_dir.rglob('results.csv'))[-4:])
+        seen: set[str] = set()
+        for candidate in candidates:
+            key = candidate.as_posix().lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            if candidate.exists() and candidate.is_file():
+                return candidate
+        return None
+
+    def _parse_results_csv(self, path: Path) -> tuple[list[float], dict[str, list[float]]]:
+        rows = list(csv.DictReader(path.open('r', encoding='utf-8-sig', newline='')))
+        if not rows:
+            return [], {}
+        x_values: list[float] = []
+        series: dict[str, list[float]] = {}
+        numeric_columns: list[str] = []
+        for column in rows[0].keys():
+            if column is None:
+                continue
+            name = column.strip()
+            if not name or name == 'epoch':
+                continue
+            numeric_columns.append(name)
+            series[name] = []
+        for index, row in enumerate(rows):
+            epoch_text = str(row.get('epoch', '')).strip()
+            try:
+                x_values.append(float(epoch_text) + 1.0)
+            except Exception:
+                x_values.append(float(index + 1))
+            for column in list(series.keys()):
+                raw = str(row.get(column, '')).strip()
+                try:
+                    series[column].append(float(raw))
+                except Exception:
+                    series[column].append(float('nan'))
+        valid_series = {name: values for name, values in series.items() if any(value == value for value in values)}
+        return x_values, valid_series
+
+    def _preferred_metric_columns(self, series: dict[str, list[float]]) -> list[str]:
+        preferred = [
+            'metrics/mAP50(B)',
+            'metrics/mAP50-95(B)',
+            'metrics/precision(B)',
+            'metrics/recall(B)',
+            'train/box_loss',
+            'train/cls_loss',
+            'train/dfl_loss',
+            'val/box_loss',
+            'val/cls_loss',
+            'val/dfl_loss',
+            'lr/pg0',
+        ]
+        ordered = [name for name in preferred if name in series]
+        for name in sorted(series):
+            if name not in ordered:
+                ordered.append(name)
+        return ordered
+
+    def _refresh_plot_from_current_csv(self) -> None:
+        path = self._find_results_csv()
+        if path is None:
+            return
+        self._load_plot_from_csv(path)
+
+    def _load_plot_from_csv(self, path: Path) -> None:
+        try:
+            stat = path.stat()
+            signature = (str(path), int(stat.st_mtime_ns), int(stat.st_size))
+            x_values, series = self._parse_results_csv(path)
+        except Exception as exc:
+            self.plot_status.setText(f'Could not read training metrics: {exc}')
+            return
+        if not series or not x_values:
+            self.plot_status.setText(f'Waiting for numeric metrics in {path}')
+            return
+        metric_columns = self._preferred_metric_columns(series)
+        if metric_columns != self._metric_columns:
+            current = self.metric_combo.currentText().strip()
+            self.metric_combo.blockSignals(True)
+            self.metric_combo.clear()
+            self.metric_combo.addItems(metric_columns)
+            default_metric = current if current in metric_columns else metric_columns[0]
+            self.metric_combo.setCurrentText(default_metric)
+            self.metric_combo.blockSignals(False)
+            self._metric_columns = metric_columns
+        metric_name = self.metric_combo.currentText().strip() or metric_columns[0]
+        values = series.get(metric_name, [])
+        if not values:
+            return
+        latest_value = next((value for value in reversed(values) if value == value), None)
+        summary = f'File: {path.name} | Points: {len(values)}'
+        if latest_value is not None:
+            summary += f' | Latest {metric_name}={latest_value:.4f}'
+        self.plot_widget.set_series(
+            title='Training Progress',
+            metric_name=metric_name,
+            x_values=x_values,
+            y_values=values,
+            summary=summary,
+        )
+        self.plot_status.setText(f'Live metrics loaded from {path}')
+        self._last_plot_signature = signature
+        self.current_results_csv = path
+        self.current_run_dir = path.parent
+
+    def _poll_training_progress(self) -> None:
+        path = self._find_results_csv()
+        if path is None:
+            if self.current_run_dir is not None:
+                self.plot_status.setText(f'Waiting for results.csv in {self.current_run_dir}')
+            return
+        try:
+            stat = path.stat()
+            signature = (str(path), int(stat.st_mtime_ns), int(stat.st_size))
+        except Exception:
+            return
+        if signature == self._last_plot_signature:
+            return
+        self._load_plot_from_csv(path)
+
+    def _handle_worker_line(self, line: str) -> None:
+        self._append_run_log(line)
+        self.log(line)
+        if line.startswith('[save-dir] '):
+            save_dir = Path(line.removeprefix('[save-dir] ').strip())
+            self.current_run_dir = save_dir
+            self.current_results_csv = save_dir / 'results.csv'
+            self.plot_status.setText(f'Using training output folder: {save_dir}')
+        self._poll_training_progress()
+
     def _launch(self, command: list[str], status_message: str, *, cwd: Path) -> None:
         self.run_log_output.clear()
         self._append_run_log(f'[cwd] {cwd}')
@@ -318,8 +553,7 @@ class TrainPage(QWidget):
         self.worker = CommandWorker(command, cwd=cwd)
         self.worker.moveToThread(self.thread)
         self.thread.started.connect(self.worker.run)
-        self.worker.line.connect(self._append_run_log)
-        self.worker.line.connect(self.log)
+        self.worker.line.connect(self._handle_worker_line)
         self.worker.finished.connect(self._on_finished)
         self.worker.finished.connect(self.thread.quit)
         self.thread.finished.connect(self.thread.deleteLater)
@@ -331,6 +565,8 @@ class TrainPage(QWidget):
         self.thread.start()
 
     def _on_finished(self, exit_code: int) -> None:
+        self.plot_timer.stop()
+        self._poll_training_progress()
         self.status_note.setText(f'Finished with exit code {exit_code}.')
         self.set_status(f'Training finished with exit code {exit_code}.')
         self.start_button.setEnabled(True)

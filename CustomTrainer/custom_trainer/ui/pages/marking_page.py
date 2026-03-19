@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
 )
 
 from custom_trainer.services.dataset_service import ensure_dataset_yaml
+from custom_trainer.services.ui_state_service import get_last_sessions_root, get_splitter_state, set_last_sessions_root, set_splitter_state
 from custom_trainer.services.session_service import SessionInfo, discover_sessions, load_class_names, save_class_names, sync_legacy_labels
 from custom_trainer.services.yolo_io import pixel_to_yolo, read_yolo_label_file, write_yolo_label_file, yolo_to_pixel
 from custom_trainer.state import AppState
@@ -73,7 +74,10 @@ class MarkingPage(QWidget):
         source_buttons_layout.setContentsMargins(0, 0, 0, 0)
         scan_button = QPushButton('Scan Sessions', source_buttons)
         scan_button.clicked.connect(self.scan_sessions)
+        restore_button = QPushButton('Load Last Root', source_buttons)
+        restore_button.clicked.connect(lambda: self.restore_last_sessions_root(auto_scan=True))
         source_buttons_layout.addWidget(scan_button)
+        source_buttons_layout.addWidget(restore_button)
         source_buttons_layout.addStretch(1)
         source_form.addRow('', source_buttons)
 
@@ -85,12 +89,14 @@ class MarkingPage(QWidget):
         images_layout = QVBoxLayout(images_box)
         images_layout.addWidget(self.image_list)
 
-        left_panel = QWidget(self)
-        left_layout = QVBoxLayout(left_panel)
-        left_layout.setContentsMargins(0, 0, 0, 0)
-        left_layout.addWidget(source_box)
-        left_layout.addWidget(sessions_box, 1)
-        left_layout.addWidget(images_box, 2)
+        self.left_splitter = QSplitter(Qt.Vertical, self)
+        self.left_splitter.addWidget(source_box)
+        self.left_splitter.addWidget(sessions_box)
+        self.left_splitter.addWidget(images_box)
+        self.left_splitter.setStretchFactor(0, 0)
+        self.left_splitter.setStretchFactor(1, 2)
+        self.left_splitter.setStretchFactor(2, 3)
+        self.left_splitter.setSizes([120, 280, 420])
 
         preview_box = QGroupBox('Image Preview', self)
         preview_layout = QVBoxLayout(preview_box)
@@ -146,24 +152,26 @@ class MarkingPage(QWidget):
         info_layout.addWidget(self.selection_info)
         info_layout.addStretch(1)
 
-        right_panel = QWidget(self)
-        right_layout = QVBoxLayout(right_panel)
-        right_layout.setContentsMargins(0, 0, 0, 0)
-        right_layout.addWidget(classes_box, 2)
-        right_layout.addWidget(tools_box)
-        right_layout.addWidget(info_box)
+        self.right_splitter = QSplitter(Qt.Vertical, self)
+        self.right_splitter.addWidget(classes_box)
+        self.right_splitter.addWidget(tools_box)
+        self.right_splitter.addWidget(info_box)
+        self.right_splitter.setStretchFactor(0, 3)
+        self.right_splitter.setStretchFactor(1, 2)
+        self.right_splitter.setStretchFactor(2, 2)
+        self.right_splitter.setSizes([360, 240, 220])
 
-        splitter = QSplitter(Qt.Horizontal, self)
-        splitter.addWidget(left_panel)
-        splitter.addWidget(preview_box)
-        splitter.addWidget(right_panel)
-        splitter.setStretchFactor(0, 2)
-        splitter.setStretchFactor(1, 5)
-        splitter.setStretchFactor(2, 2)
-        splitter.setSizes([320, 900, 320])
+        self.main_splitter = QSplitter(Qt.Horizontal, self)
+        self.main_splitter.addWidget(self.left_splitter)
+        self.main_splitter.addWidget(preview_box)
+        self.main_splitter.addWidget(self.right_splitter)
+        self.main_splitter.setStretchFactor(0, 2)
+        self.main_splitter.setStretchFactor(1, 5)
+        self.main_splitter.setStretchFactor(2, 2)
+        self.main_splitter.setSizes([320, 900, 320])
 
         root = QVBoxLayout(self)
-        root.addWidget(splitter, 1)
+        root.addWidget(self.main_splitter, 1)
 
     def _connect(self) -> None:
         self.session_list.currentRowChanged.connect(self.on_session_changed)
@@ -191,6 +199,33 @@ class MarkingPage(QWidget):
             self.root_edit.setText(path)
             self.scan_sessions()
 
+    def restore_last_sessions_root(self, *, auto_scan: bool) -> None:
+        remembered = get_last_sessions_root()
+        if remembered is None:
+            return
+        self.root_edit.setText(str(remembered))
+        if auto_scan and remembered.exists() and remembered.is_dir():
+            self.scan_sessions()
+
+    def restore_splitters(self) -> None:
+        for name, splitter in (
+            ('marking_main_splitter', getattr(self, 'main_splitter', None)),
+            ('marking_left_splitter', getattr(self, 'left_splitter', None)),
+            ('marking_right_splitter', getattr(self, 'right_splitter', None)),
+        ):
+            sizes = get_splitter_state(name)
+            if sizes and splitter is not None:
+                splitter.setSizes(sizes)
+
+    def save_splitters(self) -> None:
+        for name, splitter in (
+            ('marking_main_splitter', getattr(self, 'main_splitter', None)),
+            ('marking_left_splitter', getattr(self, 'left_splitter', None)),
+            ('marking_right_splitter', getattr(self, 'right_splitter', None)),
+        ):
+            if splitter is not None:
+                set_splitter_state(name, splitter.sizes())
+
     def current_class_id(self) -> int:
         return int(self.class_combo.currentData() or 0)
 
@@ -215,6 +250,7 @@ class MarkingPage(QWidget):
             return
         sessions = discover_sessions(root)
         self.state.sessions_root = root
+        set_last_sessions_root(root)
         self.state.sessions = sessions
         self.state.current_session_index = -1
         self.state.current_image_index = -1

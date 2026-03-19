@@ -54,6 +54,11 @@ def build_predict_command(
     device: str,
     project: str | None = None,
     name: str | None = None,
+    line_width: int | None = None,
+    font_size: int | None = None,
+    show_labels: bool = True,
+    show_conf: bool = True,
+    show_boxes: bool = True,
 ) -> list[str]:
     command = _base_command('predict')
     _maybe_append(command, '--weights', weights)
@@ -63,6 +68,11 @@ def build_predict_command(
     _maybe_append(command, '--device', device)
     _maybe_append(command, '--project', project)
     _maybe_append(command, '--name', name)
+    _maybe_append(command, '--line-width', line_width)
+    _maybe_append(command, '--font-size', font_size)
+    _maybe_append(command, '--show-labels', int(bool(show_labels)))
+    _maybe_append(command, '--show-conf', int(bool(show_conf)))
+    _maybe_append(command, '--show-boxes', int(bool(show_boxes)))
     return command
 
 

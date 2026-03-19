@@ -1,16 +1,15 @@
 # CustomTrainer
 
-CustomTrainer is a PySide6 desktop YOLO workflow with session-based annotation and model lifecycle pages.
+CustomTrainer is a PySide6 desktop workflow for YOLO-style labeling, training, validation, export, and Pi-focused deployment prep.
 
-## Main tabs
+## Core tabs
 
-- **Marking**: browse sessions, draw/edit bounding boxes, maintain `classes.txt`, save YOLO labels.
-- **Train**: run Ultralytics training jobs with device selection.
-- **Validate**: run validation/prediction and review results.
-- **Export**: export trained weights (TFLite/ONNX/OpenVINO/TorchScript).
-- **Pi Deploy**: deploy-focused utilities for Raspberry Pi runtime artifacts.
+- **Marking** — browse sessions, edit boxes, maintain `classes.txt`, save YOLO labels
+- **Training** — launch Ultralytics training jobs from the GUI
+- **Validation** — run validation or prediction and visually inspect saved prediction frames
+- **Export** — export trained weights to Pi-friendly formats
 
-## Layout
+## Project layout
 
 ```text
 CustomTrainer/
@@ -25,64 +24,57 @@ CustomTrainer/
 │   └── assets/pi_runtime/
 └── PATCH_NOTES/
 ```
-# CustomTrainer 0_1_10
 
-CustomTrainer keeps the **single session-based Marking tab** and the extra workflow pages:
+## What changed in 0_1_11
 
-- **Marking**
-- **Training**
-- **Validation**
-- **Export**
-
-The app follows the PySide6 desktop-shell direction of piTrainer, while the labeling workflow stays focused on one main Marking page that loads all sessions from a chosen root folder.
+- remembers and reloads the **last loaded sessions root**
+- adds more **draggable split panels** inside Marking, Training, Validation, and Export
+- adds a live **Training Progress Plot** that reads Ultralytics `results.csv`
+- adds a **Validation frame browser** so you can step through predicted output frames
+- allows validation output styling changes such as **box line width**, **label text size**, and whether labels / confidence / boxes are shown
+- keeps local **Run Log** panels on Training, Validation, and Export for easier debugging
 
 ## Main workflow
 
 1. Open **Marking**
-2. Choose the folder that contains all your sessions
-3. The app scans and lists every session it finds
-4. Pick a session, then pick an image
-5. Draw / edit YOLO boxes and save labels
-6. Move to **Training**, **Validation**, or **Export** when needed
+2. Choose the root folder that contains your sessions
+3. Label frames and save YOLO labels
+4. Open **Training** to train from the current sessions root
+5. Open **Validation** to run validation or prediction on a single file or a full frames folder
+6. Open **Export** to export the newest trained weights
 
-## Marking page features
+## Marking page highlights
 
-- scan a sessions root folder
-- load and list all sessions in that folder
-- load images from the selected session
-- label images in one marking tab
-- save YOLO `.txt` files
-- edit and save `classes.txt`
-- multi-select frames in the frame list with `Ctrl + Click`
-- delete selected frame(s) with `X`
-- move selected box with arrow keys
-- change frames with `A / D`
+- scans a sessions root folder and lists discovered sessions
+- automatically reloads the last valid sessions root at startup
+- supports draggable split panels for session source / sessions / images / canvas / tools
+- supports multi-select frames with `Ctrl + Click`
+- uses `A / D` for previous / next frame
+- uses `X` to delete selected frame(s)
+- uses arrow keys to move the selected box
 
-## Training / Validation / Export
+## Training page highlights
 
-### Training
-- start an Ultralytics YOLO training run from the GUI
-- fill defaults from the current sessions root
-- device picker supports **Auto / CUDA / CPU** detection
-- current frame preview mirrored from the Marking workflow
-- **Stop Training** button
-- **Run Log** tab on Training for command/runtime output
-- training now launches from the CustomTrainer repo root so the internal runner resolves more reliably
-- training can auto-create `dataset.yaml` from the currently loaded sessions root when needed
+- launches training through the internal Python runner, not an external `yolo` shell command
+- can auto-create `dataset.yaml` from the current sessions root when needed
+- includes a dedicated **Run Log**
+- includes a live **Training Progress Plot** sourced from `results.csv`
+- keeps a mirrored frame preview from the Marking workflow
 
-### Validation
-- run YOLO validation from the GUI
-- run prediction on a selected source
-- frame preview for the current validation / prediction image
-- prediction preview updates to the model-rendered boxed result after Run Prediction
-- **Use Latest best.pt** button
-- **Stop Task** button
+## Validation page highlights
 
-### Export
-- export weights to TFLite / ONNX / OpenVINO / TorchScript
-- INT8 / float16 / float32 choices
-- **Use Latest best.pt** button
-- **Stop Export** button
+- can run pure validation with metrics output
+- can run prediction on a single file **or a folder of frames**
+- saves model-rendered prediction frames and lets you browse them with **Prev / Next Frame**
+- supports output styling controls for predicted boxes and labels
+- includes a dedicated **Run Log**
+
+## Export page highlights
+
+- exports to **TFLite**, **ONNX**, **OpenVINO**, or **TorchScript**
+- supports **INT8 / float16 / float32** export choices
+- can auto-pick the latest `best.pt`
+- includes a dedicated **Run Log**
 
 ## Install and run
 
@@ -96,14 +88,9 @@ python run_custom_trainer.py
 
 ## Notes
 
-- Training/validation/export run through internal Python service wrappers (no external `yolo` shell dependency required).
-- Device selection supports Auto/CUDA/CPU paths.
-- Session scanning can repair older misplaced label paths into canonical YOLO layout.
+- Training, validation, prediction, and export run through internal Python service wrappers.
+- Validation prediction on folders is useful for visually checking model performance across all session frames.
+- Screen-aware startup sizing keeps the main window inside the available desktop area on smaller displays.
+- UI state is stored locally so the app can remember the last sessions root and splitter positions.
 
 See `custom_trainer/assets/pi_runtime/README_PI.md` for Pi-side TFLite runtime notes.
-- Training / Validation / Export use Ultralytics through an internal Python runner module, so they do not depend on the external `yolo` shell command.
-- Validation prediction runs now save into the session-oriented runs folder and the preview panel loads the boxed output automatically.
-- Single-session folders such as `session/images/*.jpg` save labels to `session/labels/*.txt`.
-- Older misplaced labels under `session/images/labels/*.txt` or `session/labels/images/*.txt` are auto-repaired into the canonical YOLO path when sessions are scanned.
-
-- Screen-aware startup sizing keeps the main window inside the available desktop area on smaller displays.
