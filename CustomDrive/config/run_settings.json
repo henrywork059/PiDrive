@@ -1,0 +1,7 @@
+{
+  "runtime_mode": "sim",
+  "max_cycles": 2,
+  "headless_tick_s": 0.2,
+  "gui_tick_s": 0.2,
+  "auto_start_gui": false
+}

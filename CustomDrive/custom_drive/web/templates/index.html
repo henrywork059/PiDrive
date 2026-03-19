@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>CustomDrive Demo GUI</title>
+  <title>CustomDrive Mission Monitor</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
 </head>
 <body>
   <header>
     <h1>CustomDrive Mission Monitor</h1>
-    <p>Web GUI for the same mission runtime used by the terminal demo.</p>
+    <p>Use the same saved run settings for GUI mode and headless mode.</p>
   </header>
 
   <main>
@@ -21,18 +21,63 @@
         Max cycles
         <input id="maxCycles" type="number" min="1" value="2" />
       </label>
+      <label>
+        Tick (s)
+        <input id="tickSeconds" type="number" min="0.02" step="0.02" value="0.2" />
+      </label>
       <button id="resetBtn">Reset</button>
     </section>
 
     <section class="grid">
+      <div class="panel settings-panel">
+        <h2>Saved Run Settings</h2>
+        <p class="subtle">Saved to <code>CustomDrive/config/run_settings.json</code>. The GUI and headless runner both use this file.</p>
+        <div class="settings-grid">
+          <label>
+            Runtime backend
+            <select id="savedRuntimeMode">
+              <option value="sim">sim</option>
+              <option value="live">live</option>
+            </select>
+          </label>
+          <label>
+            Default max cycles
+            <input id="savedMaxCycles" type="number" min="1" value="2" />
+          </label>
+          <label>
+            Headless tick (s)
+            <input id="savedHeadlessTick" type="number" min="0.02" step="0.02" value="0.2" />
+          </label>
+          <label>
+            GUI tick (s)
+            <input id="savedGuiTick" type="number" min="0.02" step="0.02" value="0.2" />
+          </label>
+          <label class="checkbox-row">
+            <input id="savedAutoStartGui" type="checkbox" />
+            <span>Auto-start mission when GUI opens</span>
+          </label>
+        </div>
+        <div class="button-row">
+          <button id="reloadRunSettingsBtn" class="secondary">Reload Saved Settings</button>
+          <button id="saveRunSettingsBtn">Save Run Settings</button>
+        </div>
+        <div id="saveMessage" class="save-message"></div>
+      </div>
+
       <div class="panel">
         <h2>Status</h2>
         <div id="status"></div>
       </div>
-      <div class="panel">
-        <h2>Perception Frame</h2>
-        <svg id="frame" viewBox="0 0 640 360"></svg>
+
+      <div class="panel viewer-panel">
+        <h2>Viewer</h2>
+        <div class="viewer-wrap">
+          <img id="videoFeed" alt="Live camera feed" />
+          <svg id="frameOverlay" viewBox="0 0 640 360"></svg>
+        </div>
+        <div class="viewer-note" id="viewerNote"></div>
       </div>
+
       <div class="panel logs">
         <h2>Robot Logs</h2>
         <pre id="logs"></pre>

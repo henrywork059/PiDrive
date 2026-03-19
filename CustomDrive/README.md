@@ -2,10 +2,15 @@
 
 CustomDrive is a mission-controller package for competition-style autonomous tasks.
 
-It runs the same finite-state mission loop in two mirrored modes:
+It now supports **two launch modes** that share the same saved run settings file:
 
-1. **No GUI (terminal-first)** for lowest overhead and quickest iteration.
-2. **Web GUI (PiServer-style)** for live observability and operator control.
+1. **GUI mode** for browser-based monitoring and control.
+2. **Headless mode** for running without any display.
+
+Inside either launch mode, the runtime backend can still be either:
+
+- **Simulation (`sim`)** for fast PC-side testing.
+- **Live (`live`)** using the existing **PiServer** camera + motor services.
 
 ## Mission loop
 
@@ -17,12 +22,33 @@ It runs the same finite-state mission loop in two mirrored modes:
 6. approach + release
 7. repeat by configured cycle count
 
+## What is real now
+
+- real `live` runtime that boots PiServer `CameraService` and `MotorService`
+- real camera frame polling in live mode
+- real drive output through the PiServer motor mixer
+- configurable color-based perception for `he3` and `he3_zone`
+- web GUI with live JPEG camera view + detection overlay
+- shared runtime settings file for camera / motor / mission perception tuning
+- shared **run settings** file used by both GUI mode and headless mode
+
+## What is still placeholder / optional
+
+- there is still **no bundled object-detection model** in CustomDrive itself
+- there is still **no bundled real arm/gripper driver** in this folder
+- pickup/release can only be truly physical when you bind a real arm object
+- coarse route timings still need field calibration on the real course
+
 ## Layout
 
 ```text
 CustomDrive/
 ├── run_custom_drive_demo.py
 ├── run_custom_drive_web.py
+├── run_custom_drive_headless.py
+├── run_custom_drive_gui.py
+├── config/runtime_settings.json
+├── config/run_settings.json
 ├── custom_drive/
 │   ├── config.py
 │   ├── models.py
@@ -30,74 +56,140 @@ CustomDrive/
 │   ├── mission_state.py
 │   ├── route_script.py
 │   ├── visual_servo.py
+│   ├── perception.py
 │   ├── mission_controller.py
 │   ├── fake_robot.py
+│   ├── picar_bridge.py
 │   ├── demo_runtime.py
+│   ├── live_runtime.py
+│   ├── runtime_settings.py
+│   ├── run_settings.py
 │   ├── web_app.py
-│   ├── web/
-│   │   ├── templates/index.html
-│   │   └── static/{app.js,styles.css}
-│   └── picar_bridge.py
+│   └── web/
 └── PATCH_NOTES/
 ```
 
-## Run demo (no GUI, best performance)
+## Install
+
+CustomDrive reuses the sibling `PiServer/` package in the same repo.
 
 ```bash
 cd CustomDrive
-python run_custom_drive_demo.py --mode sim --cycles 2
+python -m pip install -r requirements.txt
 ```
 
-This is the terminal-only runner and remains the fastest path for profiling logic without web overhead.
+For **live mode**, make sure the Pi also has the camera/runtime dependencies available through your OS image or Python environment, especially:
 
-## Run web GUI demo (PiServer-style monitoring)
+- Flask
+- NumPy
+- OpenCV
+- Picamera2 on Raspberry Pi OS when using the Pi camera
+- RPi.GPIO when using live motor output
+
+## Launch mode 1: headless
+
+Headless mode runs without displaying a GUI.
 
 ```bash
 cd CustomDrive
+python run_custom_drive_headless.py
+```
+
+Compatibility launcher:
+
+```bash
+python run_custom_drive_demo.py
+```
+
+Optional overrides:
+
+```bash
+python run_custom_drive_headless.py --mode live --cycles 2 --tick 0.1
+```
+
+If you do not pass overrides, the runner uses:
+
+```text
+CustomDrive/config/run_settings.json
+```
+
+## Launch mode 2: GUI
+
+GUI mode starts the browser monitor.
+
+```bash
+cd CustomDrive
+python run_custom_drive_gui.py
+```
+
+Compatibility launcher:
+
+```bash
 python run_custom_drive_web.py
 ```
 
-Then open `http://localhost:5050` to:
-
-- start/stop continuous mission stepping
-- run single-step updates for debugging
-- reset mission with a different cycle count
-- see mission state, drive command, detection boxes, and robot action logs
-
-Both the terminal and web entry points use the same `DemoMissionRuntime`, so behavior stays mirrored between GUI and no-GUI flows.
+Optional override:
 
 ```bash
-cd CustomDrive
-python run_custom_drive_demo.py --mode live --cycles 2
+python run_custom_drive_gui.py --mode sim
 ```
 
-## Run Web GUI
+Then open `http://localhost:5050`.
 
-### Simulation mode
+The GUI now shows:
 
-```bash
-cd CustomDrive
-python run_custom_drive_web.py
+- mission state and drive telemetry
+- detection overlays
+- live JPEG camera preview in `live` mode
+- robot action logs
+- a **Saved Run Settings** panel that edits the shared run settings file
+
+## Saved run settings
+
+CustomDrive now stores launch/run defaults in:
+
+```text
+CustomDrive/config/run_settings.json
 ```
 
-Open `http://localhost:5050`.
+That file is shared by both:
 
-### Live mode
+- GUI mode
+- headless mode
 
-```bash
-cd CustomDrive
-CUSTOMDRIVE_MODE=live python run_custom_drive_web.py
+Current keys:
+
+- `runtime_mode`: `sim` or `live`
+- `max_cycles`: default pickup/drop cycles
+- `headless_tick_s`: default loop delay for headless mode
+- `gui_tick_s`: default GUI auto-run loop delay
+- `auto_start_gui`: auto-start mission when GUI opens
+
+## Runtime settings
+
+Hardware and perception tuning still live in:
+
+```text
+CustomDrive/config/runtime_settings.json
 ```
 
-Open `http://localhost:5050` and verify:
+Important sections:
 
-- mission state and command telemetry updates
-- video feed is live in the right panel
-- Start/Stop/Step/Reset controls work
-- Settings can be saved and reused in terminal mode
+- `camera`: forwarded into PiServer `CameraService`
+- `motor`: forwarded into PiServer `MotorService`
+- `runtime.steer_mix`: steering mix used by the motor bridge
+- `runtime.allow_virtual_grab_without_arm`: lets the mission continue without a real arm for route testing only
+- `perception.labels.he3.ranges` / `perception.labels.he3_zone.ranges`: HSV ranges for color detection
 
-## Notes
+Example HSV tuning block:
 
-- In `live` mode, perception uses camera frames and color-based object proposals for `he3` and `he3_zone` labels.
-- If camera/GPIO dependencies are unavailable, runtime falls back to `sim` safely.
-- Terminal and GUI entrypoints both run the same mission controller logic, so behaviour stays mirrored.
+```json
+{
+  "lower": [90, 80, 70],
+  "upper": [135, 255, 255]
+}
+```
+
+## Current design choice
+
+The controller still uses **coarse route + local visual servoing** instead of a single end-to-end driving model. That keeps the mission logic easier to debug and makes it possible to swap perception sources later.
