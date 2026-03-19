@@ -1,16 +1,16 @@
 # CustomTrainer
 
-CustomTrainer is a PySide6 desktop YOLO workflow with session-based annotation and model lifecycle pages.
+CustomTrainer is a PySide6 desktop workflow for YOLO-based dataset labeling, training, validation, export, and Raspberry Pi deployment preparation.
 
-## Main tabs
+## Core workflow tabs
 
-- **Marking**: browse sessions, draw/edit bounding boxes, maintain `classes.txt`, save YOLO labels.
-- **Train**: run Ultralytics training jobs with device selection.
-- **Validate**: run validation/prediction and review results.
-- **Export**: export trained weights (TFLite/ONNX/OpenVINO/TorchScript).
-- **Pi Deploy**: deploy-focused utilities for Raspberry Pi runtime artifacts.
+- **Marking** — session browsing, box editing, class management, YOLO label save.
+- **Training** — Ultralytics training jobs with device selection and controls.
+- **Validation** — validation + prediction runs and preview review.
+- **Export** — weight export to deployment formats.
+- **Pi Deploy** — Pi-oriented helper utilities and runtime artifact guidance.
 
-## Layout
+## Project layout
 
 ```text
 CustomTrainer/
@@ -25,61 +25,12 @@ CustomTrainer/
 │   └── assets/pi_runtime/
 └── PATCH_NOTES/
 ```
-# CustomTrainer 0_1_12
 
-CustomTrainer keeps the **single session-based Marking tab** and the extra workflow pages:
+## Prerequisites
 
-- **Marking**
-- **Training**
-- **Validation**
-- **Export**
-
-The app follows the PySide6 desktop-shell direction of piTrainer, while the labeling workflow stays focused on one main Marking page that loads all sessions from a chosen root folder.
-
-## Main workflow
-
-1. Open **Marking**
-2. Choose the folder that contains all your sessions
-3. The app scans and lists every session it finds
-4. Pick a session, then pick an image
-5. Draw / edit YOLO boxes and save labels
-6. Move to **Training**, **Validation**, or **Export** when needed
-
-## Marking page features
-
-- scan a sessions root folder
-- load and list all sessions in that folder
-- load images from the selected session
-- label images in one marking tab
-- save YOLO `.txt` files
-- edit and save `classes.txt`
-- multi-select frames in the frame list with `Ctrl + Click`
-- delete selected frame(s) with `X`
-- move selected box with arrow keys
-- change frames with `A / D`
-
-## Training / Validation / Export
-
-### Training
-- start an Ultralytics YOLO training run from the GUI
-- fill defaults from the current sessions root
-- device picker supports **Auto / CUDA / CPU** detection
-- current frame preview mirrored from the Marking workflow
-- **Stop Training** button
-
-### Validation
-- run YOLO validation from the GUI
-- run prediction on a selected source
-- frame preview for the current validation / prediction image
-- prediction preview updates to the model-rendered boxed result after Run Prediction
-- **Use Latest best.pt** button
-- **Stop Task** button
-
-### Export
-- export weights to TFLite / ONNX / OpenVINO / TorchScript
-- INT8 / float16 / float32 choices
-- **Use Latest best.pt** button
-- **Stop Export** button
+- Python 3.11 recommended.
+- Desktop GUI environment.
+- Compatible PyTorch/Ultralytics stack for training and validation operations.
 
 ## Install and run
 
@@ -91,14 +42,70 @@ pip install -r requirements.txt
 python run_custom_trainer.py
 ```
 
-## Notes
+## Marking tab guide
 
-- Training/validation/export run through internal Python service wrappers (no external `yolo` shell dependency required).
-- Device selection supports Auto/CUDA/CPU paths.
-- Session scanning can repair older misplaced label paths into canonical YOLO layout.
+1. Select a **sessions root folder**.
+2. Let the app scan and list discovered sessions.
+3. Open a session and choose an image.
+4. Draw/edit YOLO boxes.
+5. Save labels and maintain `classes.txt`.
 
-See `custom_trainer/assets/pi_runtime/README_PI.md` for Pi-side TFLite runtime notes.
-- Training / Validation / Export use Ultralytics through an internal Python runner module, so they do not depend on the external `yolo` shell command.
-- Validation prediction runs now save into the session-oriented runs folder and the preview panel loads the boxed output automatically.
-- Single-session folders such as `session/images/*.jpg` save labels to `session/labels/*.txt`.
-- Older misplaced labels under `session/images/labels/*.txt` or `session/labels/images/*.txt` are auto-repaired into the canonical YOLO path when sessions are scanned.
+### Marking productivity shortcuts
+
+- Multi-select frames: `Ctrl + Click`
+- Delete selected frames: `X`
+- Move selected box: arrow keys
+- Previous/next frame: `A` / `D`
+
+### Label path handling
+
+Canonical structure:
+
+- images: `session/images/*.jpg`
+- labels: `session/labels/*.txt`
+
+The scanner can auto-repair older misplaced label layouts into canonical YOLO paths.
+
+## Training tab guide
+
+- Launch Ultralytics training directly from GUI.
+- Fill defaults from current sessions root.
+- Choose device: **Auto**, **CUDA**, or **CPU**.
+- Use **Stop Training** to terminate running jobs.
+
+## Validation tab guide
+
+- Run validation from GUI.
+- Run prediction on selected source.
+- Preview updates to model-rendered boxed output after prediction.
+- Use **Use Latest best.pt** to quickly target newest checkpoint.
+- Use **Stop Task** for cancellation.
+
+## Export tab guide
+
+- Export to `TFLite`, `ONNX`, `OpenVINO`, or `TorchScript`.
+- Choose precision format (INT8 / float16 / float32 when available).
+- Use **Use Latest best.pt** for convenience.
+- Use **Stop Export** to cancel active export task.
+
+## Architecture notes
+
+- Training/validation/export run through internal Python service wrappers.
+- No external `yolo` shell command is required.
+- Validation prediction outputs are session-oriented and preview-aware.
+
+## Pi deployment notes
+
+See:
+
+- `custom_trainer/assets/pi_runtime/README_PI.md`
+
+That guide covers running exported TFLite detector artifacts on Raspberry Pi.
+
+## Version highlights
+
+### `0_1_12`
+
+- Consolidated around a single session-based Marking workflow.
+- Added/expanded training, validation, and export workflow pages.
+- Continued alignment with piTrainer desktop-shell architecture.
