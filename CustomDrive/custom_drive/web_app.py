@@ -6,6 +6,7 @@ from typing import Any
 
 from flask import Flask, Response, jsonify, render_template, request
 
+from .debug_tools import clamp_float, clamp_int
 from .run_settings import load_run_settings, save_run_settings
 from .runtime_factory import create_runtime
 
@@ -57,8 +58,34 @@ def create_app(mode: str | None = None) -> Flask:
         if not should_start and was_running:
             should_start = True
         if should_start:
-            tick_s = float(run_cfg.get('gui_tick_s', 0.2))
+            tick_s = clamp_float(run_cfg.get('gui_tick_s', 0.2), 0.2, 0.02, 10.0)
             runtime.start_background(tick_s=tick_s)
+
+    def safe_status_payload() -> dict[str, Any]:
+        runtime = current_runtime()
+        try:
+            payload = runtime.status()
+        except Exception as exc:
+            payload = {
+                'mode': 'unknown',
+                'state': 'failed',
+                'detail': f'Failed to read runtime status: {exc}',
+                'retries': 0,
+                'completed_cycles': 0,
+                'active_route_leg': None,
+                'last_command': {'steering': 0.0, 'throttle': 0.0, 'note': 'status unavailable'},
+                'frame': {'width': 640, 'height': 360},
+                'detections': [],
+                'logs': [],
+                'debug_events': [],
+                'running': False,
+                'max_cycles': current_run_settings().get('max_cycles', 2),
+                'last_error': str(exc),
+            }
+        payload['mode_requested'] = getattr(runtime, 'mode_requested', payload.get('mode', 'sim'))
+        payload['fallback_reason'] = getattr(runtime, 'fallback_reason', '')
+        payload['run_settings'] = current_run_settings()
+        return payload
 
     build_runtime()
 
@@ -68,12 +95,7 @@ def create_app(mode: str | None = None) -> Flask:
 
     @app.route('/api/status')
     def api_status():
-        runtime = current_runtime()
-        payload = runtime.status()
-        payload['mode_requested'] = getattr(runtime, 'mode_requested', payload.get('mode', 'sim'))
-        payload['fallback_reason'] = getattr(runtime, 'fallback_reason', '')
-        payload['run_settings'] = current_run_settings()
-        return jsonify(payload)
+        return jsonify(safe_status_payload())
 
     @app.route('/api/frame.jpg')
     def api_frame_jpg():
@@ -105,8 +127,11 @@ def create_app(mode: str | None = None) -> Flask:
         if not callable(saver):
             return jsonify({'ok': False, 'message': 'Runtime settings are unavailable.'}), 404
         data = request.get_json(silent=True) or {}
-        saved = saver(data)
-        return jsonify({'ok': True, 'settings': saved})
+        try:
+            saved = saver(data)
+        except Exception as exc:
+            return jsonify({'ok': False, 'message': f'Failed to save runtime settings: {exc}'}), 400
+        return jsonify({'ok': True, 'settings': saved, 'status': safe_status_payload()})
 
     @app.route('/api/run-settings')
     def api_run_settings():
@@ -118,7 +143,10 @@ def create_app(mode: str | None = None) -> Flask:
         merged = dict(current_run_settings())
         for key, value in data.items():
             merged[key] = value
-        saved = save_run_settings(merged)
+        try:
+            saved = save_run_settings(merged)
+        except Exception as exc:
+            return jsonify({'ok': False, 'message': f'Failed to save run settings: {exc}'}), 400
         state['run_settings'] = saved
         build_runtime()
         return jsonify(
@@ -126,7 +154,7 @@ def create_app(mode: str | None = None) -> Flask:
                 'ok': True,
                 'message': 'Run settings saved. GUI and headless launchers now use the same file.',
                 'run_settings': current_run_settings(),
-                'status': current_runtime().status(),
+                'status': safe_status_payload(),
             }
         )
 
@@ -135,30 +163,31 @@ def create_app(mode: str | None = None) -> Flask:
         runtime = current_runtime()
         run_cfg = current_run_settings()
         data = request.get_json(silent=True) or {}
-        tick_s = float(data.get('tick_s', run_cfg.get('gui_tick_s', 0.2)))
+        tick_s = clamp_float(data.get('tick_s', run_cfg.get('gui_tick_s', 0.2)), 0.2, 0.02, 10.0)
         runtime.start_background(tick_s=tick_s)
-        return jsonify({'ok': True, 'status': runtime.status(), 'run_settings': run_cfg})
+        return jsonify({'ok': True, 'status': safe_status_payload(), 'run_settings': run_cfg})
 
     @app.route('/api/stop', methods=['POST'])
     def api_stop():
         runtime = current_runtime()
         runtime.stop_background(join=True)
-        return jsonify({'ok': True, 'status': runtime.status(), 'run_settings': current_run_settings()})
+        return jsonify({'ok': True, 'status': safe_status_payload(), 'run_settings': current_run_settings()})
 
     @app.route('/api/step', methods=['POST'])
     def api_step():
         runtime = current_runtime()
-        return jsonify({'ok': True, 'status': runtime.step(), 'run_settings': current_run_settings()})
+        runtime.step()
+        return jsonify({'ok': True, 'status': safe_status_payload(), 'run_settings': current_run_settings()})
 
     @app.route('/api/reset', methods=['POST'])
     def api_reset():
         runtime = current_runtime()
         run_cfg = current_run_settings()
         data = request.get_json(silent=True) or {}
-        max_cycles = data.get('max_cycles', run_cfg.get('max_cycles'))
+        max_cycles = clamp_int(data.get('max_cycles', run_cfg.get('max_cycles', 2)), 2, 1, 999)
         runtime.stop_background(join=True)
         runtime.reset(max_cycles=max_cycles)
-        return jsonify({'ok': True, 'status': runtime.status(), 'run_settings': run_cfg})
+        return jsonify({'ok': True, 'status': safe_status_payload(), 'run_settings': run_cfg})
 
     @atexit.register
     def _shutdown_runtime() -> None:

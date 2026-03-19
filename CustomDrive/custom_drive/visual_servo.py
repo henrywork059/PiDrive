@@ -73,12 +73,12 @@ class VisualServoController:
     def approach_command(self, det: Detection, perception: FramePerception, note: str) -> DriveCommand:
         err = self.x_error_ratio(det, perception)
         steering = clamp(err * self.config.align_kp, -self.config.max_steering, self.config.max_steering)
-        speed = self.config.final_approach_speed if abs(err) <= self.config.align_tolerance_ratio else 0.0
-        if speed == 0.0:
-            note = f"{note} | re-center first"
-        else:
-            note = f"{note} | x_err={err:+.3f}"
-        return DriveCommand(steering=steering, throttle=speed or self.config.approach_speed * 0.0, note=note)
+        if abs(err) > self.config.align_tolerance_ratio:
+            return DriveCommand(steering=steering, throttle=0.0, note=f"{note} | re-center first")
+
+        tight_center = abs(err) <= max(0.02, self.config.align_tolerance_ratio * 0.5)
+        speed = self.config.final_approach_speed if tight_center else self.config.approach_speed
+        return DriveCommand(steering=steering, throttle=speed, note=f"{note} | x_err={err:+.3f}")
 
     def back_out_command(self) -> DriveCommand:
         return DriveCommand(steering=0.0, throttle=-0.16, note="back out")

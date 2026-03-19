@@ -5,8 +5,10 @@ import json
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[2]
-RUN_SETTINGS_PATH = ROOT / 'CustomDrive' / 'config' / 'run_settings.json'
+from .debug_tools import clamp_float, clamp_int, coerce_bool
+
+PACKAGE_ROOT = Path(__file__).resolve().parents[1]
+RUN_SETTINGS_PATH = PACKAGE_ROOT / 'config' / 'run_settings.json'
 
 DEFAULT_RUN_SETTINGS: dict[str, Any] = {
     'runtime_mode': 'sim',
@@ -27,22 +29,6 @@ def _deep_merge(base: dict[str, Any], incoming: dict[str, Any]) -> dict[str, Any
     return out
 
 
-def _clamp_float(value: Any, default: float, minimum: float, maximum: float) -> float:
-    try:
-        value = float(value)
-    except Exception:
-        value = default
-    return max(minimum, min(maximum, value))
-
-
-def _clamp_int(value: Any, default: int, minimum: int, maximum: int) -> int:
-    try:
-        value = int(value)
-    except Exception:
-        value = default
-    return max(minimum, min(maximum, value))
-
-
 
 def normalize_run_settings(data: dict[str, Any] | None) -> dict[str, Any]:
     merged = _deep_merge(DEFAULT_RUN_SETTINGS, data or {})
@@ -50,10 +36,10 @@ def normalize_run_settings(data: dict[str, Any] | None) -> dict[str, Any]:
     if runtime_mode not in {'sim', 'live'}:
         runtime_mode = 'sim'
     merged['runtime_mode'] = runtime_mode
-    merged['max_cycles'] = _clamp_int(merged.get('max_cycles', 2), 2, 1, 999)
-    merged['headless_tick_s'] = round(_clamp_float(merged.get('headless_tick_s', 0.20), 0.20, 0.02, 10.0), 3)
-    merged['gui_tick_s'] = round(_clamp_float(merged.get('gui_tick_s', 0.20), 0.20, 0.02, 10.0), 3)
-    merged['auto_start_gui'] = bool(merged.get('auto_start_gui', False))
+    merged['max_cycles'] = clamp_int(merged.get('max_cycles', 2), 2, 1, 999)
+    merged['headless_tick_s'] = round(clamp_float(merged.get('headless_tick_s', 0.20), 0.20, 0.02, 10.0), 3)
+    merged['gui_tick_s'] = round(clamp_float(merged.get('gui_tick_s', 0.20), 0.20, 0.02, 10.0), 3)
+    merged['auto_start_gui'] = coerce_bool(merged.get('auto_start_gui', False), False)
     return merged
 
 

@@ -2,7 +2,7 @@
 
 CustomDrive is a mission-controller package for competition-style autonomous tasks.
 
-It now supports **two launch modes** that share the same saved run settings file:
+It supports **two launch modes** that share the same saved run settings file:
 
 1. **GUI mode** for browser-based monitoring and control.
 2. **Headless mode** for running without any display.
@@ -31,6 +31,7 @@ Inside either launch mode, the runtime backend can still be either:
 - web GUI with live JPEG camera view + detection overlay
 - shared runtime settings file for camera / motor / mission perception tuning
 - shared **run settings** file used by both GUI mode and headless mode
+- debug trace feed for state changes, retries, route-leg changes, and runtime warnings
 
 ## What is still placeholder / optional
 
@@ -38,6 +39,15 @@ Inside either launch mode, the runtime backend can still be either:
 - there is still **no bundled real arm/gripper driver** in this folder
 - pickup/release can only be truly physical when you bind a real arm object
 - coarse route timings still need field calibration on the real course
+
+## Robustness improvements in the current patch line
+
+- `sim` mode no longer depends on importing live PiServer modules first
+- malformed `run_settings.json` and `runtime_settings.json` values are normalized and clamped
+- headless and GUI launches expose clearer fallback reasons when `live` cannot start
+- both runtimes keep a bounded in-memory debug/event history for easier diagnosis
+- camera/runtime warnings now surface in GUI status instead of failing silently
+- headless runner can print debug trace entries with `--show-debug`
 
 ## Layout
 
@@ -51,6 +61,7 @@ CustomDrive/
 ├── config/run_settings.json
 ├── custom_drive/
 │   ├── config.py
+│   ├── debug_tools.py
 │   ├── models.py
 │   ├── interfaces.py
 │   ├── mission_state.py
@@ -64,6 +75,7 @@ CustomDrive/
 │   ├── live_runtime.py
 │   ├── runtime_settings.py
 │   ├── run_settings.py
+│   ├── runtime_factory.py
 │   ├── web_app.py
 │   └── web/
 └── PATCH_NOTES/
@@ -104,7 +116,7 @@ python run_custom_drive_demo.py
 Optional overrides:
 
 ```bash
-python run_custom_drive_headless.py --mode live --cycles 2 --tick 0.1
+python run_custom_drive_headless.py --mode live --cycles 2 --tick 0.1 --show-debug
 ```
 
 If you do not pass overrides, the runner uses:
@@ -136,17 +148,18 @@ python run_custom_drive_gui.py --mode sim
 
 Then open `http://localhost:5050`.
 
-The GUI now shows:
+The GUI shows:
 
 - mission state and drive telemetry
 - detection overlays
 - live JPEG camera preview in `live` mode
 - robot action logs
 - a **Saved Run Settings** panel that edits the shared run settings file
+- a **Debug Trace** panel for state transitions, retries, camera/runtime warnings, and fallback notes
 
 ## Saved run settings
 
-CustomDrive now stores launch/run defaults in:
+CustomDrive stores launch/run defaults in:
 
 ```text
 CustomDrive/config/run_settings.json
@@ -167,7 +180,7 @@ Current keys:
 
 ## Runtime settings
 
-Hardware and perception tuning still live in:
+Hardware and perception tuning live in:
 
 ```text
 CustomDrive/config/runtime_settings.json
@@ -179,6 +192,7 @@ Important sections:
 - `motor`: forwarded into PiServer `MotorService`
 - `runtime.steer_mix`: steering mix used by the motor bridge
 - `runtime.allow_virtual_grab_without_arm`: lets the mission continue without a real arm for route testing only
+- `runtime.event_history_limit`: max debug entries kept in memory
 - `perception.labels.he3.ranges` / `perception.labels.he3_zone.ranges`: HSV ranges for color detection
 
 Example HSV tuning block:

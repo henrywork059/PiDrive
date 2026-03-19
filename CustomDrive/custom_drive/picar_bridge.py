@@ -28,6 +28,7 @@ class PiCarRobotBridge:
     allow_virtual_grab_without_arm: bool = False
     history: list[RobotLogEntry] = field(default_factory=list)
     has_payload: bool = False
+    last_error: str = ''
 
     def reset_mission_state(self) -> None:
         self.started_at = time.monotonic()
@@ -62,18 +63,30 @@ class PiCarRobotBridge:
         return update(steering, throttle)
 
     def set_drive(self, steering: float, throttle: float, note: str = "") -> None:
-        result = self._call_motor_update(steering=steering, throttle=throttle)
+        try:
+            result = self._call_motor_update(steering=steering, throttle=throttle)
+            self.last_error = ''
+        except Exception as exc:
+            self.last_error = str(exc)
+            self._log('drive_error', f"steering={steering:+.2f}, throttle={throttle:+.2f}, note={note}, error={exc}")
+            return
         extra = ""
         if isinstance(result, tuple) and len(result) >= 2:
             extra = f" | left={float(result[0]):+.2f} right={float(result[1]):+.2f}"
         self._log("drive", f"steering={steering:+.2f}, throttle={throttle:+.2f}, note={note}{extra}")
 
     def stop(self, note: str = "") -> None:
-        stop = getattr(self.motor, "stop", None)
-        if callable(stop):
-            stop()
-        else:
-            self._call_motor_update(steering=0.0, throttle=0.0)
+        try:
+            stop = getattr(self.motor, "stop", None)
+            if callable(stop):
+                stop()
+            else:
+                self._call_motor_update(steering=0.0, throttle=0.0)
+            self.last_error = ''
+        except Exception as exc:
+            self.last_error = str(exc)
+            self._log('stop_error', f"note={note}, error={exc}")
+            return
         self._log("stop", note)
 
     def _run_arm_step(self, *names: str) -> bool:

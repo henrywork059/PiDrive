@@ -5,7 +5,17 @@
     "fps": 30,
     "preview_fps": 12,
     "preview_quality": 60,
-    "stream_quality": "balanced"
+    "stream_quality": "balanced",
+    "format": "BGR888",
+    "auto_exposure": true,
+    "exposure_us": 12000,
+    "analogue_gain": 1.0,
+    "exposure_compensation": 0.0,
+    "auto_white_balance": true,
+    "brightness": 0.0,
+    "contrast": 1.0,
+    "saturation": 1.0,
+    "sharpness": 1.0
   },
   "motor": {
     "left_direction": 1,
@@ -20,7 +30,8 @@
     "steer_mix": 0.75,
     "tick_s_live": 0.1,
     "tick_s_sim": 0.2,
-    "allow_virtual_grab_without_arm": false
+    "allow_virtual_grab_without_arm": false,
+    "event_history_limit": 200
   },
   "perception": {
     "enabled": true,
@@ -45,7 +56,8 @@
             ]
           }
         ],
-        "min_box_area_ratio": 0.0025
+        "min_box_area_ratio": 0.0025,
+        "max_detections_per_label": 3
       },
       "he3_zone": {
         "ranges": [
@@ -62,7 +74,8 @@
             ]
           }
         ],
-        "min_box_area_ratio": 0.004
+        "min_box_area_ratio": 0.004,
+        "max_detections_per_label": 3
       }
     }
   }
