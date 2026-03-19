@@ -1,13 +1,16 @@
 # piTrainer
 
-`piTrainer` is a PySide6 desktop application for PiCar steering/throttle workflows:
+`piTrainer` is a PySide6 desktop app for PiCar steering/throttle workflows: dataset curation, preprocessing, model training, validation, and export.
 
-- load recorded sessions (`records.jsonl` + images)
-- inspect/filter/edit frame metadata
-- preprocess and rebalance datasets
-- train steering/throttle models
-- validate and review predictions
-- export `.keras` and `.tflite` models
+## What you can do in piTrainer
+
+- Load recorded sessions (`records.jsonl` + image folders).
+- Inspect and edit frame metadata.
+- Filter and rebalance steering distributions.
+- Build processed datasets for training.
+- Train steering/throttle models.
+- Review validation metrics and prediction behavior.
+- Export models as `.keras` and `.tflite`.
 
 ## Project layout
 
@@ -30,13 +33,21 @@ piTrainer/
     └── utils/
 ```
 
+## Prerequisites
+
+- Python **3.11** recommended.
+- Desktop environment (Windows/macOS/Linux with GUI support).
+- TensorFlow-compatible environment for train/validation/export pages.
+
 ## Install
 
-Recommended Python: **3.11**.
+From `piTrainer/`:
 
 ```bash
 python -m venv .venv
 ```
+
+Activate the environment:
 
 Windows:
 
@@ -62,16 +73,71 @@ pip install -r requirements.txt
 python main.py
 ```
 
-## Pages and capabilities
+Helper launchers are also provided:
 
-- **Data**: session source, frame filters, preview/edit panels, overlay/playback, merge/delete tools, plots.
-- **Preprocess**: filtered dataset creation, balancing near-zero steering, image resize strategy, mirrored/color-augmented rows.
-- **Train**: split summary, training config, training controls, history/epoch review.
-- **Validation**: validation config/actions, metrics plots, frame review.
-- **Export**: model status + export options/actions/log.
+- Windows: `run_windows.bat`
+- macOS/Linux: `run_linux_mac.sh`
 
-## Notes
+## Page-by-page guide
+
+### Data page
+
+Use this page to load and inspect raw sessions before training.
+
+- choose source sessions,
+- filter rows by conditions,
+- preview images and metadata,
+- perform merge/delete operations,
+- inspect quick plots before preprocessing.
+
+### Preprocess page
+
+Use this page to create model-ready datasets.
+
+- resize and normalize images,
+- rebalance near-zero steering dominance,
+- optionally augment rows (mirror/color options),
+- generate a consistent processed dataset split.
+
+### Train page
+
+Use this page to configure and run training jobs.
+
+- review split summary,
+- set training parameters,
+- start/monitor training,
+- inspect history and per-epoch signals.
+
+### Validation page
+
+Use this page to evaluate trained models.
+
+- run validation passes,
+- inspect plots/metrics,
+- review frame-level predictions.
+
+### Export page
+
+Use this page for deployment artifacts.
+
+- choose export format,
+- verify current model status,
+- export `.keras` or `.tflite` outputs,
+- review export log for warnings.
+
+## Suggested workflow
+
+1. Load sessions in **Data**.
+2. Clean/filter rows.
+3. Build balanced dataset in **Preprocess**.
+4. Train model in **Train**.
+5. Evaluate in **Validation**.
+6. Export artifact in **Export**.
+7. Deploy to Pi runtime for road testing.
+
+## Notes and troubleshooting
 
 - UI starts in dark mode.
-- Data operations are designed to keep source/session organization explicit.
-- Training/validation/export require TensorFlow-compatible dependencies.
+- Keep source sessions immutable when possible; write outputs to dedicated processed folders.
+- If training tabs fail to load, verify TensorFlow package compatibility with your Python version.
+- For large datasets, prefer SSD storage and avoid network-mounted folders.

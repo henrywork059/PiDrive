@@ -1,25 +1,36 @@
 # PiDrive Maintenance Instructions
 
-This document provides safe maintenance guidance for contributors who need to review or clean up the repository **without changing runtime behavior**.
+This document explains how to make safe, maintainable updates across the PiDrive monorepo.
 
-## Scope of safe cleanup
+## Purpose
 
-Allowed examples:
+Use these instructions when you are doing **documentation improvements**, **non-functional cleanup**, or **lightweight maintenance** that should not change runtime behavior.
 
-- Update documentation to match the current source tree and entry points.
-- Rename unclear local variables when behavior is unchanged.
-- Reformat code (whitespace/import order) without changing logic.
+## Golden rule
+
+If a change can affect robot motion, model output, API behavior, file formats, or deployment behavior, treat it as a functional change and handle it with extra review and testing.
+
+## Safe cleanup scope
+
+### Usually safe
+
+- Update README and instruction files for clarity, accuracy, and onboarding.
+- Improve naming of local variables where behavior is unchanged.
+- Reformat code (whitespace, import ordering, comments) without logic edits.
 - Remove stale comments and dead documentation references.
-- Improve wording of user-facing errors where control flow is unchanged.
+- Improve wording in user-facing text where control flow is unchanged.
 
-Avoid during non-functional cleanup tasks:
+### Usually not safe
 
-- Changing route names, API contracts, or payload structures.
-- Altering mission/training/control logic.
-- Changing model defaults that affect output behavior.
-- Modifying side effects (file writes, motor output, recorder behavior).
+- Changing API routes, request/response schema, or endpoint semantics.
+- Changing algorithm selection rules or control-loop behavior.
+- Changing default model paths, preprocessing parameters, or runtime tuning values.
+- Changing recorder output format, field names, or folder structure.
+- Changing motor output constraints, safety cutoffs, or camera initialization behavior.
 
 ## Current project entry points
+
+Use these as the canonical startup scripts when checking docs:
 
 - `piCar_0_3_2/server.py`
 - `PiServer/server.py`
@@ -27,34 +38,78 @@ Avoid during non-functional cleanup tasks:
 - `CustomTrainer/run_custom_trainer.py`
 - `CustomDrive/run_custom_drive_demo.py`
 
-## Review checklist
+## Maintenance workflow (recommended)
 
-1. **Runtime stacks**
-   - Legacy runtime (`piCar_0_3_2/*`)
-   - Modular runtime (`PiServer/piserver/*`)
-2. **Desktop trainers**
-   - Steering/throttle trainer (`piTrainer/piTrainer/*`)
-   - YOLO trainer (`CustomTrainer/custom_trainer/*`)
-3. **Mission scaffold**
-   - State machine + controller (`CustomDrive/custom_drive/*`)
-4. **Cross-project consistency**
-   - README and quick-start commands match real files.
-   - Mentioned modules/paths exist.
-   - Patch notes remain historical (do not rewrite release history unless asked).
+1. **Read top-level docs first**
+   - `README.md`
+   - `INSTRUCTIONS.md`
+2. **Verify paths and commands**
+   - Confirm every documented path exists.
+   - Confirm every run command points to a real entry script.
+3. **Apply small focused edits**
+   - Prefer multiple tiny commits over one broad undocumented rewrite.
+4. **Run lightweight checks**
+   - For docs-only changes: check Markdown formatting and link/path validity.
+   - For mixed changes: run project-specific smoke checks.
+5. **Write clear commit messages**
+   - Use prefixes like `docs:` or `chore:`.
+   - Mention the exact docs updated and why.
 
 ## Documentation standards
 
-When updating docs:
+When editing docs:
 
-- Keep commands copy/paste friendly.
-- Include Windows + macOS/Linux virtualenv activation examples when relevant.
-- Use concise task-oriented sections (`Install`, `Run`, `Notes`).
-- Prefer concrete file paths over vague references.
+- Use clear task-oriented sections (`Prerequisites`, `Install`, `Run`, `Troubleshooting`).
+- Keep commands copy/paste ready.
+- Include macOS/Linux + Windows virtualenv activation when relevant.
+- Prefer explicit file paths instead of vague references.
+- List assumptions (Python version, Pi-only dependencies, expected OS) near commands.
+- Document fallback behavior (for missing camera/GPIO/TFLite) when applicable.
 
-## Suggested contributor workflow
+## Cross-project review checklist
 
-1. Check `README.md` and each project-level `README.md`.
-2. Confirm entry points and folder names from source files.
-3. Update docs to remove stale version-specific phrasing unless still accurate.
-4. Run lightweight checks (`python -m compileall` or project-specific smoke checks) when possible.
-5. Commit with a `docs:` or `chore:` prefix.
+### Runtime stacks
+
+- `piCar_0_3_2/*` (legacy)
+- `PiServer/piserver/*` (modular runtime)
+
+### Desktop apps
+
+- `piTrainer/piTrainer/*` (driving-model trainer)
+- `CustomTrainer/custom_trainer/*` (YOLO workflow)
+
+### Mission scaffold
+
+- `CustomDrive/custom_drive/*`
+
+### Consistency checks
+
+- README quick-start commands still match real scripts.
+- Mentioned config files still exist.
+- Patch notes are treated as historical records unless specifically asked to revise.
+
+## Risk notes
+
+If you touch files that interact with camera, motor, inference, or route logic:
+
+- assume behavior can be safety-critical,
+- avoid silent defaults changes,
+- and require explicit testing notes in your commit/PR.
+
+## Suggested validation commands
+
+Run from repository root as needed:
+
+```bash
+# quick path sanity
+rg --files | rg -i 'readme|instructions|main.py|server.py|run_'
+
+# optional Python syntax smoke check (if dependencies are not required)
+python -m compileall PiServer piTrainer CustomTrainer CustomDrive
+```
+
+## Commit and PR expectations
+
+- Keep PR scope tight and explain intent in the first paragraph.
+- Include a concise testing/check list with command outputs.
+- If a check cannot run due to environment limits, call that out explicitly.

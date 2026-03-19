@@ -1,55 +1,60 @@
 # CustomDrive
 
-CustomDrive is a mission-controller package for competition-style autonomous tasks.
+CustomDrive is a mission-controller package for competition-style autonomous tasks. It orchestrates state-machine behavior (search, align, approach, pickup, drop) while allowing both simulation and live Pi runtime modes.
 
-It supports **two launch modes** that share the same saved run settings file:
+## Launch modes and runtime modes
 
-1. **GUI mode** for browser-based monitoring and control.
-2. **Headless mode** for running without any display.
+CustomDrive has **two launch modes** and **two runtime backends**.
 
-Inside either launch mode, the runtime backend can still be either:
+### Launch modes
 
-- **Simulation (`sim`)** for fast PC-side testing.
-- **Live (`live`)** using the existing **PiServer** camera + motor services.
+1. **GUI mode** — browser monitoring and controls.
+2. **Headless mode** — no GUI, terminal-driven operation.
+
+### Runtime backends
+
+- **`sim`** — PC-side simulation for fast development/testing.
+- **`live`** — uses PiServer camera and motor services for real hardware.
+
+Both launch modes share the same saved run settings file.
 
 ## Mission loop
 
-1. navigate to search area
-2. detect and align to target
-3. approach + pickup
-4. navigate to drop area
-5. detect and align to drop zone
-6. approach + release
-7. repeat by configured cycle count
+1. Navigate to search area.
+2. Detect and align to target.
+3. Approach and pickup.
+4. Navigate to drop area.
+5. Detect and align to drop zone.
+6. Approach and release.
+7. Repeat for configured cycle count.
 
-## What is real now
+## Current capabilities
 
-- real `live` runtime that boots PiServer `CameraService` and `MotorService`
-- real camera frame polling in live mode
-- real drive output through the PiServer motor mixer
-- configurable color-based perception for `he3` and `he3_zone`
-- web GUI with live JPEG camera view + detection overlay
-- shared runtime settings file for camera / motor / mission perception tuning
-- shared **run settings** file used by both GUI mode and headless mode
-- debug trace feed for state changes, retries, route-leg changes, and runtime warnings
+- Live runtime bootstraps PiServer `CameraService` + `MotorService`.
+- Live camera polling and motor output bridge.
+- Color-range perception support for `he3` and `he3_zone`.
+- Web GUI with live JPEG preview + detection overlay.
+- Shared runtime settings for camera/motor/perception tuning.
+- Shared run settings for GUI and headless launch defaults.
+- Debug trace feed for state changes/retries/warnings.
 
-## What is still placeholder / optional
+## Current limitations / placeholders
 
-- there is still **no bundled object-detection model** in CustomDrive itself
-- there is still **no bundled real arm/gripper driver** in this folder
-- pickup/release can only be truly physical when you bind a real arm object
-- coarse route timings still need field calibration on the real course
+- No bundled object detector model in CustomDrive itself.
+- No bundled physical arm/gripper driver in this folder.
+- Physical pickup/release requires integrating a real arm interface.
+- Coarse route timing still requires on-field calibration.
 
-## Robustness improvements in the current patch line
+## Patch-line robustness improvements
 
-- `sim` mode no longer depends on importing live PiServer modules first
-- malformed `run_settings.json` and `runtime_settings.json` values are normalized and clamped
-- headless and GUI launches expose clearer fallback reasons when `live` cannot start
-- both runtimes keep a bounded in-memory debug/event history for easier diagnosis
-- camera/runtime warnings now surface in GUI status instead of failing silently
-- headless runner can print debug trace entries with `--show-debug`
+- `sim` mode no longer depends on importing live PiServer modules first.
+- Malformed run/runtime settings are normalized and clamped.
+- GUI/headless startup now provides clearer live-mode fallback reasons.
+- In-memory debug/event history is bounded.
+- Camera/runtime warnings surface in GUI status.
+- Headless runner can print debug trace entries via `--show-debug`.
 
-## Layout
+## Project layout
 
 ```text
 CustomDrive/
@@ -83,24 +88,22 @@ CustomDrive/
 
 ## Install
 
-CustomDrive reuses the sibling `PiServer/` package in the same repo.
+CustomDrive reuses sibling `PiServer/` modules from this repo.
 
 ```bash
 cd CustomDrive
 python -m pip install -r requirements.txt
 ```
 
-For **live mode**, make sure the Pi also has the camera/runtime dependencies available through your OS image or Python environment, especially:
+For **live mode**, ensure Pi dependencies are available:
 
 - Flask
 - NumPy
 - OpenCV
-- Picamera2 on Raspberry Pi OS when using the Pi camera
-- RPi.GPIO when using live motor output
+- Picamera2 (for Pi camera)
+- RPi.GPIO (for live motor output)
 
-## Launch mode 1: headless
-
-Headless mode runs without displaying a GUI.
+## Launch: headless mode
 
 ```bash
 cd CustomDrive
@@ -113,21 +116,19 @@ Compatibility launcher:
 python run_custom_drive_demo.py
 ```
 
-Optional overrides:
+Example with overrides:
 
 ```bash
 python run_custom_drive_headless.py --mode live --cycles 2 --tick 0.1 --show-debug
 ```
 
-If you do not pass overrides, the runner uses:
+If no overrides are passed, values are loaded from:
 
 ```text
 CustomDrive/config/run_settings.json
 ```
 
-## Launch mode 2: GUI
-
-GUI mode starts the browser monitor.
+## Launch: GUI mode
 
 ```bash
 cd CustomDrive
@@ -140,47 +141,50 @@ Compatibility launcher:
 python run_custom_drive_web.py
 ```
 
-Optional override:
+Optional runtime override:
 
 ```bash
 python run_custom_drive_gui.py --mode sim
 ```
 
-Then open `http://localhost:5050`.
+Then open:
 
-The GUI shows:
+```text
+http://localhost:5050
+```
 
-- mission state and drive telemetry
-- detection overlays
-- live JPEG camera preview in `live` mode
-- robot action logs
-- a **Saved Run Settings** panel that edits the shared run settings file
-- a **Debug Trace** panel for state transitions, retries, camera/runtime warnings, and fallback notes
+## GUI panels and signals
 
-## Saved run settings
+The GUI includes:
 
-CustomDrive stores launch/run defaults in:
+- mission state + drive telemetry,
+- detection overlays,
+- live camera preview in `live` mode,
+- robot action logs,
+- Saved Run Settings editor,
+- Debug Trace panel for warnings/state transitions/fallback notes.
+
+## Run settings (shared)
+
+File:
 
 ```text
 CustomDrive/config/run_settings.json
 ```
 
-That file is shared by both:
+Used by both GUI and headless runners.
 
-- GUI mode
-- headless mode
-
-Current keys:
+Key fields:
 
 - `runtime_mode`: `sim` or `live`
-- `max_cycles`: default pickup/drop cycles
-- `headless_tick_s`: default loop delay for headless mode
-- `gui_tick_s`: default GUI auto-run loop delay
-- `auto_start_gui`: auto-start mission when GUI opens
+- `max_cycles`: default mission cycle count
+- `headless_tick_s`: default headless loop delay
+- `gui_tick_s`: default GUI loop delay
+- `auto_start_gui`: auto-start mission on GUI launch
 
-## Runtime settings
+## Runtime settings (tuning)
 
-Hardware and perception tuning live in:
+File:
 
 ```text
 CustomDrive/config/runtime_settings.json
@@ -188,14 +192,14 @@ CustomDrive/config/runtime_settings.json
 
 Important sections:
 
-- `camera`: forwarded into PiServer `CameraService`
-- `motor`: forwarded into PiServer `MotorService`
-- `runtime.steer_mix`: steering mix used by the motor bridge
-- `runtime.allow_virtual_grab_without_arm`: lets the mission continue without a real arm for route testing only
-- `runtime.event_history_limit`: max debug entries kept in memory
-- `perception.labels.he3.ranges` / `perception.labels.he3_zone.ranges`: HSV ranges for color detection
+- `camera` — forwarded to PiServer camera service
+- `motor` — forwarded to PiServer motor service
+- `runtime.steer_mix` — steering mix in motor bridge
+- `runtime.allow_virtual_grab_without_arm` — route testing without physical arm
+- `runtime.event_history_limit` — max debug entries in memory
+- `perception.labels.he3.ranges` and `he3_zone.ranges` — HSV color ranges
 
-Example HSV tuning block:
+Example HSV block:
 
 ```json
 {
@@ -204,6 +208,6 @@ Example HSV tuning block:
 }
 ```
 
-## Current design choice
+## Design choice
 
-The controller still uses **coarse route + local visual servoing** instead of a single end-to-end driving model. That keeps the mission logic easier to debug and makes it possible to swap perception sources later.
+CustomDrive intentionally uses **coarse route scripting + local visual servoing** (instead of end-to-end driving). This keeps behavior inspectable and easier to debug, and allows future perception source swaps with lower refactor cost.
