@@ -1,0 +1,16 @@
+[Unit]
+Description=PiBooter Wi-Fi onboarding service
+After=NetworkManager.service network-online.target
+Wants=NetworkManager.service network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=__PIBOOTER_DIR__
+ExecStart=/usr/bin/python3 __PIBOOTER_DIR__/run_pibooter.py --config __PIBOOTER_DIR__/config/settings.json
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

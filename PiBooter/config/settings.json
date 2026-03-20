@@ -1,0 +1,37 @@
+{
+  "network": {
+    "allow_open_wifi": true,
+    "country": "",
+    "ethernet_interface": "eth0",
+    "hotspot_autostart_when_unconfigured": true,
+    "hotspot_band": "bg",
+    "hotspot_channel": 6,
+    "hotspot_connection_name": "PiBooter Hotspot",
+    "hotspot_ip": "192.168.4.1/24",
+    "hotspot_password": "pibooter1234",
+    "hotspot_ssid_prefix": "PiBooter",
+    "hotspot_url": "http://192.168.4.1/",
+    "known_wifi_priority": 50,
+    "wifi_interface": "wlan0"
+  },
+  "runtime": {
+    "last_status_path": "runtime/last_status.json"
+  },
+  "server": {
+    "connection_wait_s": 45,
+    "host": "0.0.0.0",
+    "log_limit": 200,
+    "monitor_interval_s": 5,
+    "poll_interval_s": 1,
+    "port": 80,
+    "scan_cache_ttl_s": 30,
+    "shutdown_after_success_s": 1,
+    "startup_wait_s": 5
+  },
+  "ui": {
+    "show_known_connections": true,
+    "status_refresh_s": 3,
+    "subtitle": "Connect your Raspberry Pi to home Wi-Fi from a phone or tablet.",
+    "title": "PiBooter Wi-Fi Setup"
+  }
+}
