@@ -13,11 +13,10 @@ from piserver.services.control_service import ControlService
 from piserver.services.model_service import ModelService
 from piserver.services.motor_service import MotorService
 from piserver.services.recorder_service import RecorderService
-from piserver.core.value_utils import parse_bool_like
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 WEB_DIR = Path(__file__).resolve().parent / "web"
-APP_VERSION = "0_2_12"
+APP_VERSION = "0_2_13"
 
 
 def mjpeg_generator(camera_service):
@@ -121,7 +120,7 @@ def create_app() -> Flask:
     @app.route("/api/camera/preview_state", methods=["POST"])
     def api_camera_preview_state():
         data = request.get_json(silent=True) or {}
-        enabled = parse_bool_like(data.get("enabled", True), True)
+        enabled = bool(data.get("enabled", True))
         camera_service.set_preview_enabled(enabled)
         return jsonify({"ok": True, "config": camera_service.get_config(), "enabled": enabled})
 
@@ -195,10 +194,7 @@ def create_app() -> Flask:
 
     @app.route("/api/config/save", methods=["POST"])
     def api_config_save():
-        try:
-            config = control_service.save_runtime_config()
-        except Exception as exc:
-            return jsonify({"ok": False, "message": f"Config save failed: {exc}"}), 500
+        config = control_service.save_runtime_config()
         return jsonify({"ok": True, "config": config, "message": "Config saved."})
 
     @app.route("/api/config/reload", methods=["POST"])
@@ -209,7 +205,7 @@ def create_app() -> Flask:
     @app.route("/api/system/estop", methods=["POST"])
     def api_estop():
         data = request.get_json(silent=True) or {}
-        enabled = parse_bool_like(data.get("enabled", True), True)
+        enabled = bool(data.get("enabled", True))
         control_service.set_safety_stop(enabled)
         if enabled:
             motor_service.stop()
@@ -230,7 +226,7 @@ def create_app() -> Flask:
         saved = False
         save_error = ""
         try:
-            control_service.save_runtime_config()
+            config_store.save(control_service.get_runtime_config())
             saved = True
         except Exception as exc:
             save_error = str(exc)
@@ -259,7 +255,7 @@ def create_app() -> Flask:
         saved = False
         save_error = ""
         try:
-            control_service.save_runtime_config()
+            config_store.save(control_service.get_runtime_config())
             saved = True
         except Exception as exc:
             save_error = str(exc)
