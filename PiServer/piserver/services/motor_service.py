@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import atexit
-import math
+import threading
+import time
 from typing import Any
+
+from piserver.core.value_utils import clamp_float, normalize_direction, parse_finite_float
 
 try:
     import RPi.GPIO as GPIO  # type: ignore
@@ -16,26 +19,6 @@ IN2_PIN = 27
 IN3_PIN = 22
 IN4_PIN = 23
 PWM_FREQ_HZ = 1000
-
-
-def _clamp(value: float, minimum: float, maximum: float) -> float:
-    return max(minimum, min(maximum, float(value)))
-
-
-def _safe_float(value: Any, default: float) -> float:
-    try:
-        parsed = float(value)
-    except (TypeError, ValueError):
-        return float(default)
-    return parsed if math.isfinite(parsed) else float(default)
-
-
-def _normalize_direction(value: Any, default: int = 1) -> int:
-    try:
-        parsed = int(value)
-    except (TypeError, ValueError):
-        return -1 if int(default) < 0 else 1
-    return -1 if parsed < 0 else 1
 
 
 class _MotorDriver:
@@ -54,7 +37,7 @@ class _MotorDriver:
             self.pwm_rev.start(0)
 
     def set_speed(self, speed: float):
-        speed = _clamp(speed, -1.0, 1.0)
+        speed = clamp_float(speed, -1.0, 1.0)
         if not GPIO_AVAILABLE:
             return
 
@@ -91,19 +74,22 @@ class MotorService:
         self.right_max_speed = 1.0
         self.left_bias = 0.0
         self.right_bias = 0.0
+        self._lock = threading.RLock()
+        self._last_sim_log_at = 0.0
 
         atexit.register(self.close)
 
     def get_persisted_config(self) -> dict[str, Any]:
-        return {
-            "left_direction": self.left_direction,
-            "right_direction": self.right_direction,
-            "steering_direction": self.steering_direction,
-            "left_max_speed": self.left_max_speed,
-            "right_max_speed": self.right_max_speed,
-            "left_bias": self.left_bias,
-            "right_bias": self.right_bias,
-        }
+        with self._lock:
+            return {
+                "left_direction": self.left_direction,
+                "right_direction": self.right_direction,
+                "steering_direction": self.steering_direction,
+                "left_max_speed": self.left_max_speed,
+                "right_max_speed": self.right_max_speed,
+                "left_bias": self.left_bias,
+                "right_bias": self.right_bias,
+            }
 
     def get_config(self) -> dict[str, Any]:
         data = self.get_persisted_config()
@@ -114,38 +100,38 @@ class MotorService:
         if not isinstance(data, dict):
             return self.get_config()
 
-        if "left_direction" in data:
-            self.left_direction = _normalize_direction(data.get("left_direction", self.left_direction), self.left_direction)
-        if "right_direction" in data:
-            self.right_direction = _normalize_direction(data.get("right_direction", self.right_direction), self.right_direction)
-        if "steering_direction" in data:
-            self.steering_direction = _normalize_direction(data.get("steering_direction", self.steering_direction), self.steering_direction)
-        if "left_max_speed" in data:
-            self.left_max_speed = _clamp(_safe_float(data.get("left_max_speed", self.left_max_speed), self.left_max_speed), 0.0, 1.0)
-        if "right_max_speed" in data:
-            self.right_max_speed = _clamp(_safe_float(data.get("right_max_speed", self.right_max_speed), self.right_max_speed), 0.0, 1.0)
-        if "left_bias" in data:
-            self.left_bias = _clamp(_safe_float(data.get("left_bias", self.left_bias), self.left_bias), -0.35, 0.35)
-        if "right_bias" in data:
-            self.right_bias = _clamp(_safe_float(data.get("right_bias", self.right_bias), self.right_bias), -0.35, 0.35)
-
-        self.stop()
-        return self.get_config()
+        with self._lock:
+            if "left_direction" in data:
+                self.left_direction = normalize_direction(data.get("left_direction", self.left_direction), self.left_direction)
+            if "right_direction" in data:
+                self.right_direction = normalize_direction(data.get("right_direction", self.right_direction), self.right_direction)
+            if "steering_direction" in data:
+                self.steering_direction = normalize_direction(data.get("steering_direction", self.steering_direction), self.steering_direction)
+            if "left_max_speed" in data:
+                self.left_max_speed = clamp_float(parse_finite_float(data.get("left_max_speed", self.left_max_speed), self.left_max_speed), 0.0, 1.0)
+            if "right_max_speed" in data:
+                self.right_max_speed = clamp_float(parse_finite_float(data.get("right_max_speed", self.right_max_speed), self.right_max_speed), 0.0, 1.0)
+            if "left_bias" in data:
+                self.left_bias = clamp_float(parse_finite_float(data.get("left_bias", self.left_bias), self.left_bias), -0.35, 0.35)
+            if "right_bias" in data:
+                self.right_bias = clamp_float(parse_finite_float(data.get("right_bias", self.right_bias), self.right_bias), -0.35, 0.35)
+            self._stop_locked()
+            return self.get_config()
 
     def _apply_motor_tuning(self, value: float, max_speed: float, bias: float, direction: int) -> float:
-        value = _clamp(value, -1.0, 1.0)
+        value = clamp_float(value, -1.0, 1.0)
         if abs(value) > 1e-4 and abs(bias) > 1e-4:
             value += (1.0 if value > 0 else -1.0) * bias
-        value = _clamp(value, -1.0, 1.0)
-        value *= _clamp(max_speed, 0.0, 1.0)
-        value = _clamp(value, -1.0, 1.0)
+        value = clamp_float(value, -1.0, 1.0)
+        value *= clamp_float(max_speed, 0.0, 1.0)
+        value = clamp_float(value, -1.0, 1.0)
         value *= -1.0 if int(direction) < 0 else 1.0
-        return _clamp(value, -1.0, 1.0)
+        return clamp_float(value, -1.0, 1.0)
 
-    def _map_drive(self, steering: float, throttle: float, steer_mix: float):
-        throttle = _clamp(throttle, -1.0, 1.0)
-        steering = _clamp(steering, -1.0, 1.0)
-        steer_mix = _clamp(steer_mix, 0.0, 1.0)
+    def _map_drive_locked(self, steering: float, throttle: float, steer_mix: float):
+        throttle = clamp_float(throttle, -1.0, 1.0)
+        steering = clamp_float(steering, -1.0, 1.0)
+        steer_mix = clamp_float(steer_mix, 0.0, 1.0)
 
         steering *= -1.0 if int(self.steering_direction) < 0 else 1.0
 
@@ -157,24 +143,35 @@ class MotorService:
         return left, right
 
     def update(self, steering: float, throttle: float, steer_mix: float):
-        left, right = self._map_drive(steering, throttle, steer_mix)
-        self.left.set_speed(left)
-        self.right.set_speed(right)
-        self.last_left = left
-        self.last_right = right
+        with self._lock:
+            previous_left = self.last_left
+            previous_right = self.last_right
+            left, right = self._map_drive_locked(steering, throttle, steer_mix)
+            self.left.set_speed(left)
+            self.right.set_speed(right)
+            self.last_left = left
+            self.last_right = right
 
         if not GPIO_AVAILABLE:
-            print(
-                f"[MOTOR SIM] steering={steering:+.2f} throttle={throttle:+.2f} "
-                f"mix={steer_mix:.2f} left={left:+.2f} right={right:+.2f}"
-            )
+            now = time.time()
+            changed = abs(left - previous_left) > 0.01 or abs(right - previous_right) > 0.01
+            if changed or (now - self._last_sim_log_at) >= 1.0:
+                print(
+                    f"[MOTOR SIM] steering={steering:+.2f} throttle={throttle:+.2f} "
+                    f"mix={steer_mix:.2f} left={left:+.2f} right={right:+.2f}"
+                )
+                self._last_sim_log_at = now
         return left, right
 
-    def stop(self):
+    def _stop_locked(self):
         self.last_left = 0.0
         self.last_right = 0.0
         self.left.stop()
         self.right.stop()
+
+    def stop(self):
+        with self._lock:
+            self._stop_locked()
 
     def close(self):
         try:

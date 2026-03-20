@@ -1,23 +1,11 @@
 from __future__ import annotations
 
-import math
 import threading
 import time
 from typing import Any
 
 from piserver.core.runtime_state import RuntimeState
-
-
-def _clamp(value: float, minimum: float, maximum: float) -> float:
-    return max(minimum, min(maximum, float(value)))
-
-
-def _parse_float(value: Any, default: float) -> float:
-    try:
-        parsed = float(value)
-    except (TypeError, ValueError):
-        return float(default)
-    return parsed if math.isfinite(parsed) else float(default)
+from piserver.core.value_utils import clamp_float, parse_clamped_float, parse_finite_float
 
 
 class ControlService:
@@ -35,7 +23,7 @@ class ControlService:
         self.motor_service = motor_service
         self.model_service = model_service
         self.recorder_service = recorder_service
-        self.algorithms = algorithms
+        self.algorithms = dict(algorithms or {})
         self.config_store = config_store
         self.state = RuntimeState()
         self.loop_hz = max(1, int(loop_hz))
@@ -96,13 +84,31 @@ class ControlService:
 
     def _update_motor_state_locked(self):
         cfg = self.motor_service.get_config()
-        self.state.motor_left_direction = int(cfg.get("left_direction", 1))
-        self.state.motor_right_direction = int(cfg.get("right_direction", 1))
-        self.state.motor_steering_direction = int(cfg.get("steering_direction", 1))
-        self.state.motor_left_max_speed = float(cfg.get("left_max_speed", 1.0))
-        self.state.motor_right_max_speed = float(cfg.get("right_max_speed", 1.0))
-        self.state.motor_left_bias = float(cfg.get("left_bias", 0.0))
-        self.state.motor_right_bias = float(cfg.get("right_bias", 0.0))
+        self.state.motor_left_direction = -1 if int(cfg.get("left_direction", 1)) < 0 else 1
+        self.state.motor_right_direction = -1 if int(cfg.get("right_direction", 1)) < 0 else 1
+        self.state.motor_steering_direction = -1 if int(cfg.get("steering_direction", 1)) < 0 else 1
+        self.state.motor_left_max_speed = parse_clamped_float(cfg.get("left_max_speed", 1.0), 1.0, 0.0, 1.0)
+        self.state.motor_right_max_speed = parse_clamped_float(cfg.get("right_max_speed", 1.0), 1.0, 0.0, 1.0)
+        self.state.motor_left_bias = clamp_float(parse_finite_float(cfg.get("left_bias", 0.0), 0.0), -0.35, 0.35)
+        self.state.motor_right_bias = clamp_float(parse_finite_float(cfg.get("right_bias", 0.0), 0.0), -0.35, 0.35)
+
+    def _resolve_algorithm_locked(self):
+        active_name = str(self.state.active_algorithm or "manual").strip() or "manual"
+        algo = self.algorithms.get(active_name)
+        if algo is not None:
+            return algo
+        algo = self.algorithms.get("manual")
+        if algo is not None:
+            if active_name != "manual":
+                self.state.system_message = f"Unknown algorithm '{active_name}'. Falling back to manual."
+            self.state.active_algorithm = "manual"
+            return algo
+        for name, algo in self.algorithms.items():
+            self.state.active_algorithm = str(name)
+            self.state.system_message = f"Manual algorithm missing. Falling back to {name}."
+            return algo
+        self.state.system_message = "No algorithms available. Holding safe idle output."
+        return None
 
     def _loop(self):
         period = 1.0 / self.loop_hz
@@ -132,16 +138,19 @@ class ControlService:
                 if self.state.safety_stop:
                     steer, throttle = 0.0, 0.0
                 else:
-                    algo = self.algorithms.get(self.state.active_algorithm, self.algorithms["manual"])
-                    try:
-                        steer, throttle = algo.compute(self.state, self.camera_service, self.model_service)
-                    except Exception as exc:
+                    algo = self._resolve_algorithm_locked()
+                    if algo is None:
                         steer, throttle = 0.0, 0.0
-                        self.state.system_message = f"Algorithm error: {exc}"
+                    else:
+                        try:
+                            steer, throttle = algo.compute(self.state, self.camera_service, self.model_service)
+                        except Exception as exc:
+                            steer, throttle = 0.0, 0.0
+                            self.state.system_message = f"Algorithm error: {exc}"
 
-                steer = _clamp(_parse_float(steer, 0.0), -1.0, 1.0)
-                throttle = _clamp(
-                    _parse_float(throttle, 0.0),
+                steer = clamp_float(parse_finite_float(steer, 0.0), -1.0, 1.0)
+                throttle = clamp_float(
+                    parse_finite_float(throttle, 0.0),
                     -float(self.state.max_throttle),
                     float(self.state.max_throttle),
                 )
@@ -180,9 +189,9 @@ class ControlService:
     def set_manual_controls(self, steering=None, throttle=None):
         with self.lock:
             if steering is not None:
-                self.state.manual_steering = _clamp(_parse_float(steering, self.state.manual_steering), -1.0, 1.0)
+                self.state.manual_steering = clamp_float(parse_finite_float(steering, self.state.manual_steering), -1.0, 1.0)
             if throttle is not None:
-                self.state.manual_throttle = _clamp(_parse_float(throttle, self.state.manual_throttle), -1.0, 1.0)
+                self.state.manual_throttle = clamp_float(parse_finite_float(throttle, self.state.manual_throttle), -1.0, 1.0)
             self.state.system_message = "Manual controls updated."
         return True, "OK"
 
@@ -198,9 +207,9 @@ class ControlService:
     def set_runtime_parameters(self, max_throttle=None, steer_mix=None, current_page=None):
         with self.lock:
             if max_throttle is not None:
-                self.state.max_throttle = _clamp(_parse_float(max_throttle, self.state.max_throttle), 0.0, 1.0)
+                self.state.max_throttle = clamp_float(parse_finite_float(max_throttle, self.state.max_throttle), 0.0, 1.0)
             if steer_mix is not None:
-                self.state.steer_mix = _clamp(_parse_float(steer_mix, self.state.steer_mix), 0.0, 1.0)
+                self.state.steer_mix = clamp_float(parse_finite_float(steer_mix, self.state.steer_mix), 0.0, 1.0)
             if current_page:
                 self.state.current_page = str(current_page)
             self.state.system_message = "Runtime parameters updated."
@@ -251,24 +260,31 @@ class ControlService:
             return
         motor_cfg = data.get("motor")
         if isinstance(motor_cfg, dict):
-            self.motor_service.apply_settings(motor_cfg)
+            try:
+                self.motor_service.apply_settings(motor_cfg)
+            except Exception as exc:
+                with self.lock:
+                    self.state.system_message = f"Motor config apply failed: {exc}"
 
         with self.lock:
             algo = data.get("active_algorithm")
             if algo in self.algorithms:
                 self.state.active_algorithm = algo
             if "max_throttle" in data:
-                self.state.max_throttle = _clamp(_parse_float(data["max_throttle"], self.state.max_throttle), 0.0, 1.0)
+                self.state.max_throttle = clamp_float(parse_finite_float(data["max_throttle"], self.state.max_throttle), 0.0, 1.0)
             if "steer_mix" in data:
-                self.state.steer_mix = _clamp(_parse_float(data["steer_mix"], self.state.steer_mix), 0.0, 1.0)
+                self.state.steer_mix = clamp_float(parse_finite_float(data["steer_mix"], self.state.steer_mix), 0.0, 1.0)
             if "current_page" in data:
                 self.state.current_page = str(data["current_page"])
             self._update_motor_state_locked()
             self.state.system_message = "Runtime config loaded." if not initial else "Runtime config applied."
         camera_cfg = data.get("camera")
         if isinstance(camera_cfg, dict):
-            self.camera_service.apply_settings(camera_cfg, restart=not initial)
+            ok, message, _ = self.camera_service.apply_settings(camera_cfg, restart=not initial)
             self.invalidate_processing_state_cache()
+            if not ok:
+                with self.lock:
+                    self.state.system_message = message or "Camera config apply failed."
 
     def reload_runtime_config(self) -> dict:
         data = self.config_store.load()

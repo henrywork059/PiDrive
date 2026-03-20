@@ -13,24 +13,11 @@ from piserver.services.control_service import ControlService
 from piserver.services.model_service import ModelService
 from piserver.services.motor_service import MotorService
 from piserver.services.recorder_service import RecorderService
+from piserver.core.value_utils import parse_bool_like
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 WEB_DIR = Path(__file__).resolve().parent / "web"
-APP_VERSION = "0_2_10"
-
-
-def _parse_bool_like(value, default: bool = False) -> bool:
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, (int, float)):
-        return bool(value)
-    if isinstance(value, str):
-        text = value.strip().lower()
-        if text in {"1", "true", "yes", "on"}:
-            return True
-        if text in {"0", "false", "no", "off", ""}:
-            return False
-    return bool(default)
+APP_VERSION = "0_2_11"
 
 
 def mjpeg_generator(camera_service):
@@ -134,7 +121,7 @@ def create_app() -> Flask:
     @app.route("/api/camera/preview_state", methods=["POST"])
     def api_camera_preview_state():
         data = request.get_json(silent=True) or {}
-        enabled = _parse_bool_like(data.get("enabled", True), True)
+        enabled = parse_bool_like(data.get("enabled", True), True)
         camera_service.set_preview_enabled(enabled)
         return jsonify({"ok": True, "config": camera_service.get_config(), "enabled": enabled})
 
@@ -208,7 +195,10 @@ def create_app() -> Flask:
 
     @app.route("/api/config/save", methods=["POST"])
     def api_config_save():
-        config = control_service.save_runtime_config()
+        try:
+            config = control_service.save_runtime_config()
+        except Exception as exc:
+            return jsonify({"ok": False, "message": f"Config save failed: {exc}"}), 500
         return jsonify({"ok": True, "config": config, "message": "Config saved."})
 
     @app.route("/api/config/reload", methods=["POST"])
@@ -219,7 +209,7 @@ def create_app() -> Flask:
     @app.route("/api/system/estop", methods=["POST"])
     def api_estop():
         data = request.get_json(silent=True) or {}
-        enabled = _parse_bool_like(data.get("enabled", True), True)
+        enabled = parse_bool_like(data.get("enabled", True), True)
         control_service.set_safety_stop(enabled)
         if enabled:
             motor_service.stop()

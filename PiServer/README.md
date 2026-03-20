@@ -185,3 +185,12 @@ sudo systemctl restart pi_server.service
 - Numeric parsing now rejects NaN/inf values safely, which prevents broken manual or runtime values from propagating into the control loop.
 - Recording toggle failures now return a controlled error message instead of crashing the request path.
 - Camera and motor settings parsing is more defensive, making PiServer safer against partial, stale, or malformed config payloads.
+
+
+## PiServer 0_2_11 highlights
+
+- Added shared parsing helpers so bool/float/direction handling is more consistent across app, control, and motor code.
+- Motor service now uses a lock for apply/update/stop, which avoids race conditions between the control loop and the web settings API.
+- Model uploads are now saved with a temporary file + replace, and model load/predict paths are protected by a lock so live inference is safer while changing models.
+- Control loop now falls back safely even if the manual algorithm is missing, instead of risking a crash from a missing registry entry.
+- Added more unit coverage for helpers, motor-setting validation, model upload sanitising, and algorithm fallback behaviour.

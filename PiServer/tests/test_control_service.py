@@ -131,6 +131,14 @@ class BoomAlgo:
         raise RuntimeError("algo boom")
 
 
+class IdleAlgo:
+    name = "idle"
+    label = "Idle"
+
+    def compute(self, state, camera_service, model_service):
+        return 0.0, 0.0
+
+
 class ControlServiceTests(unittest.TestCase):
     def build_service(self, *, algorithms=None, motor=None, config=None, recorder=None):
         camera = DummyCamera()
@@ -255,6 +263,27 @@ class ControlServiceTests(unittest.TestCase):
         svc.apply_runtime_config({"camera": {"width": 640}}, initial=False)
         self.assertEqual(camera.apply_settings_calls[-1], ({"width": 640}, True))
         self.assertIsNone(svc._processing_enabled_cached)
+
+    def test_missing_manual_algorithm_falls_back_to_available_algorithm(self):
+        svc, camera, motor, recorder, _ = self.build_service(algorithms={"idle": IdleAlgo()})
+        svc.running = True
+
+        original_sleep = __import__("time").sleep
+        import time as _time
+
+        def fake_sleep(_):
+            svc.running = False
+
+        _time.sleep = fake_sleep
+        try:
+            svc._loop()
+        finally:
+            _time.sleep = original_sleep
+
+        self.assertEqual(svc.state.active_algorithm, "idle")
+        self.assertEqual(svc.state.applied_steering, 0.0)
+        self.assertEqual(svc.state.applied_throttle, 0.0)
+        self.assertIn("falling back", svc.state.system_message.lower())
 
     def test_toggle_recording_failure_returns_error_message(self):
         svc, _, _, recorder, _ = self.build_service(recorder=DummyRecorder(fail=True))

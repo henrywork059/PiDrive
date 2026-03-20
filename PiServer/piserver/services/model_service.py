@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import os
+import threading
+import uuid
 from pathlib import Path
 from typing import Optional, Tuple
 
@@ -34,38 +37,49 @@ class ModelService:
         self.root.mkdir(parents=True, exist_ok=True)
         self.active_name = "none"
         self.interpreter = None
+        self._lock = threading.RLock()
 
     def list_models(self) -> list[str]:
         return sorted([p.name for p in self.root.glob("*.tflite")])
 
     def save_uploaded_model(self, file_storage) -> tuple[bool, str]:
         filename = (getattr(file_storage, "filename", "") or "").strip()
-        if not filename.lower().endswith(".tflite"):
+        safe_name = Path(filename).name
+        if not safe_name or not safe_name.lower().endswith(".tflite"):
             return False, "Only .tflite files are supported."
-        target = self.root / Path(filename).name
+        target = self.root / safe_name
+        tmp_target = self.root / f".{safe_name}.{uuid.uuid4().hex}.upload"
         try:
-            file_storage.save(target)
+            file_storage.save(tmp_target)
+            os.replace(tmp_target, target)
             return True, target.name
         except Exception as exc:
+            try:
+                if tmp_target.exists():
+                    tmp_target.unlink()
+            except Exception:
+                pass
             return False, f"Failed to save model: {exc}"
 
     def load_model(self, filename: str) -> tuple[bool, str]:
         if InterpreterType is None:
             return False, "No TFLite interpreter is available on this system."
         path = self.root / Path(filename).name
-        if not path.exists():
+        if not path.exists() or not path.is_file():
             return False, "Model file does not exist."
         try:
             interpreter = InterpreterType(model_path=str(path))
             interpreter.allocate_tensors()
+        except Exception as exc:
+            return False, f"Failed to load model: {exc}"
+        with self._lock:
             self.interpreter = interpreter
             self.active_name = path.name
             return True, self.active_name
-        except Exception as exc:
-            return False, f"Failed to load model: {exc}"
 
     def get_active_name(self) -> str:
-        return self.active_name
+        with self._lock:
+            return self.active_name
 
     def _prepare_input(self, frame_bgr):
         if np is None or cv2 is None or frame_bgr is None:
@@ -109,24 +123,28 @@ class ModelService:
         return y
 
     def predict_uv_from_frame(self, frame_bgr) -> Optional[Tuple[float, float]]:
-        if self.interpreter is None or np is None or cv2 is None:
+        if np is None or cv2 is None:
             return None
         x = self._prepare_input(frame_bgr)
         if x is None:
             return None
-        try:
-            input_details = self.interpreter.get_input_details()[0]
-            output_details = self.interpreter.get_output_details()[0]
-            x = self._quantize_if_needed(x, input_details)
-            self.interpreter.set_tensor(input_details["index"], x)
-            self.interpreter.invoke()
-            y = self.interpreter.get_tensor(output_details["index"])
-            y = self._dequantize_output(y, output_details)
-            y = y.reshape(-1)
-            if y.size < 2:
+        with self._lock:
+            interpreter = self.interpreter
+            if interpreter is None:
                 return None
-            steer = max(-1.0, min(1.0, float(y[0])))
-            throttle = max(0.0, min(1.0, float(y[1])))
-            return steer, throttle
-        except Exception:
+            try:
+                input_details = interpreter.get_input_details()[0]
+                output_details = interpreter.get_output_details()[0]
+                x = self._quantize_if_needed(x, input_details)
+                interpreter.set_tensor(input_details["index"], x)
+                interpreter.invoke()
+                y = interpreter.get_tensor(output_details["index"])
+            except Exception:
+                return None
+        y = self._dequantize_output(y, output_details)
+        y = y.reshape(-1)
+        if y.size < 2:
             return None
+        steer = max(-1.0, min(1.0, float(y[0])))
+        throttle = max(0.0, min(1.0, float(y[1])))
+        return steer, throttle
