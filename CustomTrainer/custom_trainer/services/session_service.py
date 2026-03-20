@@ -6,6 +6,8 @@ from pathlib import Path
 import yaml
 
 IMAGE_SUFFIXES = {'.jpg', '.jpeg', '.png', '.bmp', '.webp'}
+VIDEO_SUFFIXES = {'.mp4', '.avi', '.mov', '.mkv', '.mpeg', '.mpg', '.wmv', '.webm', '.m4v', '.ts', '.asf', '.gif'}
+MEDIA_SUFFIXES = IMAGE_SUFFIXES | VIDEO_SUFFIXES
 
 
 def list_images(root: Path) -> list[Path]:
@@ -19,6 +21,61 @@ def _images_inside(path: Path) -> list[Path]:
     if not path.is_dir():
         return []
     return list_images(path)
+
+
+def list_media(root: Path) -> list[Path]:
+    return sorted(
+        [path for path in root.rglob('*') if path.is_file() and path.suffix.lower() in MEDIA_SUFFIXES],
+        key=lambda item: item.as_posix().lower(),
+    )
+
+
+def _direct_media_files(path: Path) -> list[Path]:
+    if not path.is_dir():
+        return []
+    return sorted(
+        [child for child in path.iterdir() if child.is_file() and child.suffix.lower() in MEDIA_SUFFIXES],
+        key=lambda item: item.as_posix().lower(),
+    )
+
+
+def resolve_prediction_source(path: Path) -> tuple[Path, str | None]:
+    """Resolve a user-selected prediction source into a media path Ultralytics can read.
+
+    The GUI may let the user choose a session folder whose frames live under ``images/``
+    or another nested directory. Ultralytics prediction, however, expects the provided
+    directory itself to directly contain media files. This helper normalizes common
+    session-style layouts into a usable media root while keeping the original selection
+    intact for the UI.
+    """
+    if not path.exists():
+        return path, None
+    if path.is_file():
+        return path, None
+    if _direct_media_files(path):
+        return path, None
+
+    ok, image_root = looks_like_session_dir(path)
+    if ok and image_root is not None:
+        if image_root != path:
+            return image_root, f'Session folder auto-resolved to image folder: {image_root}'
+        return path, None
+
+    sessions = discover_sessions(path)
+    if len(sessions) == 1:
+        resolved = sessions[0].image_root
+        if resolved != path:
+            return resolved, f'Folder auto-resolved to discovered session images: {resolved}'
+        return resolved, None
+
+    media_paths = list_media(path)
+    if media_paths:
+        first_parent = media_paths[0].parent
+        unique_parents = {item.parent.resolve() for item in media_paths}
+        if len(unique_parents) == 1:
+            return first_parent, f'Folder auto-resolved to media directory: {first_parent}'
+
+    return path, None
 
 
 def yolo_expected_label_path(image_path: Path) -> Path:

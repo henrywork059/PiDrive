@@ -25,14 +25,13 @@ CustomTrainer/
 └── PATCH_NOTES/
 ```
 
-## What changed in 0_1_11
+## What changed in 0_1_12
 
-- remembers and reloads the **last loaded sessions root**
-- adds more **draggable split panels** inside Marking, Training, Validation, and Export
-- adds a live **Training Progress Plot** that reads Ultralytics `results.csv`
-- adds a **Validation frame browser** so you can step through predicted output frames
-- allows validation output styling changes such as **box line width**, **label text size**, and whether labels / confidence / boxes are shown
-- keeps local **Run Log** panels on Training, Validation, and Export for easier debugging
+- keeps the **last loaded sessions root** and restored splitter layouts from 0_1_11
+- auto-resolves a selected **session folder** in Validation to its real media folder before prediction
+- keeps the Validation preview aligned with the actual resolved prediction source
+- adds clearer runtime log notes when the selected prediction source is converted into a nested `images/` folder
+- retains the live **Training Progress Plot**, Validation frame browser, overlay controls, and local run logs from 0_1_11
 
 ## Main workflow
 

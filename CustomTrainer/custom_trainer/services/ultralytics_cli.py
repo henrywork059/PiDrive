@@ -4,6 +4,8 @@ import argparse
 import sys
 from pathlib import Path
 
+from custom_trainer.services.session_service import resolve_prediction_source
+
 from custom_trainer.services.device_service import resolve_device, runtime_summary
 
 
@@ -129,9 +131,14 @@ def cmd_predict(args: argparse.Namespace) -> int:
     output_dir = Path(args.project or 'runs/detect') / (args.name or 'predict')
     output_dir.mkdir(parents=True, exist_ok=True)
     print(f'[save-dir] {output_dir}', flush=True)
-    source_path = Path(args.source)
+    requested_source_path = Path(args.source)
+    source_path, source_note = resolve_prediction_source(requested_source_path)
+    if source_note:
+        print(f'[source] {source_note}', flush=True)
+    if source_path != requested_source_path:
+        print(f'[source] requested={requested_source_path} | resolved={source_path}', flush=True)
     results = model.predict(
-        source=args.source,
+        source=str(source_path),
         imgsz=args.imgsz,
         conf=args.conf,
         device=_resolved_device(args.device),

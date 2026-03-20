@@ -1,41 +1,41 @@
-# CustomTrainer 0_1_12 Patch Notes
+# PATCH NOTES — CustomTrainer 0_1_12
 
-## Summary
-This patch changes the Validation preview so it can show the model’s boxed prediction result instead of only mirroring the raw source image.
+## Scope
+Patch-only update for CustomTrainer based on the delivered baseline **CustomTrainer_0_1_11**.
 
-## Main changes
+## Problem addressed
+Prediction could fail when the user chose another session folder as the Validation source after training. The GUI preview could still show frames, but the actual Ultralytics prediction run failed with `No images or videos found`.
 
-### 1) Prediction preview now shows the deployed model output
-- The Validation page now listens for prediction output markers from the Ultralytics runner.
-- After **Run Prediction**, the preview panel switches from the raw source image to the annotated image saved by the model.
-- The preview info panel also shows a short summary of detected boxes.
+## Likely cause
+The Validation preview searched folders recursively, so it could find frames under nested session layouts such as `session/images/...`. However, the prediction command passed the raw selected folder path directly to Ultralytics. Ultralytics expects the provided directory itself to contain media files, so a session root with frames inside `images/` did not work.
 
-### 2) Prediction runs now save to a session-oriented runs folder
-- Validation and prediction commands now pass explicit `project` and `name` values.
-- This keeps outputs grouped under the current sessions root `runs/detect/...` path instead of mixing them into a generic default location.
+## Changes made
 
-### 3) Validation / prediction logging is cleaner
-- Removed the giant raw object / array dumps from `val` and `predict` command output.
-- Validation now emits a concise metrics summary line.
-- Prediction now emits concise box summary lines and the saved preview-image path.
+### 1) Added prediction-source resolution
+- Added a shared helper in `custom_trainer/services/session_service.py` to normalize a selected prediction source into a direct media path that Ultralytics can read.
+- Session folders that store frames under `images/` are now auto-resolved to that image folder before prediction starts.
+- The helper also supports already-valid file paths and direct media folders without changing them.
 
-### 4) Version / docs updated
-- Main window title updated to `CustomTrainer 0_1_12`.
-- README updated to explain that Run Prediction refreshes the preview with the boxed model result.
+### 2) Aligned backend prediction with the GUI preview
+- `custom_trainer/services/ultralytics_cli.py` now resolves the source path before calling `model.predict(...)`.
+- The runtime log now prints source-resolution notes so it is obvious when a session folder was converted into its actual image directory.
+
+### 3) Improved Validation preview clarity
+- `custom_trainer/ui/pages/validate_page.py` now uses the same source-resolution helper for preview information.
+- The Validation preview text now shows the resolved prediction source when the selected folder is not the direct image folder.
+- Prediction launch now passes the resolved source path, so preview behavior and backend behavior stay consistent.
 
 ## Files changed
-- `CustomTrainer/custom_trainer/services/ultralytics_runner.py`
-- `CustomTrainer/custom_trainer/services/ultralytics_cli.py`
-- `CustomTrainer/custom_trainer/state.py`
-- `CustomTrainer/custom_trainer/ui/pages/validate_page.py`
-- `CustomTrainer/custom_trainer/ui/main_window.py`
 - `CustomTrainer/README.md`
+- `CustomTrainer/custom_trainer/services/session_service.py`
+- `CustomTrainer/custom_trainer/services/ultralytics_cli.py`
+- `CustomTrainer/custom_trainer/ui/pages/validate_page.py`
 - `CustomTrainer/PATCH_NOTES/PATCH_NOTES_CustomTrainer_0_1_12.md`
 
-## Verification
-- Python syntax check passed for the changed Python files.
-- Full GUI runtime testing was not possible here because the desktop PySide6 environment is not available in this container.
+## Verification performed
+- Static review of the failing path pattern from the user log: session root selected, frames stored deeper than the selected folder itself.
+- `python -m compileall custom_trainer run_custom_trainer.py`
 
-## Notes
-- This is a patch-only zip. Extract it over your current `CustomTrainer` project.
-- To see the boxed preview, choose weights + an image source, then click **Run Prediction**.
+## Notes / limitations
+- This patch is focused on the session-folder prediction failure path.
+- Prediction outputs still save under the current workspace runs directory used by CustomTrainer unless changed in a later patch.

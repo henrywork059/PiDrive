@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 from custom_trainer.services.device_service import probe_runtime
+from custom_trainer.services.session_service import resolve_prediction_source
 from custom_trainer.services.ui_state_service import get_splitter_state, set_splitter_state
 from custom_trainer.services.ultralytics_runner import build_predict_command, build_val_command, runner_working_directory
 from custom_trainer.state import AppState
@@ -429,6 +430,8 @@ class ValidatePage(QWidget):
             self.preview_info.setText(f'Source path does not exist:\n{source_text}')
             return
 
+        resolved_source_path, source_note = resolve_prediction_source(source_path)
+
         prediction_frame = self._current_predicted_frame()
         if prediction_frame is not None:
             self._render_pixmap(prediction_frame, 'Predicted frame preview unavailable.')
@@ -438,6 +441,8 @@ class ValidatePage(QWidget):
                 f'Weights: {self.weights_edit.text().strip() or "not set"}',
                 f'Dataset YAML: {self.yaml_edit.text().strip() or "not set"}',
             ]
+            if source_note:
+                info_lines.append(f'Resolved predict source: {resolved_source_path}')
             if self.last_metrics_text:
                 info_lines.append(f'Latest validation: {self.last_metrics_text}')
             if self.last_prediction_summary:
@@ -449,10 +454,11 @@ class ValidatePage(QWidget):
             return
 
         raw_image_path: Path | None = None
-        if source_path.is_dir():
-            raw_image_path = self._find_first_image_in_dir(source_path)
-        elif source_path.suffix.lower() in _IMAGE_SUFFIXES:
-            raw_image_path = source_path
+        preview_source_path = resolved_source_path if resolved_source_path.exists() else source_path
+        if preview_source_path.is_dir():
+            raw_image_path = self._find_first_image_in_dir(preview_source_path)
+        elif preview_source_path.suffix.lower() in _IMAGE_SUFFIXES:
+            raw_image_path = preview_source_path
         if raw_image_path is not None:
             self._render_pixmap(raw_image_path, 'Preview unavailable for this file.')
         else:
@@ -465,8 +471,10 @@ class ValidatePage(QWidget):
             f'Dataset YAML: {self.yaml_edit.text().strip() or "not set"}',
             'Raw source preview. Run Prediction to render boxed detections for all frames.',
         ]
-        if source_path.is_dir():
-            info_lines.append('Directory source detected — prediction will iterate through the folder contents.')
+        if source_note:
+            info_lines.append(f'Resolved predict source: {resolved_source_path}')
+        if preview_source_path.is_dir():
+            info_lines.append('Directory source detected — prediction will iterate through the resolved folder contents.')
         self.preview_info.setText('\n'.join(info_lines))
 
     def _prediction_output_args(self, prefix: str) -> tuple[str, str]:
@@ -537,6 +545,7 @@ class ValidatePage(QWidget):
         if not source_path.exists():
             QMessageBox.critical(self, 'Missing source', f'The selected source does not exist:\n{source_path}')
             return
+        resolved_source_path, source_note = resolve_prediction_source(source_path)
         project_dir, run_name = self._prediction_output_args('predict')
         self.last_preview_source = source_text
         self.predicted_frame_paths = []
@@ -544,9 +553,11 @@ class ValidatePage(QWidget):
         self.last_prediction_summary = []
         self.last_save_dir = ''
         self._refresh_frame_selector()
+        if source_note:
+            self.last_prediction_summary.append(source_note)
         command = build_predict_command(
             weights=self.weights_edit.text().strip(),
-            source=source_text,
+            source=str(resolved_source_path),
             imgsz=imgsz,
             conf=conf,
             device=self.current_device_value(),
