@@ -2,48 +2,55 @@ const gridCols = 24;
 const gridRows = 14;
 const layoutKeyPrefix = "PiServerLayout:";
 const pagePanels = {
-  manual: ["status", "viewer", "drive", "manual", "record", "system"],
-  training: ["status", "viewer", "drive", "manual", "record", "system"],
-  auto: ["status", "viewer", "drive", "manual", "record", "system"],
-  camera: ["status", "viewer", "camera", "system"],
-  motor: ["status", "viewer", "motor", "system"]
+  manual: ["status", "telemetry", "viewer", "runtime", "manual", "safety", "record", "config"],
+  training: ["status", "telemetry", "viewer", "runtime", "model", "record", "config"],
+  auto: ["status", "telemetry", "viewer", "runtime", "model", "safety", "config"],
+  camera: ["status", "telemetry", "viewer", "camera", "config"],
+  motor: ["status", "telemetry", "viewer", "motor", "safety", "config"]
 };
 const defaultLayouts = {
   manual: {
-    status: { c: 1, r: 1, w: 10, h: 2 },
-    viewer: { c: 1, r: 3, w: 15, h: 10 },
-    drive: { c: 16, r: 1, w: 9, h: 5 },
-    manual: { c: 16, r: 6, w: 9, h: 7 },
-    record: { c: 1, r: 13, w: 8, h: 2 },
-    system: { c: 9, r: 13, w: 16, h: 2 }
+    status: { c: 1, r: 1, w: 8, h: 3 },
+    telemetry: { c: 1, r: 4, w: 8, h: 5 },
+    viewer: { c: 9, r: 1, w: 10, h: 9 },
+    manual: { c: 19, r: 1, w: 6, h: 8 },
+    safety: { c: 19, r: 9, w: 6, h: 3 },
+    record: { c: 1, r: 9, w: 8, h: 3 },
+    runtime: { c: 9, r: 10, w: 10, h: 5 },
+    config: { c: 19, r: 12, w: 6, h: 3 }
   },
   training: {
-    status: { c: 1, r: 1, w: 8, h: 2 },
-    viewer: { c: 1, r: 3, w: 14, h: 9 },
-    drive: { c: 15, r: 1, w: 10, h: 6 },
-    manual: { c: 15, r: 7, w: 10, h: 5 },
-    record: { c: 1, r: 12, w: 8, h: 3 },
-    system: { c: 9, r: 12, w: 16, h: 3 }
+    status: { c: 1, r: 1, w: 8, h: 3 },
+    telemetry: { c: 1, r: 4, w: 8, h: 5 },
+    viewer: { c: 9, r: 1, w: 8, h: 8 },
+    model: { c: 17, r: 1, w: 8, h: 8 },
+    record: { c: 1, r: 9, w: 8, h: 3 },
+    runtime: { c: 9, r: 9, w: 8, h: 6 },
+    config: { c: 17, r: 9, w: 8, h: 6 }
   },
   auto: {
-    status: { c: 1, r: 1, w: 7, h: 2 },
-    viewer: { c: 1, r: 3, w: 16, h: 10 },
-    drive: { c: 17, r: 1, w: 8, h: 6 },
-    manual: { c: 17, r: 7, w: 8, h: 4 },
-    record: { c: 1, r: 13, w: 7, h: 2 },
-    system: { c: 8, r: 13, w: 17, h: 2 }
+    status: { c: 1, r: 1, w: 8, h: 3 },
+    telemetry: { c: 1, r: 4, w: 8, h: 5 },
+    viewer: { c: 9, r: 1, w: 10, h: 9 },
+    runtime: { c: 19, r: 1, w: 6, h: 5 },
+    model: { c: 19, r: 6, w: 6, h: 4 },
+    safety: { c: 1, r: 9, w: 8, h: 3 },
+    config: { c: 9, r: 10, w: 16, h: 5 }
   },
   camera: {
-    status: { c: 1, r: 1, w: 8, h: 2 },
-    viewer: { c: 1, r: 3, w: 14, h: 10 },
-    camera: { c: 15, r: 1, w: 10, h: 12 },
-    system: { c: 1, r: 13, w: 24, h: 2 }
+    status: { c: 1, r: 1, w: 8, h: 3 },
+    telemetry: { c: 1, r: 4, w: 8, h: 4 },
+    viewer: { c: 1, r: 8, w: 10, h: 7 },
+    camera: { c: 11, r: 1, w: 14, h: 11 },
+    config: { c: 11, r: 12, w: 14, h: 3 }
   },
   motor: {
-    status: { c: 1, r: 1, w: 8, h: 2 },
-    viewer: { c: 1, r: 3, w: 14, h: 10 },
-    motor: { c: 15, r: 1, w: 10, h: 12 },
-    system: { c: 1, r: 13, w: 24, h: 2 }
+    status: { c: 1, r: 1, w: 8, h: 3 },
+    telemetry: { c: 1, r: 4, w: 8, h: 4 },
+    viewer: { c: 1, r: 8, w: 10, h: 7 },
+    motor: { c: 11, r: 1, w: 14, h: 9 },
+    safety: { c: 11, r: 10, w: 7, h: 5 },
+    config: { c: 18, r: 10, w: 7, h: 5 }
   }
 };
 
@@ -314,6 +321,22 @@ function updateStatusUi(data) {
   recBadge.textContent = data.recording ? "on" : "off";
   recBadge.classList.toggle("on", !!data.recording);
   recBadge.classList.toggle("off", !data.recording);
+
+  const lastUpdate = Number(data.last_update || 0);
+  const lastUpdateText = lastUpdate > 0
+    ? new Date(lastUpdate * 1000).toLocaleTimeString([], { hour12: false })
+    : "--";
+  document.getElementById("telemetryPage").textContent = data.current_page || state.page || "manual";
+  document.getElementById("telemetryManual").textContent = `${Number(data.manual_steering || 0).toFixed(2)} / ${Number(data.manual_throttle || 0).toFixed(2)}`;
+  document.getElementById("telemetryApplied").textContent = `${Number(data.applied_steering || 0).toFixed(2)} / ${Number(data.applied_throttle || 0).toFixed(2)}`;
+  document.getElementById("telemetrySafety").textContent = data.safety_stop ? "engaged" : "clear";
+  document.getElementById("telemetryBackend").textContent = data.camera_backend || "unknown";
+  document.getElementById("telemetryPreview").textContent = data.camera_preview_live ? "live" : "placeholder";
+  const leftDir = Number(data.motor_left_direction || 1) < 0 ? "reverse" : "normal";
+  const rightDir = Number(data.motor_right_direction || 1) < 0 ? "reverse" : "normal";
+  const steerDir = Number(data.motor_steering_direction || 1) < 0 ? "reversed" : "normal";
+  document.getElementById("telemetryMotorConfig").textContent = `L ${leftDir} · R ${rightDir} · steer ${steerDir}`;
+  document.getElementById("telemetryLastUpdate").textContent = lastUpdateText;
 
   updateToolbarBadge(data);
   setBanner("statusBanner", data.system_message || "Ready.", "muted");

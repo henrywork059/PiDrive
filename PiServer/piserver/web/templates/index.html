@@ -33,7 +33,7 @@
       <article class="dock-panel" data-panel="status">
         <div class="panel-head">
           <span>Status</span>
-          <span class="panel-mini">live</span>
+          <span class="panel-mini">read only</span>
         </div>
         <div class="panel-body">
           <div class="metric-grid">
@@ -49,10 +49,31 @@
         <div class="resize-handle"></div>
       </article>
 
+      <article class="dock-panel" data-panel="telemetry">
+        <div class="panel-head">
+          <span>Telemetry</span>
+          <span class="panel-mini">read only</span>
+        </div>
+        <div class="panel-body scroll-body">
+          <div class="telemetry-grid">
+            <div class="telemetry-item"><label>Current page</label><strong id="telemetryPage">manual</strong></div>
+            <div class="telemetry-item"><label>Manual cmd</label><strong id="telemetryManual">0.00 / 0.00</strong></div>
+            <div class="telemetry-item"><label>Applied cmd</label><strong id="telemetryApplied">0.00 / 0.00</strong></div>
+            <div class="telemetry-item"><label>Safety stop</label><strong id="telemetrySafety">clear</strong></div>
+            <div class="telemetry-item"><label>Camera backend</label><strong id="telemetryBackend">unknown</strong></div>
+            <div class="telemetry-item"><label>Preview</label><strong id="telemetryPreview">placeholder</strong></div>
+            <div class="telemetry-item"><label>Motor setup</label><strong id="telemetryMotorConfig">L normal · R normal · steer normal</strong></div>
+            <div class="telemetry-item"><label>Last update</label><strong id="telemetryLastUpdate">--</strong></div>
+          </div>
+          <div class="small-note">This panel is status only. It does not save settings or send commands.</div>
+        </div>
+        <div class="resize-handle"></div>
+      </article>
+
       <article class="dock-panel" data-panel="viewer">
         <div class="panel-head">
           <span>Camera preview</span>
-          <span class="panel-mini">MJPEG</span>
+          <span class="panel-mini">read only</span>
         </div>
         <div class="panel-body viewer-body">
           <img id="videoFeed" src="" alt="PiServer camera preview" />
@@ -61,12 +82,13 @@
         <div class="resize-handle"></div>
       </article>
 
-      <article class="dock-panel" data-panel="drive">
+      <article class="dock-panel" data-panel="runtime">
         <div class="panel-head">
-          <span>Drive + algorithm</span>
-          <span class="panel-mini">runtime</span>
+          <span>Runtime tuning</span>
+          <span class="panel-mini">config</span>
         </div>
         <div class="panel-body scroll-body">
+          <div class="small-note">Saved runtime tuning for algorithm selection and drive scaling. These settings are separate from manual driving and read-only status.</div>
           <div class="field">
             <label for="algorithmSelect">Active algorithm</label>
             <select id="algorithmSelect"></select>
@@ -83,7 +105,17 @@
             <input id="steerMix" type="range" min="0" max="100" value="50" />
             <div class="value-text"><span id="steerMixValue">0.50</span></div>
           </div>
+        </div>
+        <div class="resize-handle"></div>
+      </article>
 
+      <article class="dock-panel" data-panel="model">
+        <div class="panel-head">
+          <span>Model manager</span>
+          <span class="panel-mini">config</span>
+        </div>
+        <div class="panel-body scroll-body">
+          <div class="small-note">Use this panel to upload, choose, and load inference models. It does not control the car directly.</div>
           <div class="field">
             <label for="modelFile">Upload TFLite model</label>
             <input id="modelFile" type="file" accept=".tflite" />
@@ -107,7 +139,7 @@
       <article class="dock-panel" data-panel="manual">
         <div class="panel-head">
           <span>Manual drive</span>
-          <span class="panel-mini">joystick + keyboard</span>
+          <span class="panel-mini">control</span>
         </div>
         <div class="panel-body scroll-body">
           <div class="small-note">Manual tab uses the <strong>manual</strong> algorithm automatically. Up = forward, down = reverse. You can also use <strong>W/S</strong> or <strong>↑/↓</strong> for throttle and <strong>A/D</strong> or <strong>←/→</strong> for steering.</div>
@@ -128,8 +160,18 @@
             <button id="leftBtn" class="ghost-btn">Left</button>
             <button id="rightBtn" class="ghost-btn">Right</button>
           </div>
+        </div>
+        <div class="resize-handle"></div>
+      </article>
 
-          <div class="stack-row">
+      <article class="dock-panel" data-panel="safety">
+        <div class="panel-head">
+          <span>Safety controls</span>
+          <span class="panel-mini">control</span>
+        </div>
+        <div class="panel-body">
+          <div class="small-note">Immediate runtime controls only. These actions do not change saved config values.</div>
+          <div class="stack-row quick-drive-row">
             <button id="stopBtn" class="danger-btn">Stop</button>
             <button id="estopBtn" class="warn-btn">E-Stop</button>
             <button id="clearEstopBtn" class="ghost-btn">Clear</button>
@@ -141,7 +183,7 @@
       <article class="dock-panel" data-panel="record">
         <div class="panel-head">
           <span>Recording</span>
-          <span class="panel-mini">session</span>
+          <span class="panel-mini">control</span>
         </div>
         <div class="panel-body">
           <div class="stack-row">
@@ -158,7 +200,7 @@
       <article class="dock-panel" data-panel="camera">
         <div class="panel-head">
           <span>Camera settings</span>
-          <span class="panel-mini">apply + restart</span>
+          <span class="panel-mini">config</span>
         </div>
         <div class="panel-body scroll-body">
           <div class="field-grid two-col">
@@ -262,7 +304,7 @@
       <article class="dock-panel" data-panel="motor">
         <div class="panel-head">
           <span>Motor settings</span>
-          <span class="panel-mini">direction + steering trim</span>
+          <span class="panel-mini">config</span>
         </div>
         <div class="panel-body scroll-body">
           <div class="small-note">Use this tab to fix reversed wiring, choose whether steering left means car left or car right, and trim left/right balance. Applying settings stops the motors for safety and saves them to the runtime config.</div>
@@ -315,15 +357,15 @@
         <div class="resize-handle"></div>
       </article>
 
-      <article class="dock-panel" data-panel="system">
+      <article class="dock-panel" data-panel="config">
         <div class="panel-head">
-          <span>System + config</span>
-          <span class="panel-mini">local</span>
+          <span>Config tools</span>
+          <span class="panel-mini">config</span>
         </div>
         <div class="panel-body scroll-body">
           <div class="field">
             <label>Update workflow</label>
-            <div class="small-note">Use <code>git pull</code> in the terminal, then restart PiServer manually.</div>
+            <div class="small-note">Use <code>git pull</code> in the terminal, then restart PiServer manually. Save / reload below only affects PiServer runtime config, not Git files.</div>
           </div>
           <div class="stack-row">
             <button id="saveConfigBtn">Save config</button>

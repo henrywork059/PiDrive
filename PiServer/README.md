@@ -84,16 +84,17 @@ Edit the `WorkingDirectory` and `ExecStart` paths inside the service file if you
 
 ## Web features
 
-- Manual / Training / Auto / Camera workspace tabs
+- Manual / Training / Auto / Camera / Motor workspace tabs
 - Draggable + resizable dock-style panels on larger screens
+- Panels split by purpose: read-only status, control, and saved config
 - Live MJPEG viewer with camera-backend status
-- Runtime algorithm switching
-- Runtime parameter tuning
+- Runtime algorithm switching and runtime parameter tuning
 - TFLite model upload/list/load
 - Recording toggle
 - Runtime config save/reload
-- Emergency stop
+- Emergency stop and stop / clear safety actions
 - Camera settings panel with apply + restart camera
+- Motor settings panel with steering-direction tuning
 
 ## Runtime behavior design
 
@@ -178,19 +179,16 @@ sudo systemctl restart pi_server.service
 - Motor tab help text and load banner now make the saved steering direction clearer.
 
 
-## PiServer 0_2_10 highlights
+## PiServer 0_2_14 highlights
 
-- Runtime config saves are now schema-aware and atomic, so camera/motor updates keep unknown keys instead of replacing the whole file.
-- Saved runtime config now stores only user-facing camera and motor settings, not transient live-status fields like backend, preview state, or GPIO availability.
-- Numeric parsing now rejects NaN/inf values safely, which prevents broken manual or runtime values from propagating into the control loop.
-- Recording toggle failures now return a controlled error message instead of crashing the request path.
-- Camera and motor settings parsing is more defensive, making PiServer safer against partial, stale, or malformed config payloads.
-
-
-## PiServer 0_2_11 highlights
-
-- Added shared parsing helpers so bool/float/direction handling is more consistent across app, control, and motor code.
-- Motor service now uses a lock for apply/update/stop, which avoids race conditions between the control loop and the web settings API.
-- Model uploads are now saved with a temporary file + replace, and model load/predict paths are protected by a lock so live inference is safer while changing models.
-- Control loop now falls back safely even if the manual algorithm is missing, instead of risking a crash from a missing registry entry.
-- Added more unit coverage for helpers, motor-setting validation, model upload sanitising, and algorithm fallback behaviour.
+- Refactors the dock workspace so panels are less mixed up and more tab-specific.
+- Splits the old mixed `Drive + algorithm` panel into a dedicated `Runtime tuning` config panel and a dedicated `Model manager` config panel.
+- Splits the old mixed `System + config` panel into a dedicated `Safety controls` control panel and a dedicated `Config tools` panel.
+- Adds a read-only `Telemetry` panel so status feedback no longer has to live inside control/config panels.
+- Gives each tab a clearer purpose:
+  - Manual: drive + safety + recording
+  - Training: recording + runtime/model setup
+  - Auto: runtime/model + safety
+  - Camera: preview + camera settings
+  - Motor: preview + motor settings + safety
+- Bumps the web asset version so browsers fetch the new layout and script instead of stale cached copies.

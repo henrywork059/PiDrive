@@ -214,6 +214,34 @@ button.active,
   font-size: 1rem;
 }
 
+.telemetry-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.telemetry-item {
+  background: var(--panel-alt);
+  border: 1px solid rgba(130, 150, 190, 0.14);
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.telemetry-item label {
+  display: block;
+  color: var(--muted);
+  font-size: 0.78rem;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.telemetry-item strong {
+  display: block;
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+
 .field {
   margin-bottom: 16px;
 }
@@ -390,7 +418,8 @@ input[type=range] {
     display: none;
   }
 
-  .metric-grid {
+  .metric-grid,
+  .telemetry-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -424,22 +453,9 @@ input[type=range] {
   height: 18px;
 }
 
-body:not([data-page="camera"]) .dock-panel[data-panel="camera"] {
-  display: none;
-}
-
-body[data-page="camera"] .dock-panel[data-panel="drive"],
-body[data-page="camera"] .dock-panel[data-panel="manual"],
-body[data-page="camera"] .dock-panel[data-panel="record"] {
-  display: none;
-}
-
-body[data-page="camera"] .dock-panel[data-panel="camera"] {
-  display: flex;
-}
-
 @media (max-width: 960px) {
-  .field-grid.two-col {
+  .field-grid.two-col,
+  .telemetry-grid {
     grid-template-columns: 1fr;
   }
 }
