@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import unittest
 
 from piserver.services.control_service import ControlService
@@ -30,7 +31,10 @@ class DummyCamera:
         return None
 
     def get_config(self):
-        return {}
+        return {"backend": self.backend, "preview_live": self.preview_live}
+
+    def get_persisted_config(self):
+        return {"width": self.width, "height": self.height, "format": self.camera_format}
 
     def apply_settings(self, settings, restart=True):
         self.apply_settings_calls.append((dict(settings), bool(restart)))
@@ -45,6 +49,7 @@ class DummyMotor:
         self.cfg = {
             "left_direction": 1,
             "right_direction": 1,
+            "steering_direction": 1,
             "left_max_speed": 1.0,
             "right_max_speed": 1.0,
             "left_bias": 0.0,
@@ -63,6 +68,9 @@ class DummyMotor:
     def get_config(self):
         return dict(self.cfg)
 
+    def get_persisted_config(self):
+        return dict(self.cfg)
+
     def apply_settings(self, cfg):
         self.cfg.update(cfg or {})
         return self.get_config()
@@ -74,11 +82,14 @@ class DummyModel:
 
 
 class DummyRecorder:
-    def __init__(self):
+    def __init__(self, fail=False):
+        self.fail = fail
         self.recording = False
         self.recorded = []
 
     def toggle(self):
+        if self.fail:
+            raise RuntimeError("recorder boom")
         self.recording = not self.recording
 
     def maybe_record(self, frame, snapshot):
@@ -88,12 +99,20 @@ class DummyRecorder:
 class DummyConfig:
     def __init__(self, data=None):
         self.data = data or {}
+        self.merge_save_calls = []
 
     def load(self):
         return dict(self.data)
 
     def save(self, data):
         self.data = dict(data)
+
+    def merge_save(self, data):
+        self.merge_save_calls.append(dict(data))
+        merged = dict(self.data)
+        merged.update(data)
+        self.data = merged
+        return dict(self.data)
 
 
 class ManualAlgo:
@@ -113,11 +132,11 @@ class BoomAlgo:
 
 
 class ControlServiceTests(unittest.TestCase):
-    def build_service(self, *, algorithms=None, motor=None, config=None):
+    def build_service(self, *, algorithms=None, motor=None, config=None, recorder=None):
         camera = DummyCamera()
         motor = motor or DummyMotor()
         model = DummyModel()
-        recorder = DummyRecorder()
+        recorder = recorder or DummyRecorder()
         algorithms = algorithms or {"manual": ManualAlgo()}
         config = config or DummyConfig()
         svc = ControlService(
@@ -140,6 +159,14 @@ class ControlServiceTests(unittest.TestCase):
         self.assertEqual(svc.state.manual_steering, 0.25)
         self.assertEqual(svc.state.manual_throttle, -0.5)
         svc.set_manual_controls(None, object())
+        self.assertEqual(svc.state.manual_throttle, -0.5)
+
+    def test_non_finite_manual_inputs_preserve_existing_values(self):
+        svc, *_ = self.build_service()
+        svc.state.manual_steering = 0.25
+        svc.state.manual_throttle = -0.5
+        svc.set_manual_controls(float("nan"), float("inf"))
+        self.assertEqual(svc.state.manual_steering, 0.25)
         self.assertEqual(svc.state.manual_throttle, -0.5)
 
     def test_invalid_runtime_inputs_preserve_existing_values(self):
@@ -228,6 +255,24 @@ class ControlServiceTests(unittest.TestCase):
         svc.apply_runtime_config({"camera": {"width": 640}}, initial=False)
         self.assertEqual(camera.apply_settings_calls[-1], ({"width": 640}, True))
         self.assertIsNone(svc._processing_enabled_cached)
+
+    def test_toggle_recording_failure_returns_error_message(self):
+        svc, _, _, recorder, _ = self.build_service(recorder=DummyRecorder(fail=True))
+        ok, recording, message = svc.toggle_recording()
+        self.assertFalse(ok)
+        self.assertFalse(recording)
+        self.assertIn("Recording toggle failed", message)
+        self.assertFalse(recorder.recording)
+
+    def test_save_runtime_config_uses_persisted_sections(self):
+        config = DummyConfig({"custom": {"keep": True}})
+        svc, camera, motor, _, cfg = self.build_service(config=config)
+        saved = svc.save_runtime_config()
+        self.assertIn("camera", saved)
+        self.assertIn("motor", saved)
+        self.assertEqual(saved["camera"], camera.get_persisted_config())
+        self.assertEqual(saved["motor"], motor.get_persisted_config())
+        self.assertEqual(cfg.data["custom"], {"keep": True})
 
 
 if __name__ == "__main__":

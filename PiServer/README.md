@@ -1,28 +1,17 @@
 # PiServer
 
-PiServer is a modular Flask-based runtime for PiCar control, recording, model inference, and browser-based operation.
+PiServer is a refactored web-control backend for the PiCar project.
 
-## Why PiServer exists
+## What this build changes
 
-Compared with older single-script flows, PiServer keeps a persistent backend running so you can:
-
-- keep the UI available while the Pi is on,
-- switch algorithms and runtime settings without rebooting,
-- isolate camera/motor/recording/control concerns into separate services,
-- and manage runtime behavior from one web workspace.
-
-## Core capabilities
-
-- Manual / Training / Auto / Camera workspace tabs.
-- Dock-style draggable/resizable panels.
-- Live MJPEG preview with camera backend status.
-- Runtime algorithm switching and parameter tuning.
-- TFLite model upload/list/load.
-- Recording start/stop with structured session storage.
-- Runtime config save/reload.
-- Emergency stop.
-- Camera settings panel with apply + camera restart action.
-- Motor settings panel for direction, trim/bias, and safety-aware apply.
+- Starts as one persistent backend service instead of one fixed script flow.
+- Keeps the web UI available whenever the Pi is on.
+- Lets you switch algorithms at runtime from the web page.
+- Separates camera, motor, model, recording, and control loop logic into modules.
+- Adds a dock-style web workspace with saved panel layouts in the browser.
+- Adds runtime config save/reload.
+- Removes the web update / restart workflow. Code updates are now meant to be done from the terminal with `git pull`.
+- Adds a dedicated Camera tab with a real MJPEG preview, camera settings, and an apply + restart camera action.
 
 ## Folder layout
 
@@ -43,25 +32,12 @@ PiServer/
     web/
 ```
 
-## Prerequisites
+## Quick start on Raspberry Pi
 
-- Python 3.11 recommended.
-- Raspberry Pi OS (for CSI camera and GPIO motor control).
-- Browser on same local network for UI access.
-
-Optional Pi-only runtime packages:
-
-- `picamera2`
-- `tflite-runtime`
-- `RPi.GPIO`
-
-If optional packages are unavailable, PiServer falls back:
-
-- camera -> OpenCV webcam or generated placeholder frame,
-- model inference -> disabled,
-- motor output -> simulated console output.
-
-## Quick start (Raspberry Pi)
+1. Put the folder on the Pi, for example in `~/PiServer`
+2. Install dependencies
+3. Start the server
+4. Open the Pi IP address in your browser
 
 ```bash
 cd ~/PiServer
@@ -69,43 +45,77 @@ python3 -m pip install -r requirements.txt --break-system-packages
 python3 server.py
 ```
 
-Open in browser:
+Then open:
 
 ```text
 http://<pi-ip>:5000
 ```
 
-## Quick start (development machine)
+## Optional Pi-only packages
+
+These are optional and only needed if the hardware/software is available on the Pi:
+
+- `picamera2`
+- `tflite-runtime`
+- `RPi.GPIO`
+
+If they are missing, PiServer falls back safely:
+- camera -> OpenCV webcam or generated placeholder frame
+
+For a real Raspberry Pi CSI camera preview, install and enable `picamera2` / libcamera on the Pi.
+- model inference -> disabled
+- motor output -> simulated console output
+
+## Auto-start on boot
+
+The file `boot/pi_server.service` is included.
+
+Example install:
 
 ```bash
-cd PiServer
-python -m pip install -r requirements.txt
-python server.py
+sudo cp boot/pi_server.service /etc/systemd/system/pi_server.service
+sudo systemctl daemon-reload
+sudo systemctl enable pi_server.service
+sudo systemctl start pi_server.service
+sudo systemctl status pi_server.service
 ```
 
-Use this mode for UI/logic testing when Pi hardware is not attached.
+Edit the `WorkingDirectory` and `ExecStart` paths inside the service file if your install path is different.
 
-## Runtime behavior model
+## Web features
 
-PiServer keeps a background loop running continuously:
+- Manual / Training / Auto / Camera workspace tabs
+- Draggable + resizable dock-style panels on larger screens
+- Live MJPEG viewer with camera-backend status
+- Runtime algorithm switching
+- Runtime parameter tuning
+- TFLite model upload/list/load
+- Recording toggle
+- Runtime config save/reload
+- Emergency stop
+- Camera settings panel with apply + restart camera
 
-1. camera service fetches frames,
-2. control loop runs at configured tick rate,
-3. selected algorithm computes steering/throttle,
-4. motor service applies clamped output,
-5. recorder stores data if recording is enabled.
+## Runtime behavior design
 
-This design allows live mode switching, parameter updates, and continuous UI operation.
+PiServer uses a background control loop:
+
+- camera service runs continuously
+- web server stays alive
+- control service runs at fixed rate
+- selected algorithm computes steering/throttle
+- motor service applies output
+- recorder stores data if recording is enabled
+
+That means:
+- manual changes can happen live
+- selected algorithm can change live
+- config values can change live
 
 ## Recording format
 
-Each run is saved under:
+Each session is stored under `data/records/<session>/`
 
-```text
-data/records/<session>/
-```
-
-`records.jsonl` rows include:
+Each JSONL row stores:
 
 - `frame_id`
 - `session`
@@ -118,30 +128,26 @@ data/records/<session>/
 - `camera_height`
 - `camera_format`
 
-Image filenames are timestamp-based to maintain natural ordering and reduce collisions.
+Image names are timestamp-based so they sort naturally and do not repeat between sessions.
 
-## Configuration files
+## Safety notes
 
-- Runtime defaults: `config/runtime.json`
-- System service template: `boot/pi_server.service`
+- Emergency stop overrides algorithm output.
+- Motor output is always clamped by runtime limits.
+- Keep this web UI on a trusted local network only.
 
-When editing runtime config, keep units and expected ranges explicit in PR notes.
+## Main files to edit later
 
-## Auto-start on boot (systemd)
+- algorithms: `piserver/algorithms/`
+- runtime defaults: `config/runtime.json`
+- web UI: `piserver/web/templates/index.html`, `piserver/web/static/app.js`, `piserver/web/static/styles.css`
+- backend wiring: `piserver/app.py`
 
-```bash
-sudo cp boot/pi_server.service /etc/systemd/system/pi_server.service
-sudo systemctl daemon-reload
-sudo systemctl enable pi_server.service
-sudo systemctl start pi_server.service
-sudo systemctl status pi_server.service
-```
+## Updating code from the terminal
 
-If installed in a non-default location, update `WorkingDirectory` and `ExecStart` in the service file.
+Web update and restart controls were removed in `0_1_14`.
 
-## Updating code
-
-Web update/restart controls were removed in version `0_1_14`. Use terminal-based updates:
+Use the terminal instead:
 
 ```bash
 cd /home/pi/PiDrive
@@ -150,35 +156,32 @@ cd PiServer
 python3 server.py
 ```
 
-If managed by systemd:
+If you run PiServer with `systemd`, restart it after pulling:
 
 ```bash
 sudo systemctl restart pi_server.service
 ```
 
-## Safety notes
 
-- Emergency stop should always be tested after setup.
-- Motor outputs are clamped by runtime limits, but incorrect calibration can still be unsafe.
-- Keep the web UI on a trusted local network; do not expose directly to the public internet.
+## PiServer 0_2_1 highlights
 
-## Main extension points
+- Manual tab now supports forward and reverse drive from the joystick.
+- Manual tab also supports keyboard driving with `W/A/S/D` or arrow keys while the page is focused.
+- New Motor tab lets you set left/right direction, per-motor max speed, and bias trim from the web UI.
+- Applying motor settings stops the motors for safety and saves them into the runtime config.
 
-- Algorithms: `piserver/algorithms/`
-- Runtime wiring: `piserver/app.py`
-- UI template: `piserver/web/templates/index.html`
-- UI logic/styles: `piserver/web/static/app.js`, `piserver/web/static/styles.css`
 
-## Recent highlights
+## PiServer 0_2_8 highlights
 
-### PiServer `0_2_1`
+- Motor settings now keep a dedicated `steering_direction` option so you can flip left/right turn behavior without breaking forward/reverse wiring calibration.
+- Motor tab save/apply now persists the steering-direction setting into `config/runtime.json` together with the existing motor tuning values.
+- Motor tab help text and load banner now make the saved steering direction clearer.
 
-- Manual tab supports both forward and reverse drive from joystick.
-- Keyboard driving supports `W/A/S/D` and arrow keys while focused.
-- Motor tab exposes left/right direction, per-motor max speed, and bias trim.
 
-### PiServer `0_2_8`
+## PiServer 0_2_10 highlights
 
-- Added dedicated `steering_direction` motor setting.
-- Motor save/apply persists steering direction into `config/runtime.json`.
-- Motor UI text clarifies saved steering direction behavior.
+- Runtime config saves are now schema-aware and atomic, so camera/motor updates keep unknown keys instead of replacing the whole file.
+- Saved runtime config now stores only user-facing camera and motor settings, not transient live-status fields like backend, preview state, or GPIO availability.
+- Numeric parsing now rejects NaN/inf values safely, which prevents broken manual or runtime values from propagating into the control loop.
+- Recording toggle failures now return a controlled error message instead of crashing the request path.
+- Camera and motor settings parsing is more defensive, making PiServer safer against partial, stale, or malformed config payloads.

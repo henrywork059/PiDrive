@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import math
 import threading
 import time
 from typing import Optional
@@ -84,6 +85,8 @@ class CameraService:
             value = float(value)
         except Exception:
             value = default
+        if not math.isfinite(value):
+            value = default
         return max(min_value, min(max_value, value))
 
     def _clamp_int(self, value, default: int, min_value: int, max_value: int) -> int:
@@ -92,6 +95,19 @@ class CameraService:
         except Exception:
             value = default
         return max(min_value, min(max_value, value))
+
+    def _parse_bool(self, value, default: bool) -> bool:
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, (int, float)):
+            return bool(value)
+        if isinstance(value, str):
+            text = value.strip().lower()
+            if text in {"1", "true", "yes", "on"}:
+                return True
+            if text in {"0", "false", "no", "off", ""}:
+                return False
+        return bool(default)
 
     def _normalize_stream_quality_locked(self) -> None:
         quality = str(self.stream_quality or "balanced").strip().lower()
@@ -113,38 +129,7 @@ class CameraService:
                 95,
             )
 
-    def apply_settings(self, settings: dict | None, restart: bool = True) -> tuple[bool, str, dict]:
-        settings = settings or {}
-        with self._service_lock:
-            self.width = self._clamp_int(settings.get("width", self.width), self.width, 64, 3840)
-            self.height = self._clamp_int(settings.get("height", self.height), self.height, 48, 2160)
-            self.target_fps = self._clamp_int(settings.get("fps", self.target_fps), self.target_fps, 1, 120)
-            self.camera_format = str(settings.get("format", self.camera_format) or self.camera_format)
-            self.preview_fps = self._clamp_int(settings.get("preview_fps", self.preview_fps), self.preview_fps, 1, 30)
-            self.preview_quality = self._clamp_int(settings.get("preview_quality", self.preview_quality), self.preview_quality, 20, 95)
-            self.stream_quality = str(settings.get("stream_quality", self.stream_quality) or self.stream_quality)
-            self._normalize_stream_quality_locked()
-            self.auto_exposure = bool(settings.get("auto_exposure", self.auto_exposure))
-            self.exposure_us = self._clamp_int(settings.get("exposure_us", self.exposure_us), self.exposure_us, 100, 200000)
-            self.analogue_gain = self._clamp_float(settings.get("analogue_gain", self.analogue_gain), self.analogue_gain, 0.0, 64.0)
-            self.exposure_compensation = self._clamp_float(
-                settings.get("exposure_compensation", self.exposure_compensation),
-                self.exposure_compensation,
-                -8.0,
-                8.0,
-            )
-            self.auto_white_balance = bool(settings.get("auto_white_balance", self.auto_white_balance))
-            self.brightness = self._clamp_float(settings.get("brightness", self.brightness), self.brightness, -1.0, 1.0)
-            self.contrast = self._clamp_float(settings.get("contrast", self.contrast), self.contrast, 0.0, 32.0)
-            self.saturation = self._clamp_float(settings.get("saturation", self.saturation), self.saturation, 0.0, 32.0)
-            self.sharpness = self._clamp_float(settings.get("sharpness", self.sharpness), self.sharpness, 0.0, 16.0)
-            running = self._running
-
-        if restart and running:
-            return self.restart()
-        return True, "Camera settings updated. Restart the camera to apply format/resolution changes.", self.get_config()
-
-    def get_config(self) -> dict:
+    def get_persisted_config(self) -> dict:
         with self._service_lock:
             return {
                 "width": int(self.width),
@@ -163,13 +148,53 @@ class CameraService:
                 "contrast": float(self.contrast),
                 "saturation": float(self.saturation),
                 "sharpness": float(self.sharpness),
-                "backend": str(self.backend),
-                "backend_format": str(self.backend_format),
-                "preview_live": bool(self.preview_live),
-                "preview_enabled": bool(self.preview_enabled),
-                "processing_enabled": bool(self.processing_enabled),
-                "last_error": str(self.last_error),
             }
+
+    def apply_settings(self, settings: dict | None, restart: bool = True) -> tuple[bool, str, dict]:
+        settings = settings or {}
+        with self._service_lock:
+            self.width = self._clamp_int(settings.get("width", self.width), self.width, 64, 3840)
+            self.height = self._clamp_int(settings.get("height", self.height), self.height, 48, 2160)
+            self.target_fps = self._clamp_int(settings.get("fps", self.target_fps), self.target_fps, 1, 120)
+            self.camera_format = str(settings.get("format", self.camera_format) or self.camera_format)
+            self.preview_fps = self._clamp_int(settings.get("preview_fps", self.preview_fps), self.preview_fps, 1, 30)
+            self.preview_quality = self._clamp_int(settings.get("preview_quality", self.preview_quality), self.preview_quality, 20, 95)
+            self.stream_quality = str(settings.get("stream_quality", self.stream_quality) or self.stream_quality)
+            self._normalize_stream_quality_locked()
+            self.auto_exposure = self._parse_bool(settings.get("auto_exposure", self.auto_exposure), self.auto_exposure)
+            self.exposure_us = self._clamp_int(settings.get("exposure_us", self.exposure_us), self.exposure_us, 100, 200000)
+            self.analogue_gain = self._clamp_float(settings.get("analogue_gain", self.analogue_gain), self.analogue_gain, 0.0, 64.0)
+            self.exposure_compensation = self._clamp_float(
+                settings.get("exposure_compensation", self.exposure_compensation),
+                self.exposure_compensation,
+                -8.0,
+                8.0,
+            )
+            self.auto_white_balance = self._parse_bool(settings.get("auto_white_balance", self.auto_white_balance), self.auto_white_balance)
+            self.brightness = self._clamp_float(settings.get("brightness", self.brightness), self.brightness, -1.0, 1.0)
+            self.contrast = self._clamp_float(settings.get("contrast", self.contrast), self.contrast, 0.0, 32.0)
+            self.saturation = self._clamp_float(settings.get("saturation", self.saturation), self.saturation, 0.0, 32.0)
+            self.sharpness = self._clamp_float(settings.get("sharpness", self.sharpness), self.sharpness, 0.0, 16.0)
+            running = self._running
+
+        if restart and running:
+            return self.restart()
+        return True, "Camera settings updated. Restart the camera to apply format/resolution changes.", self.get_config()
+
+    def get_config(self) -> dict:
+        with self._service_lock:
+            data = self.get_persisted_config()
+            data.update(
+                {
+                    "backend": str(self.backend),
+                    "backend_format": str(self.backend_format),
+                    "preview_live": bool(self.preview_live),
+                    "preview_enabled": bool(self.preview_enabled),
+                    "processing_enabled": bool(self.processing_enabled),
+                    "last_error": str(self.last_error),
+                }
+            )
+            return data
 
     def set_preview_enabled(self, enabled: bool) -> bool:
         enabled = bool(enabled)
@@ -246,188 +271,193 @@ class CameraService:
                         controls={"FrameDurationLimits": (frame_duration, frame_duration)},
                     )
                 picam.configure(cfg)
-                picam.start()
                 self._picam2 = picam
+                self._capture = None
                 self.backend = "picamera2"
                 self.backend_format = fmt
-                self.preview_live = False
                 self.last_error = ""
+                try:
+                    picam.start()
+                except TypeError:
+                    picam.start(show_preview=False)
                 self._set_picamera_controls_locked()
-                return True, f"Picamera2 started with {fmt}."
+                return True, "Picamera2 started."
             except Exception as exc:
-                last_error = f"Picamera2 failed with {fmt}: {exc}"
+                last_error = f"Picamera2 ({fmt}) failed: {exc}"
                 try:
                     if picam is not None:
                         picam.close()
                 except Exception:
                     pass
-                self._picam2 = None
         return False, last_error
 
     def _open_opencv_locked(self) -> tuple[bool, str]:
         if cv2 is None:
-            return False, "OpenCV not available."
-        cap = None
+            return False, "OpenCV is not installed."
         try:
             cap = cv2.VideoCapture(0)
-            if cap is None or not cap.isOpened():
-                if cap is not None:
-                    cap.release()
-                return False, "OpenCV camera index 0 did not open."
+            if not cap.isOpened():
+                cap.release()
+                return False, "OpenCV camera backend is not available."
             cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
             cap.set(cv2.CAP_PROP_FPS, self.target_fps)
-            try:
-                cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-            except Exception:
-                pass
             self._capture = cap
+            self._picam2 = None
             self.backend = "opencv"
             self.backend_format = "BGR"
-            self.preview_live = False
             self.last_error = ""
             return True, "OpenCV camera started."
         except Exception as exc:
-            try:
-                if cap is not None:
-                    cap.release()
-            except Exception:
-                pass
-            return False, f"OpenCV failed: {exc}"
+            return False, f"OpenCV camera failed: {exc}"
 
-    def _open_backend_locked(self) -> None:
-        self._release_backends_locked()
-        self.backend = "placeholder"
-        self.backend_format = "unknown"
-        self.preview_live = False
+    def _open_backend_locked(self) -> tuple[bool, str]:
         self._last_open_attempt = time.time()
-
+        self._release_backends_locked()
         ok, message = self._open_picamera2_locked()
         if ok:
-            return
-        picam_error = message
+            return ok, message
+        opencv_ok, opencv_message = self._open_opencv_locked()
+        if opencv_ok:
+            return opencv_ok, opencv_message
+        self.backend = "placeholder"
+        self.backend_format = "generated"
+        self.last_error = f"{message} {opencv_message}".strip()
+        return False, self.last_error
 
-        ok, message = self._open_opencv_locked()
-        if ok:
-            return
-
-        self.last_error = f"{picam_error} | {message}"
-
-    def start(self) -> None:
+    def start(self):
         with self._service_lock:
             if self._running:
                 return
             self._open_backend_locked()
             self._running = True
-            self._thread = threading.Thread(target=self._loop, daemon=True)
+            self._thread = threading.Thread(target=self._loop, daemon=True, name="PiServerCameraLoop")
             self._thread.start()
 
+    def stop(self):
+        with self._service_lock:
+            self._running = False
+        thread = self._thread
+        if thread and thread.is_alive() and thread is not threading.current_thread():
+            thread.join(timeout=1.0)
+        with self._service_lock:
+            self._release_backends_locked()
+            self.preview_live = False
+
     def restart(self) -> tuple[bool, str, dict]:
-        self.close()
+        self.stop()
         self.start()
-        config = self.get_config()
-        if config.get("preview_live"):
-            return True, f"Camera restarted using {self.backend}. New settings are live.", config
-        return False, f"Camera restarted but live preview is not available. {config.get('last_error', '').strip()}".strip(), config
+        return True, "Camera restarted with updated settings.", self.get_config()
 
-    def _frame_from_pil(self, pil_image):
-        if pil_image is None or np is None:
-            return None
-        try:
-            arr = np.array(pil_image)
-            if getattr(arr, "ndim", 0) == 2:
-                if cv2 is not None:
-                    return cv2.cvtColor(arr, cv2.COLOR_GRAY2BGR)
-                return np.stack([arr, arr, arr], axis=-1)
-            if getattr(arr, "ndim", 0) == 3:
-                channels = int(arr.shape[2])
-                if channels >= 3:
-                    rgb = arr[:, :, :3]
-                    return rgb[:, :, ::-1].copy()
-            return arr.copy()
-        except Exception:
-            return None
+    def get_latest_frame(self, copy: bool = True):
+        with self._frame_lock:
+            if self._frame is None:
+                return None
+            if copy and hasattr(self._frame, "copy"):
+                return self._frame.copy()
+            return self._frame
 
-    def _jpeg_from_pil(self, pil_image) -> Optional[bytes]:
-        if pil_image is None:
-            return None
-        try:
-            img = pil_image
-            if tuple(getattr(img, "size", (self.width, self.height))) != (int(self.width), int(self.height)):
-                img = img.resize((int(self.width), int(self.height)))
-            buf = io.BytesIO()
-            img.save(buf, format="JPEG", quality=int(self.preview_quality), optimize=False)
-            return buf.getvalue()
-        except Exception:
-            return None
+    def get_fps(self) -> float:
+        return float(self._fps)
 
-    def _placeholder_frame(self):
-        if cv2 is None or np is None:
-            return None
-        frame = np.zeros((self.height, self.width, 3), dtype=np.uint8)
-        frame[:] = (18, 20, 26)
-        cv2.putText(frame, "PiServer camera unavailable", (20, 50),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (200, 210, 240), 2, cv2.LINE_AA)
-        cv2.putText(frame, f"Backend: {self.backend}", (20, 86),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (130, 180, 255), 2, cv2.LINE_AA)
-        if self.last_error:
-            cv2.putText(frame, self.last_error[:64], (20, 122),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.55, (180, 190, 200), 1, cv2.LINE_AA)
-        cv2.putText(frame, time.strftime("%Y-%m-%d %H:%M:%S"), (20, 158),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (180, 190, 200), 2, cv2.LINE_AA)
-        return frame
+    def get_jpeg_frame(self) -> Optional[bytes]:
+        with self._jpeg_cond:
+            return self._jpeg_frame
 
-    def _capture_picamera_request(self, need_frame: bool, need_preview: bool):
-        with self._service_lock:
-            picam = self._picam2
-        if picam is None:
-            return None, None, False, "No active Picamera2 backend."
+    def wait_for_jpeg(self, last_seq: int, timeout: float = 1.0) -> tuple[Optional[bytes], int]:
+        timeout = max(0.0, float(timeout))
+        deadline = time.time() + timeout
+        with self._jpeg_cond:
+            while self._jpeg_seq <= int(last_seq):
+                remaining = deadline - time.time()
+                if remaining <= 0.0:
+                    return None, self._jpeg_seq
+                self._jpeg_cond.wait(timeout=remaining)
+            return self._jpeg_frame, self._jpeg_seq
 
-        request = None
-        try:
-            request = picam.capture_request()
-            pil_image = None
-            if need_frame or need_preview:
-                pil_image = request.make_image("main")
-
-            frame = self._frame_from_pil(pil_image) if need_frame else None
-            jpeg_bytes = self._jpeg_from_pil(pil_image) if need_preview else None
-            return frame, jpeg_bytes, True, ""
-        except Exception as exc:
-            return None, None, False, f"Picamera2 request capture failed: {exc}"
-        finally:
-            if request is not None:
-                try:
-                    request.release()
-                except Exception:
-                    pass
-
-    def _capture_opencv_frame(self):
-        with self._service_lock:
-            capture = self._capture
-        if capture is None:
-            return None, False, "No active OpenCV backend."
-        try:
-            ok, frame = capture.read()
-            if ok and frame is not None:
-                return frame, True, ""
-            return None, False, "OpenCV capture returned no frame."
-        except Exception as exc:
-            return None, False, f"OpenCV capture failed: {exc}"
-
-    def _encode_preview_jpeg_cv(self, frame) -> Optional[bytes]:
+    def _encode_preview_jpeg_cv(self, frame):
         if cv2 is None or frame is None:
             return None
-        try:
-            preview = frame
-            target_size = (int(self.width), int(self.height))
-            if tuple(frame.shape[1::-1]) != target_size:
-                preview = cv2.resize(frame, target_size, interpolation=cv2.INTER_AREA)
-            params = [int(cv2.IMWRITE_JPEG_QUALITY), int(self.preview_quality)]
-            ok, buf = cv2.imencode(".jpg", preview, params)
-            return buf.tobytes() if ok else None
-        except Exception:
+        encode_params = [int(cv2.IMWRITE_JPEG_QUALITY), int(self.preview_quality)]
+        ok, buf = cv2.imencode(".jpg", frame, encode_params)
+        if not ok:
             return None
+        try:
+            return buf.tobytes()
+        except Exception:
+            return bytes(buf)
+
+    def _capture_picamera_request(self, processing_enabled: bool, preview_due: bool):
+        picam = self._picam2
+        if picam is None:
+            return None, None, False, self.last_error or "Picamera2 backend is not active."
+        try:
+            request = picam.capture_request()
+        except Exception as exc:
+            with self._service_lock:
+                self._release_backends_locked()
+            return None, None, False, f"Picamera2 capture failed: {exc}"
+
+        frame = None
+        jpeg_bytes = None
+        live = False
+        error_text = ""
+        try:
+            if processing_enabled:
+                try:
+                    frame = request.make_array("main")
+                except Exception:
+                    frame = None
+            if preview_due:
+                try:
+                    stream_name = "main"
+                    jpeg_io = io.BytesIO()
+                    request.save(stream_name, jpeg_io, format="jpeg", quality=int(self.preview_quality))
+                    jpeg_bytes = jpeg_io.getvalue()
+                    live = True
+                except Exception:
+                    if frame is None:
+                        try:
+                            frame = request.make_array("main")
+                        except Exception:
+                            frame = None
+                    jpeg_bytes = self._encode_preview_jpeg_cv(frame)
+                    live = jpeg_bytes is not None
+            elif not processing_enabled:
+                live = True
+        except Exception as exc:
+            error_text = f"Picamera2 frame processing failed: {exc}"
+        finally:
+            try:
+                request.release()
+            except Exception:
+                pass
+        return frame, jpeg_bytes, live, error_text
+
+    def _capture_opencv_frame(self):
+        cap = self._capture
+        if cap is None:
+            return None, False, self.last_error or "OpenCV backend is not active."
+        try:
+            ok, frame = cap.read()
+        except Exception as exc:
+            ok, frame = False, None
+            self.last_error = f"OpenCV read failed: {exc}"
+        if not ok or frame is None:
+            with self._service_lock:
+                self._release_backends_locked()
+            return None, False, self.last_error or "OpenCV camera disconnected."
+        return frame, True, ""
+
+    def _placeholder_frame(self):
+        if np is None or cv2 is None:
+            return None
+        img = np.zeros((self.height, self.width, 3), dtype=np.uint8)
+        cv2.putText(img, "PiServer camera placeholder", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+        cv2.putText(img, f"backend: {self.backend}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (140, 220, 255), 1)
+        if self.last_error:
+            cv2.putText(img, self.last_error[:60], (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 180, 255), 1)
+        return img
 
     def _publish_jpeg(self, jpeg_bytes: Optional[bytes]) -> None:
         if jpeg_bytes is None:
@@ -499,62 +529,15 @@ class CameraService:
                     fps_count = 0
                     fps_window_start = now
 
-            if preview_due:
+            if preview_source is not None:
+                if jpeg_bytes is None:
+                    jpeg_bytes = self._encode_preview_jpeg_cv(preview_source)
                 if jpeg_bytes is not None:
+                    last_preview_emit = time.time()
                     self._publish_jpeg(jpeg_bytes)
-                    last_preview_emit = time.time()
-                elif preview_source is not None:
-                    fallback_jpeg = self._encode_preview_jpeg_cv(preview_source)
-                    self._publish_jpeg(fallback_jpeg)
-                    last_preview_emit = time.time()
+            elif jpeg_bytes is not None:
+                last_preview_emit = time.time()
+                self._publish_jpeg(jpeg_bytes)
 
-            if preview_source is not None and self._frame is None:
-                with self._frame_lock:
-                    self._frame = preview_source
-
-            elapsed = time.time() - start_time
-            sleep_time = max(0.0, (1.0 / max(target_fps, 1)) - elapsed)
-            if sleep_time > 0:
-                time.sleep(sleep_time)
-
-    def get_latest_frame(self, copy: bool = True):
-        with self._frame_lock:
-            if self._frame is None:
-                return None
-            return self._frame.copy() if copy else self._frame
-
-    def get_raw_frame(self, copy: bool = True):
-        with self._frame_lock:
-            if self._raw_frame is None:
-                return None
-            return self._raw_frame.copy() if copy else self._raw_frame
-
-    def get_jpeg_frame(self) -> Optional[bytes]:
-        with self._jpeg_cond:
-            return self._jpeg_frame
-
-    def wait_for_jpeg(self, last_seq: int = 0, timeout: float = 1.0) -> tuple[Optional[bytes], int]:
-        with self._jpeg_cond:
-            if self._jpeg_seq == last_seq and self._running:
-                self._jpeg_cond.wait(timeout=max(0.0, float(timeout)))
-            return self._jpeg_frame, self._jpeg_seq
-
-    def get_fps(self) -> float:
-        return float(self._fps)
-
-    def close(self) -> None:
-        thread = None
-        with self._service_lock:
-            self._running = False
-            thread = self._thread
-            self._thread = None
-
-        with self._jpeg_cond:
-            self._jpeg_cond.notify_all()
-
-        if thread is not None and thread.is_alive() and thread is not threading.current_thread():
-            thread.join(timeout=1.0)
-
-        with self._service_lock:
-            self._release_backends_locked()
-            self.preview_live = False
+            sleep_for = max(0.0, (1.0 / max(target_fps, 1)) - (time.time() - start_time))
+            time.sleep(sleep_for)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import threading
 import time
 from typing import Any
@@ -13,9 +14,10 @@ def _clamp(value: float, minimum: float, maximum: float) -> float:
 
 def _parse_float(value: Any, default: float) -> float:
     try:
-        return float(value)
+        parsed = float(value)
     except (TypeError, ValueError):
         return float(default)
+    return parsed if math.isfinite(parsed) else float(default)
 
 
 class ControlService:
@@ -61,6 +63,22 @@ class ControlService:
     def invalidate_processing_state_cache(self):
         with self.lock:
             self._processing_enabled_cached = None
+
+    def _save_config_data(self, data: dict) -> dict:
+        if hasattr(self.config_store, "merge_save"):
+            return self.config_store.merge_save(data)
+        self.config_store.save(data)
+        return data
+
+    def _camera_persisted_config(self) -> dict:
+        if hasattr(self.camera_service, "get_persisted_config"):
+            return self.camera_service.get_persisted_config()
+        return self.camera_service.get_config()
+
+    def _motor_persisted_config(self) -> dict:
+        if hasattr(self.motor_service, "get_persisted_config"):
+            return self.motor_service.get_persisted_config()
+        return self.motor_service.get_config()
 
     def _hard_stop_outputs(self):
         try:
@@ -190,7 +208,11 @@ class ControlService:
 
     def toggle_recording(self) -> tuple[bool, bool, str]:
         with self.lock:
-            self.recorder_service.toggle()
+            try:
+                self.recorder_service.toggle()
+            except Exception as exc:
+                self.state.system_message = f"Recording toggle failed: {exc}"
+                return False, bool(self.recorder_service.recording), self.state.system_message
             self.state.recording = bool(self.recorder_service.recording)
             self.state.system_message = "Recording started." if self.state.recording else "Recording stopped."
             return True, self.state.recording, self.state.system_message
@@ -213,16 +235,16 @@ class ControlService:
                 "max_throttle": self.state.max_throttle,
                 "steer_mix": self.state.steer_mix,
                 "current_page": self.state.current_page,
-                "camera": self.camera_service.get_config(),
-                "motor": self.motor_service.get_config(),
+                "camera": self._camera_persisted_config(),
+                "motor": self._motor_persisted_config(),
             }
 
     def save_runtime_config(self) -> dict:
         data = self.get_runtime_config()
-        self.config_store.save(data)
+        saved = self._save_config_data(data)
         with self.lock:
             self.state.system_message = "Runtime config saved."
-        return data
+        return saved
 
     def apply_runtime_config(self, data: dict, initial: bool = False):
         if not isinstance(data, dict):

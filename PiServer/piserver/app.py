@@ -16,7 +16,21 @@ from piserver.services.recorder_service import RecorderService
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 WEB_DIR = Path(__file__).resolve().parent / "web"
-APP_VERSION = "0_2_9"
+APP_VERSION = "0_2_10"
+
+
+def _parse_bool_like(value, default: bool = False) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    if isinstance(value, str):
+        text = value.strip().lower()
+        if text in {"1", "true", "yes", "on"}:
+            return True
+        if text in {"0", "false", "no", "off", ""}:
+            return False
+    return bool(default)
 
 
 def mjpeg_generator(camera_service):
@@ -120,7 +134,7 @@ def create_app() -> Flask:
     @app.route("/api/camera/preview_state", methods=["POST"])
     def api_camera_preview_state():
         data = request.get_json(silent=True) or {}
-        enabled = bool(data.get("enabled", True))
+        enabled = _parse_bool_like(data.get("enabled", True), True)
         camera_service.set_preview_enabled(enabled)
         return jsonify({"ok": True, "config": camera_service.get_config(), "enabled": enabled})
 
@@ -205,7 +219,7 @@ def create_app() -> Flask:
     @app.route("/api/system/estop", methods=["POST"])
     def api_estop():
         data = request.get_json(silent=True) or {}
-        enabled = bool(data.get("enabled", True))
+        enabled = _parse_bool_like(data.get("enabled", True), True)
         control_service.set_safety_stop(enabled)
         if enabled:
             motor_service.stop()
@@ -226,7 +240,7 @@ def create_app() -> Flask:
         saved = False
         save_error = ""
         try:
-            config_store.save(control_service.get_runtime_config())
+            control_service.save_runtime_config()
             saved = True
         except Exception as exc:
             save_error = str(exc)
@@ -255,7 +269,7 @@ def create_app() -> Flask:
         saved = False
         save_error = ""
         try:
-            config_store.save(control_service.get_runtime_config())
+            control_service.save_runtime_config()
             saved = True
         except Exception as exc:
             save_error = str(exc)

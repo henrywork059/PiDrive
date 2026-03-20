@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import atexit
+import math
 from typing import Any
 
 try:
@@ -19,6 +20,22 @@ PWM_FREQ_HZ = 1000
 
 def _clamp(value: float, minimum: float, maximum: float) -> float:
     return max(minimum, min(maximum, float(value)))
+
+
+def _safe_float(value: Any, default: float) -> float:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return float(default)
+    return parsed if math.isfinite(parsed) else float(default)
+
+
+def _normalize_direction(value: Any, default: int = 1) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return -1 if int(default) < 0 else 1
+    return -1 if parsed < 0 else 1
 
 
 class _MotorDriver:
@@ -77,7 +94,7 @@ class MotorService:
 
         atexit.register(self.close)
 
-    def get_config(self) -> dict[str, Any]:
+    def get_persisted_config(self) -> dict[str, Any]:
         return {
             "left_direction": self.left_direction,
             "right_direction": self.right_direction,
@@ -86,27 +103,31 @@ class MotorService:
             "right_max_speed": self.right_max_speed,
             "left_bias": self.left_bias,
             "right_bias": self.right_bias,
-            "gpio_available": GPIO_AVAILABLE,
         }
+
+    def get_config(self) -> dict[str, Any]:
+        data = self.get_persisted_config()
+        data["gpio_available"] = GPIO_AVAILABLE
+        return data
 
     def apply_settings(self, data: dict | None) -> dict[str, Any]:
         if not isinstance(data, dict):
             return self.get_config()
 
         if "left_direction" in data:
-            self.left_direction = -1 if int(data.get("left_direction", 1)) < 0 else 1
+            self.left_direction = _normalize_direction(data.get("left_direction", self.left_direction), self.left_direction)
         if "right_direction" in data:
-            self.right_direction = -1 if int(data.get("right_direction", 1)) < 0 else 1
+            self.right_direction = _normalize_direction(data.get("right_direction", self.right_direction), self.right_direction)
         if "steering_direction" in data:
-            self.steering_direction = -1 if int(data.get("steering_direction", 1)) < 0 else 1
+            self.steering_direction = _normalize_direction(data.get("steering_direction", self.steering_direction), self.steering_direction)
         if "left_max_speed" in data:
-            self.left_max_speed = _clamp(float(data.get("left_max_speed", 1.0)), 0.0, 1.0)
+            self.left_max_speed = _clamp(_safe_float(data.get("left_max_speed", self.left_max_speed), self.left_max_speed), 0.0, 1.0)
         if "right_max_speed" in data:
-            self.right_max_speed = _clamp(float(data.get("right_max_speed", 1.0)), 0.0, 1.0)
+            self.right_max_speed = _clamp(_safe_float(data.get("right_max_speed", self.right_max_speed), self.right_max_speed), 0.0, 1.0)
         if "left_bias" in data:
-            self.left_bias = _clamp(float(data.get("left_bias", 0.0)), -0.35, 0.35)
+            self.left_bias = _clamp(_safe_float(data.get("left_bias", self.left_bias), self.left_bias), -0.35, 0.35)
         if "right_bias" in data:
-            self.right_bias = _clamp(float(data.get("right_bias", 0.0)), -0.35, 0.35)
+            self.right_bias = _clamp(_safe_float(data.get("right_bias", self.right_bias), self.right_bias), -0.35, 0.35)
 
         self.stop()
         return self.get_config()
