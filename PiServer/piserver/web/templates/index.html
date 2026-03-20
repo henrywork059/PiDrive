@@ -32,39 +32,28 @@
     <section id="workspace" class="workspace-grid">
       <article class="dock-panel" data-panel="status">
         <div class="panel-head">
-          <span>Status / telemetry</span>
-          <span class="panel-mini">live overview</span>
+          <span>Status / Telemetry</span>
+          <span class="panel-mini">live</span>
         </div>
         <div class="panel-body status-body">
-          <div class="status-top-row">
-            <label class="estop-toggle" for="estopToggle">
-              <input id="estopToggle" type="checkbox" />
-              <span class="estop-track" aria-hidden="true"><span class="estop-thumb"></span></span>
-              <span class="estop-copy">
-                <strong id="estopToggleLabel">E-Stop off</strong>
-                <small id="estopToggleHint">Motion enabled</small>
-              </span>
-            </label>
-
-            <div class="metric-grid metric-grid-primary">
-              <div class="metric-card priority"><label>Page</label><strong id="metricPage">manual</strong></div>
-              <div class="metric-card priority"><label>Drive state</label><strong id="metricDriveState">ready</strong></div>
-              <div class="metric-card priority"><label>Recording</label><strong id="metricRec">off</strong></div>
-              <div class="metric-card priority"><label>Camera</label><strong id="metricCamera">unknown</strong></div>
-              <div class="metric-card priority"><label>Preview</label><strong id="metricPreview">placeholder</strong></div>
-              <div class="metric-card priority"><label>Model</label><strong id="metricModel">none</strong></div>
-              <div class="metric-card priority"><label>Applied output</label><strong id="metricApplied">S 0.00 · T 0.00</strong></div>
-              <div class="metric-card priority"><label>Manual input</label><strong id="metricManual">S 0.00 · T 0.00</strong></div>
-            </div>
+          <div class="metric-grid metric-grid-primary">
+            <div class="metric-card metric-card-primary"><label>Drive state</label><strong id="metricDriveState">ready</strong></div>
+            <div class="metric-card metric-card-primary"><label>Applied output</label><strong id="metricApplied">S 0.00 · T 0.00</strong></div>
+            <div class="metric-card metric-card-primary"><label>Manual target</label><strong id="metricManual">S 0.00 · T 0.00</strong></div>
+            <div class="metric-card metric-card-primary"><label>Recording</label><strong id="metricRec">off</strong></div>
+            <div class="metric-card metric-card-primary"><label>Preview</label><strong id="metricPreview">placeholder</strong></div>
+            <div class="metric-card metric-card-primary"><label>Camera</label><strong id="metricCamera">unknown</strong></div>
           </div>
 
           <div class="metric-grid metric-grid-secondary">
+            <div class="metric-card"><label>Model</label><strong id="metricModel">none</strong></div>
             <div class="metric-card"><label>Algorithm</label><strong id="metricAlgorithm">manual</strong></div>
-            <div class="metric-card"><label>FPS</label><strong id="metricFps">0.0</strong></div>
             <div class="metric-card"><label>Max throttle</label><strong id="metricMaxThrottle">0.55</strong></div>
             <div class="metric-card"><label>Steer mix</label><strong id="metricSteerMix">0.50</strong></div>
             <div class="metric-card"><label>Wheel output</label><strong id="metricWheels">0.00 / 0.00</strong></div>
-            <div class="metric-card"><label>Motor map</label><strong id="metricMotorMap">N / N · steer N</strong></div>
+            <div class="metric-card"><label>Frame rate</label><strong id="metricFps">0.0 FPS</strong></div>
+            <div class="metric-card"><label>Backend</label><strong id="metricBackend">unknown</strong></div>
+            <div class="metric-card metric-card-alert"><label>Last error</label><strong id="metricError">none</strong></div>
           </div>
 
           <div id="statusBanner" class="banner muted">Ready.</div>
@@ -72,15 +61,29 @@
         <div class="resize-handle"></div>
       </article>
 
+      <article class="dock-panel" data-panel="estop">
+        <div class="panel-head">
+          <span>E-Stop</span>
+          <span class="panel-mini">safety</span>
+        </div>
+        <div class="panel-body estop-body">
+          <button id="estopToggle" class="estop-toggle off" type="button" aria-pressed="false">
+            <span class="estop-toggle-title">E-STOP OFF</span>
+            <span class="estop-toggle-subtitle">Tap to engage emergency stop</span>
+          </button>
+        </div>
+        <div class="resize-handle"></div>
+      </article>
+
       <article class="dock-panel" data-panel="viewer">
         <div class="panel-head">
           <span>Camera preview</span>
-          <span class="panel-mini">MJPEG</span>
+          <span class="panel-mini">JPEG</span>
         </div>
         <div class="panel-body viewer-body">
           <div class="viewer-frame">
             <img id="videoFeed" src="" alt="PiServer camera preview" />
-            <div id="cameraPreviewMeta" class="preview-meta-overlay">Waiting for camera status…</div>
+            <div id="cameraPreviewMeta" class="preview-meta">Waiting for camera status…</div>
           </div>
         </div>
         <div class="resize-handle"></div>
@@ -89,24 +92,26 @@
       <article class="dock-panel" data-panel="runtime">
         <div class="panel-head">
           <span>Runtime tuning</span>
-          <span class="panel-mini">live response</span>
+          <span class="panel-mini">saved</span>
         </div>
         <div class="panel-body scroll-body">
-          <div class="field">
-            <label for="maxThrottle">Max throttle</label>
-            <input id="maxThrottle" type="range" min="0" max="100" value="55" />
-            <div class="value-text"><span id="maxThrottleValue">0.55</span></div>
+          <div class="field-grid two-col compact-grid">
+            <div class="field">
+              <label for="maxThrottle">Max throttle</label>
+              <input id="maxThrottle" type="range" min="0" max="100" value="55" />
+              <div class="value-text"><span id="maxThrottleValue">0.55</span></div>
+            </div>
+            <div class="field">
+              <label for="steerMix">Steer mix</label>
+              <input id="steerMix" type="range" min="0" max="100" value="50" />
+              <div class="value-text"><span id="steerMixValue">0.50</span></div>
+            </div>
           </div>
-
-          <div class="field">
-            <label for="steerMix">Steer mix</label>
-            <input id="steerMix" type="range" min="0" max="100" value="50" />
-            <div class="value-text"><span id="steerMixValue">0.50</span></div>
+          <div class="stack-row panel-actions">
+            <button id="saveRuntimeBtn">Save runtime tuning</button>
           </div>
-
-          <div class="small-note note-bottom">
-            Saved runtime tuning for driving response. These settings are separate from manual driving and read-only status.
-          </div>
+          <div id="runtimeMessage" class="banner muted">Runtime tuning ready.</div>
+          <div class="small-note note-bottom">Saved runtime tuning for driving response. These settings are separate from manual driving and read-only status.</div>
         </div>
         <div class="resize-handle"></div>
       </article>
@@ -114,24 +119,24 @@
       <article class="dock-panel" data-panel="model">
         <div class="panel-head">
           <span>Model manager</span>
-          <span class="panel-mini">upload + load</span>
+          <span class="panel-mini">TFLite</span>
         </div>
         <div class="panel-body scroll-body">
           <div class="field">
             <label for="modelFile">Upload TFLite model</label>
             <input id="modelFile" type="file" accept=".tflite" />
-            <div class="stack-row">
-              <button id="uploadModelBtn">Upload</button>
-              <button id="refreshModelsBtn" class="ghost-btn">Refresh list</button>
-            </div>
           </div>
-
+          <div class="stack-row panel-actions">
+            <button id="uploadModelBtn">Upload</button>
+            <button id="refreshModelsBtn" class="ghost-btn">Refresh list</button>
+          </div>
           <div class="field">
             <label for="modelSelect">Available models</label>
             <select id="modelSelect"></select>
+          </div>
+          <div class="stack-row panel-actions">
             <button id="loadModelBtn">Load model</button>
           </div>
-
           <div id="modelMessage" class="banner muted">No model action yet.</div>
         </div>
         <div class="resize-handle"></div>
@@ -140,25 +145,27 @@
       <article class="dock-panel" data-panel="manual">
         <div class="panel-head">
           <span>Manual drive</span>
-          <span class="panel-mini">joystick + stepped input</span>
+          <span class="panel-mini">smooth hold + release</span>
         </div>
         <div class="panel-body scroll-body manual-body">
-          <div id="joystickArea" class="joystick-area">
-            <div id="joystickDot" class="joystick-dot"></div>
-          </div>
-          <div class="value-text" id="joystickText">Steering 0.00 · Throttle 0.00</div>
+          <div class="manual-layout">
+            <div id="joystickArea" class="joystick-area">
+              <div class="joystick-crosshair"></div>
+              <div id="joystickDot" class="joystick-dot"></div>
+            </div>
 
-          <div class="manual-pad" aria-label="Manual directional controls">
-            <button id="upBtn" class="arrow-btn" aria-label="Throttle up">↑</button>
-            <button id="leftBtn" class="arrow-btn" aria-label="Steer left">←</button>
-            <button id="centerBtn" class="arrow-btn center-btn" aria-label="Return to center">•</button>
-            <button id="rightBtn" class="arrow-btn" aria-label="Steer right">→</button>
-            <button id="downBtn" class="arrow-btn" aria-label="Throttle down">↓</button>
+            <div class="manual-side">
+              <div class="manual-readout value-text" id="joystickText">Steering 0.00 · Throttle 0.00</div>
+              <div class="arrow-pad" id="arrowPad">
+                <button class="arrow-btn" data-dir="up" type="button">↑</button>
+                <button class="arrow-btn" data-dir="left" type="button">←</button>
+                <button class="arrow-btn center" id="manualCenterBtn" type="button">•</button>
+                <button class="arrow-btn" data-dir="right" type="button">→</button>
+                <button class="arrow-btn" data-dir="down" type="button">↓</button>
+              </div>
+            </div>
           </div>
-
-          <div class="small-note note-bottom">
-            Immediate runtime controls only. These actions do not change saved config values.
-          </div>
+          <div class="small-note note-bottom">Immediate runtime controls only. These actions do not change saved config values.</div>
         </div>
         <div class="resize-handle"></div>
       </article>
@@ -168,14 +175,12 @@
           <span>Recording</span>
           <span class="panel-mini">session</span>
         </div>
-        <div class="panel-body">
-          <div class="stack-row">
+        <div class="panel-body record-body">
+          <div class="stack-row panel-actions">
             <button id="recordToggleBtn">Toggle record</button>
             <span id="recordStateBadge" class="badge off">off</span>
           </div>
-          <p class="small-note">
-            Records live control output with timestamped image names and JSONL metadata.
-          </p>
+          <p class="small-note">Records live control output with timestamped image names and JSONL metadata.</p>
         </div>
         <div class="resize-handle"></div>
       </article>
@@ -186,7 +191,7 @@
           <span class="panel-mini">apply + restart</span>
         </div>
         <div class="panel-body scroll-body">
-          <div class="field-grid two-col">
+          <div class="field-grid two-col compact-grid">
             <div class="field">
               <label for="cameraResolutionPreset">Resolution preset</label>
               <select id="cameraResolutionPreset">
@@ -239,12 +244,12 @@
           </div>
           <div class="small-note">Lower capture resolution, low-latency stream quality, and lower preview FPS usually reduce delay on the Pi. Apply + restart camera after changing settings.</div>
 
-          <div class="field-grid two-col">
+          <div class="field-grid two-col compact-grid">
             <label class="check-line"><input id="cameraAutoExposure" type="checkbox" checked /> Auto exposure</label>
             <label class="check-line"><input id="cameraAwb" type="checkbox" checked /> Auto white balance</label>
           </div>
 
-          <div class="field-grid two-col">
+          <div class="field-grid two-col compact-grid">
             <div class="field">
               <label for="cameraExposureUs">Exposure (µs)</label>
               <input id="cameraExposureUs" type="number" min="100" max="200000" step="100" value="12000" />
@@ -275,7 +280,7 @@
             </div>
           </div>
 
-          <div class="stack-row">
+          <div class="stack-row panel-actions">
             <button id="cameraApplyBtn">Apply + Restart camera</button>
           </div>
           <div id="cameraMessage" class="banner muted">Load saved camera settings to begin.</div>
@@ -287,11 +292,11 @@
       <article class="dock-panel" data-panel="motor">
         <div class="panel-head">
           <span>Motor settings</span>
-          <span class="panel-mini">direction + steering trim</span>
+          <span class="panel-mini">direction + trim</span>
         </div>
         <div class="panel-body scroll-body">
           <div class="small-note">Use this tab to fix reversed wiring, choose whether steering left means car left or car right, and trim left/right balance. Applying settings stops the motors for safety and saves them to the runtime config.</div>
-          <div class="field-grid two-col">
+          <div class="field-grid two-col compact-grid">
             <div class="field">
               <label for="leftDirection">Left motor direction</label>
               <select id="leftDirection">
@@ -332,7 +337,7 @@
               <input id="rightBias" type="number" min="-0.35" max="0.35" step="0.01" value="0" />
             </div>
           </div>
-          <div class="stack-row">
+          <div class="stack-row panel-actions">
             <button id="motorApplyBtn">Apply motor settings</button>
           </div>
           <div id="motorMessage" class="banner muted">Load saved motor settings to begin.</div>
