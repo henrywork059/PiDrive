@@ -1,51 +1,47 @@
 const gridCols = 24;
 const gridRows = 14;
 const layoutKeyPrefix = "PiServerLayout:";
+const controlStep = 0.1;
+const controlStepMs = 100;
+
 const pagePanels = {
-  manual: ["status", "telemetry", "viewer", "runtime", "manual", "safety", "record"],
-  training: ["status", "telemetry", "viewer", "runtime", "model", "record"],
-  auto: ["status", "telemetry", "viewer", "runtime", "model", "safety"],
-  camera: ["status", "telemetry", "viewer", "camera"],
-  motor: ["status", "telemetry", "viewer", "motor", "safety"]
+  manual: ["status", "viewer", "runtime", "manual", "record"],
+  training: ["status", "viewer", "runtime", "model", "record"],
+  auto: ["status", "viewer", "runtime", "model"],
+  camera: ["status", "viewer", "camera"],
+  motor: ["status", "viewer", "motor"]
 };
+
 const defaultLayouts = {
   manual: {
-    status: { c: 1, r: 1, w: 8, h: 3 },
-    telemetry: { c: 1, r: 4, w: 8, h: 5 },
-    viewer: { c: 9, r: 1, w: 10, h: 9 },
-    manual: { c: 19, r: 1, w: 6, h: 8 },
-    safety: { c: 19, r: 9, w: 6, h: 3 },
-    record: { c: 1, r: 9, w: 8, h: 3 },
-    runtime: { c: 9, r: 10, w: 16, h: 5 }
+    status: { c: 1, r: 1, w: 24, h: 3 },
+    viewer: { c: 1, r: 4, w: 14, h: 9 },
+    runtime: { c: 15, r: 4, w: 10, h: 4 },
+    manual: { c: 15, r: 8, w: 10, h: 5 },
+    record: { c: 1, r: 13, w: 24, h: 2 }
   },
   training: {
-    status: { c: 1, r: 1, w: 8, h: 3 },
-    telemetry: { c: 1, r: 4, w: 8, h: 5 },
-    viewer: { c: 9, r: 1, w: 8, h: 8 },
-    model: { c: 17, r: 1, w: 8, h: 8 },
-    record: { c: 1, r: 9, w: 8, h: 3 },
-    runtime: { c: 9, r: 9, w: 16, h: 6 }
+    status: { c: 1, r: 1, w: 24, h: 3 },
+    viewer: { c: 1, r: 4, w: 14, h: 9 },
+    runtime: { c: 15, r: 4, w: 10, h: 4 },
+    model: { c: 15, r: 8, w: 10, h: 5 },
+    record: { c: 1, r: 13, w: 24, h: 2 }
   },
   auto: {
-    status: { c: 1, r: 1, w: 8, h: 3 },
-    telemetry: { c: 1, r: 4, w: 8, h: 5 },
-    viewer: { c: 9, r: 1, w: 10, h: 9 },
-    runtime: { c: 19, r: 1, w: 6, h: 5 },
-    model: { c: 19, r: 6, w: 6, h: 4 },
-    safety: { c: 1, r: 9, w: 8, h: 6 }
+    status: { c: 1, r: 1, w: 24, h: 3 },
+    viewer: { c: 1, r: 4, w: 15, h: 11 },
+    runtime: { c: 16, r: 4, w: 9, h: 4 },
+    model: { c: 16, r: 8, w: 9, h: 7 }
   },
   camera: {
-    status: { c: 1, r: 1, w: 8, h: 3 },
-    telemetry: { c: 1, r: 4, w: 8, h: 4 },
-    viewer: { c: 1, r: 8, w: 10, h: 7 },
-    camera: { c: 11, r: 1, w: 14, h: 14 }
+    status: { c: 1, r: 1, w: 24, h: 3 },
+    viewer: { c: 1, r: 4, w: 13, h: 11 },
+    camera: { c: 14, r: 4, w: 11, h: 11 }
   },
   motor: {
-    status: { c: 1, r: 1, w: 8, h: 3 },
-    telemetry: { c: 1, r: 4, w: 8, h: 4 },
-    viewer: { c: 1, r: 8, w: 10, h: 7 },
-    motor: { c: 11, r: 1, w: 14, h: 9 },
-    safety: { c: 11, r: 10, w: 14, h: 5 }
+    status: { c: 1, r: 1, w: 24, h: 3 },
+    viewer: { c: 1, r: 4, w: 13, h: 11 },
+    motor: { c: 14, r: 4, w: 11, h: 11 }
   }
 };
 
@@ -66,11 +62,17 @@ const state = {
   previewActive: false,
   previewInFlight: false,
   previewObjectUrl: null,
-  keyState: { up: false, down: false, left: false, right: false }
+  availableAlgorithms: [],
+  stepTimer: null,
+  controlIntent: { up: false, down: false, left: false, right: false }
 };
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
+}
+
+function roundStep(value) {
+  return Math.round(value * 100) / 100;
 }
 
 function panelEls() {
@@ -258,8 +260,10 @@ function setBanner(id, text, tone = "muted") {
 }
 
 function updateRangeText() {
-  document.getElementById("maxThrottleValue").textContent = state.maxThrottle.toFixed(2);
-  document.getElementById("steerMixValue").textContent = state.steerMix.toFixed(2);
+  const maxThrottleValue = document.getElementById("maxThrottleValue");
+  const steerMixValue = document.getElementById("steerMixValue");
+  if (maxThrottleValue) maxThrottleValue.textContent = state.maxThrottle.toFixed(2);
+  if (steerMixValue) steerMixValue.textContent = state.steerMix.toFixed(2);
   const left = document.getElementById("leftMaxSpeed");
   const right = document.getElementById("rightMaxSpeed");
   if (left) document.getElementById("leftMaxSpeedValue").textContent = (Number(left.value || 0) / 100).toFixed(2);
@@ -273,6 +277,35 @@ function updateToolbarBadge(status) {
   badge.textContent = stopped ? "stop" : "run";
   badge.classList.toggle("on", stopped);
   badge.classList.toggle("off", !stopped);
+}
+
+function motorMapText(data) {
+  const leftDir = Number(data.motor_left_direction || 1) < 0 ? "R" : "N";
+  const rightDir = Number(data.motor_right_direction || 1) < 0 ? "R" : "N";
+  const steerDir = Number(data.motor_steering_direction || 1) < 0 ? "R" : "N";
+  return `${leftDir} / ${rightDir} · steer ${steerDir}`;
+}
+
+function driveStateText(data) {
+  if (data.safety_stop) return "e-stop active";
+  const algo = String(data.active_algorithm || "manual");
+  if (algo === "manual") return "manual ready";
+  return `${algo} live`;
+}
+
+function previewStateText(data) {
+  return data.camera_preview_live ? "live" : "placeholder";
+}
+
+function setEstopUi(enabled) {
+  const toggle = document.getElementById("estopToggle");
+  const label = document.getElementById("estopToggleLabel");
+  const hint = document.getElementById("estopToggleHint");
+  const wrapper = toggle ? toggle.closest(".estop-toggle") : null;
+  if (toggle) toggle.checked = !!enabled;
+  if (wrapper) wrapper.classList.toggle("is-active", !!enabled);
+  if (label) label.textContent = enabled ? "E-Stop active" : "E-Stop off";
+  if (hint) hint.textContent = enabled ? "Safety lock engaged" : "Motion enabled";
 }
 
 async function sendControlUpdate(extra = {}) {
@@ -297,12 +330,25 @@ async function sendControlUpdate(extra = {}) {
 
 function updateStatusUi(data) {
   state.latestStatus = data;
-  document.getElementById("metricAlgorithm").textContent = data.active_algorithm || "manual";
-  document.getElementById("metricModel").textContent = data.active_model || "none";
-  document.getElementById("metricFps").textContent = Number(data.fps || 0).toFixed(1);
-  document.getElementById("metricRec").textContent = data.recording ? "on" : "off";
-  document.getElementById("metricWheels").textContent = `${Number(data.motor_left || 0).toFixed(2)} / ${Number(data.motor_right || 0).toFixed(2)}`;
-  document.getElementById("metricCamera").textContent = `${data.camera_width || 0}×${data.camera_height || 0} ${data.camera_format || "unknown"}`;
+  const setText = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+  };
+
+  setText("metricPage", data.current_page || state.page || "manual");
+  setText("metricDriveState", driveStateText(data));
+  setText("metricAlgorithm", data.active_algorithm || "manual");
+  setText("metricModel", data.active_model || "none");
+  setText("metricFps", Number(data.fps || 0).toFixed(1));
+  setText("metricRec", data.recording ? "on" : "off");
+  setText("metricCamera", `${data.camera_width || 0}×${data.camera_height || 0} ${data.camera_format || "unknown"}`);
+  setText("metricPreview", previewStateText(data));
+  setText("metricApplied", `S ${Number(data.applied_steering || 0).toFixed(2)} · T ${Number(data.applied_throttle || 0).toFixed(2)}`);
+  setText("metricManual", `S ${Number(data.manual_steering || 0).toFixed(2)} · T ${Number(data.manual_throttle || 0).toFixed(2)}`);
+  setText("metricMaxThrottle", Number(data.max_throttle || 0).toFixed(2));
+  setText("metricSteerMix", Number(data.steer_mix || 0).toFixed(2));
+  setText("metricWheels", `${Number(data.motor_left || 0).toFixed(2)} / ${Number(data.motor_right || 0).toFixed(2)}`);
+  setText("metricMotorMap", motorMapText(data));
 
   const previewMeta = document.getElementById("cameraPreviewMeta");
   if (previewMeta) {
@@ -312,27 +358,14 @@ function updateStatusUi(data) {
   }
 
   const recBadge = document.getElementById("recordStateBadge");
-  recBadge.textContent = data.recording ? "on" : "off";
-  recBadge.classList.toggle("on", !!data.recording);
-  recBadge.classList.toggle("off", !data.recording);
-
-  const lastUpdate = Number(data.last_update || 0);
-  const lastUpdateText = lastUpdate > 0
-    ? new Date(lastUpdate * 1000).toLocaleTimeString([], { hour12: false })
-    : "--";
-  document.getElementById("telemetryPage").textContent = data.current_page || state.page || "manual";
-  document.getElementById("telemetryManual").textContent = `${Number(data.manual_steering || 0).toFixed(2)} / ${Number(data.manual_throttle || 0).toFixed(2)}`;
-  document.getElementById("telemetryApplied").textContent = `${Number(data.applied_steering || 0).toFixed(2)} / ${Number(data.applied_throttle || 0).toFixed(2)}`;
-  document.getElementById("telemetrySafety").textContent = data.safety_stop ? "engaged" : "clear";
-  document.getElementById("telemetryBackend").textContent = data.camera_backend || "unknown";
-  document.getElementById("telemetryPreview").textContent = data.camera_preview_live ? "live" : "placeholder";
-  const leftDir = Number(data.motor_left_direction || 1) < 0 ? "reverse" : "normal";
-  const rightDir = Number(data.motor_right_direction || 1) < 0 ? "reverse" : "normal";
-  const steerDir = Number(data.motor_steering_direction || 1) < 0 ? "reversed" : "normal";
-  document.getElementById("telemetryMotorConfig").textContent = `L ${leftDir} · R ${rightDir} · steer ${steerDir}`;
-  document.getElementById("telemetryLastUpdate").textContent = lastUpdateText;
+  if (recBadge) {
+    recBadge.textContent = data.recording ? "on" : "off";
+    recBadge.classList.toggle("on", !!data.recording);
+    recBadge.classList.toggle("off", !data.recording);
+  }
 
   updateToolbarBadge(data);
+  setEstopUi(!!data.safety_stop);
   setBanner("statusBanner", data.system_message || "Ready.", "muted");
 }
 
@@ -347,9 +380,27 @@ async function pollStatus() {
   }
 }
 
+async function refreshAlgorithms() {
+  const data = await fetchJson("/api/algorithms");
+  state.availableAlgorithms = Array.isArray(data.algorithms) ? data.algorithms.map((algo) => algo.name) : [];
+  return state.availableAlgorithms;
+}
+
+function desiredAlgorithmForPage(page) {
+  const algos = state.availableAlgorithms || [];
+  if (page === "auto") {
+    if (algos.includes("autopilot")) return "autopilot";
+    if (algos.includes("auto_steer")) return "auto_steer";
+    if (algos.includes("manual")) return "manual";
+  }
+  if (algos.includes("manual")) return "manual";
+  return null;
+}
+
 async function refreshModels() {
   const data = await fetchJson("/api/model/list");
   const select = document.getElementById("modelSelect");
+  if (!select) return;
   select.innerHTML = "";
   data.models.forEach((name) => {
     const option = document.createElement("option");
@@ -381,7 +432,7 @@ async function uploadModel() {
 
 async function loadSelectedModel() {
   const select = document.getElementById("modelSelect");
-  const filename = select.value;
+  const filename = select ? select.value : "";
   if (!filename) {
     setBanner("modelMessage", "No model selected.", "muted");
     return;
@@ -409,12 +460,6 @@ async function setEstop(enabled) {
   });
   updateStatusUi(data.state || state.latestStatus || {});
   syncControlsFromStatus(data.state || state.latestStatus || {});
-}
-
-async function runSystemAction(endpoint, bannerId) {
-  const data = await fetchJson(endpoint, { method: "POST" });
-  setBanner(bannerId, data.message || "Done.", "muted");
-  await pollStatus();
 }
 
 function setCameraResolutionPreset() {
@@ -588,9 +633,7 @@ function schedulePreviewFrame(immediate = false) {
 }
 
 async function requestPreviewFrame() {
-  if (!state.previewActive || document.hidden) {
-    return;
-  }
+  if (!state.previewActive || document.hidden) return;
   if (state.previewInFlight) {
     schedulePreviewFrame(false);
     return;
@@ -598,17 +641,13 @@ async function requestPreviewFrame() {
   state.previewInFlight = true;
   try {
     const response = await fetch(`/api/camera/frame.jpg?t=${Date.now()}`, { cache: "no-store" });
-    if (response.status === 204) {
-      return;
-    }
-    if (!response.ok) {
-      throw new Error(`Preview request failed (${response.status})`);
-    }
+    if (response.status === 204) return;
+    if (!response.ok) throw new Error(`Preview request failed (${response.status})`);
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);
     const img = document.getElementById("videoFeed");
     const previous = state.previewObjectUrl;
-    img.src = url;
+    if (img) img.src = url;
     state.previewObjectUrl = url;
     if (previous) {
       try { URL.revokeObjectURL(previous); } catch {}
@@ -622,18 +661,10 @@ async function requestPreviewFrame() {
   }
 }
 
-function refreshVideoFeed() {
-  state.previewActive = !document.hidden;
-  sendPreviewState(state.previewActive);
-  schedulePreviewFrame(true);
-}
-
 function forceRefreshVideoFeed() {
   stopPreviewLoop(true);
   const img = document.getElementById("videoFeed");
-  if (img) {
-    img.src = "";
-  }
+  if (img) img.src = "";
   state.previewActive = !document.hidden;
   sendPreviewState(state.previewActive);
   schedulePreviewFrame(true);
@@ -643,11 +674,8 @@ function syncPreviewActivity() {
   const enabled = !document.hidden;
   state.previewActive = enabled;
   sendPreviewState(enabled);
-  if (enabled) {
-    schedulePreviewFrame(true);
-  } else {
-    stopPreviewLoop(false);
-  }
+  if (enabled) schedulePreviewFrame(true);
+  else stopPreviewLoop(false);
 }
 
 async function loadCameraConfig() {
@@ -665,7 +693,7 @@ async function loadCameraConfig() {
 async function applyCameraConfig() {
   const payload = readCameraForm();
   const button = document.getElementById("cameraApplyBtn");
-  button.disabled = true;
+  if (button) button.disabled = true;
   try {
     stopPreviewLoop(true);
     await sendPreviewState(false);
@@ -683,22 +711,90 @@ async function applyCameraConfig() {
     await pollStatus();
     setBanner("cameraMessage", data.message || "Camera restarted and settings saved.", data.ok ? "muted" : "warn");
   } finally {
-    button.disabled = false;
+    if (button) button.disabled = false;
   }
+}
+
+function updateManualVisuals() {
+  const dot = document.getElementById("joystickDot");
+  const text = document.getElementById("joystickText");
+  if (dot) {
+    dot.style.left = `${(state.manualSteering * 0.5 + 0.5) * 100}%`;
+    dot.style.top = `${(0.5 - (state.manualThrottle / Math.max(state.maxThrottle || 1, 0.01)) / 2.0) * 100}%`;
+    dot.style.transform = "translate(-50%, -50%)";
+  }
+  if (text) {
+    text.textContent = `Steering ${state.manualSteering.toFixed(2)} · Throttle ${state.manualThrottle.toFixed(2)}`;
+  }
+}
+
+function applyManualState() {
+  updateManualVisuals();
+  sendControlUpdate();
+}
+
+function resetManualState(immediate = true) {
+  state.controlIntent = { up: false, down: false, left: false, right: false };
+  updateArrowButtonState();
+  if (immediate) {
+    state.manualSteering = 0;
+    state.manualThrottle = 0;
+    applyManualState();
+  }
+}
+
+function stepAxis(value, positive, negative, maxAbs) {
+  if (positive && !negative) {
+    return clamp(roundStep(value + controlStep), -maxAbs, maxAbs);
+  }
+  if (negative && !positive) {
+    return clamp(roundStep(value - controlStep), -maxAbs, maxAbs);
+  }
+  if (Math.abs(value) <= controlStep) return 0;
+  return roundStep(value + (value > 0 ? -controlStep : controlStep));
+}
+
+function updateArrowButtonState() {
+  const bindings = [
+    ["upBtn", state.controlIntent.up],
+    ["downBtn", state.controlIntent.down],
+    ["leftBtn", state.controlIntent.left],
+    ["rightBtn", state.controlIntent.right]
+  ];
+  bindings.forEach(([id, active]) => {
+    const btn = document.getElementById(id);
+    if (btn) btn.classList.toggle("is-held", !!active);
+  });
+}
+
+function stepManualIntent() {
+  if (state.page !== "manual") {
+    return;
+  }
+  const nextThrottle = stepAxis(state.manualThrottle, state.controlIntent.up, state.controlIntent.down, state.maxThrottle);
+  const nextSteering = stepAxis(state.manualSteering, state.controlIntent.right, state.controlIntent.left, 1);
+  if (nextThrottle !== state.manualThrottle || nextSteering !== state.manualSteering) {
+    state.manualThrottle = nextThrottle;
+    state.manualSteering = nextSteering;
+    applyManualState();
+  }
+}
+
+function startManualStepLoop() {
+  if (state.stepTimer) clearInterval(state.stepTimer);
+  state.stepTimer = setInterval(stepManualIntent, controlStepMs);
+}
+
+function setControlIntent(direction, pressed) {
+  if (!(direction in state.controlIntent)) return;
+  state.controlIntent[direction] = pressed;
+  updateArrowButtonState();
 }
 
 function setupJoystick() {
   const area = document.getElementById("joystickArea");
-  const dot = document.getElementById("joystickDot");
-  const text = document.getElementById("joystickText");
-
-  function applyManualState() {
-    dot.style.left = `${(state.manualSteering * 0.5 + 0.5) * 100}%`;
-    dot.style.top = `${(0.5 - state.manualThrottle / 2.0 / Math.max(state.maxThrottle || 1, 0.01)) * 100}%`;
-    dot.style.transform = "translate(-50%, -50%)";
-    text.textContent = `Steering ${state.manualSteering.toFixed(2)} · Throttle ${state.manualThrottle.toFixed(2)}`;
-    sendControlUpdate();
-  }
+  const centerBtn = document.getElementById("centerBtn");
+  if (!area) return;
 
   function moveDot(clientX, clientY) {
     const rect = area.getBoundingClientRect();
@@ -708,50 +804,15 @@ function setupJoystick() {
     const centeredX = (x - 0.5) * 2.0;
     const centeredY = (0.5 - y) * 2.0;
 
-    state.manualSteering = clamp(centeredX, -1, 1);
-    state.manualThrottle = clamp(centeredY * state.maxThrottle, -1, 1);
-
-    dot.style.left = `${x * 100}%`;
-    dot.style.top = `${y * 100}%`;
-    dot.style.transform = "translate(-50%, -50%)";
-
-    text.textContent = `Steering ${state.manualSteering.toFixed(2)} · Throttle ${state.manualThrottle.toFixed(2)}`;
-    sendControlUpdate();
+    state.manualSteering = clamp(roundStep(centeredX), -1, 1);
+    state.manualThrottle = clamp(roundStep(centeredY * state.maxThrottle), -state.maxThrottle, state.maxThrottle);
+    applyManualState();
   }
 
   function resetDot() {
     state.manualSteering = 0;
     state.manualThrottle = 0;
-    dot.style.left = "50%";
-    dot.style.top = "50%";
-    dot.style.transform = "translate(-50%, -50%)";
-    text.textContent = "Steering 0.00 · Throttle 0.00";
-    sendControlUpdate();
-  }
-
-  function updateFromKeyboard() {
-    const turn = (state.keyState.right ? 1 : 0) - (state.keyState.left ? 1 : 0);
-    const throttle = (state.keyState.up ? 1 : 0) - (state.keyState.down ? 1 : 0);
-    state.manualSteering = clamp(turn, -1, 1);
-    state.manualThrottle = clamp(throttle * state.maxThrottle, -1, 1);
     applyManualState();
-  }
-
-  function handleKeyChange(event, pressed) {
-    if (state.page !== "manual") return;
-    const tag = (event.target && event.target.tagName) ? event.target.tagName.toLowerCase() : "";
-    if (["input", "select", "textarea", "button"].includes(tag)) return;
-    const key = String(event.key || "").toLowerCase();
-    let handled = true;
-    if (key === "w" || key === "arrowup") state.keyState.up = pressed;
-    else if (key === "s" || key === "arrowdown") state.keyState.down = pressed;
-    else if (key === "a" || key === "arrowleft") state.keyState.left = pressed;
-    else if (key === "d" || key === "arrowright") state.keyState.right = pressed;
-    else handled = false;
-    if (handled) {
-      event.preventDefault();
-      updateFromKeyboard();
-    }
   }
 
   area.addEventListener("pointerdown", (event) => {
@@ -763,39 +824,99 @@ function setupJoystick() {
   });
   area.addEventListener("pointerup", resetDot);
   area.addEventListener("pointercancel", resetDot);
-  resetDot();
+  updateManualVisuals();
+
+  [["upBtn", "up"], ["downBtn", "down"], ["leftBtn", "left"], ["rightBtn", "right"]].forEach(([id, direction]) => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    const setPressed = (pressed) => {
+      if (state.page !== "manual") return;
+      setControlIntent(direction, pressed);
+    };
+    btn.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      btn.setPointerCapture(event.pointerId);
+      setPressed(true);
+    });
+    btn.addEventListener("pointerup", () => setPressed(false));
+    btn.addEventListener("pointercancel", () => setPressed(false));
+    btn.addEventListener("pointerleave", () => setPressed(false));
+  });
+
+  if (centerBtn) {
+    centerBtn.addEventListener("click", () => {
+      state.manualSteering = 0;
+      state.manualThrottle = 0;
+      applyManualState();
+    });
+  }
+
+  const handleKeyChange = (event, pressed) => {
+    const tag = (event.target && event.target.tagName) ? event.target.tagName.toLowerCase() : "";
+    if (["input", "select", "textarea", "button"].includes(tag)) return;
+    const key = String(event.key || "").toLowerCase();
+    const mapping = {
+      w: "up",
+      arrowup: "up",
+      s: "down",
+      arrowdown: "down",
+      a: "left",
+      arrowleft: "left",
+      d: "right",
+      arrowright: "right"
+    };
+    const direction = mapping[key];
+    if (!direction || state.page !== "manual") return;
+    event.preventDefault();
+    setControlIntent(direction, pressed);
+  };
 
   window.addEventListener("keydown", (event) => handleKeyChange(event, true));
   window.addEventListener("keyup", (event) => handleKeyChange(event, false));
+}
 
-  document.getElementById("stopBtn").addEventListener("click", resetDot);
+async function switchToPage(nextPage) {
+  if (!nextPage || nextPage === state.page) return;
+  const leavingManual = state.page === "manual" && nextPage !== "manual";
+  if (leavingManual) {
+    resetManualState(true);
+  }
+  renderActivePage(nextPage);
+  const extra = { current_page: nextPage };
+  const desiredAlgorithm = desiredAlgorithmForPage(nextPage);
+  if (desiredAlgorithm) extra.algorithm = desiredAlgorithm;
+  await sendControlUpdate(extra);
+  if (nextPage === "camera") {
+    try {
+      forceRefreshVideoFeed();
+      await loadCameraConfig();
+    } catch (error) {
+      setBanner("cameraMessage", error.message, "muted");
+    }
+  }
+  if (nextPage === "motor") {
+    try {
+      await loadMotorConfig();
+    } catch (error) {
+      setBanner("motorMessage", error.message, "muted");
+    }
+  }
+  if (nextPage === "auto" || nextPage === "training") {
+    try {
+      await refreshModels();
+    } catch (error) {
+      setBanner("modelMessage", error.message, "muted");
+    }
+  }
 }
 
 function setupEvents() {
   document.querySelectorAll(".tab-btn").forEach((btn) => {
     btn.addEventListener("click", async () => {
-      const nextPage = btn.dataset.page;
-      if (!nextPage || nextPage === state.page) return;
-      renderActivePage(nextPage);
-      const extra = { current_page: nextPage };
-      if (nextPage === "manual") {
-        extra.algorithm = "manual";
-      }
-      await sendControlUpdate(extra);
-      if (nextPage === "camera") {
-        try {
-          refreshVideoFeed();
-          await loadCameraConfig();
-        } catch (error) {
-          setBanner("cameraMessage", error.message, "muted");
-        }
-      }
-      if (nextPage === "motor") {
-        try {
-          await loadMotorConfig();
-        } catch (error) {
-          setBanner("motorMessage", error.message, "muted");
-        }
+      try {
+        await switchToPage(btn.dataset.page);
+      } catch (error) {
+        setBanner("statusBanner", error.message, "muted");
       }
     });
   });
@@ -814,6 +935,7 @@ function setupEvents() {
   document.getElementById("maxThrottle").addEventListener("input", (event) => {
     state.maxThrottle = Number(event.target.value) / 100;
     updateRangeText();
+    updateManualVisuals();
     sendControlUpdate();
   });
 
@@ -839,7 +961,14 @@ function setupEvents() {
     }
   });
 
-  document.getElementById("refreshModelsBtn").addEventListener("click", refreshModels);
+  document.getElementById("refreshModelsBtn").addEventListener("click", async () => {
+    try {
+      await refreshModels();
+    } catch (error) {
+      setBanner("modelMessage", error.message, "muted");
+    }
+  });
+
   document.getElementById("loadModelBtn").addEventListener("click", async () => {
     try {
       await loadSelectedModel();
@@ -868,6 +997,7 @@ function setupEvents() {
       setBanner("motorMessage", error.message, "muted");
     }
   });
+
   ["leftDirection", "rightDirection", "steeringDirection", "leftMaxSpeed", "rightMaxSpeed", "leftBias", "rightBias"].forEach((id) => {
     const el = document.getElementById(id);
     if (!el) return;
@@ -877,16 +1007,28 @@ function setupEvents() {
   document.getElementById("leftMaxSpeed").addEventListener("input", updateRangeText);
   document.getElementById("rightMaxSpeed").addEventListener("input", updateRangeText);
 
-  document.getElementById("estopBtn").addEventListener("click", () => setEstop(true));
-  document.getElementById("clearEstopBtn").addEventListener("click", () => setEstop(false));
+  const estopToggle = document.getElementById("estopToggle");
+  if (estopToggle) {
+    estopToggle.addEventListener("change", async (event) => {
+      try {
+        await setEstop(event.target.checked);
+      } catch (error) {
+        setBanner("statusBanner", error.message, "muted");
+        setEstopUi(Boolean(state.latestStatus && state.latestStatus.safety_stop));
+      }
+    });
+  }
 }
 
 function syncControlsFromStatus(data) {
   if (!data || typeof data !== "object") return;
   state.maxThrottle = Number(data.max_throttle || 0.55);
   state.steerMix = Number(data.steer_mix || 0.5);
-  document.getElementById("maxThrottle").value = Math.round(state.maxThrottle * 100);
-  document.getElementById("steerMix").value = Math.round(state.steerMix * 100);
+  const maxThrottle = document.getElementById("maxThrottle");
+  const steerMix = document.getElementById("steerMix");
+  if (maxThrottle) maxThrottle.value = Math.round(state.maxThrottle * 100);
+  if (steerMix) steerMix.value = Math.round(state.steerMix * 100);
+
   const allowMotorFormSync = !(state.page === "motor" && state.motorFormDirty);
   if (typeof data.motor_left_max_speed === "number" && allowMotorFormSync) {
     const left = document.getElementById("leftMaxSpeed");
@@ -899,7 +1041,9 @@ function syncControlsFromStatus(data) {
     document.getElementById("leftBias").value = Number(data.motor_left_bias || 0).toFixed(2);
     document.getElementById("rightBias").value = Number(data.motor_right_bias || 0).toFixed(2);
   }
+
   updateRangeText();
+  updateManualVisuals();
 
   const desiredPage = data.current_page || state.page || "manual";
   if (desiredPage !== state.page && defaultLayouts[desiredPage]) {
@@ -910,15 +1054,22 @@ function syncControlsFromStatus(data) {
 async function init() {
   renderActivePage(state.page);
   updateRangeText();
+  updateManualVisuals();
   setupDocking();
   setupJoystick();
   setupEvents();
+  startManualStepLoop();
+  await refreshAlgorithms();
   await refreshModels();
   await loadCameraConfig();
   await loadMotorConfig();
   syncPreviewActivity();
   document.addEventListener("visibilitychange", syncPreviewActivity);
-  window.addEventListener("beforeunload", () => { sendPreviewState(false); stopPreviewLoop(false); });
+  window.addEventListener("beforeunload", () => {
+    sendPreviewState(false);
+    stopPreviewLoop(false);
+    if (state.stepTimer) clearInterval(state.stepTimer);
+  });
   const status = await fetchJson("/api/status");
   updateStatusUi(status);
   syncControlsFromStatus(status);

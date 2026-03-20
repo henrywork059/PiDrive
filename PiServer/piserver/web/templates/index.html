@@ -32,40 +32,42 @@
     <section id="workspace" class="workspace-grid">
       <article class="dock-panel" data-panel="status">
         <div class="panel-head">
-          <span>Status</span>
-          <span class="panel-mini">read only</span>
+          <span>Status / telemetry</span>
+          <span class="panel-mini">live overview</span>
         </div>
-        <div class="panel-body">
-          <div class="metric-grid">
-            <div class="metric-card"><label>Algorithm</label><strong id="metricAlgorithm">manual</strong></div>
-            <div class="metric-card"><label>Model</label><strong id="metricModel">none</strong></div>
-            <div class="metric-card"><label>FPS</label><strong id="metricFps">0.0</strong></div>
-            <div class="metric-card"><label>Recording</label><strong id="metricRec">off</strong></div>
-            <div class="metric-card"><label>Left / Right</label><strong id="metricWheels">0.00 / 0.00</strong></div>
-            <div class="metric-card"><label>Camera</label><strong id="metricCamera">unknown</strong></div>
-          </div>
-          <div id="statusBanner" class="banner muted">Ready.</div>
-        </div>
-        <div class="resize-handle"></div>
-      </article>
+        <div class="panel-body status-body">
+          <div class="status-top-row">
+            <label class="estop-toggle" for="estopToggle">
+              <input id="estopToggle" type="checkbox" />
+              <span class="estop-track" aria-hidden="true"><span class="estop-thumb"></span></span>
+              <span class="estop-copy">
+                <strong id="estopToggleLabel">E-Stop off</strong>
+                <small id="estopToggleHint">Motion enabled</small>
+              </span>
+            </label>
 
-      <article class="dock-panel" data-panel="telemetry">
-        <div class="panel-head">
-          <span>Telemetry</span>
-          <span class="panel-mini">read only</span>
-        </div>
-        <div class="panel-body scroll-body">
-          <div class="telemetry-grid">
-            <div class="telemetry-item"><label>Current page</label><strong id="telemetryPage">manual</strong></div>
-            <div class="telemetry-item"><label>Manual cmd</label><strong id="telemetryManual">0.00 / 0.00</strong></div>
-            <div class="telemetry-item"><label>Applied cmd</label><strong id="telemetryApplied">0.00 / 0.00</strong></div>
-            <div class="telemetry-item"><label>Safety stop</label><strong id="telemetrySafety">clear</strong></div>
-            <div class="telemetry-item"><label>Camera backend</label><strong id="telemetryBackend">unknown</strong></div>
-            <div class="telemetry-item"><label>Preview</label><strong id="telemetryPreview">placeholder</strong></div>
-            <div class="telemetry-item"><label>Motor setup</label><strong id="telemetryMotorConfig">L normal · R normal · steer normal</strong></div>
-            <div class="telemetry-item"><label>Last update</label><strong id="telemetryLastUpdate">--</strong></div>
+            <div class="metric-grid metric-grid-primary">
+              <div class="metric-card priority"><label>Page</label><strong id="metricPage">manual</strong></div>
+              <div class="metric-card priority"><label>Drive state</label><strong id="metricDriveState">ready</strong></div>
+              <div class="metric-card priority"><label>Recording</label><strong id="metricRec">off</strong></div>
+              <div class="metric-card priority"><label>Camera</label><strong id="metricCamera">unknown</strong></div>
+              <div class="metric-card priority"><label>Preview</label><strong id="metricPreview">placeholder</strong></div>
+              <div class="metric-card priority"><label>Model</label><strong id="metricModel">none</strong></div>
+              <div class="metric-card priority"><label>Applied output</label><strong id="metricApplied">S 0.00 · T 0.00</strong></div>
+              <div class="metric-card priority"><label>Manual input</label><strong id="metricManual">S 0.00 · T 0.00</strong></div>
+            </div>
           </div>
-          <div class="small-note">This panel is status only. It does not save settings or send commands.</div>
+
+          <div class="metric-grid metric-grid-secondary">
+            <div class="metric-card"><label>Algorithm</label><strong id="metricAlgorithm">manual</strong></div>
+            <div class="metric-card"><label>FPS</label><strong id="metricFps">0.0</strong></div>
+            <div class="metric-card"><label>Max throttle</label><strong id="metricMaxThrottle">0.55</strong></div>
+            <div class="metric-card"><label>Steer mix</label><strong id="metricSteerMix">0.50</strong></div>
+            <div class="metric-card"><label>Wheel output</label><strong id="metricWheels">0.00 / 0.00</strong></div>
+            <div class="metric-card"><label>Motor map</label><strong id="metricMotorMap">N / N · steer N</strong></div>
+          </div>
+
+          <div id="statusBanner" class="banner muted">Ready.</div>
         </div>
         <div class="resize-handle"></div>
       </article>
@@ -73,12 +75,12 @@
       <article class="dock-panel" data-panel="viewer">
         <div class="panel-head">
           <span>Camera preview</span>
-          <span class="panel-mini">read only</span>
+          <span class="panel-mini">MJPEG</span>
         </div>
         <div class="panel-body viewer-body">
-          <div class="video-frame">
+          <div class="viewer-frame">
             <img id="videoFeed" src="" alt="PiServer camera preview" />
-            <div id="cameraPreviewMeta" class="preview-meta overlay-bottom">Waiting for camera status…</div>
+            <div id="cameraPreviewMeta" class="preview-meta-overlay">Waiting for camera status…</div>
           </div>
         </div>
         <div class="resize-handle"></div>
@@ -87,12 +89,11 @@
       <article class="dock-panel" data-panel="runtime">
         <div class="panel-head">
           <span>Runtime tuning</span>
-          <span class="panel-mini">config</span>
+          <span class="panel-mini">live response</span>
         </div>
         <div class="panel-body scroll-body">
-          <div class="small-note">Saved runtime tuning for driving response. These settings are separate from manual driving and read-only status.</div>
           <div class="field">
-            <label for="maxThrottle">Max speed</label>
+            <label for="maxThrottle">Max throttle</label>
             <input id="maxThrottle" type="range" min="0" max="100" value="55" />
             <div class="value-text"><span id="maxThrottleValue">0.55</span></div>
           </div>
@@ -102,6 +103,10 @@
             <input id="steerMix" type="range" min="0" max="100" value="50" />
             <div class="value-text"><span id="steerMixValue">0.50</span></div>
           </div>
+
+          <div class="small-note note-bottom">
+            Saved runtime tuning for driving response. These settings are separate from manual driving and read-only status.
+          </div>
         </div>
         <div class="resize-handle"></div>
       </article>
@@ -109,10 +114,9 @@
       <article class="dock-panel" data-panel="model">
         <div class="panel-head">
           <span>Model manager</span>
-          <span class="panel-mini">config</span>
+          <span class="panel-mini">upload + load</span>
         </div>
         <div class="panel-body scroll-body">
-          <div class="small-note">Use this panel to upload, choose, and load inference models. It does not control the car directly.</div>
           <div class="field">
             <label for="modelFile">Upload TFLite model</label>
             <input id="modelFile" type="file" accept=".tflite" />
@@ -136,29 +140,24 @@
       <article class="dock-panel" data-panel="manual">
         <div class="panel-head">
           <span>Manual drive</span>
-          <span class="panel-mini">control</span>
+          <span class="panel-mini">joystick + stepped input</span>
         </div>
-        <div class="panel-body scroll-body">
+        <div class="panel-body scroll-body manual-body">
           <div id="joystickArea" class="joystick-area">
             <div id="joystickDot" class="joystick-dot"></div>
           </div>
           <div class="value-text" id="joystickText">Steering 0.00 · Throttle 0.00</div>
-          <div class="small-note">Use the joystick pad or keyboard: W/S or ↑/↓ for throttle, A/D or ←/→ for steering.</div>
-        </div>
-        <div class="resize-handle"></div>
-      </article>
 
-      <article class="dock-panel" data-panel="safety">
-        <div class="panel-head">
-          <span>Safety controls</span>
-          <span class="panel-mini">control</span>
-        </div>
-        <div class="panel-body">
-          <div class="small-note">Immediate runtime controls only. These actions do not change saved config values.</div>
-          <div class="stack-row quick-drive-row">
-            <button id="stopBtn" class="danger-btn">Stop</button>
-            <button id="estopBtn" class="warn-btn">E-Stop</button>
-            <button id="clearEstopBtn" class="ghost-btn">Clear</button>
+          <div class="manual-pad" aria-label="Manual directional controls">
+            <button id="upBtn" class="arrow-btn" aria-label="Throttle up">↑</button>
+            <button id="leftBtn" class="arrow-btn" aria-label="Steer left">←</button>
+            <button id="centerBtn" class="arrow-btn center-btn" aria-label="Return to center">•</button>
+            <button id="rightBtn" class="arrow-btn" aria-label="Steer right">→</button>
+            <button id="downBtn" class="arrow-btn" aria-label="Throttle down">↓</button>
+          </div>
+
+          <div class="small-note note-bottom">
+            Immediate runtime controls only. These actions do not change saved config values.
           </div>
         </div>
         <div class="resize-handle"></div>
@@ -167,7 +166,7 @@
       <article class="dock-panel" data-panel="record">
         <div class="panel-head">
           <span>Recording</span>
-          <span class="panel-mini">control</span>
+          <span class="panel-mini">session</span>
         </div>
         <div class="panel-body">
           <div class="stack-row">
@@ -184,7 +183,7 @@
       <article class="dock-panel" data-panel="camera">
         <div class="panel-head">
           <span>Camera settings</span>
-          <span class="panel-mini">config</span>
+          <span class="panel-mini">apply + restart</span>
         </div>
         <div class="panel-body scroll-body">
           <div class="field-grid two-col">
@@ -288,7 +287,7 @@
       <article class="dock-panel" data-panel="motor">
         <div class="panel-head">
           <span>Motor settings</span>
-          <span class="panel-mini">config</span>
+          <span class="panel-mini">direction + steering trim</span>
         </div>
         <div class="panel-body scroll-body">
           <div class="small-note">Use this tab to fix reversed wiring, choose whether steering left means car left or car right, and trim left/right balance. Applying settings stops the motors for safety and saves them to the runtime config.</div>
@@ -340,7 +339,6 @@
         </div>
         <div class="resize-handle"></div>
       </article>
-
     </section>
   </main>
 
