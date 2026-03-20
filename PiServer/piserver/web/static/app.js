@@ -2,11 +2,11 @@ const gridCols = 24;
 const gridRows = 14;
 const layoutKeyPrefix = "PiServerLayout:";
 const pagePanels = {
-  manual: ["status", "telemetry", "viewer", "runtime", "manual", "safety", "record", "config"],
-  training: ["status", "telemetry", "viewer", "runtime", "model", "record", "config"],
-  auto: ["status", "telemetry", "viewer", "runtime", "model", "safety", "config"],
-  camera: ["status", "telemetry", "viewer", "camera", "config"],
-  motor: ["status", "telemetry", "viewer", "motor", "safety", "config"]
+  manual: ["status", "telemetry", "viewer", "runtime", "manual", "safety", "record"],
+  training: ["status", "telemetry", "viewer", "runtime", "model", "record"],
+  auto: ["status", "telemetry", "viewer", "runtime", "model", "safety"],
+  camera: ["status", "telemetry", "viewer", "camera"],
+  motor: ["status", "telemetry", "viewer", "motor", "safety"]
 };
 const defaultLayouts = {
   manual: {
@@ -16,8 +16,7 @@ const defaultLayouts = {
     manual: { c: 19, r: 1, w: 6, h: 8 },
     safety: { c: 19, r: 9, w: 6, h: 3 },
     record: { c: 1, r: 9, w: 8, h: 3 },
-    runtime: { c: 9, r: 10, w: 10, h: 5 },
-    config: { c: 19, r: 12, w: 6, h: 3 }
+    runtime: { c: 9, r: 10, w: 16, h: 5 }
   },
   training: {
     status: { c: 1, r: 1, w: 8, h: 3 },
@@ -25,8 +24,7 @@ const defaultLayouts = {
     viewer: { c: 9, r: 1, w: 8, h: 8 },
     model: { c: 17, r: 1, w: 8, h: 8 },
     record: { c: 1, r: 9, w: 8, h: 3 },
-    runtime: { c: 9, r: 9, w: 8, h: 6 },
-    config: { c: 17, r: 9, w: 8, h: 6 }
+    runtime: { c: 9, r: 9, w: 16, h: 6 }
   },
   auto: {
     status: { c: 1, r: 1, w: 8, h: 3 },
@@ -34,23 +32,20 @@ const defaultLayouts = {
     viewer: { c: 9, r: 1, w: 10, h: 9 },
     runtime: { c: 19, r: 1, w: 6, h: 5 },
     model: { c: 19, r: 6, w: 6, h: 4 },
-    safety: { c: 1, r: 9, w: 8, h: 3 },
-    config: { c: 9, r: 10, w: 16, h: 5 }
+    safety: { c: 1, r: 9, w: 8, h: 6 }
   },
   camera: {
     status: { c: 1, r: 1, w: 8, h: 3 },
     telemetry: { c: 1, r: 4, w: 8, h: 4 },
     viewer: { c: 1, r: 8, w: 10, h: 7 },
-    camera: { c: 11, r: 1, w: 14, h: 11 },
-    config: { c: 11, r: 12, w: 14, h: 3 }
+    camera: { c: 11, r: 1, w: 14, h: 14 }
   },
   motor: {
     status: { c: 1, r: 1, w: 8, h: 3 },
     telemetry: { c: 1, r: 4, w: 8, h: 4 },
     viewer: { c: 1, r: 8, w: 10, h: 7 },
     motor: { c: 11, r: 1, w: 14, h: 9 },
-    safety: { c: 11, r: 10, w: 7, h: 5 },
-    config: { c: 18, r: 10, w: 7, h: 5 }
+    safety: { c: 11, r: 10, w: 14, h: 5 }
   }
 };
 
@@ -265,7 +260,6 @@ function setBanner(id, text, tone = "muted") {
 function updateRangeText() {
   document.getElementById("maxThrottleValue").textContent = state.maxThrottle.toFixed(2);
   document.getElementById("steerMixValue").textContent = state.steerMix.toFixed(2);
-  document.getElementById("manualSpeedValue").textContent = state.maxThrottle.toFixed(2);
   const left = document.getElementById("leftMaxSpeed");
   const right = document.getElementById("rightMaxSpeed");
   if (left) document.getElementById("leftMaxSpeedValue").textContent = (Number(left.value || 0) / 100).toFixed(2);
@@ -349,20 +343,8 @@ async function pollStatus() {
     updateStatusUi(data);
     syncControlsFromStatus(data);
   } catch (error) {
-    setBanner("systemMessage", error.message, "muted");
+    setBanner("statusBanner", error.message, "muted");
   }
-}
-
-async function refreshAlgorithms() {
-  const data = await fetchJson("/api/algorithms");
-  const select = document.getElementById("algorithmSelect");
-  select.innerHTML = "";
-  data.algorithms.forEach((algo) => {
-    const option = document.createElement("option");
-    option.value = algo.name;
-    option.textContent = algo.label || algo.name;
-    select.appendChild(option);
-  });
 }
 
 async function refreshModels() {
@@ -416,7 +398,7 @@ async function loadSelectedModel() {
 async function toggleRecording() {
   const data = await fetchJson("/api/record/toggle", { method: "POST" });
   updateStatusUi(data.state || state.latestStatus || {});
-  setBanner("systemMessage", data.message || "Recording toggled.", "muted");
+  setBanner("statusBanner", data.message || "Recording toggled.", "muted");
 }
 
 async function setEstop(enabled) {
@@ -787,26 +769,6 @@ function setupJoystick() {
   window.addEventListener("keyup", (event) => handleKeyChange(event, false));
 
   document.getElementById("stopBtn").addEventListener("click", resetDot);
-  document.getElementById("forwardBtn").addEventListener("click", () => {
-    state.manualSteering = 0;
-    state.manualThrottle = state.maxThrottle;
-    applyManualState();
-  });
-  document.getElementById("reverseBtn").addEventListener("click", () => {
-    state.manualSteering = 0;
-    state.manualThrottle = -state.maxThrottle;
-    applyManualState();
-  });
-  document.getElementById("leftBtn").addEventListener("click", () => {
-    state.manualSteering = -1;
-    state.manualThrottle = state.maxThrottle * 0.45;
-    applyManualState();
-  });
-  document.getElementById("rightBtn").addEventListener("click", () => {
-    state.manualSteering = 1;
-    state.manualThrottle = state.maxThrottle * 0.45;
-    applyManualState();
-  });
 }
 
 function setupEvents() {
@@ -840,25 +802,17 @@ function setupEvents() {
 
   document.getElementById("saveLayoutBtn").addEventListener("click", () => {
     saveLayout(state.page, currentLayout());
-    setBanner("systemMessage", `Saved ${state.page} layout.`, "muted");
+    setBanner("statusBanner", `Saved ${state.page} layout.`, "muted");
   });
 
   document.getElementById("resetLayoutBtn").addEventListener("click", () => {
     localStorage.removeItem(layoutStorageKey(state.page));
     applyLayout(state.page);
-    setBanner("systemMessage", `Reset ${state.page} layout.`, "muted");
+    setBanner("statusBanner", `Reset ${state.page} layout.`, "muted");
   });
 
   document.getElementById("maxThrottle").addEventListener("input", (event) => {
     state.maxThrottle = Number(event.target.value) / 100;
-    document.getElementById("manualSpeed").value = event.target.value;
-    updateRangeText();
-    sendControlUpdate();
-  });
-
-  document.getElementById("manualSpeed").addEventListener("input", (event) => {
-    state.maxThrottle = Number(event.target.value) / 100;
-    document.getElementById("maxThrottle").value = event.target.value;
     updateRangeText();
     sendControlUpdate();
   });
@@ -869,24 +823,11 @@ function setupEvents() {
     sendControlUpdate();
   });
 
-  document.getElementById("algorithmSelect").addEventListener("change", async (event) => {
-    try {
-      await fetchJson("/api/algorithm/select", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: event.target.value })
-      });
-      await pollStatus();
-    } catch (error) {
-      setBanner("systemMessage", error.message, "muted");
-    }
-  });
-
   document.getElementById("recordToggleBtn").addEventListener("click", async () => {
     try {
       await toggleRecording();
     } catch (error) {
-      setBanner("systemMessage", error.message, "muted");
+      setBanner("statusBanner", error.message, "muted");
     }
   });
 
@@ -904,28 +845,6 @@ function setupEvents() {
       await loadSelectedModel();
     } catch (error) {
       setBanner("modelMessage", error.message, "muted");
-    }
-  });
-
-  document.getElementById("saveConfigBtn").addEventListener("click", async () => {
-    try {
-      await runSystemAction("/api/config/save", "systemMessage");
-    } catch (error) {
-      setBanner("systemMessage", error.message, "muted");
-    }
-  });
-
-  document.getElementById("reloadConfigBtn").addEventListener("click", async () => {
-    try {
-      await runSystemAction("/api/config/reload", "systemMessage");
-      const status = await fetchJson("/api/status");
-      syncControlsFromStatus(status);
-      updateStatusUi(status);
-      await loadCameraConfig();
-      await loadMotorConfig();
-      refreshVideoFeed();
-    } catch (error) {
-      setBanner("systemMessage", error.message, "muted");
     }
   });
 
@@ -967,9 +886,7 @@ function syncControlsFromStatus(data) {
   state.maxThrottle = Number(data.max_throttle || 0.55);
   state.steerMix = Number(data.steer_mix || 0.5);
   document.getElementById("maxThrottle").value = Math.round(state.maxThrottle * 100);
-  document.getElementById("manualSpeed").value = Math.round(state.maxThrottle * 100);
   document.getElementById("steerMix").value = Math.round(state.steerMix * 100);
-  document.getElementById("algorithmSelect").value = data.active_algorithm || "manual";
   const allowMotorFormSync = !(state.page === "motor" && state.motorFormDirty);
   if (typeof data.motor_left_max_speed === "number" && allowMotorFormSync) {
     const left = document.getElementById("leftMaxSpeed");
@@ -996,7 +913,6 @@ async function init() {
   setupDocking();
   setupJoystick();
   setupEvents();
-  await refreshAlgorithms();
   await refreshModels();
   await loadCameraConfig();
   await loadMotorConfig();

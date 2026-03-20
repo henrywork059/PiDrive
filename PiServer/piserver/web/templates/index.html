@@ -76,8 +76,10 @@
           <span class="panel-mini">read only</span>
         </div>
         <div class="panel-body viewer-body">
-          <img id="videoFeed" src="" alt="PiServer camera preview" />
-          <div id="cameraPreviewMeta" class="small-note preview-meta">Waiting for camera status…</div>
+          <div class="video-frame">
+            <img id="videoFeed" src="" alt="PiServer camera preview" />
+            <div id="cameraPreviewMeta" class="preview-meta overlay-bottom">Waiting for camera status…</div>
+          </div>
         </div>
         <div class="resize-handle"></div>
       </article>
@@ -88,14 +90,9 @@
           <span class="panel-mini">config</span>
         </div>
         <div class="panel-body scroll-body">
-          <div class="small-note">Saved runtime tuning for algorithm selection and drive scaling. These settings are separate from manual driving and read-only status.</div>
+          <div class="small-note">Saved runtime tuning for driving response. These settings are separate from manual driving and read-only status.</div>
           <div class="field">
-            <label for="algorithmSelect">Active algorithm</label>
-            <select id="algorithmSelect"></select>
-          </div>
-
-          <div class="field">
-            <label for="maxThrottle">Max throttle</label>
+            <label for="maxThrottle">Max speed</label>
             <input id="maxThrottle" type="range" min="0" max="100" value="55" />
             <div class="value-text"><span id="maxThrottleValue">0.55</span></div>
           </div>
@@ -142,24 +139,11 @@
           <span class="panel-mini">control</span>
         </div>
         <div class="panel-body scroll-body">
-          <div class="small-note">Manual tab uses the <strong>manual</strong> algorithm automatically. Up = forward, down = reverse. You can also use <strong>W/S</strong> or <strong>↑/↓</strong> for throttle and <strong>A/D</strong> or <strong>←/→</strong> for steering.</div>
           <div id="joystickArea" class="joystick-area">
             <div id="joystickDot" class="joystick-dot"></div>
           </div>
           <div class="value-text" id="joystickText">Steering 0.00 · Throttle 0.00</div>
-
-          <div class="field">
-            <label for="manualSpeed">Manual speed scale</label>
-            <input id="manualSpeed" type="range" min="0" max="100" value="55" />
-            <div class="value-text"><span id="manualSpeedValue">0.55</span></div>
-          </div>
-
-          <div class="stack-row quick-drive-row">
-            <button id="forwardBtn">Forward</button>
-            <button id="reverseBtn" class="ghost-btn">Reverse</button>
-            <button id="leftBtn" class="ghost-btn">Left</button>
-            <button id="rightBtn" class="ghost-btn">Right</button>
-          </div>
+          <div class="small-note">Use the joystick pad or keyboard: W/S or ↑/↓ for throttle, A/D or ←/→ for steering.</div>
         </div>
         <div class="resize-handle"></div>
       </article>
@@ -357,24 +341,6 @@
         <div class="resize-handle"></div>
       </article>
 
-      <article class="dock-panel" data-panel="config">
-        <div class="panel-head">
-          <span>Config tools</span>
-          <span class="panel-mini">config</span>
-        </div>
-        <div class="panel-body scroll-body">
-          <div class="field">
-            <label>Update workflow</label>
-            <div class="small-note">Use <code>git pull</code> in the terminal, then restart PiServer manually. Save / reload below only affects PiServer runtime config, not Git files.</div>
-          </div>
-          <div class="stack-row">
-            <button id="saveConfigBtn">Save config</button>
-            <button id="reloadConfigBtn" class="ghost-btn">Reload config</button>
-          </div>
-          <div id="systemMessage" class="banner muted">Ready.</div>
-        </div>
-        <div class="resize-handle"></div>
-      </article>
     </section>
   </main>
 
