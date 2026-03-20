@@ -17,7 +17,7 @@ from piserver.core.value_utils import parse_bool_like
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 WEB_DIR = Path(__file__).resolve().parent / "web"
-APP_VERSION = "0_2_11"
+APP_VERSION = "0_2_12"
 
 
 def mjpeg_generator(camera_service):
