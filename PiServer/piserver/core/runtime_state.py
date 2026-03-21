@@ -16,6 +16,7 @@ class RuntimeState:
     safety_stop: bool = False
     max_throttle: float = 0.55
     steer_mix: float = 0.5
+    steer_bias: float = 0.0
     current_page: str = "manual"
     fps: float = 0.0
     camera_backend: str = "unknown"

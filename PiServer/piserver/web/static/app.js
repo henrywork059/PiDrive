@@ -1,56 +1,49 @@
-const gridCols = 36;
-const gridRows = 20;
+const gridCols = 24;
+const gridRows = 14;
 const layoutKeyPrefix = "PiServerLayout:";
-const STEP_INTERVAL_MS = 80;
-const STEP_SIZE = 0.1;
-const SMOOTH_STEP_STEER = 0.07;
-const SMOOTH_STEP_THROTTLE = 0.07;
-
 const pagePanels = {
-  manual: ["status", "estop", "viewer", "runtime", "manual", "record"],
-  training: ["status", "estop", "viewer", "runtime", "model", "manual", "record"],
-  auto: ["status", "estop", "viewer", "runtime", "model", "record"],
-  camera: ["status", "estop", "viewer", "camera"],
-  motor: ["status", "estop", "viewer", "motor"]
+  manual: ["status", "viewer", "drive", "manual", "record", "system"],
+  training: ["status", "viewer", "drive", "manual", "record", "system"],
+  auto: ["status", "viewer", "drive", "manual", "record", "system"],
+  camera: ["status", "viewer", "camera", "system"],
+  motor: ["status", "viewer", "motor", "system"]
 };
-
 const defaultLayouts = {
   manual: {
-    status: { c: 1, r: 1, w: 28, h: 4 },
-    estop: { c: 29, r: 1, w: 8, h: 4 },
-    viewer: { c: 1, r: 5, w: 22, h: 12 },
-    runtime: { c: 23, r: 5, w: 14, h: 5 },
-    manual: { c: 23, r: 10, w: 14, h: 7 },
-    record: { c: 1, r: 17, w: 14, h: 4 }
+    status: { c: 1, r: 1, w: 10, h: 2 },
+    viewer: { c: 1, r: 3, w: 15, h: 10 },
+    drive: { c: 16, r: 1, w: 9, h: 5 },
+    manual: { c: 16, r: 6, w: 9, h: 7 },
+    record: { c: 1, r: 13, w: 8, h: 2 },
+    system: { c: 9, r: 13, w: 16, h: 2 }
   },
   training: {
-    status: { c: 1, r: 1, w: 28, h: 4 },
-    estop: { c: 29, r: 1, w: 8, h: 4 },
-    viewer: { c: 1, r: 5, w: 20, h: 12 },
-    runtime: { c: 21, r: 5, w: 16, h: 4 },
-    model: { c: 21, r: 9, w: 16, h: 5 },
-    manual: { c: 21, r: 14, w: 16, h: 4 },
-    record: { c: 1, r: 17, w: 20, h: 4 }
+    status: { c: 1, r: 1, w: 8, h: 2 },
+    viewer: { c: 1, r: 3, w: 14, h: 9 },
+    drive: { c: 15, r: 1, w: 10, h: 6 },
+    manual: { c: 15, r: 7, w: 10, h: 5 },
+    record: { c: 1, r: 12, w: 8, h: 3 },
+    system: { c: 9, r: 12, w: 16, h: 3 }
   },
   auto: {
-    status: { c: 1, r: 1, w: 28, h: 4 },
-    estop: { c: 29, r: 1, w: 8, h: 4 },
-    viewer: { c: 1, r: 5, w: 22, h: 12 },
-    runtime: { c: 23, r: 5, w: 14, h: 5 },
-    model: { c: 23, r: 10, w: 14, h: 7 },
-    record: { c: 1, r: 17, w: 14, h: 4 }
+    status: { c: 1, r: 1, w: 7, h: 2 },
+    viewer: { c: 1, r: 3, w: 16, h: 10 },
+    drive: { c: 17, r: 1, w: 8, h: 6 },
+    manual: { c: 17, r: 7, w: 8, h: 4 },
+    record: { c: 1, r: 13, w: 7, h: 2 },
+    system: { c: 8, r: 13, w: 17, h: 2 }
   },
   camera: {
-    status: { c: 1, r: 1, w: 28, h: 4 },
-    estop: { c: 29, r: 1, w: 8, h: 4 },
-    viewer: { c: 1, r: 5, w: 18, h: 16 },
-    camera: { c: 19, r: 5, w: 18, h: 16 }
+    status: { c: 1, r: 1, w: 8, h: 2 },
+    viewer: { c: 1, r: 3, w: 14, h: 10 },
+    camera: { c: 15, r: 1, w: 10, h: 12 },
+    system: { c: 1, r: 13, w: 24, h: 2 }
   },
   motor: {
-    status: { c: 1, r: 1, w: 28, h: 4 },
-    estop: { c: 29, r: 1, w: 8, h: 4 },
-    viewer: { c: 1, r: 5, w: 18, h: 16 },
-    motor: { c: 19, r: 5, w: 18, h: 16 }
+    status: { c: 1, r: 1, w: 8, h: 2 },
+    viewer: { c: 1, r: 3, w: 14, h: 10 },
+    motor: { c: 15, r: 1, w: 10, h: 12 },
+    system: { c: 1, r: 13, w: 24, h: 2 }
   }
 };
 
@@ -58,10 +51,9 @@ const state = {
   page: "manual",
   manualSteering: 0,
   manualThrottle: 0,
-  targetSteering: 0,
-  targetThrottle: 0,
   maxThrottle: 0.55,
   steerMix: 0.5,
+  steerBias: 0.0,
   dragging: null,
   resizing: null,
   latestStatus: null,
@@ -73,27 +65,11 @@ const state = {
   previewActive: false,
   previewInFlight: false,
   previewObjectUrl: null,
-  stepTimer: null,
-  stepInputs: { up: false, down: false, left: false, right: false },
-  pointerControl: { active: false, id: null },
-  estopEnabled: false,
-  lastControlSentAt: 0,
-  lastSentSteering: 0,
-  lastSentThrottle: 0,
-  lastSentPage: "manual"
+  keyState: { up: false, down: false, left: false, right: false }
 };
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
-}
-
-function moveTowards(current, target, maxDelta) {
-  if (Math.abs(target - current) <= maxDelta) return target;
-  return current + Math.sign(target - current) * maxDelta;
-}
-
-function almostEqual(a, b, epsilon = 0.0001) {
-  return Math.abs(Number(a || 0) - Number(b || 0)) <= epsilon;
 }
 
 function panelEls() {
@@ -123,21 +99,17 @@ function saveLayout(page, layout) {
   localStorage.setItem(layoutStorageKey(page), JSON.stringify(layout));
 }
 
-function readPanelBox(panel) {
-  const style = getComputedStyle(panel);
-  return {
-    c: Number(style.getPropertyValue("--c")) || 1,
-    r: Number(style.getPropertyValue("--r")) || 1,
-    w: Number(style.getPropertyValue("--w")) || 8,
-    h: Number(style.getPropertyValue("--h")) || 4
-  };
-}
-
-function setPanelBox(panel, box) {
-  panel.style.setProperty("--c", box.c);
-  panel.style.setProperty("--r", box.r);
-  panel.style.setProperty("--w", box.w);
-  panel.style.setProperty("--h", box.h);
+function applyLayout(page) {
+  const layout = loadLayout(page);
+  panelEls().forEach((panel) => {
+    const id = panel.dataset.panel;
+    const box = layout[id];
+    if (!box) return;
+    panel.style.setProperty("--c", box.c);
+    panel.style.setProperty("--r", box.r);
+    panel.style.setProperty("--w", box.w);
+    panel.style.setProperty("--h", box.h);
+  });
 }
 
 function currentLayout() {
@@ -148,14 +120,21 @@ function currentLayout() {
   return out;
 }
 
-function applyLayout(page) {
-  const layout = loadLayout(page);
-  panelEls().forEach((panel) => {
-    const id = panel.dataset.panel;
-    const box = layout[id];
-    if (!box) return;
-    setPanelBox(panel, box);
-  });
+function readPanelBox(panel) {
+  const style = getComputedStyle(panel);
+  return {
+    c: Number(style.getPropertyValue("--c")) || 1,
+    r: Number(style.getPropertyValue("--r")) || 1,
+    w: Number(style.getPropertyValue("--w")) || 6,
+    h: Number(style.getPropertyValue("--h")) || 3
+  };
+}
+
+function setPanelBox(panel, box) {
+  panel.style.setProperty("--c", box.c);
+  panel.style.setProperty("--r", box.r);
+  panel.style.setProperty("--w", box.w);
+  panel.style.setProperty("--h", box.h);
 }
 
 function workspaceMetrics() {
@@ -169,12 +148,11 @@ function workspaceMetrics() {
 }
 
 function setupDocking() {
-  if (window.matchMedia("(max-width: 1080px)").matches) return;
+  if (window.matchMedia("(max-width: 960px)").matches) return;
 
   panelEls().forEach((panel) => {
     const head = panel.querySelector(".panel-head");
     const handle = panel.querySelector(".resize-handle");
-    if (!head || !handle) return;
 
     head.addEventListener("pointerdown", (event) => {
       if (event.target.closest("button, select, input, label")) return;
@@ -192,7 +170,7 @@ function setupDocking() {
 
     handle.addEventListener("pointerdown", (event) => {
       event.stopPropagation();
-      const { cellW, cellH } = workspaceMetrics();
+      const { rect, cellW, cellH } = workspaceMetrics();
       const box = readPanelBox(panel);
       panel.classList.add("resizing");
       state.resizing = {
@@ -201,7 +179,8 @@ function setupDocking() {
         startX: event.clientX,
         startY: event.clientY,
         cellW,
-        cellH
+        cellH,
+        rect
       };
       handle.setPointerCapture(event.pointerId);
     });
@@ -227,8 +206,8 @@ function setupDocking() {
       const dh = Math.round(dy / state.resizing.cellH);
       const box = {
         ...state.resizing.box,
-        w: clamp(state.resizing.box.w + dw, 4, gridCols - state.resizing.box.c + 1),
-        h: clamp(state.resizing.box.h + dh, 3, gridRows - state.resizing.box.r + 1)
+        w: clamp(state.resizing.box.w + dw, 3, gridCols - state.resizing.box.c + 1),
+        h: clamp(state.resizing.box.h + dh, 2, gridRows - state.resizing.box.r + 1)
       };
       setPanelBox(state.resizing.panel, box);
     }
@@ -278,40 +257,25 @@ function setBanner(id, text, tone = "muted") {
 }
 
 function updateRangeText() {
-  const mt = document.getElementById("maxThrottleValue");
-  if (mt) mt.textContent = state.maxThrottle.toFixed(2);
-  const sm = document.getElementById("steerMixValue");
-  if (sm) sm.textContent = state.steerMix.toFixed(2);
+  const maxThrottleEl = document.getElementById("maxThrottleValue");
+  const steerMixEl = document.getElementById("steerMixValue");
+  const steerBiasEl = document.getElementById("steerBiasValue");
+  if (maxThrottleEl) maxThrottleEl.textContent = state.maxThrottle.toFixed(2);
+  if (steerMixEl) steerMixEl.textContent = state.steerMix.toFixed(2);
+  if (steerBiasEl) steerBiasEl.textContent = state.steerBias.toFixed(2);
   const left = document.getElementById("leftMaxSpeed");
   const right = document.getElementById("rightMaxSpeed");
-  if (left && document.getElementById("leftMaxSpeedValue")) {
-    document.getElementById("leftMaxSpeedValue").textContent = (Number(left.value || 0) / 100).toFixed(2);
-  }
-  if (right && document.getElementById("rightMaxSpeedValue")) {
-    document.getElementById("rightMaxSpeedValue").textContent = (Number(right.value || 0) / 100).toFixed(2);
-  }
+  if (left) document.getElementById("leftMaxSpeedValue").textContent = (Number(left.value || 0) / 100).toFixed(2);
+  if (right) document.getElementById("rightMaxSpeedValue").textContent = (Number(right.value || 0) / 100).toFixed(2);
 }
 
 function updateToolbarBadge(status) {
   const badge = document.getElementById("maintenanceBadge");
   if (!badge) return;
   const stopped = !!(status && status.safety_stop);
-  badge.textContent = stopped ? "e-stop" : "run";
+  badge.textContent = stopped ? "stop" : "run";
   badge.classList.toggle("on", stopped);
   badge.classList.toggle("off", !stopped);
-}
-
-function setEstopToggle(enabled) {
-  state.estopEnabled = !!enabled;
-  const btn = document.getElementById("estopToggle");
-  if (!btn) return;
-  btn.classList.toggle("on", state.estopEnabled);
-  btn.classList.toggle("off", !state.estopEnabled);
-  btn.setAttribute("aria-pressed", state.estopEnabled ? "true" : "false");
-  const title = btn.querySelector(".estop-toggle-title");
-  const subtitle = btn.querySelector(".estop-toggle-subtitle");
-  if (title) title.textContent = state.estopEnabled ? "E-STOP ACTIVE" : "E-STOP OFF";
-  if (subtitle) subtitle.textContent = state.estopEnabled ? "Drive output is locked at zero" : "Tap to engage emergency stop";
 }
 
 async function sendControlUpdate(extra = {}) {
@@ -320,6 +284,7 @@ async function sendControlUpdate(extra = {}) {
     throttle: state.manualThrottle,
     max_throttle: state.maxThrottle,
     steer_mix: state.steerMix,
+    steer_bias: state.steerBias,
     current_page: state.page,
     ...extra
   };
@@ -336,44 +301,24 @@ async function sendControlUpdate(extra = {}) {
 
 function updateStatusUi(data) {
   state.latestStatus = data;
-  setEstopToggle(!!data.safety_stop);
-
-  const driveState = data.safety_stop ? "E-stop active" : (data.active_algorithm === "manual" ? "Manual ready" : `${data.active_algorithm || "auto"} active`);
-  const previewState = data.camera_preview_live ? "live" : "placeholder";
-  const errorText = data.camera_error ? String(data.camera_error) : "none";
-
-  const setText = (id, text) => {
-    const el = document.getElementById(id);
-    if (el) el.textContent = text;
-  };
-
-  setText("metricDriveState", driveState);
-  setText("metricApplied", `S ${Number(data.applied_steering || 0).toFixed(2)} · T ${Number(data.applied_throttle || 0).toFixed(2)}`);
-  setText("metricManual", `S ${Number(state.targetSteering || 0).toFixed(2)} · T ${Number(state.targetThrottle || 0).toFixed(2)}`);
-  setText("metricRec", data.recording ? "on" : "off");
-  setText("metricPreview", previewState);
-  setText("metricCamera", `${data.camera_width || 0}×${data.camera_height || 0} ${data.camera_format || "unknown"}`);
-  setText("metricModel", data.active_model || "none");
-  setText("metricAlgorithm", data.active_algorithm || "manual");
-  setText("metricMaxThrottle", Number(data.max_throttle || state.maxThrottle || 0).toFixed(2));
-  setText("metricSteerMix", Number(data.steer_mix || state.steerMix || 0).toFixed(2));
-  setText("metricWheels", `${Number(data.motor_left || 0).toFixed(2)} / ${Number(data.motor_right || 0).toFixed(2)}`);
-  setText("metricFps", `${Number(data.fps || 0).toFixed(1)} FPS`);
-  setText("metricBackend", data.camera_backend || "unknown");
-  setText("metricError", errorText);
+  document.getElementById("metricAlgorithm").textContent = data.active_algorithm || "manual";
+  document.getElementById("metricModel").textContent = data.active_model || "none";
+  document.getElementById("metricFps").textContent = Number(data.fps || 0).toFixed(1);
+  document.getElementById("metricRec").textContent = data.recording ? "on" : "off";
+  document.getElementById("metricWheels").textContent = `${Number(data.motor_left || 0).toFixed(2)} / ${Number(data.motor_right || 0).toFixed(2)}`;
+  document.getElementById("metricCamera").textContent = `${data.camera_width || 0}×${data.camera_height || 0} ${data.camera_format || "unknown"}`;
+  const metricSteerBias = document.getElementById("metricSteerBias");
+  if (metricSteerBias) metricSteerBias.textContent = Number(data.steer_bias || 0).toFixed(2);
 
   const previewMeta = document.getElementById("cameraPreviewMeta");
   if (previewMeta) {
-    const extraError = data.camera_error ? ` · ${data.camera_error}` : "";
-    previewMeta.textContent = `Backend: ${data.camera_backend || "unknown"} · ${previewState} preview${extraError}`;
+    const liveText = data.camera_preview_live ? "live preview" : "placeholder preview";
+    const errorText = data.camera_error ? ` · ${data.camera_error}` : "";
+    previewMeta.textContent = `Backend: ${data.camera_backend || "unknown"} · ${liveText}${errorText}`;
   }
 
-  const recBadge = document.getElementById("recordStateBadge");
-  if (recBadge) {
-    recBadge.textContent = data.recording ? "on" : "off";
-    recBadge.classList.toggle("on", !!data.recording);
-    recBadge.classList.toggle("off", !data.recording);
-  }
+  updateToggleButton(document.getElementById("recordToggleBtn"), { active: !!data.recording, activeText: "Recording on", inactiveText: "Recording off", activeClass: "is-on" });
+  updateToggleButton(document.getElementById("estopToggleBtn"), { active: !!data.safety_stop, activeText: "E-Stop active", inactiveText: "E-Stop cleared", activeClass: "is-active" });
 
   updateToolbarBadge(data);
   setBanner("statusBanner", data.system_message || "Ready.", "muted");
@@ -386,43 +331,51 @@ async function pollStatus() {
     updateStatusUi(data);
     syncControlsFromStatus(data);
   } catch (error) {
-    setBanner("statusBanner", error.message, "muted");
+    setBanner("systemMessage", error.message, "muted");
   }
+}
+
+async function refreshAlgorithms() {
+  return { algorithms: [] };
 }
 
 async function refreshModels() {
   const data = await fetchJson("/api/model/list");
   const select = document.getElementById("modelSelect");
-  if (!select) return;
   select.innerHTML = "";
-  (data.models || []).forEach((name) => {
+  data.models.forEach((name) => {
     const option = document.createElement("option");
     option.value = name;
     option.textContent = name;
-    if (data.active === name) option.selected = true;
+    option.selected = name === data.active;
     select.appendChild(option);
   });
+  setBanner("modelMessage", data.active ? `Active model: ${data.active}` : "No active model.", "muted");
 }
 
 async function uploadModel() {
   const input = document.getElementById("modelFile");
-  const file = input?.files?.[0];
-  if (!file) {
+  if (!input.files || !input.files.length) {
     setBanner("modelMessage", "Choose a .tflite file first.", "muted");
     return;
   }
-  const form = new FormData();
-  form.append("file", file);
-  const data = await fetchJson("/api/model/upload", { method: "POST", body: form });
-  setBanner("modelMessage", data.message || "Model uploaded.", "muted");
+
+  const formData = new FormData();
+  formData.append("file", input.files[0]);
+  const data = await fetchJson("/api/model/upload", {
+    method: "POST",
+    body: formData
+  });
+  input.value = "";
   await refreshModels();
+  setBanner("modelMessage", data.message || "Model uploaded.", "muted");
 }
 
 async function loadSelectedModel() {
   const select = document.getElementById("modelSelect");
-  const filename = select?.value || "";
+  const filename = select.value;
   if (!filename) {
-    setBanner("modelMessage", "Choose a model first.", "muted");
+    setBanner("modelMessage", "No model selected.", "muted");
     return;
   }
   const data = await fetchJson("/api/model/load", {
@@ -436,38 +389,50 @@ async function loadSelectedModel() {
 
 async function toggleRecording() {
   const data = await fetchJson("/api/record/toggle", { method: "POST" });
-  setBanner("statusBanner", data.message || "Recording toggled.", "muted");
-  await pollStatus();
+  updateStatusUi(data.state || state.latestStatus || {});
+  setBanner("systemMessage", data.message || "Recording toggled.", "muted");
 }
 
 async function setEstop(enabled) {
   const data = await fetchJson("/api/system/estop", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ enabled: !!enabled })
+    body: JSON.stringify({ enabled })
   });
-  updateStatusUi(data.state || {});
-  if (enabled) {
-    setManualTargets(0, 0, { immediateCurrent: true, sendNow: false });
-  }
+  updateStatusUi(data.state || state.latestStatus || {});
+  syncControlsFromStatus(data.state || state.latestStatus || {});
+}
+
+async function runSystemAction(endpoint, bannerId) {
+  const data = await fetchJson(endpoint, { method: "POST" });
+  setBanner(bannerId, data.message || "Done.", "muted");
+  await pollStatus();
+}
+
+
+function updateToggleButton(button, { active, activeText, inactiveText, activeClass }) {
+  if (!button) return;
+  button.textContent = active ? activeText : inactiveText;
+  button.classList.toggle(activeClass, !!active);
+  button.setAttribute("aria-pressed", active ? "true" : "false");
 }
 
 function setCameraResolutionPreset() {
-  const width = Number(document.getElementById("cameraWidth")?.value || 0);
-  const height = Number(document.getElementById("cameraHeight")?.value || 0);
   const preset = document.getElementById("cameraResolutionPreset");
   if (!preset) return;
-  const match = `${width}x${height}`;
-  const known = Array.from(preset.options).some((opt) => opt.value === match);
-  preset.value = known ? match : "custom";
+  const width = Number(document.getElementById("cameraWidth").value || 0);
+  const height = Number(document.getElementById("cameraHeight").value || 0);
+  const value = `${width}x${height}`;
+  const known = Array.from(preset.options).some((opt) => opt.value === value);
+  preset.value = known ? value : "custom";
 }
 
 function applyCameraResolutionPreset() {
-  const preset = document.getElementById("cameraResolutionPreset")?.value;
-  if (!preset || preset === "custom") return;
-  const [w, h] = preset.split("x").map((v) => Number(v || 0));
-  document.getElementById("cameraWidth").value = w;
-  document.getElementById("cameraHeight").value = h;
+  const preset = document.getElementById("cameraResolutionPreset");
+  if (!preset || !preset.value || preset.value === "custom") return;
+  const [width, height] = preset.value.split("x").map((v) => Number(v));
+  if (width > 0) document.getElementById("cameraWidth").value = width;
+  if (height > 0) document.getElementById("cameraHeight").value = height;
 }
 
 function streamQualityPresets() {
@@ -481,7 +446,8 @@ function streamQualityPresets() {
 
 function applyStreamQualityPreset() {
   const select = document.getElementById("cameraStreamQuality");
-  const preset = streamQualityPresets()[select?.value || "manual"];
+  if (!select) return;
+  const preset = streamQualityPresets()[select.value];
   if (!preset) return;
   document.getElementById("cameraPreviewFps").value = preset.preview_fps;
   document.getElementById("cameraPreviewQuality").value = preset.preview_quality;
@@ -494,61 +460,39 @@ function readCameraForm() {
     fps: Number(document.getElementById("cameraFps").value || 30),
     preview_fps: Number(document.getElementById("cameraPreviewFps").value || 12),
     preview_quality: Number(document.getElementById("cameraPreviewQuality").value || 60),
-    format: document.getElementById("cameraFormat").value || "BGR888",
     stream_quality: document.getElementById("cameraStreamQuality").value || "balanced",
-    auto_exposure: !!document.getElementById("cameraAutoExposure").checked,
-    awb: !!document.getElementById("cameraAwb").checked,
+    format: document.getElementById("cameraFormat").value || "BGR888",
+    auto_exposure: document.getElementById("cameraAutoExposure").checked,
     exposure_us: Number(document.getElementById("cameraExposureUs").value || 12000),
     analogue_gain: Number(document.getElementById("cameraAnalogueGain").value || 1.0),
-    exposure_compensation: Number(document.getElementById("cameraExposureComp").value || 0),
-    brightness: Number(document.getElementById("cameraBrightness").value || 0),
-    contrast: Number(document.getElementById("cameraContrast").value || 1),
-    saturation: Number(document.getElementById("cameraSaturation").value || 1),
-    sharpness: Number(document.getElementById("cameraSharpness").value || 1)
+    exposure_compensation: Number(document.getElementById("cameraExposureComp").value || 0.0),
+    auto_white_balance: document.getElementById("cameraAwb").checked,
+    brightness: Number(document.getElementById("cameraBrightness").value || 0.0),
+    contrast: Number(document.getElementById("cameraContrast").value || 1.0),
+    saturation: Number(document.getElementById("cameraSaturation").value || 1.0),
+    sharpness: Number(document.getElementById("cameraSharpness").value || 1.0)
   };
 }
 
 function fillCameraForm(config = {}) {
+  state.cameraConfig = config;
   document.getElementById("cameraWidth").value = config.width ?? 426;
   document.getElementById("cameraHeight").value = config.height ?? 240;
   document.getElementById("cameraFps").value = config.fps ?? 30;
   document.getElementById("cameraPreviewFps").value = config.preview_fps ?? 12;
   document.getElementById("cameraPreviewQuality").value = config.preview_quality ?? 60;
-  document.getElementById("cameraFormat").value = config.format || "BGR888";
   document.getElementById("cameraStreamQuality").value = config.stream_quality || "balanced";
+  document.getElementById("cameraFormat").value = config.format || "BGR888";
   document.getElementById("cameraAutoExposure").checked = Boolean(config.auto_exposure ?? true);
-  document.getElementById("cameraAwb").checked = Boolean(config.awb ?? true);
   document.getElementById("cameraExposureUs").value = config.exposure_us ?? 12000;
   document.getElementById("cameraAnalogueGain").value = config.analogue_gain ?? 1.0;
-  document.getElementById("cameraExposureComp").value = config.exposure_compensation ?? 0;
-  document.getElementById("cameraBrightness").value = config.brightness ?? 0;
-  document.getElementById("cameraContrast").value = config.contrast ?? 1;
-  document.getElementById("cameraSaturation").value = config.saturation ?? 1;
-  document.getElementById("cameraSharpness").value = config.sharpness ?? 1;
+  document.getElementById("cameraExposureComp").value = config.exposure_compensation ?? 0.0;
+  document.getElementById("cameraAwb").checked = Boolean(config.auto_white_balance ?? true);
+  document.getElementById("cameraBrightness").value = config.brightness ?? 0.0;
+  document.getElementById("cameraContrast").value = config.contrast ?? 1.0;
+  document.getElementById("cameraSaturation").value = config.saturation ?? 1.0;
+  document.getElementById("cameraSharpness").value = config.sharpness ?? 1.0;
   setCameraResolutionPreset();
-}
-
-async function loadCameraConfig() {
-  const data = await fetchJson("/api/camera/config");
-  const cfg = data.config || {};
-  state.cameraConfig = cfg;
-  fillCameraForm(cfg);
-  const live = cfg.preview_live ? "Live preview ready." : "Preview is using placeholder.";
-  const perf = ` Stream ${cfg.stream_quality || "balanced"}, preview ${cfg.preview_fps ?? 12} FPS @ JPEG ${cfg.preview_quality ?? 60}.`;
-  setBanner("cameraMessage", `${live}${perf}`, "muted");
-}
-
-async function applyCameraConfig() {
-  const payload = readCameraForm();
-  const data = await fetchJson("/api/camera/apply", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  });
-  state.cameraConfig = data.config || payload;
-  setBanner("cameraMessage", data.message || "Camera settings applied.", "muted");
-  refreshVideoFeed();
-  await pollStatus();
 }
 
 function readMotorForm() {
@@ -564,28 +508,36 @@ function readMotorForm() {
 }
 
 function setMotorFormDirty(dirty = true) {
-  state.motorFormDirty = !!dirty;
+  state.motorFormDirty = Boolean(dirty);
+  if (state.motorFormDirty) {
+    setBanner("motorMessage", "Unsaved motor changes. Click Apply motor settings to save and use them.", "muted");
+  }
 }
 
 function fillMotorForm(config = {}, force = false) {
-  if (state.motorFormDirty && !force) return;
-  document.getElementById("leftDirection").value = String(Number(config.left_direction ?? 1) < 0 ? -1 : 1);
-  document.getElementById("rightDirection").value = String(Number(config.right_direction ?? 1) < 0 ? -1 : 1);
-  document.getElementById("steeringDirection").value = String(Number(config.steering_direction ?? 1) < 0 ? -1 : 1);
+  if (!force && state.page === "motor" && state.motorFormDirty) return;
+  state.motorConfig = config;
+  document.getElementById("leftDirection").value = String(config.left_direction ?? 1);
+  document.getElementById("rightDirection").value = String(config.right_direction ?? 1);
+  document.getElementById("steeringDirection").value = String(config.steering_direction ?? 1);
   document.getElementById("leftMaxSpeed").value = Math.round(Number(config.left_max_speed ?? 1.0) * 100);
   document.getElementById("rightMaxSpeed").value = Math.round(Number(config.right_max_speed ?? 1.0) * 100);
   document.getElementById("leftBias").value = Number(config.left_bias ?? 0).toFixed(2);
   document.getElementById("rightBias").value = Number(config.right_bias ?? 0).toFixed(2);
+  state.motorFormDirty = false;
   updateRangeText();
-  setMotorFormDirty(false);
 }
 
 async function loadMotorConfig() {
   const data = await fetchJson("/api/motor/config");
+  fillMotorForm(data.config || {}, true);
   const cfg = data.config || {};
-  state.motorConfig = cfg;
-  fillMotorForm(cfg, true);
-  setBanner("motorMessage", "Loaded saved motor settings.", "muted");
+  const steerMode = Number(cfg.steering_direction || 1) < 0 ? "reversed" : "normal";
+  setBanner(
+    "motorMessage",
+    `Saved motor settings loaded. Left ${Number(cfg.left_direction || 1) < 0 ? "reverse" : "normal"}, right ${Number(cfg.right_direction || 1) < 0 ? "reverse" : "normal"}, steering ${steerMode}.`,
+    "muted"
+  );
 }
 
 async function applyMotorConfig() {
@@ -595,15 +547,14 @@ async function applyMotorConfig() {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
   });
-  state.motorConfig = data.config || payload;
-  fillMotorForm(state.motorConfig, true);
+  fillMotorForm(data.config || payload, true);
   setBanner("motorMessage", data.message || "Motor settings applied.", "muted");
   await pollStatus();
 }
 
 function previewDelayMs() {
   const fps = Number(document.getElementById("cameraPreviewFps")?.value || state.cameraConfig?.preview_fps || 12);
-  return clamp(Math.round(1000 / Math.max(1, fps)), 40, 500);
+  return Math.max(40, Math.round(1000 / Math.max(1, fps)));
 }
 
 async function sendPreviewState(enabled) {
@@ -611,7 +562,7 @@ async function sendPreviewState(enabled) {
     await fetchJson("/api/camera/preview_state", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ enabled: !!enabled })
+      body: JSON.stringify({ enabled })
     });
   } catch {
     // keep UI responsive even if preview-state sync fails
@@ -637,7 +588,9 @@ function schedulePreviewFrame(immediate = false) {
 }
 
 async function requestPreviewFrame() {
-  if (!state.previewActive || document.hidden) return;
+  if (!state.previewActive || document.hidden) {
+    return;
+  }
   if (state.previewInFlight) {
     schedulePreviewFrame(false);
     return;
@@ -646,10 +599,11 @@ async function requestPreviewFrame() {
   try {
     const response = await fetch(`/api/camera/frame.jpg?t=${Date.now()}`, { cache: "no-store" });
     if (response.status === 204) {
-      schedulePreviewFrame(false);
       return;
     }
-    if (!response.ok) throw new Error(`Preview request failed (${response.status})`);
+    if (!response.ok) {
+      throw new Error(`Preview request failed (${response.status})`);
+    }
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);
     const img = document.getElementById("videoFeed");
@@ -659,8 +613,9 @@ async function requestPreviewFrame() {
     if (previous) {
       try { URL.revokeObjectURL(previous); } catch {}
     }
-  } catch {
-    // Keep last frame visible.
+  } catch (error) {
+    const msg = error && error.message ? error.message : "Preview update failed.";
+    setBanner("cameraMessage", msg, "muted");
   } finally {
     state.previewInFlight = false;
     schedulePreviewFrame(false);
@@ -673,176 +628,147 @@ function refreshVideoFeed() {
   schedulePreviewFrame(true);
 }
 
+function forceRefreshVideoFeed() {
+  stopPreviewLoop(true);
+  const img = document.getElementById("videoFeed");
+  if (img) {
+    img.src = "";
+  }
+  state.previewActive = !document.hidden;
+  sendPreviewState(state.previewActive);
+  schedulePreviewFrame(true);
+}
+
 function syncPreviewActivity() {
   const enabled = !document.hidden;
   state.previewActive = enabled;
   sendPreviewState(enabled);
-  if (enabled) schedulePreviewFrame(true);
-  else stopPreviewLoop(false);
-}
-
-function setManualTargets(steering, throttle, options = {}) {
-  state.targetSteering = clamp(Number(steering || 0), -1, 1);
-  state.targetThrottle = clamp(Number(throttle || 0), -state.maxThrottle, state.maxThrottle);
-  if (options.immediateCurrent) {
-    state.manualSteering = state.targetSteering;
-    state.manualThrottle = state.targetThrottle;
-    applyManualState();
-  }
-  if (options.sendNow) {
-    sendManualState(true);
+  if (enabled) {
+    schedulePreviewFrame(true);
+  } else {
+    stopPreviewLoop(false);
   }
 }
 
-function applyManualState() {
+async function loadCameraConfig() {
+  const data = await fetchJson("/api/camera/config");
+  fillCameraForm(data.config || {});
+  const cfg = data.config || {};
+  const backend = cfg.backend ? ` Backend: ${cfg.backend}.` : "";
+  const live = cfg.preview_live ? " Live preview ready." : " Preview is using placeholder.";
+  const perf = ` Stream ${cfg.stream_quality || "balanced"}, preview ${cfg.preview_fps ?? 12} FPS @ JPEG ${cfg.preview_quality ?? 60}.`;
+  const extra = cfg.processing_enabled ? " AI/recording path active." : " AI/recording path idle.";
+  const error = cfg.last_error ? ` ${cfg.last_error}` : "";
+  setBanner("cameraMessage", `Saved camera settings loaded.${backend}${live}${perf}${extra}${error}`.trim(), "muted");
+}
+
+async function applyCameraConfig() {
+  const payload = readCameraForm();
+  const button = document.getElementById("cameraApplyBtn");
+  button.disabled = true;
+  try {
+    stopPreviewLoop(true);
+    await sendPreviewState(false);
+    const data = await fetchJson("/api/camera/apply", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    fillCameraForm(data.config || payload);
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    await loadCameraConfig();
+    forceRefreshVideoFeed();
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    forceRefreshVideoFeed();
+    await pollStatus();
+    setBanner("cameraMessage", data.message || "Camera restarted and settings saved.", data.ok ? "muted" : "warn");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function setupJoystick() {
+  const area = document.getElementById("joystickArea");
   const dot = document.getElementById("joystickDot");
   const text = document.getElementById("joystickText");
-  if (dot) {
+
+  function applyManualState() {
     dot.style.left = `${(state.manualSteering * 0.5 + 0.5) * 100}%`;
-    const throttleRatio = state.maxThrottle > 0 ? state.manualThrottle / state.maxThrottle : 0;
-    dot.style.top = `${(0.5 - throttleRatio * 0.5) * 100}%`;
-  }
-  if (text) {
-    text.textContent = `Steering ${state.manualSteering.toFixed(2)} · Throttle ${state.manualThrottle.toFixed(2)} · Target ${state.targetSteering.toFixed(2)} / ${state.targetThrottle.toFixed(2)}`;
-  }
-}
-
-function updatePointerTarget(clientX, clientY) {
-  const area = document.getElementById("joystickArea");
-  const rect = area.getBoundingClientRect();
-  const nx = clamp((clientX - rect.left) / Math.max(rect.width, 1), 0, 1);
-  const ny = clamp((clientY - rect.top) / Math.max(rect.height, 1), 0, 1);
-  const steering = (nx - 0.5) * 2;
-  const throttle = (0.5 - ny) * 2 * state.maxThrottle;
-  setManualTargets(steering, throttle, { sendNow: false });
-}
-
-function setStepInput(direction, pressed) {
-  if (!(direction in state.stepInputs)) return;
-  state.stepInputs[direction] = !!pressed;
-}
-
-function processStepInputs() {
-  if (state.pointerControl.active || state.estopEnabled) return;
-  const horizontal = (state.stepInputs.right ? 1 : 0) - (state.stepInputs.left ? 1 : 0);
-  const vertical = (state.stepInputs.up ? 1 : 0) - (state.stepInputs.down ? 1 : 0);
-
-  if (horizontal !== 0) {
-    state.targetSteering = clamp(state.targetSteering + horizontal * STEP_SIZE, -1, 1);
-  } else {
-    state.targetSteering = moveTowards(state.targetSteering, 0, STEP_SIZE);
+    dot.style.top = `${(0.5 - state.manualThrottle / 2.0 / Math.max(state.maxThrottle || 1, 0.01)) * 100}%`;
+    dot.style.transform = "translate(-50%, -50%)";
+    text.textContent = `Steering ${state.manualSteering.toFixed(2)} · Throttle ${state.manualThrottle.toFixed(2)}`;
+    sendControlUpdate();
   }
 
-  if (vertical !== 0) {
-    state.targetThrottle = clamp(state.targetThrottle + vertical * STEP_SIZE, -state.maxThrottle, state.maxThrottle);
-  } else {
-    state.targetThrottle = moveTowards(state.targetThrottle, 0, STEP_SIZE);
+  function moveDot(clientX, clientY) {
+    const rect = area.getBoundingClientRect();
+    const x = clamp((clientX - rect.left) / rect.width, 0, 1);
+    const y = clamp((clientY - rect.top) / rect.height, 0, 1);
+
+    const centeredX = (x - 0.5) * 2.0;
+    const centeredY = (0.5 - y) * 2.0;
+
+    state.manualSteering = clamp(centeredX, -1, 1);
+    state.manualThrottle = clamp(centeredY * state.maxThrottle, -1, 1);
+
+    dot.style.left = `${x * 100}%`;
+    dot.style.top = `${y * 100}%`;
+    dot.style.transform = "translate(-50%, -50%)";
+
+    text.textContent = `Steering ${state.manualSteering.toFixed(2)} · Throttle ${state.manualThrottle.toFixed(2)}`;
+    sendControlUpdate();
   }
-}
 
-function sendManualState(force = false) {
-  const now = Date.now();
-  const changed = !almostEqual(state.manualSteering, state.lastSentSteering, 0.01)
-    || !almostEqual(state.manualThrottle, state.lastSentThrottle, 0.01)
-    || state.page !== state.lastSentPage;
-  if (!force && !changed && now - state.lastControlSentAt < 250) return;
-  state.lastSentSteering = state.manualSteering;
-  state.lastSentThrottle = state.manualThrottle;
-  state.lastSentPage = state.page;
-  state.lastControlSentAt = now;
-  sendControlUpdate();
-}
+  function resetDot() {
+    state.manualSteering = 0;
+    state.manualThrottle = 0;
+    dot.style.left = "50%";
+    dot.style.top = "50%";
+    dot.style.transform = "translate(-50%, -50%)";
+    text.textContent = "Steering 0.00 · Throttle 0.00";
+    sendControlUpdate();
+  }
 
-function controlLoopTick() {
-  processStepInputs();
-
-  const nextSteer = moveTowards(state.manualSteering, state.targetSteering, SMOOTH_STEP_STEER);
-  const nextThrottle = moveTowards(state.manualThrottle, state.targetThrottle, Math.min(SMOOTH_STEP_THROTTLE, Math.max(state.maxThrottle, SMOOTH_STEP_THROTTLE)));
-  const changed = !almostEqual(nextSteer, state.manualSteering, 0.0001) || !almostEqual(nextThrottle, state.manualThrottle, 0.0001);
-
-  if (changed) {
-    state.manualSteering = clamp(nextSteer, -1, 1);
-    state.manualThrottle = clamp(nextThrottle, -state.maxThrottle, state.maxThrottle);
+  function updateFromKeyboard() {
+    const turn = (state.keyState.right ? 1 : 0) - (state.keyState.left ? 1 : 0);
+    const throttle = (state.keyState.up ? 1 : 0) - (state.keyState.down ? 1 : 0);
+    state.manualSteering = clamp(turn, -1, 1);
+    state.manualThrottle = clamp(throttle * state.maxThrottle, -1, 1);
     applyManualState();
-    sendManualState(false);
   }
-}
 
-function setupManualControls() {
-  const area = document.getElementById("joystickArea");
-  const arrowButtons = Array.from(document.querySelectorAll(".arrow-btn[data-dir]"));
-  const centerBtn = document.getElementById("manualCenterBtn");
-
-  applyManualState();
-  if (state.stepTimer) clearInterval(state.stepTimer);
-  state.stepTimer = setInterval(controlLoopTick, STEP_INTERVAL_MS);
-
-  area.addEventListener("pointerdown", (event) => {
-    state.pointerControl.active = true;
-    state.pointerControl.id = event.pointerId;
-    area.setPointerCapture(event.pointerId);
-    updatePointerTarget(event.clientX, event.clientY);
-  });
-
-  area.addEventListener("pointermove", (event) => {
-    if (!state.pointerControl.active || state.pointerControl.id !== event.pointerId) return;
-    updatePointerTarget(event.clientX, event.clientY);
-  });
-
-  const releasePointer = (event) => {
-    if (state.pointerControl.id !== null && event.pointerId !== undefined && state.pointerControl.id !== event.pointerId) return;
-    state.pointerControl.active = false;
-    state.pointerControl.id = null;
-    setManualTargets(0, 0, { sendNow: false });
-  };
-
-  area.addEventListener("pointerup", releasePointer);
-  area.addEventListener("pointercancel", releasePointer);
-  area.addEventListener("lostpointercapture", releasePointer);
-
-  arrowButtons.forEach((btn) => {
-    const dir = btn.dataset.dir;
-    btn.addEventListener("pointerdown", (event) => {
-      event.preventDefault();
-      setStepInput(dir, true);
-      btn.setPointerCapture(event.pointerId);
-    });
-    const clear = () => setStepInput(dir, false);
-    btn.addEventListener("pointerup", clear);
-    btn.addEventListener("pointercancel", clear);
-    btn.addEventListener("lostpointercapture", clear);
-    btn.addEventListener("pointerleave", (event) => {
-      if (event.buttons === 0) clear();
-    });
-  });
-
-  centerBtn.addEventListener("click", () => {
-    setManualTargets(0, 0, { sendNow: false });
-  });
-
-  window.addEventListener("keydown", (event) => {
-    if (!(pagePanels[state.page] || []).includes("manual")) return;
-    const tag = (event.target?.tagName || "").toLowerCase();
+  function handleKeyChange(event, pressed) {
+    if (state.page !== "manual") return;
+    const tag = (event.target && event.target.tagName) ? event.target.tagName.toLowerCase() : "";
     if (["input", "select", "textarea", "button"].includes(tag)) return;
     const key = String(event.key || "").toLowerCase();
     let handled = true;
-    if (key === "w" || key === "arrowup") setStepInput("up", true);
-    else if (key === "s" || key === "arrowdown") setStepInput("down", true);
-    else if (key === "a" || key === "arrowleft") setStepInput("left", true);
-    else if (key === "d" || key === "arrowright") setStepInput("right", true);
-    else if (key === " ") setManualTargets(0, 0, { sendNow: false });
+    if (key === "w" || key === "arrowup") state.keyState.up = pressed;
+    else if (key === "s" || key === "arrowdown") state.keyState.down = pressed;
+    else if (key === "a" || key === "arrowleft") state.keyState.left = pressed;
+    else if (key === "d" || key === "arrowright") state.keyState.right = pressed;
     else handled = false;
-    if (handled) event.preventDefault();
-  });
+    if (handled) {
+      event.preventDefault();
+      updateFromKeyboard();
+    }
+  }
 
-  window.addEventListener("keyup", (event) => {
-    if (!(pagePanels[state.page] || []).includes("manual")) return;
-    const key = String(event.key || "").toLowerCase();
-    if (key === "w" || key === "arrowup") setStepInput("up", false);
-    else if (key === "s" || key === "arrowdown") setStepInput("down", false);
-    else if (key === "a" || key === "arrowleft") setStepInput("left", false);
-    else if (key === "d" || key === "arrowright") setStepInput("right", false);
+  area.addEventListener("pointerdown", (event) => {
+    area.setPointerCapture(event.pointerId);
+    moveDot(event.clientX, event.clientY);
   });
+  area.addEventListener("pointermove", (event) => {
+    if (event.buttons) moveDot(event.clientX, event.clientY);
+  });
+  area.addEventListener("pointerup", resetDot);
+  area.addEventListener("pointercancel", resetDot);
+  resetDot();
+
+  window.addEventListener("keydown", (event) => handleKeyChange(event, true));
+  window.addEventListener("keyup", (event) => handleKeyChange(event, false));
+
+  document.getElementById("stopBtn").addEventListener("click", resetDot);
 }
 
 function setupEvents() {
@@ -852,30 +778,42 @@ function setupEvents() {
       if (!nextPage || nextPage === state.page) return;
       renderActivePage(nextPage);
       const extra = { current_page: nextPage };
-      if (nextPage === "manual") extra.algorithm = "manual";
+      if (nextPage === "manual") {
+        extra.algorithm = "manual";
+      }
       await sendControlUpdate(extra);
-      if (nextPage === "camera") await loadCameraConfig();
-      if (nextPage === "motor") await loadMotorConfig();
+      if (nextPage === "camera") {
+        try {
+          refreshVideoFeed();
+          await loadCameraConfig();
+        } catch (error) {
+          setBanner("cameraMessage", error.message, "muted");
+        }
+      }
+      if (nextPage === "motor") {
+        try {
+          await loadMotorConfig();
+        } catch (error) {
+          setBanner("motorMessage", error.message, "muted");
+        }
+      }
     });
   });
 
   document.getElementById("saveLayoutBtn").addEventListener("click", () => {
     saveLayout(state.page, currentLayout());
-    setBanner("statusBanner", `Saved ${state.page} layout.`, "muted");
+    setBanner("systemMessage", `Saved ${state.page} layout.`, "muted");
   });
 
   document.getElementById("resetLayoutBtn").addEventListener("click", () => {
     localStorage.removeItem(layoutStorageKey(state.page));
     applyLayout(state.page);
-    setBanner("statusBanner", `Reset ${state.page} layout.`, "muted");
+    setBanner("systemMessage", `Reset ${state.page} layout.`, "muted");
   });
 
   document.getElementById("maxThrottle").addEventListener("input", (event) => {
     state.maxThrottle = Number(event.target.value) / 100;
-    state.targetThrottle = clamp(state.targetThrottle, -state.maxThrottle, state.maxThrottle);
-    state.manualThrottle = clamp(state.manualThrottle, -state.maxThrottle, state.maxThrottle);
     updateRangeText();
-    applyManualState();
     sendControlUpdate();
   });
 
@@ -885,20 +823,17 @@ function setupEvents() {
     sendControlUpdate();
   });
 
-  document.getElementById("saveRuntimeBtn").addEventListener("click", async () => {
-    try {
-      const data = await fetchJson("/api/config/save", { method: "POST" });
-      setBanner("runtimeMessage", data.message || "Runtime config saved.", "muted");
-    } catch (error) {
-      setBanner("runtimeMessage", error.message, "muted");
-    }
+  document.getElementById("steerBias").addEventListener("input", (event) => {
+    state.steerBias = Number(event.target.value) / 100;
+    updateRangeText();
+    sendControlUpdate();
   });
 
   document.getElementById("recordToggleBtn").addEventListener("click", async () => {
     try {
       await toggleRecording();
     } catch (error) {
-      setBanner("statusBanner", error.message, "muted");
+      setBanner("systemMessage", error.message, "muted");
     }
   });
 
@@ -919,11 +854,25 @@ function setupEvents() {
     }
   });
 
-  document.getElementById("estopToggle").addEventListener("click", async () => {
+  document.getElementById("saveConfigBtn").addEventListener("click", async () => {
     try {
-      await setEstop(!state.estopEnabled);
+      await runSystemAction("/api/config/save", "systemMessage");
     } catch (error) {
-      setBanner("statusBanner", error.message, "muted");
+      setBanner("systemMessage", error.message, "muted");
+    }
+  });
+
+  document.getElementById("reloadConfigBtn").addEventListener("click", async () => {
+    try {
+      await runSystemAction("/api/config/reload", "systemMessage");
+      const status = await fetchJson("/api/status");
+      syncControlsFromStatus(status);
+      updateStatusUi(status);
+      await loadCameraConfig();
+      await loadMotorConfig();
+      refreshVideoFeed();
+    } catch (error) {
+      setBanner("systemMessage", error.message, "muted");
     }
   });
 
@@ -947,7 +896,6 @@ function setupEvents() {
       setBanner("motorMessage", error.message, "muted");
     }
   });
-
   ["leftDirection", "rightDirection", "steeringDirection", "leftMaxSpeed", "rightMaxSpeed", "leftBias", "rightBias"].forEach((id) => {
     const el = document.getElementById(id);
     if (!el) return;
@@ -956,31 +904,39 @@ function setupEvents() {
   });
   document.getElementById("leftMaxSpeed").addEventListener("input", updateRangeText);
   document.getElementById("rightMaxSpeed").addEventListener("input", updateRangeText);
+
+  document.getElementById("estopToggleBtn").addEventListener("click", async () => {
+    const active = !!(state.latestStatus && state.latestStatus.safety_stop);
+    try {
+      await setEstop(!active);
+    } catch (error) {
+      setBanner("systemMessage", error.message, "muted");
+    }
+  });
 }
 
 function syncControlsFromStatus(data) {
   if (!data || typeof data !== "object") return;
-  state.maxThrottle = Number(data.max_throttle || state.maxThrottle || 0.55);
-  state.steerMix = Number(data.steer_mix || state.steerMix || 0.5);
-  const maxThrottleEl = document.getElementById("maxThrottle");
-  const steerMixEl = document.getElementById("steerMix");
-  if (maxThrottleEl) maxThrottleEl.value = Math.round(state.maxThrottle * 100);
-  if (steerMixEl) steerMixEl.value = Math.round(state.steerMix * 100);
-
+  state.maxThrottle = Number(data.max_throttle || 0.55);
+  state.steerMix = Number(data.steer_mix || 0.5);
+  state.steerBias = Number(data.steer_bias || 0.0);
+  document.getElementById("maxThrottle").value = Math.round(state.maxThrottle * 100);
+  document.getElementById("steerMix").value = Math.round(state.steerMix * 100);
+  document.getElementById("steerBias").value = Math.round(state.steerBias * 100);
   const allowMotorFormSync = !(state.page === "motor" && state.motorFormDirty);
-  if (allowMotorFormSync && typeof data.motor_left_max_speed === "number") {
-    fillMotorForm({
-      left_direction: data.motor_left_direction,
-      right_direction: data.motor_right_direction,
-      steering_direction: data.motor_steering_direction,
-      left_max_speed: data.motor_left_max_speed,
-      right_max_speed: data.motor_right_max_speed,
-      left_bias: data.motor_left_bias,
-      right_bias: data.motor_right_bias
-    });
+  if (typeof data.motor_left_max_speed === "number" && allowMotorFormSync) {
+    const left = document.getElementById("leftMaxSpeed");
+    const right = document.getElementById("rightMaxSpeed");
+    if (left) left.value = Math.round(Number(data.motor_left_max_speed || 1) * 100);
+    if (right) right.value = Math.round(Number(data.motor_right_max_speed || 1) * 100);
+    document.getElementById("leftDirection").value = String(Number(data.motor_left_direction || 1) < 0 ? -1 : 1);
+    document.getElementById("rightDirection").value = String(Number(data.motor_right_direction || 1) < 0 ? -1 : 1);
+    document.getElementById("steeringDirection").value = String(Number(data.motor_steering_direction || 1) < 0 ? -1 : 1);
+    document.getElementById("leftBias").value = Number(data.motor_left_bias || 0).toFixed(2);
+    document.getElementById("rightBias").value = Number(data.motor_right_bias || 0).toFixed(2);
   }
-
   updateRangeText();
+
   const desiredPage = data.current_page || state.page || "manual";
   if (desiredPage !== state.page && defaultLayouts[desiredPage]) {
     renderActivePage(desiredPage);
@@ -991,22 +947,17 @@ async function init() {
   renderActivePage(state.page);
   updateRangeText();
   setupDocking();
-  setupManualControls();
+  setupJoystick();
   setupEvents();
   await refreshModels();
   await loadCameraConfig();
   await loadMotorConfig();
   syncPreviewActivity();
   document.addEventListener("visibilitychange", syncPreviewActivity);
-  window.addEventListener("beforeunload", () => {
-    sendPreviewState(false);
-    stopPreviewLoop(false);
-    if (state.stepTimer) clearInterval(state.stepTimer);
-  });
+  window.addEventListener("beforeunload", () => { sendPreviewState(false); stopPreviewLoop(false); });
   const status = await fetchJson("/api/status");
   updateStatusUi(status);
   syncControlsFromStatus(status);
-  applyManualState();
   state.statusTimer = setInterval(pollStatus, 800);
 }
 

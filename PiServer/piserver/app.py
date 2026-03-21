@@ -16,7 +16,7 @@ from piserver.services.recorder_service import RecorderService
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 WEB_DIR = Path(__file__).resolve().parent / "web"
-APP_VERSION = "0_2_17"
+APP_VERSION = "0_2_18"
 
 
 def mjpeg_generator(camera_service):
@@ -147,6 +147,7 @@ def create_app() -> Flask:
         ok_runtime, msg_runtime = control_service.set_runtime_parameters(
             max_throttle=data.get("max_throttle"),
             steer_mix=data.get("steer_mix"),
+            steer_bias=data.get("steer_bias"),
             current_page=data.get("current_page"),
         )
         if "algorithm" in data:
