@@ -291,6 +291,27 @@ button.active,
   min-height: 0;
 }
 
+.snapshot-flash {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  opacity: 0;
+  pointer-events: none;
+  border-radius: 14px;
+  background: radial-gradient(circle at center, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.02) 52%, transparent 78%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.snapshot-flash.active {
+  animation: snapshotFlashPulse 0.42s ease-out;
+}
+
+@keyframes snapshotFlashPulse {
+  0% { opacity: 0; }
+  20% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
 #videoFeed {
   width: 100%;
   height: 100%;
@@ -652,6 +673,24 @@ input[type=range] {
   padding: 10px 12px;
 }
 
+.manual-feel-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.compact-field {
+  margin-bottom: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(130, 150, 190, 0.14);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.compact-field label {
+  margin-bottom: 6px;
+}
+
 .joystick-area {
   position: relative;
   min-height: 0;
@@ -765,6 +804,8 @@ input[type=range] {
 
 .record-body {
   display: flex;
+  flex-direction: column;
+  gap: 10px;
   min-height: 0;
 }
 
@@ -806,6 +847,41 @@ input[type=range] {
 .capture-once-subtitle {
   font-size: 0.84rem;
   color: rgba(248, 251, 255, 0.86);
+}
+
+.record-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.record-meta-card {
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(130, 150, 190, 0.14);
+  background: rgba(255,255,255,0.03);
+}
+
+.record-meta-card-wide {
+  grid-column: 1 / -1;
+}
+
+.record-meta-card label {
+  display: block;
+  color: var(--muted);
+  margin-bottom: 6px;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.record-meta-card strong {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 700;
+  line-height: 1.35;
 }
 
 code {
@@ -857,7 +933,9 @@ code {
   .metric-grid-secondary,
   .field-grid.two-col,
   .compact-grid,
-  .record-controls {
+  .record-controls,
+  .record-meta-grid,
+  .manual-feel-grid {
     grid-template-columns: 1fr;
   }
 

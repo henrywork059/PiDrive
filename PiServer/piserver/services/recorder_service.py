@@ -24,6 +24,14 @@ class RecorderService:
         self.min_interval = 0.1
         self.last_record_time = 0.0
         self.counter = 0
+        self.session_started_at = 0.0
+        self.last_session_name = ""
+        self.last_session_path = None
+        self.last_record_relpath = ""
+        self.snapshot_dir = self.root / "snapshots"
+        self.snapshot_dir.mkdir(parents=True, exist_ok=True)
+        self.last_snapshot_relpath = ""
+        self.last_snapshot_name = ""
         self._lock = threading.RLock()
 
     def start(self):
@@ -52,6 +60,9 @@ class RecorderService:
             self.recording = True
             self.last_record_time = 0.0
             self.counter = 0
+            self.session_started_at = time.time()
+            self.last_session_name = session_name
+            self.last_session_path = session_path
             print(f"[REC] session started: {self.session_path}")
 
     def stop(self):
@@ -68,6 +79,7 @@ class RecorderService:
             self.images_dir = None
             self.session_path = None
             self.session_name = ""
+            self.session_started_at = 0.0
             print("[REC] session stopped")
 
     def toggle(self):
@@ -111,12 +123,13 @@ class RecorderService:
             }
             self.index_file.write(json.dumps(rec, ensure_ascii=False) + "\n")
             self.index_file.flush()
+            self.last_record_relpath = str(Path("records") / self.session_name / "images" / fname)
 
     def capture_once(self, frame_bgr, snapshot: dict | None = None):
         if frame_bgr is None or cv2 is None:
             return False, "No live frame available to save."
         snapshot = snapshot or {}
-        shots_dir = self.root / "snapshots"
+        shots_dir = self.snapshot_dir
         shots_dir.mkdir(parents=True, exist_ok=True)
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
         image_name = f"{stamp}.jpg"
@@ -138,9 +151,28 @@ class RecorderService:
             "camera_format": str(snapshot.get("camera_format", "BGR888")),
         }
         with self._lock:
+            self.last_snapshot_name = image_name
+            self.last_snapshot_relpath = str(Path("records") / "snapshots" / image_name)
             with meta_path.open("a", encoding="utf-8") as handle:
                 handle.write(json.dumps(rec, ensure_ascii=False) + "\n")
         return True, f"Snapshot saved: {image_name}"
+
+    def get_status(self):
+        with self._lock:
+            active_session_name = self.session_name or self.last_session_name
+            active_session_path = self.session_path or self.last_session_path
+            elapsed = 0.0
+            if self.recording and self.session_started_at:
+                elapsed = max(0.0, time.time() - self.session_started_at)
+            return {
+                "record_session_name": active_session_name,
+                "record_save_path": str(active_session_path.relative_to(self.root.parent)) if active_session_path else str(Path("records")),
+                "record_elapsed_seconds": elapsed,
+                "record_last_saved": self.last_record_relpath,
+                "snapshot_save_path": str(self.snapshot_dir.relative_to(self.root.parent)),
+                "snapshot_last_saved": self.last_snapshot_relpath,
+                "snapshot_last_name": self.last_snapshot_name,
+            }
 
     def list_sessions(self):
         items = []

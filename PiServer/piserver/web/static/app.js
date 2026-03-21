@@ -1,10 +1,9 @@
 const gridCols = 45;
 const gridRows = 25;
 const layoutKeyPrefix = "PiServerLayout:v0_3_4:";
-const STEP_INTERVAL_MS = 80;
-const STEP_SIZE = 0.1;
-const SMOOTH_STEP_STEER = 0.07;
-const SMOOTH_STEP_THROTTLE = 0.07;
+const manualFeelKey = "PiServerManualFeel:v0_3_5";
+const STEP_INTERVAL_MS = 60;
+const STEP_SIZE = 0.08;
 
 const pagePanels = {
   manual: ["status", "estop", "viewer", "runtime", "manual", "record"],
@@ -58,6 +57,8 @@ const state = {
   page: "manual",
   manualSteering: 0,
   manualThrottle: 0,
+  rawTargetSteering: 0,
+  rawTargetThrottle: 0,
   targetSteering: 0,
   targetThrottle: 0,
   maxThrottle: 0.55,
@@ -82,6 +83,10 @@ const state = {
   recordPending: false,
   overlayMode: 0,
   capturePending: false,
+  steerCurve: 1.45,
+  throttleCurve: 1.55,
+  steerRate: 0.07,
+  throttleRate: 0.07,
   lastControlSentAt: 0,
   lastSentSteering: 0,
   lastSentThrottle: 0,
@@ -99,6 +104,77 @@ function moveTowards(current, target, maxDelta) {
 
 function almostEqual(a, b, epsilon = 0.0001) {
   return Math.abs(Number(a || 0) - Number(b || 0)) <= epsilon;
+}
+
+
+function curveInput(value, exponent) {
+  const clamped = clamp(Number(value || 0), -1, 1);
+  const exp = clamp(Number(exponent || 1), 1, 3);
+  return Math.sign(clamped) * Math.pow(Math.abs(clamped), exp);
+}
+
+function updateDerivedTargets() {
+  state.targetSteering = curveInput(state.rawTargetSteering, state.steerCurve);
+  state.targetThrottle = curveInput(state.rawTargetThrottle, state.throttleCurve) * state.maxThrottle;
+}
+
+function formatElapsed(totalSeconds) {
+  const whole = Math.max(0, Math.floor(Number(totalSeconds || 0)));
+  const minutes = Math.floor(whole / 60);
+  const seconds = whole % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function triggerSnapshotFlash() {
+  const flash = document.getElementById("snapshotFlash");
+  if (!flash) return;
+  flash.classList.remove("active");
+  void flash.offsetWidth;
+  flash.classList.add("active");
+}
+
+function updateManualFeelUi() {
+  const values = [
+    ["steerCurve", Math.round(state.steerCurve * 100)],
+    ["throttleCurve", Math.round(state.throttleCurve * 100)],
+    ["steerRate", Math.round(state.steerRate * 100)],
+    ["throttleRate", Math.round(state.throttleRate * 100)],
+  ];
+  values.forEach(([id, value]) => {
+    const el = document.getElementById(id);
+    if (el) el.value = value;
+  });
+  const steerCurveValue = document.getElementById("steerCurveValue");
+  const throttleCurveValue = document.getElementById("throttleCurveValue");
+  const steerRateValue = document.getElementById("steerRateValue");
+  const throttleRateValue = document.getElementById("throttleRateValue");
+  if (steerCurveValue) steerCurveValue.textContent = `${state.steerCurve.toFixed(2)}×`;
+  if (throttleCurveValue) throttleCurveValue.textContent = `${state.throttleCurve.toFixed(2)}×`;
+  if (steerRateValue) steerRateValue.textContent = state.steerRate.toFixed(2);
+  if (throttleRateValue) throttleRateValue.textContent = state.throttleRate.toFixed(2);
+}
+
+function saveManualFeel() {
+  try {
+    localStorage.setItem(manualFeelKey, JSON.stringify({
+      steerCurve: state.steerCurve,
+      throttleCurve: state.throttleCurve,
+      steerRate: state.steerRate,
+      throttleRate: state.throttleRate,
+    }));
+  } catch {}
+}
+
+function loadManualFeel() {
+  try {
+    const raw = localStorage.getItem(manualFeelKey);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (typeof parsed.steerCurve === "number") state.steerCurve = clamp(parsed.steerCurve, 1, 3);
+    if (typeof parsed.throttleCurve === "number") state.throttleCurve = clamp(parsed.throttleCurve, 1, 3);
+    if (typeof parsed.steerRate === "number") state.steerRate = clamp(parsed.steerRate, 0.02, 0.2);
+    if (typeof parsed.throttleRate === "number") state.throttleRate = clamp(parsed.throttleRate, 0.02, 0.2);
+  } catch {}
 }
 
 function panelEls() {
@@ -285,6 +361,7 @@ function setBanner(id, text, tone = "muted") {
 function updateRangeText() {
   const mt = document.getElementById("maxThrottleValue");
   if (mt) mt.textContent = state.maxThrottle.toFixed(2);
+  updateManualFeelUi();
   const sm = document.getElementById("steerMixValue");
   if (sm) sm.textContent = state.steerMix.toFixed(2);
   const sb = document.getElementById("steerBiasValue");
@@ -461,6 +538,10 @@ function updateStatusUi(data) {
   setText("metricFps", `${Number(data.fps || 0).toFixed(1)} FPS`);
   setText("metricBackend", data.camera_backend || "unknown");
   setText("metricError", errorText);
+  setText("recordSessionName", data.record_session_name || "none");
+  setText("recordSavePath", data.record_save_path || data.snapshot_save_path || "records");
+  setText("recordElapsed", formatElapsed(data.record_elapsed_seconds || 0));
+  setText("recordLastSave", data.record_last_saved || data.snapshot_last_saved || "none");
 
   const previewMeta = document.getElementById("cameraPreviewMeta");
   if (previewMeta) {
@@ -549,6 +630,7 @@ async function captureOneShot() {
   setCapturePending(true);
   try {
     const data = await fetchJson("/api/record/capture_once", { method: "POST" });
+    triggerSnapshotFlash();
     setBanner("statusBanner", data.message || "Snapshot saved.", "muted");
     if (data && data.state) updateStatusUi(data.state);
     return data;
@@ -799,8 +881,9 @@ function syncPreviewActivity() {
 }
 
 function setManualTargets(steering, throttle, options = {}) {
-  state.targetSteering = clamp(Number(steering || 0), -1, 1);
-  state.targetThrottle = clamp(Number(throttle || 0), -state.maxThrottle, state.maxThrottle);
+  state.rawTargetSteering = clamp(Number(steering || 0), -1, 1);
+  state.rawTargetThrottle = clamp(Number(throttle || 0), -1, 1);
+  updateDerivedTargets();
   if (options.immediateCurrent) {
     state.manualSteering = state.targetSteering;
     state.manualThrottle = state.targetThrottle;
@@ -830,7 +913,7 @@ function updatePointerTarget(clientX, clientY) {
   const nx = clamp((clientX - rect.left) / Math.max(rect.width, 1), 0, 1);
   const ny = clamp((clientY - rect.top) / Math.max(rect.height, 1), 0, 1);
   const steering = (nx - 0.5) * 2;
-  const throttle = (0.5 - ny) * 2 * state.maxThrottle;
+  const throttle = (0.5 - ny) * 2;
   setManualTargets(steering, throttle, { sendNow: false });
 }
 
@@ -845,16 +928,18 @@ function processStepInputs() {
   const vertical = (state.stepInputs.up ? 1 : 0) - (state.stepInputs.down ? 1 : 0);
 
   if (horizontal !== 0) {
-    state.targetSteering = clamp(state.targetSteering + horizontal * STEP_SIZE, -1, 1);
+    state.rawTargetSteering = clamp(state.rawTargetSteering + horizontal * STEP_SIZE, -1, 1);
   } else {
-    state.targetSteering = moveTowards(state.targetSteering, 0, STEP_SIZE);
+    state.rawTargetSteering = moveTowards(state.rawTargetSteering, 0, STEP_SIZE);
   }
 
   if (vertical !== 0) {
-    state.targetThrottle = clamp(state.targetThrottle + vertical * STEP_SIZE, -state.maxThrottle, state.maxThrottle);
+    state.rawTargetThrottle = clamp(state.rawTargetThrottle + vertical * STEP_SIZE, -1, 1);
   } else {
-    state.targetThrottle = moveTowards(state.targetThrottle, 0, STEP_SIZE);
+    state.rawTargetThrottle = moveTowards(state.rawTargetThrottle, 0, STEP_SIZE);
   }
+
+  updateDerivedTargets();
 }
 
 function sendManualState(force = false) {
@@ -873,8 +958,12 @@ function sendManualState(force = false) {
 function controlLoopTick() {
   processStepInputs();
 
-  const nextSteer = moveTowards(state.manualSteering, state.targetSteering, SMOOTH_STEP_STEER);
-  const nextThrottle = moveTowards(state.manualThrottle, state.targetThrottle, Math.min(SMOOTH_STEP_THROTTLE, Math.max(state.maxThrottle, SMOOTH_STEP_THROTTLE)));
+  const nextSteer = moveTowards(state.manualSteering, state.targetSteering, state.steerRate);
+  const nextThrottle = moveTowards(
+    state.manualThrottle,
+    state.targetThrottle,
+    Math.min(state.throttleRate, Math.max(state.maxThrottle, state.throttleRate))
+  );
   const changed = !almostEqual(nextSteer, state.manualSteering, 0.0001) || !almostEqual(nextThrottle, state.manualThrottle, 0.0001);
 
   if (changed) {
@@ -967,7 +1056,7 @@ function setupEvents() {
 
   document.getElementById("maxThrottle").addEventListener("input", (event) => {
     state.maxThrottle = Number(event.target.value) / 100;
-    state.targetThrottle = clamp(state.targetThrottle, -state.maxThrottle, state.maxThrottle);
+    updateDerivedTargets();
     state.manualThrottle = clamp(state.manualThrottle, -state.maxThrottle, state.maxThrottle);
     updateRangeText();
     applyManualState();
@@ -993,6 +1082,23 @@ function setupEvents() {
     } catch (error) {
       setBanner("runtimeMessage", error.message, "muted");
     }
+  });
+
+  [
+    ["steerCurve", (value) => { state.steerCurve = Number(value) / 100; }],
+    ["throttleCurve", (value) => { state.throttleCurve = Number(value) / 100; }],
+    ["steerRate", (value) => { state.steerRate = Number(value) / 100; }],
+    ["throttleRate", (value) => { state.throttleRate = Number(value) / 100; }],
+  ].forEach(([id, apply]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("input", (event) => {
+      apply(event.target.value);
+      updateDerivedTargets();
+      updateRangeText();
+      applyManualState();
+      saveManualFeel();
+    });
   });
 
   document.getElementById("captureOnceBtn").addEventListener("click", async () => {
@@ -1103,6 +1209,7 @@ function syncControlsFromStatus(data) {
     });
   }
 
+  updateDerivedTargets();
   updateRangeText();
   const desiredPage = data.current_page || state.page || "manual";
   if (desiredPage !== state.page && defaultLayouts[desiredPage]) {
@@ -1111,6 +1218,8 @@ function syncControlsFromStatus(data) {
 }
 
 async function init() {
+  loadManualFeel();
+  updateDerivedTargets();
   renderActivePage(state.page);
   updateRangeText();
   setCapturePending(false);

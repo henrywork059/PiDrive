@@ -157,7 +157,12 @@ class ControlService:
 
     def snapshot(self) -> dict:
         with self.lock:
-            return self.state.snapshot()
+            data = self.state.snapshot()
+        try:
+            data.update(self.recorder_service.get_status())
+        except Exception:
+            pass
+        return data
 
     def set_manual_controls(self, steering=None, throttle=None):
         with self.lock:
