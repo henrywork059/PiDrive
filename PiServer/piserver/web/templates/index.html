@@ -46,7 +46,7 @@
             <button id="overlayToggleBtn" class="metric-card metric-card-primary metric-card-action overlay-toggle off" type="button" aria-pressed="false">
               <span class="metric-card-action-label">Overlay</span>
               <strong class="metric-card-action-value">OFF</strong>
-              <span class="metric-card-action-note">Placeholder</span>
+              <span class="metric-card-action-note">Click to cycle overlays</span>
             </button>
           </div>
 
@@ -89,6 +89,31 @@
         <div class="panel-body viewer-body">
           <div class="viewer-frame">
             <img id="videoFeed" src="" alt="PiServer camera preview" />
+            <div id="frameOverlay" class="frame-overlay overlay-mode-0">
+              <div id="overlayOne" class="frame-overlay-panel overlay-one" aria-hidden="true">
+                <div class="overlay-block overlay-throttle-block">
+                  <div class="overlay-block-label">Throttle</div>
+                  <div class="overlay-throttle-track">
+                    <div class="overlay-throttle-zero"></div>
+                    <div id="overlayThrottleFill" class="overlay-throttle-fill"></div>
+                  </div>
+                  <div id="overlayThrottleValue" class="overlay-block-value">0.00</div>
+                </div>
+                <div class="overlay-block overlay-steer-block">
+                  <div class="overlay-block-label">Steering</div>
+                  <svg class="overlay-steer-gauge" viewBox="0 0 120 72" aria-hidden="true">
+                    <path class="overlay-steer-base" d="M 12 60 A 48 48 0 0 1 108 60" pathLength="100"></path>
+                    <path id="overlaySteerArc" class="overlay-steer-arc" d="M 12 60 A 48 48 0 0 1 108 60" pathLength="100"></path>
+                    <line id="overlaySteerNeedle" class="overlay-steer-needle" x1="60" y1="60" x2="60" y2="18"></line>
+                    <circle class="overlay-steer-hub" cx="60" cy="60" r="4"></circle>
+                  </svg>
+                  <div id="overlaySteerValue" class="overlay-block-value">0.00</div>
+                </div>
+              </div>
+              <div id="overlayTwo" class="frame-overlay-panel overlay-two" aria-hidden="true">
+                <div class="overlay-two-pill">Overlay 2 placeholder</div>
+              </div>
+            </div>
             <div id="cameraPreviewMeta" class="preview-meta">Waiting for camera status…</div>
           </div>
         </div>

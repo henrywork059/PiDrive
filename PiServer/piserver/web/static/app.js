@@ -1,6 +1,6 @@
 const gridCols = 45;
 const gridRows = 25;
-const layoutKeyPrefix = "PiServerLayout:v0_3_2:";
+const layoutKeyPrefix = "PiServerLayout:v0_3_3:";
 const STEP_INTERVAL_MS = 80;
 const STEP_SIZE = 0.1;
 const SMOOTH_STEP_STEER = 0.07;
@@ -80,7 +80,8 @@ const state = {
   estopEnabled: false,
   recordEnabled: false,
   recordPending: false,
-  overlayEnabled: false,
+  overlayMode: 0,
+  capturePending: false,
   lastControlSentAt: 0,
   lastSentSteering: 0,
   lastSentThrottle: 0,
@@ -338,17 +339,68 @@ function setRecordToggle(enabled, pending = false) {
     : (state.recordEnabled ? "Tap to stop the current capture session" : "Tap to start a capture session");
 }
 
-function setOverlayToggle(enabled) {
-  state.overlayEnabled = !!enabled;
+function setOverlayMode(mode) {
+  const normalized = ((Number(mode) || 0) % 3 + 3) % 3;
+  state.overlayMode = normalized;
   const btn = document.getElementById("overlayToggleBtn");
+  if (btn) {
+    btn.classList.remove("off", "mode-1", "mode-2");
+    btn.classList.add(normalized === 0 ? "off" : `mode-${normalized}`);
+    btn.setAttribute("aria-pressed", normalized === 0 ? "false" : "true");
+    const value = btn.querySelector(".metric-card-action-value");
+    const note = btn.querySelector(".metric-card-action-note");
+    if (value) value.textContent = normalized === 0 ? "OFF" : `OVL ${normalized}`;
+    if (note) {
+      note.textContent = normalized === 1
+        ? "Throttle + steering"
+        : normalized === 2
+          ? "Overlay 2 placeholder"
+          : "Click to cycle overlays";
+    }
+  }
+  const frameOverlay = document.getElementById("frameOverlay");
+  if (frameOverlay) {
+    frameOverlay.classList.remove("overlay-mode-0", "overlay-mode-1", "overlay-mode-2");
+    frameOverlay.classList.add(`overlay-mode-${normalized}`);
+  }
+  updateOverlayVisuals(state.latestStatus || {});
+}
+
+function updateOverlayVisuals(data = {}) {
+  const throttleFill = document.getElementById("overlayThrottleFill");
+  const throttleValue = document.getElementById("overlayThrottleValue");
+  const steerArc = document.getElementById("overlaySteerArc");
+  const steerValue = document.getElementById("overlaySteerValue");
+  const steerNeedle = document.getElementById("overlaySteerNeedle");
+  const appliedThrottle = Number(data.applied_throttle || 0);
+  const appliedSteering = Number(data.applied_steering || 0);
+  const throttleNormBase = Math.max(0.01, Number(data.max_throttle ?? state.maxThrottle ?? 1));
+  const throttleNorm = clamp(appliedThrottle / throttleNormBase, -1, 1);
+  if (throttleFill) {
+    const halfPct = Math.abs(throttleNorm) * 50;
+    throttleFill.style.height = `${halfPct}%`;
+    throttleFill.style.top = throttleNorm >= 0 ? `${50 - halfPct}%` : "50%";
+  }
+  if (throttleValue) throttleValue.textContent = appliedThrottle.toFixed(2);
+  const steerPercent = ((clamp(appliedSteering, -1, 1) + 1) / 2) * 100;
+  if (steerArc) steerArc.style.strokeDasharray = `${steerPercent} 100`;
+  if (steerNeedle) {
+    const angle = clamp(appliedSteering, -1, 1) * 90;
+    steerNeedle.style.transform = `rotate(${angle}deg)`;
+  }
+  if (steerValue) steerValue.textContent = appliedSteering.toFixed(2);
+}
+
+function setCapturePending(pending) {
+  state.capturePending = !!pending;
+  const btn = document.getElementById("captureOnceBtn");
   if (!btn) return;
-  btn.classList.toggle("on", state.overlayEnabled);
-  btn.classList.toggle("off", !state.overlayEnabled);
-  btn.setAttribute("aria-pressed", state.overlayEnabled ? "true" : "false");
-  const value = btn.querySelector(".metric-card-action-value");
-  const note = btn.querySelector(".metric-card-action-note");
-  if (value) value.textContent = state.overlayEnabled ? "ON" : "OFF";
-  if (note) note.textContent = "Placeholder";
+  btn.disabled = state.capturePending;
+  btn.classList.toggle("pending", state.capturePending);
+  const title = btn.querySelector(".capture-once-title");
+  const subtitle = btn.querySelector(".capture-once-subtitle");
+  if (title) title.textContent = state.capturePending ? "SNAPPING…" : "SNAPSHOT";
+  if (subtitle) subtitle.textContent = state.capturePending ? "Saving current frame" : "Save one frame";
 }
 
 async function sendControlUpdate(extra = {}) {
@@ -408,6 +460,7 @@ function updateStatusUi(data) {
   }
 
   setRecordToggle(!!data.recording, false);
+  updateOverlayVisuals(data);
 
   updateToolbarBadge(data);
   setBanner("statusBanner", data.system_message || "Ready.", "muted");
@@ -484,15 +537,14 @@ async function toggleRecording() {
 }
 
 async function captureOneShot() {
-  const btn = document.getElementById("captureOnceBtn");
-  if (btn) btn.disabled = true;
+  setCapturePending(true);
   try {
     const data = await fetchJson("/api/record/capture_once", { method: "POST" });
     setBanner("statusBanner", data.message || "Snapshot saved.", "muted");
     if (data && data.state) updateStatusUi(data.state);
     return data;
   } finally {
-    if (btn) btn.disabled = false;
+    setCapturePending(false);
   }
 }
 
@@ -951,8 +1003,14 @@ function setupEvents() {
   });
 
   document.getElementById("overlayToggleBtn").addEventListener("click", () => {
-    setOverlayToggle(!state.overlayEnabled);
-    setBanner("statusBanner", `Overlay placeholder ${state.overlayEnabled ? "enabled" : "disabled"}.`, "muted");
+    const nextMode = (state.overlayMode + 1) % 3;
+    setOverlayMode(nextMode);
+    const message = nextMode === 0
+      ? "Frame overlay off."
+      : nextMode === 1
+        ? "Overlay 1: throttle and steering enabled."
+        : "Overlay 2 placeholder enabled.";
+    setBanner("statusBanner", message, "muted");
   });
 
   document.getElementById("uploadModelBtn").addEventListener("click", async () => {
@@ -1046,7 +1104,8 @@ function syncControlsFromStatus(data) {
 async function init() {
   renderActivePage(state.page);
   updateRangeText();
-  setOverlayToggle(false);
+  setCapturePending(false);
+  setOverlayMode(0);
   setupDocking();
   setupManualControls();
   setupEvents();
