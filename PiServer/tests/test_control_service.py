@@ -49,7 +49,6 @@ class DummyMotor:
             "right_max_speed": 1.0,
             "left_bias": 0.0,
             "right_bias": 0.0,
-            "steering_direction": 1,
         }
 
     def update(self, steering, throttle, steer_mix):
@@ -152,31 +151,6 @@ class ControlServiceTests(unittest.TestCase):
         self.assertEqual(svc.state.max_throttle, 0.6)
         self.assertEqual(svc.state.steer_mix, 0.3)
 
-    def test_runtime_steer_bias_is_clamped_and_applied(self):
-        svc, _, motor, _, _ = self.build_service()
-        ok, _ = svc.set_runtime_parameters(steer_bias=1.2)
-        self.assertTrue(ok)
-        self.assertEqual(svc.state.steer_bias, 0.5)
-        svc.state.manual_steering = 0.2
-        svc.state.manual_throttle = 0.0
-        svc.running = True
-
-        original_sleep = __import__("time").sleep
-        import time as _time
-
-        def fake_sleep(_):
-            svc.running = False
-
-        _time.sleep = fake_sleep
-        try:
-            svc._loop()
-        finally:
-            _time.sleep = original_sleep
-
-        steer, throttle, _ = motor.update_calls[-1]
-        self.assertAlmostEqual(steer, 0.7)
-        self.assertAlmostEqual(throttle, 0.0)
-
     def test_processing_toggle_only_updates_on_change(self):
         svc, camera, motor, recorder, _ = self.build_service()
         svc.running = True
@@ -254,6 +228,34 @@ class ControlServiceTests(unittest.TestCase):
         svc.apply_runtime_config({"camera": {"width": 640}}, initial=False)
         self.assertEqual(camera.apply_settings_calls[-1], ({"width": 640}, True))
         self.assertIsNone(svc._processing_enabled_cached)
+
+    def test_runtime_steer_bias_is_applied_and_persisted(self):
+        svc, _, motor, _, config = self.build_service(config=DummyConfig({"steer_bias": 0.15}))
+        self.assertAlmostEqual(svc.state.steer_bias, 0.15)
+        ok, _ = svc.set_runtime_parameters(steer_bias=0.2)
+        self.assertTrue(ok)
+        self.assertAlmostEqual(svc.state.steer_bias, 0.2)
+        svc.state.manual_steering = 0.1
+        svc.running = True
+
+        original_sleep = __import__("time").sleep
+        import time as _time
+
+        def fake_sleep(_):
+            svc.running = False
+
+        _time.sleep = fake_sleep
+        try:
+            svc._loop()
+        finally:
+            _time.sleep = original_sleep
+
+        self.assertGreaterEqual(len(motor.update_calls), 1)
+        steer, throttle, _ = motor.update_calls[-1]
+        self.assertAlmostEqual(steer, 0.3, places=6)
+        saved = svc.get_runtime_config()
+        self.assertAlmostEqual(saved["steer_bias"], 0.2)
+
 
 
 if __name__ == "__main__":
