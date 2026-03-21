@@ -247,6 +247,30 @@
         <div class="resize-handle"></div>
       </article>
 
+      <article class="dock-panel" data-panel="sessions">
+        <div class="panel-head">
+          <span>Session export</span>
+          <span class="panel-mini">zip + download</span>
+        </div>
+        <div class="panel-body session-export-body">
+          <div class="field">
+            <label for="sessionSelect">Recorded session</label>
+            <select id="sessionSelect" class="session-select"></select>
+          </div>
+          <div class="stack-row panel-actions">
+            <button id="refreshSessionsBtn" class="ghost-btn" type="button">Refresh sessions</button>
+            <button id="downloadSessionBtn" type="button">Download ZIP</button>
+          </div>
+          <div class="session-export-grid">
+            <div class="record-meta-card"><label>Images</label><strong id="sessionImageCount">0</strong></div>
+            <div class="record-meta-card"><label>Updated</label><strong id="sessionUpdatedAt">--</strong></div>
+            <div class="record-meta-card record-meta-card-wide"><label>Path</label><strong id="sessionPath">records</strong></div>
+          </div>
+          <div id="sessionExportMessage" class="banner muted">Choose a session, then download a ZIP to your computer.</div>
+        </div>
+        <div class="resize-handle"></div>
+      </article>
+
       <article class="dock-panel" data-panel="camera">
         <div class="panel-head">
           <span>Camera settings</span>

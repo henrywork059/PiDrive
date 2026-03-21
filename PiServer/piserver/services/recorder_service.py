@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import threading
 import time
+import zipfile
 from datetime import datetime
 from pathlib import Path
 
@@ -174,9 +175,59 @@ class RecorderService:
                 "snapshot_last_name": self.last_snapshot_name,
             }
 
+    def _iter_session_dirs(self):
+        for path in sorted(self.root.glob("*"), reverse=True):
+            if not path.is_dir():
+                continue
+            if path.name == "snapshots":
+                continue
+            if not (path / "records.jsonl").exists():
+                continue
+            yield path
+
+    def _resolve_session_dir(self, session_name: str) -> Path | None:
+        name = str(session_name or "").strip()
+        if not name or name in {".", ".."} or "/" in name or "\\" in name:
+            return None
+        candidate = (self.root / name).resolve()
+        root_resolved = self.root.resolve()
+        try:
+            candidate.relative_to(root_resolved)
+        except Exception:
+            return None
+        if not candidate.is_dir() or not (candidate / "records.jsonl").exists():
+            return None
+        return candidate
+
     def list_sessions(self):
         items = []
-        for path in sorted(self.root.glob("*"), reverse=True):
-            if path.is_dir():
-                items.append(path.name)
+        for path in self._iter_session_dirs():
+            image_count = 0
+            images_dir = path / "images"
+            if images_dir.exists():
+                try:
+                    image_count = sum(1 for child in images_dir.iterdir() if child.is_file())
+                except Exception:
+                    image_count = 0
+            try:
+                updated_at = datetime.fromtimestamp(path.stat().st_mtime).isoformat()
+            except Exception:
+                updated_at = ""
+            items.append({
+                "name": path.name,
+                "image_count": image_count,
+                "updated_at": updated_at,
+                "path": str(path.relative_to(self.root.parent)),
+            })
         return items
+
+    def write_session_zip(self, session_name: str, fileobj):
+        session_dir = self._resolve_session_dir(session_name)
+        if session_dir is None:
+            return False, "Session not found."
+        with zipfile.ZipFile(fileobj, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            for child in sorted(session_dir.rglob("*")):
+                if not child.is_file():
+                    continue
+                archive.write(child, arcname=str(Path(session_dir.name) / child.relative_to(session_dir)))
+        return True, session_dir.name

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import atexit
+import tempfile
 import time
 from pathlib import Path
 
-from flask import Flask, Response, jsonify, render_template, request
+from flask import Flask, Response, jsonify, render_template, request, send_file
 
 from piserver.algorithms import build_registry
 from piserver.core.config_store import ConfigStore
@@ -16,7 +17,7 @@ from piserver.services.recorder_service import RecorderService
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 WEB_DIR = Path(__file__).resolve().parent / "web"
-APP_VERSION = "0_3_5"
+APP_VERSION = "0_3_6"
 
 
 def mjpeg_generator(camera_service):
@@ -184,6 +185,29 @@ def create_app() -> Flask:
         ok, message = recorder_service.capture_once(frame, control_service.snapshot())
         code = 200 if ok else 503
         return jsonify({"ok": ok, "message": message, "state": control_service.snapshot()}), code
+
+    @app.route("/api/record/sessions")
+    def api_record_sessions():
+        return jsonify({"ok": True, "sessions": recorder_service.list_sessions()})
+
+    @app.route("/api/record/download")
+    def api_record_download():
+        session_name = str(request.args.get("session", "")).strip()
+        if not session_name:
+            return jsonify({"ok": False, "message": "Choose a session first."}), 400
+        temp_file = tempfile.SpooledTemporaryFile(max_size=8 * 1024 * 1024)
+        ok, payload = recorder_service.write_session_zip(session_name, temp_file)
+        if not ok:
+            temp_file.close()
+            return jsonify({"ok": False, "message": payload}), 404
+        temp_file.seek(0)
+        return send_file(
+            temp_file,
+            mimetype="application/zip",
+            as_attachment=True,
+            download_name=f"{payload}.zip",
+            max_age=0,
+        )
 
     @app.route("/api/model/list")
     def api_model_list():

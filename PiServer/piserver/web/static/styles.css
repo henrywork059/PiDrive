@@ -884,6 +884,23 @@ input[type=range] {
   line-height: 1.35;
 }
 
+.session-export-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+
+.session-export-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.session-select {
+  width: 100%;
+}
+
 code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
@@ -935,6 +952,7 @@ code {
   .compact-grid,
   .record-controls,
   .record-meta-grid,
+  .session-export-grid,
   .manual-feel-grid {
     grid-template-columns: 1fr;
   }

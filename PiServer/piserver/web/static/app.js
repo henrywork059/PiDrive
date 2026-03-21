@@ -1,13 +1,13 @@
 const gridCols = 45;
 const gridRows = 25;
-const layoutKeyPrefix = "PiServerLayout:v0_3_4:";
+const layoutKeyPrefix = "PiServerLayout:v0_3_6:";
 const manualFeelKey = "PiServerManualFeel:v0_3_5";
 const STEP_INTERVAL_MS = 60;
 const STEP_SIZE = 0.08;
 
 const pagePanels = {
   manual: ["status", "estop", "viewer", "runtime", "manual", "record"],
-  training: ["status", "estop", "viewer", "runtime", "model", "manual", "record"],
+  training: ["status", "estop", "viewer", "model", "manual", "record", "sessions"],
   auto: ["status", "estop", "viewer", "runtime", "model", "record"],
   camera: ["status", "estop", "viewer", "camera"],
   motor: ["status", "estop", "viewer", "motor"]
@@ -23,13 +23,13 @@ const defaultLayouts = {
     manual: { c: 28, r: 7, w: 18, h: 16 }
   },
   training: {
-    status: { c: 1, r: 1, w: 35, h: 5 },
-    estop: { c: 36, r: 1, w: 10, h: 5 },
-    viewer: { c: 1, r: 6, w: 25, h: 15 },
-    runtime: { c: 26, r: 6, w: 20, h: 5 },
-    model: { c: 26, r: 11, w: 20, h: 5 },
-    manual: { c: 26, r: 16, w: 20, h: 5 },
-    record: { c: 1, r: 21, w: 25, h: 5 }
+    status: { c: 1, r: 1, w: 20, h: 5 },
+    estop: { c: 21, r: 1, w: 6, h: 5 },
+    viewer: { c: 1, r: 6, w: 24, h: 15 },
+    model: { c: 25, r: 6, w: 21, h: 5 },
+    manual: { c: 25, r: 11, w: 21, h: 10 },
+    record: { c: 1, r: 21, w: 24, h: 5 },
+    sessions: { c: 25, r: 21, w: 21, h: 5 }
   },
   auto: {
     status: { c: 1, r: 1, w: 35, h: 5 },
@@ -83,6 +83,8 @@ const state = {
   recordPending: false,
   overlayMode: 0,
   capturePending: false,
+  sessions: [],
+  selectedSession: "",
   steerCurve: 1.45,
   throttleCurve: 1.55,
   steerRate: 0.07,
@@ -489,6 +491,88 @@ function setCapturePending(pending) {
   if (subtitle) subtitle.textContent = state.capturePending ? "Saving current frame" : "Save one frame";
 }
 
+function findSelectedSession() {
+  return state.sessions.find((item) => item.name === state.selectedSession) || null;
+}
+
+function formatDateTime(value) {
+  if (!value) return "--";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleString();
+}
+
+function updateSessionExportUi() {
+  const select = document.getElementById("sessionSelect");
+  const downloadBtn = document.getElementById("downloadSessionBtn");
+  if (select) {
+    const names = new Set((state.sessions || []).map((item) => item.name));
+    if (!state.selectedSession || !names.has(state.selectedSession)) {
+      state.selectedSession = state.sessions?.[0]?.name || "";
+    }
+    select.innerHTML = "";
+    if (!state.sessions.length) {
+      const opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = "No recorded sessions yet";
+      select.appendChild(opt);
+    } else {
+      state.sessions.forEach((item) => {
+        const opt = document.createElement("option");
+        opt.value = item.name;
+        opt.textContent = item.name;
+        if (item.name === state.selectedSession) opt.selected = true;
+        select.appendChild(opt);
+      });
+    }
+  }
+  const session = findSelectedSession();
+  const setText = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+  };
+  setText("sessionImageCount", session ? String(session.image_count ?? 0) : "0");
+  setText("sessionUpdatedAt", session ? formatDateTime(session.updated_at) : "--");
+  setText("sessionPath", session ? (session.path || `records/${session.name}`) : "records");
+  if (downloadBtn) downloadBtn.disabled = !session;
+}
+
+async function refreshSessions(preserveSelection = true) {
+  const currentSelection = preserveSelection ? state.selectedSession : "";
+  const data = await fetchJson("/api/record/sessions");
+  state.sessions = Array.isArray(data.sessions) ? data.sessions : [];
+  state.selectedSession = currentSelection && state.sessions.some((item) => item.name === currentSelection)
+    ? currentSelection
+    : (state.sessions[0]?.name || "");
+  updateSessionExportUi();
+  return data;
+}
+
+function updateSessionSelectionFromStatus(data) {
+  const candidate = String(data?.record_session_name || "").trim();
+  if (!candidate) return;
+  if ((state.sessions || []).some((item) => item.name === candidate)) {
+    state.selectedSession = candidate;
+    updateSessionExportUi();
+  }
+}
+
+function downloadSelectedSession() {
+  const session = findSelectedSession();
+  if (!session) {
+    setBanner("sessionExportMessage", "No session selected.", "muted");
+    return;
+  }
+  const url = `/api/record/download?session=${encodeURIComponent(session.name)}`;
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${session.name}.zip`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setBanner("sessionExportMessage", `Downloading ${session.name}.zip`, "muted");
+}
+
 async function sendControlUpdate(extra = {}) {
   const body = {
     steering: state.manualSteering,
@@ -551,6 +635,7 @@ function updateStatusUi(data) {
 
   setRecordToggle(!!data.recording, false);
   updateOverlayVisuals(data);
+  updateSessionSelectionFromStatus(data);
 
   updateToolbarBadge(data);
   setBanner("statusBanner", data.system_message || "Ready.", "muted");
@@ -619,6 +704,7 @@ async function toggleRecording() {
     setBanner("statusBanner", data.message || "Recording toggled.", "muted");
     if (data && data.state) updateStatusUi(data.state);
     else setRecordToggle(!!data.recording, false);
+    await refreshSessions(true);
     await pollStatus();
   } catch (error) {
     setRecordToggle(!next, false);
@@ -633,6 +719,7 @@ async function captureOneShot() {
     triggerSnapshotFlash();
     setBanner("statusBanner", data.message || "Snapshot saved.", "muted");
     if (data && data.state) updateStatusUi(data.state);
+    await refreshSessions(true);
     return data;
   } finally {
     setCapturePending(false);
@@ -1117,6 +1204,24 @@ function setupEvents() {
     }
   });
 
+  document.getElementById("sessionSelect")?.addEventListener("change", (event) => {
+    state.selectedSession = event.target?.value || "";
+    updateSessionExportUi();
+  });
+
+  document.getElementById("refreshSessionsBtn")?.addEventListener("click", async () => {
+    try {
+      await refreshSessions(true);
+      setBanner("sessionExportMessage", "Session list refreshed.", "muted");
+    } catch (error) {
+      setBanner("sessionExportMessage", error.message, "muted");
+    }
+  });
+
+  document.getElementById("downloadSessionBtn")?.addEventListener("click", () => {
+    downloadSelectedSession();
+  });
+
   document.getElementById("overlayToggleBtn").addEventListener("click", () => {
     const nextMode = (state.overlayMode + 1) % 3;
     setOverlayMode(nextMode);
@@ -1228,6 +1333,7 @@ async function init() {
   setupManualControls();
   setupEvents();
   await refreshModels();
+  await refreshSessions(false);
   await loadCameraConfig();
   await loadMotorConfig();
   syncPreviewActivity();
