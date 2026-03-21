@@ -1,6 +1,6 @@
 const gridCols = 45;
 const gridRows = 25;
-const layoutKeyPrefix = "PiServerLayout:v0_3_3:";
+const layoutKeyPrefix = "PiServerLayout:v0_3_4:";
 const STEP_INTERVAL_MS = 80;
 const STEP_SIZE = 0.1;
 const SMOOTH_STEP_STEER = 0.07;
@@ -16,12 +16,12 @@ const pagePanels = {
 
 const defaultLayouts = {
   manual: {
-    status: { c: 1, r: 1, w: 35, h: 5 },
-    estop: { c: 36, r: 1, w: 10, h: 5 },
-    viewer: { c: 1, r: 6, w: 28, h: 15 },
-    runtime: { c: 29, r: 6, w: 17, h: 6 },
-    manual: { c: 29, r: 12, w: 17, h: 9 },
-    record: { c: 1, r: 21, w: 20, h: 5 }
+    status: { c: 1, r: 1, w: 6, h: 14 },
+    estop: { c: 1, r: 15, w: 6, h: 4 },
+    record: { c: 1, r: 19, w: 6, h: 4 },
+    viewer: { c: 7, r: 1, w: 21, h: 22 },
+    runtime: { c: 28, r: 1, w: 18, h: 6 },
+    manual: { c: 28, r: 7, w: 18, h: 16 }
   },
   training: {
     status: { c: 1, r: 1, w: 35, h: 5 },
@@ -369,7 +369,8 @@ function setOverlayMode(mode) {
 function updateOverlayVisuals(data = {}) {
   const throttleFill = document.getElementById("overlayThrottleFill");
   const throttleValue = document.getElementById("overlayThrottleValue");
-  const steerArc = document.getElementById("overlaySteerArc");
+  const steerArcLeft = document.getElementById("overlaySteerArcLeft");
+  const steerArcRight = document.getElementById("overlaySteerArcRight");
   const steerValue = document.getElementById("overlaySteerValue");
   const steerNeedle = document.getElementById("overlaySteerNeedle");
   const appliedThrottle = Number(data.applied_throttle || 0);
@@ -382,10 +383,18 @@ function updateOverlayVisuals(data = {}) {
     throttleFill.style.top = throttleNorm >= 0 ? `${50 - halfPct}%` : "50%";
   }
   if (throttleValue) throttleValue.textContent = appliedThrottle.toFixed(2);
-  const steerPercent = ((clamp(appliedSteering, -1, 1) + 1) / 2) * 100;
-  if (steerArc) steerArc.style.strokeDasharray = `${steerPercent} 100`;
+  const steerNorm = clamp(appliedSteering, -1, 1);
+  const steerMagnitude = Math.abs(steerNorm) * 50;
+  if (steerArcLeft) {
+    steerArcLeft.style.strokeDasharray = steerNorm < 0 ? `${steerMagnitude} 100` : `0 100`;
+    steerArcLeft.style.strokeDashoffset = steerNorm < 0 ? `${steerMagnitude - 50}` : `0`;
+  }
+  if (steerArcRight) {
+    steerArcRight.style.strokeDasharray = steerNorm > 0 ? `${steerMagnitude} 100` : `0 100`;
+    steerArcRight.style.strokeDashoffset = `-50`;
+  }
   if (steerNeedle) {
-    const angle = clamp(appliedSteering, -1, 1) * 90;
+    const angle = steerNorm * 90;
     steerNeedle.style.transform = `rotate(${angle}deg)`;
   }
   if (steerValue) steerValue.textContent = appliedSteering.toFixed(2);

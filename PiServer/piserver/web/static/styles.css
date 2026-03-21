@@ -433,8 +433,15 @@ button.active,
 }
 
 .overlay-steer-arc {
-  stroke: rgba(110, 166, 255, 0.96);
   stroke-dasharray: 0 100;
+}
+
+.overlay-steer-arc-left {
+  stroke: rgba(255, 185, 92, 0.98);
+}
+
+.overlay-steer-arc-right {
+  stroke: rgba(110, 166, 255, 0.98);
 }
 
 .overlay-steer-needle {
