@@ -29,6 +29,19 @@ class ModelServiceTests(unittest.TestCase):
             self.assertFalse(ok)
             self.assertIn("Only .tflite", msg)
 
+    def test_delete_model_removes_file_and_clears_active(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            svc = ModelService(tmp)
+            model_path = Path(tmp) / "demo.tflite"
+            model_path.write_bytes(b"123")
+            svc.active_name = "demo.tflite"
+            svc.interpreter = object()
+            ok, msg = svc.delete_model("demo.tflite")
+            self.assertTrue(ok)
+            self.assertIn("Deleted model", msg)
+            self.assertFalse(model_path.exists())
+            self.assertEqual(svc.get_active_name(), "none")
+
 
 if __name__ == "__main__":
     unittest.main()

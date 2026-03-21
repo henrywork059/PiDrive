@@ -1,6 +1,6 @@
 const gridCols = 45;
 const gridRows = 25;
-const layoutKeyPrefix = "PiServerLayout:v0_3_6:";
+const layoutKeyPrefix = "PiServerLayout:v0_3_7:";
 const manualFeelKey = "PiServerManualFeel:v0_3_5";
 const STEP_INTERVAL_MS = 60;
 const STEP_SIZE = 0.08;
@@ -495,6 +495,11 @@ function findSelectedSession() {
   return state.sessions.find((item) => item.name === state.selectedSession) || null;
 }
 
+function getSelectedSessionLabel(session) {
+  if (!session) return "folder";
+  return session.kind === "snapshots" ? "snapshot folder" : "session folder";
+}
+
 function formatDateTime(value) {
   if (!value) return "--";
   const date = new Date(value);
@@ -505,6 +510,7 @@ function formatDateTime(value) {
 function updateSessionExportUi() {
   const select = document.getElementById("sessionSelect");
   const downloadBtn = document.getElementById("downloadSessionBtn");
+  const deleteBtn = document.getElementById("deleteSessionBtn");
   if (select) {
     const names = new Set((state.sessions || []).map((item) => item.name));
     if (!state.selectedSession || !names.has(state.selectedSession)) {
@@ -514,13 +520,14 @@ function updateSessionExportUi() {
     if (!state.sessions.length) {
       const opt = document.createElement("option");
       opt.value = "";
-      opt.textContent = "No recorded sessions yet";
+      opt.textContent = "No session or snapshot folders yet";
       select.appendChild(opt);
     } else {
       state.sessions.forEach((item) => {
         const opt = document.createElement("option");
         opt.value = item.name;
-        opt.textContent = item.name;
+        const kindLabel = item.kind === "snapshots" ? "snapshot folder" : "session";
+        opt.textContent = `${item.name} · ${kindLabel}`;
         if (item.name === state.selectedSession) opt.selected = true;
         select.appendChild(opt);
       });
@@ -531,10 +538,12 @@ function updateSessionExportUi() {
     const el = document.getElementById(id);
     if (el) el.textContent = value;
   };
+  setText("sessionKind", session ? (session.label || getSelectedSessionLabel(session)) : "--");
   setText("sessionImageCount", session ? String(session.image_count ?? 0) : "0");
   setText("sessionUpdatedAt", session ? formatDateTime(session.updated_at) : "--");
   setText("sessionPath", session ? (session.path || `records/${session.name}`) : "records");
   if (downloadBtn) downloadBtn.disabled = !session;
+  if (deleteBtn) deleteBtn.disabled = !session;
 }
 
 async function refreshSessions(preserveSelection = true) {
@@ -560,7 +569,7 @@ function updateSessionSelectionFromStatus(data) {
 function downloadSelectedSession() {
   const session = findSelectedSession();
   if (!session) {
-    setBanner("sessionExportMessage", "No session selected.", "muted");
+    setBanner("sessionExportMessage", "No folder selected.", "muted");
     return;
   }
   const url = `/api/record/download?session=${encodeURIComponent(session.name)}`;
@@ -571,6 +580,29 @@ function downloadSelectedSession() {
   link.click();
   link.remove();
   setBanner("sessionExportMessage", `Downloading ${session.name}.zip`, "muted");
+}
+
+async function deleteSelectedSession() {
+  const session = findSelectedSession();
+  if (!session) {
+    setBanner("sessionExportMessage", "No folder selected.", "muted");
+    return;
+  }
+  const label = getSelectedSessionLabel(session);
+  const ok = window.confirm(`Delete ${session.name}? This permanently removes the ${label} from the Pi.`);
+  if (!ok) return;
+  const data = await fetchJson("/api/record/delete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ session: session.name })
+  });
+  state.sessions = Array.isArray(data.sessions) ? data.sessions : [];
+  state.selectedSession = state.sessions.some((item) => item.name === state.selectedSession)
+    ? state.selectedSession
+    : (state.sessions[0]?.name || "");
+  updateSessionExportUi();
+  if (data && data.state) updateStatusUi(data.state);
+  setBanner("sessionExportMessage", data.message || `Deleted ${session.name}.`, "muted");
 }
 
 async function sendControlUpdate(extra = {}) {
@@ -693,6 +725,25 @@ async function loadSelectedModel() {
     body: JSON.stringify({ filename })
   });
   setBanner("modelMessage", data.message || "Model loaded.", "muted");
+  await pollStatus();
+}
+
+async function deleteSelectedModel() {
+  const select = document.getElementById("modelSelect");
+  const filename = select?.value || "";
+  if (!filename) {
+    setBanner("modelMessage", "Choose a model first.", "muted");
+    return;
+  }
+  const ok = window.confirm(`Delete ${filename}? This permanently removes the model file from the Pi.`);
+  if (!ok) return;
+  const data = await fetchJson("/api/model/delete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ filename })
+  });
+  setBanner("modelMessage", data.message || `Deleted ${filename}.`, "muted");
+  await refreshModels();
   await pollStatus();
 }
 
@@ -1222,6 +1273,14 @@ function setupEvents() {
     downloadSelectedSession();
   });
 
+  document.getElementById("deleteSessionBtn")?.addEventListener("click", async () => {
+    try {
+      await deleteSelectedSession();
+    } catch (error) {
+      setBanner("sessionExportMessage", error.message, "muted");
+    }
+  });
+
   document.getElementById("overlayToggleBtn").addEventListener("click", () => {
     const nextMode = (state.overlayMode + 1) % 3;
     setOverlayMode(nextMode);
@@ -1245,6 +1304,13 @@ function setupEvents() {
   document.getElementById("loadModelBtn").addEventListener("click", async () => {
     try {
       await loadSelectedModel();
+    } catch (error) {
+      setBanner("modelMessage", error.message, "muted");
+    }
+  });
+  document.getElementById("deleteModelBtn")?.addEventListener("click", async () => {
+    try {
+      await deleteSelectedModel();
     } catch (error) {
       setBanner("modelMessage", error.message, "muted");
     }

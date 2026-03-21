@@ -17,7 +17,7 @@ from piserver.services.recorder_service import RecorderService
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 WEB_DIR = Path(__file__).resolve().parent / "web"
-APP_VERSION = "0_3_6"
+APP_VERSION = "0_3_7"
 
 
 def mjpeg_generator(camera_service):
@@ -209,6 +209,16 @@ def create_app() -> Flask:
             max_age=0,
         )
 
+    @app.route("/api/record/delete", methods=["POST"])
+    def api_record_delete():
+        data = request.get_json(silent=True) or {}
+        session_name = str(data.get("session", "")).strip()
+        if not session_name:
+            return jsonify({"ok": False, "message": "Choose a session folder first."}), 400
+        ok, message = recorder_service.delete_folder(session_name)
+        code = 200 if ok else 409
+        return jsonify({"ok": ok, "message": message, "sessions": recorder_service.list_sessions(), "state": control_service.snapshot()}), code
+
     @app.route("/api/model/list")
     def api_model_list():
         return jsonify({"models": model_service.list_models(), "active": model_service.get_active_name()})
@@ -228,6 +238,13 @@ def create_app() -> Flask:
         ok, msg = model_service.load_model(data.get("filename", ""))
         code = 200 if ok else 400
         return jsonify({"ok": ok, "message": msg, "active": model_service.get_active_name()}), code
+
+    @app.route("/api/model/delete", methods=["POST"])
+    def api_model_delete():
+        data = request.get_json(silent=True) or {}
+        ok, msg = model_service.delete_model(data.get("filename", ""))
+        code = 200 if ok else 404
+        return jsonify({"ok": ok, "message": msg, "models": model_service.list_models(), "active": model_service.get_active_name()}), code
 
     @app.route("/api/config/save", methods=["POST"])
     def api_config_save():

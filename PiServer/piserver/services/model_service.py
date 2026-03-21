@@ -81,6 +81,24 @@ class ModelService:
         with self._lock:
             return self.active_name
 
+    def delete_model(self, filename: str) -> tuple[bool, str]:
+        path = self.root / Path(str(filename or "")).name
+        if not path.exists() or not path.is_file() or path.suffix.lower() != ".tflite":
+            return False, "Model file does not exist."
+        with self._lock:
+            is_active = path.name == self.active_name
+            if is_active:
+                self.interpreter = None
+                self.active_name = "none"
+        try:
+            path.unlink()
+        except Exception as exc:
+            return False, f"Failed to delete model: {exc}"
+        message = f"Deleted model: {path.name}"
+        if is_active:
+            message += ". Active model cleared."
+        return True, message
+
     def _prepare_input(self, frame_bgr):
         if np is None or cv2 is None or frame_bgr is None:
             return None

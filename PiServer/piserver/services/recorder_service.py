@@ -185,49 +185,111 @@ class RecorderService:
                 continue
             yield path
 
-    def _resolve_session_dir(self, session_name: str) -> Path | None:
+    def _count_files(self, root: Path) -> int:
+        try:
+            return sum(1 for child in root.rglob("*") if child.is_file())
+        except Exception:
+            return 0
+
+    def _build_folder_item(self, path: Path, *, kind: str) -> dict:
+        try:
+            updated_at = datetime.fromtimestamp(path.stat().st_mtime).isoformat()
+        except Exception:
+            updated_at = ""
+        if kind == "snapshots":
+            image_count = self._count_files(path)
+            label = "Snapshot folder"
+        else:
+            images_dir = path / "images"
+            image_count = self._count_files(images_dir) if images_dir.exists() else 0
+            label = "Recorded session"
+        return {
+            "name": path.name,
+            "kind": kind,
+            "label": label,
+            "image_count": image_count,
+            "updated_at": updated_at,
+            "path": str(path.relative_to(self.root.parent)),
+        }
+
+    def _resolve_export_dir(self, session_name: str) -> tuple[Path | None, str]:
         name = str(session_name or "").strip()
         if not name or name in {".", ".."} or "/" in name or "\\" in name:
-            return None
-        candidate = (self.root / name).resolve()
+            return None, ""
         root_resolved = self.root.resolve()
+        if name == "snapshots":
+            candidate = self.snapshot_dir.resolve()
+            try:
+                candidate.relative_to(root_resolved)
+            except Exception:
+                return None, ""
+            return (candidate if candidate.is_dir() else None), "snapshots"
+        candidate = (self.root / name).resolve()
         try:
             candidate.relative_to(root_resolved)
         except Exception:
-            return None
+            return None, ""
         if not candidate.is_dir() or not (candidate / "records.jsonl").exists():
+            return None, ""
+        return candidate, "session"
+
+    def _resolve_session_dir(self, session_name: str) -> Path | None:
+        path, kind = self._resolve_export_dir(session_name)
+        if kind != "session":
             return None
-        return candidate
+        return path
 
     def list_sessions(self):
         items = []
+        if self.snapshot_dir.exists():
+            items.append(self._build_folder_item(self.snapshot_dir, kind="snapshots"))
         for path in self._iter_session_dirs():
-            image_count = 0
-            images_dir = path / "images"
-            if images_dir.exists():
-                try:
-                    image_count = sum(1 for child in images_dir.iterdir() if child.is_file())
-                except Exception:
-                    image_count = 0
-            try:
-                updated_at = datetime.fromtimestamp(path.stat().st_mtime).isoformat()
-            except Exception:
-                updated_at = ""
-            items.append({
-                "name": path.name,
-                "image_count": image_count,
-                "updated_at": updated_at,
-                "path": str(path.relative_to(self.root.parent)),
-            })
+            items.append(self._build_folder_item(path, kind="session"))
         return items
 
     def write_session_zip(self, session_name: str, fileobj):
-        session_dir = self._resolve_session_dir(session_name)
-        if session_dir is None:
-            return False, "Session not found."
+        folder, _kind = self._resolve_export_dir(session_name)
+        if folder is None:
+            return False, "Session folder not found."
         with zipfile.ZipFile(fileobj, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-            for child in sorted(session_dir.rglob("*")):
+            for child in sorted(folder.rglob("*")):
                 if not child.is_file():
                     continue
-                archive.write(child, arcname=str(Path(session_dir.name) / child.relative_to(session_dir)))
-        return True, session_dir.name
+                archive.write(child, arcname=str(Path(folder.name) / child.relative_to(folder)))
+        return True, folder.name
+
+    def delete_folder(self, session_name: str):
+        target, kind = self._resolve_export_dir(session_name)
+        if target is None:
+            return False, "Session folder not found."
+        with self._lock:
+            if kind == "session" and self.recording and self.session_path is not None and target == self.session_path:
+                return False, "Stop recording before deleting the active session."
+        removed_files = 0
+        removed_dirs = 0
+        for child in sorted(target.rglob("*"), reverse=True):
+            try:
+                if child.is_file() or child.is_symlink():
+                    child.unlink(missing_ok=True)
+                    removed_files += 1
+                elif child.is_dir():
+                    child.rmdir()
+                    removed_dirs += 1
+            except Exception as exc:
+                return False, f"Failed to delete {target.name}: {exc}"
+        try:
+            target.rmdir()
+        except Exception as exc:
+            return False, f"Failed to delete {target.name}: {exc}"
+        if kind == "snapshots":
+            self.snapshot_dir.mkdir(parents=True, exist_ok=True)
+            with self._lock:
+                self.last_snapshot_relpath = ""
+                self.last_snapshot_name = ""
+        else:
+            with self._lock:
+                if self.last_session_path == target:
+                    self.last_session_path = None
+                    self.last_session_name = ""
+                    self.last_record_relpath = ""
+        return True, f"Deleted {target.name} ({removed_files} files, {removed_dirs} folders)."

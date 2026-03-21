@@ -106,6 +106,15 @@ button.active,
   background: rgba(19, 24, 33, 0.78);
 }
 
+.danger-btn {
+  background: linear-gradient(180deg, rgba(134, 33, 47, 0.96), rgba(98, 23, 35, 0.98));
+  border-color: rgba(255, 111, 120, 0.42);
+}
+
+.danger-btn:hover {
+  background: linear-gradient(180deg, rgba(152, 39, 54, 0.98), rgba(112, 28, 40, 0.99));
+}
+
 .workspace-shell {
   height: calc(100vh - 70px);
   overflow: hidden;
