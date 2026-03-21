@@ -1,6 +1,6 @@
-const gridCols = 36;
-const gridRows = 20;
-const layoutKeyPrefix = "PiServerLayout:";
+const gridCols = 45;
+const gridRows = 25;
+const layoutKeyPrefix = "PiServerLayout:v0_3_2:";
 const STEP_INTERVAL_MS = 80;
 const STEP_SIZE = 0.1;
 const SMOOTH_STEP_STEER = 0.07;
@@ -16,41 +16,41 @@ const pagePanels = {
 
 const defaultLayouts = {
   manual: {
-    status: { c: 1, r: 1, w: 28, h: 4 },
-    estop: { c: 29, r: 1, w: 8, h: 4 },
-    viewer: { c: 1, r: 5, w: 22, h: 12 },
-    runtime: { c: 23, r: 5, w: 14, h: 5 },
-    manual: { c: 23, r: 10, w: 14, h: 7 },
-    record: { c: 1, r: 17, w: 14, h: 4 }
+    status: { c: 1, r: 1, w: 35, h: 5 },
+    estop: { c: 36, r: 1, w: 10, h: 5 },
+    viewer: { c: 1, r: 6, w: 28, h: 15 },
+    runtime: { c: 29, r: 6, w: 17, h: 6 },
+    manual: { c: 29, r: 12, w: 17, h: 9 },
+    record: { c: 1, r: 21, w: 20, h: 5 }
   },
   training: {
-    status: { c: 1, r: 1, w: 28, h: 4 },
-    estop: { c: 29, r: 1, w: 8, h: 4 },
-    viewer: { c: 1, r: 5, w: 20, h: 12 },
-    runtime: { c: 21, r: 5, w: 16, h: 4 },
-    model: { c: 21, r: 9, w: 16, h: 5 },
-    manual: { c: 21, r: 14, w: 16, h: 4 },
-    record: { c: 1, r: 17, w: 20, h: 4 }
+    status: { c: 1, r: 1, w: 35, h: 5 },
+    estop: { c: 36, r: 1, w: 10, h: 5 },
+    viewer: { c: 1, r: 6, w: 25, h: 15 },
+    runtime: { c: 26, r: 6, w: 20, h: 5 },
+    model: { c: 26, r: 11, w: 20, h: 5 },
+    manual: { c: 26, r: 16, w: 20, h: 5 },
+    record: { c: 1, r: 21, w: 25, h: 5 }
   },
   auto: {
-    status: { c: 1, r: 1, w: 28, h: 4 },
-    estop: { c: 29, r: 1, w: 8, h: 4 },
-    viewer: { c: 1, r: 5, w: 22, h: 12 },
-    runtime: { c: 23, r: 5, w: 14, h: 5 },
-    model: { c: 23, r: 10, w: 14, h: 7 },
-    record: { c: 1, r: 17, w: 14, h: 4 }
+    status: { c: 1, r: 1, w: 35, h: 5 },
+    estop: { c: 36, r: 1, w: 10, h: 5 },
+    viewer: { c: 1, r: 6, w: 28, h: 15 },
+    runtime: { c: 29, r: 6, w: 17, h: 6 },
+    model: { c: 29, r: 12, w: 17, h: 9 },
+    record: { c: 1, r: 21, w: 20, h: 5 }
   },
   camera: {
-    status: { c: 1, r: 1, w: 28, h: 4 },
-    estop: { c: 29, r: 1, w: 8, h: 4 },
-    viewer: { c: 1, r: 5, w: 18, h: 16 },
-    camera: { c: 19, r: 5, w: 18, h: 16 }
+    status: { c: 1, r: 1, w: 35, h: 5 },
+    estop: { c: 36, r: 1, w: 10, h: 5 },
+    viewer: { c: 1, r: 6, w: 22, h: 20 },
+    camera: { c: 23, r: 6, w: 23, h: 20 }
   },
   motor: {
-    status: { c: 1, r: 1, w: 28, h: 4 },
-    estop: { c: 29, r: 1, w: 8, h: 4 },
-    viewer: { c: 1, r: 5, w: 18, h: 16 },
-    motor: { c: 19, r: 5, w: 18, h: 16 }
+    status: { c: 1, r: 1, w: 35, h: 5 },
+    estop: { c: 36, r: 1, w: 10, h: 5 },
+    viewer: { c: 1, r: 6, w: 22, h: 20 },
+    motor: { c: 23, r: 6, w: 23, h: 20 }
   }
 };
 
@@ -80,6 +80,7 @@ const state = {
   estopEnabled: false,
   recordEnabled: false,
   recordPending: false,
+  overlayEnabled: false,
   lastControlSentAt: 0,
   lastSentSteering: 0,
   lastSentThrottle: 0,
@@ -337,6 +338,19 @@ function setRecordToggle(enabled, pending = false) {
     : (state.recordEnabled ? "Tap to stop the current capture session" : "Tap to start a capture session");
 }
 
+function setOverlayToggle(enabled) {
+  state.overlayEnabled = !!enabled;
+  const btn = document.getElementById("overlayToggleBtn");
+  if (!btn) return;
+  btn.classList.toggle("on", state.overlayEnabled);
+  btn.classList.toggle("off", !state.overlayEnabled);
+  btn.setAttribute("aria-pressed", state.overlayEnabled ? "true" : "false");
+  const value = btn.querySelector(".metric-card-action-value");
+  const note = btn.querySelector(".metric-card-action-note");
+  if (value) value.textContent = state.overlayEnabled ? "ON" : "OFF";
+  if (note) note.textContent = "Placeholder";
+}
+
 async function sendControlUpdate(extra = {}) {
   const body = {
     steering: state.manualSteering,
@@ -466,6 +480,19 @@ async function toggleRecording() {
   } catch (error) {
     setRecordToggle(!next, false);
     throw error;
+  }
+}
+
+async function captureOneShot() {
+  const btn = document.getElementById("captureOnceBtn");
+  if (btn) btn.disabled = true;
+  try {
+    const data = await fetchJson("/api/record/capture_once", { method: "POST" });
+    setBanner("statusBanner", data.message || "Snapshot saved.", "muted");
+    if (data && data.state) updateStatusUi(data.state);
+    return data;
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 
@@ -907,12 +934,25 @@ function setupEvents() {
     }
   });
 
+  document.getElementById("captureOnceBtn").addEventListener("click", async () => {
+    try {
+      await captureOneShot();
+    } catch (error) {
+      setBanner("statusBanner", error.message, "muted");
+    }
+  });
+
   document.getElementById("recordToggleBtn").addEventListener("click", async () => {
     try {
       await toggleRecording();
     } catch (error) {
       setBanner("statusBanner", error.message, "muted");
     }
+  });
+
+  document.getElementById("overlayToggleBtn").addEventListener("click", () => {
+    setOverlayToggle(!state.overlayEnabled);
+    setBanner("statusBanner", `Overlay placeholder ${state.overlayEnabled ? "enabled" : "disabled"}.`, "muted");
   });
 
   document.getElementById("uploadModelBtn").addEventListener("click", async () => {
@@ -1006,6 +1046,7 @@ function syncControlsFromStatus(data) {
 async function init() {
   renderActivePage(state.page);
   updateRangeText();
+  setOverlayToggle(false);
   setupDocking();
   setupManualControls();
   setupEvents();

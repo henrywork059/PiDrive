@@ -16,7 +16,7 @@ from piserver.services.recorder_service import RecorderService
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 WEB_DIR = Path(__file__).resolve().parent / "web"
-APP_VERSION = "0_3_1"
+APP_VERSION = "0_3_2"
 
 
 def mjpeg_generator(camera_service):
@@ -172,6 +172,13 @@ def create_app() -> Flask:
         ok, recording, message = control_service.toggle_recording()
         code = 200 if ok else 423
         return jsonify({"ok": ok, "recording": recording, "message": message, "state": control_service.snapshot()}), code
+
+    @app.route("/api/record/capture_once", methods=["POST"])
+    def api_record_capture_once():
+        frame = camera_service.get_latest_frame(copy=True)
+        ok, message = recorder_service.capture_once(frame, control_service.snapshot())
+        code = 200 if ok else 503
+        return jsonify({"ok": ok, "message": message, "state": control_service.snapshot()}), code
 
     @app.route("/api/model/list")
     def api_model_list():

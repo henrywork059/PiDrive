@@ -112,6 +112,36 @@ class RecorderService:
             self.index_file.write(json.dumps(rec, ensure_ascii=False) + "\n")
             self.index_file.flush()
 
+    def capture_once(self, frame_bgr, snapshot: dict | None = None):
+        if frame_bgr is None or cv2 is None:
+            return False, "No live frame available to save."
+        snapshot = snapshot or {}
+        shots_dir = self.root / "snapshots"
+        shots_dir.mkdir(parents=True, exist_ok=True)
+        stamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        image_name = f"{stamp}.jpg"
+        image_path = shots_dir / image_name
+        ok = cv2.imwrite(str(image_path), frame_bgr)
+        if not ok:
+            return False, "Failed to save snapshot image."
+
+        meta_path = shots_dir / "snapshots.jsonl"
+        rec = {
+            "frame_id": stamp,
+            "ts": time.time(),
+            "image": f"snapshots/{image_name}",
+            "steering": float(snapshot.get("applied_steering", 0.0)),
+            "throttle": float(snapshot.get("applied_throttle", 0.0)),
+            "mode": str(snapshot.get("active_algorithm", "manual")),
+            "camera_width": int(snapshot.get("camera_width", 0)),
+            "camera_height": int(snapshot.get("camera_height", 0)),
+            "camera_format": str(snapshot.get("camera_format", "BGR888")),
+        }
+        with self._lock:
+            with meta_path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(rec, ensure_ascii=False) + "\n")
+        return True, f"Snapshot saved: {image_name}"
+
     def list_sessions(self):
         items = []
         for path in sorted(self.root.glob("*"), reverse=True):

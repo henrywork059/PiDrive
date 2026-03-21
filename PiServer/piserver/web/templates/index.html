@@ -43,6 +43,11 @@
             <div class="metric-card metric-card-primary"><label>Recording</label><strong id="metricRec">off</strong></div>
             <div class="metric-card metric-card-primary"><label>Preview</label><strong id="metricPreview">placeholder</strong></div>
             <div class="metric-card metric-card-primary"><label>Camera</label><strong id="metricCamera">unknown</strong></div>
+            <button id="overlayToggleBtn" class="metric-card metric-card-primary metric-card-action overlay-toggle off" type="button" aria-pressed="false">
+              <span class="metric-card-action-label">Overlay</span>
+              <strong class="metric-card-action-value">OFF</strong>
+              <span class="metric-card-action-note">Placeholder</span>
+            </button>
           </div>
 
           <div class="metric-grid metric-grid-secondary">
@@ -173,10 +178,16 @@
           <span class="panel-mini">session</span>
         </div>
         <div class="panel-body record-body">
-          <button id="recordToggleBtn" class="record-toggle off" type="button" aria-pressed="false">
-            <span class="record-toggle-title">RECORDING OFF</span>
-            <span class="record-toggle-subtitle">Tap to start a capture session</span>
-          </button>
+          <div class="record-controls">
+            <button id="captureOnceBtn" class="capture-once-btn" type="button">
+              <span class="capture-once-title">SNAPSHOT</span>
+              <span class="capture-once-subtitle">Save one frame</span>
+            </button>
+            <button id="recordToggleBtn" class="record-toggle off" type="button" aria-pressed="false">
+              <span class="record-toggle-title">RECORDING OFF</span>
+              <span class="record-toggle-subtitle">Tap to start a capture session</span>
+            </button>
+          </div>
         </div>
         <div class="resize-handle"></div>
       </article>
