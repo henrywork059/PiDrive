@@ -2079,3 +2079,212 @@ input[type=range] {
 .theme-ops-flat input[type=range] {
   accent-color: #5a8f96;
 }
+
+
+/* 0_3_16 flat compact override */
+html.theme-ops-flat {
+  font-size: 68% !important;
+}
+
+html.theme-ops-flat,
+html.theme-ops-flat body {
+  background: #101215 !important;
+  color: var(--text) !important;
+}
+
+html.theme-ops-flat *,
+html.theme-ops-flat *::before,
+html.theme-ops-flat *::after {
+  box-shadow: none !important;
+  text-shadow: none !important;
+  backdrop-filter: none !important;
+  filter: none !important;
+}
+
+html.theme-ops-flat body,
+html.theme-ops-flat .topbar,
+html.theme-ops-flat .dock-panel,
+html.theme-ops-flat .panel-head,
+html.theme-ops-flat .panel-body,
+html.theme-ops-flat .metric-card,
+html.theme-ops-flat .metric-card-primary,
+html.theme-ops-flat .banner,
+html.theme-ops-flat .panel-section,
+html.theme-ops-flat .camera-overlay-panel,
+html.theme-ops-flat .record-meta-card,
+html.theme-ops-flat .export-card,
+html.theme-ops-flat .status-footer,
+html.theme-ops-flat .status-banner,
+html.theme-ops-flat .joystick-area,
+html.theme-ops-flat .joystick-dot,
+html.theme-ops-flat .capture-flash,
+html.theme-ops-flat .preview-footer,
+html.theme-ops-flat .overlay-toggle,
+html.theme-ops-flat .value-text,
+html.theme-ops-flat .field,
+html.theme-ops-flat .session-actions,
+html.theme-ops-flat .panel-actions,
+html.theme-ops-flat .panel-mini {
+  background-image: none !important;
+}
+
+html.theme-ops-flat body {
+  background-color: #101215 !important;
+}
+
+html.theme-ops-flat .topbar {
+  padding: 8px 10px !important;
+  gap: 8px !important;
+  background: #14171b !important;
+  border-bottom: 1px solid rgba(138, 144, 150, 0.16) !important;
+}
+
+html.theme-ops-flat .workspace-shell {
+  padding: 6px !important;
+  height: calc(100vh - 54px) !important;
+}
+
+html.theme-ops-flat .workspace-grid,
+html.theme-ops-flat .status-body,
+html.theme-ops-flat .metric-grid,
+html.theme-ops-flat .page-tabs,
+html.theme-ops-flat .toolbar-actions,
+html.theme-ops-flat .stack-row,
+html.theme-ops-flat .panel-actions {
+  gap: 4px !important;
+}
+
+html.theme-ops-flat .dock-panel {
+  background: #171a1e !important;
+  border: 1px solid rgba(138, 144, 150, 0.18) !important;
+  border-radius: 10px !important;
+}
+
+html.theme-ops-flat .panel-head {
+  padding: 6px 8px !important;
+  background: #191d21 !important;
+  border-bottom: 1px solid rgba(138, 144, 150, 0.16) !important;
+}
+
+html.theme-ops-flat .panel-body {
+  padding: 7px !important;
+}
+
+html.theme-ops-flat .brand-title { font-size: 0.92rem !important; }
+html.theme-ops-flat .brand-subtitle { font-size: 0.56rem !important; margin-top: 0 !important; }
+html.theme-ops-flat .panel-head > span:first-child { font-size: 0.76rem !important; }
+html.theme-ops-flat .panel-mini,
+html.theme-ops-flat .small-note,
+html.theme-ops-flat .field label,
+html.theme-ops-flat .metric-card label,
+html.theme-ops-flat .value-text,
+html.theme-ops-flat .status-banner,
+html.theme-ops-flat .record-btn-sub,
+html.theme-ops-flat .action-subtitle {
+  font-size: 0.60rem !important;
+}
+
+html.theme-ops-flat button,
+html.theme-ops-flat select,
+html.theme-ops-flat input[type=file],
+html.theme-ops-flat input[type=number] {
+  min-height: 32px !important;
+  padding: 6px 8px !important;
+  font-size: 0.74rem !important;
+  border-radius: 9px !important;
+  background: #1a1e23 !important;
+  color: #e6e1d8 !important;
+  border: 1px solid rgba(138, 144, 150, 0.18) !important;
+}
+
+html.theme-ops-flat select,
+html.theme-ops-flat option,
+html.theme-ops-flat optgroup {
+  background: #1a1e23 !important;
+  color: #e6e1d8 !important;
+}
+
+html.theme-ops-flat button:hover {
+  transform: none !important;
+  background: #20252a !important;
+  border-color: rgba(176, 184, 190, 0.24) !important;
+}
+
+html.theme-ops-flat button.active,
+html.theme-ops-flat .tab-btn.active,
+html.theme-ops-flat .run-btn.active,
+html.theme-ops-flat .overlay-toggle.active {
+  background: #2a312f !important;
+  border-color: #545f5b !important;
+  color: #f0ebe3 !important;
+}
+
+html.theme-ops-flat .danger-btn,
+html.theme-ops-flat .estop-toggle.off {
+  background: #5a3732 !important;
+  border-color: #7f5851 !important;
+  color: #f2e7e3 !important;
+}
+
+html.theme-ops-flat .warn-btn,
+html.theme-ops-flat .estop-toggle.on {
+  background: #564a33 !important;
+  border-color: #7f7052 !important;
+  color: #f0eadb !important;
+}
+
+html.theme-ops-flat .ghost-btn {
+  background: #1a1e23 !important;
+}
+
+html.theme-ops-flat .metric-card,
+html.theme-ops-flat .metric-card-primary,
+html.theme-ops-flat .banner,
+html.theme-ops-flat .panel-section,
+html.theme-ops-flat .camera-overlay-panel,
+html.theme-ops-flat .record-meta-card,
+html.theme-ops-flat .export-card,
+html.theme-ops-flat .status-footer {
+  background: #15191d !important;
+  border: 1px solid rgba(138, 144, 150, 0.16) !important;
+  border-radius: 9px !important;
+  padding: 7px 8px !important;
+}
+
+html.theme-ops-flat .metric-card strong,
+html.theme-ops-flat .metric-card-action-value,
+html.theme-ops-flat .value-text strong,
+html.theme-ops-flat .record-btn-title,
+html.theme-ops-flat .status-big-value {
+  font-size: 0.82rem !important;
+}
+
+html.theme-ops-flat .field { margin-bottom: 6px !important; }
+
+html.theme-ops-flat .joystick-area {
+  background: #111418 !important;
+  border: 1px solid rgba(138, 144, 150, 0.18) !important;
+}
+
+html.theme-ops-flat .joystick-dot {
+  background: #8e7c67 !important;
+  border: 1px solid #e6e1d8 !important;
+}
+
+html.theme-ops-flat .preview-footer,
+html.theme-ops-flat .camera-overlay-panel,
+html.theme-ops-flat .overlay-chip,
+html.theme-ops-flat .overlay-label,
+html.theme-ops-flat .status-banner {
+  background: #14181c !important;
+  border-color: rgba(138, 144, 150, 0.16) !important;
+}
+
+html.theme-ops-flat .resize-handle {
+  border-right-color: rgba(138, 144, 150, 0.16) !important;
+  border-bottom-color: rgba(138, 144, 150, 0.16) !important;
+}
+
+html.theme-ops-flat input[type=range] {
+  accent-color: #8e7c67 !important;
+}
