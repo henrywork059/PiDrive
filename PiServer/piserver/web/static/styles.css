@@ -2288,3 +2288,485 @@ html.theme-ops-flat .resize-handle {
 html.theme-ops-flat input[type=range] {
   accent-color: #8e7c67 !important;
 }
+
+
+/* 0_3_17 modern dashboard refinement */
+html.theme-ops-flat {
+  font-size: 70% !important;
+}
+
+html.theme-ops-flat,
+html.theme-ops-flat body {
+  background: var(--bg) !important;
+  color: var(--text) !important;
+}
+
+html.theme-ops-flat * {
+  box-shadow: none !important;
+  text-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+html.theme-ops-flat .topbar {
+  background: #0d1214 !important;
+  border-bottom: 1px solid rgba(116, 137, 145, 0.24) !important;
+  padding: 8px 10px !important;
+  gap: 8px !important;
+}
+
+html.theme-ops-flat .brand {
+  min-width: 0;
+}
+
+html.theme-ops-flat .brand-title {
+  font-size: 0.98rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.02em !important;
+  color: #f0f6f8 !important;
+}
+
+html.theme-ops-flat .brand-subtitle {
+  font-size: 0.54rem !important;
+  letter-spacing: 0.10em !important;
+  text-transform: uppercase !important;
+  color: rgba(146, 161, 168, 0.72) !important;
+  margin-top: 1px !important;
+}
+
+html.theme-ops-flat .page-tabs,
+html.theme-ops-flat .toolbar-actions,
+html.theme-ops-flat .stack-row,
+html.theme-ops-flat .panel-actions,
+html.theme-ops-flat .metric-grid,
+html.theme-ops-flat .status-body,
+html.theme-ops-flat .record-body,
+html.theme-ops-flat .manual-body,
+html.theme-ops-flat .manual-layout,
+html.theme-ops-flat .manual-side,
+html.theme-ops-flat .field-grid,
+html.theme-ops-flat .record-meta-grid,
+html.theme-ops-flat .session-export-grid,
+html.theme-ops-flat .record-controls {
+  gap: 6px !important;
+}
+
+html.theme-ops-flat .workspace-shell {
+  padding: 6px !important;
+  height: calc(100vh - 52px) !important;
+}
+
+html.theme-ops-flat .workspace-grid {
+  gap: 4px !important;
+}
+
+html.theme-ops-flat .dock-panel {
+  background: var(--panel) !important;
+  border: 1px solid rgba(116, 137, 145, 0.22) !important;
+  border-radius: 10px !important;
+}
+
+html.theme-ops-flat .panel-head {
+  background: #10161a !important;
+  border-bottom: 1px solid rgba(116, 137, 145, 0.18) !important;
+  padding: 7px 9px !important;
+  min-height: 32px;
+}
+
+html.theme-ops-flat .panel-head > span:first-child {
+  font-size: 0.74rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+  color: #eff6f7 !important;
+}
+
+html.theme-ops-flat .panel-mini,
+html.theme-ops-flat .badge {
+  font-size: 0.56rem !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: rgba(146, 161, 168, 0.82) !important;
+  background: #12191d !important;
+  border: 1px solid rgba(116, 137, 145, 0.18) !important;
+  padding: 2px 7px !important;
+  min-height: 22px !important;
+}
+
+html.theme-ops-flat .panel-body {
+  padding: 8px !important;
+}
+
+html.theme-ops-flat .viewer-body {
+  padding: 6px !important;
+  background: #0e1316 !important;
+}
+
+html.theme-ops-flat #videoFeed {
+  border: 1px solid rgba(116, 137, 145, 0.28) !important;
+  border-radius: 10px !important;
+  background: #020405 !important;
+}
+
+html.theme-ops-flat .viewer-frame {
+  background: #090c0e !important;
+  border: 1px solid rgba(116, 137, 145, 0.16) !important;
+  border-radius: 10px !important;
+  overflow: hidden;
+}
+
+html.theme-ops-flat .preview-meta,
+html.theme-ops-flat .banner,
+html.theme-ops-flat .manual-readout,
+html.theme-ops-flat .record-meta-card,
+html.theme-ops-flat .panel-section,
+html.theme-ops-flat .camera-overlay-panel,
+html.theme-ops-flat .overlay-two-pill,
+html.theme-ops-flat .field,
+html.theme-ops-flat .compact-field,
+html.theme-ops-flat .metric-card,
+html.theme-ops-flat .metric-card-primary,
+html.theme-ops-flat .metric-card-action {
+  background: var(--panel-alt) !important;
+  border: 1px solid rgba(116, 137, 145, 0.20) !important;
+  border-radius: 9px !important;
+}
+
+html.theme-ops-flat .panel-section,
+html.theme-ops-flat .compact-field,
+html.theme-ops-flat .record-meta-card,
+html.theme-ops-flat .manual-readout,
+html.theme-ops-flat .banner {
+  padding: 7px 8px !important;
+}
+
+html.theme-ops-flat .metric-card,
+html.theme-ops-flat .metric-card-primary,
+html.theme-ops-flat .metric-card-action {
+  padding: 7px 8px !important;
+  position: relative;
+  min-height: 58px;
+}
+
+html.theme-ops-flat .metric-card-primary::before,
+html.theme-ops-flat .metric-card-action::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 2px;
+  background: rgba(var(--accent-rgb), 0.58);
+}
+
+html.theme-ops-flat .metric-card-alert::before {
+  background: rgba(179, 95, 88, 0.68) !important;
+}
+
+html.theme-ops-flat .metric-card label,
+html.theme-ops-flat .field label,
+html.theme-ops-flat .record-meta-card label,
+html.theme-ops-flat .metric-card-action-label,
+html.theme-ops-flat .overlay-block-label {
+  font-size: 0.54rem !important;
+  color: rgba(146, 161, 168, 0.92) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.09em !important;
+  margin-bottom: 4px !important;
+}
+
+html.theme-ops-flat .metric-card strong,
+html.theme-ops-flat .metric-card-action-value,
+html.theme-ops-flat .value-text strong,
+html.theme-ops-flat .record-btn-title,
+html.theme-ops-flat .record-toggle-title,
+html.theme-ops-flat .capture-once-title,
+html.theme-ops-flat .estop-toggle-title {
+  font-size: 0.98rem !important;
+  line-height: 1.15 !important;
+  font-weight: 700 !important;
+  color: #f5fbfc !important;
+}
+
+html.theme-ops-flat .value-text,
+html.theme-ops-flat .small-note,
+html.theme-ops-flat .metric-card-action-note,
+html.theme-ops-flat .preview-meta,
+html.theme-ops-flat .record-toggle-subtitle,
+html.theme-ops-flat .capture-once-subtitle,
+html.theme-ops-flat .estop-toggle-subtitle,
+html.theme-ops-flat .status-banner,
+html.theme-ops-flat .banner.muted {
+  font-size: 0.60rem !important;
+  line-height: 1.35 !important;
+  color: rgba(146, 161, 168, 0.92) !important;
+}
+
+html.theme-ops-flat button,
+html.theme-ops-flat select,
+html.theme-ops-flat input[type=file],
+html.theme-ops-flat input[type=number] {
+  background: #182026 !important;
+  color: #eef5f7 !important;
+  border: 1px solid rgba(116, 137, 145, 0.22) !important;
+  border-radius: 8px !important;
+  min-height: 32px !important;
+  padding: 6px 8px !important;
+  font-size: 0.70rem !important;
+}
+
+html.theme-ops-flat button:hover,
+html.theme-ops-flat select:hover {
+  transform: none !important;
+  background: #1c252b !important;
+  border-color: rgba(var(--accent-rgb), 0.42) !important;
+}
+
+html.theme-ops-flat button.active,
+html.theme-ops-flat .tab-btn.active,
+html.theme-ops-flat .run-btn.active,
+html.theme-ops-flat .overlay-toggle.mode-1,
+html.theme-ops-flat .overlay-toggle.active {
+  background: rgba(var(--accent-rgb), 0.16) !important;
+  border-color: rgba(var(--accent-rgb), 0.48) !important;
+  color: #f3fbfc !important;
+}
+
+html.theme-ops-flat .overlay-toggle.off {
+  background: #182026 !important;
+  border-color: rgba(116, 137, 145, 0.22) !important;
+}
+
+html.theme-ops-flat .overlay-toggle.mode-2 {
+  background: rgba(183, 158, 99, 0.14) !important;
+  border-color: rgba(183, 158, 99, 0.42) !important;
+}
+
+html.theme-ops-flat .ghost-btn {
+  background: #141b1f !important;
+}
+
+html.theme-ops-flat .danger-btn,
+html.theme-ops-flat .estop-toggle.off {
+  background: rgba(179, 95, 88, 0.20) !important;
+  border-color: rgba(179, 95, 88, 0.44) !important;
+  color: #ffeceb !important;
+}
+
+html.theme-ops-flat .estop-toggle.on,
+html.theme-ops-flat .warn-btn {
+  background: rgba(183, 158, 99, 0.16) !important;
+  border-color: rgba(183, 158, 99, 0.42) !important;
+  color: #fff2d7 !important;
+}
+
+html.theme-ops-flat .record-toggle.off,
+html.theme-ops-flat .capture-once-btn {
+  background: #182026 !important;
+  border-color: rgba(116, 137, 145, 0.24) !important;
+}
+
+html.theme-ops-flat .record-toggle.on {
+  background: rgba(95, 133, 118, 0.16) !important;
+  border-color: rgba(95, 133, 118, 0.42) !important;
+}
+
+html.theme-ops-flat .tab-btn,
+html.theme-ops-flat .ghost-btn,
+html.theme-ops-flat #saveLayoutBtn,
+html.theme-ops-flat #resetLayoutBtn {
+  min-width: 64px;
+}
+
+html.theme-ops-flat select,
+html.theme-ops-flat option,
+html.theme-ops-flat optgroup {
+  background: #151c21 !important;
+  color: #edf3f6 !important;
+}
+
+html.theme-ops-flat input[type=range] {
+  accent-color: var(--accent) !important;
+}
+
+html.theme-ops-flat .joystick-area {
+  position: relative;
+  background: #0c1114 !important;
+  border: 1px solid rgba(var(--accent-rgb), 0.22) !important;
+  border-radius: 10px !important;
+}
+
+html.theme-ops-flat .joystick-area::before {
+  content: '';
+  position: absolute;
+  width: 34%;
+  height: 34%;
+  left: 33%;
+  top: 33%;
+  border: 1px solid rgba(var(--accent-rgb), 0.12);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+html.theme-ops-flat .joystick-crosshair::before,
+html.theme-ops-flat .joystick-crosshair::after {
+  background: rgba(146, 161, 168, 0.18) !important;
+}
+
+html.theme-ops-flat .joystick-dot {
+  width: 20px !important;
+  height: 20px !important;
+  background: var(--accent) !important;
+  border: 2px solid #f0fbfd !important;
+}
+
+html.theme-ops-flat .manual-readout {
+  background: #151c20 !important;
+  border-color: rgba(var(--accent-rgb), 0.22) !important;
+  color: #dcebf0 !important;
+}
+
+html.theme-ops-flat .preview-meta {
+  left: 8px !important;
+  right: 8px !important;
+  bottom: 8px !important;
+  padding: 6px 8px !important;
+  background: rgba(12, 16, 18, 0.94) !important;
+  border: 1px solid rgba(116, 137, 145, 0.22) !important;
+  border-radius: 8px !important;
+}
+
+html.theme-ops-flat .snapshot-flash {
+  background: rgba(255,255,255,0.18) !important;
+}
+
+html.theme-ops-flat .overlay-one {
+  left: 8px !important;
+  right: 8px !important;
+  bottom: 42px !important;
+  gap: 8px !important;
+}
+
+html.theme-ops-flat .overlay-block {
+  background: rgba(12, 16, 18, 0.94) !important;
+  border: 1px solid rgba(var(--accent-rgb), 0.22) !important;
+  border-radius: 8px !important;
+  padding: 6px 8px !important;
+}
+
+html.theme-ops-flat .overlay-block-value {
+  color: #f2fbfc !important;
+  font-size: 0.82rem !important;
+}
+
+html.theme-ops-flat .overlay-throttle-track {
+  background: #0b1012 !important;
+  border-color: rgba(var(--accent-rgb), 0.24) !important;
+}
+
+html.theme-ops-flat .overlay-throttle-fill {
+  background: var(--accent) !important;
+}
+
+html.theme-ops-flat .overlay-steer-base {
+  stroke: rgba(146, 161, 168, 0.22) !important;
+}
+
+html.theme-ops-flat .overlay-steer-arc-left,
+html.theme-ops-flat .overlay-steer-arc-right,
+html.theme-ops-flat .overlay-steer-needle {
+  stroke: var(--accent) !important;
+}
+
+html.theme-ops-flat .overlay-steer-hub {
+  fill: #effbfc !important;
+}
+
+html.theme-ops-flat .status-metric-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(7.8rem, 100%), 1fr)) !important;
+}
+
+html.theme-ops-flat .metric-card-action {
+  text-align: left !important;
+}
+
+html.theme-ops-flat .record-controls {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+html.theme-ops-flat .manual-feel-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+}
+
+html.theme-ops-flat .compact-field {
+  background: #151d22 !important;
+  border-color: rgba(116, 137, 145, 0.20) !important;
+}
+
+html.theme-ops-flat .field {
+  margin-bottom: 8px !important;
+}
+
+html.theme-ops-flat .resize-handle {
+  border-right-color: rgba(var(--accent-rgb), 0.26) !important;
+  border-bottom-color: rgba(var(--accent-rgb), 0.26) !important;
+}
+
+html.theme-ops-flat .status-banner {
+  background: #141a1e !important;
+  border: 1px solid rgba(116, 137, 145, 0.18) !important;
+  color: rgba(146, 161, 168, 0.92) !important;
+}
+
+html.theme-ops-flat .badge.off {
+  color: rgba(146, 161, 168, 0.92) !important;
+}
+
+html.theme-ops-flat .badge.on {
+  color: #eef7f8 !important;
+  background: rgba(var(--accent-rgb), 0.12) !important;
+  border-color: rgba(var(--accent-rgb), 0.34) !important;
+}
+
+@container (max-width: 30rem) {
+  html.theme-ops-flat .panel-mini,
+  html.theme-ops-flat .metric-card-action-note,
+  html.theme-ops-flat .capture-once-subtitle,
+  html.theme-ops-flat .record-toggle-subtitle,
+  html.theme-ops-flat .estop-toggle-subtitle {
+    display: none !important;
+  }
+
+  html.theme-ops-flat .metric-card,
+  html.theme-ops-flat .metric-card-primary,
+  html.theme-ops-flat .metric-card-action {
+    min-height: 50px;
+  }
+}
+
+@container (max-width: 24rem) {
+  html.theme-ops-flat .priority-low {
+    display: none !important;
+  }
+
+  html.theme-ops-flat .metric-card label,
+  html.theme-ops-flat .field label,
+  html.theme-ops-flat .record-meta-card label {
+    font-size: 0.50rem !important;
+  }
+
+  html.theme-ops-flat .manual-feel-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@container (max-width: 18rem) {
+  html.theme-ops-flat .priority-medium,
+  html.theme-ops-flat .brand-subtitle {
+    display: none !important;
+  }
+
+  html.theme-ops-flat .record-controls,
+  html.theme-ops-flat .manual-feel-grid {
+    grid-template-columns: 1fr !important;
+  }
+}

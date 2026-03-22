@@ -4,19 +4,20 @@
     opsFlat: {
       className: 'theme-ops-flat',
       vars: {
-        '--bg': '#101215',
-        '--panel': '#171a1e',
-        '--panel-alt': '#14171b',
-        '--line': 'rgba(138, 144, 150, 0.18)',
-        '--line-strong': 'rgba(176, 184, 190, 0.28)',
-        '--text': '#e6e1d8',
-        '--muted': '#a8a096',
-        '--accent': '#8e7c67',
-        '--danger': '#8f5c54',
-        '--warn': '#8c7752',
-        '--ok': '#667565',
+        '--bg': '#0b1012',
+        '--panel': '#12181b',
+        '--panel-alt': '#182127',
+        '--line': 'rgba(116, 137, 145, 0.28)',
+        '--line-strong': 'rgba(152, 178, 186, 0.44)',
+        '--text': '#edf3f6',
+        '--muted': '#92a1a8',
+        '--accent': '#6eaeb6',
+        '--accent-rgb': '110, 174, 182',
+        '--danger': '#b35f58',
+        '--warn': '#b79e63',
+        '--ok': '#5f8576',
         '--shadow': 'none',
-        '--gap': '2px',
+        '--gap': '4px',
         '--radius': '10px'
       }
     }
