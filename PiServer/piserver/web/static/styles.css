@@ -503,22 +503,38 @@ button.active,
   overflow: visible;
 }
 
-.overlay-two-arc {
+.overlay-two-track {
   fill: none;
-  stroke: rgba(var(--accent-rgb), 0.95);
-  stroke-width: 1.8;
+  stroke: rgba(18, 21, 28, 0.78);
+  stroke-width: 2.8;
   stroke-linecap: round;
   vector-effect: non-scaling-stroke;
 }
 
-.overlay-two-point {
-  fill: rgba(var(--accent-rgb), 0.98);
-  stroke: rgba(8, 12, 14, 0.9);
-  stroke-width: 0.8;
+.overlay-two-arc {
+  fill: none;
+  stroke: rgba(var(--accent-rgb), 0.96);
+  stroke-width: 1.7;
+  stroke-linecap: round;
   vector-effect: non-scaling-stroke;
 }
 
+.overlay-two-point-ring {
+  fill: rgba(21, 24, 31, 0.94);
+  stroke: rgba(var(--accent-rgb), 0.82);
+  stroke-width: 0.9;
+  vector-effect: non-scaling-stroke;
+}
+
+.overlay-two-point {
+  fill: rgba(var(--accent-rgb), 1);
+  stroke: none;
+  vector-effect: non-scaling-stroke;
+}
+
+.overlay-two-svg:not(.has-path) .overlay-two-track,
 .overlay-two-svg:not(.has-path) .overlay-two-arc,
+.overlay-two-svg:not(.has-path) .overlay-two-point-ring,
 .overlay-two-svg:not(.has-path) .overlay-two-point {
   opacity: 0;
 }
@@ -749,16 +765,16 @@ input[type=range] {
 
 .joystick-area {
   position: relative;
-  min-height: clamp(220px, 36cqh, 460px);
-  width: 100%;
-  height: clamp(220px, 36cqh, 460px);
-  flex: 1 1 auto;
-  border-radius: 16px;
-  border: 1px solid rgba(174, 157, 138, 0.16);
-  background:
-    linear-gradient(rgba(255,255,255,0.03), rgba(255,255,255,0.02)),
-    radial-gradient(circle at center, rgba(110, 166, 255, 0.1), transparent 45%),
-    rgba(8, 12, 18, 0.98);
+  width: min(100%, 30rem);
+  max-width: 100%;
+  aspect-ratio: 1 / 1;
+  height: auto;
+  min-height: 176px;
+  flex: 0 0 auto;
+  align-self: center;
+  border-radius: 18px;
+  border: 1px solid rgba(var(--accent-rgb), 0.18);
+  background: #141820;
   overflow: hidden;
   touch-action: none;
 }
@@ -788,12 +804,11 @@ input[type=range] {
 
 .joystick-dot {
   position: absolute;
-  width: 24px;
-  height: 24px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
-  background: linear-gradient(180deg, rgba(181, 145, 102, 1), rgba(122, 98, 75, 0.96));
-  border: 2px solid rgba(243, 234, 222, 0.95);
-  box-shadow: 0 8px 20px rgba(108, 84, 59, 0.38);
+  background: rgba(var(--accent-rgb), 1);
+  border: 2px solid rgba(255, 246, 229, 0.92);
   transform: translate(-50%, -50%);
   left: 50%;
   top: 50%;
@@ -2618,33 +2633,33 @@ html.theme-ops-flat input[type=range] {
 
 html.theme-ops-flat .joystick-area {
   position: relative;
-  background: #0c1114 !important;
-  border: 1px solid rgba(var(--accent-rgb), 0.22) !important;
-  border-radius: 10px !important;
+  background: #20242d !important;
+  border: 1px solid rgba(var(--accent-rgb), 0.28) !important;
+  border-radius: 16px !important;
 }
 
 html.theme-ops-flat .joystick-area::before {
   content: '';
   position: absolute;
-  width: 34%;
-  height: 34%;
-  left: 33%;
-  top: 33%;
-  border: 1px solid rgba(var(--accent-rgb), 0.12);
+  width: 32%;
+  height: 32%;
+  left: 34%;
+  top: 34%;
+  border: 1px solid rgba(var(--accent-rgb), 0.16);
   border-radius: 50%;
   pointer-events: none;
 }
 
 html.theme-ops-flat .joystick-crosshair::before,
 html.theme-ops-flat .joystick-crosshair::after {
-  background: rgba(146, 161, 168, 0.18) !important;
+  background: rgba(255, 255, 255, 0.10) !important;
 }
 
 html.theme-ops-flat .joystick-dot {
-  width: 20px !important;
-  height: 20px !important;
+  width: 16px !important;
+  height: 16px !important;
   background: var(--accent) !important;
-  border: 2px solid #f0fbfd !important;
+  border: 2px solid #fff4de !important;
 }
 
 html.theme-ops-flat .manual-readout {
@@ -2709,20 +2724,27 @@ html.theme-ops-flat .overlay-steer-hub {
   fill: #effbfc !important;
 }
 
-html.theme-ops-flat .overlay-two-arc,
-html.theme-ops-flat .overlay-two-point {
+html.theme-ops-flat .overlay-two-track {
+  stroke: rgba(6, 7, 10, 0.64) !important;
+}
+
+html.theme-ops-flat .overlay-two-arc {
   stroke: var(--accent) !important;
+}
+
+html.theme-ops-flat .overlay-two-point-ring {
+  fill: #1e232b !important;
+  stroke: rgba(var(--accent-rgb), 0.86) !important;
 }
 
 html.theme-ops-flat .overlay-two-point {
   fill: var(--accent) !important;
-  stroke: #081012 !important;
 }
 
 html.theme-ops-flat .overlay-two-pill {
-  background: rgba(8, 12, 14, 0.92) !important;
-  border-color: rgba(var(--accent-rgb), 0.28) !important;
-  color: #effbfc !important;
+  background: #232730 !important;
+  border-color: rgba(var(--accent-rgb), 0.32) !important;
+  color: #fff0d4 !important;
 }
 
 html.theme-ops-flat .status-metric-grid {
@@ -2739,6 +2761,14 @@ html.theme-ops-flat .record-controls {
 
 html.theme-ops-flat .manual-feel-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+}
+
+html.theme-ops-flat .manual-layout-single {
+  align-items: center;
+}
+
+html.theme-ops-flat .manual-side-single {
+  width: 100%;
 }
 
 html.theme-ops-flat .compact-field {

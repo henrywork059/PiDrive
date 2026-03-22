@@ -351,6 +351,7 @@ function renderActivePage(page) {
     panel.classList.toggle("panel-hidden", !visible.has(panel.dataset.panel));
   });
   applyLayout(page);
+  window.requestAnimationFrame(updateManualPadSizing);
 }
 
 async function fetchJson(url, options = {}) {
@@ -462,8 +463,11 @@ function updateOverlayVisuals(data = {}) {
   const steerValue = document.getElementById("overlaySteerValue");
   const steerNeedle = document.getElementById("overlaySteerNeedle");
   const overlayTwoSvg = document.getElementById("overlayTwoSvg");
+  const overlayTwoTrack = document.getElementById("overlayTwoTrack");
   const overlayTwoArc = document.getElementById("overlayTwoArc");
+  const overlayTwoPointStartRing = document.getElementById("overlayTwoPointStartRing");
   const overlayTwoPointStart = document.getElementById("overlayTwoPointStart");
+  const overlayTwoPointEndRing = document.getElementById("overlayTwoPointEndRing");
   const overlayTwoPointEnd = document.getElementById("overlayTwoPointEnd");
   const appliedThrottle = Number(data.applied_throttle || 0);
   const appliedSteering = Number(data.applied_steering || 0);
@@ -491,31 +495,40 @@ function updateOverlayVisuals(data = {}) {
   }
   if (steerValue) steerValue.textContent = appliedSteering.toFixed(2);
 
-  if (overlayTwoSvg && overlayTwoArc && overlayTwoPointStart && overlayTwoPointEnd) {
+  if (overlayTwoSvg && overlayTwoTrack && overlayTwoArc && overlayTwoPointStartRing && overlayTwoPointStart && overlayTwoPointEndRing && overlayTwoPointEnd) {
     const shouldShowPath = throttleNorm > 0;
     overlayTwoSvg.classList.toggle("has-path", shouldShowPath);
     if (shouldShowPath) {
       const startX = 50;
       const startY = 92;
-      const endY = 92 - (throttleNorm * 62);
-      const horizontalReach = 30 + (throttleNorm * 6);
-      const endX = clamp(startX + (steerNorm * horizontalReach), 16, 84);
+      const verticalTravel = 18 + (throttleNorm * 54);
+      const endY = clamp(startY - verticalTravel, 18, 92);
+      const horizontalReach = 12 + (throttleNorm * 22);
+      const endX = clamp(startX + (steerNorm * horizontalReach), 18, 82);
       const dx = endX - startX;
       const dy = startY - endY;
-      const rx = Math.max(10, Math.abs(dx) * 1.05);
-      const ry = Math.max(12, dy);
-      const sweep = dx >= 0 ? 1 : 0;
-      overlayTwoArc.setAttribute("d", `M ${startX} ${startY} A ${rx} ${ry} 0 0 ${sweep} ${endX} ${endY}`);
-      overlayTwoPointStart.setAttribute("cx", `${startX}`);
-      overlayTwoPointStart.setAttribute("cy", `${startY}`);
-      overlayTwoPointEnd.setAttribute("cx", `${endX}`);
-      overlayTwoPointEnd.setAttribute("cy", `${endY}`);
+      const cp1x = startX;
+      const cp1y = startY - Math.max(8, dy * 0.62);
+      const cp2x = startX + dx * 0.72;
+      const cp2y = endY;
+      const d = `M ${startX} ${startY} C ${cp1x} ${cp1y} ${cp2x} ${cp2y} ${endX} ${endY}`;
+      overlayTwoTrack.setAttribute("d", d);
+      overlayTwoArc.setAttribute("d", d);
+      [overlayTwoPointStartRing, overlayTwoPointStart].forEach((el) => {
+        el.setAttribute("cx", `${startX}`);
+        el.setAttribute("cy", `${startY}`);
+      });
+      [overlayTwoPointEndRing, overlayTwoPointEnd].forEach((el) => {
+        el.setAttribute("cx", `${endX}`);
+        el.setAttribute("cy", `${endY}`);
+      });
     } else {
+      overlayTwoTrack.setAttribute("d", "");
       overlayTwoArc.setAttribute("d", "");
-      overlayTwoPointStart.setAttribute("cx", "50");
-      overlayTwoPointStart.setAttribute("cy", "92");
-      overlayTwoPointEnd.setAttribute("cx", "50");
-      overlayTwoPointEnd.setAttribute("cy", "92");
+      [overlayTwoPointStartRing, overlayTwoPointStart, overlayTwoPointEndRing, overlayTwoPointEnd].forEach((el) => {
+        el.setAttribute("cx", "50");
+        el.setAttribute("cy", "92");
+      });
     }
   }
 }
@@ -1159,6 +1172,41 @@ function controlLoopTick() {
   }
 }
 
+function updateManualPadSizing() {
+  const area = document.getElementById("joystickArea");
+  const layout = document.querySelector(".manual-layout-single");
+  const side = document.querySelector(".manual-side-single");
+  if (!area || !layout) return;
+  area.style.width = "";
+  area.style.height = "";
+  const layoutRect = layout.getBoundingClientRect();
+  const sideRect = side ? side.getBoundingClientRect() : { height: 0 };
+  const layoutStyle = getComputedStyle(layout);
+  const gap = parseFloat(layoutStyle.rowGap || layoutStyle.gap || "0") || 0;
+  const widthBudget = Math.max(176, layoutRect.width);
+  const heightBudget = Math.max(176, layoutRect.height - sideRect.height - gap);
+  const size = Math.max(176, Math.floor(Math.min(widthBudget, heightBudget)));
+  area.style.width = `${size}px`;
+  area.style.height = `${size}px`;
+}
+
+function setupManualPadSizing() {
+  const layout = document.querySelector(".manual-layout-single");
+  const side = document.querySelector(".manual-side-single");
+  const panel = document.querySelector('.dock-panel[data-panel="manual"]');
+  if (!layout) return;
+  if (state.manualPadObserver) {
+    try { state.manualPadObserver.disconnect(); } catch {}
+  }
+  if (typeof ResizeObserver === "function") {
+    state.manualPadObserver = new ResizeObserver(() => {
+      window.requestAnimationFrame(updateManualPadSizing);
+    });
+    [layout, side, panel].filter(Boolean).forEach((el) => state.manualPadObserver.observe(el));
+  }
+  window.requestAnimationFrame(updateManualPadSizing);
+}
+
 function setupManualControls() {
   const area = document.getElementById("joystickArea");
   applyManualState();
@@ -1335,7 +1383,7 @@ function setupEvents() {
       ? "Frame overlay off."
       : nextMode === 1
         ? "Overlay 1: throttle and steering enabled."
-        : "Overlay 2 placeholder enabled.";
+        : "Overlay 2: arc guide enabled.";
     setBanner("statusBanner", message, "muted");
   });
 
@@ -1444,6 +1492,7 @@ async function init() {
   setOverlayMode(0);
   setupDocking();
   setupManualControls();
+  setupManualPadSizing();
   setupEvents();
   await refreshModels();
   await refreshSessions(false);
