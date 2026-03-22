@@ -36,11 +36,11 @@
           <span class="panel-mini">live</span>
         </div>
         <div class="panel-body status-body">
-          <div class="metric-grid status-metric-grid">
+          <div class="metric-grid metric-grid-primary">
             <div class="metric-card metric-card-primary priority-high"><label>Drive</label><strong id="metricDriveState">ready</strong></div>
             <div class="metric-card metric-card-primary priority-high"><label>Output</label><strong id="metricApplied">S 0.00 · T 0.00</strong></div>
             <div class="metric-card metric-card-primary priority-medium"><label>Target</label><strong id="metricManual">S 0.00 · T 0.00</strong></div>
-            <div class="metric-card metric-card-primary priority-high"><label>Record</label><strong id="metricRec">off</strong></div>
+            <div class="metric-card metric-card-primary priority-high"><label>Last save</label><strong id="metricLastSave">none</strong></div>
             <div class="metric-card metric-card-primary priority-high"><label>Preview</label><strong id="metricPreview">placeholder</strong></div>
             <div class="metric-card metric-card-primary priority-medium"><label>Camera</label><strong id="metricCamera">unknown</strong></div>
             <button id="overlayToggleBtn" class="metric-card metric-card-primary metric-card-action overlay-toggle off priority-medium" type="button" aria-pressed="false">
@@ -48,6 +48,9 @@
               <strong class="metric-card-action-value">OFF</strong>
               <span class="metric-card-action-note">Cycle view</span>
             </button>
+          </div>
+
+          <div class="metric-grid metric-grid-secondary">
             <div class="metric-card priority-medium"><label>Model</label><strong id="metricModel">none</strong></div>
             <div class="metric-card priority-medium"><label>Algo</label><strong id="metricAlgorithm">manual</strong></div>
             <div class="metric-card priority-medium"><label>Max</label><strong id="metricMaxThrottle">0.55</strong></div>
@@ -250,9 +253,8 @@
           <section class="panel-section">
             <div class="record-meta-grid">
               <div class="record-meta-card priority-high"><label>Session</label><strong id="recordSessionName">none</strong></div>
-              <div class="record-meta-card priority-medium"><label>Path</label><strong id="recordSavePath">records</strong></div>
               <div class="record-meta-card priority-high"><label>Elapsed</label><strong id="recordElapsed">00:00</strong></div>
-              <div class="record-meta-card record-meta-card-wide priority-low"><label>Last save</label><strong id="recordLastSave">none</strong></div>
+              <div class="record-meta-card record-meta-card-wide priority-medium"><label>Last save</label><strong id="recordLastSave">none</strong></div>
             </div>
           </section>
         </div>

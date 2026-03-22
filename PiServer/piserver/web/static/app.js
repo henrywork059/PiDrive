@@ -120,6 +120,15 @@ function updateDerivedTargets() {
   state.targetThrottle = curveInput(state.rawTargetThrottle, state.throttleCurve) * state.maxThrottle;
 }
 
+function shortLastSaveLabel(value) {
+  const raw = String(value || "").trim();
+  if (!raw || raw === "none") return "none";
+  const clean = raw.replace(/\\/g, "/");
+  const parts = clean.split("/").filter(Boolean);
+  const tail = parts[parts.length - 1] || clean;
+  return tail.length > 24 ? `${tail.slice(0, 21)}…` : tail;
+}
+
 function formatElapsed(totalSeconds) {
   const whole = Math.max(0, Math.floor(Number(totalSeconds || 0)));
   const minutes = Math.floor(whole / 60);
@@ -644,7 +653,7 @@ function updateStatusUi(data) {
   setText("metricDriveState", driveState);
   setText("metricApplied", `S ${Number(data.applied_steering || 0).toFixed(2)} · T ${Number(data.applied_throttle || 0).toFixed(2)}`);
   setText("metricManual", `S ${Number(state.targetSteering || 0).toFixed(2)} · T ${Number(state.targetThrottle || 0).toFixed(2)}`);
-  setText("metricRec", data.recording ? "on" : "off");
+  setText("metricLastSave", shortLastSaveLabel(data.record_last_saved || data.snapshot_last_saved || "none"));
   setText("metricPreview", previewState);
   setText("metricCamera", `${data.camera_width || 0}×${data.camera_height || 0} ${data.camera_format || "unknown"}`);
   setText("metricModel", data.active_model || "none");
@@ -657,7 +666,6 @@ function updateStatusUi(data) {
   setText("metricBackend", data.camera_backend || "unknown");
   setText("metricError", errorText);
   setText("recordSessionName", data.record_session_name || "none");
-  setText("recordSavePath", data.record_save_path || data.snapshot_save_path || "records");
   setText("recordElapsed", formatElapsed(data.record_elapsed_seconds || 0));
   setText("recordLastSave", data.record_last_saved || data.snapshot_last_saved || "none");
 
