@@ -442,7 +442,7 @@ function setOverlayMode(mode) {
       note.textContent = normalized === 1
         ? "Throttle + steer"
         : normalized === 2
-          ? "Overlay 2"
+          ? "Arc path"
           : "Cycle view";
     }
   }
@@ -461,6 +461,10 @@ function updateOverlayVisuals(data = {}) {
   const steerArcRight = document.getElementById("overlaySteerArcRight");
   const steerValue = document.getElementById("overlaySteerValue");
   const steerNeedle = document.getElementById("overlaySteerNeedle");
+  const overlayTwoSvg = document.getElementById("overlayTwoSvg");
+  const overlayTwoArc = document.getElementById("overlayTwoArc");
+  const overlayTwoPointStart = document.getElementById("overlayTwoPointStart");
+  const overlayTwoPointEnd = document.getElementById("overlayTwoPointEnd");
   const appliedThrottle = Number(data.applied_throttle || 0);
   const appliedSteering = Number(data.applied_steering || 0);
   const throttleNormBase = Math.max(0.01, Number(data.max_throttle ?? state.maxThrottle ?? 1));
@@ -486,6 +490,34 @@ function updateOverlayVisuals(data = {}) {
     steerNeedle.style.transform = `rotate(${angle}deg)`;
   }
   if (steerValue) steerValue.textContent = appliedSteering.toFixed(2);
+
+  if (overlayTwoSvg && overlayTwoArc && overlayTwoPointStart && overlayTwoPointEnd) {
+    const shouldShowPath = throttleNorm > 0;
+    overlayTwoSvg.classList.toggle("has-path", shouldShowPath);
+    if (shouldShowPath) {
+      const startX = 50;
+      const startY = 92;
+      const endY = 92 - (throttleNorm * 62);
+      const horizontalReach = 30 + (throttleNorm * 6);
+      const endX = clamp(startX + (steerNorm * horizontalReach), 16, 84);
+      const dx = endX - startX;
+      const dy = startY - endY;
+      const rx = Math.max(10, Math.abs(dx) * 1.05);
+      const ry = Math.max(12, dy);
+      const sweep = dx >= 0 ? 1 : 0;
+      overlayTwoArc.setAttribute("d", `M ${startX} ${startY} A ${rx} ${ry} 0 0 ${sweep} ${endX} ${endY}`);
+      overlayTwoPointStart.setAttribute("cx", `${startX}`);
+      overlayTwoPointStart.setAttribute("cy", `${startY}`);
+      overlayTwoPointEnd.setAttribute("cx", `${endX}`);
+      overlayTwoPointEnd.setAttribute("cy", `${endY}`);
+    } else {
+      overlayTwoArc.setAttribute("d", "");
+      overlayTwoPointStart.setAttribute("cx", "50");
+      overlayTwoPointStart.setAttribute("cy", "92");
+      overlayTwoPointEnd.setAttribute("cx", "50");
+      overlayTwoPointEnd.setAttribute("cy", "92");
+    }
+  }
 }
 
 function setCapturePending(pending) {

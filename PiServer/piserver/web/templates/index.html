@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>PiServer</title>
+  <script src="{{ url_for('static', filename='theme.js') }}?v={{ app_version }}"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v={{ app_version }}" />
 </head>
 <body data-page="manual">
@@ -110,7 +111,12 @@
                 </div>
               </div>
               <div id="overlayTwo" class="frame-overlay-panel overlay-two" aria-hidden="true">
-                <div class="overlay-two-pill">Overlay 2 placeholder</div>
+                <svg id="overlayTwoSvg" class="overlay-two-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                  <path id="overlayTwoArc" class="overlay-two-arc" d=""></path>
+                  <circle id="overlayTwoPointStart" class="overlay-two-point overlay-two-point-start" cx="50" cy="92" r="2.8"></circle>
+                  <circle id="overlayTwoPointEnd" class="overlay-two-point overlay-two-point-end" cx="50" cy="92" r="3.2"></circle>
+                </svg>
+                <div class="overlay-two-pill">OVL 2</div>
               </div>
             </div>
             <div id="cameraPreviewMeta" class="preview-meta">Waiting for camera status…</div>
