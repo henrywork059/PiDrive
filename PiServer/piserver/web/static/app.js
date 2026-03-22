@@ -397,7 +397,7 @@ function setEstopToggle(enabled) {
   const title = btn.querySelector(".estop-toggle-title");
   const subtitle = btn.querySelector(".estop-toggle-subtitle");
   if (title) title.textContent = state.estopEnabled ? "E-STOP ACTIVE" : "E-STOP OFF";
-  if (subtitle) subtitle.textContent = state.estopEnabled ? "Drive output is locked at zero" : "Tap to engage emergency stop";
+  if (subtitle) subtitle.textContent = state.estopEnabled ? "Output locked at zero" : "Tap to engage";
 }
 
 function setRecordToggle(enabled, pending = false) {
@@ -412,10 +412,10 @@ function setRecordToggle(enabled, pending = false) {
   btn.setAttribute("aria-pressed", state.recordEnabled ? "true" : "false");
   const title = btn.querySelector(".record-toggle-title");
   const subtitle = btn.querySelector(".record-toggle-subtitle");
-  if (title) title.textContent = state.recordEnabled ? "RECORDING ON" : "RECORDING OFF";
+  if (title) title.textContent = state.recordEnabled ? "RECORD ON" : "RECORD OFF";
   if (subtitle) subtitle.textContent = state.recordPending
-    ? (state.recordEnabled ? "Starting capture session…" : "Stopping capture session…")
-    : (state.recordEnabled ? "Tap to stop the current capture session" : "Tap to start a capture session");
+    ? (state.recordEnabled ? "Starting capture…" : "Stopping capture…")
+    : (state.recordEnabled ? "Tap to stop capture" : "Tap to start capture");
 }
 
 function setOverlayMode(mode) {
@@ -431,10 +431,10 @@ function setOverlayMode(mode) {
     if (value) value.textContent = normalized === 0 ? "OFF" : `OVL ${normalized}`;
     if (note) {
       note.textContent = normalized === 1
-        ? "Throttle + steering"
+        ? "Throttle + steer"
         : normalized === 2
-          ? "Overlay 2 placeholder"
-          : "Click to cycle overlays";
+          ? "Overlay 2"
+          : "Cycle view";
     }
   }
   const frameOverlay = document.getElementById("frameOverlay");
