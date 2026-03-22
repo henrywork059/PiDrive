@@ -131,6 +131,7 @@ button.active,
 }
 
 .dock-panel {
+  container-type: inline-size;
   background: linear-gradient(180deg, rgba(18, 24, 34, 0.96), rgba(11, 16, 24, 0.97));
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -188,14 +189,15 @@ button.active,
 .metric-grid {
   display: grid;
   gap: 8px;
+  grid-auto-flow: row dense;
 }
 
 .metric-grid-primary {
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(120px, 100%), 1fr));
 }
 
 .metric-grid-secondary {
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(130px, 100%), 1fr));
 }
 
 .metric-card {
@@ -593,15 +595,16 @@ input[type=range] {
 .field-grid {
   display: grid;
   gap: 10px 12px;
+  grid-auto-flow: row dense;
 }
 
 .field-grid.two-col,
 .compact-grid {
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr));
 }
 
 .runtime-grid .field-wide {
-  grid-column: 1 / -1;
+  grid-column: auto;
 }
 
 .check-line {
@@ -684,7 +687,7 @@ input[type=range] {
 
 .manual-feel-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(140px, 100%), 1fr));
   gap: 10px;
 }
 
@@ -820,11 +823,12 @@ input[type=range] {
 
 .record-controls {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
   gap: 10px;
   width: 100%;
   height: 100%;
   min-height: 0;
+  grid-auto-flow: row dense;
 }
 
 .capture-once-btn {
@@ -860,8 +864,9 @@ input[type=range] {
 
 .record-meta-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
   gap: 10px;
+  grid-auto-flow: row dense;
 }
 
 .record-meta-card {
@@ -873,7 +878,7 @@ input[type=range] {
 }
 
 .record-meta-card-wide {
-  grid-column: 1 / -1;
+  grid-column: auto;
 }
 
 .record-meta-card label {
@@ -902,8 +907,9 @@ input[type=range] {
 
 .session-export-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
   gap: 10px;
+  grid-auto-flow: row dense;
 }
 
 .session-select {
@@ -912,6 +918,25 @@ input[type=range] {
 
 code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+
+@container (min-width: 30rem) {
+  .runtime-grid .field-wide,
+  .record-meta-card-wide {
+    grid-column: 1 / -1;
+  }
+}
+
+@container (max-width: 26rem) {
+  .panel-actions {
+    width: 100%;
+  }
+
+  .panel-actions > * {
+    flex: 1 1 100%;
+    width: 100%;
+  }
 }
 
 @media (max-width: 1180px) {

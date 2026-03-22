@@ -560,6 +560,8 @@ async function refreshSessions(preserveSelection = true) {
 function updateSessionSelectionFromStatus(data) {
   const candidate = String(data?.record_session_name || "").trim();
   if (!candidate) return;
+  const current = findSelectedSession();
+  if (current) return;
   if ((state.sessions || []).some((item) => item.name === candidate)) {
     state.selectedSession = candidate;
     updateSessionExportUi();
