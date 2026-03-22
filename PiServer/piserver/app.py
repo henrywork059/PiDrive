@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import atexit
-import tempfile
 import time
 from pathlib import Path
 
-from flask import Flask, Response, jsonify, render_template, request, send_file
+from flask import Flask, Response, jsonify, render_template, request
 
 from piserver.algorithms import build_registry
 from piserver.core.config_store import ConfigStore
@@ -17,7 +16,7 @@ from piserver.services.recorder_service import RecorderService
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 WEB_DIR = Path(__file__).resolve().parent / "web"
-APP_VERSION = "0_3_19"
+APP_VERSION = "0_3_20"
 
 
 def mjpeg_generator(camera_service):
@@ -148,7 +147,6 @@ def create_app() -> Flask:
         ok_runtime, msg_runtime = control_service.set_runtime_parameters(
             max_throttle=data.get("max_throttle"),
             steer_mix=data.get("steer_mix"),
-            steer_bias=data.get("steer_bias"),
             current_page=data.get("current_page"),
         )
         if "algorithm" in data:
@@ -174,51 +172,6 @@ def create_app() -> Flask:
         code = 200 if ok else 423
         return jsonify({"ok": ok, "recording": recording, "message": message, "state": control_service.snapshot()}), code
 
-    @app.route("/api/record/capture_once", methods=["POST"])
-    def api_record_capture_once():
-        frame = camera_service.get_latest_frame(copy=True)
-        if frame is None:
-            deadline = time.time() + 0.4
-            while frame is None and time.time() < deadline:
-                time.sleep(0.05)
-                frame = camera_service.get_latest_frame(copy=True)
-        ok, message = recorder_service.capture_once(frame, control_service.snapshot())
-        code = 200 if ok else 503
-        return jsonify({"ok": ok, "message": message, "state": control_service.snapshot()}), code
-
-    @app.route("/api/record/sessions")
-    def api_record_sessions():
-        return jsonify({"ok": True, "sessions": recorder_service.list_sessions()})
-
-    @app.route("/api/record/download")
-    def api_record_download():
-        session_name = str(request.args.get("session", "")).strip()
-        if not session_name:
-            return jsonify({"ok": False, "message": "Choose a session first."}), 400
-        temp_file = tempfile.SpooledTemporaryFile(max_size=8 * 1024 * 1024)
-        ok, payload = recorder_service.write_session_zip(session_name, temp_file)
-        if not ok:
-            temp_file.close()
-            return jsonify({"ok": False, "message": payload}), 404
-        temp_file.seek(0)
-        return send_file(
-            temp_file,
-            mimetype="application/zip",
-            as_attachment=True,
-            download_name=f"{payload}.zip",
-            max_age=0,
-        )
-
-    @app.route("/api/record/delete", methods=["POST"])
-    def api_record_delete():
-        data = request.get_json(silent=True) or {}
-        session_name = str(data.get("session", "")).strip()
-        if not session_name:
-            return jsonify({"ok": False, "message": "Choose a session folder first."}), 400
-        ok, message = recorder_service.delete_folder(session_name)
-        code = 200 if ok else 409
-        return jsonify({"ok": ok, "message": message, "sessions": recorder_service.list_sessions(), "state": control_service.snapshot()}), code
-
     @app.route("/api/model/list")
     def api_model_list():
         return jsonify({"models": model_service.list_models(), "active": model_service.get_active_name()})
@@ -238,13 +191,6 @@ def create_app() -> Flask:
         ok, msg = model_service.load_model(data.get("filename", ""))
         code = 200 if ok else 400
         return jsonify({"ok": ok, "message": msg, "active": model_service.get_active_name()}), code
-
-    @app.route("/api/model/delete", methods=["POST"])
-    def api_model_delete():
-        data = request.get_json(silent=True) or {}
-        ok, msg = model_service.delete_model(data.get("filename", ""))
-        code = 200 if ok else 404
-        return jsonify({"ok": ok, "message": msg, "models": model_service.list_models(), "active": model_service.get_active_name()}), code
 
     @app.route("/api/config/save", methods=["POST"])
     def api_config_save():
