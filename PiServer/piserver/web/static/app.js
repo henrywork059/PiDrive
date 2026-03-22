@@ -653,7 +653,10 @@ function updateStatusUi(data) {
   setText("metricDriveState", driveState);
   setText("metricApplied", `S ${Number(data.applied_steering || 0).toFixed(2)} · T ${Number(data.applied_throttle || 0).toFixed(2)}`);
   setText("metricManual", `S ${Number(state.targetSteering || 0).toFixed(2)} · T ${Number(state.targetThrottle || 0).toFixed(2)}`);
-  setText("metricLastSave", shortLastSaveLabel(data.record_last_saved || data.snapshot_last_saved || "none"));
+  const lastSaveRaw = data.record_last_saved || data.snapshot_last_saved || "none";
+  setText("metricLastSave", shortLastSaveLabel(lastSaveRaw));
+  const metricLastSaveEl = document.getElementById("metricLastSave");
+  if (metricLastSaveEl) metricLastSaveEl.title = lastSaveRaw;
   setText("metricPreview", previewState);
   setText("metricCamera", `${data.camera_width || 0}×${data.camera_height || 0} ${data.camera_format || "unknown"}`);
   setText("metricModel", data.active_model || "none");
@@ -667,7 +670,9 @@ function updateStatusUi(data) {
   setText("metricError", errorText);
   setText("recordSessionName", data.record_session_name || "none");
   setText("recordElapsed", formatElapsed(data.record_elapsed_seconds || 0));
-  setText("recordLastSave", data.record_last_saved || data.snapshot_last_saved || "none");
+  setText("recordLastSave", lastSaveRaw);
+  const recordLastSaveEl = document.getElementById("recordLastSave");
+  if (recordLastSaveEl) recordLastSaveEl.title = lastSaveRaw;
 
   const previewMeta = document.getElementById("cameraPreviewMeta");
   if (previewMeta) {
