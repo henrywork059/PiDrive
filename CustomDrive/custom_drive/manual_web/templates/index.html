@@ -10,10 +10,10 @@
   <header class="topbar">
     <div class="brand">
       <div class="brand-title">CustomDrive Manual Control</div>
-      <div class="brand-subtitle">PiServer-style competition driving console</div>
+      <div class="brand-subtitle">PiServer-style runtime page for competition driving</div>
     </div>
     <div class="toolbar-actions">
-      <span class="badge" id="currentSessionBadge">session 1</span>
+      <span class="badge off" id="armStateBadge">arm off</span>
       <span class="badge off" id="recordStateBadge">record off</span>
       <span class="badge off" id="estopStateBadge">e-stop clear</span>
       <button class="ghost-btn" id="saveRuntimeBtn">Save runtime</button>
@@ -24,18 +24,21 @@
   <main class="workspace-shell">
     <section class="workspace-grid manual-layout">
       <article class="dock-panel panel-status">
-        <div class="panel-head"><span>Status</span><span class="panel-mini">live</span></div>
-        <div class="panel-body">
-          <div class="metric-grid">
+        <div class="panel-head compact-head"><span>Status</span><span class="panel-mini">live</span></div>
+        <div class="panel-body compact-body">
+          <div class="metric-grid slim-grid">
             <div class="metric-card"><label>Algorithm</label><strong id="metricAlgorithm">manual</strong></div>
             <div class="metric-card"><label>FPS</label><strong id="metricFps">0.0</strong></div>
             <div class="metric-card"><label>Recording</label><strong id="metricRec">off</strong></div>
             <div class="metric-card"><label>Left / Right</label><strong id="metricWheels">0.00 / 0.00</strong></div>
             <div class="metric-card"><label>Camera</label><strong id="metricCamera">unknown</strong></div>
             <div class="metric-card"><label>GPIO</label><strong id="metricGpio">false</strong></div>
+            <div class="metric-card"><label>Arm</label><strong id="metricArm">disabled</strong></div>
           </div>
-          <div id="statusBanner" class="banner muted">Ready.</div>
-          <div class="small-note" id="sessionSummary"></div>
+          <div class="status-strip-row">
+            <div id="statusBanner" class="banner muted compact-banner">Ready.</div>
+            <div id="cameraPreviewMeta" class="small-note preview-meta"></div>
+          </div>
         </div>
       </article>
 
@@ -43,14 +46,13 @@
         <div class="panel-head"><span>Camera preview</span><span class="panel-mini">PiServer frame polling</span></div>
         <div class="panel-body viewer-body">
           <img id="videoFeed" src="" alt="Manual control camera preview" />
-          <div id="cameraPreviewMeta" class="small-note preview-meta">Waiting for camera status…</div>
         </div>
       </article>
 
       <article class="dock-panel panel-manual">
         <div class="panel-head"><span>Manual drive</span><span class="panel-mini">joystick + keyboard</span></div>
         <div class="panel-body scroll-body">
-          <div class="small-note">Use <strong>W/S</strong> or <strong>↑/↓</strong> for throttle and <strong>A/D</strong> or <strong>←/→</strong> for steering. This page forces the <strong>manual</strong> algorithm so it drives the same real PiServer motor path as the main server.</div>
+          <div class="small-note">Uses PiServer manual control path. <strong>W/S</strong> or <strong>↑/↓</strong> for throttle, <strong>A/D</strong> or <strong>←/→</strong> for steering.</div>
 
           <div id="joystickArea" class="joystick-area">
             <div id="joystickDot" class="joystick-dot"></div>
@@ -76,58 +78,41 @@
             <button id="rightBtn" class="ghost-btn">Right</button>
           </div>
 
-          <div class="stack-row">
+          <div class="stack-row compact-stack">
             <button id="stopBtn" class="danger-btn">Stop</button>
             <button id="estopBtn" class="warn-btn">E-Stop</button>
             <button id="clearEstopBtn" class="ghost-btn">Clear</button>
             <button id="recordToggleBtn" class="ghost-btn">Toggle record</button>
           </div>
-          <div id="manualMessage" class="banner muted">Manual control ready.</div>
-        </div>
-      </article>
 
-      <article class="dock-panel panel-session">
-        <div class="panel-head"><span>Competition session</span><span class="panel-mini">save to CustomDrive config</span></div>
-        <div class="panel-body scroll-body">
-          <div class="field">
-            <label for="sessionSelect">Active session</label>
-            <select id="sessionSelect">
-              <option value="session_1">Session 1</option>
-              <option value="session_2">Session 2</option>
-            </select>
+          <div class="section-divider"></div>
+
+          <div class="section-title-row">
+            <h3>Arm control</h3>
+            <span class="panel-mini">PCA9685 presets</span>
           </div>
-          <div class="field">
-            <label for="sessionLabel">Session label</label>
-            <input id="sessionLabel" type="text" value="Competition Session 1" />
+          <div class="stack-row arm-row">
+            <button id="armUpBtn">Up</button>
+            <button id="armDownBtn" class="ghost-btn">Down</button>
+            <button id="armHoldBtn" class="ghost-btn">Hold</button>
+            <button id="armReleaseBtn" class="ghost-btn">Release</button>
           </div>
-          <div class="field">
-            <label for="teamName">Team name</label>
-            <input id="teamName" type="text" value="" />
-          </div>
-          <div class="field">
-            <label for="driverName">Driver name</label>
-            <input id="driverName" type="text" value="" />
-          </div>
-          <div class="field">
-            <label for="sessionNotes">Notes</label>
-            <textarea id="sessionNotes" rows="5"></textarea>
-          </div>
-          <div class="field">
-            <label class="check-line"><input id="showCameraToggle" type="checkbox" checked /> Show camera preview</label>
-          </div>
-          <div class="stack-row">
-            <button id="saveSessionBtn">Save session</button>
-            <button id="reloadSessionBtn" class="ghost-btn">Reload</button>
-          </div>
-          <div id="sessionMessage" class="banner muted">Session settings loaded.</div>
+          <div id="armMessage" class="banner muted compact-banner">Arm ready when enabled in manual_control.json.</div>
+
+          <div id="manualMessage" class="banner muted">Manual control ready.</div>
         </div>
       </article>
 
       <article class="dock-panel panel-system">
         <div class="panel-head"><span>System</span><span class="panel-mini">runtime info</span></div>
         <div class="panel-body scroll-body">
-          <div class="small-note">Runtime config path: <code id="runtimeConfigPath">PiServer/config/runtime.json</code></div>
-          <div class="small-note">Manual control config path: <code>CustomDrive/config/manual_control.json</code></div>
+          <label class="check-line"><input id="showCameraToggle" type="checkbox" checked /> Show camera preview</label>
+          <div class="stack-row compact-stack top-gap">
+            <button id="saveUiBtn">Save panel settings</button>
+            <button id="reloadUiBtn" class="ghost-btn">Reload panel settings</button>
+          </div>
+          <div class="small-note top-gap">Runtime config path: <code id="runtimeConfigPath">PiServer/config/runtime.json</code></div>
+          <div class="small-note">Manual config path: <code>CustomDrive/config/manual_control.json</code></div>
           <div id="systemMessage" class="banner muted">Ready.</div>
           <pre id="statusDump" class="status-dump"></pre>
         </div>

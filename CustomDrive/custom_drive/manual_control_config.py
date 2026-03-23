@@ -22,6 +22,19 @@ DEFAULT_MANUAL_CONTROL_CONFIG: dict[str, Any] = {
         'manual_speed': 0.55,
         'show_camera': True,
     },
+    'arm': {
+        'enabled': False,
+        'backend': 'pca9685',
+        'channels': 16,
+        'i2c_address': 64,
+        'frequency_hz': 50,
+        'lift_channel': 0,
+        'grip_channel': 1,
+        'lift_up_angle': 40,
+        'lift_down_angle': 115,
+        'grip_hold_angle': 70,
+        'grip_release_angle': 130,
+    },
     'competition': {
         'current_session': 'session_1',
         'sessions': {
@@ -83,6 +96,22 @@ def normalize_manual_control_config(data: dict[str, Any] | None) -> dict[str, An
     merged['ui'] = {
         'manual_speed': round(clamp_float(ui.get('manual_speed', 0.55), 0.55, 0.05, 1.0), 3),
         'show_camera': bool(ui.get('show_camera', True)),
+    }
+
+    arm = merged.get('arm') or {}
+    backend = str(arm.get('backend', 'pca9685') or 'pca9685').strip().lower() or 'pca9685'
+    merged['arm'] = {
+        'enabled': bool(arm.get('enabled', False)),
+        'backend': backend,
+        'channels': clamp_int(arm.get('channels', 16), 16, 1, 16),
+        'i2c_address': clamp_int(arm.get('i2c_address', 64), 64, 3, 119),
+        'frequency_hz': clamp_int(arm.get('frequency_hz', 50), 50, 40, 1000),
+        'lift_channel': clamp_int(arm.get('lift_channel', 0), 0, 0, 15),
+        'grip_channel': clamp_int(arm.get('grip_channel', 1), 1, 0, 15),
+        'lift_up_angle': clamp_int(arm.get('lift_up_angle', 40), 40, 0, 180),
+        'lift_down_angle': clamp_int(arm.get('lift_down_angle', 115), 115, 0, 180),
+        'grip_hold_angle': clamp_int(arm.get('grip_hold_angle', 70), 70, 0, 180),
+        'grip_release_angle': clamp_int(arm.get('grip_release_angle', 130), 130, 0, 180),
     }
 
     competition = merged.get('competition') or {}

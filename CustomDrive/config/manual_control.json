@@ -8,6 +8,19 @@
     "manual_speed": 0.55,
     "show_camera": true
   },
+  "arm": {
+    "enabled": false,
+    "backend": "pca9685",
+    "channels": 16,
+    "i2c_address": 64,
+    "frequency_hz": 50,
+    "lift_channel": 0,
+    "grip_channel": 1,
+    "lift_up_angle": 40,
+    "lift_down_angle": 115,
+    "grip_hold_angle": 70,
+    "grip_release_angle": 130
+  },
   "competition": {
     "current_session": "session_1",
     "sessions": {

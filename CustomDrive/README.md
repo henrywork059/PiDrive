@@ -216,9 +216,7 @@ The controller still uses **coarse route + local visual servoing** instead of a 
 
 ## Manual control app for competition
 
-CustomDrive now also includes a separate **PiServer-style manual control app** for the competition driving sessions.
-
-By default it now uses **port 5050** so it matches the main CustomDrive web UI more closely.
+CustomDrive also includes a separate **PiServer-style manual control app** for competition driving.
 
 Launch it with:
 
@@ -227,14 +225,23 @@ cd CustomDrive
 python run_custom_drive_manual.py
 ```
 
-Then open `http://localhost:5050`.
+Then open `http://localhost:5050` on the Pi, or `http://<pi-ip>:5050` from another device.
 
 This manual controller:
 
 - reuses PiServer `CameraService`, `MotorService`, `ControlService`, and `runtime.json`
 - forces the `manual` algorithm so the real PiServer motor path is used
-- provides joystick + keyboard control in a browser
-- saves competition session metadata in `CustomDrive/config/manual_control.json`
-- keeps two built-in session slots: `session_1` and `session_2`
+- keeps a slim PiServer-like header and full-width status strip
+- places manual drive on the right side of the page
+- polls the PiServer JPEG preview path for lower-friction debugging
+- stores manual UI + arm presets in `CustomDrive/config/manual_control.json`
+- adds **Up / Down / Hold / Release** arm buttons with optional PCA9685 servo output
+
+Arm notes:
+
+- arm control is disabled by default
+- enable and tune it in `CustomDrive/config/manual_control.json`
+- the backend uses `adafruit_servokit` when `arm.enabled=true` and `arm.backend="pca9685"`
+- `lift_channel` controls up/down and `grip_channel` controls hold/release
 
 That separation keeps autonomous mission control and competition manual driving easier to manage.

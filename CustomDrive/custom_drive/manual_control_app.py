@@ -7,6 +7,7 @@ from typing import Any
 
 from flask import Flask, Response, jsonify, render_template, request
 
+from .arm_service import ArmService
 from .manual_control_config import load_manual_control_config, save_manual_control_config
 from .project_paths import DATA_DIR, PISERVER_ROOT, PISERVER_RUNTIME_PATH, ensure_piserver_import_paths
 
@@ -21,7 +22,7 @@ from piserver.services.motor_service import MotorService  # noqa: E402
 from piserver.services.recorder_service import RecorderService  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent / 'manual_web'
-APP_VERSION = '0_1_5'
+APP_VERSION = '0_1_7'
 
 
 def _mjpeg_generator(camera_service: CameraService):
@@ -74,6 +75,7 @@ class ManualControlContext:
             config_store=self.config_store,
             loop_hz=20,
         )
+        self.arm_service = ArmService(self.manual_config.get('arm', {}))
         self.control_service.start()
         self._apply_manual_mode_defaults()
 
@@ -84,6 +86,7 @@ class ManualControlContext:
         self.control_service.select_algorithm('manual')
         self.control_service.set_runtime_parameters(current_page='manual', max_throttle=default_speed)
         self.camera_service.set_preview_enabled(bool(ui_cfg.get('show_camera', True)))
+        self.arm_service.reload(self.manual_config.get('arm', {}))
 
     def close(self) -> None:
         try:
@@ -96,6 +99,10 @@ class ManualControlContext:
             pass
         try:
             self.motor_service.close()
+        except Exception:
+            pass
+        try:
+            self.arm_service.shutdown()
         except Exception:
             pass
 
@@ -114,9 +121,9 @@ class ManualControlContext:
         payload['manual_config'] = self.get_manual_config()
         payload['recorder_sessions'] = self.recorder_service.list_sessions()
         payload['runtime_config_path'] = str(PISERVER_RUNTIME_PATH)
-        payload['competition_mode'] = True
         payload['motor_config'] = self.motor_service.get_config()
         payload['camera_config'] = self.camera_service.get_config()
+        payload['arm_status'] = self.arm_service.status()
         return payload
 
 
@@ -136,6 +143,7 @@ def create_manual_control_app() -> Flask:
         'recorder': ctx.recorder_service,
         'control': ctx.control_service,
         'algorithms': ctx.algorithms,
+        'arm': ctx.arm_service,
     }
 
     @app.route('/')
@@ -336,6 +344,23 @@ def create_manual_control_app() -> Flask:
             'config': config,
             'state': ctx.status_payload(),
         })
+
+    @app.route('/api/arm/action', methods=['POST'])
+    def api_arm_action():
+        data = request.get_json(silent=True) or {}
+        action = str(data.get('action') or '').strip().lower()
+        ok, message = ctx.arm_service.perform_action(action)
+        code = 200 if ok else 400
+        return jsonify({
+            'ok': ok,
+            'message': message,
+            'arm_status': ctx.arm_service.status(),
+            'state': ctx.status_payload(),
+        }), code
+
+    @app.route('/api/arm/status')
+    def api_arm_status():
+        return jsonify({'ok': True, 'arm_status': ctx.arm_service.status()})
 
     @atexit.register
     def _cleanup() -> None:
