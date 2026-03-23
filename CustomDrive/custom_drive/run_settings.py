@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -62,5 +63,8 @@ def save_run_settings(data: dict[str, Any] | None, path: Path | None = None) -> 
     cfg_path = path or RUN_SETTINGS_PATH
     normalized = normalize_run_settings(data)
     cfg_path.parent.mkdir(parents=True, exist_ok=True)
-    cfg_path.write_text(json.dumps(normalized, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+    payload = json.dumps(normalized, indent=2, ensure_ascii=False) + '\n'
+    tmp_path = cfg_path.with_suffix(cfg_path.suffix + '.tmp')
+    tmp_path.write_text(payload, encoding='utf-8')
+    os.replace(tmp_path, cfg_path)
     return normalized

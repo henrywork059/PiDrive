@@ -158,6 +158,19 @@ def create_app(mode: str | None = None) -> Flask:
             }
         )
 
+    @app.route('/api/runtime/rebuild', methods=['POST'])
+    def api_runtime_rebuild():
+        runtime = current_runtime()
+        data = request.get_json(silent=True) or {}
+        autostart = data.get('autostart')
+        if runtime is not None:
+            try:
+                runtime.stop_background(join=True)
+            except Exception:
+                pass
+        build_runtime(autostart=bool(autostart) if autostart is not None else False)
+        return jsonify({'ok': True, 'message': 'Runtime rebuilt using the current saved run settings.', 'status': safe_status_payload()})
+
     @app.route('/api/start', methods=['POST'])
     def api_start():
         runtime = current_runtime()

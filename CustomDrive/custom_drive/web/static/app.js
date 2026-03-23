@@ -59,6 +59,8 @@ function renderStatus(status) {
     <div><b>Active leg:</b> ${escapeHtml(status.active_route_leg || '-')}</div>
     <div><b>Cmd:</b> steer=${fmt(status.last_command?.steering)}, throttle=${fmt(status.last_command?.throttle)}, note=${escapeHtml(status.last_command?.note || '')}</div>
     <div><b>Camera:</b> ${escapeHtml(camera.backend || '-')} | live=${escapeHtml(camera.preview_live ?? false)} | fps=${fmt(camera.fps || 0, 1)}</div>
+    <div><b>PiServer services:</b> ${escapeHtml(status.service_state || '-')} ${status.service_detail ? `| ${escapeHtml(status.service_detail)}` : ''}</div>
+    <div><b>Motor GPIO available:</b> ${escapeHtml(status.motor_gpio_available ?? false)}</div>
     <div><b>Perception:</b> ${escapeHtml(status.perception_ready ?? true)} ${status.perception_message ? `| ${escapeHtml(status.perception_message)}` : ''}</div>
     <div><b>Arm bound:</b> ${escapeHtml(status.arm_bound ?? false)} | <b>Virtual grab:</b> ${escapeHtml(status.virtual_grab ?? false)}</div>
     <div><b>Saved run defaults:</b> backend=${escapeHtml(runSettings.runtime_mode || '-')} | cycles=${escapeHtml(runSettings.max_cycles ?? '-')} | headless_tick=${fmt(runSettings.headless_tick_s || 0.2)} | gui_tick=${fmt(runSettings.gui_tick_s || 0.2)}</div>
@@ -219,6 +221,9 @@ document.getElementById('stepBtn').onclick = () => handleAction(async () => {
 document.getElementById('resetBtn').onclick = () => handleAction(async () => {
   const max_cycles = Number(document.getElementById('maxCycles').value || 2);
   await postJSON('/api/reset', { max_cycles });
+});
+document.getElementById('rebuildRuntimeBtn').onclick = () => handleAction(async () => {
+  await postJSON('/api/runtime/rebuild', { autostart: false });
 });
 document.getElementById('saveRunSettingsBtn').onclick = saveRunSettings;
 document.getElementById('reloadRunSettingsBtn').onclick = loadRunSettings;
