@@ -3,13 +3,14 @@ from __future__ import annotations
 import copy
 import json
 import os
+import tempfile
 from pathlib import Path
 from typing import Any
 
 from .debug_tools import clamp_float, clamp_int, coerce_bool
+from .project_paths import CONFIG_DIR
 
-PACKAGE_ROOT = Path(__file__).resolve().parents[1]
-RUN_SETTINGS_PATH = PACKAGE_ROOT / 'config' / 'run_settings.json'
+RUN_SETTINGS_PATH = CONFIG_DIR / 'run_settings.json'
 
 DEFAULT_RUN_SETTINGS: dict[str, Any] = {
     'runtime_mode': 'sim',
@@ -30,6 +31,22 @@ def _deep_merge(base: dict[str, Any], incoming: dict[str, Any]) -> dict[str, Any
     return out
 
 
+
+
+
+def _atomic_write_text(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_path = tempfile.mkstemp(prefix=path.stem + '_', suffix='.tmp', dir=str(path.parent))
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8') as handle:
+            handle.write(text)
+        os.replace(tmp_path, path)
+    finally:
+        try:
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+        except OSError:
+            pass
 
 def normalize_run_settings(data: dict[str, Any] | None) -> dict[str, Any]:
     merged = _deep_merge(DEFAULT_RUN_SETTINGS, data or {})
@@ -62,9 +79,5 @@ def load_run_settings(path: Path | None = None) -> dict[str, Any]:
 def save_run_settings(data: dict[str, Any] | None, path: Path | None = None) -> dict[str, Any]:
     cfg_path = path or RUN_SETTINGS_PATH
     normalized = normalize_run_settings(data)
-    cfg_path.parent.mkdir(parents=True, exist_ok=True)
-    payload = json.dumps(normalized, indent=2, ensure_ascii=False) + '\n'
-    tmp_path = cfg_path.with_suffix(cfg_path.suffix + '.tmp')
-    tmp_path.write_text(payload, encoding='utf-8')
-    os.replace(tmp_path, cfg_path)
+    _atomic_write_text(cfg_path, json.dumps(normalized, indent=2, ensure_ascii=False) + '\n')
     return normalized

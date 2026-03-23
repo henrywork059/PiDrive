@@ -3,13 +3,14 @@ from __future__ import annotations
 import copy
 import json
 import os
+import tempfile
 from pathlib import Path
 from typing import Any
 
 from .debug_tools import clamp_float, clamp_int, coerce_bool, sanitize_label_name
+from .project_paths import CONFIG_DIR
 
-PACKAGE_ROOT = Path(__file__).resolve().parents[1]
-SETTINGS_PATH = PACKAGE_ROOT / 'config' / 'runtime_settings.json'
+SETTINGS_PATH = CONFIG_DIR / 'runtime_settings.json'
 
 DEFAULT_SETTINGS: dict[str, Any] = {
     'camera': {
@@ -129,6 +130,22 @@ def _normalize_label_spec(spec: Any, fallback: dict[str, Any], default_min_ratio
 
 
 
+
+
+def _atomic_write_text(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_path = tempfile.mkstemp(prefix=path.stem + '_', suffix='.tmp', dir=str(path.parent))
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8') as handle:
+            handle.write(text)
+        os.replace(tmp_path, path)
+    finally:
+        try:
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+        except OSError:
+            pass
+
 def normalize_settings(data: dict[str, Any] | None) -> dict[str, Any]:
     merged = _deep_merge(DEFAULT_SETTINGS, data or {})
 
@@ -228,9 +245,5 @@ def load_settings(path: Path | None = None) -> dict[str, Any]:
 def save_settings(data: dict[str, Any], path: Path | None = None) -> dict[str, Any]:
     cfg_path = path or SETTINGS_PATH
     merged = normalize_settings(data or {})
-    cfg_path.parent.mkdir(parents=True, exist_ok=True)
-    payload = json.dumps(merged, indent=2, ensure_ascii=False) + '\n'
-    tmp_path = cfg_path.with_suffix(cfg_path.suffix + '.tmp')
-    tmp_path.write_text(payload, encoding='utf-8')
-    os.replace(tmp_path, cfg_path)
+    _atomic_write_text(cfg_path, json.dumps(merged, indent=2, ensure_ascii=False) + '\n')
     return merged

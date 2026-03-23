@@ -1,0 +1,28 @@
+{
+  "server": {
+    "host": "0.0.0.0",
+    "port": 5060,
+    "refresh_ms": 200
+  },
+  "ui": {
+    "manual_speed": 0.55,
+    "show_camera": true
+  },
+  "competition": {
+    "current_session": "session_1",
+    "sessions": {
+      "session_1": {
+        "label": "Competition Session 1",
+        "team_name": "",
+        "driver_name": "",
+        "notes": ""
+      },
+      "session_2": {
+        "label": "Competition Session 2",
+        "team_name": "",
+        "driver_name": "",
+        "notes": ""
+      }
+    }
+  }
+}

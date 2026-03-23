@@ -24,7 +24,7 @@ Inside either launch mode, the runtime backend can still be either:
 
 ## What is real now
 
-- real `live` runtime that reuses PiServer `CameraService`, `MotorService`, and PiServer runtime config syncing
+- real `live` runtime that boots PiServer `CameraService` and `MotorService`
 - real camera frame polling in live mode
 - real drive output through the PiServer motor mixer
 - configurable color-based perception for `he3` and `he3_zone`
@@ -57,8 +57,10 @@ CustomDrive/
 ├── run_custom_drive_web.py
 ├── run_custom_drive_headless.py
 ├── run_custom_drive_gui.py
+├── run_custom_drive_manual.py
 ├── config/runtime_settings.json
 ├── config/run_settings.json
+├── config/manual_control.json
 ├── custom_drive/
 │   ├── config.py
 │   ├── debug_tools.py
@@ -77,7 +79,11 @@ CustomDrive/
 │   ├── run_settings.py
 │   ├── runtime_factory.py
 │   ├── web_app.py
-│   └── web/
+│   ├── manual_control_config.py
+│   ├── manual_control_app.py
+│   ├── project_paths.py
+│   ├── web/
+│   └── manual_web/
 └── PATCH_NOTES/
 ```
 
@@ -208,11 +214,25 @@ Example HSV tuning block:
 
 The controller still uses **coarse route + local visual servoing** instead of a single end-to-end driving model. That keeps the mission logic easier to debug and makes it possible to swap perception sources later.
 
+## Manual control app for competition
 
-## Startup/debug notes in patch 0_1_3
+CustomDrive now also includes a separate **PiServer-style manual control app** for the competition driving sessions.
 
-- `run_custom_drive_gui.py` now prints clear terminal startup messages and browser URLs
-- live mode now reports PiServer service state directly in the GUI
-- a new **Rebuild Runtime** button lets you reconnect after changing settings or reconnecting hardware
-- live runtime saves motor/camera + `steer_mix` back into `PiServer/config/runtime.json` so PiServer and CustomDrive stay aligned
-- live runtime still uses PiServer `MotorService.update(...)` for actual motor output; no separate duplicate motor driver was added in CustomDrive
+Launch it with:
+
+```bash
+cd CustomDrive
+python run_custom_drive_manual.py
+```
+
+Then open `http://localhost:5060`.
+
+This manual controller:
+
+- reuses PiServer `CameraService`, `MotorService`, `ControlService`, and `runtime.json`
+- forces the `manual` algorithm so the real PiServer motor path is used
+- provides joystick + keyboard control in a browser
+- saves competition session metadata in `CustomDrive/config/manual_control.json`
+- keeps two built-in session slots: `session_1` and `session_2`
+
+That separation keeps autonomous mission control and competition manual driving easier to manage.
