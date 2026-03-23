@@ -245,3 +245,10 @@ Arm notes:
 - `lift_channel` controls up/down and `grip_channel` controls hold/release
 
 That separation keeps autonomous mission control and competition manual driving easier to manage.
+
+
+## Manual arm control notes (0_1_8)
+- `CustomDrive/config/manual_control.json` now enables the arm by default.
+- `Up` and `Down` on the manual page are press-and-hold lift controls.
+- `Hold` and `Release` are one-tap gripper commands.
+- Tune `lift_up_angle`, `lift_down_angle`, and `lift_step_angle` for your hardware.

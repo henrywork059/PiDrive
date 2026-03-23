@@ -132,7 +132,8 @@ function updateArmUi(armStatus = {}) {
   const metric = document.getElementById('metricArm');
   const available = Boolean(armStatus.available);
   const enabled = Boolean(armStatus.enabled);
-  const text = !enabled ? 'disabled' : available ? `ready · ${armStatus.backend || 'arm'}` : 'error';
+  const liftAngle = Number.isFinite(Number(armStatus.lift_angle)) ? ` · ${armStatus.lift_angle}°` : '';
+  const text = !enabled ? 'disabled' : available ? `ready · ${armStatus.backend || 'arm'}${liftAngle}` : 'error';
   badge.textContent = enabled ? (available ? 'arm ready' : 'arm error') : 'arm off';
   badge.classList.toggle('off', !(enabled && available));
   metric.textContent = text;
@@ -329,6 +330,36 @@ async function performArmAction(action) {
   }
 }
 
+function bindArmHoldButton(id, startAction) {
+  const btn = document.getElementById(id);
+  if (!btn) return;
+  let active = false;
+
+  const start = async (event) => {
+    if (event) event.preventDefault();
+    if (active) return;
+    active = true;
+    await performArmAction(startAction);
+  };
+
+  const stop = async (event) => {
+    if (event) event.preventDefault();
+    if (!active) return;
+    active = false;
+    await performArmAction('stop');
+  };
+
+  btn.addEventListener('pointerdown', start);
+  btn.addEventListener('pointerup', stop);
+  btn.addEventListener('pointercancel', stop);
+  btn.addEventListener('pointerleave', stop);
+  btn.addEventListener('touchstart', start, { passive: false });
+  btn.addEventListener('touchend', stop);
+  btn.addEventListener('mousedown', start);
+  btn.addEventListener('mouseup', stop);
+  btn.addEventListener('mouseleave', stop);
+}
+
 function setupButtons() {
   bindHoldButton('forwardBtn', 0, 1);
   bindHoldButton('reverseBtn', 0, -1);
@@ -439,8 +470,8 @@ function setupButtons() {
     queueControlUpdate();
   });
 
-  document.getElementById('armUpBtn').addEventListener('click', () => performArmAction('up'));
-  document.getElementById('armDownBtn').addEventListener('click', () => performArmAction('down'));
+  bindArmHoldButton('armUpBtn', 'start_up');
+  bindArmHoldButton('armDownBtn', 'start_down');
   document.getElementById('armHoldBtn').addEventListener('click', () => performArmAction('hold'));
   document.getElementById('armReleaseBtn').addEventListener('click', () => performArmAction('release'));
 }

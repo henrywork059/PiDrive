@@ -23,7 +23,7 @@ DEFAULT_MANUAL_CONTROL_CONFIG: dict[str, Any] = {
         'show_camera': True,
     },
     'arm': {
-        'enabled': False,
+        'enabled': True,
         'backend': 'pca9685',
         'channels': 16,
         'i2c_address': 64,
@@ -32,6 +32,7 @@ DEFAULT_MANUAL_CONTROL_CONFIG: dict[str, Any] = {
         'grip_channel': 1,
         'lift_up_angle': 40,
         'lift_down_angle': 115,
+        'lift_step_angle': 4,
         'grip_hold_angle': 70,
         'grip_release_angle': 130,
     },
@@ -101,7 +102,7 @@ def normalize_manual_control_config(data: dict[str, Any] | None) -> dict[str, An
     arm = merged.get('arm') or {}
     backend = str(arm.get('backend', 'pca9685') or 'pca9685').strip().lower() or 'pca9685'
     merged['arm'] = {
-        'enabled': bool(arm.get('enabled', False)),
+        'enabled': bool(arm.get('enabled', True)),
         'backend': backend,
         'channels': clamp_int(arm.get('channels', 16), 16, 1, 16),
         'i2c_address': clamp_int(arm.get('i2c_address', 64), 64, 3, 119),
@@ -110,6 +111,7 @@ def normalize_manual_control_config(data: dict[str, Any] | None) -> dict[str, An
         'grip_channel': clamp_int(arm.get('grip_channel', 1), 1, 0, 15),
         'lift_up_angle': clamp_int(arm.get('lift_up_angle', 40), 40, 0, 180),
         'lift_down_angle': clamp_int(arm.get('lift_down_angle', 115), 115, 0, 180),
+        'lift_step_angle': clamp_int(arm.get('lift_step_angle', 4), 4, 1, 45),
         'grip_hold_angle': clamp_int(arm.get('grip_hold_angle', 70), 70, 0, 180),
         'grip_release_angle': clamp_int(arm.get('grip_release_angle', 130), 130, 0, 180),
     }

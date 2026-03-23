@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 import time
 from typing import Any
 
@@ -7,16 +8,20 @@ from typing import Any
 class ArmService:
     """Simple Pi-side arm service for CustomDrive manual control.
 
-    This keeps the backend lightweight and debuggable:
-    - Uses PCA9685 via ``adafruit_servokit`` when enabled.
-    - Exposes simple actions: up / down / hold / release.
-    - Provides alias methods so future code can reuse the same object in
-      mission logic or bridge-style sequences.
+    Supports:
+    - PCA9685 + ServoKit backend when enabled.
+    - Press-and-hold lift motion using a background worker.
+    - One-tap gripper actions for hold / release.
     """
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         self._config: dict[str, Any] = {}
         self._kit = None
+        self._move_thread: threading.Thread | None = None
+        self._move_stop = threading.Event()
+        self._move_lock = threading.RLock()
+        self._move_direction = 0
+        self._current_lift_angle = 0
         self.last_action = 'idle'
         self.last_error = ''
         self.last_message = 'Arm disabled.'
@@ -27,6 +32,7 @@ class ArmService:
         self.reload(config or {})
 
     def reload(self, config: dict[str, Any] | None = None) -> dict[str, Any]:
+        self.stop_motion()
         cfg = dict(config or {})
         self._config = cfg
         self._kit = None
@@ -34,8 +40,9 @@ class ArmService:
         self.last_message = 'Arm disabled.'
         self.last_action = 'idle'
         self.backend = str(cfg.get('backend', 'pca9685') or 'pca9685').strip().lower()
-        self.enabled = bool(cfg.get('enabled', False))
+        self.enabled = bool(cfg.get('enabled', True))
         self.available = False
+        self._current_lift_angle = self._angle('lift_down_angle', 115)
 
         if not self.enabled:
             self.backend = self.backend or 'disabled'
@@ -64,6 +71,7 @@ class ArmService:
         return self.status()
 
     def shutdown(self) -> None:
+        self.stop_motion()
         self._kit = None
 
     def _angle(self, key: str, default: int) -> int:
@@ -82,6 +90,9 @@ class ArmService:
             value = int(default)
         return max(0, min(15, value))
 
+    def _step_angle(self) -> int:
+        return max(1, min(45, self._angle('lift_step_angle', 4)))
+
     def _set_servo_angle(self, channel: int, angle: int) -> None:
         if not self.enabled:
             raise RuntimeError('Arm is disabled in config.')
@@ -91,6 +102,89 @@ class ArmService:
             raise RuntimeError('Arm backend is not available.')
         self._kit.servo[channel].angle = angle
 
+    def _target_for_direction(self, direction: int) -> int:
+        up = self._angle('lift_up_angle', 40)
+        down = self._angle('lift_down_angle', 115)
+        return up if direction < 0 else down
+
+    def _direction_sign(self, action_key: str) -> int:
+        up = self._angle('lift_up_angle', 40)
+        down = self._angle('lift_down_angle', 115)
+        if action_key == 'up':
+            return -1 if up <= down else 1
+        return 1 if up <= down else -1
+
+    def _move_loop(self) -> None:
+        while not self._move_stop.is_set():
+            with self._move_lock:
+                direction = self._move_direction
+            if direction == 0:
+                break
+            target = self._target_for_direction(direction)
+            step = self._step_angle() * (1 if target > self._current_lift_angle else -1)
+            next_angle = self._current_lift_angle + step
+            if step > 0:
+                next_angle = min(next_angle, target)
+            else:
+                next_angle = max(next_angle, target)
+            try:
+                self._set_servo_angle(self._channel('lift_channel', 0), next_angle)
+                self._current_lift_angle = next_angle
+                self.last_action = 'up' if direction < 0 else 'down'
+                self.last_action_at = time.time()
+                self.last_error = ''
+                self.last_message = f'Lift moving {self.last_action}: {self._current_lift_angle}°.'
+            except Exception as exc:
+                self.last_error = str(exc)
+                self.last_message = f'Arm move failed: {exc}'
+                break
+            if next_angle == target:
+                break
+            self._move_stop.wait(0.06)
+        with self._move_lock:
+            self._move_direction = 0
+            self._move_thread = None
+        if not self.last_error:
+            self.last_action = 'idle'
+
+    def start_motion(self, action: str) -> tuple[bool, str]:
+        action_key = str(action or '').strip().lower()
+        if action_key not in {'up', 'down'}:
+            return False, f'Unsupported lift motion: {action}'
+        if not self.enabled:
+            self.last_message = 'Arm disabled in config.'
+            return False, self.last_message
+        if not self.available:
+            self.last_message = self.last_error or 'Arm backend is not available.'
+            return False, self.last_message
+        direction = self._direction_sign(action_key)
+        self.stop_motion()
+        with self._move_lock:
+            self._move_direction = direction
+            self._move_stop = threading.Event()
+            self._move_thread = threading.Thread(target=self._move_loop, name='customdrive-arm-move', daemon=True)
+            self._move_thread.start()
+        self.last_action = action_key
+        self.last_action_at = time.time()
+        self.last_error = ''
+        self.last_message = f'Lift {action_key} started.'
+        return True, self.last_message
+
+    def stop_motion(self) -> tuple[bool, str]:
+        thread = None
+        with self._move_lock:
+            thread = self._move_thread
+            self._move_direction = 0
+            self._move_stop.set()
+        if thread and thread.is_alive():
+            thread.join(timeout=0.2)
+        with self._move_lock:
+            self._move_thread = None
+        self.last_action = 'idle'
+        self.last_action_at = time.time()
+        self.last_message = f'Lift stopped at {self._current_lift_angle}°.'
+        return True, self.last_message
+
     def perform_action(self, action: str) -> tuple[bool, str]:
         action_key = str(action or '').strip().lower()
         action_key = {
@@ -99,15 +193,30 @@ class ArmService:
             'close': 'hold',
             'grab': 'hold',
             'clamp': 'hold',
-            'lift': 'up',
-            'raise_': 'up',
-            'raise_up': 'up',
-            'lower': 'down',
+            'lift': 'start_up',
+            'raise_': 'start_up',
+            'raise_up': 'start_up',
+            'lower': 'start_down',
         }.get(action_key, action_key)
 
+        if action_key in {'start_up', 'start-down', 'start_down'}:
+            return self.start_motion('up' if action_key == 'start_up' else 'down')
+        if action_key == 'stop':
+            return self.stop_motion()
+        if action_key == 'up':
+            ok, msg = self.start_motion('up')
+            if ok:
+                time.sleep(0.08)
+                self.stop_motion()
+            return ok, msg
+        if action_key == 'down':
+            ok, msg = self.start_motion('down')
+            if ok:
+                time.sleep(0.08)
+                self.stop_motion()
+            return ok, msg
+
         mapping = {
-            'up': ('lift_channel', 'lift_up_angle', 0, 40),
-            'down': ('lift_channel', 'lift_down_angle', 0, 115),
             'hold': ('grip_channel', 'grip_hold_angle', 1, 70),
             'release': ('grip_channel', 'grip_release_angle', 1, 130),
         }
@@ -144,15 +253,16 @@ class ArmService:
             'last_action_at': self.last_action_at,
             'lift_channel': self._channel('lift_channel', 0),
             'grip_channel': self._channel('grip_channel', 1),
+            'lift_angle': int(self._current_lift_angle),
+            'moving': bool(self._move_thread is not None),
         }
 
-    # Alias helpers so the object can be reused by bridge-style code later.
     def up(self) -> bool:
-        ok, _ = self.perform_action('up')
+        ok, _ = self.perform_action('start_up')
         return ok
 
     def down(self) -> bool:
-        ok, _ = self.perform_action('down')
+        ok, _ = self.perform_action('start_down')
         return ok
 
     def hold(self) -> bool:
