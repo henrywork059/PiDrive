@@ -40,9 +40,9 @@
       </article>
 
       <article class="dock-panel panel-viewer">
-        <div class="panel-head"><span>Camera preview</span><span class="panel-mini">MJPEG</span></div>
+        <div class="panel-head"><span>Camera preview</span><span class="panel-mini">PiServer frame polling</span></div>
         <div class="panel-body viewer-body">
-          <img id="videoFeed" src="/video_feed" alt="Manual control camera preview" />
+          <img id="videoFeed" src="" alt="Manual control camera preview" />
           <div id="cameraPreviewMeta" class="small-note preview-meta">Waiting for camera status…</div>
         </div>
       </article>
@@ -50,7 +50,7 @@
       <article class="dock-panel panel-manual">
         <div class="panel-head"><span>Manual drive</span><span class="panel-mini">joystick + keyboard</span></div>
         <div class="panel-body scroll-body">
-          <div class="small-note">Use <strong>W/S</strong> or <strong>↑/↓</strong> for throttle and <strong>A/D</strong> or <strong>←/→</strong> for steering. This page forces the <strong>manual</strong> algorithm so it drives the real PiServer motor path.</div>
+          <div class="small-note">Use <strong>W/S</strong> or <strong>↑/↓</strong> for throttle and <strong>A/D</strong> or <strong>←/→</strong> for steering. This page forces the <strong>manual</strong> algorithm so it drives the same real PiServer motor path as the main server.</div>
 
           <div id="joystickArea" class="joystick-area">
             <div id="joystickDot" class="joystick-dot"></div>

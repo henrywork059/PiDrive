@@ -7,9 +7,8 @@ from typing import Any
 
 from flask import Flask, Response, jsonify, render_template, request
 
-from .debug_tools import clamp_float
 from .manual_control_config import load_manual_control_config, save_manual_control_config
-from .project_paths import CUSTOMDRIVE_ROOT, DATA_DIR, PISERVER_ROOT, PISERVER_RUNTIME_PATH, ensure_piserver_import_paths
+from .project_paths import DATA_DIR, PISERVER_ROOT, PISERVER_RUNTIME_PATH, ensure_piserver_import_paths
 
 ensure_piserver_import_paths()
 
@@ -22,8 +21,7 @@ from piserver.services.motor_service import MotorService  # noqa: E402
 from piserver.services.recorder_service import RecorderService  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent / 'manual_web'
-APP_VERSION = '0_1_4'
-
+APP_VERSION = '0_1_5'
 
 
 def _mjpeg_generator(camera_service: CameraService):
@@ -64,10 +62,8 @@ class ManualControlContext:
         self.camera_service.start()
 
         self.motor_service = MotorService()
-        model_root = PISERVER_ROOT / 'models'
-        record_root = DATA_DIR / 'manual_records'
-        self.model_service = ModelService(model_root)
-        self.recorder_service = RecorderService(record_root)
+        self.model_service = ModelService(PISERVER_ROOT / 'models')
+        self.recorder_service = RecorderService(DATA_DIR / 'manual_records')
         self.algorithms = build_registry()
         self.control_service = ControlService(
             camera_service=self.camera_service,
@@ -79,12 +75,15 @@ class ManualControlContext:
             loop_hz=20,
         )
         self.control_service.start()
-        self.control_service.select_algorithm('manual')
-        self.control_service.set_runtime_parameters(current_page='manual')
+        self._apply_manual_mode_defaults()
 
-        default_speed = float(self.manual_config.get('ui', {}).get('manual_speed', 0.55))
-        self.control_service.set_runtime_parameters(max_throttle=default_speed)
-        self.camera_service.set_preview_enabled(bool(self.manual_config.get('ui', {}).get('show_camera', True)))
+    def _apply_manual_mode_defaults(self) -> None:
+        self.manual_config = load_manual_control_config()
+        ui_cfg = self.manual_config.get('ui', {}) if isinstance(self.manual_config, dict) else {}
+        default_speed = float(ui_cfg.get('manual_speed', 0.55))
+        self.control_service.select_algorithm('manual')
+        self.control_service.set_runtime_parameters(current_page='manual', max_throttle=default_speed)
+        self.camera_service.set_preview_enabled(bool(ui_cfg.get('show_camera', True)))
 
     def close(self) -> None:
         try:
@@ -107,9 +106,7 @@ class ManualControlContext:
         merged = _deep_merge(self.get_manual_config(), updates or {})
         saved = save_manual_control_config(merged)
         self.manual_config = saved
-        manual_speed = float(saved.get('ui', {}).get('manual_speed', 0.55))
-        self.control_service.set_runtime_parameters(max_throttle=manual_speed)
-        self.camera_service.set_preview_enabled(bool(saved.get('ui', {}).get('show_camera', True)))
+        self._apply_manual_mode_defaults()
         return saved
 
     def status_payload(self) -> dict[str, Any]:
@@ -123,7 +120,6 @@ class ManualControlContext:
         return payload
 
 
-
 def create_manual_control_app() -> Flask:
     app = Flask(
         __name__,
@@ -133,6 +129,14 @@ def create_manual_control_app() -> Flask:
 
     ctx = ManualControlContext()
     app.config['manual_ctx'] = ctx
+    app.config['services'] = {
+        'camera': ctx.camera_service,
+        'motor': ctx.motor_service,
+        'model': ctx.model_service,
+        'recorder': ctx.recorder_service,
+        'control': ctx.control_service,
+        'algorithms': ctx.algorithms,
+    }
 
     @app.route('/')
     def index():
@@ -166,6 +170,19 @@ def create_manual_control_app() -> Flask:
     def api_status():
         return jsonify(ctx.status_payload())
 
+    @app.route('/api/algorithms')
+    def api_algorithms():
+        payload = []
+        for algo in ctx.algorithms.values():
+            payload.append(
+                {
+                    'name': algo.name,
+                    'label': getattr(algo, 'label', algo.name),
+                    'mode': getattr(algo, 'mode', algo.name),
+                }
+            )
+        return jsonify({'algorithms': payload})
+
     @app.route('/api/control', methods=['POST'])
     def api_control():
         data = request.get_json(silent=True) or {}
@@ -176,13 +193,25 @@ def create_manual_control_app() -> Flask:
         ok_runtime, msg_runtime = ctx.control_service.set_runtime_parameters(
             max_throttle=data.get('max_throttle'),
             steer_mix=data.get('steer_mix'),
-            current_page='manual',
+            current_page=data.get('current_page', 'manual'),
         )
-        ok_algo, msg_algo = ctx.control_service.select_algorithm('manual')
-        if not (ok_controls and ok_runtime and ok_algo):
-            message = msg_controls if not ok_controls else msg_runtime if not ok_runtime else msg_algo
-            return jsonify({'ok': False, 'message': message, 'state': ctx.status_payload()}), 400
+        selected_algorithm = str(data.get('algorithm') or 'manual').strip() or 'manual'
+        ok_algo, msg_algo = ctx.control_service.select_algorithm(selected_algorithm)
+        if not ok_algo:
+            return jsonify({'ok': False, 'message': msg_algo, 'state': ctx.status_payload()}), 400
+        if not ok_controls:
+            return jsonify({'ok': False, 'message': msg_controls, 'state': ctx.status_payload()}), 400
+        if not ok_runtime:
+            return jsonify({'ok': False, 'message': msg_runtime, 'state': ctx.status_payload()}), 400
         return jsonify({'ok': True, 'state': ctx.status_payload()})
+
+    @app.route('/api/algorithm/select', methods=['POST'])
+    def api_algorithm_select():
+        data = request.get_json(silent=True) or {}
+        name = str(data.get('name') or 'manual').strip() or 'manual'
+        ok, msg = ctx.control_service.select_algorithm(name)
+        code = 200 if ok else 400
+        return jsonify({'ok': ok, 'message': msg, 'state': ctx.status_payload()}), code
 
     @app.route('/api/record/toggle', methods=['POST'])
     def api_record_toggle():
@@ -210,21 +239,33 @@ def create_manual_control_app() -> Flask:
             saved = ctx.save_manual_config(data)
         except Exception as exc:
             return jsonify({'ok': False, 'message': f'Failed to save manual control config: {exc}'}), 400
-        return jsonify({'ok': True, 'config': saved, 'state': ctx.status_payload(), 'message': 'Manual control settings saved.'})
+        return jsonify({
+            'ok': True,
+            'config': saved,
+            'state': ctx.status_payload(),
+            'message': 'Manual control settings saved.',
+        })
 
     @app.route('/api/config/save', methods=['POST'])
     def api_config_save():
         config = ctx.control_service.save_runtime_config()
-        return jsonify({'ok': True, 'config': config, 'message': 'PiServer runtime config saved.', 'state': ctx.status_payload()})
+        return jsonify({
+            'ok': True,
+            'config': config,
+            'message': 'PiServer runtime config saved.',
+            'state': ctx.status_payload(),
+        })
 
     @app.route('/api/config/reload', methods=['POST'])
     def api_config_reload():
         config = ctx.control_service.reload_runtime_config()
-        ctx.control_service.select_algorithm('manual')
-        ctx.control_service.set_runtime_parameters(current_page='manual')
-        manual_speed = float(ctx.get_manual_config().get('ui', {}).get('manual_speed', 0.55))
-        ctx.control_service.set_runtime_parameters(max_throttle=manual_speed)
-        return jsonify({'ok': True, 'config': config, 'message': 'PiServer runtime config reloaded.', 'state': ctx.status_payload()})
+        ctx._apply_manual_mode_defaults()
+        return jsonify({
+            'ok': True,
+            'config': config,
+            'message': 'PiServer runtime config reloaded.',
+            'state': ctx.status_payload(),
+        })
 
     @app.route('/api/camera/preview_state', methods=['POST'])
     def api_camera_preview_state():
@@ -237,9 +278,64 @@ def create_manual_control_app() -> Flask:
     def api_camera_config():
         return jsonify({'ok': True, 'config': ctx.camera_service.get_config()})
 
+    @app.route('/api/camera/apply', methods=['POST'])
+    def api_camera_apply():
+        data = request.get_json(silent=True) or {}
+        ok, message, config = ctx.camera_service.apply_settings(data, restart=True)
+        ctx.control_service.invalidate_processing_state_cache()
+        saved = False
+        save_error = ''
+        try:
+            ctx.config_store.save(ctx.control_service.get_runtime_config())
+            saved = True
+        except Exception as exc:
+            save_error = str(exc)
+        if not ok:
+            return jsonify({'ok': False, 'message': message or 'Camera settings failed.', 'config': config}), 400
+        final_message = message or 'Camera settings applied.'
+        if saved:
+            final_message += ' Settings saved.'
+        elif save_error:
+            final_message += f' Settings were not saved: {save_error}'
+        return jsonify({
+            'ok': True,
+            'saved': saved,
+            'message': final_message,
+            'config': config,
+            'state': ctx.status_payload(),
+        })
+
     @app.route('/api/motor/config')
     def api_motor_config():
         return jsonify({'ok': True, 'config': ctx.motor_service.get_config()})
+
+    @app.route('/api/motor/apply', methods=['POST'])
+    def api_motor_apply():
+        data = request.get_json(silent=True) or {}
+        try:
+            config = ctx.motor_service.apply_settings(data)
+            ctx.control_service.invalidate_processing_state_cache()
+        except Exception as exc:
+            return jsonify({'ok': False, 'message': f'Motor settings failed: {exc}'}), 400
+        saved = False
+        save_error = ''
+        try:
+            ctx.config_store.save(ctx.control_service.get_runtime_config())
+            saved = True
+        except Exception as exc:
+            save_error = str(exc)
+        message = 'Motor settings applied. Motors stopped for safety.'
+        if saved:
+            message += ' Settings saved.'
+        elif save_error:
+            message += f' Settings were not saved: {save_error}'
+        return jsonify({
+            'ok': True,
+            'saved': saved,
+            'message': message,
+            'config': config,
+            'state': ctx.status_payload(),
+        })
 
     @atexit.register
     def _cleanup() -> None:
