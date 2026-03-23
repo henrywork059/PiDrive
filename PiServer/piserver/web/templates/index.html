@@ -470,8 +470,6 @@
   </main>
 
   <script src="{{ url_for('static', filename='app.js') }}?v={{ app_version }}"></script>
-
-
     <div id="styleSettingsModal" class="style-modal hidden" aria-hidden="true">
       <div class="style-modal-backdrop" data-close-style-modal></div>
       <section class="style-modal-card" role="dialog" aria-modal="true" aria-labelledby="styleSettingsTitle">
@@ -484,102 +482,113 @@
         </div>
 
         <div class="style-modal-body">
-          <div class="style-settings-grid">
+          <div class="style-settings-grid style-settings-grid-updated">
             <section class="style-settings-section">
-              <h3>Colors</h3>
-              <div class="style-setting-row">
-                <label for="styleBg">Background</label>
-                <input id="styleBg" type="color" data-style-var="--bg" />
+              <div class="style-settings-section-head">
+                <h3>Colors</h3>
+                <div class="small-note">Core theme colors</div>
               </div>
-              <div class="style-setting-row">
-                <label for="stylePanel">Panel</label>
-                <input id="stylePanel" type="color" data-style-var="--panel" />
-              </div>
-              <div class="style-setting-row">
-                <label for="stylePanelAlt">Panel alt</label>
-                <input id="stylePanelAlt" type="color" data-style-var="--panel-alt" />
-              </div>
-              <div class="style-setting-row">
-                <label for="styleText">Text</label>
-                <input id="styleText" type="color" data-style-var="--text" />
-              </div>
-              <div class="style-setting-row">
-                <label for="styleMuted">Muted text</label>
-                <input id="styleMuted" type="color" data-style-var="--muted" />
-              </div>
-              <div class="style-setting-row">
-                <label for="styleAccent">Accent</label>
-                <input id="styleAccent" type="color" data-style-var="--accent" />
-              </div>
-              <div class="style-setting-row">
-                <label for="styleDanger">Danger</label>
-                <input id="styleDanger" type="color" data-style-var="--danger" />
-              </div>
-              <div class="style-setting-row">
-                <label for="styleWarn">Warn</label>
-                <input id="styleWarn" type="color" data-style-var="--warn" />
-              </div>
-              <div class="style-setting-row">
-                <label for="styleOk">OK</label>
-                <input id="styleOk" type="color" data-style-var="--ok" />
+              <div class="style-settings-scroll">
+                <div class="style-setting-row">
+                  <label for="styleBg">Background</label>
+                  <input id="styleBg" type="color" data-style-var="--bg" />
+                </div>
+                <div class="style-setting-row">
+                  <label for="stylePanel">Panel</label>
+                  <input id="stylePanel" type="color" data-style-var="--panel" />
+                </div>
+                <div class="style-setting-row">
+                  <label for="stylePanelAlt">Panel alt</label>
+                  <input id="stylePanelAlt" type="color" data-style-var="--panel-alt" />
+                </div>
+                <div class="style-setting-row">
+                  <label for="styleText">Text</label>
+                  <input id="styleText" type="color" data-style-var="--text" />
+                </div>
+                <div class="style-setting-row">
+                  <label for="styleMuted">Muted text</label>
+                  <input id="styleMuted" type="color" data-style-var="--muted" />
+                </div>
+                <div class="style-setting-row">
+                  <label for="styleAccent">Accent</label>
+                  <input id="styleAccent" type="color" data-style-var="--accent" />
+                </div>
+                <div class="style-setting-row">
+                  <label for="styleDanger">Danger</label>
+                  <input id="styleDanger" type="color" data-style-var="--danger" />
+                </div>
+                <div class="style-setting-row">
+                  <label for="styleWarn">Warn</label>
+                  <input id="styleWarn" type="color" data-style-var="--warn" />
+                </div>
+                <div class="style-setting-row">
+                  <label for="styleOk">OK</label>
+                  <input id="styleOk" type="color" data-style-var="--ok" />
+                </div>
               </div>
             </section>
 
-            <section class="style-settings-section">
-              <h3>Spacing and shape</h3>
-              <div class="style-setting-row style-setting-row-range">
-                <label for="styleFontScale">Font size (%)</label>
-                <input id="styleFontScale" type="range" min="70" max="115" step="1" data-style-var="--font-scale" data-style-unit="%" />
-                <span id="styleFontScaleValue" class="style-setting-value"></span>
+            <section class="style-settings-section style-settings-section-scroll">
+              <div class="style-settings-section-head">
+                <h3>Spacing and shape</h3>
+                <div class="small-note">Scroll to view all controls</div>
               </div>
-              <div class="style-setting-row style-setting-row-range">
-                <label for="styleWorkspacePad">Outer margin</label>
-                <input id="styleWorkspacePad" type="range" min="0" max="28" step="1" data-style-var="--workspace-pad" data-style-unit="px" />
-                <span id="styleWorkspacePadValue" class="style-setting-value"></span>
-              </div>
-              <div class="style-setting-row style-setting-row-range">
-                <label for="styleGap">Panel gap</label>
-                <input id="styleGap" type="range" min="0" max="20" step="1" data-style-var="--gap" data-style-unit="px" />
-                <span id="styleGapValue" class="style-setting-value"></span>
-              </div>
-              <div class="style-setting-row style-setting-row-range">
-                <label for="styleRadius">Panel radius</label>
-                <input id="styleRadius" type="range" min="0" max="28" step="1" data-style-var="--radius" data-style-unit="px" />
-                <span id="styleRadiusValue" class="style-setting-value"></span>
-              </div>
-              <div class="style-setting-row style-setting-row-range">
-                <label for="styleControlRadius">Button radius</label>
-                <input id="styleControlRadius" type="range" min="0" max="24" step="1" data-style-var="--control-radius" data-style-unit="px" />
-                <span id="styleControlRadiusValue" class="style-setting-value"></span>
-              </div>
-              <div class="style-setting-row style-setting-row-range">
-                <label for="styleCardRadius">Box radius</label>
-                <input id="styleCardRadius" type="range" min="0" max="24" step="1" data-style-var="--card-radius" data-style-unit="px" />
-                <span id="styleCardRadiusValue" class="style-setting-value"></span>
-              </div>
-              <div class="style-setting-row style-setting-row-range">
-                <label for="stylePanelPad">Panel body padding</label>
-                <input id="stylePanelPad" type="range" min="6" max="28" step="1" data-style-var="--panel-pad" data-style-unit="px" />
-                <span id="stylePanelPadValue" class="style-setting-value"></span>
-              </div>
-              <div class="style-setting-row style-setting-row-range">
-                <label for="styleHeaderPadY">Panel header padding</label>
-                <input id="styleHeaderPadY" type="range" min="4" max="24" step="1" data-style-var="--panel-head-pad-y" data-style-unit="px" />
-                <span id="styleHeaderPadYValue" class="style-setting-value"></span>
-              </div>
-              <div class="style-setting-row style-setting-row-range">
-                <label for="styleHeaderPadX">Header side spacing</label>
-                <input id="styleHeaderPadX" type="range" min="8" max="24" step="1" data-style-var="--panel-head-pad-x" data-style-unit="px" />
-                <span id="styleHeaderPadXValue" class="style-setting-value"></span>
-                            <div class="style-setting-row style-setting-row-range">
-                <label for="styleCardGap">Card spacing</label>
-                <input id="styleCardGap" type="range" min="0" max="24" step="1" data-style-var="--card-gap" data-style-unit="px" />
-                <span id="styleCardGapValue" class="style-setting-value"></span>
-              </div>
-              <div class="style-setting-row style-setting-row-range">
-                <label for="styleFieldGap">Field spacing</label>
-                <input id="styleFieldGap" type="range" min="0" max="24" step="1" data-style-var="--field-gap" data-style-unit="px" />
-                <span id="styleFieldGapValue" class="style-setting-value"></span>
+              <div class="style-settings-scroll style-settings-scroll-tall">
+                <div class="style-setting-row style-setting-row-range">
+                  <label for="styleFontScale">Font size (%)</label>
+                  <input id="styleFontScale" type="range" min="70" max="115" step="1" data-style-var="--font-scale" data-style-unit="%" />
+                  <span id="styleFontScaleValue" class="style-setting-value"></span>
+                </div>
+                <div class="style-setting-row style-setting-row-range">
+                  <label for="styleWorkspacePad">Outer margin</label>
+                  <input id="styleWorkspacePad" type="range" min="0" max="28" step="1" data-style-var="--workspace-pad" data-style-unit="px" />
+                  <span id="styleWorkspacePadValue" class="style-setting-value"></span>
+                </div>
+                <div class="style-setting-row style-setting-row-range">
+                  <label for="styleGap">Panel gap</label>
+                  <input id="styleGap" type="range" min="0" max="20" step="1" data-style-var="--gap" data-style-unit="px" />
+                  <span id="styleGapValue" class="style-setting-value"></span>
+                </div>
+                <div class="style-setting-row style-setting-row-range">
+                  <label for="styleRadius">Panel radius</label>
+                  <input id="styleRadius" type="range" min="0" max="28" step="1" data-style-var="--radius" data-style-unit="px" />
+                  <span id="styleRadiusValue" class="style-setting-value"></span>
+                </div>
+                <div class="style-setting-row style-setting-row-range">
+                  <label for="styleControlRadius">Button radius</label>
+                  <input id="styleControlRadius" type="range" min="0" max="24" step="1" data-style-var="--control-radius" data-style-unit="px" />
+                  <span id="styleControlRadiusValue" class="style-setting-value"></span>
+                </div>
+                <div class="style-setting-row style-setting-row-range">
+                  <label for="styleCardRadius">Box radius</label>
+                  <input id="styleCardRadius" type="range" min="0" max="24" step="1" data-style-var="--card-radius" data-style-unit="px" />
+                  <span id="styleCardRadiusValue" class="style-setting-value"></span>
+                </div>
+                <div class="style-setting-row style-setting-row-range">
+                  <label for="stylePanelPad">Panel body padding</label>
+                  <input id="stylePanelPad" type="range" min="6" max="28" step="1" data-style-var="--panel-pad" data-style-unit="px" />
+                  <span id="stylePanelPadValue" class="style-setting-value"></span>
+                </div>
+                <div class="style-setting-row style-setting-row-range">
+                  <label for="styleHeaderPadY">Panel header padding</label>
+                  <input id="styleHeaderPadY" type="range" min="4" max="24" step="1" data-style-var="--panel-head-pad-y" data-style-unit="px" />
+                  <span id="styleHeaderPadYValue" class="style-setting-value"></span>
+                </div>
+                <div class="style-setting-row style-setting-row-range">
+                  <label for="styleHeaderPadX">Header side spacing</label>
+                  <input id="styleHeaderPadX" type="range" min="8" max="24" step="1" data-style-var="--panel-head-pad-x" data-style-unit="px" />
+                  <span id="styleHeaderPadXValue" class="style-setting-value"></span>
+                </div>
+                <div class="style-setting-row style-setting-row-range">
+                  <label for="styleCardGap">Card spacing</label>
+                  <input id="styleCardGap" type="range" min="0" max="24" step="1" data-style-var="--card-gap" data-style-unit="px" />
+                  <span id="styleCardGapValue" class="style-setting-value"></span>
+                </div>
+                <div class="style-setting-row style-setting-row-range">
+                  <label for="styleFieldGap">Field spacing</label>
+                  <input id="styleFieldGap" type="range" min="0" max="24" step="1" data-style-var="--field-gap" data-style-unit="px" />
+                  <span id="styleFieldGapValue" class="style-setting-value"></span>
+                </div>
               </div>
             </section>
           </div>
@@ -587,28 +596,99 @@
           <section class="style-settings-section style-preview-section">
             <div class="style-preview-head">
               <h3>Preview</h3>
-              <div class="small-note">Example panel and example boxes</div>
+              <div class="small-note">More example panels, boxes, fields, and a narrow status layout</div>
             </div>
             <div class="style-preview-surface">
-              <article class="dock-panel style-preview-panel">
-                <div class="panel-head">
-                  <span>Example panel</span>
-                  <span class="panel-mini">preview</span>
-                </div>
-                <div class="panel-body">
-                  <div class="metric-grid metric-grid-primary">
-                    <div class="metric-card metric-card-primary">
-                      <label>Accent</label>
-                      <strong>Sample box</strong>
+              <div class="style-preview-gallery">
+                <article class="dock-panel style-preview-panel">
+                  <div class="panel-head">
+                    <span>Status panel</span>
+                    <span class="panel-mini">live demo</span>
+                  </div>
+                  <div class="panel-body status-body">
+                    <div class="metric-grid status-metric-grid preview-status-grid">
+                      <div class="metric-card metric-card-primary"><label>Drive</label><strong>ready</strong></div>
+                      <div class="metric-card metric-card-primary"><label>Output</label><strong>S 0.00 · T 0.00</strong></div>
+                      <div class="metric-card"><label>Target</label><strong>S 0.18 · T 0.22</strong></div>
+                      <button class="metric-card metric-card-primary metric-card-action overlay-toggle mode-1" type="button">
+                        <span class="metric-card-action-label">Overlay</span>
+                        <strong class="metric-card-action-value">ON</strong>
+                        <span class="metric-card-action-note">Cycle view</span>
+                      </button>
+                      <div class="metric-card"><label>Model</label><strong>lane_v2</strong></div>
+                      <div class="metric-card"><label>FPS</label><strong>28.4</strong></div>
                     </div>
-                    <div class="metric-card">
-                      <label>Muted text</label>
-                      <strong>Spacing test</strong>
+                    <div class="banner muted style-preview-banner">Banner, card spacing, and body padding preview.</div>
+                  </div>
+                </article>
+
+                <article class="dock-panel style-preview-panel">
+                  <div class="panel-head">
+                    <span>Controls panel</span>
+                    <span class="panel-mini">fields demo</span>
+                  </div>
+                  <div class="panel-body">
+                    <div class="field-grid two-col compact-grid style-preview-control-grid">
+                      <div class="field compact-field">
+                        <label>Example slider</label>
+                        <input type="range" value="58" />
+                        <div class="value-text"><span>0.58</span></div>
+                      </div>
+                      <div class="field compact-field">
+                        <label>Example select</label>
+                        <select><option>Manual</option><option>Auto</option></select>
+                      </div>
+                      <div class="field compact-field">
+                        <label>Example number</label>
+                        <input type="number" value="12" />
+                      </div>
+                      <div class="field compact-field">
+                        <label>Example text</label>
+                        <input type="text" value="PiServer" />
+                      </div>
+                    </div>
+                    <div class="stack-row panel-actions style-preview-actions">
+                      <button type="button">Primary</button>
+                      <button class="ghost-btn" type="button">Secondary</button>
+                      <button class="danger-btn" type="button">Danger</button>
                     </div>
                   </div>
-                  <div class="banner muted style-preview-banner">Preview updates live while you adjust settings.</div>
-                </div>
-              </article>
+                </article>
+
+                <article class="dock-panel style-preview-panel style-preview-panel-narrow">
+                  <div class="panel-head">
+                    <span>Narrow status</span>
+                    <span class="panel-mini">tight layout</span>
+                  </div>
+                  <div class="panel-body status-body">
+                    <div class="metric-grid status-metric-grid preview-status-grid-narrow">
+                      <div class="metric-card metric-card-primary"><label>Cam</label><strong>26×24</strong></div>
+                      <div class="metric-card"><label>Algo</label><strong>manual</strong></div>
+                      <div class="metric-card"><label>Mix</label><strong>0.50</strong></div>
+                      <div class="metric-card"><label>Bias</label><strong>0.00</strong></div>
+                      <div class="metric-card"><label>Mode</label><strong>preview</strong></div>
+                      <div class="metric-card"><label>Error</label><strong>none</strong></div>
+                    </div>
+                  </div>
+                </article>
+
+                <article class="dock-panel style-preview-panel">
+                  <div class="panel-head">
+                    <span>Message and boxes</span>
+                    <span class="panel-mini">cards demo</span>
+                  </div>
+                  <div class="panel-body">
+                    <div class="style-preview-mini-grid">
+                      <div class="metric-card"><label>Muted</label><strong>note</strong></div>
+                      <div class="metric-card metric-card-primary"><label>Accent</label><strong>focus</strong></div>
+                      <div class="metric-card metric-card-alert"><label>Warn</label><strong>check</strong></div>
+                      <div class="metric-card"><label>Info</label><strong>spacing</strong></div>
+                    </div>
+                    <div class="banner muted">Preview updates live while you adjust settings.</div>
+                    <div class="banner ok">Saved style examples can stay compact and readable.</div>
+                  </div>
+                </article>
+              </div>
             </div>
           </section>
         </div>

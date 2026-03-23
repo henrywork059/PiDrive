@@ -17,7 +17,7 @@ from piserver.services.recorder_service import RecorderService
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 WEB_DIR = Path(__file__).resolve().parent / "web"
-APP_VERSION = "0_3_5"
+APP_VERSION = "0_4_2"
 
 
 def mjpeg_generator(camera_service):
