@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PiServer Style Settings</title>
+  <script src="{{ url_for('static', filename='theme.js') }}?v={{ app_version }}"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v={{ app_version }}" />
+</head>
+<body>
+  <main class="settings-shell">
+    <section class="settings-page">
+      <section class="settings-card">
+        <div class="settings-header">
+          <div>
+            <h1>Style settings</h1>
+            <p class="settings-subtitle">Tune the PiServer web style and preview it before saving.</p>
+          </div>
+          <button class="ghost-btn" type="button" onclick="window.location.href='/'">Back</button>
+        </div>
+
+        <div class="settings-form">
+          <div class="field"><label for="bg">Background</label><input id="bg" type="color" /></div>
+          <div class="field"><label for="panel">Panel</label><input id="panel" type="color" /></div>
+          <div class="field"><label for="panelAlt">Panel alt</label><input id="panelAlt" type="color" /></div>
+          <div class="field"><label for="line">Border line</label><input id="line" type="color" /></div>
+          <div class="field"><label for="text">Text</label><input id="text" type="color" /></div>
+          <div class="field"><label for="muted">Muted text</label><input id="muted" type="color" /></div>
+          <div class="field"><label for="accent">Accent</label><input id="accent" type="color" /></div>
+          <div class="field"><label for="danger">Danger</label><input id="danger" type="color" /></div>
+          <div class="field"><label for="ok">OK</label><input id="ok" type="color" /></div>
+
+          <div class="field field-wide">
+            <label for="gap">Panel gap / spacing</label>
+            <div class="range-row"><input id="gap" type="range" min="0" max="30" step="1" /><span id="gapValue" class="range-value"></span></div>
+          </div>
+          <div class="field field-wide">
+            <label for="radius">Corner radius</label>
+            <div class="range-row"><input id="radius" type="range" min="0" max="36" step="1" /><span id="radiusValue" class="range-value"></span></div>
+          </div>
+          <div class="field field-wide">
+            <label for="pageMargin">Page margin</label>
+            <div class="range-row"><input id="pageMargin" type="range" min="0" max="40" step="1" /><span id="pageMarginValue" class="range-value"></span></div>
+          </div>
+          <div class="field field-wide">
+            <label for="panelPadding">Panel padding</label>
+            <div class="range-row"><input id="panelPadding" type="range" min="4" max="40" step="1" /><span id="panelPaddingValue" class="range-value"></span></div>
+          </div>
+          <div class="field field-wide">
+            <label for="controlFontSize">Control font size</label>
+            <div class="range-row"><input id="controlFontSize" type="range" min="0.7" max="1.4" step="0.01" /><span id="controlFontSizeValue" class="range-value"></span></div>
+          </div>
+          <div class="field field-wide">
+            <label for="baseFontSize">Base font size</label>
+            <div class="range-row"><input id="baseFontSize" type="range" min="60" max="140" step="1" /><span id="baseFontSizeValue" class="range-value"></span></div>
+          </div>
+        </div>
+
+        <div class="settings-actions">
+          <button id="saveStyleBtn" type="button">Save style</button>
+          <button id="resetStyleBtn" class="ghost-btn" type="button">Reset default</button>
+        </div>
+        <div id="settingsMessage" class="banner muted">Changes preview live on this page. Save to use them on the main dashboard.</div>
+      </section>
+
+      <section class="preview-stack">
+        <section class="settings-card">
+          <div class="settings-header">
+            <div>
+              <h2>Preview panel</h2>
+              <p class="settings-subtitle">Example panel and boxes using the current style.</p>
+            </div>
+          </div>
+          <div class="preview-panel-demo">
+            <div class="preview-panel-head"><span>System status</span><span class="panel-mini">preview</span></div>
+            <div class="preview-box-grid">
+              <div class="preview-box"><label>Drive</label><strong>READY</strong></div>
+              <div class="preview-box"><label>Camera</label><strong>SIM</strong></div>
+              <div class="preview-box"><label>Model</label><strong>none</strong></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="settings-card">
+          <div class="settings-header">
+            <div>
+              <h2>Preview controls</h2>
+              <p class="settings-subtitle">Buttons, spacing, and font sizing.</p>
+            </div>
+          </div>
+          <div class="preview-toolbar">
+            <button type="button">Primary</button>
+            <button type="button" class="ghost-btn">Ghost</button>
+            <button type="button" class="danger-btn">Danger</button>
+            <div class="badge off">run</div>
+          </div>
+        </section>
+      </section>
+    </section>
+  </main>
+  <script src="{{ url_for('static', filename='settings.js') }}?v={{ app_version }}"></script>
+</body>
+</html>
