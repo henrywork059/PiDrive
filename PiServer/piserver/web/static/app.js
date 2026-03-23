@@ -1,6 +1,6 @@
 const gridCols = 45;
 const gridRows = 25;
-const layoutKeyPrefix = "PiServerLayout:v0_3_21:";
+const layoutKeyPrefix = "PiServerLayout:v0_3_3:";
 const manualFeelKey = "PiServerManualFeel:v0_3_5";
 const STEP_INTERVAL_MS = 60;
 const STEP_SIZE = 0.08;
@@ -15,41 +15,41 @@ const pagePanels = {
 
 const defaultLayouts = {
   manual: {
-    status: { c: 1, r: 1, w: 6, h: 14 },
-    estop: { c: 1, r: 15, w: 6, h: 4 },
-    record: { c: 1, r: 19, w: 6, h: 4 },
-    viewer: { c: 7, r: 1, w: 21, h: 22 },
-    runtime: { c: 28, r: 1, w: 18, h: 6 },
-    manual: { c: 28, r: 7, w: 18, h: 16 }
+    status: { c: 1, r: 1, w: 8, h: 13 },
+    estop: { c: 1, r: 14, w: 8, h: 4 },
+    record: { c: 1, r: 18, w: 8, h: 5 },
+    viewer: { c: 9, r: 1, w: 21, h: 22 },
+    runtime: { c: 30, r: 1, w: 16, h: 7 },
+    manual: { c: 30, r: 8, w: 16, h: 15 }
   },
   training: {
-    status: { c: 1, r: 1, w: 20, h: 5 },
-    estop: { c: 21, r: 1, w: 6, h: 5 },
-    viewer: { c: 1, r: 6, w: 24, h: 15 },
-    model: { c: 25, r: 6, w: 21, h: 5 },
-    manual: { c: 25, r: 11, w: 21, h: 10 },
-    record: { c: 1, r: 21, w: 24, h: 5 },
-    sessions: { c: 25, r: 21, w: 21, h: 5 }
+    status: { c: 1, r: 1, w: 17, h: 6 },
+    estop: { c: 18, r: 1, w: 8, h: 6 },
+    viewer: { c: 1, r: 7, w: 25, h: 14 },
+    model: { c: 26, r: 7, w: 20, h: 6 },
+    manual: { c: 26, r: 13, w: 20, h: 8 },
+    record: { c: 1, r: 21, w: 23, h: 5 },
+    sessions: { c: 24, r: 21, w: 22, h: 5 }
   },
   auto: {
-    status: { c: 1, r: 1, w: 35, h: 5 },
-    estop: { c: 36, r: 1, w: 10, h: 5 },
-    viewer: { c: 1, r: 6, w: 28, h: 15 },
-    runtime: { c: 29, r: 6, w: 17, h: 6 },
-    model: { c: 29, r: 12, w: 17, h: 9 },
-    record: { c: 1, r: 21, w: 20, h: 5 }
+    status: { c: 1, r: 1, w: 24, h: 6 },
+    estop: { c: 25, r: 1, w: 8, h: 6 },
+    viewer: { c: 1, r: 7, w: 27, h: 14 },
+    runtime: { c: 28, r: 7, w: 18, h: 6 },
+    model: { c: 28, r: 13, w: 18, h: 8 },
+    record: { c: 1, r: 21, w: 22, h: 5 }
   },
   camera: {
-    status: { c: 1, r: 1, w: 35, h: 5 },
-    estop: { c: 36, r: 1, w: 10, h: 5 },
-    viewer: { c: 1, r: 6, w: 22, h: 20 },
-    camera: { c: 23, r: 6, w: 23, h: 20 }
+    status: { c: 1, r: 1, w: 24, h: 6 },
+    estop: { c: 25, r: 1, w: 8, h: 6 },
+    viewer: { c: 1, r: 7, w: 25, h: 19 },
+    camera: { c: 26, r: 7, w: 20, h: 19 }
   },
   motor: {
-    status: { c: 1, r: 1, w: 35, h: 5 },
-    estop: { c: 36, r: 1, w: 10, h: 5 },
-    viewer: { c: 1, r: 6, w: 22, h: 20 },
-    motor: { c: 23, r: 6, w: 23, h: 20 }
+    status: { c: 1, r: 1, w: 24, h: 6 },
+    estop: { c: 25, r: 1, w: 8, h: 6 },
+    viewer: { c: 1, r: 7, w: 25, h: 19 },
+    motor: { c: 26, r: 7, w: 20, h: 19 }
   }
 };
 
@@ -1283,6 +1283,10 @@ function setupEvents() {
   document.getElementById("saveLayoutBtn").addEventListener("click", () => {
     saveLayout(state.page, currentLayout());
     setBanner("statusBanner", `Saved ${state.page} layout.`, "muted");
+  });
+
+  document.getElementById("styleSettingsBtn")?.addEventListener("click", () => {
+    window.location.href = "/settings";
   });
 
   document.getElementById("resetLayoutBtn").addEventListener("click", () => {

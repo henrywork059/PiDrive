@@ -7,97 +7,119 @@
   <script src="{{ url_for('static', filename='theme.js') }}?v={{ app_version }}"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v={{ app_version }}" />
 </head>
-<body>
+<body class="settings-page-body">
+  <header class="topbar settings-topbar">
+    <div class="brand">
+      <div class="brand-title">PiServer style settings</div>
+      <div class="brand-subtitle">Edit the web style and preview it before going back.</div>
+    </div>
+    <div class="toolbar-actions">
+      <a class="ghost-btn link-btn" href="/">Back to PiServer</a>
+      <button id="resetStyleBtn" class="ghost-btn" type="button">Reset style</button>
+      <button id="saveStyleBtn" type="button">Save style</button>
+    </div>
+  </header>
+
   <main class="settings-shell">
-    <section class="settings-page">
-      <section class="settings-card">
-        <div class="settings-header">
-          <div>
-            <h1>Style settings</h1>
-            <p class="settings-subtitle">Tune the PiServer web style and preview it before saving.</p>
-          </div>
-          <button class="ghost-btn" type="button" onclick="window.location.href='/'">Back</button>
-        </div>
-
-        <div class="settings-form">
-          <div class="field"><label for="bg">Background</label><input id="bg" type="color" /></div>
-          <div class="field"><label for="panel">Panel</label><input id="panel" type="color" /></div>
-          <div class="field"><label for="panelAlt">Panel alt</label><input id="panelAlt" type="color" /></div>
-          <div class="field"><label for="line">Border line</label><input id="line" type="color" /></div>
-          <div class="field"><label for="text">Text</label><input id="text" type="color" /></div>
-          <div class="field"><label for="muted">Muted text</label><input id="muted" type="color" /></div>
-          <div class="field"><label for="accent">Accent</label><input id="accent" type="color" /></div>
-          <div class="field"><label for="danger">Danger</label><input id="danger" type="color" /></div>
-          <div class="field"><label for="ok">OK</label><input id="ok" type="color" /></div>
-
-          <div class="field field-wide">
-            <label for="gap">Panel gap / spacing</label>
-            <div class="range-row"><input id="gap" type="range" min="0" max="30" step="1" /><span id="gapValue" class="range-value"></span></div>
-          </div>
-          <div class="field field-wide">
-            <label for="radius">Corner radius</label>
-            <div class="range-row"><input id="radius" type="range" min="0" max="36" step="1" /><span id="radiusValue" class="range-value"></span></div>
-          </div>
-          <div class="field field-wide">
-            <label for="pageMargin">Page margin</label>
-            <div class="range-row"><input id="pageMargin" type="range" min="0" max="40" step="1" /><span id="pageMarginValue" class="range-value"></span></div>
-          </div>
-          <div class="field field-wide">
-            <label for="panelPadding">Panel padding</label>
-            <div class="range-row"><input id="panelPadding" type="range" min="4" max="40" step="1" /><span id="panelPaddingValue" class="range-value"></span></div>
-          </div>
-          <div class="field field-wide">
-            <label for="controlFontSize">Control font size</label>
-            <div class="range-row"><input id="controlFontSize" type="range" min="0.7" max="1.4" step="0.01" /><span id="controlFontSizeValue" class="range-value"></span></div>
-          </div>
-          <div class="field field-wide">
-            <label for="baseFontSize">Base font size</label>
-            <div class="range-row"><input id="baseFontSize" type="range" min="60" max="140" step="1" /><span id="baseFontSizeValue" class="range-value"></span></div>
+    <section class="settings-grid">
+      <article class="settings-card settings-form-card">
+        <div class="panel-head"><span>Global spacing</span><span class="panel-mini">layout</span></div>
+        <div class="panel-body settings-scroll-body">
+          <div class="settings-form-grid">
+            <label class="settings-field"><span>Font size (%)</span><input id="fontScale" type="range" min="70" max="135" step="1" /><strong id="fontScaleValue">100%</strong></label>
+            <label class="settings-field"><span>Grid gap</span><input id="gridGap" type="range" min="2" max="18" step="1" /><strong id="gridGapValue">4px</strong></label>
+            <label class="settings-field"><span>Page padding</span><input id="workspacePad" type="range" min="6" max="28" step="1" /><strong id="workspacePadValue">10px</strong></label>
+            <label class="settings-field"><span>Panel body padding</span><input id="panelPad" type="range" min="8" max="26" step="1" /><strong id="panelPadValue">12px</strong></label>
+            <label class="settings-field"><span>Panel header padding</span><input id="panelHeadPad" type="range" min="8" max="22" step="1" /><strong id="panelHeadPadValue">10px</strong></label>
+            <label class="settings-field"><span>Control spacing</span><input id="controlGap" type="range" min="4" max="20" step="1" /><strong id="controlGapValue">8px</strong></label>
+            <label class="settings-field"><span>Section spacing</span><input id="sectionGap" type="range" min="6" max="24" step="1" /><strong id="sectionGapValue">12px</strong></label>
+            <label class="settings-field"><span>Card spacing</span><input id="cardGap" type="range" min="4" max="18" step="1" /><strong id="cardGapValue">8px</strong></label>
+            <label class="settings-field"><span>Field spacing</span><input id="fieldGap" type="range" min="4" max="18" step="1" /><strong id="fieldGapValue">7px</strong></label>
+            <label class="settings-field"><span>Corner radius</span><input id="radius" type="range" min="8" max="26" step="1" /><strong id="radiusValue">10px</strong></label>
           </div>
         </div>
+      </article>
 
-        <div class="settings-actions">
-          <button id="saveStyleBtn" type="button">Save style</button>
-          <button id="resetStyleBtn" class="ghost-btn" type="button">Reset default</button>
+      <article class="settings-card settings-form-card">
+        <div class="panel-head"><span>Colors</span><span class="panel-mini">theme</span></div>
+        <div class="panel-body settings-scroll-body">
+          <div class="settings-form-grid color-grid">
+            <label class="settings-field color-field"><span>Background</span><input id="bg" type="color" /><code id="bgText">#1b1d23</code></label>
+            <label class="settings-field color-field"><span>Panel</span><input id="panel" type="color" /><code id="panelText">#232630</code></label>
+            <label class="settings-field color-field"><span>Panel alt</span><input id="panelAlt" type="color" /><code id="panelAltText">#2a2e39</code></label>
+            <label class="settings-field color-field"><span>Text</span><input id="text" type="color" /><code id="textText">#f1f2f7</code></label>
+            <label class="settings-field color-field"><span>Muted</span><input id="muted" type="color" /><code id="mutedText">#9ea5b5</code></label>
+            <label class="settings-field color-field"><span>Accent</span><input id="accent" type="color" /><code id="accentText">#f4a31e</code></label>
+            <label class="settings-field color-field"><span>Danger</span><input id="danger" type="color" /><code id="dangerText">#ca655d</code></label>
+            <label class="settings-field color-field"><span>OK</span><input id="ok" type="color" /><code id="okText">#8d9d61</code></label>
+            <label class="settings-field color-field"><span>Line</span><input id="line" type="color" /><code id="lineText">#7a5d26</code></label>
+            <label class="settings-field color-field"><span>Line strong</span><input id="lineStrong" type="color" /><code id="lineStrongText">#c28b2d</code></label>
+          </div>
         </div>
-        <div id="settingsMessage" class="banner muted">Changes preview live on this page. Save to use them on the main dashboard.</div>
-      </section>
+      </article>
 
-      <section class="preview-stack">
-        <section class="settings-card">
-          <div class="settings-header">
-            <div>
-              <h2>Preview panel</h2>
-              <p class="settings-subtitle">Example panel and boxes using the current style.</p>
+      <article class="settings-card settings-preview-card">
+        <div class="panel-head"><span>Live preview</span><span class="panel-mini">PiServer page</span></div>
+        <div class="panel-body settings-scroll-body">
+          <div class="settings-preview-wrap">
+            <div class="settings-preview-topbar">
+              <div>
+                <div class="brand-title">PiServer</div>
+                <div class="brand-subtitle">runtime control workspace</div>
+              </div>
+              <div class="panel-actions">
+                <button class="tab-btn active" type="button">Manual</button>
+                <button class="ghost-btn" type="button">Save layout</button>
+                <button class="ghost-btn" type="button">Style settings</button>
+              </div>
             </div>
-          </div>
-          <div class="preview-panel-demo">
-            <div class="preview-panel-head"><span>System status</span><span class="panel-mini">preview</span></div>
-            <div class="preview-box-grid">
-              <div class="preview-box"><label>Drive</label><strong>READY</strong></div>
-              <div class="preview-box"><label>Camera</label><strong>SIM</strong></div>
-              <div class="preview-box"><label>Model</label><strong>none</strong></div>
-            </div>
-          </div>
-        </section>
+            <div class="settings-preview-panels">
+              <section class="dock-panel preview-panel-demo">
+                <div class="panel-head"><span>Status panel</span><span class="panel-mini">demo</span></div>
+                <div class="panel-body status-body">
+                  <div class="metric-grid status-metric-grid">
+                    <div class="metric-card metric-card-primary"><label>Drive</label><strong>ready</strong></div>
+                    <div class="metric-card"><label>Mode</label><strong>manual</strong></div>
+                    <div class="metric-card"><label>Speed</label><strong>0.00</strong></div>
+                    <button class="metric-card metric-card-primary metric-card-action overlay-toggle mode-1" type="button">
+                      <span class="metric-card-action-label">Overlay</span>
+                      <strong class="metric-card-action-value">ON</strong>
+                      <span class="metric-card-action-note">preview</span>
+                    </button>
+                  </div>
+                  <div class="banner muted">Preview banner and spacing</div>
+                </div>
+              </section>
 
-        <section class="settings-card">
-          <div class="settings-header">
-            <div>
-              <h2>Preview controls</h2>
-              <p class="settings-subtitle">Buttons, spacing, and font sizing.</p>
+              <section class="dock-panel preview-panel-demo">
+                <div class="panel-head"><span>Controls panel</span><span class="panel-mini">demo</span></div>
+                <div class="panel-body">
+                  <div class="field-grid two-col compact-grid">
+                    <div class="field">
+                      <label>Example slider</label>
+                      <input type="range" value="50" />
+                      <div class="value-text"><span>0.50</span></div>
+                    </div>
+                    <div class="field">
+                      <label>Example select</label>
+                      <select><option>Manual</option><option>Auto</option></select>
+                    </div>
+                  </div>
+                  <div class="stack-row panel-actions">
+                    <button type="button">Primary</button>
+                    <button class="ghost-btn" type="button">Secondary</button>
+                    <button class="danger-btn" type="button">Danger</button>
+                  </div>
+                </div>
+              </section>
             </div>
           </div>
-          <div class="preview-toolbar">
-            <button type="button">Primary</button>
-            <button type="button" class="ghost-btn">Ghost</button>
-            <button type="button" class="danger-btn">Danger</button>
-            <div class="badge off">run</div>
-          </div>
-        </section>
-      </section>
+          <div id="styleSettingsMessage" class="banner muted settings-message">Style changes preview live here and apply to the main PiServer page after save.</div>
+        </div>
+      </article>
     </section>
   </main>
+
   <script src="{{ url_for('static', filename='settings.js') }}?v={{ app_version }}"></script>
 </body>
 </html>
