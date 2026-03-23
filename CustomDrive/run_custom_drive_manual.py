@@ -42,7 +42,7 @@ def main() -> None:
     manual_cfg = load_manual_control_config()
     server_cfg = manual_cfg.get('server', {}) if isinstance(manual_cfg, dict) else {}
     host = args.host or str(server_cfg.get('host', '0.0.0.0') or '0.0.0.0')
-    port = int(args.port if args.port is not None else server_cfg.get('port', 5060))
+    port = int(args.port if args.port is not None else server_cfg.get('port', 5050))
 
     try:
         from custom_drive.manual_control_app import create_manual_control_app

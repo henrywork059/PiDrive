@@ -15,7 +15,7 @@ MANUAL_CONTROL_CONFIG_PATH = CONFIG_DIR / 'manual_control.json'
 DEFAULT_MANUAL_CONTROL_CONFIG: dict[str, Any] = {
     'server': {
         'host': '0.0.0.0',
-        'port': 5060,
+        'port': 5050,
         'refresh_ms': 200,
     },
     'ui': {
@@ -75,7 +75,7 @@ def normalize_manual_control_config(data: dict[str, Any] | None) -> dict[str, An
     server = merged.get('server') or {}
     merged['server'] = {
         'host': str(server.get('host', '0.0.0.0') or '0.0.0.0').strip() or '0.0.0.0',
-        'port': clamp_int(server.get('port', 5060), 5060, 1, 65535),
+        'port': clamp_int(server.get('port', 5050), 5050, 1, 65535),
         'refresh_ms': clamp_int(server.get('refresh_ms', 200), 200, 50, 5000),
     }
 

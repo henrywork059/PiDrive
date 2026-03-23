@@ -218,6 +218,8 @@ The controller still uses **coarse route + local visual servoing** instead of a 
 
 CustomDrive now also includes a separate **PiServer-style manual control app** for the competition driving sessions.
 
+By default it now uses **port 5050** so it matches the main CustomDrive web UI more closely.
+
 Launch it with:
 
 ```bash
@@ -225,7 +227,7 @@ cd CustomDrive
 python run_custom_drive_manual.py
 ```
 
-Then open `http://localhost:5060`.
+Then open `http://localhost:5050`.
 
 This manual controller:
 
