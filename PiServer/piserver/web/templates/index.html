@@ -470,6 +470,8 @@
   </main>
 
   <script src="{{ url_for('static', filename='app.js') }}?v={{ app_version }}"></script>
+
+
     <div id="styleSettingsModal" class="style-modal hidden" aria-hidden="true">
       <div class="style-modal-backdrop" data-close-style-modal></div>
       <section class="style-modal-card" role="dialog" aria-modal="true" aria-labelledby="styleSettingsTitle">
@@ -482,49 +484,44 @@
         </div>
 
         <div class="style-modal-body">
-          <div class="style-settings-grid style-settings-grid-updated">
+          <div class="style-settings-grid">
             <section class="style-settings-section">
-              <div class="style-settings-section-head">
-                <h3>Colors</h3>
-                <div class="small-note">Core theme colors</div>
+              <h3>Colors</h3>
+              <div class="style-setting-row">
+                <label for="styleBg">Background</label>
+                <input id="styleBg" type="color" data-style-var="--bg" />
               </div>
-              <div class="style-settings-scroll">
-                <div class="style-setting-row">
-                  <label for="styleBg">Background</label>
-                  <input id="styleBg" type="color" data-style-var="--bg" />
-                </div>
-                <div class="style-setting-row">
-                  <label for="stylePanel">Panel</label>
-                  <input id="stylePanel" type="color" data-style-var="--panel" />
-                </div>
-                <div class="style-setting-row">
-                  <label for="stylePanelAlt">Panel alt</label>
-                  <input id="stylePanelAlt" type="color" data-style-var="--panel-alt" />
-                </div>
-                <div class="style-setting-row">
-                  <label for="styleText">Text</label>
-                  <input id="styleText" type="color" data-style-var="--text" />
-                </div>
-                <div class="style-setting-row">
-                  <label for="styleMuted">Muted text</label>
-                  <input id="styleMuted" type="color" data-style-var="--muted" />
-                </div>
-                <div class="style-setting-row">
-                  <label for="styleAccent">Accent</label>
-                  <input id="styleAccent" type="color" data-style-var="--accent" />
-                </div>
-                <div class="style-setting-row">
-                  <label for="styleDanger">Danger</label>
-                  <input id="styleDanger" type="color" data-style-var="--danger" />
-                </div>
-                <div class="style-setting-row">
-                  <label for="styleWarn">Warn</label>
-                  <input id="styleWarn" type="color" data-style-var="--warn" />
-                </div>
-                <div class="style-setting-row">
-                  <label for="styleOk">OK</label>
-                  <input id="styleOk" type="color" data-style-var="--ok" />
-                </div>
+              <div class="style-setting-row">
+                <label for="stylePanel">Panel</label>
+                <input id="stylePanel" type="color" data-style-var="--panel" />
+              </div>
+              <div class="style-setting-row">
+                <label for="stylePanelAlt">Panel alt</label>
+                <input id="stylePanelAlt" type="color" data-style-var="--panel-alt" />
+              </div>
+              <div class="style-setting-row">
+                <label for="styleText">Text</label>
+                <input id="styleText" type="color" data-style-var="--text" />
+              </div>
+              <div class="style-setting-row">
+                <label for="styleMuted">Muted text</label>
+                <input id="styleMuted" type="color" data-style-var="--muted" />
+              </div>
+              <div class="style-setting-row">
+                <label for="styleAccent">Accent</label>
+                <input id="styleAccent" type="color" data-style-var="--accent" />
+              </div>
+              <div class="style-setting-row">
+                <label for="styleDanger">Danger</label>
+                <input id="styleDanger" type="color" data-style-var="--danger" />
+              </div>
+              <div class="style-setting-row">
+                <label for="styleWarn">Warn</label>
+                <input id="styleWarn" type="color" data-style-var="--warn" />
+              </div>
+              <div class="style-setting-row">
+                <label for="styleOk">OK</label>
+                <input id="styleOk" type="color" data-style-var="--ok" />
               </div>
             </section>
 
@@ -533,7 +530,7 @@
                 <h3>Spacing and shape</h3>
                 <div class="small-note">Scroll to view all controls</div>
               </div>
-              <div class="style-settings-scroll style-settings-scroll-tall">
+              <div class="style-settings-scroll">
                 <div class="style-setting-row style-setting-row-range">
                   <label for="styleFontScale">Font size (%)</label>
                   <input id="styleFontScale" type="range" min="70" max="115" step="1" data-style-var="--font-scale" data-style-unit="%" />
@@ -595,97 +592,101 @@
 
           <section class="style-settings-section style-preview-section">
             <div class="style-preview-head">
-              <h3>Preview</h3>
-              <div class="small-note">More example panels, boxes, fields, and a narrow status layout</div>
+              <div>
+                <h3>Preview</h3>
+                <div class="small-note">Toolbar, panels, cards, fields, and a narrow status example update live.</div>
+              </div>
+              <div class="small-note">Use this to judge spacing, font size, and box visibility.</div>
             </div>
             <div class="style-preview-surface">
-              <div class="style-preview-gallery">
-                <article class="dock-panel style-preview-panel">
-                  <div class="panel-head">
-                    <span>Status panel</span>
-                    <span class="panel-mini">live demo</span>
-                  </div>
-                  <div class="panel-body status-body">
-                    <div class="metric-grid status-metric-grid preview-status-grid">
-                      <div class="metric-card metric-card-primary"><label>Drive</label><strong>ready</strong></div>
-                      <div class="metric-card metric-card-primary"><label>Output</label><strong>S 0.00 · T 0.00</strong></div>
-                      <div class="metric-card"><label>Target</label><strong>S 0.18 · T 0.22</strong></div>
-                      <button class="metric-card metric-card-primary metric-card-action overlay-toggle mode-1" type="button">
-                        <span class="metric-card-action-label">Overlay</span>
-                        <strong class="metric-card-action-value">ON</strong>
-                        <span class="metric-card-action-note">Cycle view</span>
-                      </button>
-                      <div class="metric-card"><label>Model</label><strong>lane_v2</strong></div>
-                      <div class="metric-card"><label>FPS</label><strong>28.4</strong></div>
-                    </div>
-                    <div class="banner muted style-preview-banner">Banner, card spacing, and body padding preview.</div>
-                  </div>
-                </article>
+              <div class="style-preview-toolbar">
+                <div class="badge off">run</div>
+                <button type="button" class="ghost-btn">Ghost button</button>
+                <button type="button">Primary action</button>
+                <button type="button" class="danger-btn">Danger</button>
+              </div>
 
-                <article class="dock-panel style-preview-panel">
-                  <div class="panel-head">
-                    <span>Controls panel</span>
-                    <span class="panel-mini">fields demo</span>
-                  </div>
-                  <div class="panel-body">
-                    <div class="field-grid two-col compact-grid style-preview-control-grid">
-                      <div class="field compact-field">
-                        <label>Example slider</label>
-                        <input type="range" value="58" />
-                        <div class="value-text"><span>0.58</span></div>
+              <div class="style-preview-panels">
+                <div class="style-preview-stack">
+                  <article class="dock-panel style-preview-panel">
+                    <div class="panel-head">
+                      <span>Example workspace panel</span>
+                      <span class="panel-mini">preview</span>
+                    </div>
+                    <div class="panel-body style-preview-panel-body">
+                      <div class="metric-grid metric-grid-primary style-preview-metric-grid">
+                        <div class="metric-card metric-card-primary">
+                          <label>Drive</label>
+                          <strong>ready</strong>
+                        </div>
+                        <div class="metric-card">
+                          <label>Output</label>
+                          <strong>S 0.12 · T 0.28</strong>
+                        </div>
+                        <button class="metric-card metric-card-primary metric-card-action overlay-toggle" type="button">
+                          <span class="metric-card-action-label">Overlay</span>
+                          <strong class="metric-card-action-value">ON</strong>
+                          <span class="metric-card-action-note">Cycle view</span>
+                        </button>
+                        <div class="metric-card metric-card-alert">
+                          <label>Status</label>
+                          <strong>No warnings</strong>
+                        </div>
                       </div>
-                      <div class="field compact-field">
-                        <label>Example select</label>
-                        <select><option>Manual</option><option>Auto</option></select>
+
+                      <div class="style-preview-form-grid">
+                        <div class="field">
+                          <label>Max throttle</label>
+                          <input type="number" value="0.55" />
+                        </div>
+                        <div class="field">
+                          <label>Steer mix</label>
+                          <input type="number" value="0.50" />
+                        </div>
                       </div>
-                      <div class="field compact-field">
-                        <label>Example number</label>
-                        <input type="number" value="12" />
+
+                      <div class="banner muted style-preview-banner">Preview updates live while you adjust settings.</div>
+                    </div>
+                  </article>
+
+                  <article class="dock-panel style-preview-panel">
+                    <div class="panel-head">
+                      <span>Example card rows</span>
+                      <span class="panel-mini">spacing</span>
+                    </div>
+                    <div class="panel-body style-preview-panel-body">
+                      <div class="metric-grid metric-grid-secondary style-preview-metric-grid">
+                        <div class="metric-card"><label>FPS</label><strong>11.8 FPS</strong></div>
+                        <div class="metric-card"><label>Backend</label><strong>opencv</strong></div>
+                        <div class="metric-card"><label>Model</label><strong>road_v4.tflite</strong></div>
                       </div>
-                      <div class="field compact-field">
-                        <label>Example text</label>
-                        <input type="text" value="PiServer" />
+                      <div class="stack-row style-preview-action-row">
+                        <button type="button">Apply</button>
+                        <button type="button" class="ghost-btn">Save</button>
                       </div>
                     </div>
-                    <div class="stack-row panel-actions style-preview-actions">
-                      <button type="button">Primary</button>
-                      <button class="ghost-btn" type="button">Secondary</button>
-                      <button class="danger-btn" type="button">Danger</button>
-                    </div>
-                  </div>
-                </article>
+                  </article>
+                </div>
 
                 <article class="dock-panel style-preview-panel style-preview-panel-narrow">
                   <div class="panel-head">
-                    <span>Narrow status</span>
-                    <span class="panel-mini">tight layout</span>
+                    <span>Narrow status preview</span>
+                    <span class="panel-mini">scroll test</span>
                   </div>
-                  <div class="panel-body status-body">
-                    <div class="metric-grid status-metric-grid preview-status-grid-narrow">
-                      <div class="metric-card metric-card-primary"><label>Cam</label><strong>26×24</strong></div>
+                  <div class="panel-body status-body style-preview-status-body">
+                    <div class="metric-grid status-metric-grid style-preview-status-grid">
+                      <div class="metric-card metric-card-primary"><label>Drive</label><strong>ready</strong></div>
+                      <div class="metric-card"><label>Output</label><strong>0.12 / 0.28</strong></div>
+                      <div class="metric-card"><label>Target</label><strong>0.10 / 0.30</strong></div>
+                      <div class="metric-card"><label>Preview</label><strong>live</strong></div>
+                      <div class="metric-card"><label>Camera</label><strong>320×240</strong></div>
                       <div class="metric-card"><label>Algo</label><strong>manual</strong></div>
                       <div class="metric-card"><label>Mix</label><strong>0.50</strong></div>
                       <div class="metric-card"><label>Bias</label><strong>0.00</strong></div>
-                      <div class="metric-card"><label>Mode</label><strong>preview</strong></div>
-                      <div class="metric-card"><label>Error</label><strong>none</strong></div>
+                      <div class="metric-card"><label>FPS</label><strong>11.8</strong></div>
+                      <div class="metric-card metric-card-alert"><label>Error</label><strong>none</strong></div>
                     </div>
-                  </div>
-                </article>
-
-                <article class="dock-panel style-preview-panel">
-                  <div class="panel-head">
-                    <span>Message and boxes</span>
-                    <span class="panel-mini">cards demo</span>
-                  </div>
-                  <div class="panel-body">
-                    <div class="style-preview-mini-grid">
-                      <div class="metric-card"><label>Muted</label><strong>note</strong></div>
-                      <div class="metric-card metric-card-primary"><label>Accent</label><strong>focus</strong></div>
-                      <div class="metric-card metric-card-alert"><label>Warn</label><strong>check</strong></div>
-                      <div class="metric-card"><label>Info</label><strong>spacing</strong></div>
-                    </div>
-                    <div class="banner muted">Preview updates live while you adjust settings.</div>
-                    <div class="banner ok">Saved style examples can stay compact and readable.</div>
+                    <div class="banner muted">A narrow status panel now scrolls instead of hiding cards.</div>
                   </div>
                 </article>
               </div>

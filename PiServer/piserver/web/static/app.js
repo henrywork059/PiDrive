@@ -37,10 +37,10 @@ const pagePanels = {
 
 const defaultLayouts = {
   manual: {
-    status: { c: 1, r: 1, w: 6, h: 14 },
-    estop: { c: 1, r: 15, w: 6, h: 4 },
-    record: { c: 1, r: 19, w: 6, h: 4 },
-    viewer: { c: 7, r: 1, w: 21, h: 22 },
+    status: { c: 1, r: 1, w: 7, h: 14 },
+    estop: { c: 1, r: 15, w: 7, h: 4 },
+    record: { c: 1, r: 19, w: 7, h: 4 },
+    viewer: { c: 8, r: 1, w: 20, h: 22 },
     runtime: { c: 28, r: 1, w: 18, h: 6 },
     manual: { c: 28, r: 7, w: 18, h: 16 }
   },
