@@ -1,7 +1,29 @@
 const gridCols = 45;
 const gridRows = 25;
-const layoutKeyPrefix = "PiServerLayout:v0_3_3:";
+const layoutKeyPrefix = "PiServerLayout:v0_3_21:";
 const manualFeelKey = "PiServerManualFeel:v0_3_5";
+const styleSettingsFields = [
+  { id: "styleBg", cssVar: "--bg", type: "color" },
+  { id: "stylePanel", cssVar: "--panel", type: "color" },
+  { id: "stylePanelAlt", cssVar: "--panel-alt", type: "color" },
+  { id: "styleText", cssVar: "--text", type: "color" },
+  { id: "styleMuted", cssVar: "--muted", type: "color" },
+  { id: "styleAccent", cssVar: "--accent", type: "color" },
+  { id: "styleDanger", cssVar: "--danger", type: "color" },
+  { id: "styleWarn", cssVar: "--warn", type: "color" },
+  { id: "styleOk", cssVar: "--ok", type: "color" },
+  { id: "styleFontScale", cssVar: "--font-scale", type: "range", unit: "%", fallback: 80 },
+  { id: "styleWorkspacePad", cssVar: "--workspace-pad", type: "range", unit: "px", fallback: 10 },
+  { id: "styleGap", cssVar: "--gap", type: "range", unit: "px", fallback: 4 },
+  { id: "styleRadius", cssVar: "--radius", type: "range", unit: "px", fallback: 10 },
+  { id: "styleControlRadius", cssVar: "--control-radius", type: "range", unit: "px", fallback: 12 },
+  { id: "styleCardRadius", cssVar: "--card-radius", type: "range", unit: "px", fallback: 14 },
+  { id: "stylePanelPad", cssVar: "--panel-pad", type: "range", unit: "px", fallback: 12 },
+  { id: "styleHeaderPadY", cssVar: "--panel-head-pad-y", type: "range", unit: "px", fallback: 10 },
+  { id: "styleHeaderPadX", cssVar: "--panel-head-pad-x", type: "range", unit: "px", fallback: 12 },
+  { id: "styleCardGap", cssVar: "--card-gap", type: "range", unit: "px", fallback: 10 },
+  { id: "styleFieldGap", cssVar: "--field-gap", type: "range", unit: "px", fallback: 10 },
+];
 const STEP_INTERVAL_MS = 60;
 const STEP_SIZE = 0.08;
 
@@ -15,41 +37,41 @@ const pagePanels = {
 
 const defaultLayouts = {
   manual: {
-    status: { c: 1, r: 1, w: 8, h: 13 },
-    estop: { c: 1, r: 14, w: 8, h: 4 },
-    record: { c: 1, r: 18, w: 8, h: 5 },
-    viewer: { c: 9, r: 1, w: 21, h: 22 },
-    runtime: { c: 30, r: 1, w: 16, h: 7 },
-    manual: { c: 30, r: 8, w: 16, h: 15 }
+    status: { c: 1, r: 1, w: 6, h: 14 },
+    estop: { c: 1, r: 15, w: 6, h: 4 },
+    record: { c: 1, r: 19, w: 6, h: 4 },
+    viewer: { c: 7, r: 1, w: 21, h: 22 },
+    runtime: { c: 28, r: 1, w: 18, h: 6 },
+    manual: { c: 28, r: 7, w: 18, h: 16 }
   },
   training: {
-    status: { c: 1, r: 1, w: 17, h: 6 },
-    estop: { c: 18, r: 1, w: 8, h: 6 },
-    viewer: { c: 1, r: 7, w: 25, h: 14 },
-    model: { c: 26, r: 7, w: 20, h: 6 },
-    manual: { c: 26, r: 13, w: 20, h: 8 },
-    record: { c: 1, r: 21, w: 23, h: 5 },
-    sessions: { c: 24, r: 21, w: 22, h: 5 }
+    status: { c: 1, r: 1, w: 20, h: 5 },
+    estop: { c: 21, r: 1, w: 6, h: 5 },
+    viewer: { c: 1, r: 6, w: 24, h: 15 },
+    model: { c: 25, r: 6, w: 21, h: 5 },
+    manual: { c: 25, r: 11, w: 21, h: 10 },
+    record: { c: 1, r: 21, w: 24, h: 5 },
+    sessions: { c: 25, r: 21, w: 21, h: 5 }
   },
   auto: {
-    status: { c: 1, r: 1, w: 24, h: 6 },
-    estop: { c: 25, r: 1, w: 8, h: 6 },
-    viewer: { c: 1, r: 7, w: 27, h: 14 },
-    runtime: { c: 28, r: 7, w: 18, h: 6 },
-    model: { c: 28, r: 13, w: 18, h: 8 },
-    record: { c: 1, r: 21, w: 22, h: 5 }
+    status: { c: 1, r: 1, w: 35, h: 5 },
+    estop: { c: 36, r: 1, w: 10, h: 5 },
+    viewer: { c: 1, r: 6, w: 28, h: 15 },
+    runtime: { c: 29, r: 6, w: 17, h: 6 },
+    model: { c: 29, r: 12, w: 17, h: 9 },
+    record: { c: 1, r: 21, w: 20, h: 5 }
   },
   camera: {
-    status: { c: 1, r: 1, w: 24, h: 6 },
-    estop: { c: 25, r: 1, w: 8, h: 6 },
-    viewer: { c: 1, r: 7, w: 25, h: 19 },
-    camera: { c: 26, r: 7, w: 20, h: 19 }
+    status: { c: 1, r: 1, w: 35, h: 5 },
+    estop: { c: 36, r: 1, w: 10, h: 5 },
+    viewer: { c: 1, r: 6, w: 22, h: 20 },
+    camera: { c: 23, r: 6, w: 23, h: 20 }
   },
   motor: {
-    status: { c: 1, r: 1, w: 24, h: 6 },
-    estop: { c: 25, r: 1, w: 8, h: 6 },
-    viewer: { c: 1, r: 7, w: 25, h: 19 },
-    motor: { c: 26, r: 7, w: 20, h: 19 }
+    status: { c: 1, r: 1, w: 35, h: 5 },
+    estop: { c: 36, r: 1, w: 10, h: 5 },
+    viewer: { c: 1, r: 6, w: 22, h: 20 },
+    motor: { c: 23, r: 6, w: 23, h: 20 }
   }
 };
 
@@ -94,6 +116,114 @@ const state = {
   lastSentThrottle: 0,
   lastSentPage: "manual"
 };
+
+
+
+function normalizeHexColor(value, fallback = "#000000") {
+  const raw = String(value || "").trim();
+  const short = raw.match(/^#([0-9a-f]{3})$/i);
+  if (short) {
+    return `#${short[1].split("").map((part) => part + part).join("")}`.toLowerCase();
+  }
+  const full = raw.match(/^#([0-9a-f]{6})$/i);
+  if (full) return `#${full[1]}`.toLowerCase();
+  return fallback;
+}
+
+function hexToRgbTriplet(value) {
+  const hex = normalizeHexColor(value, "#000000").slice(1);
+  return [0, 2, 4].map((start) => parseInt(hex.slice(start, start + 2), 16)).join(', ');
+}
+
+function parseNumericStyleValue(value, fallback = 0) {
+  const match = String(value || "").match(/-?\d+(?:\.\d+)?/);
+  return match ? Number(match[0]) : fallback;
+}
+
+function styleManager() {
+  return window.PiServerStyle || null;
+}
+
+function readResolvedStyleVars() {
+  return styleManager()?.getResolvedVars?.() || {};
+}
+
+function collectStyleOverridesFromInputs() {
+  const overrides = {};
+  styleSettingsFields.forEach((field) => {
+    const el = document.getElementById(field.id);
+    if (!el) return;
+    const value = field.type === "range"
+      ? `${el.value}${field.unit || ""}`
+      : normalizeHexColor(el.value);
+    overrides[field.cssVar] = value;
+    if (field.cssVar === "--accent") overrides["--accent-rgb"] = hexToRgbTriplet(value);
+    if (field.cssVar === "--font-scale") overrides["--font-scale-factor"] = String(Number(el.value) / 100);
+  });
+  return overrides;
+}
+
+function applyStyleOverridesToPage(overrides) {
+  styleManager()?.saveCustomOverrides?.(overrides);
+}
+
+function syncStyleInputsFromCurrentVars() {
+  const resolved = readResolvedStyleVars();
+  styleSettingsFields.forEach((field) => {
+    const el = document.getElementById(field.id);
+    if (!el) return;
+    const raw = resolved[field.cssVar];
+    if (field.type === "range") {
+      const numeric = parseNumericStyleValue(raw, field.fallback || Number(el.min || 0));
+      el.value = `${numeric}`;
+      const valueEl = document.getElementById(`${field.id}Value`);
+      if (valueEl) valueEl.textContent = `${numeric}${field.unit || ""}`;
+    } else {
+      el.value = normalizeHexColor(raw, el.value || "#000000");
+    }
+  });
+}
+
+function syncStyleValueLabelsFromInputs() {
+  styleSettingsFields.forEach((field) => {
+    if (field.type !== "range") return;
+    const el = document.getElementById(field.id);
+    const valueEl = document.getElementById(`${field.id}Value`);
+    if (el && valueEl) valueEl.textContent = `${el.value}${field.unit || ""}`;
+  });
+}
+
+function previewStyleOverridesFromInputs() {
+  const manager = styleManager();
+  manager?.applyTheme?.(manager.getCurrentTheme?.());
+  const root = document.documentElement;
+  Object.entries(collectStyleOverridesFromInputs()).forEach(([key, value]) => {
+    root.style.setProperty(key, value);
+  });
+  syncStyleValueLabelsFromInputs();
+}
+
+function openStyleSettings() {
+  const modal = document.getElementById("styleSettingsModal");
+  if (!modal) return;
+  syncStyleInputsFromCurrentVars();
+  modal.classList.remove("hidden");
+  modal.setAttribute("aria-hidden", "false");
+}
+
+function closeStyleSettings() {
+  const modal = document.getElementById("styleSettingsModal");
+  if (!modal) return;
+  const manager = styleManager();
+  manager?.applyTheme?.(manager.getCurrentTheme?.());
+  modal.classList.add("hidden");
+  modal.setAttribute("aria-hidden", "true");
+}
+
+function resetStyleSettings() {
+  styleManager()?.resetCustomOverrides?.();
+  syncStyleInputsFromCurrentVars();
+}
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -1285,14 +1415,46 @@ function setupEvents() {
     setBanner("statusBanner", `Saved ${state.page} layout.`, "muted");
   });
 
-  document.getElementById("styleSettingsBtn")?.addEventListener("click", () => {
-    window.location.href = "/settings";
-  });
-
   document.getElementById("resetLayoutBtn").addEventListener("click", () => {
     localStorage.removeItem(layoutStorageKey(state.page));
     applyLayout(state.page);
     setBanner("statusBanner", `Reset ${state.page} layout.`, "muted");
+  });
+
+  document.getElementById("openStyleSettingsBtn")?.addEventListener("click", () => {
+    openStyleSettings();
+  });
+
+  document.getElementById("closeStyleSettingsBtn")?.addEventListener("click", () => {
+    closeStyleSettings();
+  });
+
+  document.querySelectorAll("[data-close-style-modal]").forEach((el) => {
+    el.addEventListener("click", () => closeStyleSettings());
+  });
+
+  document.getElementById("saveStyleSettingsBtn")?.addEventListener("click", () => {
+    applyStyleOverridesToPage(collectStyleOverridesFromInputs());
+    syncStyleInputsFromCurrentVars();
+    closeStyleSettings();
+    setBanner("statusBanner", "Saved web style settings for this browser.", "muted");
+  });
+
+  document.getElementById("resetStyleSettingsBtn")?.addEventListener("click", () => {
+    resetStyleSettings();
+    setBanner("statusBanner", "Reset web style settings to theme defaults.", "muted");
+  });
+
+  styleSettingsFields.forEach((field) => {
+    const el = document.getElementById(field.id);
+    if (!el) return;
+    const handler = () => previewStyleOverridesFromInputs();
+    el.addEventListener("input", handler);
+    el.addEventListener("change", handler);
+  });
+
+  window.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeStyleSettings();
   });
 
   document.getElementById("maxThrottle").addEventListener("input", (event) => {

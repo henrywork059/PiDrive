@@ -17,7 +17,7 @@ from piserver.services.recorder_service import RecorderService
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 WEB_DIR = Path(__file__).resolve().parent / "web"
-APP_VERSION = "0_3_3"
+APP_VERSION = "0_3_5"
 
 
 def mjpeg_generator(camera_service):
@@ -93,10 +93,6 @@ def create_app() -> Flask:
     @app.route("/")
     def index():
         return render_template("index.html", app_version=APP_VERSION)
-
-    @app.route("/settings")
-    def settings_page():
-        return render_template("settings.html", app_version=APP_VERSION)
 
     @app.route("/video_feed")
     def video_feed():
