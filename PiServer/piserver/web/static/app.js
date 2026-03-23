@@ -1,14 +1,13 @@
-const gridCols = 36;
-const gridRows = 20;
-const layoutKeyPrefix = "PiServerLayout:v0_2_20:";
-const STEP_INTERVAL_MS = 80;
-const STEP_SIZE = 0.1;
-const SMOOTH_STEP_STEER = 0.07;
-const SMOOTH_STEP_THROTTLE = 0.07;
+const gridCols = 45;
+const gridRows = 25;
+const layoutKeyPrefix = "PiServerLayout:v0_3_21:";
+const manualFeelKey = "PiServerManualFeel:v0_3_5";
+const STEP_INTERVAL_MS = 60;
+const STEP_SIZE = 0.08;
 
 const pagePanels = {
   manual: ["status", "estop", "viewer", "runtime", "manual", "record"],
-  training: ["status", "estop", "viewer", "runtime", "model", "manual", "record"],
+  training: ["status", "estop", "viewer", "model", "manual", "record", "sessions"],
   auto: ["status", "estop", "viewer", "runtime", "model", "record"],
   camera: ["status", "estop", "viewer", "camera"],
   motor: ["status", "estop", "viewer", "motor"]
@@ -16,41 +15,41 @@ const pagePanels = {
 
 const defaultLayouts = {
   manual: {
-    status: { c: 1, r: 1, w: 30, h: 5 },
-    estop: { c: 31, r: 1, w: 6, h: 5 },
-    viewer: { c: 1, r: 6, w: 21, h: 11 },
-    runtime: { c: 22, r: 6, w: 15, h: 5 },
-    manual: { c: 22, r: 11, w: 15, h: 6 },
-    record: { c: 1, r: 17, w: 21, h: 4 }
+    status: { c: 1, r: 1, w: 6, h: 14 },
+    estop: { c: 1, r: 15, w: 6, h: 4 },
+    record: { c: 1, r: 19, w: 6, h: 4 },
+    viewer: { c: 7, r: 1, w: 21, h: 22 },
+    runtime: { c: 28, r: 1, w: 18, h: 6 },
+    manual: { c: 28, r: 7, w: 18, h: 16 }
   },
   training: {
-    status: { c: 1, r: 1, w: 30, h: 5 },
-    estop: { c: 31, r: 1, w: 6, h: 5 },
-    viewer: { c: 1, r: 6, w: 18, h: 10 },
-    runtime: { c: 19, r: 6, w: 18, h: 4 },
-    model: { c: 19, r: 10, w: 18, h: 4 },
-    manual: { c: 19, r: 14, w: 18, h: 7 },
-    record: { c: 1, r: 16, w: 18, h: 5 }
+    status: { c: 1, r: 1, w: 20, h: 5 },
+    estop: { c: 21, r: 1, w: 6, h: 5 },
+    viewer: { c: 1, r: 6, w: 24, h: 15 },
+    model: { c: 25, r: 6, w: 21, h: 5 },
+    manual: { c: 25, r: 11, w: 21, h: 10 },
+    record: { c: 1, r: 21, w: 24, h: 5 },
+    sessions: { c: 25, r: 21, w: 21, h: 5 }
   },
   auto: {
-    status: { c: 1, r: 1, w: 30, h: 5 },
-    estop: { c: 31, r: 1, w: 6, h: 5 },
-    viewer: { c: 1, r: 6, w: 21, h: 11 },
-    runtime: { c: 22, r: 6, w: 15, h: 5 },
-    model: { c: 22, r: 11, w: 15, h: 6 },
-    record: { c: 1, r: 17, w: 21, h: 4 }
+    status: { c: 1, r: 1, w: 35, h: 5 },
+    estop: { c: 36, r: 1, w: 10, h: 5 },
+    viewer: { c: 1, r: 6, w: 28, h: 15 },
+    runtime: { c: 29, r: 6, w: 17, h: 6 },
+    model: { c: 29, r: 12, w: 17, h: 9 },
+    record: { c: 1, r: 21, w: 20, h: 5 }
   },
   camera: {
-    status: { c: 1, r: 1, w: 30, h: 5 },
-    estop: { c: 31, r: 1, w: 6, h: 5 },
-    viewer: { c: 1, r: 6, w: 20, h: 15 },
-    camera: { c: 21, r: 6, w: 16, h: 15 }
+    status: { c: 1, r: 1, w: 35, h: 5 },
+    estop: { c: 36, r: 1, w: 10, h: 5 },
+    viewer: { c: 1, r: 6, w: 22, h: 20 },
+    camera: { c: 23, r: 6, w: 23, h: 20 }
   },
   motor: {
-    status: { c: 1, r: 1, w: 30, h: 5 },
-    estop: { c: 31, r: 1, w: 6, h: 5 },
-    viewer: { c: 1, r: 6, w: 20, h: 15 },
-    motor: { c: 21, r: 6, w: 16, h: 15 }
+    status: { c: 1, r: 1, w: 35, h: 5 },
+    estop: { c: 36, r: 1, w: 10, h: 5 },
+    viewer: { c: 1, r: 6, w: 22, h: 20 },
+    motor: { c: 23, r: 6, w: 23, h: 20 }
   }
 };
 
@@ -58,6 +57,8 @@ const state = {
   page: "manual",
   manualSteering: 0,
   manualThrottle: 0,
+  rawTargetSteering: 0,
+  rawTargetThrottle: 0,
   targetSteering: 0,
   targetThrottle: 0,
   maxThrottle: 0.55,
@@ -80,6 +81,14 @@ const state = {
   estopEnabled: false,
   recordEnabled: false,
   recordPending: false,
+  overlayMode: 0,
+  capturePending: false,
+  sessions: [],
+  selectedSession: "",
+  steerCurve: 1.45,
+  throttleCurve: 1.55,
+  steerRate: 0.07,
+  throttleRate: 0.07,
   lastControlSentAt: 0,
   lastSentSteering: 0,
   lastSentThrottle: 0,
@@ -97,6 +106,86 @@ function moveTowards(current, target, maxDelta) {
 
 function almostEqual(a, b, epsilon = 0.0001) {
   return Math.abs(Number(a || 0) - Number(b || 0)) <= epsilon;
+}
+
+
+function curveInput(value, exponent) {
+  const clamped = clamp(Number(value || 0), -1, 1);
+  const exp = clamp(Number(exponent || 1), 1, 3);
+  return Math.sign(clamped) * Math.pow(Math.abs(clamped), exp);
+}
+
+function updateDerivedTargets() {
+  state.targetSteering = curveInput(state.rawTargetSteering, state.steerCurve);
+  state.targetThrottle = curveInput(state.rawTargetThrottle, state.throttleCurve) * state.maxThrottle;
+}
+
+function shortLastSaveLabel(value) {
+  const raw = String(value || "").trim();
+  if (!raw || raw === "none") return "none";
+  const clean = raw.replace(/\\/g, "/");
+  const parts = clean.split("/").filter(Boolean);
+  const tail = parts[parts.length - 1] || clean;
+  return tail.length > 24 ? `${tail.slice(0, 21)}…` : tail;
+}
+
+function formatElapsed(totalSeconds) {
+  const whole = Math.max(0, Math.floor(Number(totalSeconds || 0)));
+  const minutes = Math.floor(whole / 60);
+  const seconds = whole % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function triggerSnapshotFlash() {
+  const flash = document.getElementById("snapshotFlash");
+  if (!flash) return;
+  flash.classList.remove("active");
+  void flash.offsetWidth;
+  flash.classList.add("active");
+}
+
+function updateManualFeelUi() {
+  const values = [
+    ["steerCurve", Math.round(state.steerCurve * 100)],
+    ["throttleCurve", Math.round(state.throttleCurve * 100)],
+    ["steerRate", Math.round(state.steerRate * 100)],
+    ["throttleRate", Math.round(state.throttleRate * 100)],
+  ];
+  values.forEach(([id, value]) => {
+    const el = document.getElementById(id);
+    if (el) el.value = value;
+  });
+  const steerCurveValue = document.getElementById("steerCurveValue");
+  const throttleCurveValue = document.getElementById("throttleCurveValue");
+  const steerRateValue = document.getElementById("steerRateValue");
+  const throttleRateValue = document.getElementById("throttleRateValue");
+  if (steerCurveValue) steerCurveValue.textContent = `${state.steerCurve.toFixed(2)}×`;
+  if (throttleCurveValue) throttleCurveValue.textContent = `${state.throttleCurve.toFixed(2)}×`;
+  if (steerRateValue) steerRateValue.textContent = state.steerRate.toFixed(2);
+  if (throttleRateValue) throttleRateValue.textContent = state.throttleRate.toFixed(2);
+}
+
+function saveManualFeel() {
+  try {
+    localStorage.setItem(manualFeelKey, JSON.stringify({
+      steerCurve: state.steerCurve,
+      throttleCurve: state.throttleCurve,
+      steerRate: state.steerRate,
+      throttleRate: state.throttleRate,
+    }));
+  } catch {}
+}
+
+function loadManualFeel() {
+  try {
+    const raw = localStorage.getItem(manualFeelKey);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (typeof parsed.steerCurve === "number") state.steerCurve = clamp(parsed.steerCurve, 1, 3);
+    if (typeof parsed.throttleCurve === "number") state.throttleCurve = clamp(parsed.throttleCurve, 1, 3);
+    if (typeof parsed.steerRate === "number") state.steerRate = clamp(parsed.steerRate, 0.02, 0.2);
+    if (typeof parsed.throttleRate === "number") state.throttleRate = clamp(parsed.throttleRate, 0.02, 0.2);
+  } catch {}
 }
 
 function panelEls() {
@@ -262,6 +351,7 @@ function renderActivePage(page) {
     panel.classList.toggle("panel-hidden", !visible.has(panel.dataset.panel));
   });
   applyLayout(page);
+  window.requestAnimationFrame(updateManualPadSizing);
 }
 
 async function fetchJson(url, options = {}) {
@@ -283,6 +373,7 @@ function setBanner(id, text, tone = "muted") {
 function updateRangeText() {
   const mt = document.getElementById("maxThrottleValue");
   if (mt) mt.textContent = state.maxThrottle.toFixed(2);
+  updateManualFeelUi();
   const sm = document.getElementById("steerMixValue");
   if (sm) sm.textContent = state.steerMix.toFixed(2);
   const sb = document.getElementById("steerBiasValue");
@@ -316,7 +407,7 @@ function setEstopToggle(enabled) {
   const title = btn.querySelector(".estop-toggle-title");
   const subtitle = btn.querySelector(".estop-toggle-subtitle");
   if (title) title.textContent = state.estopEnabled ? "E-STOP ACTIVE" : "E-STOP OFF";
-  if (subtitle) subtitle.textContent = state.estopEnabled ? "Drive output is locked at zero" : "Tap to engage emergency stop";
+  if (subtitle) subtitle.textContent = state.estopEnabled ? "Output locked at zero" : "Tap to engage";
 }
 
 function setRecordToggle(enabled, pending = false) {
@@ -331,10 +422,243 @@ function setRecordToggle(enabled, pending = false) {
   btn.setAttribute("aria-pressed", state.recordEnabled ? "true" : "false");
   const title = btn.querySelector(".record-toggle-title");
   const subtitle = btn.querySelector(".record-toggle-subtitle");
-  if (title) title.textContent = state.recordEnabled ? "RECORDING ON" : "RECORDING OFF";
+  if (title) title.textContent = state.recordEnabled ? "RECORD ON" : "RECORD OFF";
   if (subtitle) subtitle.textContent = state.recordPending
-    ? (state.recordEnabled ? "Starting capture session…" : "Stopping capture session…")
-    : (state.recordEnabled ? "Tap to stop the current capture session" : "Tap to start a capture session");
+    ? (state.recordEnabled ? "Starting capture…" : "Stopping capture…")
+    : (state.recordEnabled ? "Tap to stop capture" : "Tap to start capture");
+}
+
+function setOverlayMode(mode) {
+  const normalized = ((Number(mode) || 0) % 3 + 3) % 3;
+  state.overlayMode = normalized;
+  const btn = document.getElementById("overlayToggleBtn");
+  if (btn) {
+    btn.classList.remove("off", "mode-1", "mode-2");
+    btn.classList.add(normalized === 0 ? "off" : `mode-${normalized}`);
+    btn.setAttribute("aria-pressed", normalized === 0 ? "false" : "true");
+    const value = btn.querySelector(".metric-card-action-value");
+    const note = btn.querySelector(".metric-card-action-note");
+    if (value) value.textContent = normalized === 0 ? "OFF" : `OVL ${normalized}`;
+    if (note) {
+      note.textContent = normalized === 1
+        ? "Throttle + steer"
+        : normalized === 2
+          ? "Arc path"
+          : "Cycle view";
+    }
+  }
+  const frameOverlay = document.getElementById("frameOverlay");
+  if (frameOverlay) {
+    frameOverlay.classList.remove("overlay-mode-0", "overlay-mode-1", "overlay-mode-2");
+    frameOverlay.classList.add(`overlay-mode-${normalized}`);
+  }
+  updateOverlayVisuals(state.latestStatus || {});
+}
+
+function updateOverlayVisuals(data = {}) {
+  const throttleFill = document.getElementById("overlayThrottleFill");
+  const throttleValue = document.getElementById("overlayThrottleValue");
+  const steerArcLeft = document.getElementById("overlaySteerArcLeft");
+  const steerArcRight = document.getElementById("overlaySteerArcRight");
+  const steerValue = document.getElementById("overlaySteerValue");
+  const steerNeedle = document.getElementById("overlaySteerNeedle");
+  const overlayTwoSvg = document.getElementById("overlayTwoSvg");
+  const overlayTwoTrack = document.getElementById("overlayTwoTrack");
+  const overlayTwoArc = document.getElementById("overlayTwoArc");
+  const overlayTwoPointStartRing = document.getElementById("overlayTwoPointStartRing");
+  const overlayTwoPointStart = document.getElementById("overlayTwoPointStart");
+  const overlayTwoPointEndRing = document.getElementById("overlayTwoPointEndRing");
+  const overlayTwoPointEnd = document.getElementById("overlayTwoPointEnd");
+  const appliedThrottle = Number(data.applied_throttle || 0);
+  const appliedSteering = Number(data.applied_steering || 0);
+  const throttleNormBase = Math.max(0.01, Number(data.max_throttle ?? state.maxThrottle ?? 1));
+  const throttleNorm = clamp(appliedThrottle / throttleNormBase, -1, 1);
+  if (throttleFill) {
+    const halfPct = Math.abs(throttleNorm) * 50;
+    throttleFill.style.height = `${halfPct}%`;
+    throttleFill.style.top = throttleNorm >= 0 ? `${50 - halfPct}%` : "50%";
+  }
+  if (throttleValue) throttleValue.textContent = appliedThrottle.toFixed(2);
+  const steerNorm = clamp(appliedSteering, -1, 1);
+  const steerMagnitude = Math.abs(steerNorm) * 50;
+  if (steerArcLeft) {
+    steerArcLeft.style.strokeDasharray = steerNorm < 0 ? `${steerMagnitude} 100` : `0 100`;
+    steerArcLeft.style.strokeDashoffset = steerNorm < 0 ? `${steerMagnitude - 50}` : `0`;
+  }
+  if (steerArcRight) {
+    steerArcRight.style.strokeDasharray = steerNorm > 0 ? `${steerMagnitude} 100` : `0 100`;
+    steerArcRight.style.strokeDashoffset = `-50`;
+  }
+  if (steerNeedle) {
+    const angle = steerNorm * 90;
+    steerNeedle.style.transform = `rotate(${angle}deg)`;
+  }
+  if (steerValue) steerValue.textContent = appliedSteering.toFixed(2);
+
+  if (overlayTwoSvg && overlayTwoTrack && overlayTwoArc && overlayTwoPointStartRing && overlayTwoPointStart && overlayTwoPointEndRing && overlayTwoPointEnd) {
+    const shouldShowPath = throttleNorm > 0;
+    overlayTwoSvg.classList.toggle("has-path", shouldShowPath);
+    if (shouldShowPath) {
+      const startX = 50;
+      const startY = 92;
+      const verticalTravel = 18 + (throttleNorm * 54);
+      const endY = clamp(startY - verticalTravel, 18, 92);
+      const horizontalReach = 12 + (throttleNorm * 22);
+      const endX = clamp(startX + (steerNorm * horizontalReach), 18, 82);
+      const dx = endX - startX;
+      const dy = startY - endY;
+      const cp1x = startX;
+      const cp1y = startY - Math.max(8, dy * 0.62);
+      const cp2x = startX + dx * 0.72;
+      const cp2y = endY;
+      const d = `M ${startX} ${startY} C ${cp1x} ${cp1y} ${cp2x} ${cp2y} ${endX} ${endY}`;
+      overlayTwoTrack.setAttribute("d", d);
+      overlayTwoArc.setAttribute("d", d);
+      [overlayTwoPointStartRing, overlayTwoPointStart].forEach((el) => {
+        el.setAttribute("cx", `${startX}`);
+        el.setAttribute("cy", `${startY}`);
+      });
+      [overlayTwoPointEndRing, overlayTwoPointEnd].forEach((el) => {
+        el.setAttribute("cx", `${endX}`);
+        el.setAttribute("cy", `${endY}`);
+      });
+    } else {
+      overlayTwoTrack.setAttribute("d", "");
+      overlayTwoArc.setAttribute("d", "");
+      [overlayTwoPointStartRing, overlayTwoPointStart, overlayTwoPointEndRing, overlayTwoPointEnd].forEach((el) => {
+        el.setAttribute("cx", "50");
+        el.setAttribute("cy", "92");
+      });
+    }
+  }
+}
+
+function setCapturePending(pending) {
+  state.capturePending = !!pending;
+  const btn = document.getElementById("captureOnceBtn");
+  if (!btn) return;
+  btn.disabled = state.capturePending;
+  btn.classList.toggle("pending", state.capturePending);
+  const title = btn.querySelector(".capture-once-title");
+  const subtitle = btn.querySelector(".capture-once-subtitle");
+  if (title) title.textContent = state.capturePending ? "SNAPPING…" : "SNAPSHOT";
+  if (subtitle) subtitle.textContent = state.capturePending ? "Saving current frame" : "Save one frame";
+}
+
+function findSelectedSession() {
+  return state.sessions.find((item) => item.name === state.selectedSession) || null;
+}
+
+function getSelectedSessionLabel(session) {
+  if (!session) return "folder";
+  return session.kind === "snapshots" ? "snapshot folder" : "session folder";
+}
+
+function formatDateTime(value) {
+  if (!value) return "--";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleString();
+}
+
+function updateSessionExportUi() {
+  const select = document.getElementById("sessionSelect");
+  const downloadBtn = document.getElementById("downloadSessionBtn");
+  const deleteBtn = document.getElementById("deleteSessionBtn");
+  if (select) {
+    const names = new Set((state.sessions || []).map((item) => item.name));
+    if (!state.selectedSession || !names.has(state.selectedSession)) {
+      state.selectedSession = state.sessions?.[0]?.name || "";
+    }
+    select.innerHTML = "";
+    if (!state.sessions.length) {
+      const opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = "No session or snapshot folders yet";
+      select.appendChild(opt);
+    } else {
+      state.sessions.forEach((item) => {
+        const opt = document.createElement("option");
+        opt.value = item.name;
+        const kindLabel = item.kind === "snapshots" ? "snapshot folder" : "session";
+        opt.textContent = `${item.name} · ${kindLabel}`;
+        if (item.name === state.selectedSession) opt.selected = true;
+        select.appendChild(opt);
+      });
+    }
+  }
+  const session = findSelectedSession();
+  const setText = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+  };
+  setText("sessionKind", session ? (session.label || getSelectedSessionLabel(session)) : "--");
+  setText("sessionImageCount", session ? String(session.image_count ?? 0) : "0");
+  setText("sessionUpdatedAt", session ? formatDateTime(session.updated_at) : "--");
+  setText("sessionPath", session ? (session.path || `records/${session.name}`) : "records");
+  if (downloadBtn) downloadBtn.disabled = !session;
+  if (deleteBtn) deleteBtn.disabled = !session;
+}
+
+async function refreshSessions(preserveSelection = true) {
+  const currentSelection = preserveSelection ? state.selectedSession : "";
+  const data = await fetchJson("/api/record/sessions");
+  state.sessions = Array.isArray(data.sessions) ? data.sessions : [];
+  state.selectedSession = currentSelection && state.sessions.some((item) => item.name === currentSelection)
+    ? currentSelection
+    : (state.sessions[0]?.name || "");
+  updateSessionExportUi();
+  return data;
+}
+
+function updateSessionSelectionFromStatus(data) {
+  const candidate = String(data?.record_session_name || "").trim();
+  if (!candidate) return;
+  const current = findSelectedSession();
+  if (current) return;
+  if ((state.sessions || []).some((item) => item.name === candidate)) {
+    state.selectedSession = candidate;
+    updateSessionExportUi();
+  }
+}
+
+function downloadSelectedSession() {
+  const session = findSelectedSession();
+  if (!session) {
+    setBanner("sessionExportMessage", "No folder selected.", "muted");
+    return;
+  }
+  const url = `/api/record/download?session=${encodeURIComponent(session.name)}`;
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${session.name}.zip`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setBanner("sessionExportMessage", `Downloading ${session.name}.zip`, "muted");
+}
+
+async function deleteSelectedSession() {
+  const session = findSelectedSession();
+  if (!session) {
+    setBanner("sessionExportMessage", "No folder selected.", "muted");
+    return;
+  }
+  const label = getSelectedSessionLabel(session);
+  const ok = window.confirm(`Delete ${session.name}? This permanently removes the ${label} from the Pi.`);
+  if (!ok) return;
+  const data = await fetchJson("/api/record/delete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ session: session.name })
+  });
+  state.sessions = Array.isArray(data.sessions) ? data.sessions : [];
+  state.selectedSession = state.sessions.some((item) => item.name === state.selectedSession)
+    ? state.selectedSession
+    : (state.sessions[0]?.name || "");
+  updateSessionExportUi();
+  if (data && data.state) updateStatusUi(data.state);
+  setBanner("sessionExportMessage", data.message || `Deleted ${session.name}.`, "muted");
 }
 
 async function sendControlUpdate(extra = {}) {
@@ -374,7 +698,10 @@ function updateStatusUi(data) {
   setText("metricDriveState", driveState);
   setText("metricApplied", `S ${Number(data.applied_steering || 0).toFixed(2)} · T ${Number(data.applied_throttle || 0).toFixed(2)}`);
   setText("metricManual", `S ${Number(state.targetSteering || 0).toFixed(2)} · T ${Number(state.targetThrottle || 0).toFixed(2)}`);
-  setText("metricRec", data.recording ? "on" : "off");
+  const lastSaveRaw = data.record_last_saved || data.snapshot_last_saved || "none";
+  setText("metricLastSave", shortLastSaveLabel(lastSaveRaw));
+  const metricLastSaveEl = document.getElementById("metricLastSave");
+  if (metricLastSaveEl) metricLastSaveEl.title = lastSaveRaw;
   setText("metricPreview", previewState);
   setText("metricCamera", `${data.camera_width || 0}×${data.camera_height || 0} ${data.camera_format || "unknown"}`);
   setText("metricModel", data.active_model || "none");
@@ -386,6 +713,11 @@ function updateStatusUi(data) {
   setText("metricFps", `${Number(data.fps || 0).toFixed(1)} FPS`);
   setText("metricBackend", data.camera_backend || "unknown");
   setText("metricError", errorText);
+  setText("recordSessionName", data.record_session_name || "none");
+  setText("recordElapsed", formatElapsed(data.record_elapsed_seconds || 0));
+  setText("recordLastSave", lastSaveRaw);
+  const recordLastSaveEl = document.getElementById("recordLastSave");
+  if (recordLastSaveEl) recordLastSaveEl.title = lastSaveRaw;
 
   const previewMeta = document.getElementById("cameraPreviewMeta");
   if (previewMeta) {
@@ -394,6 +726,8 @@ function updateStatusUi(data) {
   }
 
   setRecordToggle(!!data.recording, false);
+  updateOverlayVisuals(data);
+  updateSessionSelectionFromStatus(data);
 
   updateToolbarBadge(data);
   setBanner("statusBanner", data.system_message || "Ready.", "muted");
@@ -454,6 +788,25 @@ async function loadSelectedModel() {
   await pollStatus();
 }
 
+async function deleteSelectedModel() {
+  const select = document.getElementById("modelSelect");
+  const filename = select?.value || "";
+  if (!filename) {
+    setBanner("modelMessage", "Choose a model first.", "muted");
+    return;
+  }
+  const ok = window.confirm(`Delete ${filename}? This permanently removes the model file from the Pi.`);
+  if (!ok) return;
+  const data = await fetchJson("/api/model/delete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ filename })
+  });
+  setBanner("modelMessage", data.message || `Deleted ${filename}.`, "muted");
+  await refreshModels();
+  await pollStatus();
+}
+
 async function toggleRecording() {
   const next = !state.recordEnabled;
   setRecordToggle(next, true);
@@ -462,10 +815,25 @@ async function toggleRecording() {
     setBanner("statusBanner", data.message || "Recording toggled.", "muted");
     if (data && data.state) updateStatusUi(data.state);
     else setRecordToggle(!!data.recording, false);
+    await refreshSessions(true);
     await pollStatus();
   } catch (error) {
     setRecordToggle(!next, false);
     throw error;
+  }
+}
+
+async function captureOneShot() {
+  setCapturePending(true);
+  try {
+    const data = await fetchJson("/api/record/capture_once", { method: "POST" });
+    triggerSnapshotFlash();
+    setBanner("statusBanner", data.message || "Snapshot saved.", "muted");
+    if (data && data.state) updateStatusUi(data.state);
+    await refreshSessions(true);
+    return data;
+  } finally {
+    setCapturePending(false);
   }
 }
 
@@ -711,8 +1079,9 @@ function syncPreviewActivity() {
 }
 
 function setManualTargets(steering, throttle, options = {}) {
-  state.targetSteering = clamp(Number(steering || 0), -1, 1);
-  state.targetThrottle = clamp(Number(throttle || 0), -state.maxThrottle, state.maxThrottle);
+  state.rawTargetSteering = clamp(Number(steering || 0), -1, 1);
+  state.rawTargetThrottle = clamp(Number(throttle || 0), -1, 1);
+  updateDerivedTargets();
   if (options.immediateCurrent) {
     state.manualSteering = state.targetSteering;
     state.manualThrottle = state.targetThrottle;
@@ -742,7 +1111,7 @@ function updatePointerTarget(clientX, clientY) {
   const nx = clamp((clientX - rect.left) / Math.max(rect.width, 1), 0, 1);
   const ny = clamp((clientY - rect.top) / Math.max(rect.height, 1), 0, 1);
   const steering = (nx - 0.5) * 2;
-  const throttle = (0.5 - ny) * 2 * state.maxThrottle;
+  const throttle = (0.5 - ny) * 2;
   setManualTargets(steering, throttle, { sendNow: false });
 }
 
@@ -757,16 +1126,18 @@ function processStepInputs() {
   const vertical = (state.stepInputs.up ? 1 : 0) - (state.stepInputs.down ? 1 : 0);
 
   if (horizontal !== 0) {
-    state.targetSteering = clamp(state.targetSteering + horizontal * STEP_SIZE, -1, 1);
+    state.rawTargetSteering = clamp(state.rawTargetSteering + horizontal * STEP_SIZE, -1, 1);
   } else {
-    state.targetSteering = moveTowards(state.targetSteering, 0, STEP_SIZE);
+    state.rawTargetSteering = moveTowards(state.rawTargetSteering, 0, STEP_SIZE);
   }
 
   if (vertical !== 0) {
-    state.targetThrottle = clamp(state.targetThrottle + vertical * STEP_SIZE, -state.maxThrottle, state.maxThrottle);
+    state.rawTargetThrottle = clamp(state.rawTargetThrottle + vertical * STEP_SIZE, -1, 1);
   } else {
-    state.targetThrottle = moveTowards(state.targetThrottle, 0, STEP_SIZE);
+    state.rawTargetThrottle = moveTowards(state.rawTargetThrottle, 0, STEP_SIZE);
   }
+
+  updateDerivedTargets();
 }
 
 function sendManualState(force = false) {
@@ -785,8 +1156,12 @@ function sendManualState(force = false) {
 function controlLoopTick() {
   processStepInputs();
 
-  const nextSteer = moveTowards(state.manualSteering, state.targetSteering, SMOOTH_STEP_STEER);
-  const nextThrottle = moveTowards(state.manualThrottle, state.targetThrottle, Math.min(SMOOTH_STEP_THROTTLE, Math.max(state.maxThrottle, SMOOTH_STEP_THROTTLE)));
+  const nextSteer = moveTowards(state.manualSteering, state.targetSteering, state.steerRate);
+  const nextThrottle = moveTowards(
+    state.manualThrottle,
+    state.targetThrottle,
+    Math.min(state.throttleRate, Math.max(state.maxThrottle, state.throttleRate))
+  );
   const changed = !almostEqual(nextSteer, state.manualSteering, 0.0001) || !almostEqual(nextThrottle, state.manualThrottle, 0.0001);
 
   if (changed) {
@@ -795,6 +1170,45 @@ function controlLoopTick() {
     applyManualState();
     sendManualState(false);
   }
+}
+
+function updateManualPadSizing() {
+  const area = document.getElementById("joystickArea");
+  const layout = document.querySelector(".manual-layout-single");
+  const side = document.querySelector(".manual-side-single");
+  const shell = document.querySelector(".manual-shell");
+  if (!area || !layout) return;
+  area.style.width = "";
+  area.style.height = "";
+  const layoutRect = layout.getBoundingClientRect();
+  const shellRect = shell ? shell.getBoundingClientRect() : layoutRect;
+  const sideRect = side ? side.getBoundingClientRect() : { height: 0 };
+  const layoutStyle = getComputedStyle(layout);
+  const shellStyle = shell ? getComputedStyle(shell) : layoutStyle;
+  const gap = parseFloat(layoutStyle.rowGap || layoutStyle.gap || "0") || 0;
+  const shellPadY = (parseFloat(shellStyle.paddingTop || "0") || 0) + (parseFloat(shellStyle.paddingBottom || "0") || 0);
+  const widthBudget = Math.max(176, Math.min(layoutRect.width, shellRect.width));
+  const heightBudget = Math.max(176, Math.min(layoutRect.height, shellRect.height - shellPadY) - sideRect.height - gap);
+  const size = Math.max(176, Math.floor(Math.min(widthBudget, heightBudget)));
+  area.style.width = `${size}px`;
+  area.style.height = `${size}px`;
+}
+
+function setupManualPadSizing() {
+  const layout = document.querySelector(".manual-layout-single");
+  const side = document.querySelector(".manual-side-single");
+  const panel = document.querySelector('.dock-panel[data-panel="manual"]');
+  if (!layout) return;
+  if (state.manualPadObserver) {
+    try { state.manualPadObserver.disconnect(); } catch {}
+  }
+  if (typeof ResizeObserver === "function") {
+    state.manualPadObserver = new ResizeObserver(() => {
+      window.requestAnimationFrame(updateManualPadSizing);
+    });
+    [layout, side, panel].filter(Boolean).forEach((el) => state.manualPadObserver.observe(el));
+  }
+  window.requestAnimationFrame(updateManualPadSizing);
 }
 
 function setupManualControls() {
@@ -879,7 +1293,7 @@ function setupEvents() {
 
   document.getElementById("maxThrottle").addEventListener("input", (event) => {
     state.maxThrottle = Number(event.target.value) / 100;
-    state.targetThrottle = clamp(state.targetThrottle, -state.maxThrottle, state.maxThrottle);
+    updateDerivedTargets();
     state.manualThrottle = clamp(state.manualThrottle, -state.maxThrottle, state.maxThrottle);
     updateRangeText();
     applyManualState();
@@ -907,12 +1321,74 @@ function setupEvents() {
     }
   });
 
+  [
+    ["steerCurve", (value) => { state.steerCurve = Number(value) / 100; }],
+    ["throttleCurve", (value) => { state.throttleCurve = Number(value) / 100; }],
+    ["steerRate", (value) => { state.steerRate = Number(value) / 100; }],
+    ["throttleRate", (value) => { state.throttleRate = Number(value) / 100; }],
+  ].forEach(([id, apply]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("input", (event) => {
+      apply(event.target.value);
+      updateDerivedTargets();
+      updateRangeText();
+      applyManualState();
+      saveManualFeel();
+    });
+  });
+
+  document.getElementById("captureOnceBtn").addEventListener("click", async () => {
+    try {
+      await captureOneShot();
+    } catch (error) {
+      setBanner("statusBanner", error.message, "muted");
+    }
+  });
+
   document.getElementById("recordToggleBtn").addEventListener("click", async () => {
     try {
       await toggleRecording();
     } catch (error) {
       setBanner("statusBanner", error.message, "muted");
     }
+  });
+
+  document.getElementById("sessionSelect")?.addEventListener("change", (event) => {
+    state.selectedSession = event.target?.value || "";
+    updateSessionExportUi();
+  });
+
+  document.getElementById("refreshSessionsBtn")?.addEventListener("click", async () => {
+    try {
+      await refreshSessions(true);
+      setBanner("sessionExportMessage", "Session list refreshed.", "muted");
+    } catch (error) {
+      setBanner("sessionExportMessage", error.message, "muted");
+    }
+  });
+
+  document.getElementById("downloadSessionBtn")?.addEventListener("click", () => {
+    downloadSelectedSession();
+  });
+
+  document.getElementById("deleteSessionBtn")?.addEventListener("click", async () => {
+    try {
+      await deleteSelectedSession();
+    } catch (error) {
+      setBanner("sessionExportMessage", error.message, "muted");
+    }
+  });
+
+  document.getElementById("overlayToggleBtn").addEventListener("click", () => {
+    const nextMode = (state.overlayMode + 1) % 3;
+    setOverlayMode(nextMode);
+    const message = nextMode === 0
+      ? "Frame overlay off."
+      : nextMode === 1
+        ? "Overlay 1: throttle and steering enabled."
+        : "Overlay 2: arc guide enabled.";
+    setBanner("statusBanner", message, "muted");
   });
 
   document.getElementById("uploadModelBtn").addEventListener("click", async () => {
@@ -927,6 +1403,13 @@ function setupEvents() {
   document.getElementById("loadModelBtn").addEventListener("click", async () => {
     try {
       await loadSelectedModel();
+    } catch (error) {
+      setBanner("modelMessage", error.message, "muted");
+    }
+  });
+  document.getElementById("deleteModelBtn")?.addEventListener("click", async () => {
+    try {
+      await deleteSelectedModel();
     } catch (error) {
       setBanner("modelMessage", error.message, "muted");
     }
@@ -996,6 +1479,7 @@ function syncControlsFromStatus(data) {
     });
   }
 
+  updateDerivedTargets();
   updateRangeText();
   const desiredPage = data.current_page || state.page || "manual";
   if (desiredPage !== state.page && defaultLayouts[desiredPage]) {
@@ -1004,12 +1488,18 @@ function syncControlsFromStatus(data) {
 }
 
 async function init() {
+  loadManualFeel();
+  updateDerivedTargets();
   renderActivePage(state.page);
   updateRangeText();
+  setCapturePending(false);
+  setOverlayMode(0);
   setupDocking();
   setupManualControls();
+  setupManualPadSizing();
   setupEvents();
   await refreshModels();
+  await refreshSessions(false);
   await loadCameraConfig();
   await loadMotorConfig();
   syncPreviewActivity();
