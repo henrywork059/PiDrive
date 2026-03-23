@@ -1,112 +1,96 @@
-# PATCH NOTES — PiServer 0_2_11
+# PiServer 0_2_11 Patch Notes
 
 ## Summary
-This patch continues the PiServer backend review with a focus on thread safety, safer model handling, and easier-to-maintain shared parsing logic.
+This patch tightens the PiServer web workspace, improves the default dock layout, and makes the status panel hold up better when the available width is reduced.
 
-It builds on the runtime/config hardening work by reducing cross-thread races between the control loop and web API requests, especially around motor updates and model changes.
-
----
+This was applied directly on top of the current PiDrive repo snapshot provided in this chat. The patch only updates the PiServer frontend/runtime version markers and does **not** roll back unrelated work.
 
 ## Problems addressed
 
-### 1) Motor updates and motor setting changes could race each other
-The control loop can call `motor_service.update()` while the web API calls `motor_service.apply_settings()`.
-Without a lock, the runtime could see partially-updated motor calibration values or stop/update overlap.
+### 1) Status panel could feel cut off in tighter layouts
+The status panel was using a compact two-row default height while still trying to show:
+- 6 metric cards
+- the live banner message
 
-### 2) Model changes were not protected against live inference access
-`ModelService.load_model()` could replace the interpreter while autopilot or auto-steer inference was still using it.
-That creates a subtle race condition that can be hard to reproduce.
+When the window width got tighter, the metric cards wrapped more aggressively and the panel could feel like not all boxes were visible without extra scrolling.
 
-### 3) Uploaded model writes were direct writes to the target path
-If an upload was interrupted, the `.tflite` file on disk could be left partially written.
-This is especially risky if the uploaded filename matches an existing model.
+### 2) Default layout still wasted space
+The default page layouts were functional, but they still left avoidable dead space around the status strip and bottom-row utility panels.
 
-### 4) Parsing logic was duplicated across services
-Boolean, float, and direction parsing existed in multiple places.
-That makes future maintenance harder and increases the chance that one code path behaves differently from another.
+### 3) UI spacing still felt too loose
+Buttons, panel padding, gaps, badges, and helper text were still slightly roomy for a dense dashboard-style control surface.
 
-### 5) Control loop fallback assumed a manual algorithm always exists
-The control loop used a direct lookup path that could still fail if the algorithm registry was modified and the `manual` entry was missing.
-That is a preventable crash path.
+## Changes made
 
-### 6) Config-save endpoint could raise a plain server error
-`/api/config/save` did not wrap save failures into a controlled JSON response.
+### A) Better default layouts
+Updated the built-in default panel layouts for:
+- manual
+- training
+- auto
+- camera
+- motor
 
----
+Main layout adjustments:
+- increased the default **status** panel height from 2 rows to 3 rows
+- shifted the main viewer and right-side control panels down to match the taller status area
+- tightened the lower record/system panel arrangement
+- kept the overall workspace within the same 24x14 dock grid
 
-## What changed
+### B) Status panel made more compact and resilient
+Refined the status panel styling so it handles narrower widths better:
+- reduced metric card minimum width
+- reduced metric card padding
+- reduced label and value font size slightly
+- reduced banner spacing
+- made the status panel body a tighter vertical flex stack
+- added an extra narrower-width breakpoint for the metric card sizing
 
-### Shared parsing helpers
-- added `piserver/core/value_utils.py`
-- centralized:
-  - finite float parsing
-  - clamped float parsing
-  - integer parsing
-  - bool-like parsing
-  - motor direction normalization
-- updated app/control/motor code to use the shared helpers
+This gives the status panel more room to keep all metrics visible before wrapping becomes a problem.
 
-### Motor service hardening
-- added a lock around:
-  - `apply_settings()`
-  - `update()`
-  - `stop()`
-  - persisted-config reads
-- malformed motor values now preserve the last good setting instead of forcing bad state
-- simulation logging is throttled so non-GPIO runs are less noisy and easier to read
+### C) Reduced spacing and margins further across the UI
+Tightened the workspace visually by reducing:
+- global panel gap
+- corner radius slightly
+- grid row height slightly
+- top bar padding
+- workspace shell padding
+- panel header/body padding
+- button/select/file input padding and minimum height
+- field spacing
+- banner padding
+- checkbox row padding
+- quick-drive button basis
+- resize handle footprint
+- badge sizing
 
-### Model service hardening
-- added a lock around interpreter/active-model access
-- `load_model()` now only swaps in the interpreter after allocation succeeds
-- `predict_uv_from_frame()` now runs against a locked interpreter reference
-- uploads now save to a temporary file first and then replace the final `.tflite`
-- uploaded filenames are sanitized to basename-only before saving
+### D) Forced a fresh saved-layout namespace
+Updated the layout storage key version so the browser picks up the new built-in layouts automatically instead of staying stuck on older saved localStorage positions.
 
-### Control-service robustness
-- added safe algorithm fallback logic:
-  - active algorithm if available
-  - otherwise `manual`
-  - otherwise the first available algorithm
-  - otherwise safe idle output
-- motor status values are normalized more defensively before being copied into runtime state
-- runtime config apply now catches motor-config failures and reports camera-config apply failures more clearly
-
-### API robustness
-- `/api/config/save` now returns a controlled JSON error if save fails
-
-### Validation
-Added tests for:
-- shared parsing helpers
-- malformed motor settings preserving last good values
-- model upload basename sanitizing and extension validation
-- control-loop fallback when `manual` is missing
-
----
+### E) Updated app version marker
+Updated the PiServer frontend cache-busting version from `0_2_10` to `0_2_11`.
 
 ## Files changed
 - `PiServer/piserver/app.py`
-- `PiServer/piserver/core/value_utils.py`
-- `PiServer/piserver/services/control_service.py`
-- `PiServer/piserver/services/motor_service.py`
-- `PiServer/piserver/services/model_service.py`
-- `PiServer/tests/test_control_service.py`
-- `PiServer/tests/test_motor_service.py`
-- `PiServer/tests/test_model_service.py`
-- `PiServer/tests/test_value_utils.py`
-- `PiServer/README.md`
+- `PiServer/piserver/web/static/app.js`
+- `PiServer/piserver/web/static/styles.css`
 - `PiServer/PATCH_NOTES/PATCH_NOTES_PiServer_0_2_11.md`
 
----
-
 ## Verification performed
-- `python3 -m compileall -q .`
-- `python3 -m unittest discover -s tests -q`
+The following checks were actually run:
 
-Both checks passed in the patch workspace.
+1. Python syntax compilation:
+   - `python -m compileall PiServer`
 
----
+2. JavaScript syntax check:
+   - `node --check PiServer/piserver/web/static/app.js`
 
 ## Notes
-- This is a patch-only zip.
-- It does not overwrite your existing `config/runtime.json`.
-- The focus here is backend/runtime stability and maintainability, not a UI redesign.
+- Existing user-saved runtime configuration files were not reset.
+- The patch only changes PiServer frontend/runtime presentation behavior and version markers.
+- Existing unrelated project code in the repo was left untouched.
+
+## Possible future follow-up
+If needed, the next refinement could add:
+- per-panel compact modes
+- snap/merge-aware smarter default layouts by page type
+- optional hidden/collapsed status banner when space is extremely tight
