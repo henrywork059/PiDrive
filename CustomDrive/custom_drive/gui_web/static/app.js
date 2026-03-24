@@ -27,7 +27,6 @@ const state = {
   pendingControl: false,
   lastSentSteering: 0,
   lastSentThrottle: 0,
-  keyState: { up: false, down: false, left: false, right: false },
   estopEnabled: false,
   driveSettingsLoaded: false,
 };
@@ -158,15 +157,6 @@ function syncManualReadout() {
     const throttleRatio = state.maxThrottle > 0 ? state.manualThrottle / state.maxThrottle : 0;
     dot.style.top = `${(0.5 - throttleRatio * 0.5) * 100}%`;
   }
-}
-
-function updateFromKeyboard() {
-  const throttle = (state.keyState.up ? 1 : 0) + (state.keyState.down ? -1 : 0);
-  const steering = (state.keyState.right ? 1 : 0) + (state.keyState.left ? -1 : 0);
-  state.manualSteering = clamp(steering, -1, 1);
-  state.manualThrottle = clamp(throttle * state.maxThrottle, -state.maxThrottle, state.maxThrottle);
-  syncManualReadout();
-  queueControlSend();
 }
 
 function applyDrivePadPosition(clientX, clientY) {
@@ -434,42 +424,6 @@ function setupDrivePad() {
     if (event.buttons) applyDrivePadPosition(event.clientX, event.clientY);
   });
   ['pointerup', 'pointerleave', 'pointercancel'].forEach((name) => area.addEventListener(name, releaseDrivePad));
-
-  const keyHandler = (event, pressed) => {
-    const tag = event.target && event.target.tagName ? event.target.tagName.toLowerCase() : '';
-    if (['input', 'select', 'textarea', 'button'].includes(tag)) return;
-    const key = String(event.key || '').toLowerCase();
-    let handled = true;
-    if (key === 'w' || key === 'arrowup') state.keyState.up = pressed;
-    else if (key === 's' || key === 'arrowdown') state.keyState.down = pressed;
-    else if (key === 'a' || key === 'arrowleft') state.keyState.left = pressed;
-    else if (key === 'd' || key === 'arrowright') state.keyState.right = pressed;
-    else handled = false;
-    if (handled) {
-      event.preventDefault();
-      updateFromKeyboard();
-    }
-  };
-  window.addEventListener('keydown', (event) => keyHandler(event, true));
-  window.addEventListener('keyup', (event) => keyHandler(event, false));
-
-  const holdMap = [
-    ['driveForwardBtn', 0, 1],
-    ['driveReverseBtn', 0, -1],
-    ['driveLeftBtn', -1, 0],
-    ['driveRightBtn', 1, 0],
-  ];
-  holdMap.forEach(([id, steering, throttle]) => {
-    const button = document.getElementById(id);
-    const start = () => {
-      state.manualSteering = steering;
-      state.manualThrottle = throttle * state.maxThrottle;
-      syncManualReadout();
-      queueControlSend();
-    };
-    button.addEventListener('pointerdown', start);
-    ['pointerup', 'pointerleave', 'pointercancel'].forEach((name) => button.addEventListener(name, releaseDrivePad));
-  });
   syncManualReadout();
 }
 
