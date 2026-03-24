@@ -7,182 +7,213 @@
   <script src="{{ url_for('static', filename='theme.js') }}?v={{ app_version }}"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v={{ app_version }}" />
 </head>
-<body data-page="manual">
-  <header class="topbar compact-topbar">
+<body>
+  <header class="topbar">
     <div class="brand">
       <div class="brand-title">CustomDrive</div>
       <div class="brand-subtitle">GUI control workspace</div>
     </div>
 
     <div class="toolbar-actions">
-      <button class="ghost-btn" id="previewToggleBtn" type="button" aria-pressed="true">Preview ON</button>
+      <div id="runBadge" class="badge off">manual</div>
       <button class="ghost-btn" id="openDriveSettingsBtn" type="button">Drive Settings</button>
       <button class="ghost-btn" id="openStyleSettingsBtn" type="button">Style Settings</button>
-      <button class="danger-btn" id="estopBtn" type="button" aria-pressed="false">E-stop OFF</button>
     </div>
   </header>
 
-  <main class="workspace-shell single-page-shell">
-    <section class="workspace-grid customdrive-grid">
-      <article class="dock-panel panel-status-strip custom-status-panel" data-panel="status">
-        <div class="panel-head compact-head panel-head-no-drag">
+  <main class="workspace-shell">
+    <section class="workspace-grid gui-layout">
+      <article class="dock-panel panel-status">
+        <div class="panel-head compact-head">
           <span>Status</span>
-          <span class="panel-mini">live</span>
+          <span class="panel-mini" id="statusMiniText">live</span>
         </div>
-        <div class="panel-body status-body compact-status-body">
-          <div class="metric-grid status-metric-grid compact-status-grid">
-            <div class="metric-card metric-card-primary"><label>Drive</label><strong id="metricDrive">ready</strong></div>
-            <div class="metric-card"><label>Applied</label><strong id="metricApplied">S 0.00 · T 0.00</strong></div>
-            <div class="metric-card"><label>Target</label><strong id="metricTarget">S 0.00 · T 0.00</strong></div>
-            <div class="metric-card"><label>Motor</label><strong id="metricMotor">L 0.00 · R 0.00</strong></div>
-            <div class="metric-card"><label>Camera</label><strong id="metricCamera">waiting</strong></div>
-            <div class="metric-card"><label>FPS</label><strong id="metricFps">0.0</strong></div>
-            <div class="metric-card"><label>Resolution</label><strong id="metricResolution">0 × 0</strong></div>
-            <div class="metric-card"><label>Backend</label><strong id="metricBackend">unknown</strong></div>
-            <div class="metric-card"><label>Preview</label><strong id="metricPreview">enabled</strong></div>
-            <div class="metric-card metric-card-alert"><label>Error</label><strong id="metricError">none</strong></div>
+        <div class="panel-body compact-body">
+          <div class="metric-grid slim-grid">
+            <div class="metric-card"><label>Drive</label><strong id="metricDriveState">ready</strong></div>
+            <div class="metric-card"><label>Output</label><strong id="metricApplied">S 0.00 · T 0.00</strong></div>
+            <div class="metric-card"><label>Target</label><strong id="metricManual">S 0.00 · T 0.00</strong></div>
+            <div class="metric-card"><label>Camera</label><strong id="metricCamera">unknown</strong></div>
+            <div class="metric-card"><label>Preview</label><strong id="metricPreview">offline</strong></div>
+            <div class="metric-card"><label>Arm</label><strong id="metricArm">idle</strong></div>
+            <div class="metric-card"><label>Mode</label><strong>manual</strong></div>
+            <div class="metric-card"><label>Max</label><strong id="metricMaxThrottle">0.55</strong></div>
+            <div class="metric-card"><label>Mix</label><strong id="metricSteerMix">0.50</strong></div>
+            <div class="metric-card"><label>Bias</label><strong id="metricSteerBias">0.00</strong></div>
+            <div class="metric-card"><label>Motors</label><strong id="metricWheels">0.00 / 0.00</strong></div>
+            <div class="metric-card"><label>FPS</label><strong id="metricFps">0.0 FPS</strong></div>
           </div>
-          <div id="statusBanner" class="banner muted">Loading GUI status…</div>
+          <div id="statusBanner" class="banner muted compact-banner">Ready.</div>
         </div>
       </article>
 
-      <article class="dock-panel viewer-panel custom-viewer-panel" data-panel="viewer">
-        <div class="panel-head panel-head-no-drag">
-          <span>Camera live</span>
-          <span class="panel-mini">PiServer camera</span>
+      <article class="dock-panel panel-arm">
+        <div class="panel-head">
+          <span>Arm Control</span>
+          <span class="panel-mini">servo</span>
         </div>
-        <div class="panel-body viewer-body viewer-body-large">
-          <div class="viewer-frame large-viewer-frame camera-frame-shell">
-            <img id="videoFeed" src="/video_feed?t={{ app_version }}" alt="CustomDrive live camera" />
-            <div id="cameraPreviewMeta" class="preview-meta">Connecting to live camera…</div>
+        <div class="panel-body scroll-body">
+          <div class="arm-grid">
+            <button id="armUpBtn" class="control-btn arm-btn" type="button">Up</button>
+            <button id="armDownBtn" class="control-btn arm-btn" type="button">Down</button>
+            <button id="armOpenBtn" class="control-btn arm-btn secondary-btn" type="button">Open</button>
+            <button id="armCloseBtn" class="control-btn arm-btn secondary-btn" type="button">Close</button>
           </div>
+          <div class="small-note">Up and Down move 1° every 0.1s while held.</div>
+          <div id="armMessage" class="banner muted">Arm ready.</div>
         </div>
       </article>
 
-      <article class="dock-panel custom-drive-panel" data-panel="drive">
-        <div class="panel-head panel-head-no-drag">
-          <span>Manual drive</span>
-          <span class="panel-mini">real motor path</span>
+      <article class="dock-panel panel-viewer">
+        <div class="panel-head">
+          <span>Live Camera</span>
+          <span class="panel-mini" id="cameraPreviewMeta">waiting…</span>
         </div>
-        <div class="panel-body manual-shell">
-          <div class="manual-layout-single custom-manual-layout">
-            <div class="manual-pad-card">
-              <div id="joystickArea" class="joystick-area" tabindex="0" aria-label="Manual drive drag pad">
-                <div class="joystick-crosshair"></div>
-                <div id="joystickDot" class="joystick-dot"></div>
-              </div>
-              <div class="manual-readout value-text" id="joystickText">Steering 0.00 · Throttle 0.00</div>
-              <div class="small-note">Drag inside the pad. Release to stop.</div>
-              <div class="stack-row manual-action-row">
-                <button type="button" class="ghost-btn" id="centerPadBtn">Center</button>
-                <button type="button" class="ghost-btn" id="stopDriveBtn">Stop drive</button>
-              </div>
-            </div>
+        <div class="panel-body viewer-body">
+          <div class="viewer-frame">
+            <img id="videoFeed" src="/video_feed?v={{ app_version }}" alt="CustomDrive live preview" />
+            <div id="viewerFallback" class="viewer-fallback hidden">Camera preview unavailable.</div>
           </div>
         </div>
       </article>
 
-      <article class="dock-panel custom-system-panel" data-panel="system">
-        <div class="panel-head panel-head-no-drag">
+      <article class="dock-panel panel-drive">
+        <div class="panel-head">
+          <span>Manual Drive</span>
+          <span class="panel-mini">real motor</span>
+        </div>
+        <div class="panel-body scroll-body manual-body">
+          <div class="manual-readout" id="joystickText">Steering 0.00 · Throttle 0.00</div>
+          <div id="joystickArea" class="joystick-area" aria-label="Drag pad for manual drive">
+            <div class="pad-axis axis-x"></div>
+            <div class="pad-axis axis-y"></div>
+            <div id="joystickDot" class="joystick-dot"></div>
+          </div>
+          <div class="pad-note">Drag to steer and throttle. Release to stop. Keyboard: W A S D / arrows.</div>
+          <div class="manual-pad-grid">
+            <button id="driveForwardBtn" class="control-btn" type="button">Forward</button>
+            <button id="driveLeftBtn" class="control-btn" type="button">Left</button>
+            <button id="driveRightBtn" class="control-btn" type="button">Right</button>
+            <button id="driveReverseBtn" class="control-btn" type="button">Reverse</button>
+          </div>
+          <div id="driveMessage" class="banner muted">Manual drive ready.</div>
+        </div>
+      </article>
+
+      <article class="dock-panel panel-system">
+        <div class="panel-head">
           <span>System</span>
           <span class="panel-mini">debug</span>
         </div>
-        <div class="panel-body system-panel-body">
-          <div class="metric-grid metric-grid-secondary system-grid">
-            <div class="metric-card"><label>Algorithm</label><strong id="metricAlgorithm">manual</strong></div>
-            <div class="metric-card"><label>GPIO</label><strong id="metricGpio">unknown</strong></div>
-            <div class="metric-card"><label>Preview live</label><strong id="metricPreviewLive">unknown</strong></div>
-            <div class="metric-card"><label>Updated</label><strong id="metricUpdated">--</strong></div>
+        <div class="panel-body scroll-body">
+          <div class="system-actions">
+            <button id="previewToggleBtn" class="ghost-btn" type="button">Toggle Preview</button>
+            <button id="estopBtn" class="danger-btn" type="button">E-Stop</button>
+            <button id="clearEstopBtn" class="ghost-btn" type="button">Clear E-Stop</button>
           </div>
-          <div class="banner muted" id="systemNote">This GUI uses PiServer ControlService in manual mode.</div>
+          <div class="system-readout-grid">
+            <div class="metric-card"><label>Runtime</label><strong id="systemRuntimePath">runtime.json</strong></div>
+            <div class="metric-card"><label>Arm Lift</label><strong id="systemArmLift">0°</strong></div>
+            <div class="metric-card"><label>Motor Dir</label><strong id="systemMotorDir">1 / 1 / 1</strong></div>
+          </div>
+          <div id="systemMessage" class="banner muted">System ready.</div>
         </div>
       </article>
     </section>
   </main>
 
-  <div id="driveSettingsModal" class="style-modal hidden" aria-hidden="true">
-    <div class="style-modal-backdrop" data-close-modal="driveSettingsModal"></div>
-    <div class="style-modal-card drive-settings-modal-card">
-      <div class="style-modal-head">
-        <div>
-          <h2>Drive Settings</h2>
-          <div class="small-note">Tune the live drag pad control.</div>
-        </div>
+  <div id="driveSettingsModal" class="modal-backdrop hidden" aria-hidden="true">
+    <div class="modal-window">
+      <div class="panel-head">
+        <span>Drive Settings</span>
         <button class="ghost-btn" id="closeDriveSettingsBtn" type="button">Close</button>
       </div>
-      <div class="style-modal-body drive-settings-modal-body">
-        <section class="style-settings-section drive-settings-section only-section">
-          <div class="style-settings-section-head">
-            <h3>Drive settings</h3>
-            <div class="small-note">These settings apply to the live drag pad control.</div>
+      <div class="panel-body scroll-body modal-body">
+        <div class="field-grid two-col compact-grid">
+          <div class="field">
+            <label for="driveMaxThrottle">Max throttle</label>
+            <input id="driveMaxThrottle" type="range" min="0" max="100" value="55" />
+            <div class="value-text"><span id="driveMaxThrottleValue">0.55</span></div>
           </div>
-          <div class="style-settings-scroll drive-settings-scroll">
-            <div class="style-setting-row style-setting-row-range">
-              <label for="maxThrottleInput">Max throttle</label>
-              <input id="maxThrottleInput" type="range" min="0.10" max="1.00" step="0.01" value="0.55" />
-              <span id="maxThrottleValue" class="style-setting-value">0.55</span>
-            </div>
-            <div class="style-setting-row style-setting-row-range">
-              <label for="steerMixInput">Steer mix</label>
-              <input id="steerMixInput" type="range" min="0.00" max="1.00" step="0.01" value="0.50" />
-              <span id="steerMixValue" class="style-setting-value">0.50</span>
-            </div>
-            <div class="style-setting-row style-setting-row-range">
-              <label for="steerBiasInput">Steer bias</label>
-              <input id="steerBiasInput" type="range" min="-0.50" max="0.50" step="0.01" value="0.00" />
-              <span id="steerBiasValue" class="style-setting-value">0.00</span>
-            </div>
+          <div class="field">
+            <label for="driveSteerMix">Steer mix</label>
+            <input id="driveSteerMix" type="range" min="0" max="100" value="50" />
+            <div class="value-text"><span id="driveSteerMixValue">0.50</span></div>
           </div>
-        </section>
-      </div>
-      <div class="style-modal-foot">
-        <div class="stack-row align-right-only">
-          <button class="ghost-btn" id="saveRuntimeBtn" type="button">Save drive</button>
+          <div class="field field-wide">
+            <label for="driveSteerBias">Steer bias</label>
+            <input id="driveSteerBias" type="range" min="-50" max="50" value="0" />
+            <div class="value-text"><span id="driveSteerBiasValue">0.00</span></div>
+          </div>
         </div>
+        <div class="field-grid three-col compact-grid">
+          <div class="field">
+            <label for="leftDirection">Left motor dir</label>
+            <select id="leftDirection"><option value="1">Normal</option><option value="-1">Reverse</option></select>
+          </div>
+          <div class="field">
+            <label for="rightDirection">Right motor dir</label>
+            <select id="rightDirection"><option value="1">Normal</option><option value="-1">Reverse</option></select>
+          </div>
+          <div class="field">
+            <label for="steeringDirection">Turn dir</label>
+            <select id="steeringDirection"><option value="1">Normal</option><option value="-1">Reverse</option></select>
+          </div>
+          <div class="field">
+            <label for="leftMaxSpeed">Left max speed</label>
+            <input id="leftMaxSpeed" type="number" min="0" max="1" step="0.01" />
+          </div>
+          <div class="field">
+            <label for="rightMaxSpeed">Right max speed</label>
+            <input id="rightMaxSpeed" type="number" min="0" max="1" step="0.01" />
+          </div>
+          <div class="field">
+            <label for="leftBias">Left bias</label>
+            <input id="leftBias" type="number" min="-1" max="1" step="0.01" />
+          </div>
+          <div class="field">
+            <label for="rightBias">Right bias</label>
+            <input id="rightBias" type="number" min="-1" max="1" step="0.01" />
+          </div>
+        </div>
+        <div class="stack-row panel-actions">
+          <button id="saveDriveSettingsBtn" type="button">Save Drive Settings</button>
+        </div>
+        <div id="driveSettingsMessage" class="banner muted">Drive settings ready.</div>
       </div>
     </div>
   </div>
 
-  <div id="styleSettingsModal" class="style-modal hidden" aria-hidden="true">
-    <div class="style-modal-backdrop" data-close-modal="styleSettingsModal" data-restore-style="true"></div>
-    <div class="style-modal-card settings-modal-card">
-      <div class="style-modal-head">
-        <div>
-          <h2>Style Settings</h2>
-          <div class="small-note">PiServer-style appearance controls.</div>
-        </div>
+  <div id="styleSettingsModal" class="modal-backdrop hidden" aria-hidden="true">
+    <div class="modal-window">
+      <div class="panel-head">
+        <span>Style Settings</span>
         <button class="ghost-btn" id="closeStyleSettingsBtn" type="button">Close</button>
       </div>
-      <div class="style-modal-body settings-modal-body">
-        <section class="style-settings-section style-settings-section-scroll only-section">
-          <div class="style-settings-section-head">
-            <h3>Style settings</h3>
-            <div class="small-note">Scroll to view all controls</div>
-          </div>
-          <div class="style-settings-grid compact-style-grid">
-            <div class="style-setting-row"><label for="styleAccent">Accent</label><input id="styleAccent" type="color" /></div>
-            <div class="style-setting-row"><label for="stylePanel">Panel</label><input id="stylePanel" type="color" /></div>
-            <div class="style-setting-row"><label for="stylePanelAlt">Panel alt</label><input id="stylePanelAlt" type="color" /></div>
-            <div class="style-setting-row"><label for="styleText">Text</label><input id="styleText" type="color" /></div>
-            <div class="style-setting-row"><label for="styleMuted">Muted</label><input id="styleMuted" type="color" /></div>
-          </div>
-          <div class="style-settings-scroll">
-            <div class="style-setting-row style-setting-row-range"><label for="styleFontScale">Font size (%)</label><input id="styleFontScale" type="range" min="70" max="115" step="1" /><span id="styleFontScaleValue" class="style-setting-value"></span></div>
-            <div class="style-setting-row style-setting-row-range"><label for="styleWorkspacePad">Outer margin</label><input id="styleWorkspacePad" type="range" min="0" max="28" step="1" /><span id="styleWorkspacePadValue" class="style-setting-value"></span></div>
-            <div class="style-setting-row style-setting-row-range"><label for="styleGap">Panel gap</label><input id="styleGap" type="range" min="0" max="20" step="1" /><span id="styleGapValue" class="style-setting-value"></span></div>
-            <div class="style-setting-row style-setting-row-range"><label for="styleRadius">Panel radius</label><input id="styleRadius" type="range" min="0" max="28" step="1" /><span id="styleRadiusValue" class="style-setting-value"></span></div>
-            <div class="style-setting-row style-setting-row-range"><label for="stylePanelPad">Panel body padding</label><input id="stylePanelPad" type="range" min="6" max="28" step="1" /><span id="stylePanelPadValue" class="style-setting-value"></span></div>
-            <div class="style-setting-row style-setting-row-range"><label for="styleHeaderPadY">Panel header padding</label><input id="styleHeaderPadY" type="range" min="4" max="24" step="1" /><span id="styleHeaderPadYValue" class="style-setting-value"></span></div>
-            <div class="style-setting-row style-setting-row-range"><label for="styleCardGap">Card spacing</label><input id="styleCardGap" type="range" min="0" max="24" step="1" /><span id="styleCardGapValue" class="style-setting-value"></span></div>
-            <div class="style-setting-row style-setting-row-range"><label for="styleFieldGap">Field spacing</label><input id="styleFieldGap" type="range" min="0" max="24" step="1" /><span id="styleFieldGapValue" class="style-setting-value"></span></div>
-          </div>
-        </section>
-      </div>
-      <div class="style-modal-foot">
-        <button class="ghost-btn" id="resetStyleSettingsBtn" type="button">Reset style</button>
-        <div class="stack-row">
-          <button class="ghost-btn" id="saveSettingsBtn" type="button">Save style</button>
+      <div class="panel-body scroll-body modal-body">
+        <div class="field-grid two-col compact-grid">
+          <div class="field"><label for="styleBg">Background</label><input id="styleBg" type="color" value="#1b1d23" /></div>
+          <div class="field"><label for="stylePanel">Panel</label><input id="stylePanel" type="color" value="#232630" /></div>
+          <div class="field"><label for="stylePanelAlt">Panel alt</label><input id="stylePanelAlt" type="color" value="#2a2e39" /></div>
+          <div class="field"><label for="styleText">Text</label><input id="styleText" type="color" value="#f1f2f7" /></div>
+          <div class="field"><label for="styleMuted">Muted</label><input id="styleMuted" type="color" value="#9ea5b5" /></div>
+          <div class="field"><label for="styleAccent">Accent</label><input id="styleAccent" type="color" value="#f4a31e" /></div>
+          <div class="field"><label for="styleDanger">Danger</label><input id="styleDanger" type="color" value="#ca655d" /></div>
+          <div class="field"><label for="styleWarn">Warn</label><input id="styleWarn" type="color" value="#f4a31e" /></div>
         </div>
+        <div class="field-grid two-col compact-grid">
+          <div class="field"><label for="styleFontScale">Font size (%)</label><input id="styleFontScale" type="range" min="70" max="120" value="80" /><div class="value-text"><span id="styleFontScaleValue">80%</span></div></div>
+          <div class="field"><label for="styleWorkspacePad">Workspace pad</label><input id="styleWorkspacePad" type="range" min="4" max="24" value="10" /><div class="value-text"><span id="styleWorkspacePadValue">10px</span></div></div>
+          <div class="field"><label for="styleGap">Panel gap</label><input id="styleGap" type="range" min="4" max="24" value="4" /><div class="value-text"><span id="styleGapValue">4px</span></div></div>
+          <div class="field"><label for="styleRadius">Radius</label><input id="styleRadius" type="range" min="6" max="24" value="10" /><div class="value-text"><span id="styleRadiusValue">10px</span></div></div>
+          <div class="field"><label for="stylePanelPad">Panel padding</label><input id="stylePanelPad" type="range" min="8" max="24" value="12" /><div class="value-text"><span id="stylePanelPadValue">12px</span></div></div>
+          <div class="field"><label for="styleHeaderPadY">Header padding</label><input id="styleHeaderPadY" type="range" min="6" max="20" value="10" /><div class="value-text"><span id="styleHeaderPadYValue">10px</span></div></div>
+        </div>
+        <div class="stack-row panel-actions">
+          <button id="saveStyleSettingsBtn" type="button">Save Style Settings</button>
+          <button class="ghost-btn" id="resetStyleSettingsBtn" type="button">Reset Style Settings</button>
+        </div>
+        <div id="styleSettingsMessage" class="banner muted">Style settings ready.</div>
       </div>
     </div>
   </div>

@@ -11,6 +11,7 @@ class ArmService:
     Supports:
     - PCA9685 + ServoKit backend when enabled.
     - Press-and-hold lift motion using a background worker.
+    - Optional dual-servo lift output for matched arm height movement.
     - One-tap gripper actions for hold / release.
     """
 
@@ -91,7 +92,29 @@ class ArmService:
         return max(0, min(15, value))
 
     def _step_angle(self) -> int:
-        return max(1, min(45, self._angle('lift_step_angle', 4)))
+        return max(1, min(45, self._angle('lift_step_angle', 1)))
+
+    def _step_interval_s(self) -> float:
+        value = self._config.get('lift_step_interval_s', 0.1)
+        try:
+            value = float(value)
+        except Exception:
+            value = 0.1
+        return max(0.02, min(1.0, value))
+
+    def _secondary_enabled(self) -> bool:
+        return bool(self._config.get('lift_secondary_enabled', True))
+
+    def _secondary_multiplier(self) -> float:
+        value = self._config.get('lift_secondary_multiplier', 1.0)
+        try:
+            value = float(value)
+        except Exception:
+            value = 1.0
+        return max(0.0, min(4.0, value))
+
+    def _secondary_channel(self) -> int:
+        return self._channel('lift_channel_secondary', 1)
 
     def _set_servo_angle(self, channel: int, angle: int) -> None:
         if not self.enabled:
@@ -101,6 +124,15 @@ class ArmService:
                 raise RuntimeError(self.last_error)
             raise RuntimeError('Arm backend is not available.')
         self._kit.servo[channel].angle = angle
+
+    def _apply_lift_angle(self, angle: int) -> None:
+        primary = self._channel('lift_channel', 0)
+        self._set_servo_angle(primary, angle)
+        if self._secondary_enabled():
+            secondary_channel = self._secondary_channel()
+            if secondary_channel != primary:
+                secondary_angle = int(round(max(0, min(180, angle * self._secondary_multiplier()))))
+                self._set_servo_angle(secondary_channel, secondary_angle)
 
     def _target_for_direction(self, direction: int) -> int:
         up = self._angle('lift_up_angle', 40)
@@ -128,7 +160,7 @@ class ArmService:
             else:
                 next_angle = max(next_angle, target)
             try:
-                self._set_servo_angle(self._channel('lift_channel', 0), next_angle)
+                self._apply_lift_angle(next_angle)
                 self._current_lift_angle = next_angle
                 self.last_action = 'up' if direction < 0 else 'down'
                 self.last_action_at = time.time()
@@ -140,7 +172,7 @@ class ArmService:
                 break
             if next_angle == target:
                 break
-            self._move_stop.wait(0.06)
+            self._move_stop.wait(self._step_interval_s())
         with self._move_lock:
             self._move_direction = 0
             self._move_thread = None
@@ -252,7 +284,10 @@ class ArmService:
             'last_message': self.last_message,
             'last_action_at': self.last_action_at,
             'lift_channel': self._channel('lift_channel', 0),
-            'grip_channel': self._channel('grip_channel', 1),
+            'lift_channel_secondary': self._secondary_channel(),
+            'lift_secondary_enabled': self._secondary_enabled(),
+            'lift_secondary_multiplier': self._secondary_multiplier(),
+            'grip_channel': self._channel('grip_channel', 2),
             'lift_angle': int(self._current_lift_angle),
             'moving': bool(self._move_thread is not None),
         }

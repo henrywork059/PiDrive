@@ -1,477 +1,509 @@
-(() => {
-  const styleSettingsFields = [
-    { id: 'styleAccent', cssVar: '--accent', type: 'color', fallback: '#f4a31e' },
-    { id: 'stylePanel', cssVar: '--panel', type: 'color', fallback: '#232630' },
-    { id: 'stylePanelAlt', cssVar: '--panel-alt', type: 'color', fallback: '#2a2e39' },
-    { id: 'styleText', cssVar: '--text', type: 'color', fallback: '#f1f2f7' },
-    { id: 'styleMuted', cssVar: '--muted', type: 'color', fallback: '#9ea5b5' },
-    { id: 'styleFontScale', cssVar: '--font-scale', type: 'range', unit: '%', fallback: 80 },
-    { id: 'styleWorkspacePad', cssVar: '--workspace-pad', type: 'range', unit: 'px', fallback: 10 },
-    { id: 'styleGap', cssVar: '--gap', type: 'range', unit: 'px', fallback: 4 },
-    { id: 'styleRadius', cssVar: '--radius', type: 'range', unit: 'px', fallback: 10 },
-    { id: 'stylePanelPad', cssVar: '--panel-pad', type: 'range', unit: 'px', fallback: 12 },
-    { id: 'styleHeaderPadY', cssVar: '--panel-head-pad-y', type: 'range', unit: 'px', fallback: 8 },
-    { id: 'styleCardGap', cssVar: '--card-gap', type: 'range', unit: 'px', fallback: 10 },
-    { id: 'styleFieldGap', cssVar: '--field-gap', type: 'range', unit: 'px', fallback: 10 },
-  ];
+const styleSettingsFields = [
+  { id: 'styleBg', cssVar: '--bg', type: 'color' },
+  { id: 'stylePanel', cssVar: '--panel', type: 'color' },
+  { id: 'stylePanelAlt', cssVar: '--panel-alt', type: 'color' },
+  { id: 'styleText', cssVar: '--text', type: 'color' },
+  { id: 'styleMuted', cssVar: '--muted', type: 'color' },
+  { id: 'styleAccent', cssVar: '--accent', type: 'color' },
+  { id: 'styleDanger', cssVar: '--danger', type: 'color' },
+  { id: 'styleWarn', cssVar: '--warn', type: 'color' },
+  { id: 'styleFontScale', cssVar: '--font-scale', type: 'range', unit: '%', fallback: 80 },
+  { id: 'styleWorkspacePad', cssVar: '--workspace-pad', type: 'range', unit: 'px', fallback: 10 },
+  { id: 'styleGap', cssVar: '--gap', type: 'range', unit: 'px', fallback: 4 },
+  { id: 'styleRadius', cssVar: '--radius', type: 'range', unit: 'px', fallback: 10 },
+  { id: 'stylePanelPad', cssVar: '--panel-pad', type: 'range', unit: 'px', fallback: 12 },
+  { id: 'styleHeaderPadY', cssVar: '--panel-head-pad-y', type: 'range', unit: 'px', fallback: 10 },
+];
 
-  const state = {
-    previewEnabled: true,
-    pointerActive: false,
-    rawTargetSteering: 0,
-    rawTargetThrottle: 0,
-    targetSteering: 0,
-    targetThrottle: 0,
-    manualSteering: 0,
-    manualThrottle: 0,
-    lastSentSteering: 0,
-    lastSentThrottle: 0,
-    lastControlSentAt: 0,
-    estopEnabled: false,
-    maxThrottle: 0.55,
-    steerMix: 0.5,
-    steerBias: 0.0,
-    controlTimer: null,
-    statusTimer: null,
-  };
+const state = {
+  statusTimer: null,
+  manualSteering: 0,
+  manualThrottle: 0,
+  maxThrottle: 0.55,
+  steerMix: 0.5,
+  steerBias: 0,
+  previewEnabled: true,
+  controlInFlight: false,
+  pendingControl: false,
+  lastSentSteering: 0,
+  lastSentThrottle: 0,
+  keyState: { up: false, down: false, left: false, right: false },
+  estopEnabled: false,
+  driveSettingsLoaded: false,
+};
 
-  function clamp(value, min, max) {
-    return Math.min(max, Math.max(min, Number(value || 0)));
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function fmt(value, digits = 2) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num.toFixed(digits) : '0.00';
+}
+
+function styleManager() {
+  return window.PiServerStyle || null;
+}
+
+function normalizeHexColor(value, fallback = '#000000') {
+  const raw = String(value || '').trim();
+  const short = raw.match(/^#([0-9a-f]{3})$/i);
+  if (short) return `#${short[1].split('').map((part) => part + part).join('')}`.toLowerCase();
+  const full = raw.match(/^#([0-9a-f]{6})$/i);
+  return full ? `#${full[1]}`.toLowerCase() : fallback;
+}
+
+function parseNumericStyleValue(value, fallback = 0) {
+  const match = String(value || '').match(/-?\d+(?:\.\d+)?/);
+  return match ? Number(match[0]) : fallback;
+}
+
+function setText(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
+}
+
+function setBanner(id, message, kind = 'muted') {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = message || '';
+  el.className = `banner ${kind}`;
+}
+
+async function fetchJson(url, options = undefined) {
+  const response = await fetch(url, options);
+  let data = {};
+  try { data = await response.json(); } catch {}
+  if (!response.ok) {
+    throw new Error(data.message || `Request failed (${response.status})`);
   }
+  return data;
+}
 
-  function setText(id, text) {
-    const el = document.getElementById(id);
-    if (el) el.textContent = text;
-  }
+async function postJson(url, body = {}) {
+  return fetchJson(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
 
-  function setBanner(message, tone = 'muted') {
-    const el = document.getElementById('statusBanner');
+function getResolvedStyleVars() {
+  return styleManager()?.getResolvedVars?.() || {};
+}
+
+function collectStyleOverridesFromInputs() {
+  const overrides = {};
+  styleSettingsFields.forEach((field) => {
+    const el = document.getElementById(field.id);
     if (!el) return;
-    el.className = `banner ${tone}`;
-    el.textContent = message;
-  }
+    const value = field.type === 'range'
+      ? `${el.value}${field.unit || ''}`
+      : normalizeHexColor(el.value);
+    overrides[field.cssVar] = value;
+    if (field.cssVar === '--accent') {
+      const hex = normalizeHexColor(value, '#f4a31e').slice(1);
+      overrides['--accent-rgb'] = [0, 2, 4].map((start) => parseInt(hex.slice(start, start + 2), 16)).join(', ');
+    }
+    if (field.cssVar === '--font-scale') overrides['--font-scale-factor'] = String(Number(el.value) / 100);
+  });
+  return overrides;
+}
 
-  function normalizeHexColor(value, fallback = '#000000') {
-    const raw = String(value || '').trim();
-    const short = raw.match(/^#([0-9a-f]{3})$/i);
-    if (short) return `#${short[1].split('').map((part) => part + part).join('')}`.toLowerCase();
-    const full = raw.match(/^#([0-9a-f]{6})$/i);
-    if (full) return `#${full[1]}`.toLowerCase();
-    return fallback;
-  }
+function syncStyleInputsFromCurrentVars() {
+  const resolved = getResolvedStyleVars();
+  styleSettingsFields.forEach((field) => {
+    const el = document.getElementById(field.id);
+    if (!el) return;
+    const raw = resolved[field.cssVar];
+    if (field.type === 'range') {
+      const numeric = parseNumericStyleValue(raw, field.fallback || Number(el.min || 0));
+      el.value = `${numeric}`;
+      setText(`${field.id}Value`, `${numeric}${field.unit || ''}`);
+    } else {
+      el.value = normalizeHexColor(raw, el.value || '#000000');
+    }
+  });
+}
 
-  function hexToRgbTriplet(value) {
-    const hex = normalizeHexColor(value, '#000000').slice(1);
-    return [0, 2, 4].map((start) => parseInt(hex.slice(start, start + 2), 16)).join(', ');
-  }
+function previewStyleOverridesFromInputs() {
+  const manager = styleManager();
+  manager?.applyTheme?.(manager.getCurrentTheme?.());
+  const root = document.documentElement;
+  Object.entries(collectStyleOverridesFromInputs()).forEach(([key, value]) => root.style.setProperty(key, value));
+  styleSettingsFields.forEach((field) => {
+    if (field.type === 'range') setText(`${field.id}Value`, `${document.getElementById(field.id).value}${field.unit || ''}`);
+  });
+}
 
-  function parseNumericStyleValue(value, fallback = 0) {
-    const match = String(value || '').match(/-?\d+(?:\.\d+)?/);
-    return match ? Number(match[0]) : fallback;
-  }
+function openModal(id) {
+  const modal = document.getElementById(id);
+  if (!modal) return;
+  modal.classList.remove('hidden');
+  modal.setAttribute('aria-hidden', 'false');
+}
 
-  function styleManager() {
-    return window.PiServerStyle || null;
-  }
+function closeModal(id) {
+  const modal = document.getElementById(id);
+  if (!modal) return;
+  modal.classList.add('hidden');
+  modal.setAttribute('aria-hidden', 'true');
+}
 
-  function readResolvedStyleVars() {
-    return styleManager()?.getResolvedVars?.() || {};
+function syncManualReadout() {
+  setText('joystickText', `Steering ${fmt(state.manualSteering)} · Throttle ${fmt(state.manualThrottle)}`);
+  const dot = document.getElementById('joystickDot');
+  if (dot) {
+    dot.style.left = `${(state.manualSteering * 0.5 + 0.5) * 100}%`;
+    const throttleRatio = state.maxThrottle > 0 ? state.manualThrottle / state.maxThrottle : 0;
+    dot.style.top = `${(0.5 - throttleRatio * 0.5) * 100}%`;
   }
+}
 
-  function collectStyleOverridesFromInputs() {
-    const overrides = {};
-    styleSettingsFields.forEach((field) => {
-      const el = document.getElementById(field.id);
-      if (!el) return;
-      const value = field.type === 'range'
-        ? `${el.value}${field.unit || ''}`
-        : normalizeHexColor(el.value, field.fallback);
-      overrides[field.cssVar] = value;
-      if (field.cssVar === '--accent') overrides['--accent-rgb'] = hexToRgbTriplet(value);
-      if (field.cssVar === '--font-scale') overrides['--font-scale-factor'] = String(Number(el.value) / 100);
+function updateFromKeyboard() {
+  const throttle = (state.keyState.up ? 1 : 0) + (state.keyState.down ? -1 : 0);
+  const steering = (state.keyState.right ? 1 : 0) + (state.keyState.left ? -1 : 0);
+  state.manualSteering = clamp(steering, -1, 1);
+  state.manualThrottle = clamp(throttle * state.maxThrottle, -state.maxThrottle, state.maxThrottle);
+  syncManualReadout();
+  queueControlSend();
+}
+
+function applyDrivePadPosition(clientX, clientY) {
+  const area = document.getElementById('joystickArea');
+  const rect = area.getBoundingClientRect();
+  const nx = clamp((clientX - rect.left) / Math.max(rect.width, 1), 0, 1);
+  const ny = clamp((clientY - rect.top) / Math.max(rect.height, 1), 0, 1);
+  state.manualSteering = clamp((nx - 0.5) * 2, -1, 1);
+  state.manualThrottle = clamp((0.5 - ny) * 2 * state.maxThrottle, -state.maxThrottle, state.maxThrottle);
+  syncManualReadout();
+  queueControlSend();
+}
+
+function releaseDrivePad() {
+  state.manualSteering = 0;
+  state.manualThrottle = 0;
+  syncManualReadout();
+  queueControlSend();
+}
+
+async function sendControlNow() {
+  if (state.controlInFlight) {
+    state.pendingControl = true;
+    return;
+  }
+  const steering = clamp(state.manualSteering, -1, 1);
+  const throttle = clamp(state.manualThrottle, -state.maxThrottle, state.maxThrottle);
+  if (Math.abs(steering - state.lastSentSteering) < 0.01 && Math.abs(throttle - state.lastSentThrottle) < 0.01 && !state.pendingControl) {
+    return;
+  }
+  state.controlInFlight = true;
+  state.pendingControl = false;
+  try {
+    await postJson('/api/control', {
+      steering,
+      throttle,
+      max_throttle: state.maxThrottle,
+      steer_mix: state.steerMix,
+      steer_bias: state.steerBias,
     });
-    return overrides;
+    state.lastSentSteering = steering;
+    state.lastSentThrottle = throttle;
+  } catch (error) {
+    setBanner('driveMessage', error.message || 'Manual drive failed.', 'warn');
+  } finally {
+    state.controlInFlight = false;
+    if (state.pendingControl) {
+      window.setTimeout(() => sendControlNow(), 40);
+    }
   }
+}
 
-  function syncStyleValueLabelsFromInputs() {
-    styleSettingsFields.forEach((field) => {
-      if (field.type !== 'range') return;
-      const el = document.getElementById(field.id);
-      const valueEl = document.getElementById(`${field.id}Value`);
-      if (el && valueEl) valueEl.textContent = `${el.value}${field.unit || ''}`;
+function queueControlSend() {
+  window.clearTimeout(queueControlSend._timer);
+  queueControlSend._timer = window.setTimeout(() => sendControlNow(), 70);
+}
+queueControlSend._timer = null;
+
+function populateDriveSettings(status) {
+  const motor = status.motor_config || {};
+  state.maxThrottle = Number(status.max_throttle ?? state.maxThrottle ?? 0.55);
+  state.steerMix = Number(status.steer_mix ?? state.steerMix ?? 0.5);
+  state.steerBias = Number(status.steer_bias ?? state.steerBias ?? 0);
+  document.getElementById('driveMaxThrottle').value = Math.round(state.maxThrottle * 100);
+  document.getElementById('driveSteerMix').value = Math.round(state.steerMix * 100);
+  document.getElementById('driveSteerBias').value = Math.round(state.steerBias * 100);
+  setText('driveMaxThrottleValue', fmt(state.maxThrottle));
+  setText('driveSteerMixValue', fmt(state.steerMix));
+  setText('driveSteerBiasValue', fmt(state.steerBias));
+
+  document.getElementById('leftDirection').value = String(Number(motor.left_direction ?? status.motor_left_direction ?? 1) < 0 ? -1 : 1);
+  document.getElementById('rightDirection').value = String(Number(motor.right_direction ?? status.motor_right_direction ?? 1) < 0 ? -1 : 1);
+  document.getElementById('steeringDirection').value = String(Number(motor.steering_direction ?? status.motor_steering_direction ?? 1) < 0 ? -1 : 1);
+  document.getElementById('leftMaxSpeed').value = Number(motor.left_max_speed ?? status.motor_left_max_speed ?? 1).toFixed(2);
+  document.getElementById('rightMaxSpeed').value = Number(motor.right_max_speed ?? status.motor_right_max_speed ?? 1).toFixed(2);
+  document.getElementById('leftBias').value = Number(motor.left_bias ?? status.motor_left_bias ?? 0).toFixed(2);
+  document.getElementById('rightBias').value = Number(motor.right_bias ?? status.motor_right_bias ?? 0).toFixed(2);
+  state.driveSettingsLoaded = true;
+  syncManualReadout();
+}
+
+function updateStatusUi(data) {
+  const cameraLive = Boolean(data.camera_preview_live ?? data.camera_config?.preview_enabled ?? true);
+  state.previewEnabled = cameraLive;
+  const previewText = cameraLive ? 'live' : 'paused';
+  const driveState = data.safety_stop ? 'E-stop active' : 'Manual ready';
+  setText('metricDriveState', driveState);
+  setText('metricApplied', `S ${fmt(data.applied_steering)} · T ${fmt(data.applied_throttle)}`);
+  setText('metricManual', `S ${fmt(state.manualSteering)} · T ${fmt(state.manualThrottle)}`);
+  setText('metricCamera', `${data.camera_backend || 'unknown'} · ${data.camera_width || 0}×${data.camera_height || 0}`);
+  setText('metricPreview', previewText);
+  setText('metricArm', data.arm_status?.last_action || 'idle');
+  setText('metricMaxThrottle', fmt(data.max_throttle ?? state.maxThrottle));
+  setText('metricSteerMix', fmt(data.steer_mix ?? state.steerMix));
+  setText('metricSteerBias', fmt(data.steer_bias ?? state.steerBias));
+  setText('metricWheels', `${fmt(data.motor_left)} / ${fmt(data.motor_right)}`);
+  setText('metricFps', `${Number(data.fps || 0).toFixed(1)} FPS`);
+  setText('statusMiniText', data.safety_stop ? 'estop' : 'manual');
+  setText('cameraPreviewMeta', cameraLive ? 'streaming' : 'paused');
+  setText('systemRuntimePath', data.runtime_config_path || 'runtime.json');
+  setText('systemArmLift', `${Number(data.arm_status?.lift_angle || 0).toFixed(0)}°`);
+  setText('systemMotorDir', `${data.motor_left_direction ?? 1} / ${data.motor_right_direction ?? 1} / ${data.motor_steering_direction ?? 1}`);
+  setBanner('statusBanner', data.system_message || 'Ready.', data.safety_stop ? 'warn' : 'muted');
+  setBanner('systemMessage', data.last_error ? `Last error: ${data.last_error}` : (data.system_message || 'System ready.'), data.last_error ? 'warn' : 'muted');
+  const runBadge = document.getElementById('runBadge');
+  if (runBadge) {
+    runBadge.textContent = data.safety_stop ? 'E-STOP' : 'MANUAL';
+    runBadge.className = `badge ${data.safety_stop ? 'estop' : 'live'}`;
+  }
+  const armMessage = data.arm_status?.last_message || 'Arm ready.';
+  setBanner('armMessage', armMessage, data.arm_status?.last_error ? 'warn' : 'muted');
+  if (!state.driveSettingsLoaded) populateDriveSettings(data);
+}
+
+async function pollStatus() {
+  try {
+    const data = await fetchJson('/api/status');
+    updateStatusUi(data);
+  } catch (error) {
+    setBanner('systemMessage', error.message || 'Status refresh failed.', 'warn');
+  }
+}
+
+async function saveDriveSettings() {
+  try {
+    state.maxThrottle = clamp(Number(document.getElementById('driveMaxThrottle').value || 55) / 100, 0.05, 1);
+    state.steerMix = clamp(Number(document.getElementById('driveSteerMix').value || 50) / 100, 0, 1);
+    state.steerBias = clamp(Number(document.getElementById('driveSteerBias').value || 0) / 100, -0.5, 0.5);
+    await postJson('/api/motor/apply', {
+      left_direction: Number(document.getElementById('leftDirection').value || 1),
+      right_direction: Number(document.getElementById('rightDirection').value || 1),
+      steering_direction: Number(document.getElementById('steeringDirection').value || 1),
+      left_max_speed: Number(document.getElementById('leftMaxSpeed').value || 1),
+      right_max_speed: Number(document.getElementById('rightMaxSpeed').value || 1),
+      left_bias: Number(document.getElementById('leftBias').value || 0),
+      right_bias: Number(document.getElementById('rightBias').value || 0),
     });
-  }
-
-  function syncDriveValueLabels() {
-    setText('maxThrottleValue', state.maxThrottle.toFixed(2));
-    setText('steerMixValue', state.steerMix.toFixed(2));
-    setText('steerBiasValue', state.steerBias.toFixed(2));
-  }
-
-  function syncStyleInputsFromCurrentVars() {
-    const resolved = readResolvedStyleVars();
-    styleSettingsFields.forEach((field) => {
-      const el = document.getElementById(field.id);
-      if (!el) return;
-      const raw = resolved[field.cssVar];
-      if (field.type === 'range') {
-        el.value = String(parseNumericStyleValue(raw, field.fallback || 0));
-      } else {
-        el.value = normalizeHexColor(raw, field.fallback);
-      }
+    await postJson('/api/control', {
+      max_throttle: state.maxThrottle,
+      steer_mix: state.steerMix,
+      steer_bias: state.steerBias,
+      steering: state.manualSteering,
+      throttle: state.manualThrottle,
     });
-    syncStyleValueLabelsFromInputs();
+    setBanner('driveSettingsMessage', 'Drive settings saved.', 'good');
+    await pollStatus();
+  } catch (error) {
+    setBanner('driveSettingsMessage', error.message || 'Drive settings failed.', 'warn');
   }
+}
 
-  function previewStyleOverridesFromInputs() {
-    const manager = styleManager();
-    manager?.applyTheme?.(manager.getCurrentTheme?.());
-    const root = document.documentElement;
-    Object.entries(collectStyleOverridesFromInputs()).forEach(([key, value]) => {
-      root.style.setProperty(key, value);
-    });
-    syncStyleValueLabelsFromInputs();
+async function togglePreview() {
+  try {
+    state.previewEnabled = !state.previewEnabled;
+    await postJson('/api/camera/preview_state', { enabled: state.previewEnabled });
+    const video = document.getElementById('videoFeed');
+    if (!state.previewEnabled) {
+      video.classList.add('hidden');
+      document.getElementById('viewerFallback').classList.remove('hidden');
+      document.getElementById('viewerFallback').textContent = 'Preview paused.';
+    } else {
+      video.classList.remove('hidden');
+      document.getElementById('viewerFallback').classList.add('hidden');
+      video.src = `/video_feed?ts=${Date.now()}`;
+    }
+    await pollStatus();
+  } catch (error) {
+    setBanner('systemMessage', error.message || 'Preview toggle failed.', 'warn');
   }
+}
 
-  function openModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if (!modal) return;
-    modal.classList.remove('hidden');
-    modal.setAttribute('aria-hidden', 'false');
+async function setEstop(enabled) {
+  try {
+    await postJson('/api/system/estop', { enabled });
+    state.estopEnabled = enabled;
+    if (enabled) releaseDrivePad();
+    await pollStatus();
+  } catch (error) {
+    setBanner('systemMessage', error.message || 'E-stop failed.', 'warn');
   }
+}
 
-  function closeModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if (!modal) return;
-    modal.classList.add('hidden');
-    modal.setAttribute('aria-hidden', 'true');
-  }
+function bindHoldAction(buttonId, actionStart, actionStop) {
+  const button = document.getElementById(buttonId);
+  if (!button) return;
+  const stop = async () => {
+    try {
+      if (actionStop) await postJson('/api/arm/action', { action: actionStop });
+      await pollStatus();
+    } catch (error) {
+      setBanner('armMessage', error.message || 'Arm stop failed.', 'warn');
+    }
+  };
+  const start = async () => {
+    try {
+      await postJson('/api/arm/action', { action: actionStart });
+      await pollStatus();
+    } catch (error) {
+      setBanner('armMessage', error.message || 'Arm action failed.', 'warn');
+    }
+  };
+  button.addEventListener('pointerdown', (event) => { event.preventDefault(); start(); });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach((name) => button.addEventListener(name, stop));
+}
 
-  function openDriveSettings() {
-    syncDriveValueLabels();
-    openModal('driveSettingsModal');
-  }
+function bindClickAction(buttonId, action) {
+  const button = document.getElementById(buttonId);
+  if (!button) return;
+  button.addEventListener('click', async () => {
+    try {
+      await postJson('/api/arm/action', { action });
+      await pollStatus();
+    } catch (error) {
+      setBanner('armMessage', error.message || 'Arm action failed.', 'warn');
+    }
+  });
+}
 
-  function closeDriveSettings() {
-    closeModal('driveSettingsModal');
-  }
-
-  function openStyleSettings() {
+function setupStyleSettings() {
+  document.getElementById('openStyleSettingsBtn').addEventListener('click', () => {
     syncStyleInputsFromCurrentVars();
     openModal('styleSettingsModal');
-  }
-
-  function closeStyleSettings() {
-    const manager = styleManager();
-    manager?.applyTheme?.(manager.getCurrentTheme?.());
+  });
+  document.getElementById('closeStyleSettingsBtn').addEventListener('click', () => closeModal('styleSettingsModal'));
+  document.getElementById('saveStyleSettingsBtn').addEventListener('click', () => {
+    styleManager()?.saveCustomOverrides?.(collectStyleOverridesFromInputs());
+    setBanner('styleSettingsMessage', 'Style settings saved.', 'good');
     closeModal('styleSettingsModal');
-  }
-
-  function saveStyleSettings() {
-    const overrides = collectStyleOverridesFromInputs();
-    styleManager()?.saveCustomOverrides?.(overrides);
-    setBanner('Style settings saved.', 'muted');
-  }
-
-  function resetStyleSettings() {
+  });
+  document.getElementById('resetStyleSettingsBtn').addEventListener('click', () => {
     styleManager()?.resetCustomOverrides?.();
     syncStyleInputsFromCurrentVars();
-  }
+    setBanner('styleSettingsMessage', 'Style settings reset.', 'good');
+  });
+  styleSettingsFields.forEach((field) => {
+    const el = document.getElementById(field.id);
+    if (!el) return;
+    el.addEventListener('input', previewStyleOverridesFromInputs);
+  });
+}
 
-  function updateToggleButton() {
-    const btn = document.getElementById('previewToggleBtn');
-    if (!btn) return;
-    btn.setAttribute('aria-pressed', state.previewEnabled ? 'true' : 'false');
-    btn.textContent = state.previewEnabled ? 'Preview ON' : 'Preview OFF';
-  }
-
-  function updateEstopButton() {
-    const btn = document.getElementById('estopBtn');
-    if (!btn) return;
-    btn.setAttribute('aria-pressed', state.estopEnabled ? 'true' : 'false');
-    btn.textContent = state.estopEnabled ? 'E-stop ON' : 'E-stop OFF';
-    btn.classList.toggle('active', state.estopEnabled);
-  }
-
-  function refreshManualReadout() {
-    const throttleRatio = state.maxThrottle > 0 ? clamp(state.manualThrottle / state.maxThrottle, -1, 1) : 0;
-    const dot = document.getElementById('joystickDot');
-    if (dot) {
-      dot.style.left = `${(state.manualSteering * 0.5 + 0.5) * 100}%`;
-      dot.style.top = `${(0.5 - throttleRatio * 0.5) * 100}%`;
-    }
-    setText(
-      'joystickText',
-      `Steering ${state.manualSteering.toFixed(2)} · Throttle ${state.manualThrottle.toFixed(2)} · Target ${state.targetSteering.toFixed(2)} / ${state.targetThrottle.toFixed(2)}`
-    );
-    setText('metricTarget', `S ${state.targetSteering.toFixed(2)} · T ${state.targetThrottle.toFixed(2)}`);
-    syncDriveValueLabels();
-  }
-
-  function setManualTargets(steering, throttle) {
-    state.rawTargetSteering = clamp(steering, -1, 1);
-    state.rawTargetThrottle = clamp(throttle, -1, 1);
-    state.targetSteering = state.rawTargetSteering;
-    state.targetThrottle = clamp(state.rawTargetThrottle * state.maxThrottle, -state.maxThrottle, state.maxThrottle);
-    refreshManualReadout();
-  }
-
-  function syncVideoFeedSource() {
-    const img = document.getElementById('videoFeed');
-    if (!img) return;
-    if (state.previewEnabled) {
-      img.src = `/video_feed?t=${Date.now()}`;
-    } else {
-      img.removeAttribute('src');
-    }
-  }
-
-  async function postJson(url, payload) {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload || {}),
+function setupDriveSettings() {
+  document.getElementById('openDriveSettingsBtn').addEventListener('click', async () => {
+    await pollStatus();
+    openModal('driveSettingsModal');
+  });
+  document.getElementById('closeDriveSettingsBtn').addEventListener('click', () => closeModal('driveSettingsModal'));
+  document.getElementById('saveDriveSettingsBtn').addEventListener('click', saveDriveSettings);
+  ['driveMaxThrottle', 'driveSteerMix', 'driveSteerBias'].forEach((id) => {
+    document.getElementById(id).addEventListener('input', () => {
+      if (id === 'driveMaxThrottle') setText('driveMaxThrottleValue', fmt(Number(document.getElementById(id).value) / 100));
+      if (id === 'driveSteerMix') setText('driveSteerMixValue', fmt(Number(document.getElementById(id).value) / 100));
+      if (id === 'driveSteerBias') setText('driveSteerBiasValue', fmt(Number(document.getElementById(id).value) / 100));
     });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      throw new Error(data.message || `HTTP ${response.status}`);
-    }
-    return data;
-  }
+  });
+}
 
-  async function sendControlUpdate(force = false) {
-    const now = Date.now();
-    const changed = Math.abs(state.manualSteering - state.lastSentSteering) > 0.01
-      || Math.abs(state.manualThrottle - state.lastSentThrottle) > 0.01
-      || force;
-    if (!force && !changed && now - state.lastControlSentAt < 250) return;
-    state.lastSentSteering = state.manualSteering;
-    state.lastSentThrottle = state.manualThrottle;
-    state.lastControlSentAt = now;
-    try {
-      await postJson('/api/control', {
-        steering: state.manualSteering,
-        throttle: state.manualThrottle,
-        max_throttle: state.maxThrottle,
-        steer_mix: state.steerMix,
-        steer_bias: state.steerBias,
-      });
-    } catch (error) {
-      setBanner(`Failed to send drive control: ${error}`, 'danger');
-    }
-  }
+function setupDrivePad() {
+  const area = document.getElementById('joystickArea');
+  area.addEventListener('pointerdown', (event) => {
+    area.setPointerCapture(event.pointerId);
+    applyDrivePadPosition(event.clientX, event.clientY);
+  });
+  area.addEventListener('pointermove', (event) => {
+    if (event.buttons) applyDrivePadPosition(event.clientX, event.clientY);
+  });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach((name) => area.addEventListener(name, releaseDrivePad));
 
-  async function fetchStatus() {
-    try {
-      const response = await fetch('/api/status', { cache: 'no-store' });
-      const payload = await response.json();
-      const camera = payload.camera || {};
-      const motor = payload.motor || {};
-      const runtime = payload.state || {};
-      state.previewEnabled = Boolean(camera.preview_enabled);
-      state.estopEnabled = Boolean(runtime.safety_stop);
-      state.maxThrottle = clamp(runtime.max_throttle ?? state.maxThrottle, 0.1, 1.0);
-      state.steerMix = clamp(runtime.steer_mix ?? state.steerMix, 0.0, 1.0);
-      state.steerBias = clamp(runtime.steer_bias ?? state.steerBias, -0.5, 0.5);
-      const maxThrottleInput = document.getElementById('maxThrottleInput');
-      const steerMixInput = document.getElementById('steerMixInput');
-      const steerBiasInput = document.getElementById('steerBiasInput');
-      if (maxThrottleInput) maxThrottleInput.value = state.maxThrottle.toFixed(2);
-      if (steerMixInput) steerMixInput.value = state.steerMix.toFixed(2);
-      if (steerBiasInput) steerBiasInput.value = state.steerBias.toFixed(2);
-      syncDriveValueLabels();
-      setText('metricDrive', state.estopEnabled ? 'E-stop' : 'manual');
-      setText('metricApplied', `S ${Number(runtime.applied_steering || 0).toFixed(2)} · T ${Number(runtime.applied_throttle || 0).toFixed(2)}`);
-      setText('metricMotor', `L ${Number(runtime.motor_left || 0).toFixed(2)} · R ${Number(runtime.motor_right || 0).toFixed(2)}`);
-      setText('metricCamera', camera.preview_live ? 'live' : 'waiting');
-      setText('metricFps', Number(camera.fps || 0).toFixed(1));
-      setText('metricResolution', `${camera.width || 0} × ${camera.height || 0}`);
-      setText('metricBackend', camera.backend || 'unknown');
-      setText('metricPreview', camera.preview_enabled ? 'enabled' : 'disabled');
-      setText('metricError', camera.last_error || 'none');
-      setText('metricAlgorithm', runtime.active_algorithm || 'manual');
-      setText('metricGpio', motor.gpio_available ? 'real GPIO' : 'sim');
-      setText('metricPreviewLive', camera.preview_live ? 'yes' : 'no');
-      const updated = new Date((payload.timestamp || Date.now() / 1000) * 1000);
-      setText('metricUpdated', updated.toLocaleTimeString());
-      setText('cameraPreviewMeta', camera.preview_live
-        ? `Live camera · ${camera.backend || 'unknown'} · ${camera.width || 0} × ${camera.height || 0}`
-        : `Waiting for live camera · ${camera.backend || 'unknown'}`);
-      setText('systemNote', motor.gpio_available
-        ? 'This GUI is sending real manual motor commands through PiServer ControlService.'
-        : 'GPIO is not available here, so motor output is in simulation mode.');
-      setBanner(payload.message || 'Ready', camera.last_error ? 'danger' : 'muted');
-      updateToggleButton();
-      updateEstopButton();
-    } catch (error) {
-      setBanner(`Failed to read GUI status: ${error}`, 'danger');
-      setText('metricError', String(error));
-    }
-  }
-
-  async function togglePreview() {
-    const next = !state.previewEnabled;
-    try {
-      const payload = await postJson('/api/camera/preview_state', { enabled: next });
-      state.previewEnabled = Boolean(payload.enabled);
-      updateToggleButton();
-      syncVideoFeedSource();
-      await fetchStatus();
-    } catch (error) {
-      setBanner(`Failed to change preview state: ${error}`, 'danger');
-    }
-  }
-
-  async function toggleEstop() {
-    try {
-      const payload = await postJson('/api/safety_stop', { enabled: !state.estopEnabled });
-      state.estopEnabled = Boolean(payload.enabled);
-      if (state.estopEnabled) {
-        state.manualSteering = 0;
-        state.manualThrottle = 0;
-        setManualTargets(0, 0);
-      }
-      updateEstopButton();
-      await fetchStatus();
-    } catch (error) {
-      setBanner(`Failed to change E-stop: ${error}`, 'danger');
-    }
-  }
-
-  async function saveRuntime() {
-    try {
-      await postJson('/api/runtime/save', {});
-      await fetchStatus();
-      setBanner('Drive settings saved.', 'muted');
-    } catch (error) {
-      setBanner(`Failed to save drive settings: ${error}`, 'danger');
-    }
-  }
-
-  function updatePointerTarget(clientX, clientY) {
-    const area = document.getElementById('joystickArea');
-    if (!area) return;
-    const rect = area.getBoundingClientRect();
-    const nx = clamp((clientX - rect.left) / Math.max(rect.width, 1), 0, 1);
-    const ny = clamp((clientY - rect.top) / Math.max(rect.height, 1), 0, 1);
-    const steering = (nx - 0.5) * 2;
-    const throttle = (0.5 - ny) * 2;
-    setManualTargets(steering, throttle);
-  }
-
-  function attachJoystickHandlers() {
-    const area = document.getElementById('joystickArea');
-    if (!area) return;
-
-    area.addEventListener('pointerdown', (event) => {
-      state.pointerActive = true;
-      area.setPointerCapture(event.pointerId);
-      updatePointerTarget(event.clientX, event.clientY);
+  const keyHandler = (event, pressed) => {
+    const tag = event.target && event.target.tagName ? event.target.tagName.toLowerCase() : '';
+    if (['input', 'select', 'textarea', 'button'].includes(tag)) return;
+    const key = String(event.key || '').toLowerCase();
+    let handled = true;
+    if (key === 'w' || key === 'arrowup') state.keyState.up = pressed;
+    else if (key === 's' || key === 'arrowdown') state.keyState.down = pressed;
+    else if (key === 'a' || key === 'arrowleft') state.keyState.left = pressed;
+    else if (key === 'd' || key === 'arrowright') state.keyState.right = pressed;
+    else handled = false;
+    if (handled) {
       event.preventDefault();
-    });
+      updateFromKeyboard();
+    }
+  };
+  window.addEventListener('keydown', (event) => keyHandler(event, true));
+  window.addEventListener('keyup', (event) => keyHandler(event, false));
 
-    area.addEventListener('pointermove', (event) => {
-      if (!state.pointerActive) return;
-      updatePointerTarget(event.clientX, event.clientY);
-      event.preventDefault();
-    });
-
-    const endPointer = () => {
-      state.pointerActive = false;
-      setManualTargets(0, 0);
+  const holdMap = [
+    ['driveForwardBtn', 0, 1],
+    ['driveReverseBtn', 0, -1],
+    ['driveLeftBtn', -1, 0],
+    ['driveRightBtn', 1, 0],
+  ];
+  holdMap.forEach(([id, steering, throttle]) => {
+    const button = document.getElementById(id);
+    const start = () => {
+      state.manualSteering = steering;
+      state.manualThrottle = throttle * state.maxThrottle;
+      syncManualReadout();
+      queueControlSend();
     };
+    button.addEventListener('pointerdown', start);
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach((name) => button.addEventListener(name, releaseDrivePad));
+  });
+  syncManualReadout();
+}
 
-    area.addEventListener('pointerup', endPointer);
-    area.addEventListener('pointercancel', endPointer);
-    area.addEventListener('lostpointercapture', endPointer);
-  }
+function setupArmControls() {
+  bindHoldAction('armUpBtn', 'start_up', 'stop');
+  bindHoldAction('armDownBtn', 'start_down', 'stop');
+  bindClickAction('armOpenBtn', 'open');
+  bindClickAction('armCloseBtn', 'close');
+}
 
-  function controlLoopTick() {
-    const steerStep = 0.12;
-    const throttleStep = Math.max(0.04, state.maxThrottle / 8);
-    const nextSteer = state.manualSteering + clamp(state.targetSteering - state.manualSteering, -steerStep, steerStep);
-    const nextThrottle = state.manualThrottle + clamp(state.targetThrottle - state.manualThrottle, -throttleStep, throttleStep);
-    const steerChanged = Math.abs(nextSteer - state.manualSteering) > 0.0001;
-    const throttleChanged = Math.abs(nextThrottle - state.manualThrottle) > 0.0001;
-    if (!steerChanged && !throttleChanged) return;
-    state.manualSteering = clamp(nextSteer, -1, 1);
-    state.manualThrottle = clamp(nextThrottle, -state.maxThrottle, state.maxThrottle);
-    refreshManualReadout();
-    sendControlUpdate(false);
-  }
+function setupSystemActions() {
+  document.getElementById('previewToggleBtn').addEventListener('click', togglePreview);
+  document.getElementById('estopBtn').addEventListener('click', () => setEstop(true));
+  document.getElementById('clearEstopBtn').addEventListener('click', () => setEstop(false));
+  const video = document.getElementById('videoFeed');
+  video.addEventListener('error', () => {
+    document.getElementById('viewerFallback').classList.remove('hidden');
+    setBanner('systemMessage', 'Camera preview stream failed to load.', 'warn');
+  });
+  video.addEventListener('load', () => {
+    document.getElementById('viewerFallback').classList.add('hidden');
+  });
+  video.addEventListener('loadeddata', () => {
+    document.getElementById('viewerFallback').classList.add('hidden');
+  });
+}
 
-  function bindControls() {
-    document.getElementById('previewToggleBtn')?.addEventListener('click', togglePreview);
-    document.getElementById('estopBtn')?.addEventListener('click', toggleEstop);
-    document.getElementById('saveRuntimeBtn')?.addEventListener('click', saveRuntime);
-    document.getElementById('centerPadBtn')?.addEventListener('click', () => {
-      setManualTargets(0, 0);
-      sendControlUpdate(true);
-    });
-    document.getElementById('stopDriveBtn')?.addEventListener('click', () => {
-      state.manualSteering = 0;
-      state.manualThrottle = 0;
-      setManualTargets(0, 0);
-      sendControlUpdate(true);
-    });
-
-    const maxThrottleInput = document.getElementById('maxThrottleInput');
-    const steerMixInput = document.getElementById('steerMixInput');
-    const steerBiasInput = document.getElementById('steerBiasInput');
-    maxThrottleInput?.addEventListener('input', () => {
-      state.maxThrottle = clamp(maxThrottleInput.value, 0.1, 1.0);
-      setManualTargets(state.rawTargetSteering, state.rawTargetThrottle);
-      syncDriveValueLabels();
-    });
-    steerMixInput?.addEventListener('input', () => {
-      state.steerMix = clamp(steerMixInput.value, 0.0, 1.0);
-      syncDriveValueLabels();
-    });
-    steerBiasInput?.addEventListener('input', () => {
-      state.steerBias = clamp(steerBiasInput.value, -0.5, 0.5);
-      syncDriveValueLabels();
-    });
-
-    document.getElementById('openDriveSettingsBtn')?.addEventListener('click', openDriveSettings);
-    document.getElementById('closeDriveSettingsBtn')?.addEventListener('click', closeDriveSettings);
-    document.getElementById('openStyleSettingsBtn')?.addEventListener('click', openStyleSettings);
-    document.getElementById('closeStyleSettingsBtn')?.addEventListener('click', closeStyleSettings);
-    document.getElementById('saveSettingsBtn')?.addEventListener('click', saveStyleSettings);
-    document.getElementById('resetStyleSettingsBtn')?.addEventListener('click', resetStyleSettings);
-    document.querySelectorAll('[data-close-modal]').forEach((el) => {
-      el.addEventListener('click', () => {
-        const modalId = el.getAttribute('data-close-modal');
-        if (el.getAttribute('data-restore-style') === 'true') {
-          closeStyleSettings();
-        } else {
-          closeModal(modalId);
-        }
-      });
-    });
-    styleSettingsFields.forEach((field) => {
-      document.getElementById(field.id)?.addEventListener('input', previewStyleOverridesFromInputs);
-    });
-
-    const videoFeed = document.getElementById('videoFeed');
-    videoFeed?.addEventListener('error', () => {
-      setBanner('Live preview could not be loaded.', 'danger');
-      setText('cameraPreviewMeta', 'Live preview could not be loaded. Check CameraService or refresh the page.');
-    });
-  }
-
-  function startLoops() {
-    fetchStatus();
-    state.statusTimer = window.setInterval(fetchStatus, 1000);
-    state.controlTimer = window.setInterval(controlLoopTick, 60);
-  }
-
+document.addEventListener('DOMContentLoaded', async () => {
+  setupStyleSettings();
+  setupDriveSettings();
+  setupDrivePad();
+  setupArmControls();
+  setupSystemActions();
   syncStyleInputsFromCurrentVars();
-  syncDriveValueLabels();
-  updateToggleButton();
-  updateEstopButton();
-  refreshManualReadout();
-  syncVideoFeedSource();
-  attachJoystickHandlers();
-  bindControls();
-  startLoops();
-})();
+  await pollStatus();
+  state.statusTimer = window.setInterval(pollStatus, 350);
+});
