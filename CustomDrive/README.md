@@ -154,8 +154,9 @@ The GUI now shows:
 - a full-width status strip
 - a right-side manual drive drag pad
 - real manual motor output through PiServer `ControlService` in `manual` mode
-- a top overlay **Style settings** window instead of a separate page
-- runtime controls for max throttle, steer mix, and steer bias
+- a top-right **Settings** button that opens one overlay window
+- drive controls for max throttle, steer mix, and steer bias inside that overlay
+- PiServer-style appearance settings inside that same overlay
 
 This GUI is intentionally a clean control workspace first. It does not switch modes inside the page.
 

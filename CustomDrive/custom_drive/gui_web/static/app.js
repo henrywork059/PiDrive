@@ -10,14 +10,13 @@
     { id: 'styleGap', cssVar: '--gap', type: 'range', unit: 'px', fallback: 4 },
     { id: 'styleRadius', cssVar: '--radius', type: 'range', unit: 'px', fallback: 10 },
     { id: 'stylePanelPad', cssVar: '--panel-pad', type: 'range', unit: 'px', fallback: 12 },
-    { id: 'styleHeaderPadY', cssVar: '--panel-head-pad-y', type: 'range', unit: 'px', fallback: 10 },
+    { id: 'styleHeaderPadY', cssVar: '--panel-head-pad-y', type: 'range', unit: 'px', fallback: 8 },
     { id: 'styleCardGap', cssVar: '--card-gap', type: 'range', unit: 'px', fallback: 10 },
     { id: 'styleFieldGap', cssVar: '--field-gap', type: 'range', unit: 'px', fallback: 10 },
   ];
 
   const state = {
     previewEnabled: true,
-    previewObjectUrl: null,
     pointerActive: false,
     rawTargetSteering: 0,
     rawTargetThrottle: 0,
@@ -28,7 +27,6 @@
     lastSentSteering: 0,
     lastSentThrottle: 0,
     lastControlSentAt: 0,
-    lastStatusAt: 0,
     estopEnabled: false,
     maxThrottle: 0.55,
     steerMix: 0.5,
@@ -104,6 +102,12 @@
     });
   }
 
+  function syncDriveValueLabels() {
+    setText('maxThrottleValue', state.maxThrottle.toFixed(2));
+    setText('steerMixValue', state.steerMix.toFixed(2));
+    setText('steerBiasValue', state.steerBias.toFixed(2));
+  }
+
   function syncStyleInputsFromCurrentVars() {
     const resolved = readResolvedStyleVars();
     styleSettingsFields.forEach((field) => {
@@ -129,16 +133,17 @@
     syncStyleValueLabelsFromInputs();
   }
 
-  function openStyleSettings() {
-    const modal = document.getElementById('styleSettingsModal');
+  function openSettings() {
+    const modal = document.getElementById('settingsModal');
     if (!modal) return;
     syncStyleInputsFromCurrentVars();
+    syncDriveValueLabels();
     modal.classList.remove('hidden');
     modal.setAttribute('aria-hidden', 'false');
   }
 
-  function closeStyleSettings() {
-    const modal = document.getElementById('styleSettingsModal');
+  function closeSettings() {
+    const modal = document.getElementById('settingsModal');
     if (!modal) return;
     const manager = styleManager();
     manager?.applyTheme?.(manager.getCurrentTheme?.());
@@ -149,7 +154,7 @@
   function saveStyleSettings() {
     const overrides = collectStyleOverridesFromInputs();
     styleManager()?.saveCustomOverrides?.(overrides);
-    closeStyleSettings();
+    setBanner('Style settings saved.', 'muted');
   }
 
   function resetStyleSettings() {
@@ -184,6 +189,7 @@
       `Steering ${state.manualSteering.toFixed(2)} · Throttle ${state.manualThrottle.toFixed(2)} · Target ${state.targetSteering.toFixed(2)} / ${state.targetThrottle.toFixed(2)}`
     );
     setText('metricTarget', `S ${state.targetSteering.toFixed(2)} · T ${state.targetThrottle.toFixed(2)}`);
+    syncDriveValueLabels();
   }
 
   function setManualTargets(steering, throttle) {
@@ -248,17 +254,16 @@
       const runtime = payload.state || {};
       state.previewEnabled = Boolean(camera.preview_enabled);
       state.estopEnabled = Boolean(runtime.safety_stop);
-      if (!state.pointerActive) {
-        state.maxThrottle = clamp(runtime.max_throttle ?? state.maxThrottle, 0.1, 1.0);
-        state.steerMix = clamp(runtime.steer_mix ?? state.steerMix, 0.0, 1.0);
-        state.steerBias = clamp(runtime.steer_bias ?? state.steerBias, -0.5, 0.5);
-        document.getElementById('maxThrottleInput').value = state.maxThrottle.toFixed(2);
-        document.getElementById('steerMixInput').value = state.steerMix.toFixed(2);
-        document.getElementById('steerBiasInput').value = state.steerBias.toFixed(2);
-        setText('maxThrottleValue', state.maxThrottle.toFixed(2));
-        setText('steerMixValue', state.steerMix.toFixed(2));
-        setText('steerBiasValue', state.steerBias.toFixed(2));
-      }
+      state.maxThrottle = clamp(runtime.max_throttle ?? state.maxThrottle, 0.1, 1.0);
+      state.steerMix = clamp(runtime.steer_mix ?? state.steerMix, 0.0, 1.0);
+      state.steerBias = clamp(runtime.steer_bias ?? state.steerBias, -0.5, 0.5);
+      const maxThrottleInput = document.getElementById('maxThrottleInput');
+      const steerMixInput = document.getElementById('steerMixInput');
+      const steerBiasInput = document.getElementById('steerBiasInput');
+      if (maxThrottleInput) maxThrottleInput.value = state.maxThrottle.toFixed(2);
+      if (steerMixInput) steerMixInput.value = state.steerMix.toFixed(2);
+      if (steerBiasInput) steerBiasInput.value = state.steerBias.toFixed(2);
+      syncDriveValueLabels();
       setText('metricDrive', state.estopEnabled ? 'E-stop' : 'manual');
       setText('metricApplied', `S ${Number(runtime.applied_steering || 0).toFixed(2)} · T ${Number(runtime.applied_throttle || 0).toFixed(2)}`);
       setText('metricMotor', `L ${Number(runtime.motor_left || 0).toFixed(2)} · R ${Number(runtime.motor_right || 0).toFixed(2)}`);
@@ -278,8 +283,7 @@
         : `Waiting for live camera · ${camera.backend || 'unknown'}`);
       setText('systemNote', motor.gpio_available
         ? 'This GUI is sending real manual motor commands through PiServer ControlService.'
-        : 'GPIO is not available here, so motor output is in simulation mode.'
-      );
+        : 'GPIO is not available here, so motor output is in simulation mode.');
       setBanner(payload.message || 'Ready', camera.last_error ? 'danger' : 'muted');
       updateToggleButton();
       updateEstopButton();
@@ -322,9 +326,9 @@
     try {
       await postJson('/api/runtime/save', {});
       await fetchStatus();
-      setBanner('Runtime settings saved.', 'muted');
+      setBanner('Drive settings saved.', 'muted');
     } catch (error) {
-      setBanner(`Failed to save runtime: ${error}`, 'danger');
+      setBanner(`Failed to save drive settings: ${error}`, 'danger');
     }
   }
 
@@ -386,6 +390,7 @@
     document.getElementById('saveRuntimeBtn')?.addEventListener('click', saveRuntime);
     document.getElementById('centerPadBtn')?.addEventListener('click', () => {
       setManualTargets(0, 0);
+      sendControlUpdate(true);
     });
     document.getElementById('stopDriveBtn')?.addEventListener('click', () => {
       state.manualSteering = 0;
@@ -399,30 +404,33 @@
     const steerBiasInput = document.getElementById('steerBiasInput');
     maxThrottleInput?.addEventListener('input', () => {
       state.maxThrottle = clamp(maxThrottleInput.value, 0.1, 1.0);
-      setText('maxThrottleValue', state.maxThrottle.toFixed(2));
       setManualTargets(state.rawTargetSteering, state.rawTargetThrottle);
-      sendControlUpdate(true);
+      syncDriveValueLabels();
     });
     steerMixInput?.addEventListener('input', () => {
       state.steerMix = clamp(steerMixInput.value, 0.0, 1.0);
-      setText('steerMixValue', state.steerMix.toFixed(2));
-      sendControlUpdate(true);
+      syncDriveValueLabels();
     });
     steerBiasInput?.addEventListener('input', () => {
       state.steerBias = clamp(steerBiasInput.value, -0.5, 0.5);
-      setText('steerBiasValue', state.steerBias.toFixed(2));
-      sendControlUpdate(true);
+      syncDriveValueLabels();
     });
 
-    document.getElementById('openStyleSettingsBtn')?.addEventListener('click', openStyleSettings);
-    document.getElementById('closeStyleSettingsBtn')?.addEventListener('click', closeStyleSettings);
-    document.getElementById('saveStyleSettingsBtn')?.addEventListener('click', saveStyleSettings);
+    document.getElementById('openSettingsBtn')?.addEventListener('click', openSettings);
+    document.getElementById('closeSettingsBtn')?.addEventListener('click', closeSettings);
+    document.getElementById('saveSettingsBtn')?.addEventListener('click', saveStyleSettings);
     document.getElementById('resetStyleSettingsBtn')?.addEventListener('click', resetStyleSettings);
-    document.querySelectorAll('[data-close-style-modal="true"]').forEach((el) => {
-      el.addEventListener('click', closeStyleSettings);
+    document.querySelectorAll('[data-close-settings-modal="true"]').forEach((el) => {
+      el.addEventListener('click', closeSettings);
     });
     styleSettingsFields.forEach((field) => {
       document.getElementById(field.id)?.addEventListener('input', previewStyleOverridesFromInputs);
+    });
+
+    const videoFeed = document.getElementById('videoFeed');
+    videoFeed?.addEventListener('error', () => {
+      setBanner('Live preview could not be loaded.', 'danger');
+      setText('cameraPreviewMeta', 'Live preview could not be loaded. Check CameraService or refresh the page.');
     });
   }
 
@@ -433,6 +441,7 @@
   }
 
   syncStyleInputsFromCurrentVars();
+  syncDriveValueLabels();
   updateToggleButton();
   updateEstopButton();
   refreshManualReadout();

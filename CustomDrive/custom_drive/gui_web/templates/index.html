@@ -16,8 +16,7 @@
 
     <div class="toolbar-actions">
       <button class="ghost-btn" id="previewToggleBtn" type="button" aria-pressed="true">Preview ON</button>
-      <button class="ghost-btn" id="saveRuntimeBtn" type="button">Save runtime</button>
-      <button class="ghost-btn" id="openStyleSettingsBtn" type="button">Style settings</button>
+      <button class="ghost-btn" id="openSettingsBtn" type="button">Settings</button>
       <button class="danger-btn" id="estopBtn" type="button" aria-pressed="false">E-stop OFF</button>
     </div>
   </header>
@@ -73,29 +72,7 @@
               </div>
               <div class="manual-readout value-text" id="joystickText">Steering 0.00 · Throttle 0.00</div>
               <div class="small-note">Drag inside the pad. Release to stop.</div>
-            </div>
-
-            <div class="manual-side-single control-stack">
-              <div class="field-range-grid">
-                <div class="field">
-                  <label for="maxThrottleInput">Max throttle</label>
-                  <input id="maxThrottleInput" type="range" min="0.10" max="1.00" step="0.01" value="0.55" />
-                  <div class="small-note" id="maxThrottleValue">0.55</div>
-                </div>
-                <div class="field">
-                  <label for="steerMixInput">Steer mix</label>
-                  <input id="steerMixInput" type="range" min="0.00" max="1.00" step="0.01" value="0.50" />
-                  <div class="small-note" id="steerMixValue">0.50</div>
-                </div>
-              </div>
-
-              <div class="field">
-                <label for="steerBiasInput">Steer bias</label>
-                <input id="steerBiasInput" type="range" min="-0.50" max="0.50" step="0.01" value="0.00" />
-                <div class="small-note" id="steerBiasValue">0.00</div>
-              </div>
-
-              <div class="stack-row">
+              <div class="stack-row manual-action-row">
                 <button type="button" class="ghost-btn" id="centerPadBtn">Center</button>
                 <button type="button" class="ghost-btn" id="stopDriveBtn">Stop drive</button>
               </div>
@@ -122,21 +99,46 @@
     </section>
   </main>
 
-  <div id="styleSettingsModal" class="style-modal hidden" aria-hidden="true">
-    <div class="style-modal-backdrop" data-close-style-modal="true"></div>
-    <div class="style-modal-card">
+  <div id="settingsModal" class="style-modal hidden" aria-hidden="true">
+    <div class="style-modal-backdrop" data-close-settings-modal="true"></div>
+    <div class="style-modal-card settings-modal-card">
       <div class="style-modal-head">
         <div>
-          <h2>Style settings</h2>
-          <div class="small-note">PiServer-style theme controls in an overlay window.</div>
+          <h2>Settings</h2>
+          <div class="small-note">Drive tuning and PiServer-style appearance settings.</div>
         </div>
-        <button class="ghost-btn" id="closeStyleSettingsBtn" type="button">Close</button>
+        <button class="ghost-btn" id="closeSettingsBtn" type="button">Close</button>
       </div>
 
-      <div class="style-modal-body compact-style-modal-body">
-        <section class="style-settings-section">
+      <div class="style-modal-body settings-modal-body">
+        <section class="style-settings-section drive-settings-section">
           <div class="style-settings-section-head">
-            <h3>Palette</h3>
+            <h3>Drive settings</h3>
+            <div class="small-note">These settings apply to the live drag pad control.</div>
+          </div>
+          <div class="style-settings-scroll drive-settings-scroll">
+            <div class="style-setting-row style-setting-row-range">
+              <label for="maxThrottleInput">Max throttle</label>
+              <input id="maxThrottleInput" type="range" min="0.10" max="1.00" step="0.01" value="0.55" />
+              <span id="maxThrottleValue" class="style-setting-value">0.55</span>
+            </div>
+            <div class="style-setting-row style-setting-row-range">
+              <label for="steerMixInput">Steer mix</label>
+              <input id="steerMixInput" type="range" min="0.00" max="1.00" step="0.01" value="0.50" />
+              <span id="steerMixValue" class="style-setting-value">0.50</span>
+            </div>
+            <div class="style-setting-row style-setting-row-range">
+              <label for="steerBiasInput">Steer bias</label>
+              <input id="steerBiasInput" type="range" min="-0.50" max="0.50" step="0.01" value="0.00" />
+              <span id="steerBiasValue" class="style-setting-value">0.00</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="style-settings-section style-settings-section-scroll">
+          <div class="style-settings-section-head">
+            <h3>Style settings</h3>
+            <div class="small-note">Scroll to view all controls</div>
           </div>
           <div class="style-settings-grid compact-style-grid">
             <div class="style-setting-row"><label for="styleAccent">Accent</label><input id="styleAccent" type="color" /></div>
@@ -144,13 +146,6 @@
             <div class="style-setting-row"><label for="stylePanelAlt">Panel alt</label><input id="stylePanelAlt" type="color" /></div>
             <div class="style-setting-row"><label for="styleText">Text</label><input id="styleText" type="color" /></div>
             <div class="style-setting-row"><label for="styleMuted">Muted</label><input id="styleMuted" type="color" /></div>
-          </div>
-        </section>
-
-        <section class="style-settings-section style-settings-section-scroll">
-          <div class="style-settings-section-head">
-            <h3>Spacing and shape</h3>
-            <div class="small-note">Scroll to view all controls</div>
           </div>
           <div class="style-settings-scroll">
             <div class="style-setting-row style-setting-row-range"><label for="styleFontScale">Font size (%)</label><input id="styleFontScale" type="range" min="70" max="115" step="1" /><span id="styleFontScaleValue" class="style-setting-value"></span></div>
@@ -167,7 +162,10 @@
 
       <div class="style-modal-foot">
         <button class="ghost-btn" id="resetStyleSettingsBtn" type="button">Reset style</button>
-        <button class="ghost-btn" id="saveStyleSettingsBtn" type="button">Save style</button>
+        <div class="stack-row">
+          <button class="ghost-btn" id="saveRuntimeBtn" type="button">Save drive</button>
+          <button class="ghost-btn" id="saveSettingsBtn" type="button">Save style</button>
+        </div>
       </div>
     </div>
   </div>

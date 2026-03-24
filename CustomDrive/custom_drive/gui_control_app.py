@@ -9,7 +9,7 @@ from flask import Flask, Response, jsonify, render_template, request
 
 from .project_paths import CUSTOMDRIVE_ROOT, PISERVER_ROOT, PISERVER_RUNTIME_PATH, ensure_piserver_import_paths
 
-APP_VERSION = '0_1_13'
+APP_VERSION = '0_1_14'
 WEB_DIR = Path(__file__).resolve().parent / 'gui_web'
 
 
