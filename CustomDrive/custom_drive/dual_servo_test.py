@@ -20,9 +20,10 @@ class DualServoTestConfig:
     channels: int = 16
     i2c_address: int = 0x40
     frequency_hz: int = 50
-    channel_a: int = 1
-    channel_b: int = 2
+    channel_a: int = 0
+    channel_b: int = 1
     same_direction: bool = True
+    channel_a_multiplier: float = 1.5
     test_min_angle: float = 40.0
     test_mid_angle: float = 90.0
     test_max_angle: float = 115.0
@@ -67,6 +68,7 @@ def load_config(path: Path = CONFIG_PATH) -> DualServoTestConfig:
     cfg.test_mid_angle = _clamp_angle(cfg.test_mid_angle)
     cfg.test_max_angle = _clamp_angle(cfg.test_max_angle)
     cfg.same_direction = bool(cfg.same_direction)
+    cfg.channel_a_multiplier = max(0.0, float(cfg.channel_a_multiplier))
     return cfg
 
 
@@ -83,6 +85,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--step-delay", type=float, help="Delay between test positions in seconds")
     parser.add_argument("--i2c-address", help="PCA9685 I2C address, e.g. 0x40")
     parser.add_argument("--frequency", type=int, help="PCA9685 PWM frequency in Hz")
+    parser.add_argument("--channel-a-multiplier", type=float, help="Multiplier applied to channel A from the requested angle for channel B")
     parser.add_argument("--same-direction", dest="same_direction", action="store_true", help="Drive both servos to the same angle")
     parser.add_argument("--opposite-direction", dest="same_direction", action="store_false", help="Drive the second servo to the mirrored angle")
     parser.set_defaults(same_direction=None)
@@ -110,6 +113,8 @@ def apply_cli_overrides(cfg: DualServoTestConfig, args: argparse.Namespace) -> D
         cfg.i2c_address = _parse_i2c_address(args.i2c_address)
     if args.frequency is not None:
         cfg.frequency_hz = max(40, int(args.frequency))
+    if args.channel_a_multiplier is not None:
+        cfg.channel_a_multiplier = max(0.0, float(args.channel_a_multiplier))
     if args.same_direction is not None:
         cfg.same_direction = bool(args.same_direction)
     return cfg
@@ -128,7 +133,7 @@ def build_servo_kit(cfg: DualServoTestConfig):
     except ImportError as exc:
         raise RuntimeError(
             "Missing dependency 'adafruit-circuitpython-servokit'. Install it with:\n"
-            "python -m pip install adafruit-circuitpython-servokit"
+            "python3 -m pip install --break-system-packages adafruit-circuitpython-servokit"
         ) from exc
 
     try:
@@ -141,8 +146,12 @@ def build_servo_kit(cfg: DualServoTestConfig):
 
 
 def _angle_pair(cfg: DualServoTestConfig, angle: float) -> tuple[float, float]:
-    angle_a = _clamp_angle(angle)
-    angle_b = angle_a if cfg.same_direction else _clamp_angle(180.0 - angle_a)
+    requested_angle = _clamp_angle(angle)
+    angle_b = requested_angle
+    if cfg.same_direction:
+        angle_a = _clamp_angle(requested_angle * cfg.channel_a_multiplier)
+    else:
+        angle_a = _clamp_angle((180.0 - requested_angle) * cfg.channel_a_multiplier)
     return angle_a, angle_b
 
 
@@ -151,7 +160,7 @@ def move_to_angle_pair(servo, cfg: DualServoTestConfig, angle: float, settle_del
     direction_label = "same" if cfg.same_direction else "opposite"
     print(
         f"[dual-servo] ch{cfg.channel_a} -> {angle_a:.1f} | ch{cfg.channel_b} -> {angle_b:.1f} "
-        f"({direction_label} direction mode)"
+        f"({direction_label} direction mode, {cfg.channel_a_multiplier:.3f}x scale on ch{cfg.channel_a})"
     )
     servo[cfg.channel_a].angle = angle_a
     servo[cfg.channel_b].angle = angle_b
@@ -174,6 +183,7 @@ def run_info_mode(cfg: DualServoTestConfig) -> int:
     print(f"  frequency       : {cfg.frequency_hz} Hz")
     print(f"  channel pair    : {cfg.channel_a} and {cfg.channel_b}")
     print(f"  direction mode  : {'same' if cfg.same_direction else 'opposite'}")
+    print(f"  channel A scale : {cfg.channel_a_multiplier:.3f}x of channel B request")
     print(f"  sweep           : {cfg.test_min_angle:.1f} -> {cfg.test_mid_angle:.1f} -> {cfg.test_max_angle:.1f}")
     print(f"  step delay      : {cfg.step_delay_s:.2f} s")
     print(f"  cycles          : {cfg.cycles}")
@@ -181,7 +191,7 @@ def run_info_mode(cfg: DualServoTestConfig) -> int:
     print("Suggested checks:")
     print("  1. sudo raspi-config  # enable I2C")
     print("  2. sudo i2cdetect -y 1  # look for 40")
-    print("  3. python -m pip install adafruit-circuitpython-servokit")
+    print("  3. python3 -m pip install --break-system-packages adafruit-circuitpython-servokit")
     return 0
 
 
@@ -205,7 +215,8 @@ def run_sweep_mode(cfg: DualServoTestConfig) -> int:
     print("Starting dual servo sweep test...")
     print(
         f"Using channels {cfg.channel_a} and {cfg.channel_b} at PCA9685 address 0x{cfg.i2c_address:02X} "
-        f"in {'same' if cfg.same_direction else 'opposite'} direction mode"
+        f"in {'same' if cfg.same_direction else 'opposite'} direction mode with "
+        f"{cfg.channel_a_multiplier:.3f}x scale on channel {cfg.channel_a}"
     )
     for cycle_idx in range(1, cfg.cycles + 1):
         print(f"Cycle {cycle_idx}/{cfg.cycles}")
