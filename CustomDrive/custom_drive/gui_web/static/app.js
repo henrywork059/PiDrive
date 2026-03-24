@@ -133,22 +133,38 @@
     syncStyleValueLabelsFromInputs();
   }
 
-  function openSettings() {
-    const modal = document.getElementById('settingsModal');
+  function openModal(modalId) {
+    const modal = document.getElementById(modalId);
     if (!modal) return;
-    syncStyleInputsFromCurrentVars();
-    syncDriveValueLabels();
     modal.classList.remove('hidden');
     modal.setAttribute('aria-hidden', 'false');
   }
 
-  function closeSettings() {
-    const modal = document.getElementById('settingsModal');
+  function closeModal(modalId) {
+    const modal = document.getElementById(modalId);
     if (!modal) return;
-    const manager = styleManager();
-    manager?.applyTheme?.(manager.getCurrentTheme?.());
     modal.classList.add('hidden');
     modal.setAttribute('aria-hidden', 'true');
+  }
+
+  function openDriveSettings() {
+    syncDriveValueLabels();
+    openModal('driveSettingsModal');
+  }
+
+  function closeDriveSettings() {
+    closeModal('driveSettingsModal');
+  }
+
+  function openStyleSettings() {
+    syncStyleInputsFromCurrentVars();
+    openModal('styleSettingsModal');
+  }
+
+  function closeStyleSettings() {
+    const manager = styleManager();
+    manager?.applyTheme?.(manager.getCurrentTheme?.());
+    closeModal('styleSettingsModal');
   }
 
   function saveStyleSettings() {
@@ -416,12 +432,21 @@
       syncDriveValueLabels();
     });
 
-    document.getElementById('openSettingsBtn')?.addEventListener('click', openSettings);
-    document.getElementById('closeSettingsBtn')?.addEventListener('click', closeSettings);
+    document.getElementById('openDriveSettingsBtn')?.addEventListener('click', openDriveSettings);
+    document.getElementById('closeDriveSettingsBtn')?.addEventListener('click', closeDriveSettings);
+    document.getElementById('openStyleSettingsBtn')?.addEventListener('click', openStyleSettings);
+    document.getElementById('closeStyleSettingsBtn')?.addEventListener('click', closeStyleSettings);
     document.getElementById('saveSettingsBtn')?.addEventListener('click', saveStyleSettings);
     document.getElementById('resetStyleSettingsBtn')?.addEventListener('click', resetStyleSettings);
-    document.querySelectorAll('[data-close-settings-modal="true"]').forEach((el) => {
-      el.addEventListener('click', closeSettings);
+    document.querySelectorAll('[data-close-modal]').forEach((el) => {
+      el.addEventListener('click', () => {
+        const modalId = el.getAttribute('data-close-modal');
+        if (el.getAttribute('data-restore-style') === 'true') {
+          closeStyleSettings();
+        } else {
+          closeModal(modalId);
+        }
+      });
     });
     styleSettingsFields.forEach((field) => {
       document.getElementById(field.id)?.addEventListener('input', previewStyleOverridesFromInputs);

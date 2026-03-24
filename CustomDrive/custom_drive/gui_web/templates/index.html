@@ -16,7 +16,8 @@
 
     <div class="toolbar-actions">
       <button class="ghost-btn" id="previewToggleBtn" type="button" aria-pressed="true">Preview ON</button>
-      <button class="ghost-btn" id="openSettingsBtn" type="button">Settings</button>
+      <button class="ghost-btn" id="openDriveSettingsBtn" type="button">Drive Settings</button>
+      <button class="ghost-btn" id="openStyleSettingsBtn" type="button">Style Settings</button>
       <button class="danger-btn" id="estopBtn" type="button" aria-pressed="false">E-stop OFF</button>
     </div>
   </header>
@@ -99,19 +100,18 @@
     </section>
   </main>
 
-  <div id="settingsModal" class="style-modal hidden" aria-hidden="true">
-    <div class="style-modal-backdrop" data-close-settings-modal="true"></div>
-    <div class="style-modal-card settings-modal-card">
+  <div id="driveSettingsModal" class="style-modal hidden" aria-hidden="true">
+    <div class="style-modal-backdrop" data-close-modal="driveSettingsModal"></div>
+    <div class="style-modal-card drive-settings-modal-card">
       <div class="style-modal-head">
         <div>
-          <h2>Settings</h2>
-          <div class="small-note">Drive tuning and PiServer-style appearance settings.</div>
+          <h2>Drive Settings</h2>
+          <div class="small-note">Tune the live drag pad control.</div>
         </div>
-        <button class="ghost-btn" id="closeSettingsBtn" type="button">Close</button>
+        <button class="ghost-btn" id="closeDriveSettingsBtn" type="button">Close</button>
       </div>
-
-      <div class="style-modal-body settings-modal-body">
-        <section class="style-settings-section drive-settings-section">
+      <div class="style-modal-body drive-settings-modal-body">
+        <section class="style-settings-section drive-settings-section only-section">
           <div class="style-settings-section-head">
             <h3>Drive settings</h3>
             <div class="small-note">These settings apply to the live drag pad control.</div>
@@ -134,8 +134,27 @@
             </div>
           </div>
         </section>
+      </div>
+      <div class="style-modal-foot">
+        <div class="stack-row align-right-only">
+          <button class="ghost-btn" id="saveRuntimeBtn" type="button">Save drive</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
-        <section class="style-settings-section style-settings-section-scroll">
+  <div id="styleSettingsModal" class="style-modal hidden" aria-hidden="true">
+    <div class="style-modal-backdrop" data-close-modal="styleSettingsModal" data-restore-style="true"></div>
+    <div class="style-modal-card settings-modal-card">
+      <div class="style-modal-head">
+        <div>
+          <h2>Style Settings</h2>
+          <div class="small-note">PiServer-style appearance controls.</div>
+        </div>
+        <button class="ghost-btn" id="closeStyleSettingsBtn" type="button">Close</button>
+      </div>
+      <div class="style-modal-body settings-modal-body">
+        <section class="style-settings-section style-settings-section-scroll only-section">
           <div class="style-settings-section-head">
             <h3>Style settings</h3>
             <div class="small-note">Scroll to view all controls</div>
@@ -159,11 +178,9 @@
           </div>
         </section>
       </div>
-
       <div class="style-modal-foot">
         <button class="ghost-btn" id="resetStyleSettingsBtn" type="button">Reset style</button>
         <div class="stack-row">
-          <button class="ghost-btn" id="saveRuntimeBtn" type="button">Save drive</button>
           <button class="ghost-btn" id="saveSettingsBtn" type="button">Save style</button>
         </div>
       </div>

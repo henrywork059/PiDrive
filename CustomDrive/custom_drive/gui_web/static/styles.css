@@ -581,3 +581,21 @@ input[type="color"] {
     gap: 6px;
   }
 }
+
+
+.drive-settings-modal-card {
+  width: min(540px, calc(100vw - 28px));
+}
+
+.drive-settings-modal-body {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.only-section {
+  min-width: 0;
+}
+
+.align-right-only {
+  width: 100%;
+  justify-content: flex-end;
+}

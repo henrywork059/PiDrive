@@ -271,3 +271,8 @@ python -u run_custom_drive_gui.py
 Open:
 - `http://127.0.0.1:5050` on the Pi
 - `http://<pi-ip>:5050` from another device
+
+
+Top-right GUI buttons:
+- Drive Settings
+- Style Settings
