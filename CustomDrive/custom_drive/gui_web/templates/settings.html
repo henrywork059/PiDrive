@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CustomDrive GUI Style Settings</title>
+  <script src="{{ url_for('static', filename='theme.js') }}?v={{ app_version }}"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v={{ app_version }}" />
+</head>
+<body class="settings-page-body customdrive-shell">
+  <header class="topbar settings-topbar">
+    <div class="brand">
+      <div class="brand-title">CustomDrive GUI style settings</div>
+      <div class="brand-subtitle">PiServer-style layout variables for the new GUI control shell.</div>
+    </div>
+    <div class="toolbar-actions">
+      <a class="ghost-btn link-btn" href="/">Back to GUI control</a>
+      <button id="resetStyleBtn" class="ghost-btn" type="button">Reset style</button>
+      <button id="saveStyleBtn" type="button">Save style</button>
+    </div>
+  </header>
+
+  <main class="settings-shell">
+    <section class="settings-grid">
+      <article class="settings-card settings-form-card">
+        <div class="panel-head"><span>Spacing</span><span class="panel-mini">layout</span></div>
+        <div class="panel-body settings-scroll-body">
+          <div class="settings-form-grid">
+            <label class="settings-field"><span>Font size (%)</span><input id="fontScale" type="range" min="70" max="135" step="1" /><strong id="fontScaleValue">80%</strong></label>
+            <label class="settings-field"><span>Page padding</span><input id="workspacePad" type="range" min="6" max="28" step="1" /><strong id="workspacePadValue">10px</strong></label>
+            <label class="settings-field"><span>Panel body padding</span><input id="panelPad" type="range" min="8" max="26" step="1" /><strong id="panelPadValue">12px</strong></label>
+            <label class="settings-field"><span>Panel header padding</span><input id="panelHeadPad" type="range" min="8" max="22" step="1" /><strong id="panelHeadPadValue">10px</strong></label>
+            <label class="settings-field"><span>Card spacing</span><input id="cardGap" type="range" min="4" max="18" step="1" /><strong id="cardGapValue">10px</strong></label>
+            <label class="settings-field"><span>Field spacing</span><input id="fieldGap" type="range" min="4" max="18" step="1" /><strong id="fieldGapValue">10px</strong></label>
+            <label class="settings-field"><span>Corner radius</span><input id="radius" type="range" min="8" max="26" step="1" /><strong id="radiusValue">10px</strong></label>
+          </div>
+        </div>
+      </article>
+
+      <article class="settings-card settings-form-card">
+        <div class="panel-head"><span>Colors</span><span class="panel-mini">theme</span></div>
+        <div class="panel-body settings-scroll-body">
+          <div class="settings-form-grid color-grid">
+            <label class="settings-field color-field"><span>Background</span><input id="bg" type="color" /><code id="bgText">#1b1d23</code></label>
+            <label class="settings-field color-field"><span>Panel</span><input id="panel" type="color" /><code id="panelText">#232630</code></label>
+            <label class="settings-field color-field"><span>Panel alt</span><input id="panelAlt" type="color" /><code id="panelAltText">#2a2e39</code></label>
+            <label class="settings-field color-field"><span>Text</span><input id="text" type="color" /><code id="textText">#f1f2f7</code></label>
+            <label class="settings-field color-field"><span>Muted</span><input id="muted" type="color" /><code id="mutedText">#9ea5b5</code></label>
+            <label class="settings-field color-field"><span>Accent</span><input id="accent" type="color" /><code id="accentText">#f4a31e</code></label>
+            <label class="settings-field color-field"><span>Danger</span><input id="danger" type="color" /><code id="dangerText">#ca655d</code></label>
+            <label class="settings-field color-field"><span>OK</span><input id="ok" type="color" /><code id="okText">#8d9d61</code></label>
+            <label class="settings-field color-field"><span>Line</span><input id="line" type="color" /><code id="lineText">#2c313d</code></label>
+            <label class="settings-field color-field"><span>Line strong</span><input id="lineStrong" type="color" /><code id="lineStrongText">#50586a</code></label>
+          </div>
+        </div>
+      </article>
+
+      <article class="settings-card settings-preview-card">
+        <div class="panel-head"><span>Live preview</span><span class="panel-mini">GUI shell</span></div>
+        <div class="panel-body settings-scroll-body">
+          <div class="settings-preview-wrap">
+            <div class="settings-preview-topbar">
+              <div>
+                <div class="brand-title">CustomDrive</div>
+                <div class="brand-subtitle">GUI control workspace</div>
+              </div>
+              <div class="panel-actions">
+                <button class="tab-btn active" type="button">Manual</button>
+                <button class="ghost-btn" type="button">Style settings</button>
+              </div>
+            </div>
+            <div class="settings-preview-panels">
+              <section class="dock-panel preview-panel-demo">
+                <div class="panel-head"><span>Status panel</span><span class="panel-mini">demo</span></div>
+                <div class="panel-body status-body">
+                  <div class="metric-grid status-metric-grid">
+                    <div class="metric-card metric-card-primary"><label>Drive</label><strong>ready</strong></div>
+                    <div class="metric-card"><label>Page</label><strong>manual</strong></div>
+                    <div class="metric-card"><label>Backend</label><strong>gui-shell</strong></div>
+                  </div>
+                  <div class="banner muted">Empty GUI scaffold preview.</div>
+                </div>
+              </section>
+
+              <section class="dock-panel preview-panel-demo">
+                <div class="panel-head"><span>Control panel</span><span class="panel-mini">demo</span></div>
+                <div class="panel-body">
+                  <div class="shell-placeholder">
+                    <div>
+                      <strong>Empty panel</strong>
+                      <div>Use this as the new CustomDrive GUI base.</div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+          <div id="styleSettingsMessage" class="banner muted settings-message">Style changes preview here and save in this browser.</div>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='settings.js') }}?v={{ app_version }}"></script>
+</body>
+</html>

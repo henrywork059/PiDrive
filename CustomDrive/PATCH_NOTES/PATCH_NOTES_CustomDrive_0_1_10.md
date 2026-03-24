@@ -1,51 +1,58 @@
-# CustomDrive 0_1_10 Patch Notes
+# PATCH NOTES — CustomDrive 0_1_10
 
 ## Request summary
-Add a new standalone servo demo that controls servo channels 1 and 2 together with one command. For now, both servos should rotate in the same direction.
+Replace the old CustomDrive browser page with a **new empty GUI control web** that follows the current **PiServer** style and coding direction.
 
-## Cause / context
-The previous servo tester verified one channel at a time. After confirming a single servo works, the next hardware step is a simple paired-channel test that can move two servos together without going through the main CustomDrive manual-control stack.
+The goal of this patch is not to restore the old runtime-heavy monitor. It is to create a clean, reliable GUI control base first.
+
+## Why this patch was needed
+The previous CustomDrive web path had grown into a mixed runtime/monitor page and was no longer the right starting point for the new GUI direction.
+
+To avoid carrying forward layout and startup problems, this patch makes the GUI control page light and intentional:
+- same launcher path (`run_custom_drive_gui.py` / `run_custom_drive_web.py`)
+- PiServer-like app-factory structure
+- PiServer-like top bar, panels, theme handling, and settings flow
+- empty placeholder panels instead of half-wired controls
 
 ## Files changed
-- `CustomDrive/custom_drive/dual_servo_test.py`
-- `CustomDrive/run_dual_servo_test_demo.py`
-- `CustomDrive/config/dual_servo_test.json`
-- `CustomDrive/PATCH_NOTES/PATCH_NOTES_CustomDrive_0_1_10.md`
+- `CustomDrive/custom_drive/gui_control_state.py`
+- `CustomDrive/custom_drive/gui_control_app.py`
+- `CustomDrive/custom_drive/gui_web/templates/index.html`
+- `CustomDrive/custom_drive/gui_web/templates/settings.html`
+- `CustomDrive/custom_drive/gui_web/static/styles.css`
+- `CustomDrive/custom_drive/gui_web/static/theme.js`
+- `CustomDrive/custom_drive/gui_web/static/app.js`
+- `CustomDrive/custom_drive/gui_web/static/settings.js`
+- `CustomDrive/run_custom_drive_web.py`
+- `CustomDrive/README.md`
 
 ## Exact behavior changed
-- Added a standalone dual-servo tester for PCA9685.
-- Default test channels are `1` and `2`.
-- One command can now:
-  - print config info
-  - set both servos to one angle
-  - sweep both servos together
-  - release both channels
-- Current default behavior drives both channels in the same direction using the same angle value.
-- An optional opposite-direction mode is present for later testing, but the default config and normal use keep both channels moving together.
+- `run_custom_drive_gui.py` still launches the browser GUI path.
+- That GUI path now opens a **new empty GUI control shell** instead of the older runtime-heavy CustomDrive web page.
+- The new shell uses:
+  - Flask app-factory pattern
+  - `app.config["services"]` storage
+  - PiServer-style panel structure
+  - PiServer-style static theme variables
+  - a separate `/settings` page for style controls
+- The new page includes:
+  - top bar
+  - page tabs
+  - full-width status strip
+  - empty viewer panel
+  - empty drive-control panel
+  - empty system/debug panel
+  - empty settings panel
 
-## How to run
-From `CustomDrive`:
-
-```bash
-python3 run_dual_servo_test_demo.py --mode info
-python3 run_dual_servo_test_demo.py --mode set --angle 90
-python3 run_dual_servo_test_demo.py --mode sweep
-python3 run_dual_servo_test_demo.py --mode release
-```
-
-Useful overrides:
-
-```bash
-python3 run_dual_servo_test_demo.py --mode sweep --channel-a 1 --channel-b 2
-python3 run_dual_servo_test_demo.py --mode set --angle 120
-```
+## Cause / root cause
+The older GUI path mixed runtime startup and browser UI too early. That made it harder to reuse as a clean GUI control base.
 
 ## Verification actually performed
-- Added the new files onto the current uploaded PiDrive tree.
-- Ran `python -m compileall CustomDrive` successfully.
-- Checked the new config defaults point to channels 1 and 2 and same-direction mode.
+- `python -m compileall CustomDrive`
+- launched structure inspection against the uploaded `PiDrive-main.zip`
+- checked launcher import path points to the new GUI app
 
 ## Known limits / next steps
-- This patch only verifies paired servo output, not arm linkage logic.
-- If one servo is mounted reversed, switch to `--opposite-direction` or change the linkage orientation later.
-- Real angle ranges may still need tuning per servo and linkage.
+- This patch intentionally does **not** wire back real drive controls yet.
+- This patch intentionally does **not** boot the older mission runtime in the GUI.
+- Next patches can now add panels back one at a time using this new shell as the base.
