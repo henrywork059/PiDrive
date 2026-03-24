@@ -25,10 +25,10 @@
     <section class="workspace-grid gui-layout">
       <article class="dock-panel panel-status">
         <div class="panel-head compact-head">
-          <span>Status</span>
+          <span>Status / System</span>
           <span class="panel-mini" id="statusMiniText">live</span>
         </div>
-        <div class="panel-body compact-body">
+        <div class="panel-body compact-body merged-status-body">
           <div class="metric-grid slim-grid">
             <div class="metric-card"><label>Drive</label><strong id="metricDriveState">ready</strong></div>
             <div class="metric-card"><label>Output</label><strong id="metricApplied">S 0.00 · T 0.00</strong></div>
@@ -42,8 +42,19 @@
             <div class="metric-card"><label>Bias</label><strong id="metricSteerBias">0.00</strong></div>
             <div class="metric-card"><label>Motors</label><strong id="metricWheels">0.00 / 0.00</strong></div>
             <div class="metric-card"><label>FPS</label><strong id="metricFps">0.0 FPS</strong></div>
+            <div class="metric-card"><label>Runtime</label><strong id="systemRuntimePath">runtime.json</strong></div>
+            <div class="metric-card"><label>Arm Lift</label><strong id="systemArmLift">0°</strong></div>
+            <div class="metric-card"><label>Motor Dir</label><strong id="systemMotorDir">1 / 1 / 1</strong></div>
           </div>
-          <div id="statusBanner" class="banner muted compact-banner">Ready.</div>
+          <div class="status-system-actions">
+            <button id="previewToggleBtn" class="ghost-btn" type="button">Toggle Preview</button>
+            <button id="estopBtn" class="danger-btn" type="button">E-Stop</button>
+            <button id="clearEstopBtn" class="ghost-btn" type="button">Clear E-Stop</button>
+          </div>
+          <div class="status-banner-stack">
+            <div id="statusBanner" class="banner muted compact-banner">Ready.</div>
+            <div id="systemMessage" class="banner muted compact-banner">System ready.</div>
+          </div>
         </div>
       </article>
 
@@ -94,25 +105,6 @@
         </div>
       </article>
 
-      <article class="dock-panel panel-system">
-        <div class="panel-head">
-          <span>System</span>
-          <span class="panel-mini">debug</span>
-        </div>
-        <div class="panel-body scroll-body">
-          <div class="system-actions">
-            <button id="previewToggleBtn" class="ghost-btn" type="button">Toggle Preview</button>
-            <button id="estopBtn" class="danger-btn" type="button">E-Stop</button>
-            <button id="clearEstopBtn" class="ghost-btn" type="button">Clear E-Stop</button>
-          </div>
-          <div class="system-readout-grid">
-            <div class="metric-card"><label>Runtime</label><strong id="systemRuntimePath">runtime.json</strong></div>
-            <div class="metric-card"><label>Arm Lift</label><strong id="systemArmLift">0°</strong></div>
-            <div class="metric-card"><label>Motor Dir</label><strong id="systemMotorDir">1 / 1 / 1</strong></div>
-          </div>
-          <div id="systemMessage" class="banner muted">System ready.</div>
-        </div>
-      </article>
     </section>
   </main>
 
