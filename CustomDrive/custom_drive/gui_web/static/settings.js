@@ -1,85 +1,110 @@
 (() => {
-  const api = window.CustomDriveGuiStyle;
+  const api = window.PiServerStyle;
   if (!api) return;
 
   const fieldMap = {
-    fontScale: { cssVar: "--font-scale", unit: "%", type: "range", defaultValue: 80 },
-    workspacePad: { cssVar: "--workspace-pad", unit: "px", type: "range", defaultValue: 10 },
-    panelPad: { cssVar: "--panel-pad", unit: "px", type: "range", defaultValue: 12 },
-    panelHeadPad: { cssVar: "--panel-head-pad-y", unit: "px", type: "range", defaultValue: 10 },
-    cardGap: { cssVar: "--card-gap", unit: "px", type: "range", defaultValue: 10 },
-    fieldGap: { cssVar: "--field-gap", unit: "px", type: "range", defaultValue: 10 },
-    radius: { cssVar: "--radius", unit: "px", type: "range", defaultValue: 10 },
-    bg: { cssVar: "--bg", type: "color", defaultValue: "#1b1d23" },
-    panel: { cssVar: "--panel", type: "color", defaultValue: "#232630" },
-    panelAlt: { cssVar: "--panel-alt", type: "color", defaultValue: "#2a2e39" },
-    text: { cssVar: "--text", type: "color", defaultValue: "#f1f2f7" },
-    muted: { cssVar: "--muted", type: "color", defaultValue: "#9ea5b5" },
-    accent: { cssVar: "--accent", type: "color", defaultValue: "#f4a31e" },
-    danger: { cssVar: "--danger", type: "color", defaultValue: "#ca655d" },
-    ok: { cssVar: "--ok", type: "color", defaultValue: "#8d9d61" },
-    line: { cssVar: "--line", type: "color", defaultValue: "#2c313d" },
-    lineStrong: { cssVar: "--line-strong", type: "color", defaultValue: "#50586a" },
+    fontScale: { cssVar: '--font-scale', unit: '%', fallback: 80 },
+    gridGap: { cssVar: '--gap', unit: 'px', fallback: 4 },
+    workspacePad: { cssVar: '--workspace-pad', unit: 'px', fallback: 10 },
+    panelPad: { cssVar: '--panel-pad', unit: 'px', fallback: 12 },
+    panelHeadPadY: { cssVar: '--panel-head-pad-y', unit: 'px', fallback: 10 },
+    panelHeadPadX: { cssVar: '--panel-head-pad-x', unit: 'px', fallback: 12 },
+    radius: { cssVar: '--radius', unit: 'px', fallback: 10 },
+    cardGap: { cssVar: '--card-gap', unit: 'px', fallback: 10 },
+    fieldGap: { cssVar: '--field-gap', unit: 'px', fallback: 10 },
+    bg: { cssVar: '--bg', color: true },
+    panel: { cssVar: '--panel', color: true },
+    panelAlt: { cssVar: '--panel-alt', color: true },
+    text: { cssVar: '--text', color: true },
+    muted: { cssVar: '--muted', color: true },
+    accent: { cssVar: '--accent', color: true },
+    danger: { cssVar: '--danger', color: true },
+    ok: { cssVar: '--ok', color: true },
+    line: { cssVar: '--line', color: true },
+    lineStrong: { cssVar: '--line-strong', color: true },
   };
 
-  function message(text) {
-    const element = document.getElementById("styleSettingsMessage");
-    if (element) element.textContent = text;
+  function normalizeHex(value, fallback = '#000000') {
+    const raw = String(value || '').trim();
+    const short = raw.match(/^#([0-9a-f]{3})$/i);
+    if (short) {
+      return `#${short[1].split('').map((part) => part + part).join('')}`.toLowerCase();
+    }
+    const full = raw.match(/^#([0-9a-f]{6})$/i);
+    if (full) return `#${full[1]}`.toLowerCase();
+    return fallback;
   }
 
-  function numericPart(value, fallback) {
-    const match = String(value || "").match(/-?\d+(?:\.\d+)?/);
+  function parseNumeric(raw, fallback) {
+    const match = String(raw || '').match(/-?\d+(?:\.\d+)?/);
     return match ? Number(match[0]) : fallback;
   }
 
-  function renderInputs() {
-    const vars = api.getResolvedVars();
+  function syncFieldsFromResolvedVars() {
+    const resolved = api.getResolvedVars();
     Object.entries(fieldMap).forEach(([id, meta]) => {
-      const input = document.getElementById(id);
-      const valueEl = document.getElementById(`${id}Value`) || document.getElementById(`${id}Text`);
-      if (!input) return;
-      const raw = vars[meta.cssVar] ?? meta.defaultValue;
-      if (meta.type === "range") {
-        const value = numericPart(raw, meta.defaultValue);
-        input.value = `${value}`;
-        if (valueEl) valueEl.textContent = `${value}${meta.unit || ""}`;
+      const el = document.getElementById(id);
+      if (!el) return;
+      const raw = resolved[meta.cssVar];
+      if (meta.color) {
+        const color = normalizeHex(raw, '#000000');
+        el.value = color;
+        document.getElementById(`${id}Text`)?.replaceChildren(document.createTextNode(color));
       } else {
-        input.value = String(raw).toLowerCase();
-        if (valueEl) valueEl.textContent = String(raw).toLowerCase();
+        const numeric = parseNumeric(raw, meta.fallback);
+        el.value = `${numeric}`;
+        document.getElementById(`${id}Value`)?.replaceChildren(document.createTextNode(`${numeric}${meta.unit}`));
       }
     });
   }
 
-  function collectOverrides() {
-    const next = {};
+  function buildOverridesFromFields() {
+    const overrides = {};
     Object.entries(fieldMap).forEach(([id, meta]) => {
-      const input = document.getElementById(id);
-      if (!input) return;
-      const value = meta.type === "range" ? `${input.value}${meta.unit || ""}` : String(input.value).toLowerCase();
-      next[meta.cssVar] = value;
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (meta.color) {
+        const color = normalizeHex(el.value, '#000000');
+        overrides[meta.cssVar] = color;
+        if (meta.cssVar === '--accent') {
+          const value = color.slice(1);
+          overrides['--accent-rgb'] = [0, 2, 4].map((start) => parseInt(value.slice(start, start + 2), 16)).join(', ');
+        }
+        document.getElementById(`${id}Text`)?.replaceChildren(document.createTextNode(color));
+      } else {
+        const value = `${el.value}${meta.unit}`;
+        overrides[meta.cssVar] = value;
+        if (meta.cssVar === '--font-scale') overrides['--font-scale-factor'] = String(Number(el.value) / 100);
+        document.getElementById(`${id}Value`)?.replaceChildren(document.createTextNode(value));
+      }
     });
-    return next;
+    return overrides;
   }
 
-  function preview() {
-    api.saveCustomOverrides(collectOverrides());
-    renderInputs();
+  function setMessage(message) {
+    const el = document.getElementById('styleSettingsMessage');
+    if (el) el.textContent = message;
   }
 
-  document.getElementById("saveStyleBtn")?.addEventListener("click", () => {
-    api.saveCustomOverrides(collectOverrides());
-    message("Style saved to this browser for the new GUI control shell.");
+  function previewChanges() {
+    api.saveCustomOverrides(buildOverridesFromFields());
+    setMessage('Style preview updated. Save when you are ready.');
+  }
+
+  document.getElementById('saveStyleBtn')?.addEventListener('click', () => {
+    api.saveCustomOverrides(buildOverridesFromFields());
+    setMessage('Style saved. The CustomDrive GUI will use these settings.');
   });
 
-  document.getElementById("resetStyleBtn")?.addEventListener("click", () => {
+  document.getElementById('resetStyleBtn')?.addEventListener('click', () => {
     api.resetCustomOverrides();
-    renderInputs();
-    message("Style reset to the PiServer-like defaults.");
+    syncFieldsFromResolvedVars();
+    setMessage('Style reset to the default PiServer-style theme.');
   });
 
-  Object.entries(fieldMap).forEach(([id]) => {
-    document.getElementById(id)?.addEventListener("input", preview);
+  Object.keys(fieldMap).forEach((id) => {
+    document.getElementById(id)?.addEventListener('input', previewChanges);
   });
 
-  renderInputs();
+  syncFieldsFromResolvedVars();
 })();

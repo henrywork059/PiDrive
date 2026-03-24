@@ -3545,70 +3545,103 @@ button.active,
   }
 }
 
-.customdrive-shell .workspace-grid {
-  grid-template-columns: minmax(0, 1.45fr) minmax(21rem, 0.95fr);
-  grid-template-areas:
-    "status status"
-    "viewer drive"
-    "debug settings";
+.single-page-shell {
+  min-height: calc(100vh - 72px);
 }
 
-.customdrive-shell [data-panel="status"] { grid-area: status; }
-.customdrive-shell [data-panel="viewer"] { grid-area: viewer; }
-.customdrive-shell [data-panel="drive"] { grid-area: drive; }
-.customdrive-shell [data-panel="debug"] { grid-area: debug; }
-.customdrive-shell [data-panel="settings"] { grid-area: settings; }
-
-.shell-placeholder {
-  min-height: 15rem;
-  display: grid;
-  place-items: center;
-  border: 1px dashed rgba(255, 176, 44, 0.24);
-  border-radius: var(--card-radius);
-  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
-  color: var(--muted);
-  text-align: center;
-  padding: 1rem;
+.single-page-grid {
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-auto-rows: minmax(84px, auto);
 }
 
-.shell-placeholder strong {
+.panel-status-strip {
+  grid-column: 1 / -1;
+}
+
+.viewer-panel {
+  grid-column: 1 / span 8;
+  min-height: 0;
+}
+
+.placeholder-panel {
+  min-height: 0;
+}
+
+.placeholder-panel[data-panel='drive'] {
+  grid-column: 9 / span 4;
+}
+
+.placeholder-panel[data-panel='system'] {
+  grid-column: 9 / span 4;
+}
+
+.viewer-body-large {
+  display: flex;
+}
+
+.large-viewer-frame {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  min-height: 320px;
+}
+
+.large-viewer-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
   display: block;
-  color: var(--text);
-  margin-bottom: 0.35rem;
 }
 
-.status-banner-wide {
+.slim-status-body {
+  gap: 8px;
+}
+
+.slim-metric-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(9rem, 100%), 1fr));
+}
+
+.compact-head {
+  padding-top: max(6px, calc(var(--panel-head-pad-y) - 2px));
+  padding-bottom: max(6px, calc(var(--panel-head-pad-y) - 2px));
+}
+
+.placeholder-body {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
+  justify-content: center;
 }
 
-.empty-list {
-  margin: 0;
-  padding-left: 1.1rem;
+.placeholder-block {
+  display: grid;
+  gap: 8px;
+  max-width: 28rem;
   color: var(--muted);
 }
 
-.empty-list li + li {
-  margin-top: 0.35rem;
+.placeholder-block h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1rem;
 }
 
-.panel-actions-wrap {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+.placeholder-block p {
+  margin: 0;
+  line-height: 1.45;
 }
 
-@media (max-width: 1024px) {
-  .customdrive-shell .workspace-grid {
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      "status"
-      "viewer"
-      "drive"
-      "debug"
-      "settings";
+.link-btn {
+  text-decoration: none;
+}
+
+.customdrive-preview-panels {
+  display: grid;
+  gap: 10px;
+}
+
+@media (max-width: 1100px) {
+  .viewer-panel,
+  .placeholder-panel[data-panel='drive'],
+  .placeholder-panel[data-panel='system'] {
+    grid-column: 1 / -1;
   }
 }

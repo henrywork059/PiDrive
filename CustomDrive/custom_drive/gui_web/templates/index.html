@@ -7,124 +7,77 @@
   <script src="{{ url_for('static', filename='theme.js') }}?v={{ app_version }}"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v={{ app_version }}" />
 </head>
-<body data-page="manual" class="customdrive-shell">
+<body>
   <header class="topbar">
     <div class="brand">
       <div class="brand-title">CustomDrive</div>
       <div class="brand-subtitle">GUI control workspace</div>
     </div>
 
-    <div class="page-tabs" id="pageTabs">
-      <button class="tab-btn active" data-page="manual">Manual</button>
-      <button class="tab-btn" data-page="auto">Auto</button>
-      <button class="tab-btn" data-page="arm">Arm</button>
-      <button class="tab-btn" data-page="camera">Camera</button>
-      <button class="tab-btn" data-page="system">System</button>
-    </div>
-
     <div class="toolbar-actions">
-      <div class="badge off">shell</div>
-      <button class="ghost-btn" id="saveLayoutBtn" type="button">Save layout</button>
-      <button class="ghost-btn" id="openStyleSettingsBtn" type="button">Style settings</button>
-      <button class="ghost-btn" id="resetLayoutBtn" type="button">Reset layout</button>
+      <a class="ghost-btn link-btn" href="/settings">Style settings</a>
+      <button class="ghost-btn" id="previewToggleBtn" type="button" aria-pressed="true">Preview ON</button>
     </div>
   </header>
 
-  <main class="workspace-shell">
-    <section id="workspace" class="workspace-grid">
-      <article class="dock-panel" data-panel="status">
-        <div class="panel-head">
+  <main class="workspace-shell single-page-shell">
+    <section class="workspace-grid single-page-grid">
+      <article class="dock-panel panel-status-strip" data-panel="status">
+        <div class="panel-head compact-head">
           <span>Status</span>
-          <span class="panel-mini">gui</span>
+          <span class="panel-mini">live</span>
         </div>
-        <div class="panel-body status-body">
-          <div class="metric-grid status-metric-grid">
-            <div class="metric-card metric-card-primary"><label>Drive</label><strong id="metricDriveState">ready</strong></div>
-            <div class="metric-card metric-card-primary"><label>Output</label><strong id="metricApplied">placeholder</strong></div>
-            <div class="metric-card"><label>Page</label><strong id="metricManual">manual</strong></div>
-            <div class="metric-card"><label>Last save</label><strong id="metricLastSave">local style only</strong></div>
-            <div class="metric-card"><label>Preview</label><strong id="metricPreview">placeholder</strong></div>
-            <div class="metric-card"><label>Camera</label><strong id="metricCamera">not wired</strong></div>
-            <div class="metric-card"><label>Model</label><strong id="metricModel">empty</strong></div>
-            <div class="metric-card"><label>Algo</label><strong id="metricAlgorithm">gui-shell</strong></div>
-            <div class="metric-card"><label>Max</label><strong id="metricMaxThrottle">--</strong></div>
-            <div class="metric-card"><label>Mix</label><strong id="metricSteerMix">--</strong></div>
-            <div class="metric-card"><label>Bias</label><strong id="metricSteerBias">--</strong></div>
-            <div class="metric-card"><label>Wheels</label><strong id="metricWheels">-- / --</strong></div>
-            <div class="metric-card"><label>FPS</label><strong id="metricFps">0.0 FPS</strong></div>
-            <div class="metric-card"><label>Backend</label><strong id="metricBackend">gui-shell</strong></div>
+        <div class="panel-body status-body slim-status-body">
+          <div class="metric-grid status-metric-grid slim-metric-grid">
+            <div class="metric-card metric-card-primary"><label>GUI</label><strong id="metricGui">ready</strong></div>
+            <div class="metric-card metric-card-primary"><label>Camera</label><strong id="metricCamera">unknown</strong></div>
+            <div class="metric-card"><label>Preview</label><strong id="metricPreview">off</strong></div>
+            <div class="metric-card"><label>Backend</label><strong id="metricBackend">unknown</strong></div>
+            <div class="metric-card"><label>Resolution</label><strong id="metricResolution">0 × 0</strong></div>
             <div class="metric-card metric-card-alert"><label>Error</label><strong id="metricError">none</strong></div>
           </div>
-          <div id="statusBanner" class="banner muted status-banner-wide">GUI shell ready. Add real controls panel by panel.</div>
+          <div id="statusBanner" class="banner muted">Loading GUI status…</div>
         </div>
-        <div class="resize-handle"></div>
       </article>
 
-      <article class="dock-panel" data-panel="viewer">
+      <article class="dock-panel viewer-panel" data-panel="viewer">
         <div class="panel-head">
-          <span>Preview</span>
-          <span class="panel-mini">empty</span>
+          <span>Camera live</span>
+          <span class="panel-mini">PiServer camera</span>
         </div>
-        <div class="panel-body">
-          <div class="shell-placeholder">
-            <div>
-              <strong>Empty viewer shell</strong>
-              <div>Use this PiServer-style panel as the new GUI control base.</div>
-            </div>
+        <div class="panel-body viewer-body viewer-body-large">
+          <div class="viewer-frame large-viewer-frame">
+            <img id="videoFeed" src="" alt="CustomDrive live camera" />
+            <div id="cameraPreviewMeta" class="preview-meta">Waiting for live camera…</div>
           </div>
         </div>
-        <div class="resize-handle"></div>
       </article>
 
-      <article class="dock-panel" data-panel="drive">
+      <article class="dock-panel placeholder-panel" data-panel="drive">
         <div class="panel-head">
           <span>Drive control</span>
           <span class="panel-mini">empty</span>
         </div>
-        <div class="panel-body">
-          <div class="shell-placeholder">
-            <div>
-              <strong>Empty control shell</strong>
-              <div>Manual, arm, and runtime actions can be added here next.</div>
-            </div>
+        <div class="panel-body placeholder-body">
+          <div class="placeholder-block">
+            <h3>Empty control panel</h3>
+            <p>This new GUI starts as a clean PiServer-style shell.</p>
+            <p>Live camera is already wired in. Drive controls can be added here next.</p>
           </div>
         </div>
-        <div class="resize-handle"></div>
       </article>
 
-      <article class="dock-panel" data-panel="debug">
+      <article class="dock-panel placeholder-panel" data-panel="system">
         <div class="panel-head">
-          <span>System notes</span>
-          <span class="panel-mini">shell</span>
+          <span>System</span>
+          <span class="panel-mini">empty</span>
         </div>
-        <div class="panel-body scroll-body">
-          <div class="metric-grid metric-grid-secondary">
-            <div class="metric-card"><label>Shell uptime</label><strong id="shellUptime">0.0 s</strong></div>
-            <div class="metric-card"><label>Selected page</label><strong id="shellPage">manual</strong></div>
-          </div>
-          <div class="panel-section">
-            <ol id="shellNotes" class="empty-list">
-              <li>Loading GUI shell…</li>
-            </ol>
+        <div class="panel-body placeholder-body">
+          <div class="placeholder-block">
+            <h3>Empty system panel</h3>
+            <p>Reserved for runtime, debug, motor, and arm controls.</p>
           </div>
         </div>
-        <div class="resize-handle"></div>
-      </article>
-
-      <article class="dock-panel" data-panel="settings">
-        <div class="panel-head">
-          <span>Workspace settings</span>
-          <span class="panel-mini">local</span>
-        </div>
-        <div class="panel-body scroll-body">
-          <div class="panel-section">
-            <div class="banner muted">This first pass is intentionally empty. It loads fast and matches the PiServer coding/style direction.</div>
-          </div>
-          <div class="panel-actions-wrap">
-            <a class="ghost-btn link-btn" href="/settings">Open style settings</a>
-          </div>
-        </div>
-        <div class="resize-handle"></div>
       </article>
     </section>
   </main>

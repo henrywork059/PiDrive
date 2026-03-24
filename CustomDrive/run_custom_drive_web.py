@@ -55,26 +55,26 @@ def main() -> None:
     port = int(args.port if args.port is not None else 5050)
     mode = args.mode or str(run_settings.get('runtime_mode', 'sim'))
 
-    print('=== CustomDrive GUI control launcher ===', flush=True)
+    print('=== CustomDrive GUI launcher ===', flush=True)
     print(f'Launch mode: GUI | runtime backend request: {mode}', flush=True)
     print(f'Run settings file: CustomDrive/config/run_settings.json', flush=True)
-    print('Loading GUI control shell...', flush=True)
+    print('Loading web app...', flush=True)
 
     try:
         from custom_drive.gui_control_app import create_app
     except Exception as exc:
-        print('Failed to start CustomDrive GUI control shell.', flush=True)
+        print('Failed to start CustomDrive GUI.', flush=True)
         print(f'Reason: {exc}', flush=True)
         print('Install the GUI dependency first: python -m pip install -r requirements.txt', flush=True)
         sys.exit(1)
 
-    app = create_app(mode=mode)
-    print('GUI control shell created successfully.', flush=True)
+    app = create_app()
+    print('Web app created successfully.', flush=True)
     print('Open the browser at:', flush=True)
     for url in _candidate_urls(host, port):
         print(f'  {url}', flush=True)
-    print('This first pass is an empty PiServer-style GUI control shell.', flush=True)
-    print('It is intentionally light and does not boot the old runtime-heavy web page.', flush=True)
+    print('This GUI starts as a PiServer-style control shell with live camera preview.', flush=True)
+    print('Mode tabs are removed. The page always opens directly to the GUI control workspace.', flush=True)
     app.run(host=host, port=port, threaded=True, use_reloader=False)
 
 

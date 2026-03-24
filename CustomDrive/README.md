@@ -133,7 +133,7 @@ CustomDrive/config/run_settings.json
 
 ## Launch mode 2: GUI
 
-GUI mode now starts a fresh PiServer-style GUI control shell.
+GUI mode starts the browser monitor.
 
 ```bash
 cd CustomDrive
@@ -154,16 +154,14 @@ python run_custom_drive_gui.py --mode sim
 
 Then open `http://localhost:5050`.
 
-The current GUI pass is intentionally an empty shell so the page loads reliably and matches the PiServer layout/style direction first.
+The GUI shows:
 
-The GUI currently provides:
-
-- a PiServer-style top bar and page tabs
-- a full-width status strip
-- empty viewer / drive / debug / settings panels
-- a local browser style-settings page
-
-This gives you a clean GUI control base before wiring back real controls and live runtime panels.
+- mission state and drive telemetry
+- detection overlays
+- live JPEG camera preview in `live` mode
+- robot action logs
+- a **Saved Run Settings** panel that edits the shared run settings file
+- a **Debug Trace** panel for state transitions, retries, camera/runtime warnings, and fallback notes
 
 ## Saved run settings
 
@@ -254,3 +252,25 @@ That separation keeps autonomous mission control and competition manual driving 
 - `Up` and `Down` on the manual page are press-and-hold lift controls.
 - `Hold` and `Release` are one-tap gripper commands.
 - Tune `lift_up_angle`, `lift_down_angle`, and `lift_step_angle` for your hardware.
+
+
+## GUI control shell
+
+`run_custom_drive_gui.py` now starts a fresh PiServer-style GUI shell for CustomDrive.
+
+Current behavior:
+- no mode-selection tabs
+- live camera shown on the main page
+- style settings page uses the same theme/custom-override pattern as PiServer
+- drive/system panels are still placeholders for later wiring
+
+Run:
+
+```bash
+cd ~/PiDrive/CustomDrive
+python -u run_custom_drive_gui.py
+```
+
+Open:
+- `http://127.0.0.1:5050` on the Pi
+- `http://<pi-ip>:5050` from another device

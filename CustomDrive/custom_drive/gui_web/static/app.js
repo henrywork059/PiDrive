@@ -1,95 +1,104 @@
-const state = {
-  activePage: "manual",
-  timer: null,
-};
+(() => {
+  const state = {
+    previewEnabled: true,
+    frameTimer: null,
+    statusTimer: null,
+    previewObjectUrl: null,
+    previewInFlight: false,
+  };
 
-async function fetchJSON(url, options = {}) {
-  const response = await fetch(url, {
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
-    ...options,
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(data.message || `Request failed: ${response.status}`);
+  function setBanner(message, tone = 'muted') {
+    const el = document.getElementById('statusBanner');
+    if (!el) return;
+    el.className = `banner ${tone}`;
+    el.textContent = message;
   }
-  return data;
-}
 
-function setText(id, value) {
-  const element = document.getElementById(id);
-  if (element) element.textContent = value;
-}
-
-function setBanner(message) {
-  const element = document.getElementById("statusBanner");
-  if (element) element.textContent = message;
-}
-
-function renderStatus(payload) {
-  const data = payload || {};
-  state.activePage = String(data.active_page || state.activePage || "manual");
-  document.body.setAttribute("data-page", state.activePage);
-  document.querySelectorAll(".tab-btn[data-page]").forEach((button) => {
-    const active = button.dataset.page === state.activePage;
-    button.classList.toggle("active", active);
-  });
-  setText("metricDriveState", data.gui_ready ? "ready" : "loading");
-  setText("metricApplied", "placeholder");
-  setText("metricManual", state.activePage);
-  setText("metricLastSave", "local style only");
-  setText("metricPreview", data.preview || "placeholder");
-  setText("metricCamera", "not wired");
-  setText("metricModel", "empty");
-  setText("metricAlgorithm", "gui-shell");
-  setText("metricMaxThrottle", "--");
-  setText("metricSteerMix", "--");
-  setText("metricSteerBias", "--");
-  setText("metricWheels", "-- / --");
-  setText("metricFps", "0.0 FPS");
-  setText("metricBackend", data.runtime_mode || "gui-shell");
-  setText("metricError", "none");
-  setText("shellUptime", `${Number(data.uptime_s || 0).toFixed(1)} s`);
-  setText("shellPage", state.activePage);
-  setBanner(data.banner || "GUI shell ready.");
-
-  const list = document.getElementById("shellNotes");
-  if (list) {
-    list.innerHTML = "";
-    (Array.isArray(data.notes) ? data.notes : []).forEach((note) => {
-      const item = document.createElement("li");
-      item.textContent = String(note);
-      list.appendChild(item);
-    });
+  function setText(id, text) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
   }
-}
 
-async function refresh() {
-  const data = await fetchJSON("/api/status");
-  renderStatus(data);
-}
+  function updateToggleButton() {
+    const btn = document.getElementById('previewToggleBtn');
+    if (!btn) return;
+    btn.setAttribute('aria-pressed', state.previewEnabled ? 'true' : 'false');
+    btn.textContent = state.previewEnabled ? 'Preview ON' : 'Preview OFF';
+  }
 
-async function selectPage(page) {
-  const data = await fetchJSON("/api/page", {
-    method: "POST",
-    body: JSON.stringify({ page }),
-  });
-  renderStatus(data.status || {});
-}
+  async function fetchStatus() {
+    try {
+      const response = await fetch('/api/status', { cache: 'no-store' });
+      const payload = await response.json();
+      const camera = payload.camera || {};
+      setText('metricGui', payload.gui?.title ? 'ready' : 'offline');
+      setText('metricCamera', camera.live ? 'live' : 'waiting');
+      setText('metricPreview', camera.preview_enabled ? 'enabled' : 'disabled');
+      setText('metricBackend', camera.backend || 'unknown');
+      setText('metricResolution', `${camera.width || 0} × ${camera.height || 0}`);
+      setText('metricError', camera.last_error || 'none');
+      setText('cameraPreviewMeta', camera.live
+        ? `Live camera · ${camera.backend || 'unknown'} · ${camera.width || 0} × ${camera.height || 0}`
+        : `Waiting for live camera · ${camera.backend || 'unknown'}`);
+      setBanner(payload.message || 'CustomDrive GUI shell ready.', camera.last_error ? 'danger' : 'muted');
+      state.previewEnabled = Boolean(camera.preview_enabled);
+      updateToggleButton();
+    } catch (error) {
+      setText('metricGui', 'offline');
+      setText('metricError', String(error));
+      setBanner(`Failed to read GUI status: ${error}`, 'danger');
+    }
+  }
 
-window.addEventListener("DOMContentLoaded", () => {
-  document.querySelectorAll(".tab-btn[data-page]").forEach((button) => {
-    button.addEventListener("click", () => selectPage(button.dataset.page || "manual"));
-  });
-  document.getElementById("openStyleSettingsBtn")?.addEventListener("click", () => {
-    window.location.href = "/settings";
-  });
-  document.getElementById("saveLayoutBtn")?.addEventListener("click", () => {
-    setBanner("Layout persistence is not wired yet. This is the empty GUI base.");
-  });
-  document.getElementById("resetLayoutBtn")?.addEventListener("click", () => {
-    setBanner("Layout reset is not wired yet. Use this shell as the new GUI control base.");
-  });
+  async function refreshFrame() {
+    if (!state.previewEnabled || state.previewInFlight) return;
+    state.previewInFlight = true;
+    try {
+      const response = await fetch(`/api/camera/frame.jpg?t=${Date.now()}`, { cache: 'no-store' });
+      if (response.status === 204) return;
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const blob = await response.blob();
+      const nextUrl = URL.createObjectURL(blob);
+      const img = document.getElementById('videoFeed');
+      if (img) img.src = nextUrl;
+      if (state.previewObjectUrl) URL.revokeObjectURL(state.previewObjectUrl);
+      state.previewObjectUrl = nextUrl;
+    } catch (error) {
+      setBanner(`Preview fetch failed: ${error}`, 'danger');
+    } finally {
+      state.previewInFlight = false;
+    }
+  }
 
-  refresh();
-  state.timer = window.setInterval(refresh, 1000);
-});
+  async function togglePreview() {
+    const next = !state.previewEnabled;
+    try {
+      const response = await fetch('/api/camera/preview_state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: next }),
+      });
+      const payload = await response.json();
+      state.previewEnabled = Boolean(payload.enabled);
+      updateToggleButton();
+      if (!state.previewEnabled) {
+        const img = document.getElementById('videoFeed');
+        if (img) img.removeAttribute('src');
+      }
+      await fetchStatus();
+    } catch (error) {
+      setBanner(`Failed to change preview state: ${error}`, 'danger');
+    }
+  }
+
+  function startPolling() {
+    fetchStatus();
+    refreshFrame();
+    state.statusTimer = window.setInterval(fetchStatus, 1000);
+    state.frameTimer = window.setInterval(refreshFrame, 200);
+  }
+
+  document.getElementById('previewToggleBtn')?.addEventListener('click', togglePreview);
+  updateToggleButton();
+  startPolling();
+})();
