@@ -133,7 +133,7 @@ CustomDrive/config/run_settings.json
 
 ## Launch mode 2: GUI
 
-GUI mode starts the browser monitor.
+GUI mode now starts a fresh PiServer-style **GUI control page**.
 
 ```bash
 cd CustomDrive
@@ -146,22 +146,18 @@ Compatibility launcher:
 python run_custom_drive_web.py
 ```
 
-Optional override:
-
-```bash
-python run_custom_drive_gui.py --mode sim
-```
-
 Then open `http://localhost:5050`.
 
-The GUI shows:
+The GUI now shows:
 
-- mission state and drive telemetry
-- detection overlays
-- live JPEG camera preview in `live` mode
-- robot action logs
-- a **Saved Run Settings** panel that edits the shared run settings file
-- a **Debug Trace** panel for state transitions, retries, camera/runtime warnings, and fallback notes
+- a live PiServer camera preview
+- a full-width status strip
+- a right-side manual drive drag pad
+- real manual motor output through PiServer `ControlService` in `manual` mode
+- a top overlay **Style settings** window instead of a separate page
+- runtime controls for max throttle, steer mix, and steer bias
+
+This GUI is intentionally a clean control workspace first. It does not switch modes inside the page.
 
 ## Saved run settings
 

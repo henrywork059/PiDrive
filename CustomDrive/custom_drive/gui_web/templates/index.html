@@ -7,80 +7,170 @@
   <script src="{{ url_for('static', filename='theme.js') }}?v={{ app_version }}"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v={{ app_version }}" />
 </head>
-<body>
-  <header class="topbar">
+<body data-page="manual">
+  <header class="topbar compact-topbar">
     <div class="brand">
       <div class="brand-title">CustomDrive</div>
       <div class="brand-subtitle">GUI control workspace</div>
     </div>
 
     <div class="toolbar-actions">
-      <a class="ghost-btn link-btn" href="/settings">Style settings</a>
       <button class="ghost-btn" id="previewToggleBtn" type="button" aria-pressed="true">Preview ON</button>
+      <button class="ghost-btn" id="saveRuntimeBtn" type="button">Save runtime</button>
+      <button class="ghost-btn" id="openStyleSettingsBtn" type="button">Style settings</button>
+      <button class="danger-btn" id="estopBtn" type="button" aria-pressed="false">E-stop OFF</button>
     </div>
   </header>
 
   <main class="workspace-shell single-page-shell">
-    <section class="workspace-grid single-page-grid">
-      <article class="dock-panel panel-status-strip" data-panel="status">
-        <div class="panel-head compact-head">
+    <section class="workspace-grid customdrive-grid">
+      <article class="dock-panel panel-status-strip custom-status-panel" data-panel="status">
+        <div class="panel-head compact-head panel-head-no-drag">
           <span>Status</span>
           <span class="panel-mini">live</span>
         </div>
-        <div class="panel-body status-body slim-status-body">
-          <div class="metric-grid status-metric-grid slim-metric-grid">
-            <div class="metric-card metric-card-primary"><label>GUI</label><strong id="metricGui">ready</strong></div>
-            <div class="metric-card metric-card-primary"><label>Camera</label><strong id="metricCamera">unknown</strong></div>
-            <div class="metric-card"><label>Preview</label><strong id="metricPreview">off</strong></div>
-            <div class="metric-card"><label>Backend</label><strong id="metricBackend">unknown</strong></div>
+        <div class="panel-body status-body compact-status-body">
+          <div class="metric-grid status-metric-grid compact-status-grid">
+            <div class="metric-card metric-card-primary"><label>Drive</label><strong id="metricDrive">ready</strong></div>
+            <div class="metric-card"><label>Applied</label><strong id="metricApplied">S 0.00 · T 0.00</strong></div>
+            <div class="metric-card"><label>Target</label><strong id="metricTarget">S 0.00 · T 0.00</strong></div>
+            <div class="metric-card"><label>Motor</label><strong id="metricMotor">L 0.00 · R 0.00</strong></div>
+            <div class="metric-card"><label>Camera</label><strong id="metricCamera">waiting</strong></div>
+            <div class="metric-card"><label>FPS</label><strong id="metricFps">0.0</strong></div>
             <div class="metric-card"><label>Resolution</label><strong id="metricResolution">0 × 0</strong></div>
+            <div class="metric-card"><label>Backend</label><strong id="metricBackend">unknown</strong></div>
+            <div class="metric-card"><label>Preview</label><strong id="metricPreview">enabled</strong></div>
             <div class="metric-card metric-card-alert"><label>Error</label><strong id="metricError">none</strong></div>
           </div>
           <div id="statusBanner" class="banner muted">Loading GUI status…</div>
         </div>
       </article>
 
-      <article class="dock-panel viewer-panel" data-panel="viewer">
-        <div class="panel-head">
+      <article class="dock-panel viewer-panel custom-viewer-panel" data-panel="viewer">
+        <div class="panel-head panel-head-no-drag">
           <span>Camera live</span>
           <span class="panel-mini">PiServer camera</span>
         </div>
         <div class="panel-body viewer-body viewer-body-large">
-          <div class="viewer-frame large-viewer-frame">
-            <img id="videoFeed" src="" alt="CustomDrive live camera" />
-            <div id="cameraPreviewMeta" class="preview-meta">Waiting for live camera…</div>
+          <div class="viewer-frame large-viewer-frame camera-frame-shell">
+            <img id="videoFeed" src="/video_feed?t={{ app_version }}" alt="CustomDrive live camera" />
+            <div id="cameraPreviewMeta" class="preview-meta">Connecting to live camera…</div>
           </div>
         </div>
       </article>
 
-      <article class="dock-panel placeholder-panel" data-panel="drive">
-        <div class="panel-head">
-          <span>Drive control</span>
-          <span class="panel-mini">empty</span>
+      <article class="dock-panel custom-drive-panel" data-panel="drive">
+        <div class="panel-head panel-head-no-drag">
+          <span>Manual drive</span>
+          <span class="panel-mini">real motor path</span>
         </div>
-        <div class="panel-body placeholder-body">
-          <div class="placeholder-block">
-            <h3>Empty control panel</h3>
-            <p>This new GUI starts as a clean PiServer-style shell.</p>
-            <p>Live camera is already wired in. Drive controls can be added here next.</p>
+        <div class="panel-body manual-shell">
+          <div class="manual-layout-single custom-manual-layout">
+            <div class="manual-pad-card">
+              <div id="joystickArea" class="joystick-area" tabindex="0" aria-label="Manual drive drag pad">
+                <div class="joystick-crosshair"></div>
+                <div id="joystickDot" class="joystick-dot"></div>
+              </div>
+              <div class="manual-readout value-text" id="joystickText">Steering 0.00 · Throttle 0.00</div>
+              <div class="small-note">Drag inside the pad. Release to stop.</div>
+            </div>
+
+            <div class="manual-side-single control-stack">
+              <div class="field-range-grid">
+                <div class="field">
+                  <label for="maxThrottleInput">Max throttle</label>
+                  <input id="maxThrottleInput" type="range" min="0.10" max="1.00" step="0.01" value="0.55" />
+                  <div class="small-note" id="maxThrottleValue">0.55</div>
+                </div>
+                <div class="field">
+                  <label for="steerMixInput">Steer mix</label>
+                  <input id="steerMixInput" type="range" min="0.00" max="1.00" step="0.01" value="0.50" />
+                  <div class="small-note" id="steerMixValue">0.50</div>
+                </div>
+              </div>
+
+              <div class="field">
+                <label for="steerBiasInput">Steer bias</label>
+                <input id="steerBiasInput" type="range" min="-0.50" max="0.50" step="0.01" value="0.00" />
+                <div class="small-note" id="steerBiasValue">0.00</div>
+              </div>
+
+              <div class="stack-row">
+                <button type="button" class="ghost-btn" id="centerPadBtn">Center</button>
+                <button type="button" class="ghost-btn" id="stopDriveBtn">Stop drive</button>
+              </div>
+            </div>
           </div>
         </div>
       </article>
 
-      <article class="dock-panel placeholder-panel" data-panel="system">
-        <div class="panel-head">
+      <article class="dock-panel custom-system-panel" data-panel="system">
+        <div class="panel-head panel-head-no-drag">
           <span>System</span>
-          <span class="panel-mini">empty</span>
+          <span class="panel-mini">debug</span>
         </div>
-        <div class="panel-body placeholder-body">
-          <div class="placeholder-block">
-            <h3>Empty system panel</h3>
-            <p>Reserved for runtime, debug, motor, and arm controls.</p>
+        <div class="panel-body system-panel-body">
+          <div class="metric-grid metric-grid-secondary system-grid">
+            <div class="metric-card"><label>Algorithm</label><strong id="metricAlgorithm">manual</strong></div>
+            <div class="metric-card"><label>GPIO</label><strong id="metricGpio">unknown</strong></div>
+            <div class="metric-card"><label>Preview live</label><strong id="metricPreviewLive">unknown</strong></div>
+            <div class="metric-card"><label>Updated</label><strong id="metricUpdated">--</strong></div>
           </div>
+          <div class="banner muted" id="systemNote">This GUI uses PiServer ControlService in manual mode.</div>
         </div>
       </article>
     </section>
   </main>
+
+  <div id="styleSettingsModal" class="style-modal hidden" aria-hidden="true">
+    <div class="style-modal-backdrop" data-close-style-modal="true"></div>
+    <div class="style-modal-card">
+      <div class="style-modal-head">
+        <div>
+          <h2>Style settings</h2>
+          <div class="small-note">PiServer-style theme controls in an overlay window.</div>
+        </div>
+        <button class="ghost-btn" id="closeStyleSettingsBtn" type="button">Close</button>
+      </div>
+
+      <div class="style-modal-body compact-style-modal-body">
+        <section class="style-settings-section">
+          <div class="style-settings-section-head">
+            <h3>Palette</h3>
+          </div>
+          <div class="style-settings-grid compact-style-grid">
+            <div class="style-setting-row"><label for="styleAccent">Accent</label><input id="styleAccent" type="color" /></div>
+            <div class="style-setting-row"><label for="stylePanel">Panel</label><input id="stylePanel" type="color" /></div>
+            <div class="style-setting-row"><label for="stylePanelAlt">Panel alt</label><input id="stylePanelAlt" type="color" /></div>
+            <div class="style-setting-row"><label for="styleText">Text</label><input id="styleText" type="color" /></div>
+            <div class="style-setting-row"><label for="styleMuted">Muted</label><input id="styleMuted" type="color" /></div>
+          </div>
+        </section>
+
+        <section class="style-settings-section style-settings-section-scroll">
+          <div class="style-settings-section-head">
+            <h3>Spacing and shape</h3>
+            <div class="small-note">Scroll to view all controls</div>
+          </div>
+          <div class="style-settings-scroll">
+            <div class="style-setting-row style-setting-row-range"><label for="styleFontScale">Font size (%)</label><input id="styleFontScale" type="range" min="70" max="115" step="1" /><span id="styleFontScaleValue" class="style-setting-value"></span></div>
+            <div class="style-setting-row style-setting-row-range"><label for="styleWorkspacePad">Outer margin</label><input id="styleWorkspacePad" type="range" min="0" max="28" step="1" /><span id="styleWorkspacePadValue" class="style-setting-value"></span></div>
+            <div class="style-setting-row style-setting-row-range"><label for="styleGap">Panel gap</label><input id="styleGap" type="range" min="0" max="20" step="1" /><span id="styleGapValue" class="style-setting-value"></span></div>
+            <div class="style-setting-row style-setting-row-range"><label for="styleRadius">Panel radius</label><input id="styleRadius" type="range" min="0" max="28" step="1" /><span id="styleRadiusValue" class="style-setting-value"></span></div>
+            <div class="style-setting-row style-setting-row-range"><label for="stylePanelPad">Panel body padding</label><input id="stylePanelPad" type="range" min="6" max="28" step="1" /><span id="stylePanelPadValue" class="style-setting-value"></span></div>
+            <div class="style-setting-row style-setting-row-range"><label for="styleHeaderPadY">Panel header padding</label><input id="styleHeaderPadY" type="range" min="4" max="24" step="1" /><span id="styleHeaderPadYValue" class="style-setting-value"></span></div>
+            <div class="style-setting-row style-setting-row-range"><label for="styleCardGap">Card spacing</label><input id="styleCardGap" type="range" min="0" max="24" step="1" /><span id="styleCardGapValue" class="style-setting-value"></span></div>
+            <div class="style-setting-row style-setting-row-range"><label for="styleFieldGap">Field spacing</label><input id="styleFieldGap" type="range" min="0" max="24" step="1" /><span id="styleFieldGapValue" class="style-setting-value"></span></div>
+          </div>
+        </section>
+      </div>
+
+      <div class="style-modal-foot">
+        <button class="ghost-btn" id="resetStyleSettingsBtn" type="button">Reset style</button>
+        <button class="ghost-btn" id="saveStyleSettingsBtn" type="button">Save style</button>
+      </div>
+    </div>
+  </div>
 
   <script src="{{ url_for('static', filename='app.js') }}?v={{ app_version }}"></script>
 </body>
