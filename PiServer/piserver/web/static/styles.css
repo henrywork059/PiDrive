@@ -3335,3 +3335,212 @@ html.theme-ops-flat .panel-head > span:first-child {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* 0_4_4 style override hardening + dense status layout */
+body {
+  background: var(--bg) !important;
+  color: var(--text) !important;
+}
+
+.topbar,
+.style-modal-card,
+.style-settings-section,
+.style-preview-surface,
+.style-preview-panel {
+  background: var(--panel) !important;
+  color: var(--text) !important;
+}
+
+.topbar,
+.dock-panel,
+.style-modal-card,
+.style-settings-section,
+.style-preview-surface,
+.style-preview-panel,
+.style-preview-toolbar {
+  border-color: var(--line-strong) !important;
+}
+
+.dock-panel,
+.style-modal-card,
+.style-settings-section,
+.style-preview-surface,
+.style-preview-panel {
+  border-radius: var(--radius) !important;
+}
+
+.panel-head,
+.style-modal-head,
+.style-modal-foot,
+.style-settings-section-head {
+  background: rgba(255, 255, 255, 0.025) !important;
+  border-color: var(--line) !important;
+}
+
+.metric-card,
+.metric-card-primary,
+.metric-card-alert,
+.metric-card-action,
+.record-meta-card,
+.export-card,
+.banner,
+.manual-readout,
+.panel-section,
+.camera-overlay-panel,
+.overlay-two-pill,
+.compact-field,
+.style-preview-banner {
+  background: var(--panel-alt) !important;
+  border-color: var(--line) !important;
+  border-radius: var(--card-radius) !important;
+  color: var(--text) !important;
+}
+
+button,
+select,
+input[type=file],
+input[type=number],
+input[type=color] {
+  background: var(--panel-alt) !important;
+  border-color: var(--line-strong) !important;
+  border-radius: var(--control-radius) !important;
+  color: var(--text) !important;
+}
+
+button:hover,
+.ghost-btn:hover {
+  border-color: rgba(var(--accent-rgb), 0.44) !important;
+}
+
+button.active,
+.tab-btn.active {
+  background: var(--accent) !important;
+  border-color: rgba(var(--accent-rgb), 0.62) !important;
+}
+
+.danger-btn {
+  background: var(--danger) !important;
+  border-color: rgba(193, 102, 90, 0.56) !important;
+}
+
+.metric-card label,
+.metric-card-action-label,
+.metric-card-action-note,
+.field label,
+.record-meta-card label,
+.overlay-block-label,
+.panel-mini,
+.brand-subtitle,
+.small-note,
+.value-text,
+.preview-meta,
+.banner,
+.style-modal-subtitle,
+.style-setting-value,
+.style-setting-row label,
+.style-settings-section-head .small-note {
+  color: var(--muted) !important;
+}
+
+.overlay-toggle .metric-card-action-value,
+.record-toggle.active .record-toggle-title,
+.capture-once-btn:hover .capture-once-title,
+.estop-toggle.on .estop-toggle-title,
+.badge.off,
+.badge.on {
+  color: var(--text) !important;
+}
+
+.status-body {
+  min-height: 0;
+}
+
+.dock-panel[data-panel="status"] .status-body {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: clamp(6px, calc(var(--card-gap) * 0.7), 14px);
+  overflow: hidden;
+}
+
+.dock-panel[data-panel="status"] .status-metric-grid {
+  min-height: 0;
+  overflow: auto;
+  align-content: start;
+  grid-auto-flow: row dense;
+  grid-template-columns: repeat(auto-fit, minmax(min(6.35rem, 100%), 1fr));
+  gap: clamp(4px, calc(var(--card-gap) * 0.72), 14px);
+  padding-right: 2px;
+  scrollbar-gutter: stable;
+}
+
+.dock-panel[data-panel="status"] .metric-card,
+.dock-panel[data-panel="status"] .metric-card-primary,
+.dock-panel[data-panel="status"] .metric-card-action {
+  min-height: 0;
+}
+
+.dock-panel[data-panel="status"] .metric-card-action {
+  display: flex !important;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+.dock-panel[data-panel="status"] #statusBanner {
+  margin-top: 0;
+}
+
+.style-preview-status-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(5.8rem, 100%), 1fr));
+}
+
+@container (max-width: 28rem) {
+  .dock-panel[data-panel="status"] .priority-low,
+  .dock-panel[data-panel="status"] .priority-medium {
+    display: block !important;
+  }
+
+  .dock-panel[data-panel="status"] .metric-card-action {
+    display: flex !important;
+  }
+
+  .dock-panel[data-panel="status"] .metric-card,
+  .dock-panel[data-panel="status"] .metric-card-primary,
+  .dock-panel[data-panel="status"] .metric-card-action {
+    padding: max(5px, calc(var(--panel-pad) * 0.54)) max(6px, calc(var(--panel-pad) * 0.6)) !important;
+  }
+
+  .dock-panel[data-panel="status"] .metric-card label,
+  .dock-panel[data-panel="status"] .metric-card-action-label,
+  .dock-panel[data-panel="status"] .metric-card-action-note {
+    font-size: clamp(0.54rem, calc(0.66rem * var(--font-scale-factor)), 0.72rem) !important;
+    margin-bottom: 2px;
+  }
+
+  .dock-panel[data-panel="status"] .metric-card strong,
+  .dock-panel[data-panel="status"] .metric-card-action-value {
+    font-size: clamp(0.72rem, calc(0.88rem * var(--font-scale-factor)), 0.94rem) !important;
+    line-height: 1.14;
+  }
+
+  .dock-panel[data-panel="status"] .status-metric-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(5.35rem, 100%), 1fr));
+  }
+}
+
+@container (max-width: 22rem) {
+  .dock-panel[data-panel="status"] .priority-low,
+  .dock-panel[data-panel="status"] .priority-medium {
+    display: block !important;
+  }
+
+  .dock-panel[data-panel="status"] .status-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container (max-width: 15rem) {
+  .dock-panel[data-panel="status"] .status-metric-grid {
+    grid-template-columns: 1fr;
+  }
+}
