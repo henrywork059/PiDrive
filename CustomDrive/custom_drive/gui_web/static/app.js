@@ -62,6 +62,13 @@ function setText(id, value) {
   if (el) el.textContent = value;
 }
 
+function syncEstopToggle(enabled) {
+  const toggle = document.getElementById('estopToggle');
+  const row = document.querySelector('.danger-toggle');
+  if (toggle) toggle.checked = Boolean(enabled);
+  if (row) row.classList.toggle('active', Boolean(enabled));
+}
+
 function setBanner(id, message, kind = 'muted') {
   const el = document.getElementById(id);
   if (!el) return;
@@ -261,6 +268,8 @@ function updateStatusUi(data) {
   setText('systemMotorDir', `${data.motor_left_direction ?? 1} / ${data.motor_right_direction ?? 1} / ${data.motor_steering_direction ?? 1}`);
   setBanner('statusBanner', data.system_message || 'Ready.', data.safety_stop ? 'warn' : 'muted');
   setBanner('systemMessage', data.last_error ? `Last error: ${data.last_error}` : (data.system_message || 'System ready.'), data.last_error ? 'warn' : 'muted');
+  state.estopEnabled = Boolean(data.safety_stop);
+  syncEstopToggle(state.estopEnabled);
   const runBadge = document.getElementById('runBadge');
   if (runBadge) {
     runBadge.textContent = data.safety_stop ? 'E-STOP' : 'MANUAL';
@@ -329,12 +338,14 @@ async function togglePreview() {
 }
 
 async function setEstop(enabled) {
+  syncEstopToggle(enabled);
   try {
     await postJson('/api/system/estop', { enabled });
     state.estopEnabled = enabled;
     if (enabled) releaseDrivePad();
     await pollStatus();
   } catch (error) {
+    syncEstopToggle(state.estopEnabled);
     setBanner('systemMessage', error.message || 'E-stop failed.', 'warn');
   }
 }
@@ -436,8 +447,7 @@ function setupArmControls() {
 
 function setupSystemActions() {
   document.getElementById('previewToggleBtn').addEventListener('click', togglePreview);
-  document.getElementById('estopBtn').addEventListener('click', () => setEstop(true));
-  document.getElementById('clearEstopBtn').addEventListener('click', () => setEstop(false));
+  document.getElementById('estopToggle').addEventListener('change', (event) => setEstop(event.target.checked));
   const video = document.getElementById('videoFeed');
   video.addEventListener('error', () => {
     document.getElementById('viewerFallback').classList.remove('hidden');

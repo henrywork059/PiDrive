@@ -22,7 +22,7 @@ from piserver.services.motor_service import MotorService  # noqa: E402
 from piserver.services.recorder_service import RecorderService  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent / 'gui_web'
-APP_VERSION = '0_1_16'
+APP_VERSION = '0_1_19'
 
 
 def _mjpeg_generator(camera_service: CameraService):

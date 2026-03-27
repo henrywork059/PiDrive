@@ -48,8 +48,13 @@
           </div>
           <div class="status-system-actions">
             <button id="previewToggleBtn" class="ghost-btn" type="button">Toggle Preview</button>
-            <button id="estopBtn" class="danger-btn" type="button">E-Stop</button>
-            <button id="clearEstopBtn" class="ghost-btn" type="button">Clear E-Stop</button>
+            <label class="toggle-row danger-toggle" for="estopToggle">
+              <span class="toggle-label-text">E-Stop</span>
+              <span class="toggle-switch-wrap">
+                <input id="estopToggle" class="toggle-input" type="checkbox" />
+                <span class="toggle-switch" aria-hidden="true"></span>
+              </span>
+            </label>
           </div>
           <div class="status-banner-stack">
             <div id="statusBanner" class="banner muted compact-banner">Ready.</div>
