@@ -8,6 +8,8 @@ from custom_drive.run_settings import load_run_settings
 from custom_drive.runtime_factory import create_runtime
 
 
+# Canonical headless launcher for the current CustomDrive flow.
+# Other run_*.py scripts in this project are utility/demo entry points.
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description='Run CustomDrive in headless mode without GUI.')
