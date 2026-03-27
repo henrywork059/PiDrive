@@ -98,7 +98,7 @@ button:hover { border-color: var(--accent); }
     "arm viewer drive";
 }
 .panel-status { grid-area: status; }
-.panel-arm { grid-area: arm; min-height: 540px; background: linear-gradient(180deg, rgba(77, 93, 160, 0.18), rgba(77, 93, 160, 0.06)), var(--panel); border-color: rgba(125, 148, 255, 0.32); }
+.panel-arm { grid-area: arm; min-height: 540px; background: var(--panel); border-color: var(--line); }
 .panel-viewer { grid-area: viewer; }
 .panel-drive { grid-area: drive; }
 .dock-panel {
@@ -231,29 +231,30 @@ button:hover { border-color: var(--accent); }
 .small-note, .pad-note { margin-top: 10px; }
 
 .panel-arm .panel-head {
-  background: rgba(125, 148, 255, 0.12);
-  border-bottom-color: rgba(125, 148, 255, 0.26);
+  background: rgba(255,255,255,0.02);
+  border-bottom-color: var(--line);
 }
 .panel-arm .panel-mini {
-  color: rgba(214, 221, 255, 0.85);
+  color: var(--muted);
 }
 .panel-arm .small-note {
-  color: rgba(214, 221, 255, 0.8);
+  color: var(--muted);
 }
 .panel-arm .banner {
-  background: rgba(125, 148, 255, 0.08);
-  border-color: rgba(125, 148, 255, 0.22);
+  background: rgba(255,255,255,0.03);
+  border-color: rgba(255,255,255,0.06);
 }
 .panel-arm .arm-btn {
-  background: linear-gradient(180deg, rgba(102, 121, 205, 0.92), rgba(78, 95, 170, 0.92));
-  border-color: rgba(177, 190, 255, 0.28);
-  color: #f7f8ff;
+  background: linear-gradient(180deg, rgba(var(--accent-rgb), 0.18), rgba(var(--accent-rgb), 0.08)), var(--panel-alt);
+  border-color: rgba(var(--accent-rgb), 0.28);
+  color: var(--text);
 }
 .panel-arm .arm-btn.secondary-btn {
-  background: linear-gradient(180deg, rgba(85, 103, 176, 0.88), rgba(67, 81, 140, 0.88));
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.08);
 }
 .panel-arm .arm-btn:hover {
-  border-color: rgba(220, 226, 255, 0.48);
+  border-color: var(--accent);
 }
 .toggle-row {
   min-height: 38px;
