@@ -38,6 +38,24 @@ Use these as the canonical startup scripts when checking docs:
 - `CustomTrainer/run_custom_trainer.py`
 - `CustomDrive/run_custom_drive_demo.py`
 
+## Current code status map (important for maintenance)
+
+### Active projects (current version)
+
+- `PiServer/`
+- `piTrainer/`
+- `CustomTrainer/`
+- `CustomDrive/`
+- `piCar_0_3_2/` (legacy-compatible runtime, still intentionally shipped)
+
+### Non-active / reference only
+
+- `PiServer_0_3_4/`
+- `PiServer_0_4_1/`
+- repository-root timestamped `*.zip` snapshots
+
+When updating docs, explicitly label these as archive/reference assets so readers do not mistake them for current deployment targets.
+
 ## Maintenance workflow (recommended)
 
 1. **Read top-level docs first**
@@ -87,6 +105,8 @@ When editing docs:
 - README quick-start commands still match real scripts.
 - Mentioned config files still exist.
 - Patch notes are treated as historical records unless specifically asked to revise.
+- Archive/reference folders are clearly marked as non-active.
+- Utility launchers are not presented as primary entry points unless they are part of the current production flow.
 
 ## Risk notes
 
@@ -106,6 +126,9 @@ rg --files | rg -i 'readme|instructions|main.py|server.py|run_'
 
 # optional Python syntax smoke check (if dependencies are not required)
 python -m compileall PiServer piTrainer CustomTrainer CustomDrive
+
+# detect likely non-active files/folders to document explicitly
+rg --files | rg '(^PiServer_0_|\\.zip$)'
 ```
 
 ## Commit and PR expectations

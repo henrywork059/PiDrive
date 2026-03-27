@@ -9,6 +9,25 @@ PiDrive is a single repository that contains multiple PiCar-related apps and uti
 - **`piTrainer/`** — PySide6 desktop app for steering/throttle dataset curation and model training/export.
 - **`CustomTrainer/`** — PySide6 YOLO labeling/training/validation/export workflow with Pi runtime helpers.
 - **`CustomDrive/`** — mission-controller scaffold for autonomous competition-style routines (sim + live modes).
+- **`PiServer_0_3_4/` and `PiServer_0_4_1/`** — historical snapshot folders kept for reference; not part of the active runtime.
+
+## Current active vs. non-active code
+
+### Active (current version)
+
+- `PiServer/`
+- `piTrainer/`
+- `CustomTrainer/`
+- `CustomDrive/`
+- `piCar_0_3_2/` (legacy but still runnable and intentionally retained)
+
+### Not in active runtime path (reference/archive)
+
+- `PiServer_0_3_4/`
+- `PiServer_0_4_1/`
+- top-level `*.zip` snapshot files
+
+These non-active artifacts are useful for historical comparison, but they should not be used as launch targets for day-to-day development or deployment.
 
 ## Repository layout
 
@@ -84,6 +103,8 @@ python run_custom_trainer.py
 cd CustomDrive
 python run_custom_drive_demo.py
 ```
+
+`run_custom_drive_demo.py` is the canonical headless entry point. Other `run_*.py` files under `CustomDrive/` are utility launchers for specific testing or UI modes.
 
 ## Documentation index
 
