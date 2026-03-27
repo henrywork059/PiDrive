@@ -40,6 +40,13 @@ DEFAULT_MANUAL_CONTROL_CONFIG: dict[str, Any] = {
         'grip_hold_angle': 70,
         'grip_release_angle': 130,
     },
+    'ai': {
+        'deployed_model': 'none',
+        'overlay_enabled': True,
+        'confidence_threshold': 0.25,
+        'iou_threshold': 0.45,
+        'max_overlay_fps': 6.0,
+    },
     'competition': {
         'current_session': 'session_1',
         'sessions': {
@@ -122,6 +129,18 @@ def normalize_manual_control_config(data: dict[str, Any] | None) -> dict[str, An
         'lift_step_interval_s': round(clamp_float(arm.get('lift_step_interval_s', 0.1), 0.1, 0.02, 1.0), 3),
         'grip_hold_angle': clamp_int(arm.get('grip_hold_angle', 70), 70, 0, 180),
         'grip_release_angle': clamp_int(arm.get('grip_release_angle', 130), 130, 0, 180),
+    }
+
+    ai = merged.get('ai') or {}
+    deployed_model = str(ai.get('deployed_model', 'none') or 'none').strip() or 'none'
+    if deployed_model != 'none' and not deployed_model.lower().endswith('.tflite'):
+        deployed_model = 'none'
+    merged['ai'] = {
+        'deployed_model': deployed_model,
+        'overlay_enabled': bool(ai.get('overlay_enabled', True)),
+        'confidence_threshold': round(clamp_float(ai.get('confidence_threshold', 0.25), 0.25, 0.01, 0.99), 3),
+        'iou_threshold': round(clamp_float(ai.get('iou_threshold', 0.45), 0.45, 0.01, 0.99), 3),
+        'max_overlay_fps': round(clamp_float(ai.get('max_overlay_fps', 6.0), 6.0, 0.5, 30.0), 2),
     }
 
     competition = merged.get('competition') or {}

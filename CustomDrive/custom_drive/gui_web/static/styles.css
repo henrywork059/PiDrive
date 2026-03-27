@@ -394,7 +394,7 @@ button:hover { border-color: var(--accent); }
   letter-spacing: 0.05em;
   margin-bottom: 8px;
 }
-input[type='text'], input[type='number'], select, textarea, input[type='color'] {
+input[type='text'], input[type='number'], select, textarea, input[type='color'], input[type='file'] {
   width: 100%;
   min-height: 40px;
   border-radius: var(--control-radius);
@@ -429,6 +429,16 @@ input[type='range'] {
 }
 .modal-body { padding-bottom: 16px; }
 .panel-actions { margin-top: 14px; }
+
+.modal-actions-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--field-gap);
+}
+
+#aiModelSelect {
+  font-family: inherit;
+}
 
 @media (max-width: 1400px) {
   .panel-arm { min-height: 480px; }

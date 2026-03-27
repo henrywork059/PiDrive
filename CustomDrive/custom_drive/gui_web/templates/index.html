@@ -17,6 +17,7 @@
     <div class="toolbar-actions">
       <div id="runBadge" class="badge off">manual</div>
       <button class="ghost-btn" id="openDriveSettingsBtn" type="button">Drive Settings</button>
+      <button class="ghost-btn" id="openAiSettingsBtn" type="button">AI Settings</button>
       <button class="ghost-btn" id="openStyleSettingsBtn" type="button">Style Settings</button>
     </div>
   </header>
@@ -36,6 +37,7 @@
             <div class="metric-card"><label>Camera</label><strong id="metricCamera">unknown</strong></div>
             <div class="metric-card"><label>Preview</label><strong id="metricPreview">offline</strong></div>
             <div class="metric-card"><label>Arm</label><strong id="metricArm">idle</strong></div>
+            <div class="metric-card"><label>AI</label><strong id="metricAi">off</strong></div>
             <div class="metric-card"><label>Mode</label><strong>manual</strong></div>
             <div class="metric-card"><label>Max</label><strong id="metricMaxThrottle">0.55</strong></div>
             <div class="metric-card"><label>Mix</label><strong id="metricSteerMix">0.50</strong></div>
@@ -171,6 +173,51 @@
           <button id="saveDriveSettingsBtn" type="button">Save Drive Settings</button>
         </div>
         <div id="driveSettingsMessage" class="banner muted">Drive settings ready.</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="aiSettingsModal" class="modal-backdrop hidden" aria-hidden="true">
+    <div class="modal-window">
+      <div class="panel-head">
+        <span>AI Settings</span>
+        <button class="ghost-btn" id="closeAiSettingsBtn" type="button">Close</button>
+      </div>
+      <div class="panel-body scroll-body modal-body">
+        <div class="field-grid two-col compact-grid">
+          <div class="field field-wide">
+            <label for="aiUploadFiles">Upload model files</label>
+            <input id="aiUploadFiles" type="file" multiple accept=".tflite,.txt,.json" />
+            <div class="small-note">Upload the detector `.tflite` file. Optional `.txt` labels and `.json` config files should use the same filename stem.</div>
+          </div>
+          <div class="field field-wide">
+            <label for="aiModelSelect">Select model</label>
+            <select id="aiModelSelect"></select>
+          </div>
+          <div class="field">
+            <label for="aiConfidenceThreshold">Confidence</label>
+            <input id="aiConfidenceThreshold" type="number" min="0.01" max="0.99" step="0.01" value="0.25" />
+          </div>
+          <div class="field">
+            <label for="aiIouThreshold">IoU</label>
+            <input id="aiIouThreshold" type="number" min="0.01" max="0.99" step="0.01" value="0.45" />
+          </div>
+          <div class="field">
+            <label for="aiOverlayEnabled">Overlay</label>
+            <select id="aiOverlayEnabled"><option value="true">Enabled</option><option value="false">Disabled</option></select>
+          </div>
+          <div class="field">
+            <label for="aiOverlayFps">Overlay FPS</label>
+            <input id="aiOverlayFps" type="number" min="0.5" max="30" step="0.5" value="6.0" />
+          </div>
+        </div>
+        <div class="stack-row panel-actions modal-actions-wrap">
+          <button id="refreshAiModelsBtn" class="secondary-btn" type="button">Refresh Models</button>
+          <button id="uploadAiFilesBtn" class="secondary-btn" type="button">Upload Files</button>
+          <button id="deleteAiModelBtn" class="danger-btn" type="button">Delete Model</button>
+          <button id="deployAiModelBtn" type="button">Deploy Model</button>
+        </div>
+        <div id="aiSettingsMessage" class="banner muted">Object detection settings ready.</div>
       </div>
     </div>
   </div>

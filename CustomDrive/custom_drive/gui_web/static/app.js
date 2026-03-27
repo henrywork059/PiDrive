@@ -29,6 +29,8 @@ const state = {
   lastSentThrottle: 0,
   estopEnabled: false,
   driveSettingsLoaded: false,
+  aiSettingsLoaded: false,
+  aiModels: [],
 };
 
 function clamp(value, min, max) {
@@ -245,24 +247,62 @@ function populateDriveSettings(status) {
   syncManualReadout();
 }
 
+function populateAiSettings(status) {
+  const ai = status.ai_status || {};
+  document.getElementById('aiConfidenceThreshold').value = Number(ai.confidence_threshold ?? 0.25).toFixed(2);
+  document.getElementById('aiIouThreshold').value = Number(ai.iou_threshold ?? 0.45).toFixed(2);
+  document.getElementById('aiOverlayEnabled').value = ai.overlay_enabled === false ? 'false' : 'true';
+  document.getElementById('aiOverlayFps').value = Number(ai.max_overlay_fps ?? 6.0).toFixed(1);
+  state.aiModels = ai.models || [];
+  renderAiModelOptions(ai.active_model || 'none');
+  state.aiSettingsLoaded = true;
+}
+
+function renderAiModelOptions(selectedName = 'none') {
+  const select = document.getElementById('aiModelSelect');
+  if (!select) return;
+  const models = state.aiModels || [];
+  select.innerHTML = '';
+  if (!models.length) {
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = 'No models uploaded';
+    select.appendChild(opt);
+    return;
+  }
+  models.forEach((model) => {
+    const opt = document.createElement('option');
+    opt.value = model.name;
+    const tags = [];
+    if (model.has_labels) tags.push('labels');
+    if (model.has_config) tags.push('config');
+    if (model.active) tags.push('active');
+    opt.textContent = tags.length ? `${model.name} [${tags.join(', ')}]` : model.name;
+    if (model.name === selectedName) opt.selected = true;
+    select.appendChild(opt);
+  });
+}
+
 function updateStatusUi(data) {
   const cameraLive = Boolean(data.camera_preview_live ?? data.camera_config?.preview_enabled ?? true);
   state.previewEnabled = cameraLive;
   const previewText = cameraLive ? 'live' : 'paused';
   const driveState = data.safety_stop ? 'E-stop active' : 'Manual ready';
+  const aiStatus = data.ai_status || {};
   setText('metricDriveState', driveState);
   setText('metricApplied', `S ${fmt(data.applied_steering)} · T ${fmt(data.applied_throttle)}`);
   setText('metricManual', `S ${fmt(state.manualSteering)} · T ${fmt(state.manualThrottle)}`);
   setText('metricCamera', `${data.camera_backend || 'unknown'} · ${data.camera_width || 0}×${data.camera_height || 0}`);
   setText('metricPreview', previewText);
   setText('metricArm', data.arm_status?.last_action || 'idle');
+  setText('metricAi', aiStatus.ready ? (aiStatus.active_model || 'ready') : 'off');
   setText('metricMaxThrottle', fmt(data.max_throttle ?? state.maxThrottle));
   setText('metricSteerMix', fmt(data.steer_mix ?? state.steerMix));
   setText('metricSteerBias', fmt(data.steer_bias ?? state.steerBias));
   setText('metricWheels', `${fmt(data.motor_left)} / ${fmt(data.motor_right)}`);
   setText('metricFps', `${Number(data.fps || 0).toFixed(1)} FPS`);
   setText('statusMiniText', data.safety_stop ? 'estop' : 'manual');
-  setText('cameraPreviewMeta', cameraLive ? 'streaming' : 'paused');
+  setText('cameraPreviewMeta', aiStatus.ready && aiStatus.overlay_enabled ? 'streaming + AI overlay' : (cameraLive ? 'streaming' : 'paused'));
   setText('systemRuntimePath', data.runtime_config_path || 'runtime.json');
   setText('systemArmLift', `${Number(data.arm_status?.lift_angle || 0).toFixed(0)}°`);
   setText('systemMotorDir', `${data.motor_left_direction ?? 1} / ${data.motor_right_direction ?? 1} / ${data.motor_steering_direction ?? 1}`);
@@ -278,6 +318,7 @@ function updateStatusUi(data) {
   const armMessage = data.arm_status?.last_message || 'Arm ready.';
   setBanner('armMessage', armMessage, data.arm_status?.last_error ? 'warn' : 'muted');
   if (!state.driveSettingsLoaded) populateDriveSettings(data);
+  if (!state.aiSettingsLoaded) populateAiSettings(data);
 }
 
 async function pollStatus() {
@@ -425,6 +466,120 @@ function setupDriveSettings() {
   });
 }
 
+async function refreshAiModels(selectedName = null) {
+  try {
+    const data = await fetchJson('/api/ai/models');
+    state.aiModels = data.models || [];
+    const targetName = selectedName || data.ai_status?.active_model || 'none';
+    renderAiModelOptions(targetName);
+    if (!state.aiSettingsLoaded) populateAiSettings({ ai_status: data.ai_status });
+    return data;
+  } catch (error) {
+    setBanner('aiSettingsMessage', error.message || 'Could not refresh AI models.', 'warn');
+    throw error;
+  }
+}
+
+async function uploadAiFiles() {
+  const input = document.getElementById('aiUploadFiles');
+  const files = Array.from(input.files || []);
+  if (!files.length) {
+    setBanner('aiSettingsMessage', 'Choose at least one .tflite, .txt, or .json file first.', 'warn');
+    return;
+  }
+  const formData = new FormData();
+  files.forEach((file) => formData.append('files', file));
+  try {
+    const response = await fetch('/api/ai/upload', { method: 'POST', body: formData });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.message || 'Upload failed.');
+    setBanner('aiSettingsMessage', data.message || 'Files uploaded.', 'good');
+    input.value = '';
+    state.aiModels = data.models || [];
+    renderAiModelOptions();
+  } catch (error) {
+    setBanner('aiSettingsMessage', error.message || 'Upload failed.', 'warn');
+  }
+}
+
+async function deleteAiModel() {
+  const model = document.getElementById('aiModelSelect').value;
+  if (!model) {
+    setBanner('aiSettingsMessage', 'Select a model to delete.', 'warn');
+    return;
+  }
+  try {
+    const data = await postJson('/api/ai/delete', { model });
+    setBanner('aiSettingsMessage', data.message || 'Model deleted.', 'good');
+    state.aiModels = data.models || [];
+    renderAiModelOptions();
+    await pollStatus();
+  } catch (error) {
+    setBanner('aiSettingsMessage', error.message || 'Delete failed.', 'warn');
+  }
+}
+
+async function deployAiModel() {
+  const model = document.getElementById('aiModelSelect').value;
+  if (!model) {
+    setBanner('aiSettingsMessage', 'Select a model to deploy.', 'warn');
+    return;
+  }
+  try {
+    const data = await postJson('/api/ai/deploy', {
+      model,
+      confidence_threshold: Number(document.getElementById('aiConfidenceThreshold').value || 0.25),
+      iou_threshold: Number(document.getElementById('aiIouThreshold').value || 0.45),
+      overlay_enabled: document.getElementById('aiOverlayEnabled').value === 'true',
+      max_overlay_fps: Number(document.getElementById('aiOverlayFps').value || 6.0),
+    });
+    setBanner('aiSettingsMessage', data.message || 'Model deployed.', 'good');
+    state.aiSettingsLoaded = false;
+    const video = document.getElementById('videoFeed');
+    if (video) video.src = `/video_feed?ts=${Date.now()}`;
+    await pollStatus();
+    await refreshAiModels(model);
+  } catch (error) {
+    setBanner('aiSettingsMessage', error.message || 'Deploy failed.', 'warn');
+  }
+}
+
+async function saveAiConfigOnly() {
+  try {
+    const currentModel = document.getElementById('aiModelSelect').value || 'none';
+    const data = await postJson('/api/ai/config', {
+      deployed_model: currentModel,
+      confidence_threshold: Number(document.getElementById('aiConfidenceThreshold').value || 0.25),
+      iou_threshold: Number(document.getElementById('aiIouThreshold').value || 0.45),
+      overlay_enabled: document.getElementById('aiOverlayEnabled').value === 'true',
+      max_overlay_fps: Number(document.getElementById('aiOverlayFps').value || 6.0),
+    });
+    setBanner('aiSettingsMessage', data.message || 'AI settings saved.', 'good');
+    await pollStatus();
+  } catch (error) {
+    setBanner('aiSettingsMessage', error.message || 'AI settings save failed.', 'warn');
+  }
+}
+
+function setupAiSettings() {
+  document.getElementById('openAiSettingsBtn').addEventListener('click', async () => {
+    await refreshAiModels(document.getElementById('aiModelSelect').value || null);
+    state.aiSettingsLoaded = false;
+    await pollStatus();
+    openModal('aiSettingsModal');
+  });
+  document.getElementById('closeAiSettingsBtn').addEventListener('click', () => closeModal('aiSettingsModal'));
+  document.getElementById('refreshAiModelsBtn').addEventListener('click', () => refreshAiModels(document.getElementById('aiModelSelect').value || null));
+  document.getElementById('uploadAiFilesBtn').addEventListener('click', uploadAiFiles);
+  document.getElementById('deleteAiModelBtn').addEventListener('click', deleteAiModel);
+  document.getElementById('deployAiModelBtn').addEventListener('click', deployAiModel);
+  ['aiConfidenceThreshold', 'aiIouThreshold', 'aiOverlayEnabled', 'aiOverlayFps', 'aiModelSelect'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('change', saveAiConfigOnly);
+  });
+}
+
 function setupDrivePad() {
   const area = document.getElementById('joystickArea');
   area.addEventListener('pointerdown', (event) => {
@@ -464,10 +619,12 @@ function setupSystemActions() {
 document.addEventListener('DOMContentLoaded', async () => {
   setupStyleSettings();
   setupDriveSettings();
+  setupAiSettings();
   setupDrivePad();
   setupArmControls();
   setupSystemActions();
   syncStyleInputsFromCurrentVars();
   await pollStatus();
+  await refreshAiModels();
   state.statusTimer = window.setInterval(pollStatus, 350);
 });

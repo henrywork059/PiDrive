@@ -9,7 +9,8 @@ from flask import Flask, Response, jsonify, render_template, request
 
 from .arm_service import ArmService
 from .manual_control_config import load_manual_control_config, save_manual_control_config
-from .project_paths import DATA_DIR, PISERVER_ROOT, PISERVER_RUNTIME_PATH, ensure_piserver_import_paths
+from .object_detection_service import ObjectDetectionService
+from .project_paths import CUSTOMDRIVE_ROOT, DATA_DIR, PISERVER_ROOT, PISERVER_RUNTIME_PATH, ensure_piserver_import_paths
 
 ensure_piserver_import_paths()
 
@@ -22,21 +23,29 @@ from piserver.services.motor_service import MotorService  # noqa: E402
 from piserver.services.recorder_service import RecorderService  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent / 'gui_web'
-APP_VERSION = '0_1_19'
+APP_VERSION = '0_1_20'
+OD_MODEL_ROOT = CUSTOMDRIVE_ROOT / 'models' / 'object_detection'
 
 
-def _mjpeg_generator(camera_service: CameraService):
+def _mjpeg_generator(camera_service: CameraService, detector_service: ObjectDetectionService):
     seq = 0
     while True:
-        frame, seq = camera_service.wait_for_jpeg(seq, timeout=1.0)
-        if frame is None:
+        jpeg_frame, seq = camera_service.wait_for_jpeg(seq, timeout=1.0)
+        if jpeg_frame is None:
             time.sleep(0.05)
             continue
+        out_jpeg = jpeg_frame
+        if detector_service.get_status().get('ready') and detector_service.get_status().get('overlay_enabled'):
+            live_frame = camera_service.get_latest_frame(copy=True)
+            if live_frame is not None:
+                annotated, _ = detector_service.annotate_frame_jpeg(live_frame)
+                if annotated is not None:
+                    out_jpeg = annotated
         yield (
             b'--frame\r\n'
             b'Content-Type: image/jpeg\r\n'
             b'Cache-Control: no-store, no-cache, must-revalidate, max-age=0\r\n'
-            b'Pragma: no-cache\r\n\r\n' + frame + b'\r\n'
+            b'Pragma: no-cache\r\n\r\n' + out_jpeg + b'\r\n'
         )
 
 
@@ -66,6 +75,7 @@ class GuiControlContext:
             loop_hz=20,
         )
         self.arm_service = ArmService(self.manual_config.get('arm', {}))
+        self.object_detection_service = ObjectDetectionService(OD_MODEL_ROOT, self.manual_config.get('ai', {}))
         self.control_service.start()
         self._apply_defaults()
 
@@ -77,6 +87,10 @@ class GuiControlContext:
         self.control_service.set_runtime_parameters(current_page='manual', max_throttle=default_speed)
         self.camera_service.set_preview_enabled(bool(ui_cfg.get('show_camera', True)))
         self.arm_service.reload(self.manual_config.get('arm', {}))
+        self.object_detection_service.apply_runtime_config(self.manual_config.get('ai', {}))
+        active_model = self.object_detection_service.get_active_model_name()
+        if active_model != 'none' and (OD_MODEL_ROOT / active_model).exists():
+            self.object_detection_service.deploy_model(active_model)
 
     def close(self) -> None:
         try:
@@ -119,9 +133,9 @@ class GuiControlContext:
         payload['motor_config'] = self.motor_service.get_config()
         payload['camera_config'] = self.camera_service.get_config()
         payload['arm_status'] = self.arm_service.status()
+        payload['ai_status'] = self.object_detection_service.get_status()
         payload['app'] = 'gui_control'
         return payload
-
 
 
 def create_app() -> Flask:
@@ -141,6 +155,7 @@ def create_app() -> Flask:
         'control': ctx.control_service,
         'algorithms': ctx.algorithms,
         'arm': ctx.arm_service,
+        'object_detection': ctx.object_detection_service,
     }
 
     @app.route('/')
@@ -150,7 +165,7 @@ def create_app() -> Flask:
     @app.route('/video_feed')
     def video_feed():
         response = Response(
-            _mjpeg_generator(ctx.camera_service),
+            _mjpeg_generator(ctx.camera_service, ctx.object_detection_service),
             mimetype='multipart/x-mixed-replace; boundary=frame',
         )
         response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
@@ -160,12 +175,19 @@ def create_app() -> Flask:
 
     @app.route('/api/camera/frame.jpg')
     def api_camera_frame():
-        frame = ctx.camera_service.get_jpeg_frame()
-        if frame is None:
-            frame, _ = ctx.camera_service.wait_for_jpeg(0, timeout=0.35)
-        if frame is None:
+        jpeg_frame = ctx.camera_service.get_jpeg_frame()
+        if jpeg_frame is None:
+            jpeg_frame, _ = ctx.camera_service.wait_for_jpeg(0, timeout=0.35)
+        if jpeg_frame is None:
             return ('', 204)
-        response = Response(frame, mimetype='image/jpeg')
+        out_frame = jpeg_frame
+        if ctx.object_detection_service.get_status().get('ready') and ctx.object_detection_service.get_status().get('overlay_enabled'):
+            live_frame = ctx.camera_service.get_latest_frame(copy=True)
+            if live_frame is not None:
+                annotated, _ = ctx.object_detection_service.annotate_frame_jpeg(live_frame)
+                if annotated is not None:
+                    out_frame = annotated
+        response = Response(out_frame, mimetype='image/jpeg')
         response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
         response.headers['Pragma'] = 'no-cache'
         response.headers['Expires'] = '0'
@@ -246,6 +268,66 @@ def create_app() -> Flask:
         ok, message = ctx.arm_service.perform_action(action)
         code = 200 if ok else 400
         return jsonify({'ok': ok, 'message': message, 'arm_status': ctx.arm_service.status(), 'state': ctx.status_payload()}), code
+
+    @app.route('/api/ai/status')
+    def api_ai_status():
+        return jsonify({'ok': True, 'ai_status': ctx.object_detection_service.get_status()})
+
+    @app.route('/api/ai/models')
+    def api_ai_models():
+        return jsonify({'ok': True, 'models': ctx.object_detection_service.list_models(), 'ai_status': ctx.object_detection_service.get_status()})
+
+    @app.route('/api/ai/upload', methods=['POST'])
+    def api_ai_upload():
+        files = request.files.getlist('files')
+        ok, saved, message = ctx.object_detection_service.save_uploaded_files(files)
+        code = 200 if ok else 400
+        return jsonify({'ok': ok, 'saved': saved, 'message': message, 'models': ctx.object_detection_service.list_models(), 'ai_status': ctx.object_detection_service.get_status()}), code
+
+    @app.route('/api/ai/delete', methods=['POST'])
+    def api_ai_delete():
+        data = request.get_json(silent=True) or {}
+        model_name = str(data.get('model', '') or '').strip()
+        ok, message = ctx.object_detection_service.delete_model_bundle(model_name)
+        if ok:
+            ctx.save_manual_config({'ai': {'deployed_model': ctx.object_detection_service.get_active_model_name()}})
+        code = 200 if ok else 400
+        return jsonify({'ok': ok, 'message': message, 'models': ctx.object_detection_service.list_models(), 'ai_status': ctx.object_detection_service.get_status(), 'state': ctx.status_payload()}), code
+
+    @app.route('/api/ai/deploy', methods=['POST'])
+    def api_ai_deploy():
+        data = request.get_json(silent=True) or {}
+        model_name = str(data.get('model', '') or '').strip()
+        overrides = {
+            'confidence_threshold': data.get('confidence_threshold', 0.25),
+            'iou_threshold': data.get('iou_threshold', 0.45),
+            'overlay_enabled': data.get('overlay_enabled', True),
+            'max_overlay_fps': data.get('max_overlay_fps', 6.0),
+        }
+        ok, message = ctx.object_detection_service.deploy_model(model_name, overrides)
+        if ok:
+            ctx.save_manual_config({'ai': {
+                'deployed_model': ctx.object_detection_service.get_active_model_name(),
+                'confidence_threshold': overrides['confidence_threshold'],
+                'iou_threshold': overrides['iou_threshold'],
+                'overlay_enabled': overrides['overlay_enabled'],
+                'max_overlay_fps': overrides['max_overlay_fps'],
+            }})
+        code = 200 if ok else 400
+        return jsonify({'ok': ok, 'message': message, 'ai_status': ctx.object_detection_service.get_status(), 'state': ctx.status_payload()}), code
+
+    @app.route('/api/ai/config', methods=['POST'])
+    def api_ai_config():
+        data = request.get_json(silent=True) or {}
+        ai_updates = {
+            'overlay_enabled': bool(data.get('overlay_enabled', True)),
+            'confidence_threshold': float(data.get('confidence_threshold', 0.25)),
+            'iou_threshold': float(data.get('iou_threshold', 0.45)),
+            'max_overlay_fps': float(data.get('max_overlay_fps', 6.0)),
+            'deployed_model': str(data.get('deployed_model', ctx.object_detection_service.get_active_model_name()) or 'none'),
+        }
+        saved = ctx.save_manual_config({'ai': ai_updates})
+        return jsonify({'ok': True, 'message': 'AI settings saved.', 'config': saved.get('ai', {}), 'ai_status': ctx.object_detection_service.get_status(), 'state': ctx.status_payload()})
 
     @app.route('/api/manual-config', methods=['GET'])
     def api_manual_config_get():

@@ -26,6 +26,13 @@
     "grip_hold_angle": 70,
     "grip_release_angle": 130
   },
+  "ai": {
+    "deployed_model": "none",
+    "overlay_enabled": true,
+    "confidence_threshold": 0.25,
+    "iou_threshold": 0.45,
+    "max_overlay_fps": 6.0
+  },
   "competition": {
     "current_session": "session_1",
     "sessions": {
