@@ -394,7 +394,10 @@ async function setEstop(enabled) {
 function bindHoldAction(buttonId, actionStart, actionStop) {
   const button = document.getElementById(buttonId);
   if (!button) return;
-  const stop = async () => {
+  let activePointerId = null;
+  const stop = async (event = null) => {
+    if (event && activePointerId !== null && event.pointerId !== undefined && event.pointerId !== activePointerId) return;
+    activePointerId = null;
     try {
       if (actionStop) await postJson('/api/arm/action', { action: actionStop });
       await pollStatus();
@@ -410,8 +413,17 @@ function bindHoldAction(buttonId, actionStart, actionStop) {
       setBanner('armMessage', error.message || 'Arm action failed.', 'warn');
     }
   };
-  button.addEventListener('pointerdown', (event) => { event.preventDefault(); start(); });
-  ['pointerup', 'pointerleave', 'pointercancel'].forEach((name) => button.addEventListener(name, stop));
+  button.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    activePointerId = event.pointerId ?? null;
+    if (button.setPointerCapture && activePointerId !== null) {
+      try { button.setPointerCapture(activePointerId); } catch (_) {}
+    }
+    start();
+  });
+  button.addEventListener('pointerup', stop);
+  button.addEventListener('pointercancel', stop);
+  button.addEventListener('lostpointercapture', stop);
 }
 
 function bindClickAction(buttonId, action) {

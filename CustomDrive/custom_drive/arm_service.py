@@ -169,31 +169,21 @@ class ArmService:
     def _apply_grip_angle(self, angle: int) -> None:
         self._set_servo_angle(self._grip_channel(), angle)
 
-    def _target_for_direction(self, direction: int) -> int:
-        up = self._angle('lift_up_angle', 40)
-        down = self._angle('lift_down_angle', 115)
-        return up if direction < 0 else down
-
-    def _direction_sign(self, action_key: str) -> int:
-        up = self._angle('lift_up_angle', 40)
-        down = self._angle('lift_down_angle', 115)
-        if action_key == 'up':
-            return -1 if up <= down else 1
-        return 1 if up <= down else -1
-
     def _move_loop(self) -> None:
         while not self._move_stop.is_set():
             with self._move_lock:
                 direction = self._move_direction
             if direction == 0:
                 break
-            target = self._target_for_direction(direction)
-            step = self._step_angle() * (1 if target > self._current_lift_angle else -1)
-            next_angle = self._current_lift_angle + step
-            if step > 0:
-                next_angle = min(next_angle, target)
-            else:
-                next_angle = max(next_angle, target)
+            step = self._step_angle() * direction
+            next_angle = int(max(0, min(180, self._current_lift_angle + step)))
+            if next_angle == self._current_lift_angle:
+                self.last_action = 'up' if direction < 0 else 'down'
+                self.last_action_at = time.time()
+                self.last_error = ''
+                self.last_message = f'Lift limit reached at {self._current_lift_angle}°.'
+                self._move_stop.wait(self._step_interval_s())
+                continue
             try:
                 self._apply_lift_angle(next_angle)
                 self._current_lift_angle = next_angle
@@ -204,8 +194,6 @@ class ArmService:
             except Exception as exc:
                 self.last_error = str(exc)
                 self.last_message = f'Arm move failed: {exc}'
-                break
-            if next_angle == target:
                 break
             self._move_stop.wait(self._step_interval_s())
         with self._move_lock:
@@ -250,7 +238,7 @@ class ArmService:
         if not self.available:
             self.last_message = self.last_error or 'Arm backend is not available.'
             return False, self.last_message
-        direction = self._direction_sign(action_key)
+        direction = -1 if action_key == 'up' else 1
         self.stop_motion()
         with self._move_lock:
             self._move_direction = direction
