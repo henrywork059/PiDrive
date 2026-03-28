@@ -596,8 +596,8 @@ function setupDrivePad() {
 function setupArmControls() {
   bindHoldAction('armUpBtn', 'start_up', 'stop');
   bindHoldAction('armDownBtn', 'start_down', 'stop');
-  bindClickAction('armOpenBtn', 'open');
-  bindClickAction('armCloseBtn', 'close');
+  bindHoldAction('armOpenBtn', 'start_open', 'stop_grip');
+  bindHoldAction('armCloseBtn', 'start_close', 'stop_grip');
 }
 
 function setupSystemActions() {

@@ -12,7 +12,7 @@ class ArmService:
     - PCA9685 + ServoKit backend when enabled.
     - Press-and-hold lift motion using a background worker.
     - Optional dual-servo lift output for matched arm height movement.
-    - One-tap gripper actions for hold / release.
+    - Press-and-hold gripper motion on servo channel 2 only.
     """
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
@@ -22,7 +22,12 @@ class ArmService:
         self._move_stop = threading.Event()
         self._move_lock = threading.RLock()
         self._move_direction = 0
+        self._grip_thread: threading.Thread | None = None
+        self._grip_stop = threading.Event()
+        self._grip_lock = threading.RLock()
+        self._grip_direction = 0
         self._current_lift_angle = 0
+        self._current_grip_angle = 0
         self.last_action = 'idle'
         self.last_error = ''
         self.last_message = 'Arm disabled.'
@@ -34,6 +39,7 @@ class ArmService:
 
     def reload(self, config: dict[str, Any] | None = None) -> dict[str, Any]:
         self.stop_motion()
+        self.stop_grip_motion()
         cfg = dict(config or {})
         self._config = cfg
         self._kit = None
@@ -43,7 +49,8 @@ class ArmService:
         self.backend = str(cfg.get('backend', 'pca9685') or 'pca9685').strip().lower()
         self.enabled = bool(cfg.get('enabled', True))
         self.available = False
-        self._current_lift_angle = self._angle('lift_default_angle', 90)
+        self._current_lift_angle = self._angle('lift_down_angle', 115)
+        self._current_grip_angle = self._angle('grip_default_angle', 90)
 
         if not self.enabled:
             self.backend = self.backend or 'disabled'
@@ -63,11 +70,7 @@ class ArmService:
             frequency = int(cfg.get('frequency_hz', 50) or 50)
             self._kit = ServoKit(channels=channels, address=address, frequency=frequency)
             self.available = True
-            self._apply_default_positions()
-            self.last_message = (
-                f'PCA9685 ready on 0x{address:02X}. '
-                f'Lift default {self._current_lift_angle}° · Grip default {self._grip_default_angle()}°.'
-            )
+            self.last_message = f'PCA9685 ready on 0x{address:02X}.'
         except Exception as exc:  # pragma: no cover - hardware/env dependent
             self._kit = None
             self.available = False
@@ -77,6 +80,7 @@ class ArmService:
 
     def shutdown(self) -> None:
         self.stop_motion()
+        self.stop_grip_motion()
         self._kit = None
 
     def _angle(self, key: str, default: int) -> int:
@@ -99,11 +103,11 @@ class ArmService:
         return max(1, min(45, self._angle('lift_step_angle', 1)))
 
     def _step_interval_s(self) -> float:
-        value = self._config.get('lift_step_interval_s', 0.05)
+        value = self._config.get('lift_step_interval_s', 0.1)
         try:
             value = float(value)
         except Exception:
-            value = 0.05
+            value = 0.1
         return max(0.02, min(1.0, value))
 
     def _secondary_enabled(self) -> bool:
@@ -121,21 +125,28 @@ class ArmService:
         return self._channel('lift_channel_secondary', 1)
 
     def _grip_channel(self) -> int:
-        """Grip is fixed to servo channel 2 so open/close never drive lift servos 0/1."""
-        configured = self._channel('grip_channel', 2)
-        if configured != 2:
-            self.last_message = f'Grip channel forced to 2 (config requested {configured}).'
+        # The gripper must stay on servo channel 2 only, even if older config
+        # files still contain a different value.
         return 2
 
-    def _grip_default_angle(self) -> int:
-        return self._angle('grip_default_angle', 90)
+    def _grip_step_angle(self) -> int:
+        value = self._config.get('grip_step_angle', 1)
+        try:
+            value = int(value)
+        except Exception:
+            value = 1
+        return max(1, min(20, value))
 
-    def _apply_default_positions(self) -> None:
-        default_lift = self._angle('lift_default_angle', 90)
-        self._apply_lift_angle(default_lift)
-        self._current_lift_angle = default_lift
-        grip_channel = self._grip_channel()
-        self._set_servo_angle(grip_channel, self._grip_default_angle())
+    def _grip_rate_deg_per_s(self) -> float:
+        value = self._config.get('grip_rate_deg_per_s', 5.0)
+        try:
+            value = float(value)
+        except Exception:
+            value = 5.0
+        return max(0.5, min(60.0, value))
+
+    def _grip_step_interval_s(self) -> float:
+        return max(0.02, min(1.0, self._grip_step_angle() / self._grip_rate_deg_per_s()))
 
     def _set_servo_angle(self, channel: int, angle: int) -> None:
         if not self.enabled:
@@ -154,6 +165,9 @@ class ArmService:
             if secondary_channel != primary:
                 secondary_angle = int(round(max(0, min(180, angle * self._secondary_multiplier()))))
                 self._set_servo_angle(secondary_channel, secondary_angle)
+
+    def _apply_grip_angle(self, angle: int) -> None:
+        self._set_servo_angle(self._grip_channel(), angle)
 
     def _target_for_direction(self, direction: int) -> int:
         up = self._angle('lift_up_angle', 40)
@@ -200,6 +214,32 @@ class ArmService:
         if not self.last_error:
             self.last_action = 'idle'
 
+    def _grip_move_loop(self) -> None:
+        while not self._grip_stop.is_set():
+            with self._grip_lock:
+                direction = self._grip_direction
+            if direction == 0:
+                break
+            step = self._grip_step_angle() * direction
+            next_angle = int(max(0, min(180, self._current_grip_angle + step)))
+            try:
+                self._apply_grip_angle(next_angle)
+                self._current_grip_angle = next_angle
+                self.last_action = 'open' if direction > 0 else 'close'
+                self.last_action_at = time.time()
+                self.last_error = ''
+                self.last_message = f'Gripper moving {self.last_action}: ch2 -> {self._current_grip_angle}°.'
+            except Exception as exc:
+                self.last_error = str(exc)
+                self.last_message = f'Gripper move failed: {exc}'
+                break
+            self._grip_stop.wait(self._grip_step_interval_s())
+        with self._grip_lock:
+            self._grip_direction = 0
+            self._grip_thread = None
+        if not self.last_error:
+            self.last_action = 'idle'
+
     def start_motion(self, action: str) -> tuple[bool, str]:
         action_key = str(action or '').strip().lower()
         if action_key not in {'up', 'down'}:
@@ -238,14 +278,50 @@ class ArmService:
         self.last_message = f'Lift stopped at {self._current_lift_angle}°.'
         return True, self.last_message
 
+    def start_grip_motion(self, action: str) -> tuple[bool, str]:
+        action_key = str(action or '').strip().lower()
+        if action_key not in {'open', 'close'}:
+            return False, f'Unsupported gripper motion: {action}'
+        if not self.enabled:
+            self.last_message = 'Arm disabled in config.'
+            return False, self.last_message
+        if not self.available:
+            self.last_message = self.last_error or 'Arm backend is not available.'
+            return False, self.last_message
+        direction = 1 if action_key == 'open' else -1
+        self.stop_grip_motion()
+        with self._grip_lock:
+            self._grip_direction = direction
+            self._grip_stop = threading.Event()
+            self._grip_thread = threading.Thread(target=self._grip_move_loop, name='customdrive-grip-move', daemon=True)
+            self._grip_thread.start()
+        self.last_action = action_key
+        self.last_action_at = time.time()
+        self.last_error = ''
+        self.last_message = f'Gripper {action_key} started on channel 2.'
+        return True, self.last_message
+
+    def stop_grip_motion(self) -> tuple[bool, str]:
+        thread = None
+        with self._grip_lock:
+            thread = self._grip_thread
+            self._grip_direction = 0
+            self._grip_stop.set()
+        if thread and thread.is_alive():
+            thread.join(timeout=0.2)
+        with self._grip_lock:
+            self._grip_thread = None
+        self.last_action = 'idle'
+        self.last_action_at = time.time()
+        self.last_message = f'Gripper stopped at {self._current_grip_angle}° on channel 2.'
+        return True, self.last_message
+
     def perform_action(self, action: str) -> tuple[bool, str]:
         action_key = str(action or '').strip().lower()
         action_key = {
-            'open': 'release',
-            'unclamp': 'release',
-            'close': 'hold',
-            'grab': 'hold',
-            'clamp': 'hold',
+            'unclamp': 'start_open',
+            'grab': 'start_close',
+            'clamp': 'start_close',
             'lift': 'start_up',
             'raise_': 'start_up',
             'raise_up': 'start_up',
@@ -254,8 +330,13 @@ class ArmService:
 
         if action_key in {'start_up', 'start-down', 'start_down'}:
             return self.start_motion('up' if action_key == 'start_up' else 'down')
+        if action_key in {'start_open', 'start_close'}:
+            return self.start_grip_motion('open' if action_key == 'start_open' else 'close')
         if action_key == 'stop':
+            self.stop_grip_motion()
             return self.stop_motion()
+        if action_key == 'stop_grip':
+            return self.stop_grip_motion()
         if action_key == 'up':
             ok, msg = self.start_motion('up')
             if ok:
@@ -270,8 +351,10 @@ class ArmService:
             return ok, msg
 
         mapping = {
-            'hold': ('grip_channel', 'grip_hold_angle', 1, 70),
-            'release': ('grip_channel', 'grip_release_angle', 1, 130),
+            'hold': ('grip_channel', 'grip_hold_angle', 2, 70),
+            'release': ('grip_channel', 'grip_release_angle', 2, 130),
+            'open': ('grip_channel', 'grip_release_angle', 2, 130),
+            'close': ('grip_channel', 'grip_hold_angle', 2, 70),
         }
         if action_key not in mapping:
             message = f'Unknown arm action: {action}'
@@ -280,7 +363,7 @@ class ArmService:
             return False, message
 
         channel_key, angle_key, default_channel, default_angle = mapping[action_key]
-        channel = self._grip_channel() if channel_key == 'grip_channel' else self._channel(channel_key, default_channel)
+        channel = self._grip_channel() if 'grip' in channel_key else self._channel(channel_key, default_channel)
         angle = self._angle(angle_key, default_angle)
         try:
             self._set_servo_angle(channel, angle)
@@ -310,7 +393,9 @@ class ArmService:
             'lift_secondary_multiplier': self._secondary_multiplier(),
             'grip_channel': self._grip_channel(),
             'lift_angle': int(self._current_lift_angle),
+            'grip_angle': int(self._current_grip_angle),
             'moving': bool(self._move_thread is not None),
+            'grip_moving': bool(self._grip_thread is not None),
         }
 
     def up(self) -> bool:

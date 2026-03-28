@@ -22,11 +22,11 @@
     "lift_up_angle": 40,
     "lift_down_angle": 115,
     "lift_step_angle": 1,
-    "lift_step_interval_s": 0.05,
+    "lift_step_interval_s": 0.1,
     "grip_hold_angle": 70,
     "grip_release_angle": 130,
-    "lift_default_angle": 90,
-    "grip_default_angle": 90
+    "grip_step_angle": 1,
+    "grip_rate_deg_per_s": 5.0
   },
   "ai": {
     "deployed_model": "none",
