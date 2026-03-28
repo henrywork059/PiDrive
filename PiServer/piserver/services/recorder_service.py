@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import threading
 import time
 import zipfile
@@ -34,6 +35,99 @@ class RecorderService:
         self.last_snapshot_relpath = ""
         self.last_snapshot_name = ""
         self._lock = threading.RLock()
+        self._normalize_snapshot_layout()
+
+    def _display_base_dir(self) -> Path:
+        if self.root.name == "records" and self.root.parent.name == "data":
+            return self.root.parent.parent
+        return self.root.parent
+
+    def _display_path(self, path: Path) -> str:
+        try:
+            return str(path.relative_to(self._display_base_dir()))
+        except Exception:
+            return str(path)
+
+    def _snapshot_metadata_path(self) -> Path:
+        return self.snapshot_dir / "snapshots.jsonl"
+
+    def _unique_snapshot_name(self, desired_name: str) -> str:
+        desired = Path(desired_name).name or "snapshot.jpg"
+        candidate = self.snapshot_dir / desired
+        if not candidate.exists():
+            return desired
+        stem = candidate.stem or "snapshot"
+        suffix = candidate.suffix
+        index = 1
+        while True:
+            alt = f"{stem}_{index:03d}{suffix}"
+            if not (self.snapshot_dir / alt).exists():
+                return alt
+            index += 1
+
+    def _move_snapshot_file(self, source: Path) -> str:
+        target_name = self._unique_snapshot_name(source.name)
+        target = self.snapshot_dir / target_name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(source), str(target))
+        return target_name
+
+    def _merge_snapshot_metadata(self, source_meta: Path, rename_map: dict[str, str]) -> None:
+        target_meta = self._snapshot_metadata_path()
+        target_meta.parent.mkdir(parents=True, exist_ok=True)
+        with source_meta.open("r", encoding="utf-8") as source_handle, target_meta.open("a", encoding="utf-8") as target_handle:
+            for raw_line in source_handle:
+                line = raw_line.strip()
+                if not line:
+                    continue
+                try:
+                    record = json.loads(line)
+                except Exception:
+                    target_handle.write(raw_line if raw_line.endswith("\n") else raw_line + "\n")
+                    continue
+                image_ref = str(record.get("image", "")).strip()
+                mapped = rename_map.get(image_ref) or rename_map.get(Path(image_ref).name)
+                if mapped:
+                    record["image"] = f"snapshots/{mapped}"
+                target_handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+    def _normalize_snapshot_layout(self) -> None:
+        with self._lock:
+            self.snapshot_dir.mkdir(parents=True, exist_ok=True)
+            nested_dirs = [path for path in self.snapshot_dir.iterdir() if path.is_dir()]
+            if not nested_dirs:
+                return
+            root_meta = self._snapshot_metadata_path()
+            for nested_dir in nested_dirs:
+                rename_map: dict[str, str] = {}
+                nested_meta = nested_dir / "snapshots.jsonl"
+                for file_path in sorted(nested_dir.rglob("*")):
+                    if not file_path.is_file():
+                        continue
+                    if file_path == nested_meta:
+                        continue
+                    moved_name = self._move_snapshot_file(file_path)
+                    relative_ref = str(file_path.relative_to(nested_dir)).replace("\\", "/")
+                    rename_map[relative_ref] = moved_name
+                    rename_map[file_path.name] = moved_name
+                if nested_meta.exists():
+                    self._merge_snapshot_metadata(nested_meta, rename_map)
+                    try:
+                        nested_meta.unlink()
+                    except Exception:
+                        pass
+                for child in sorted(nested_dir.rglob("*"), reverse=True):
+                    if child.is_dir():
+                        try:
+                            child.rmdir()
+                        except Exception:
+                            pass
+                try:
+                    nested_dir.rmdir()
+                except Exception:
+                    pass
+            if root_meta.exists() and root_meta.is_dir():
+                shutil.rmtree(root_meta, ignore_errors=True)
 
     def start(self):
         with self._lock:
@@ -124,42 +218,44 @@ class RecorderService:
             }
             self.index_file.write(json.dumps(rec, ensure_ascii=False) + "\n")
             self.index_file.flush()
-            self.last_record_relpath = str(Path("records") / self.session_name / "images" / fname)
+            self.last_record_relpath = self._display_path(self.root / self.session_name / "images" / fname)
 
     def capture_once(self, frame_bgr, snapshot: dict | None = None):
         if frame_bgr is None or cv2 is None:
             return False, "No live frame available to save."
         snapshot = snapshot or {}
-        shots_dir = self.snapshot_dir
-        shots_dir.mkdir(parents=True, exist_ok=True)
-        stamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        image_name = f"{stamp}.jpg"
-        image_path = shots_dir / image_name
-        ok = cv2.imwrite(str(image_path), frame_bgr)
-        if not ok:
-            return False, "Failed to save snapshot image."
-
-        meta_path = shots_dir / "snapshots.jsonl"
-        rec = {
-            "frame_id": stamp,
-            "ts": time.time(),
-            "image": f"snapshots/{image_name}",
-            "steering": float(snapshot.get("applied_steering", 0.0)),
-            "throttle": float(snapshot.get("applied_throttle", 0.0)),
-            "mode": str(snapshot.get("active_algorithm", "manual")),
-            "camera_width": int(snapshot.get("camera_width", 0)),
-            "camera_height": int(snapshot.get("camera_height", 0)),
-            "camera_format": str(snapshot.get("camera_format", "BGR888")),
-        }
         with self._lock:
+            self._normalize_snapshot_layout()
+            shots_dir = self.snapshot_dir
+            shots_dir.mkdir(parents=True, exist_ok=True)
+            stamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+            image_name = self._unique_snapshot_name(f"{stamp}.jpg")
+            image_path = shots_dir / image_name
+            ok = cv2.imwrite(str(image_path), frame_bgr)
+            if not ok:
+                return False, "Failed to save snapshot image."
+
+            meta_path = self._snapshot_metadata_path()
+            rec = {
+                "frame_id": Path(image_name).stem,
+                "ts": time.time(),
+                "image": f"snapshots/{image_name}",
+                "steering": float(snapshot.get("applied_steering", 0.0)),
+                "throttle": float(snapshot.get("applied_throttle", 0.0)),
+                "mode": str(snapshot.get("active_algorithm", "manual")),
+                "camera_width": int(snapshot.get("camera_width", 0)),
+                "camera_height": int(snapshot.get("camera_height", 0)),
+                "camera_format": str(snapshot.get("camera_format", "BGR888")),
+            }
             self.last_snapshot_name = image_name
-            self.last_snapshot_relpath = str(Path("records") / "snapshots" / image_name)
+            self.last_snapshot_relpath = self._display_path(self.snapshot_dir / image_name)
             with meta_path.open("a", encoding="utf-8") as handle:
                 handle.write(json.dumps(rec, ensure_ascii=False) + "\n")
         return True, f"Snapshot saved: {image_name}"
 
     def get_status(self):
         with self._lock:
+            self._normalize_snapshot_layout()
             active_session_name = self.session_name or self.last_session_name
             active_session_path = self.session_path or self.last_session_path
             elapsed = 0.0
@@ -167,10 +263,10 @@ class RecorderService:
                 elapsed = max(0.0, time.time() - self.session_started_at)
             return {
                 "record_session_name": active_session_name,
-                "record_save_path": str(active_session_path.relative_to(self.root.parent)) if active_session_path else str(Path("records")),
+                "record_save_path": self._display_path(active_session_path) if active_session_path else self._display_path(self.root),
                 "record_elapsed_seconds": elapsed,
                 "record_last_saved": self.last_record_relpath,
-                "snapshot_save_path": str(self.snapshot_dir.relative_to(self.root.parent)),
+                "snapshot_save_path": self._display_path(self.snapshot_dir),
                 "snapshot_last_saved": self.last_snapshot_relpath,
                 "snapshot_last_name": self.last_snapshot_name,
             }
@@ -209,7 +305,7 @@ class RecorderService:
             "label": label,
             "image_count": image_count,
             "updated_at": updated_at,
-            "path": str(path.relative_to(self.root.parent)),
+            "path": self._display_path(path),
         }
 
     def _resolve_export_dir(self, session_name: str) -> tuple[Path | None, str]:
@@ -240,22 +336,27 @@ class RecorderService:
         return path
 
     def list_sessions(self):
-        items = []
-        if self.snapshot_dir.exists():
-            items.append(self._build_folder_item(self.snapshot_dir, kind="snapshots"))
-        for path in self._iter_session_dirs():
-            items.append(self._build_folder_item(path, kind="session"))
-        return items
+        with self._lock:
+            self._normalize_snapshot_layout()
+            items = []
+            if self.snapshot_dir.exists():
+                items.append(self._build_folder_item(self.snapshot_dir, kind="snapshots"))
+            for path in self._iter_session_dirs():
+                items.append(self._build_folder_item(path, kind="session"))
+            return items
 
     def write_session_zip(self, session_name: str, fileobj):
-        folder, _kind = self._resolve_export_dir(session_name)
-        if folder is None:
-            return False, "Session folder not found."
-        with zipfile.ZipFile(fileobj, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-            for child in sorted(folder.rglob("*")):
-                if not child.is_file():
-                    continue
-                archive.write(child, arcname=str(Path(folder.name) / child.relative_to(folder)))
+        with self._lock:
+            if str(session_name or "").strip() == "snapshots":
+                self._normalize_snapshot_layout()
+            folder, _kind = self._resolve_export_dir(session_name)
+            if folder is None:
+                return False, "Session folder not found."
+            with zipfile.ZipFile(fileobj, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+                for child in sorted(folder.rglob("*")):
+                    if not child.is_file():
+                        continue
+                    archive.write(child, arcname=str(Path(folder.name) / child.relative_to(folder)))
         return True, folder.name
 
     def delete_folder(self, session_name: str):
