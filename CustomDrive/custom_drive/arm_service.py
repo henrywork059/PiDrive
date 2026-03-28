@@ -43,7 +43,7 @@ class ArmService:
         self.backend = str(cfg.get('backend', 'pca9685') or 'pca9685').strip().lower()
         self.enabled = bool(cfg.get('enabled', True))
         self.available = False
-        self._current_lift_angle = self._angle('lift_down_angle', 115)
+        self._current_lift_angle = self._angle('lift_default_angle', 90)
 
         if not self.enabled:
             self.backend = self.backend or 'disabled'
@@ -63,7 +63,11 @@ class ArmService:
             frequency = int(cfg.get('frequency_hz', 50) or 50)
             self._kit = ServoKit(channels=channels, address=address, frequency=frequency)
             self.available = True
-            self.last_message = f'PCA9685 ready on 0x{address:02X}.'
+            self._apply_default_positions()
+            self.last_message = (
+                f'PCA9685 ready on 0x{address:02X}. '
+                f'Lift default {self._current_lift_angle}° · Grip default {self._grip_default_angle()}°.'
+            )
         except Exception as exc:  # pragma: no cover - hardware/env dependent
             self._kit = None
             self.available = False
@@ -95,11 +99,11 @@ class ArmService:
         return max(1, min(45, self._angle('lift_step_angle', 1)))
 
     def _step_interval_s(self) -> float:
-        value = self._config.get('lift_step_interval_s', 0.1)
+        value = self._config.get('lift_step_interval_s', 0.05)
         try:
             value = float(value)
         except Exception:
-            value = 0.1
+            value = 0.05
         return max(0.02, min(1.0, value))
 
     def _secondary_enabled(self) -> bool:
@@ -115,6 +119,16 @@ class ArmService:
 
     def _secondary_channel(self) -> int:
         return self._channel('lift_channel_secondary', 1)
+
+    def _grip_default_angle(self) -> int:
+        return self._angle('grip_default_angle', 90)
+
+    def _apply_default_positions(self) -> None:
+        default_lift = self._angle('lift_default_angle', 90)
+        self._apply_lift_angle(default_lift)
+        self._current_lift_angle = default_lift
+        grip_channel = self._channel('grip_channel', 2)
+        self._set_servo_angle(grip_channel, self._grip_default_angle())
 
     def _set_servo_angle(self, channel: int, angle: int) -> None:
         if not self.enabled:
