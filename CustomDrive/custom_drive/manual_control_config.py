@@ -122,7 +122,7 @@ def normalize_manual_control_config(data: dict[str, Any] | None) -> dict[str, An
         'lift_channel_secondary': clamp_int(arm.get('lift_channel_secondary', 1), 1, 0, 15),
         'lift_secondary_enabled': bool(arm.get('lift_secondary_enabled', True)),
         'lift_secondary_multiplier': round(clamp_float(arm.get('lift_secondary_multiplier', 1.0), 1.0, 0.0, 4.0), 3),
-        'grip_channel': clamp_int(arm.get('grip_channel', 2), 2, 0, 15),
+        'grip_channel': 2,
         'lift_up_angle': clamp_int(arm.get('lift_up_angle', 40), 40, 0, 180),
         'lift_down_angle': clamp_int(arm.get('lift_down_angle', 115), 115, 0, 180),
         'lift_step_angle': clamp_int(arm.get('lift_step_angle', 1), 1, 1, 45),
@@ -130,6 +130,9 @@ def normalize_manual_control_config(data: dict[str, Any] | None) -> dict[str, An
         'grip_hold_angle': clamp_int(arm.get('grip_hold_angle', 70), 70, 0, 180),
         'grip_release_angle': clamp_int(arm.get('grip_release_angle', 130), 130, 0, 180),
     }
+    if merged['arm']['grip_channel'] in {merged['arm']['lift_channel'], merged['arm']['lift_channel_secondary']}:
+        merged['arm']['grip_channel'] = 2
+
 
     ai = merged.get('ai') or {}
     deployed_model = str(ai.get('deployed_model', 'none') or 'none').strip() or 'none'

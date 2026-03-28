@@ -120,6 +120,13 @@ class ArmService:
     def _secondary_channel(self) -> int:
         return self._channel('lift_channel_secondary', 1)
 
+    def _grip_channel(self) -> int:
+        """Grip is fixed to servo channel 2 so open/close never drive lift servos 0/1."""
+        configured = self._channel('grip_channel', 2)
+        if configured != 2:
+            self.last_message = f'Grip channel forced to 2 (config requested {configured}).'
+        return 2
+
     def _grip_default_angle(self) -> int:
         return self._angle('grip_default_angle', 90)
 
@@ -127,7 +134,7 @@ class ArmService:
         default_lift = self._angle('lift_default_angle', 90)
         self._apply_lift_angle(default_lift)
         self._current_lift_angle = default_lift
-        grip_channel = self._channel('grip_channel', 2)
+        grip_channel = self._grip_channel()
         self._set_servo_angle(grip_channel, self._grip_default_angle())
 
     def _set_servo_angle(self, channel: int, angle: int) -> None:
@@ -273,7 +280,7 @@ class ArmService:
             return False, message
 
         channel_key, angle_key, default_channel, default_angle = mapping[action_key]
-        channel = self._channel(channel_key, default_channel)
+        channel = self._grip_channel() if channel_key == 'grip_channel' else self._channel(channel_key, default_channel)
         angle = self._angle(angle_key, default_angle)
         try:
             self._set_servo_angle(channel, angle)
@@ -301,7 +308,7 @@ class ArmService:
             'lift_channel_secondary': self._secondary_channel(),
             'lift_secondary_enabled': self._secondary_enabled(),
             'lift_secondary_multiplier': self._secondary_multiplier(),
-            'grip_channel': self._channel('grip_channel', 2),
+            'grip_channel': self._grip_channel(),
             'lift_angle': int(self._current_lift_angle),
             'moving': bool(self._move_thread is not None),
         }
