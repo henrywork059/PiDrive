@@ -138,7 +138,7 @@ class ArmService:
         return max(1, min(20, value))
 
     def _grip_rate_deg_per_s(self) -> float:
-        value = self._config.get('grip_rate_deg_per_s', 5.0)
+        value = self._config.get('grip_rate_deg_per_s', 10.0)
         try:
             value = float(value)
         except Exception:
@@ -225,7 +225,7 @@ class ArmService:
             try:
                 self._apply_grip_angle(next_angle)
                 self._current_grip_angle = next_angle
-                self.last_action = 'open' if direction > 0 else 'close'
+                self.last_action = 'open' if direction < 0 else 'close'
                 self.last_action_at = time.time()
                 self.last_error = ''
                 self.last_message = f'Gripper moving {self.last_action}: ch2 -> {self._current_grip_angle}°.'
@@ -288,7 +288,7 @@ class ArmService:
         if not self.available:
             self.last_message = self.last_error or 'Arm backend is not available.'
             return False, self.last_message
-        direction = 1 if action_key == 'open' else -1
+        direction = -1 if action_key == 'open' else 1
         self.stop_grip_motion()
         with self._grip_lock:
             self._grip_direction = direction
@@ -334,6 +334,8 @@ class ArmService:
             return self.start_grip_motion('open' if action_key == 'start_open' else 'close')
         if action_key == 'stop':
             self.stop_grip_motion()
+            return self.stop_motion()
+        if action_key == 'stop_lift':
             return self.stop_motion()
         if action_key == 'stop_grip':
             return self.stop_grip_motion()

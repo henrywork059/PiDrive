@@ -26,7 +26,7 @@
     "grip_hold_angle": 70,
     "grip_release_angle": 130,
     "grip_step_angle": 1,
-    "grip_rate_deg_per_s": 5.0
+    "grip_rate_deg_per_s": 10.0
   },
   "ai": {
     "deployed_model": "none",
