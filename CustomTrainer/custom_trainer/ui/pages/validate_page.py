@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 from custom_trainer.services.device_service import probe_runtime
+from custom_trainer.services.dataset_service import ensure_dataset_yaml_with_summary
 from custom_trainer.services.session_service import resolve_prediction_source
 from custom_trainer.services.ui_state_service import get_splitter_state, set_splitter_state
 from custom_trainer.services.ultralytics_runner import build_predict_command, build_val_command, runner_working_directory
@@ -509,9 +510,34 @@ class ValidatePage(QWidget):
         except ValueError:
             QMessageBox.critical(self, 'Invalid image size', 'Image size must be an integer.')
             return
-        if not self.weights_edit.text().strip() or not self.yaml_edit.text().strip():
+        if not self.weights_edit.text().strip():
+            QMessageBox.critical(self, 'Missing inputs', 'Choose weights first.')
+            return
+        dataset_summary = None
+        if self.state.sessions_root is not None:
+            yaml_path, _created, dataset_summary = ensure_dataset_yaml_with_summary(
+                self.state.sessions_root,
+                self.state.class_names,
+                overwrite=True,
+            )
+            if yaml_path is not None and yaml_path.exists() and yaml_path.is_file():
+                self.yaml_edit.setText(str(yaml_path))
+        if not self.yaml_edit.text().strip():
             QMessageBox.critical(self, 'Missing inputs', 'Choose weights and dataset.yaml first.')
             return
+        if dataset_summary is not None:
+            self.log(f'[dataset] {dataset_summary.describe()}')
+            if dataset_summary.migrated_labels:
+                self.log(f'[dataset] Migrated {dataset_summary.migrated_labels} legacy label file(s) into canonical YOLO paths.')
+            if not dataset_summary.has_usable_labels:
+                QMessageBox.critical(
+                    self,
+                    'No usable validation labels found',
+                    'The current sessions root does not contain any usable YOLO boxes for validation.\n\n'
+                    f'{dataset_summary.describe()}\n\n'
+                    'Save at least one valid bounding box and try again.',
+                )
+                return
         project_dir, run_name = self._prediction_output_args('val')
         command = build_val_command(
             weights=self.weights_edit.text().strip(),

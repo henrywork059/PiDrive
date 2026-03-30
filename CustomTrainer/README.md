@@ -25,12 +25,12 @@ CustomTrainer/
 └── PATCH_NOTES/
 ```
 
-## What changed in 0_2_1
+## What changed in 0_2_2
 
-- keeps the **last loaded sessions root**, splitter layouts, training plot, validation frame browser, overlay controls, and local run logs from the current stable baseline
-- moves the Torch/CUDA runtime probe into an **isolated subprocess** so a bad runtime check cannot crash the whole GUI during startup
-- falls back safely to **CPU-capable defaults** when the probe fails, times out, or aborts
-- keeps the **Refresh Devices** action available, but now reports probe failure in the UI instead of terminating the process
+- keeps the **startup-safe device probing** and CPU fallback behavior from 0_2_1
+- rebuilds a **YOLO-compatible dataset cache** before training or validation so flat session folders like `session/*.jpg` with labels in `session/labels/*.txt` are exported in a structure Ultralytics can actually read
+- refreshes `dataset.yaml` from the current sessions root before Training and Validation so newly saved labels are included
+- adds dataset preflight checks that stop Training / Validation early when there are **zero usable YOLO boxes**, instead of silently running 100 empty epochs
 - updates the main window title so the visible version matches this patch
 
 ## Main workflow

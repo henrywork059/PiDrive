@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from custom_trainer.services.dataset_service import ensure_dataset_yaml
+from custom_trainer.services.dataset_service import DatasetSummary, ensure_dataset_yaml, ensure_dataset_yaml_with_summary
 from custom_trainer.services.device_service import probe_runtime
 from custom_trainer.services.ui_state_service import get_splitter_state, set_splitter_state
 from custom_trainer.services.ultralytics_runner import build_train_command, runner_working_directory
@@ -336,6 +336,19 @@ class TrainPage(QWidget):
             return ensured_path
         return None
 
+    def _prepare_training_dataset(self) -> tuple[Path | None, DatasetSummary | None]:
+        if self.state.sessions_root is not None:
+            ensured_path, _created, summary = ensure_dataset_yaml_with_summary(
+                self.state.sessions_root,
+                self.state.class_names,
+                overwrite=True,
+            )
+            if ensured_path is not None and ensured_path.exists() and ensured_path.is_file():
+                self.yaml_edit.setText(str(ensured_path))
+                return ensured_path, summary
+        yaml_path = self._ensure_training_yaml()
+        return yaml_path, None
+
     def _reset_training_plot(self, message: str) -> None:
         self.current_run_dir = None
         self.current_results_csv = None
@@ -351,7 +364,7 @@ class TrainPage(QWidget):
         if self.thread is not None:
             QMessageBox.information(self, 'Training running', 'A training process is already running.')
             return
-        yaml_path = self._ensure_training_yaml()
+        yaml_path, dataset_summary = self._prepare_training_dataset()
         if yaml_path is None:
             QMessageBox.critical(
                 self,
@@ -359,6 +372,22 @@ class TrainPage(QWidget):
                 'Choose dataset.yaml first, or load a valid sessions root so the app can generate one automatically.',
             )
             return
+        if dataset_summary is not None:
+            self.log(f'[dataset] {dataset_summary.describe()}')
+            if dataset_summary.migrated_labels:
+                self.log(f'[dataset] Migrated {dataset_summary.migrated_labels} legacy label file(s) into canonical YOLO paths.')
+            if dataset_summary.total_images <= 0:
+                QMessageBox.critical(self, 'No images found', 'No images were found under the current sessions root.')
+                return
+            if not dataset_summary.has_usable_labels:
+                QMessageBox.critical(
+                    self,
+                    'No usable labels found',
+                    'The current sessions root does not contain any usable YOLO boxes for training.\n\n'
+                    f'{dataset_summary.describe()}\n\n'
+                    'Save at least one valid bounding box and try again.',
+                )
+                return
         try:
             epochs = int(self.epochs_edit.text())
             imgsz = int(self.imgsz_edit.text())
