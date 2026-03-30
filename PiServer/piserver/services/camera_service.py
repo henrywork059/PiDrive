@@ -58,6 +58,8 @@ class CameraService:
         self.contrast = 1.0
         self.saturation = 1.0
         self.sharpness = 1.0
+        self.color_gain_red = 1.0
+        self.color_gain_blue = 1.0
 
         self.preview_live = False
         self.preview_enabled = True
@@ -146,6 +148,22 @@ class CameraService:
             self.contrast = self._clamp_float(settings.get("contrast", self.contrast), self.contrast, 0.0, 32.0)
             self.saturation = self._clamp_float(settings.get("saturation", self.saturation), self.saturation, 0.0, 32.0)
             self.sharpness = self._clamp_float(settings.get("sharpness", self.sharpness), self.sharpness, 0.0, 16.0)
+
+            red_gain_value = settings.get("color_gain_red")
+            if red_gain_value is None:
+                red_gain_value = settings.get("colour_gain_red")
+            if red_gain_value is None:
+                red_gain_value = settings.get("red_gain")
+            if red_gain_value is not None:
+                self.color_gain_red = self._clamp_float(red_gain_value, self.color_gain_red, 0.0, 32.0)
+
+            blue_gain_value = settings.get("color_gain_blue")
+            if blue_gain_value is None:
+                blue_gain_value = settings.get("colour_gain_blue")
+            if blue_gain_value is None:
+                blue_gain_value = settings.get("blue_gain")
+            if blue_gain_value is not None:
+                self.color_gain_blue = self._clamp_float(blue_gain_value, self.color_gain_blue, 0.0, 32.0)
             running = self._running
 
         if restart and running:
@@ -172,6 +190,8 @@ class CameraService:
                 "contrast": float(self.contrast),
                 "saturation": float(self.saturation),
                 "sharpness": float(self.sharpness),
+                "color_gain_red": float(self.color_gain_red),
+                "color_gain_blue": float(self.color_gain_blue),
                 "backend": str(self.backend),
                 "backend_format": str(self.backend_format),
                 "preview_live": bool(self.preview_live),
@@ -207,6 +227,8 @@ class CameraService:
         if not self.auto_exposure:
             controls["ExposureTime"] = int(self.exposure_us)
             controls["AnalogueGain"] = float(self.analogue_gain)
+        if not self.auto_white_balance:
+            controls["ColourGains"] = (float(self.color_gain_red), float(self.color_gain_blue))
         try:
             self._picam2.set_controls(controls)
         except Exception as exc:

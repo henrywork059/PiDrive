@@ -25,6 +25,12 @@ from piserver.core.config_store import ConfigStore
 from piserver.services.camera_service import CameraService
 
 _FORMAT_SWEEP = ("BGR888", "RGB888", "XBGR8888")
+_MANUAL_GAIN_SWEEP = (
+    (0.75, 1.15),
+    (0.70, 1.20),
+    (0.65, 1.25),
+    (0.60, 1.30),
+)
 
 
 def _sanitize_name(name: str) -> str:
@@ -59,7 +65,11 @@ def _json_safe(value: Any, depth: int = 0):
     return repr(value)
 
 
-def build_tint_test_cases(base_config: dict | None, include_format_sweep: bool = True) -> list[dict]:
+def build_tint_test_cases(
+    base_config: dict | None,
+    include_format_sweep: bool = True,
+    include_manual_gain_sweep: bool = True,
+) -> list[dict]:
     base = dict(base_config or {})
     cases: list[dict] = []
 
@@ -94,6 +104,22 @@ def build_tint_test_cases(base_config: dict | None, include_format_sweep: bool =
         auto_white_balance=True,
         saturation=0.8,
     )
+
+    if include_manual_gain_sweep:
+        for red_gain, blue_gain in _MANUAL_GAIN_SWEEP:
+            red_code = f"{red_gain:.2f}".replace(".", "")
+            blue_code = f"{blue_gain:.2f}".replace(".", "")
+            add_case(
+                f"awb_off_rg{red_code}_bg{blue_code}",
+                (
+                    "Force AWB off and apply manual ColourGains. "
+                    f"Red gain {red_gain:.2f}, blue gain {blue_gain:.2f}. "
+                    "This checks whether the red tint is mainly a white-balance tuning problem."
+                ),
+                auto_white_balance=False,
+                color_gain_red=red_gain,
+                color_gain_blue=blue_gain,
+            )
 
     if include_format_sweep:
         for fmt in _FORMAT_SWEEP:
@@ -142,6 +168,7 @@ def run_camera_settings_diagnostic(
     output_dir: str | Path | None = None,
     warmup_s: float = 0.8,
     include_format_sweep: bool = True,
+    include_manual_gain_sweep: bool = True,
 ) -> dict:
     base_dir = Path(base_dir).resolve()
     if output_dir is None:
@@ -171,7 +198,11 @@ def run_camera_settings_diagnostic(
 
     try:
         backend = service.get_config().get("backend", "unknown")
-        cases = build_tint_test_cases(runtime_camera, include_format_sweep=include_format_sweep and backend == "picamera2")
+        cases = build_tint_test_cases(
+            runtime_camera,
+            include_format_sweep=include_format_sweep and backend == "picamera2",
+            include_manual_gain_sweep=include_manual_gain_sweep and backend == "picamera2",
+        )
         manifest["detected_backend"] = backend
         manifest["cases_planned"] = [case["name"] for case in cases]
 
@@ -219,6 +250,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output-dir", default=None, help="Optional output directory for captured images and manifest.json.")
     parser.add_argument("--warmup", type=float, default=0.8, help="Seconds to wait after each settings apply/restart before capture.")
     parser.add_argument("--no-format-sweep", action="store_true", help="Skip the BGR888/RGB888/XBGR8888 comparison cases.")
+    parser.add_argument("--no-manual-gain-sweep", action="store_true", help="Skip the AWB-off manual ColourGains comparison cases.")
     args = parser.parse_args(argv)
 
     manifest = run_camera_settings_diagnostic(
@@ -226,6 +258,7 @@ def main(argv: list[str] | None = None) -> int:
         output_dir=args.output_dir,
         warmup_s=args.warmup,
         include_format_sweep=not args.no_format_sweep,
+        include_manual_gain_sweep=not args.no_manual_gain_sweep,
     )
     print(f"Camera diagnostic saved to: {manifest['output_dir']}")
     for case in manifest.get("cases", []):

@@ -24,6 +24,38 @@ class CameraServiceTests(unittest.TestCase):
         self.assertFalse(svc.auto_white_balance)
         self.assertFalse(config["auto_white_balance"])
         self.assertFalse(config["awb"])
+
+    def test_apply_settings_accepts_manual_colour_gain_aliases(self):
+        svc = CameraService()
+        ok, _message, config = svc.apply_settings({"colour_gain_red": 0.72, "blue_gain": 1.18}, restart=False)
+        self.assertTrue(ok)
+        self.assertAlmostEqual(svc.color_gain_red, 0.72)
+        self.assertAlmostEqual(svc.color_gain_blue, 1.18)
+        self.assertAlmostEqual(config["color_gain_red"], 0.72)
+        self.assertAlmostEqual(config["color_gain_blue"], 1.18)
+
+    def test_set_picamera_controls_sends_manual_colour_gains_when_awb_disabled(self):
+        svc = CameraService()
+        fake_picam = mock.Mock()
+        svc._picam2 = fake_picam
+        svc.auto_white_balance = False
+        svc.color_gain_red = 0.68
+        svc.color_gain_blue = 1.24
+        svc._set_picamera_controls_locked()
+        controls = fake_picam.set_controls.call_args.args[0]
+        self.assertEqual(controls["AwbEnable"], False)
+        self.assertEqual(controls["ColourGains"], (0.68, 1.24))
+
+    def test_set_picamera_controls_omits_manual_colour_gains_when_awb_enabled(self):
+        svc = CameraService()
+        fake_picam = mock.Mock()
+        svc._picam2 = fake_picam
+        svc.auto_white_balance = True
+        svc._set_picamera_controls_locked()
+        controls = fake_picam.set_controls.call_args.args[0]
+        self.assertEqual(controls["AwbEnable"], True)
+        self.assertNotIn("ColourGains", controls)
+
     def test_capture_snapshot_frame_uses_direct_picamera_capture_when_raw_cache_missing(self):
         svc = CameraService()
         svc._picam2 = object()
