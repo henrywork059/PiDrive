@@ -66,6 +66,7 @@ class CameraService:
         self._frame = None
         self._raw_frame = None
         self._frame_lock = threading.Lock()
+        self._capture_lock = threading.Lock()
         self._service_lock = threading.RLock()
         self._running = False
         self._fps = 0.0
@@ -389,22 +390,24 @@ class CameraService:
 
         request = None
         try:
-            request = picam.capture_request()
-            pil_image = None
-            if need_frame or need_preview:
-                pil_image = request.make_image("main")
+            with self._capture_lock:
+                request = picam.capture_request()
+                pil_image = None
+                if need_frame or need_preview:
+                    pil_image = request.make_image("main")
 
-            frame = self._frame_from_pil(pil_image) if need_frame else None
-            jpeg_bytes = self._jpeg_from_pil(pil_image) if need_preview else None
-            return frame, jpeg_bytes, True, ""
+                frame = self._frame_from_pil(pil_image) if need_frame else None
+                jpeg_bytes = self._jpeg_from_pil(pil_image) if need_preview else None
+                return frame, jpeg_bytes, True, ""
         except Exception as exc:
             return None, None, False, f"Picamera2 request capture failed: {exc}"
         finally:
             if request is not None:
-                try:
-                    request.release()
-                except Exception:
-                    pass
+                with self._capture_lock:
+                    try:
+                        request.release()
+                    except Exception:
+                        pass
 
     def _capture_opencv_frame(self):
         with self._service_lock:
@@ -412,7 +415,8 @@ class CameraService:
         if capture is None:
             return None, False, "No active OpenCV backend."
         try:
-            ok, frame = capture.read()
+            with self._capture_lock:
+                ok, frame = capture.read()
             if ok and frame is not None:
                 return frame, True, ""
             return None, False, "OpenCV capture returned no frame."
@@ -531,6 +535,46 @@ class CameraService:
             sleep_time = max(0.0, (1.0 / max(target_fps, 1)) - elapsed)
             if sleep_time > 0:
                 time.sleep(sleep_time)
+
+    def capture_snapshot_frame(self, retries: int = 4, delay_s: float = 0.05, copy: bool = True):
+        attempts = max(1, int(retries) + 1)
+        for attempt in range(attempts):
+            frame = self.get_raw_frame(copy=copy)
+            if frame is not None:
+                return frame
+
+            with self._service_lock:
+                using_picam = self._picam2 is not None
+                using_opencv = self._capture is not None
+
+            direct_frame = None
+            live = False
+            error_text = ""
+            if using_picam:
+                direct_frame, _jpeg, live, error_text = self._capture_picamera_request(True, False)
+            elif using_opencv:
+                direct_frame, live, error_text = self._capture_opencv_frame()
+
+            if direct_frame is not None:
+                with self._frame_lock:
+                    self._raw_frame = direct_frame
+                    self._frame = direct_frame
+                with self._service_lock:
+                    self.preview_live = bool(live)
+                    if error_text:
+                        self.last_error = error_text
+                    elif live:
+                        self.last_error = ""
+                if copy and hasattr(direct_frame, "copy"):
+                    return direct_frame.copy()
+                return direct_frame
+
+            if error_text:
+                with self._service_lock:
+                    self.last_error = error_text
+            if attempt + 1 < attempts:
+                time.sleep(max(0.0, float(delay_s)))
+        return None
 
     def get_latest_frame(self, copy: bool = True):
         with self._frame_lock:

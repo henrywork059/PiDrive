@@ -133,10 +133,13 @@ class MotorService:
         steering = clamp_float(steering, -1.0, 1.0)
         steer_mix = clamp_float(steer_mix, 0.0, 1.0)
 
-        steering *= -1.0 if int(self.steering_direction) < 0 else 1.0
+        effective_steering = steering
+        if throttle < -1e-4:
+            effective_steering *= -1.0
+        effective_steering *= -1.0 if int(self.steering_direction) < 0 else 1.0
 
-        left = throttle - steer_mix * steering
-        right = throttle + steer_mix * steering
+        left = throttle - steer_mix * effective_steering
+        right = throttle + steer_mix * effective_steering
 
         left = self._apply_motor_tuning(left, self.left_max_speed, self.left_bias, self.left_direction)
         right = self._apply_motor_tuning(right, self.right_max_speed, self.right_bias, self.right_direction)

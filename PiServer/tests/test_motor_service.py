@@ -39,6 +39,21 @@ class MotorServiceTests(unittest.TestCase):
         cfg = svc.get_persisted_config()
         self.assertNotIn("gpio_available", cfg)
 
+    def test_reverse_throttle_flips_turn_bias(self):
+        svc = MotorService()
+        left_fwd, right_fwd = svc.update(0.2, 0.6, 1.0)
+        left_rev, right_rev = svc.update(0.2, -0.6, 1.0)
+        self.assertGreater(right_fwd - left_fwd, 0.0)
+        self.assertLess(right_rev - left_rev, 0.0)
+
+    def test_reverse_throttle_respects_reversed_steering_direction(self):
+        svc = MotorService()
+        svc.apply_settings({"steering_direction": -1})
+        left_fwd, right_fwd = svc.update(0.2, 0.6, 1.0)
+        left_rev, right_rev = svc.update(0.2, -0.6, 1.0)
+        self.assertLess(right_fwd - left_fwd, 0.0)
+        self.assertGreater(right_rev - left_rev, 0.0)
+
 
 if __name__ == "__main__":
     unittest.main()
