@@ -62,6 +62,7 @@ class MarkingPage(QWidget):
 
         self._build()
         self._connect()
+        self._setup_shortcuts()
         self.refresh_class_widgets()
         QShortcut(QKeySequence('X'), self.image_list, activated=self.delete_selected_frames)
 
@@ -136,9 +137,10 @@ class MarkingPage(QWidget):
             'Draw: left-drag\n'
             'Select box: right-click\n'
             'Move selected box: Arrow keys (Shift = faster)\n'
-            'Change frame: A / D\n'
+            'Change frame: A / D (auto-save current labels)\n'
+            'Cycle class: W / S\n'
             'Delete selected frame(s): X\n'
-            'Delete selected box: Backspace / Delete',
+            'Delete selected box: Delete',
             tools_box,
         )
         help_label.setProperty('role', 'muted')
@@ -182,6 +184,72 @@ class MarkingPage(QWidget):
         self.canvas.request_prev_frame.connect(self.prev_image)
         self.canvas.request_next_frame.connect(self.next_image)
         self.canvas.request_delete_frame.connect(self.delete_selected_frames)
+
+    def _setup_shortcuts(self) -> None:
+        self._shortcuts: list[QShortcut] = []
+        for sequence, callback in (
+            ('A', self.prev_image),
+            ('D', self.next_image),
+            ('W', self.cycle_class_up),
+            ('S', self.cycle_class_down),
+            ('Delete', self.delete_selected_box),
+        ):
+            shortcut = QShortcut(QKeySequence(sequence), self)
+            shortcut.setContext(Qt.WidgetWithChildrenShortcut)
+            shortcut.activated.connect(callback)
+            self._shortcuts.append(shortcut)
+
+    def _shortcut_target_is_text_input(self) -> bool:
+        widget = self.focusWidget()
+        return isinstance(widget, (QLineEdit, QPlainTextEdit))
+
+    def _set_active_class_index(self, combo_index: int) -> None:
+        if self.class_combo.count() == 0:
+            return
+        clamped = max(0, min(combo_index, self.class_combo.count() - 1))
+        if clamped == self.class_combo.currentIndex():
+            return
+        self.class_combo.blockSignals(True)
+        self.class_combo.setCurrentIndex(clamped)
+        self.class_combo.blockSignals(False)
+        self.on_class_combo_changed(clamped)
+
+    def _cycle_active_class(self, step: int) -> None:
+        if self.class_combo.count() == 0:
+            return
+        next_index = (self.class_combo.currentIndex() + step) % self.class_combo.count()
+        self._set_active_class_index(next_index)
+
+    def _selected_box_class_index(self) -> int | None:
+        if self.canvas.selected_index is None:
+            return None
+        if self.canvas.selected_index < 0 or self.canvas.selected_index >= len(self.canvas.boxes):
+            return None
+        class_id = int(self.canvas.boxes[self.canvas.selected_index].class_id)
+        combo_index = self.class_combo.findData(class_id)
+        return combo_index if combo_index >= 0 else None
+
+    def cycle_class_up(self) -> None:
+        if self._shortcut_target_is_text_input():
+            return
+        if self.canvas.selected_index is not None:
+            current_index = self._selected_box_class_index()
+            if current_index is not None and self.class_combo.count() > 0:
+                self._set_active_class_index((current_index - 1) % self.class_combo.count())
+                self.apply_class_to_selected()
+                return
+        self._cycle_active_class(-1)
+
+    def cycle_class_down(self) -> None:
+        if self._shortcut_target_is_text_input():
+            return
+        if self.canvas.selected_index is not None:
+            current_index = self._selected_box_class_index()
+            if current_index is not None and self.class_combo.count() > 0:
+                self._set_active_class_index((current_index + 1) % self.class_combo.count())
+                self.apply_class_to_selected()
+                return
+        self._cycle_active_class(1)
 
     def _path_row(self) -> QWidget:
         row = QWidget(self)
@@ -358,19 +426,11 @@ class MarkingPage(QWidget):
     def maybe_save_before_switch(self) -> bool:
         if not self.is_dirty or self.current_image_path is None:
             return True
-        result = QMessageBox.question(
-            self,
-            'Unsaved labels',
-            'Save label changes before switching?',
-            QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel,
-            QMessageBox.Yes,
-        )
-        if result == QMessageBox.Cancel:
-            return False
-        if result == QMessageBox.Yes:
-            return self.save_current_labels()
-        self.is_dirty = False
-        return True
+        if self.save_current_labels():
+            self.set_status('Labels auto-saved before switching frame.')
+            return True
+        QMessageBox.warning(self, 'Save failed', 'Could not auto-save the current labels before switching.')
+        return False
 
     def save_current_labels(self) -> bool:
         if self.current_image_path is None or self.current_label_path is None:
@@ -477,18 +537,24 @@ class MarkingPage(QWidget):
         self.set_status(f'Deleted {deleted} frame(s).')
 
     def prev_image(self) -> None:
+        if self._shortcut_target_is_text_input():
+            return
         if self.image_list.count() == 0:
             return
         row = self.image_list.currentRow()
         self.image_list.setCurrentRow((row - 1) % self.image_list.count())
 
     def next_image(self) -> None:
+        if self._shortcut_target_is_text_input():
+            return
         if self.image_list.count() == 0:
             return
         row = self.image_list.currentRow()
         self.image_list.setCurrentRow((row + 1) % self.image_list.count())
 
     def delete_selected_box(self) -> None:
+        if self._shortcut_target_is_text_input():
+            return
         if self.canvas.delete_selected():
             self.is_dirty = True
             self.selection_info.setText('Selected box deleted.')
@@ -497,7 +563,8 @@ class MarkingPage(QWidget):
     def apply_class_to_selected(self) -> None:
         if self.canvas.set_selected_class_id(self.current_class_id()):
             self.is_dirty = True
-            self.selection_info.setText(f'Updated selected box to class {self.current_class_id()}.')
+            class_name = self.state.class_names[self.current_class_id()] if 0 <= self.current_class_id() < len(self.state.class_names) else 'unknown'
+            self.selection_info.setText(f'Updated selected box to class {self.current_class_id()}: {class_name}.')
             self.set_status('Selected box class updated.')
 
     def save_classes(self) -> None:
@@ -521,7 +588,9 @@ class MarkingPage(QWidget):
 
     def on_class_combo_changed(self, index: int) -> None:
         if index >= 0:
-            self.set_status(f'Active class: {self.current_class_id()}')
+            class_id = self.current_class_id()
+            class_name = self.state.class_names[class_id] if 0 <= class_id < len(self.state.class_names) else 'unknown'
+            self.set_status(f'Active class: {class_id} ({class_name})')
 
     def on_selection_changed(self, index: int) -> None:
         if index < 0:

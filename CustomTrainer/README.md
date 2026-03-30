@@ -25,13 +25,14 @@ CustomTrainer/
 └── PATCH_NOTES/
 ```
 
-## What changed in 0_2_2
+## What changed in 0_2_3
 
-- keeps the **startup-safe device probing** and CPU fallback behavior from 0_2_1
-- rebuilds a **YOLO-compatible dataset cache** before training or validation so flat session folders like `session/*.jpg` with labels in `session/labels/*.txt` are exported in a structure Ultralytics can actually read
-- refreshes `dataset.yaml` from the current sessions root before Training and Validation so newly saved labels are included
-- adds dataset preflight checks that stop Training / Validation early when there are **zero usable YOLO boxes**, instead of silently running 100 empty epochs
-- updates the main window title so the visible version matches this patch
+- keeps the **startup-safe device probing** and dataset export / preflight fixes from 0_2_2
+- adds **A / D** shortcuts for previous / next frame directly on the Marking page, while keeping the existing left-drag and right-click mouse workflow
+- auto-saves the current label file before switching to another frame so frame navigation no longer interrupts the marking flow with a prompt
+- adds **Delete** to remove the selected box and **W / S** to cycle the selected box class or the active class for new boxes
+- draws each class with its own persistent annotation color so boxes are easier to distinguish while labeling
+- updates the visible main window version to 0_2_3
 
 ## Main workflow
 
@@ -48,9 +49,12 @@ CustomTrainer/
 - automatically reloads the last valid sessions root at startup
 - supports draggable split panels for session source / sessions / images / canvas / tools
 - supports multi-select frames with `Ctrl + Click`
-- uses `A / D` for previous / next frame
+- uses `A / D` for previous / next frame and auto-saves the current labels before switching
+- uses `W / S` to cycle the selected box class or the active class for new boxes
+- uses `Delete` to remove the selected box
 - uses `X` to delete selected frame(s)
 - uses arrow keys to move the selected box
+- draws each class with its own box color
 
 ## Training page highlights
 

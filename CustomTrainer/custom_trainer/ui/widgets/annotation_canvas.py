@@ -39,6 +39,16 @@ class AnnotationCanvas(QWidget):
     def sizeHint(self) -> QSize:
         return QSize(960, 720)
 
+    @staticmethod
+    def color_for_class_id(class_id: int) -> QColor:
+        palette = [
+            '#4f9cf8', '#ff6b6b', '#ffd166', '#06d6a0', '#c77dff', '#ff9f1c', '#2ec4b6', '#f72585',
+            '#90be6d', '#577590', '#e76f51', '#43aa8b', '#4895ef', '#b5179e', '#f4a261', '#8ecae6',
+        ]
+        if class_id < 0:
+            return QColor('#9aa4b2')
+        return QColor(palette[class_id % len(palette)])
+
     def clear_scene(self) -> None:
         self.image_path = None
         self.pixmap = QPixmap()
@@ -99,20 +109,32 @@ class AnnotationCanvas(QWidget):
         rect = self.display_rect()
         painter.drawPixmap(rect.toRect(), self.pixmap)
 
-        box_pen = QPen(QColor('#76ff03'))
-        box_pen.setWidth(2)
-        selected_pen = QPen(QColor('#ffd54a'))
-        selected_pen.setWidth(3)
         draw_pen = QPen(QColor('#4f9cf8'))
         draw_pen.setWidth(2)
         draw_pen.setStyle(Qt.DashLine)
 
         for index, box in enumerate(self.boxes):
             box_rect = self.image_to_widget_rect(box)
-            painter.setPen(selected_pen if index == self.selected_index else box_pen)
+            class_color = self.color_for_class_id(box.class_id)
+            if index == self.selected_index:
+                selected_pen = QPen(QColor('#ffffff'))
+                selected_pen.setWidth(4)
+                painter.setPen(selected_pen)
+                painter.drawRect(box_rect)
+            box_pen = QPen(class_color)
+            box_pen.setWidth(2)
+            painter.setPen(box_pen)
             painter.drawRect(box_rect)
-            painter.setPen(QColor('#ffffff'))
-            painter.drawText(box_rect.adjusted(4, 4, -4, -4), str(box.class_id))
+
+            label_text = str(box.class_id)
+            metrics = painter.fontMetrics()
+            label_w = metrics.horizontalAdvance(label_text) + 10
+            label_h = metrics.height() + 4
+            label_y = max(rect.y(), box_rect.y() - label_h)
+            label_rect = QRectF(box_rect.x(), label_y, label_w, label_h)
+            painter.fillRect(label_rect, class_color)
+            painter.setPen(QColor('#0d1118'))
+            painter.drawText(label_rect, Qt.AlignCenter, label_text)
 
         if self.drag_start is not None and self.drag_end is not None:
             painter.setPen(draw_pen)

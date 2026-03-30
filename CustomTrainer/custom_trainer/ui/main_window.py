@@ -15,7 +15,7 @@ from custom_trainer.ui.widgets.log_panel import LogPanel
 class CustomTrainerMainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle('CustomTrainer 0_2_2')
+        self.setWindowTitle('CustomTrainer 0_2_3')
         self.resize(1500, 920)
         self.setMinimumSize(960, 680)
         self._startup_geometry_applied = False
@@ -121,9 +121,10 @@ class CustomTrainerMainWindow(QMainWindow):
                     'Left-drag -> Create box',
                     'Arrow keys -> Move selected box',
                     'Shift + Arrow keys -> Move selected box faster',
-                    'A / D -> Previous / next frame on the image canvas',
+                    'A / D -> Previous / next frame with auto-save',
+                    'W / S -> Cycle class up / down (selected box or active class)',
                     'X -> Delete selected frame(s)',
-                    'Backspace / Delete -> Delete selected box',
+                    'Delete -> Delete selected box',
                     'Ctrl + Click in frame list -> Multi-select frames',
                     'Validation prediction browser now lets you step through saved frames.',
                 ]
