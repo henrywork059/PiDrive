@@ -25,8 +25,9 @@ from PySide6.QtWidgets import (
 
 from custom_trainer.services.dataset_service import DatasetSummary, ensure_dataset_yaml, ensure_dataset_yaml_with_summary
 from custom_trainer.services.device_service import probe_runtime
+from custom_trainer.services.session_service import IMAGE_SUFFIXES, list_images, resolve_prediction_source
 from custom_trainer.services.ui_state_service import get_splitter_state, set_splitter_state
-from custom_trainer.services.ultralytics_runner import build_train_command, runner_working_directory
+from custom_trainer.services.ultralytics_runner import build_predict_command, build_train_command, runner_working_directory
 from custom_trainer.state import AppState
 from custom_trainer.ui.qt_helpers import CommandWorker
 from custom_trainer.ui.widgets.line_plot_widget import LinePlotWidget
@@ -48,10 +49,16 @@ class TrainPage(QWidget):
         self.open_validation_for_prediction = open_validation_for_prediction
         self.thread: QThread | None = None
         self.worker: CommandWorker | None = None
+        self.current_task_kind = ''
         self.current_run_dir: Path | None = None
         self.current_results_csv: Path | None = None
         self._last_plot_signature: tuple[str, int, int] | None = None
         self._metric_columns: list[str] = []
+        self.last_preview_source = ''
+        self.last_prediction_summary: list[str] = []
+        self.last_save_dir = ''
+        self.predicted_frame_paths: list[Path] = []
+        self.current_preview_index = -1
 
         self.model_edit = QLineEdit('yolov8n.pt', self)
         self.yaml_edit = QLineEdit(self)
@@ -68,7 +75,7 @@ class TrainPage(QWidget):
         self.status_note = QLabel('Idle', self)
         self.status_note.setProperty('role', 'muted')
         self.start_button = QPushButton('Start Training', self)
-        self.stop_button = QPushButton('Stop Training', self)
+        self.stop_button = QPushButton('Stop Task', self)
         self.stop_button.setEnabled(False)
         self.deploy_weights_edit = QLineEdit(self)
         self.deploy_source_edit = QLineEdit(self)
@@ -82,6 +89,10 @@ class TrainPage(QWidget):
         self.preview_info = QLabel('Open Marking and select a frame to mirror a quick preview here.', self)
         self.preview_info.setWordWrap(True)
         self.preview_info.setProperty('role', 'muted')
+        self.frame_selector = QComboBox(self)
+        self.frame_selector.currentIndexChanged.connect(self._on_frame_selected)
+        self.frame_status = QLabel('No deploy preview frames yet.', self)
+        self.frame_status.setProperty('role', 'muted')
         self.run_log_output = QPlainTextEdit(self)
         self.run_log_output.setReadOnly(True)
         self.run_log_output.setPlaceholderText('Training command and runtime log will appear here...')
@@ -98,6 +109,7 @@ class TrainPage(QWidget):
 
         self.start_button.clicked.connect(self.start_training)
         self.stop_button.clicked.connect(self.stop_training)
+        self.deploy_source_edit.textChanged.connect(self._reset_prediction_preview)
 
         self._build()
         self.refresh_devices(log_runtime=False)
@@ -146,18 +158,15 @@ class TrainPage(QWidget):
         deploy_actions = QWidget(deploy_box)
         deploy_actions_layout = QHBoxLayout(deploy_actions)
         deploy_actions_layout.setContentsMargins(0, 0, 0, 0)
-        latest_deploy_button = QPushButton('Use Latest best.pt', deploy_actions)
-        latest_deploy_button.clicked.connect(self.use_latest_best_weights_for_deploy)
-        current_frames_button = QPushButton('Use Current Session Frames', deploy_actions)
-        current_frames_button.clicked.connect(self.use_current_frames_for_deploy)
-        load_validation_button = QPushButton('Load In Validation', deploy_actions)
-        load_validation_button.clicked.connect(self.load_model_to_validation)
-        predict_validation_button = QPushButton('Predict Current Frames', deploy_actions)
-        predict_validation_button.clicked.connect(self.predict_model_on_frames)
-        deploy_actions_layout.addWidget(latest_deploy_button)
-        deploy_actions_layout.addWidget(current_frames_button)
-        deploy_actions_layout.addWidget(load_validation_button)
-        deploy_actions_layout.addWidget(predict_validation_button)
+        self.latest_deploy_button = QPushButton('Use Latest best.pt', deploy_actions)
+        self.latest_deploy_button.clicked.connect(self.use_latest_best_weights_for_deploy)
+        self.current_frames_button = QPushButton('Use Current Session Frames', deploy_actions)
+        self.current_frames_button.clicked.connect(self.use_current_frames_for_deploy)
+        self.deploy_predict_button = QPushButton('Quick Predict Here', deploy_actions)
+        self.deploy_predict_button.clicked.connect(self.predict_model_on_frames)
+        deploy_actions_layout.addWidget(self.latest_deploy_button)
+        deploy_actions_layout.addWidget(self.current_frames_button)
+        deploy_actions_layout.addWidget(self.deploy_predict_button)
         deploy_form.addRow('', deploy_actions)
         deploy_form.addRow('', self.deploy_status)
 
@@ -169,6 +178,18 @@ class TrainPage(QWidget):
         preview_layout = QVBoxLayout(preview_box)
         preview_layout.addWidget(self.preview_label, 1)
         preview_layout.addWidget(self.preview_info)
+        preview_browser = QWidget(preview_box)
+        preview_browser_layout = QHBoxLayout(preview_browser)
+        preview_browser_layout.setContentsMargins(0, 0, 0, 0)
+        prev_frame_button = QPushButton('Prev Result', preview_browser)
+        prev_frame_button.clicked.connect(self.prev_frame)
+        next_frame_button = QPushButton('Next Result', preview_browser)
+        next_frame_button.clicked.connect(self.next_frame)
+        preview_browser_layout.addWidget(prev_frame_button)
+        preview_browser_layout.addWidget(next_frame_button)
+        preview_browser_layout.addWidget(self.frame_selector, 1)
+        preview_layout.addWidget(preview_browser)
+        preview_layout.addWidget(self.frame_status)
 
         plot_box = QGroupBox('Training Progress Plot', self)
         plot_layout = QVBoxLayout(plot_box)
@@ -205,8 +226,8 @@ class TrainPage(QWidget):
             '4. Use Stop Training to terminate a run cleanly from the GUI.\n'
             '5. The Run Log shows the exact training command, working folder, and runtime output.\n'
             '6. The Training Progress Plot reads results.csv live while training when Ultralytics writes it.\n'
-            '7. Use Quick Deploy To Frames to load a trained model into Validation and optionally run prediction on the current frame folder immediately.\n'
-            '8. Validation and Export can auto-pick the latest best.pt after training.'
+            '7. Quick Deploy stays inside the Training tab and can run prediction directly on a frame or frame folder.\n'
+            '8. Validation and Export can still auto-pick the latest best.pt after training.'
         )
         info_layout = QVBoxLayout(info_box)
         info_layout.addWidget(info_text)
@@ -411,9 +432,9 @@ class TrainPage(QWidget):
             return source
         return None
 
-    def _send_to_validation(self, *, auto_predict: bool) -> None:
-        if self.open_validation_for_prediction is None:
-            QMessageBox.critical(self, 'Validation link unavailable', 'This build was not wired with the Validation handoff callback.')
+    def predict_model_on_frames(self) -> None:
+        if self.thread is not None:
+            QMessageBox.information(self, 'Busy', 'A training or quick deploy task is already running.')
             return
         weights_path = self._deploy_weights_path()
         if weights_path is None:
@@ -423,19 +444,38 @@ class TrainPage(QWidget):
         if source_path is None:
             QMessageBox.critical(self, 'Missing frame source', 'Choose a frame or folder source first.')
             return
-        dataset_yaml = self._ensure_training_yaml()
-        self.open_validation_for_prediction(weights_path, source_path, dataset_yaml, auto_predict)
-        if auto_predict:
-            self.set_status('Loaded model into Validation and started prediction on the selected frames.')
-        else:
-            self.set_status('Loaded model and frame source into Validation.')
-        self._update_deploy_status('Validation handoff ready.')
-
-    def load_model_to_validation(self) -> None:
-        self._send_to_validation(auto_predict=False)
-
-    def predict_model_on_frames(self) -> None:
-        self._send_to_validation(auto_predict=True)
+        try:
+            imgsz = int(self.imgsz_edit.text())
+        except ValueError:
+            QMessageBox.critical(self, 'Invalid image size', 'Image size must be an integer.')
+            return
+        if not source_path.exists():
+            QMessageBox.critical(self, 'Missing frame source', f'The selected frame source does not exist:\n{source_path}')
+            return
+        resolved_source_path, source_note = resolve_prediction_source(source_path)
+        project_dir, run_name = self._deploy_output_args('predict')
+        self.last_preview_source = str(source_path)
+        self.predicted_frame_paths = []
+        self.current_preview_index = -1
+        self.last_prediction_summary = []
+        self.last_save_dir = ''
+        self._refresh_frame_selector()
+        if source_note:
+            self.last_prediction_summary.append(source_note)
+        command = build_predict_command(
+            weights=str(weights_path),
+            source=str(resolved_source_path),
+            imgsz=imgsz,
+            conf=0.25,
+            device=self.current_device_value(),
+            project=project_dir,
+            name=run_name,
+            show_labels=True,
+            show_conf=True,
+            show_boxes=True,
+        )
+        self._launch(command, 'Quick deploy prediction started...', cwd=runner_working_directory(), task_kind='deploy_predict')
+        self.refresh_preview()
 
     def use_current_root_defaults(self) -> None:
         dataset_yaml = self.state.preferred_dataset_yaml()
@@ -457,10 +497,122 @@ class TrainPage(QWidget):
         self._update_deploy_status('Training defaults filled from the current sessions root.')
         self.set_status('Training defaults filled from the current sessions root.')
 
+    def _render_pixmap(self, image_path: Path, empty_text: str) -> bool:
+        pixmap = QPixmap(str(image_path))
+        if pixmap.isNull():
+            self.preview_label.setPixmap(QPixmap())
+            self.preview_label.setText(empty_text)
+            return False
+        scaled = pixmap.scaled(self.preview_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        self.preview_label.setPixmap(scaled)
+        self.preview_label.setText('')
+        return True
+
+    def _reset_prediction_preview(self) -> None:
+        current_source = self.deploy_source_edit.text().strip()
+        if current_source != self.last_preview_source:
+            self.predicted_frame_paths = []
+            self.current_preview_index = -1
+            self.last_prediction_summary = []
+            self.last_save_dir = ''
+            self._refresh_frame_selector()
+            self.refresh_preview()
+
+    def _refresh_frame_selector(self) -> None:
+        self.frame_selector.blockSignals(True)
+        self.frame_selector.clear()
+        for path in self.predicted_frame_paths:
+            self.frame_selector.addItem(path.name)
+        if 0 <= self.current_preview_index < len(self.predicted_frame_paths):
+            self.frame_selector.setCurrentIndex(self.current_preview_index)
+            self.frame_status.setText(f'Quick deploy results: {self.current_preview_index + 1}/{len(self.predicted_frame_paths)}')
+        elif self.predicted_frame_paths:
+            self.current_preview_index = 0
+            self.frame_selector.setCurrentIndex(0)
+            self.frame_status.setText(f'Quick deploy results: 1/{len(self.predicted_frame_paths)}')
+        else:
+            self.current_preview_index = -1
+            self.frame_status.setText('No deploy preview frames yet.')
+        self.frame_selector.blockSignals(False)
+
+    def _current_predicted_frame(self) -> Path | None:
+        if 0 <= self.current_preview_index < len(self.predicted_frame_paths):
+            path = self.predicted_frame_paths[self.current_preview_index]
+            if path.exists():
+                return path
+        return None
+
+    def _find_first_image_in_dir(self, directory: Path) -> Path | None:
+        current = self.state.current_image_path
+        if current is not None:
+            try:
+                current.relative_to(directory)
+                if current.exists() and current.parent == directory:
+                    return current
+            except ValueError:
+                pass
+        files = list_images(directory)
+        return files[0] if files else None
+
     def refresh_preview(self) -> None:
+        dataset_yaml = self.state.preferred_dataset_yaml()
+        deploy_source_text = self.deploy_source_edit.text().strip()
+        deploy_weights_text = self.deploy_weights_edit.text().strip() or 'not set'
+        prediction_frame = self._current_predicted_frame()
+        if deploy_source_text:
+            source_path = Path(deploy_source_text)
+            if not source_path.exists():
+                self.preview_label.setPixmap(QPixmap())
+                self.preview_label.setText('Deploy source not found.')
+                self.preview_info.setText(
+                    f'Deploy source path does not exist:\n{deploy_source_text}\n'
+                    f'Weights: {deploy_weights_text}'
+                )
+                self.frame_status.setText('No deploy preview frames yet.')
+                return
+            resolved_source_path, source_note = resolve_prediction_source(source_path)
+            if prediction_frame is not None:
+                self._render_pixmap(prediction_frame, 'Predicted frame preview unavailable.')
+                info_lines = [
+                    f'Quick deploy source: {source_path}',
+                    f'Showing result {self.current_preview_index + 1}/{len(self.predicted_frame_paths)}',
+                    f'Weights: {deploy_weights_text}',
+                    f'Dataset YAML: {dataset_yaml if dataset_yaml else "not set"}',
+                ]
+                if source_note:
+                    info_lines.append(f'Resolved source: {resolved_source_path}')
+                if self.last_prediction_summary:
+                    info_lines.extend(self.last_prediction_summary[:6])
+                if self.last_save_dir:
+                    info_lines.append(f'Saved to: {self.last_save_dir}')
+                self.preview_info.setText('\n'.join(info_lines))
+                self.frame_status.setText(f'Quick deploy results: {self.current_preview_index + 1}/{len(self.predicted_frame_paths)}')
+                return
+            preview_source = resolved_source_path if resolved_source_path.exists() else source_path
+            raw_image_path: Path | None = None
+            if preview_source.is_dir():
+                raw_image_path = self._find_first_image_in_dir(preview_source)
+            elif preview_source.suffix.lower() in IMAGE_SUFFIXES:
+                raw_image_path = preview_source
+            if raw_image_path is not None:
+                self._render_pixmap(raw_image_path, 'Preview unavailable for this file.')
+            else:
+                self.preview_label.setPixmap(QPixmap())
+                self.preview_label.setText('Preview unavailable for non-image sources.')
+            info_lines = [
+                f'Quick deploy source: {source_path}',
+                f'Weights: {deploy_weights_text}',
+                f'Dataset YAML: {dataset_yaml if dataset_yaml else "not set"}',
+                'Run Quick Predict Here to render detections without leaving the Training tab.',
+            ]
+            if source_note:
+                info_lines.append(f'Resolved source: {resolved_source_path}')
+            self.preview_info.setText('\n'.join(info_lines))
+            self.frame_status.setText('No deploy preview frames yet.')
+            return
+
         image_path = self.state.current_preview_image()
         session = self.state.current_session
-        dataset_yaml = self.state.preferred_dataset_yaml()
         if image_path is None or not image_path.exists():
             self.preview_label.setPixmap(QPixmap())
             self.preview_label.setText('No frame preview yet.')
@@ -468,21 +620,16 @@ class TrainPage(QWidget):
                 'Open Marking and select a frame to mirror a quick preview here.\n'
                 f'Dataset YAML: {dataset_yaml if dataset_yaml else "not set"}'
             )
+            self.frame_status.setText('No deploy preview frames yet.')
             return
-        pixmap = QPixmap(str(image_path))
-        if pixmap.isNull():
-            self.preview_label.setPixmap(QPixmap())
-            self.preview_label.setText('Preview unavailable for this file.')
-        else:
-            scaled = pixmap.scaled(self.preview_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            self.preview_label.setPixmap(scaled)
-            self.preview_label.setText('')
+        self._render_pixmap(image_path, 'Preview unavailable for this file.')
         session_name = session.name if session is not None else 'none'
         self.preview_info.setText(
             f'Session: {session_name}\n'
             f'Current frame: {image_path.name}\n'
             f'Dataset YAML: {dataset_yaml if dataset_yaml else "not set"}'
         )
+        self.frame_status.setText('No deploy preview frames yet.')
 
     def showEvent(self, event) -> None:
         super().showEvent(event)
@@ -587,7 +734,7 @@ class TrainPage(QWidget):
         self.current_run_dir = expected_run_dir
         self.current_results_csv = expected_results_csv
         self.plot_status.setText(f'Waiting for training metrics in {expected_run_dir}')
-        self._launch(command, 'Training started...', cwd=runner_working_directory())
+        self._launch(command, 'Training started...', cwd=runner_working_directory(), task_kind='train')
         self.plot_timer.start()
 
     def stop_training(self) -> None:
@@ -595,8 +742,12 @@ class TrainPage(QWidget):
             return
         self.worker.request_stop()
         self.stop_button.setEnabled(False)
-        self.status_note.setText('Stopping training...')
-        self.set_status('Stopping training...')
+        if self.current_task_kind == 'deploy_predict':
+            self.status_note.setText('Stopping quick deploy prediction...')
+            self.set_status('Stopping quick deploy prediction...')
+        else:
+            self.status_note.setText('Stopping training...')
+            self.set_status('Stopping training...')
 
     def _find_results_csv(self) -> Path | None:
         candidates: list[Path] = []
@@ -733,17 +884,76 @@ class TrainPage(QWidget):
             return
         self._load_plot_from_csv(path)
 
+    def _add_predicted_frame(self, path: Path) -> None:
+        normalized = path.resolve() if path.exists() else path
+        for index, existing in enumerate(self.predicted_frame_paths):
+            existing_norm = existing.resolve() if existing.exists() else existing
+            if existing_norm == normalized:
+                self.current_preview_index = index
+                self._refresh_frame_selector()
+                return
+        self.predicted_frame_paths.append(path)
+        self.predicted_frame_paths.sort(key=lambda item: item.name.lower())
+        target_name = path.name
+        self.current_preview_index = next((i for i, item in enumerate(self.predicted_frame_paths) if item.name == target_name), 0)
+        self._refresh_frame_selector()
+
+    def _load_saved_prediction_frames(self) -> None:
+        if not self.last_save_dir:
+            return
+        save_dir = Path(self.last_save_dir)
+        if not save_dir.exists() or not save_dir.is_dir():
+            return
+        files = [path for path in sorted(save_dir.iterdir()) if path.is_file() and path.suffix.lower() in IMAGE_SUFFIXES]
+        if not files:
+            return
+        self.predicted_frame_paths = files
+        if self.current_preview_index < 0:
+            self.current_preview_index = 0
+        elif self.current_preview_index >= len(files):
+            self.current_preview_index = len(files) - 1
+        self._refresh_frame_selector()
+
+    def _deploy_output_args(self, prefix: str) -> tuple[str, str]:
+        project_dir = self.state.preferred_runs_dir() / 'quick_predict'
+        run_name = f'{prefix}_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+        return str(project_dir), run_name
+
     def _handle_worker_line(self, line: str) -> None:
         self._append_run_log(line)
         self.log(line)
+        if line.startswith('[preview-image] '):
+            preview_path = Path(line.removeprefix('[preview-image] ').strip())
+            self._add_predicted_frame(preview_path)
+            self.refresh_preview()
+            return
+        if line.startswith('[predict] '):
+            self.last_prediction_summary = [line.removeprefix('[predict] ').strip()]
+            self.refresh_preview()
+            return
+        if line.startswith('[predict-box] '):
+            self.last_prediction_summary.append(line.removeprefix('[predict-box] ').strip())
+            self.refresh_preview()
+            return
         if line.startswith('[save-dir] '):
             save_dir = Path(line.removeprefix('[save-dir] ').strip())
-            self.current_run_dir = save_dir
-            self.current_results_csv = save_dir / 'results.csv'
-            self.plot_status.setText(f'Using training output folder: {save_dir}')
-        self._poll_training_progress()
+            self.last_save_dir = str(save_dir)
+            if self.current_task_kind == 'train':
+                self.current_run_dir = save_dir
+                self.current_results_csv = save_dir / 'results.csv'
+                self.plot_status.setText(f'Using training output folder: {save_dir}')
+            self.refresh_preview()
+        if self.current_task_kind == 'train':
+            self._poll_training_progress()
 
-    def _launch(self, command: list[str], status_message: str, *, cwd: Path) -> None:
+    def _set_busy_state(self, busy: bool) -> None:
+        self.start_button.setEnabled(not busy)
+        self.deploy_predict_button.setEnabled(not busy)
+        self.latest_deploy_button.setEnabled(not busy)
+        self.current_frames_button.setEnabled(not busy)
+        self.stop_button.setEnabled(busy)
+
+    def _launch(self, command: list[str], status_message: str, *, cwd: Path, task_kind: str) -> None:
         self.run_log_output.clear()
         self._append_run_log(f'[cwd] {cwd}')
         self.thread = QThread(self)
@@ -755,25 +965,55 @@ class TrainPage(QWidget):
         self.worker.finished.connect(self.thread.quit)
         self.thread.finished.connect(self.thread.deleteLater)
         self.thread.finished.connect(self._clear_thread)
-        self.start_button.setEnabled(False)
-        self.stop_button.setEnabled(True)
+        self.current_task_kind = task_kind
+        self._set_busy_state(True)
         self.status_note.setText(status_message)
         self.set_status(status_message)
         self.thread.start()
 
     def _on_finished(self, exit_code: int) -> None:
-        self.plot_timer.stop()
-        self._poll_training_progress()
-        self.status_note.setText(f'Finished with exit code {exit_code}.')
-        self.set_status(f'Training finished with exit code {exit_code}.')
-        self.start_button.setEnabled(True)
-        self.stop_button.setEnabled(False)
-        latest_best = self.state.latest_best_weights()
-        if exit_code == 0 and latest_best is not None:
-            self.deploy_weights_edit.setText(str(latest_best))
-            self._update_deploy_status('Loaded latest best.pt from the finished run.')
+        if self.current_task_kind == 'train':
+            self.plot_timer.stop()
+            self._poll_training_progress()
+            message = f'Training finished with exit code {exit_code}.'
+            latest_best = self.state.latest_best_weights()
+            if exit_code == 0 and latest_best is not None:
+                self.deploy_weights_edit.setText(str(latest_best))
+                self._update_deploy_status('Loaded latest best.pt from the finished run.')
+        elif self.current_task_kind == 'deploy_predict':
+            self._load_saved_prediction_frames()
+            if exit_code == 0:
+                message = f'Quick deploy finished. {len(self.predicted_frame_paths)} result frame(s) available in Training.'
+                self._update_deploy_status('Quick deploy results are ready in the Training preview.')
+            else:
+                message = f'Quick deploy finished with exit code {exit_code}.'
+        else:
+            message = f'Finished with exit code {exit_code}.'
+        self.status_note.setText(message)
+        self.set_status(message)
+        self._set_busy_state(False)
         self.refresh_preview()
 
     def _clear_thread(self) -> None:
         self.thread = None
         self.worker = None
+        self.current_task_kind = ''
+
+    def _on_frame_selected(self, index: int) -> None:
+        if 0 <= index < len(self.predicted_frame_paths):
+            self.current_preview_index = index
+            self.refresh_preview()
+
+    def prev_frame(self) -> None:
+        if not self.predicted_frame_paths:
+            return
+        self.current_preview_index = (self.current_preview_index - 1) % len(self.predicted_frame_paths)
+        self._refresh_frame_selector()
+        self.refresh_preview()
+
+    def next_frame(self) -> None:
+        if not self.predicted_frame_paths:
+            return
+        self.current_preview_index = (self.current_preview_index + 1) % len(self.predicted_frame_paths)
+        self._refresh_frame_selector()
+        self.refresh_preview()

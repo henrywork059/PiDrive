@@ -25,14 +25,14 @@ CustomTrainer/
 └── PATCH_NOTES/
 ```
 
-## What changed in 0_2_4
+## What changed in 0_2_5
 
-- keeps the startup-safe device probing, dataset export / preflight fixes, and fast Marking shortcuts from 0_2_3
-- changes session image discovery so flat frame folders load only the **top-level source files** instead of recursing into nested folders like `runs/`, `.customtrainer_yolo_cache/`, or saved prediction outputs
-- updates Validation preview folder browsing to show only top-level frame files for the selected source folder
-- adds **Quick Deploy To Frames** on the Training page so you can load a trained `.pt` model, point it at a frame file or frame folder, and hand it straight to Validation
-- adds one-click actions to load the latest `best.pt`, use the current session frames, or start prediction immediately from the Training page
-- updates the visible main window version to 0_2_4
+- keeps the startup-safe device probing, dataset export / preflight fixes, fast Marking shortcuts, and top-level-only frame scanning from 0_2_4
+- reworks **Quick Deploy To Frames** so it stays fully inside the **Training** tab instead of switching over to Validation
+- adds direct **Quick Predict Here** inference on the Training page using the selected `.pt` model and frame file/folder source
+- adds a small result browser in the Training preview so you can step through saved quick-deploy outputs without leaving the tab
+- keeps one-click actions to load the latest `best.pt` and reuse the current session frames
+- updates the visible main window version to 0_2_5
 
 ## Main workflow
 
@@ -40,7 +40,7 @@ CustomTrainer/
 2. Choose the root folder that contains your sessions
 3. Label frames and save YOLO labels
 4. Open **Training** to train from the current sessions root
-5. Use **Training → Quick Deploy To Frames** or open **Validation** directly to run prediction on a single frame or a top-level frames folder
+5. Use **Training → Quick Deploy To Frames** to run quick prediction on a single frame or a top-level frames folder without leaving the Training tab
 6. Open **Export** to export the newest trained weights
 
 ## Marking page highlights
@@ -63,7 +63,7 @@ CustomTrainer/
 - includes a dedicated **Run Log**
 - includes a live **Training Progress Plot** sourced from `results.csv`
 - keeps a mirrored frame preview from the Marking workflow
-- includes Quick Deploy To Frames for handing a trained model directly to Validation prediction
+- includes Quick Deploy To Frames for running quick frame prediction directly inside the Training tab
 
 ## Validation page highlights
 
