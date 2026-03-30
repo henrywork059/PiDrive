@@ -107,5 +107,11 @@ class CameraServiceTests(unittest.TestCase):
         patched.assert_not_called()
 
 
+    def test_camera_service_defaults_awb_to_off(self):
+        svc = CameraService()
+        self.assertFalse(svc.auto_white_balance)
+        self.assertFalse(svc.get_config()["auto_white_balance"])
+
+
 if __name__ == "__main__":
     unittest.main()

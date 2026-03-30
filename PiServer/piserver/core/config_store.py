@@ -23,7 +23,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "exposure_us": 12000,
         "analogue_gain": 1.0,
         "exposure_compensation": 0.0,
-        "auto_white_balance": True,
+        "auto_white_balance": False,
         "brightness": 0.0,
         "contrast": 1.0,
         "saturation": 1.0,

@@ -53,7 +53,7 @@ class CameraService:
         self.exposure_us = 12000
         self.analogue_gain = 1.0
         self.exposure_compensation = 0.0
-        self.auto_white_balance = True
+        self.auto_white_balance = False
         self.brightness = 0.0
         self.contrast = 1.0
         self.saturation = 1.0

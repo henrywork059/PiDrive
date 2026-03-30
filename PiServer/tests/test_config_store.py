@@ -32,5 +32,21 @@ class ConfigStoreTests(unittest.TestCase):
             self.assertFalse(path.with_suffix(".json.tmp").exists())
 
 
+    def test_default_camera_awb_is_now_off(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "runtime.json"
+            store = ConfigStore(path)
+            data = store.load()
+            self.assertFalse(data["camera"]["auto_white_balance"])
+
+    def test_explicit_camera_awb_true_is_preserved(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "runtime.json"
+            path.write_text(json.dumps({"camera": {"auto_white_balance": True}}), encoding="utf-8")
+            store = ConfigStore(path)
+            data = store.load()
+            self.assertTrue(data["camera"]["auto_white_balance"])
+
+
 if __name__ == "__main__":
     unittest.main()
