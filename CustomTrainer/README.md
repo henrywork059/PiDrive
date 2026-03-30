@@ -25,13 +25,13 @@ CustomTrainer/
 └── PATCH_NOTES/
 ```
 
-## What changed in 0_1_12
+## What changed in 0_2_1
 
-- keeps the **last loaded sessions root** and restored splitter layouts from 0_1_11
-- auto-resolves a selected **session folder** in Validation to its real media folder before prediction
-- keeps the Validation preview aligned with the actual resolved prediction source
-- adds clearer runtime log notes when the selected prediction source is converted into a nested `images/` folder
-- retains the live **Training Progress Plot**, Validation frame browser, overlay controls, and local run logs from 0_1_11
+- keeps the **last loaded sessions root**, splitter layouts, training plot, validation frame browser, overlay controls, and local run logs from the current stable baseline
+- moves the Torch/CUDA runtime probe into an **isolated subprocess** so a bad runtime check cannot crash the whole GUI during startup
+- falls back safely to **CPU-capable defaults** when the probe fails, times out, or aborts
+- keeps the **Refresh Devices** action available, but now reports probe failure in the UI instead of terminating the process
+- updates the main window title so the visible version matches this patch
 
 ## Main workflow
 
