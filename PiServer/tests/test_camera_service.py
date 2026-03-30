@@ -15,6 +15,15 @@ class DummyFrame:
 
 
 class CameraServiceTests(unittest.TestCase):
+
+    def test_apply_settings_accepts_awb_alias_for_web_compatibility(self):
+        svc = CameraService()
+        svc.auto_white_balance = True
+        ok, _message, config = svc.apply_settings({"awb": False}, restart=False)
+        self.assertTrue(ok)
+        self.assertFalse(svc.auto_white_balance)
+        self.assertFalse(config["auto_white_balance"])
+        self.assertFalse(config["awb"])
     def test_capture_snapshot_frame_uses_direct_picamera_capture_when_raw_cache_missing(self):
         svc = CameraService()
         svc._picam2 = object()

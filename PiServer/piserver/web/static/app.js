@@ -1024,7 +1024,7 @@ function readCameraForm() {
     format: document.getElementById("cameraFormat").value || "BGR888",
     stream_quality: document.getElementById("cameraStreamQuality").value || "balanced",
     auto_exposure: !!document.getElementById("cameraAutoExposure").checked,
-    awb: !!document.getElementById("cameraAwb").checked,
+    auto_white_balance: !!document.getElementById("cameraAwb").checked,
     exposure_us: Number(document.getElementById("cameraExposureUs").value || 12000),
     analogue_gain: Number(document.getElementById("cameraAnalogueGain").value || 1.0),
     exposure_compensation: Number(document.getElementById("cameraExposureComp").value || 0),
@@ -1044,7 +1044,7 @@ function fillCameraForm(config = {}) {
   document.getElementById("cameraFormat").value = config.format || "BGR888";
   document.getElementById("cameraStreamQuality").value = config.stream_quality || "balanced";
   document.getElementById("cameraAutoExposure").checked = Boolean(config.auto_exposure ?? true);
-  document.getElementById("cameraAwb").checked = Boolean(config.awb ?? true);
+  document.getElementById("cameraAwb").checked = Boolean(config.auto_white_balance ?? config.awb ?? true);
   document.getElementById("cameraExposureUs").value = config.exposure_us ?? 12000;
   document.getElementById("cameraAnalogueGain").value = config.analogue_gain ?? 1.0;
   document.getElementById("cameraExposureComp").value = config.exposure_compensation ?? 0;

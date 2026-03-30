@@ -137,7 +137,11 @@ class CameraService:
                 -8.0,
                 8.0,
             )
-            self.auto_white_balance = bool(settings.get("auto_white_balance", self.auto_white_balance))
+            awb_value = settings.get("auto_white_balance")
+            if awb_value is None and "awb" in settings:
+                awb_value = settings.get("awb")
+            if awb_value is not None:
+                self.auto_white_balance = bool(awb_value)
             self.brightness = self._clamp_float(settings.get("brightness", self.brightness), self.brightness, -1.0, 1.0)
             self.contrast = self._clamp_float(settings.get("contrast", self.contrast), self.contrast, 0.0, 32.0)
             self.saturation = self._clamp_float(settings.get("saturation", self.saturation), self.saturation, 0.0, 32.0)
@@ -163,6 +167,7 @@ class CameraService:
                 "analogue_gain": float(self.analogue_gain),
                 "exposure_compensation": float(self.exposure_compensation),
                 "auto_white_balance": bool(self.auto_white_balance),
+                "awb": bool(self.auto_white_balance),
                 "brightness": float(self.brightness),
                 "contrast": float(self.contrast),
                 "saturation": float(self.saturation),
@@ -539,6 +544,65 @@ class CameraService:
             if sleep_time > 0:
                 time.sleep(sleep_time)
 
+
+    def _json_safe(self, value, depth: int = 0):
+        if depth > 6:
+            return repr(value)
+        if value is None or isinstance(value, (bool, int, float, str)):
+            return value
+        if isinstance(value, dict):
+            return {str(k): self._json_safe(v, depth + 1) for k, v in value.items()}
+        if isinstance(value, (list, tuple, set)):
+            return [self._json_safe(v, depth + 1) for v in value]
+        if isinstance(value, bytes):
+            return {"type": "bytes", "length": len(value)}
+        shape = getattr(value, "shape", None)
+        if shape is not None:
+            return {"type": type(value).__name__, "shape": list(shape)}
+        return repr(value)
+
+    def get_diagnostics(self) -> dict:
+        details = {
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "config": self.get_config(),
+            "fps": float(self._fps),
+            "raw_frame_age_s": self.get_raw_frame_age(),
+        }
+        with self._service_lock:
+            picam = self._picam2
+            capture = self._capture
+        if picam is not None:
+            picam_details = {}
+            try:
+                controls = getattr(picam, "camera_controls", None)
+                if controls is not None:
+                    picam_details["camera_controls"] = self._json_safe(controls)
+            except Exception as exc:
+                picam_details["camera_controls_error"] = str(exc)
+            try:
+                props = getattr(picam, "camera_properties", None)
+                if props is not None:
+                    picam_details["camera_properties"] = self._json_safe(props)
+            except Exception as exc:
+                picam_details["camera_properties_error"] = str(exc)
+            try:
+                with self._capture_lock:
+                    metadata = picam.capture_metadata()
+                picam_details["metadata"] = self._json_safe(metadata)
+            except Exception as exc:
+                picam_details["metadata_error"] = str(exc)
+            details["picamera2"] = picam_details
+        elif capture is not None:
+            opencv_details = {}
+            if cv2 is not None:
+                try:
+                    opencv_details["frame_width"] = float(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
+                    opencv_details["frame_height"] = float(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                    opencv_details["fps"] = float(capture.get(cv2.CAP_PROP_FPS))
+                except Exception as exc:
+                    opencv_details["readback_error"] = str(exc)
+            details["opencv"] = opencv_details
+        return details
     def capture_snapshot_frame(self, retries: int = 4, delay_s: float = 0.05, copy: bool = True, max_cache_age_s: float = 0.5):
         attempts = max(1, int(retries) + 1)
         max_cache_age_s = max(0.0, float(max_cache_age_s))
