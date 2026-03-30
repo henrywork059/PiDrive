@@ -65,6 +65,7 @@ class CameraService:
         self.last_error = ""
         self._frame = None
         self._raw_frame = None
+        self._raw_frame_time = 0.0
         self._frame_lock = threading.Lock()
         self._capture_lock = threading.Lock()
         self._service_lock = threading.RLock()
@@ -507,8 +508,10 @@ class CameraService:
                     self._capture_failures = 0
 
             if frame is not None:
+                now = time.time()
                 with self._frame_lock:
                     self._raw_frame = frame
+                    self._raw_frame_time = now
                     self._frame = frame
                 fps_count += 1
                 now = time.time()
@@ -536,13 +539,10 @@ class CameraService:
             if sleep_time > 0:
                 time.sleep(sleep_time)
 
-    def capture_snapshot_frame(self, retries: int = 4, delay_s: float = 0.05, copy: bool = True):
+    def capture_snapshot_frame(self, retries: int = 4, delay_s: float = 0.05, copy: bool = True, max_cache_age_s: float = 0.5):
         attempts = max(1, int(retries) + 1)
+        max_cache_age_s = max(0.0, float(max_cache_age_s))
         for attempt in range(attempts):
-            frame = self.get_raw_frame(copy=copy)
-            if frame is not None:
-                return frame
-
             with self._service_lock:
                 using_picam = self._picam2 is not None
                 using_opencv = self._capture is not None
@@ -556,8 +556,10 @@ class CameraService:
                 direct_frame, live, error_text = self._capture_opencv_frame()
 
             if direct_frame is not None:
+                now = time.time()
                 with self._frame_lock:
                     self._raw_frame = direct_frame
+                    self._raw_frame_time = now
                     self._frame = direct_frame
                 with self._service_lock:
                     self.preview_live = bool(live)
@@ -568,6 +570,15 @@ class CameraService:
                 if copy and hasattr(direct_frame, "copy"):
                     return direct_frame.copy()
                 return direct_frame
+
+            cached_frame = None
+            with self._frame_lock:
+                raw_frame = self._raw_frame
+                raw_frame_time = float(self._raw_frame_time or 0.0)
+                if raw_frame is not None and (time.time() - raw_frame_time) <= max_cache_age_s:
+                    cached_frame = raw_frame.copy() if copy and hasattr(raw_frame, "copy") else raw_frame
+            if cached_frame is not None:
+                return cached_frame
 
             if error_text:
                 with self._service_lock:
@@ -587,6 +598,12 @@ class CameraService:
             if self._raw_frame is None:
                 return None
             return self._raw_frame.copy() if copy else self._raw_frame
+
+    def get_raw_frame_age(self) -> float | None:
+        with self._frame_lock:
+            if self._raw_frame is None or not self._raw_frame_time:
+                return None
+            return max(0.0, time.time() - float(self._raw_frame_time))
 
     def get_jpeg_frame(self) -> Optional[bytes]:
         with self._jpeg_cond:
