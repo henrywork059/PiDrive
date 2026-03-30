@@ -10,11 +10,25 @@ VIDEO_SUFFIXES = {'.mp4', '.avi', '.mov', '.mkv', '.mpeg', '.mpg', '.wmv', '.web
 MEDIA_SUFFIXES = IMAGE_SUFFIXES | VIDEO_SUFFIXES
 
 
-def list_images(root: Path) -> list[Path]:
+def _direct_image_files(path: Path) -> list[Path]:
+    if not path.is_dir():
+        return []
     return sorted(
-        [path for path in root.rglob('*') if path.is_file() and path.suffix.lower() in IMAGE_SUFFIXES],
+        [child for child in path.iterdir() if child.is_file() and child.suffix.lower() in IMAGE_SUFFIXES],
         key=lambda item: item.as_posix().lower(),
     )
+
+
+def list_images(root: Path) -> list[Path]:
+    """Return only the direct image files inside *root*.
+
+    CustomTrainer sessions are treated as flat frame folders in the current workflow.
+    Avoid recursing into nested folders such as ``runs/``, ``labels/``,
+    ``.customtrainer_yolo_cache/`` or exported prediction folders, otherwise the
+    Marking page can accidentally mix generated artifacts back into the source
+    frame list.
+    """
+    return _direct_image_files(root)
 
 
 def _images_inside(path: Path) -> list[Path]:
@@ -24,10 +38,7 @@ def _images_inside(path: Path) -> list[Path]:
 
 
 def list_media(root: Path) -> list[Path]:
-    return sorted(
-        [path for path in root.rglob('*') if path.is_file() and path.suffix.lower() in MEDIA_SUFFIXES],
-        key=lambda item: item.as_posix().lower(),
-    )
+    return _direct_media_files(root)
 
 
 def _direct_media_files(path: Path) -> list[Path]:

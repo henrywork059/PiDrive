@@ -33,11 +33,19 @@ from custom_trainer.ui.widgets.line_plot_widget import LinePlotWidget
 
 
 class TrainPage(QWidget):
-    def __init__(self, state: AppState, log: Callable[[str], None], set_status: Callable[[str], None], parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        state: AppState,
+        log: Callable[[str], None],
+        set_status: Callable[[str], None],
+        open_validation_for_prediction: Callable[[Path | None, Path | None, Path | None, bool], None] | None = None,
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
         self.state = state
         self.log = log
         self.set_status = set_status
+        self.open_validation_for_prediction = open_validation_for_prediction
         self.thread: QThread | None = None
         self.worker: CommandWorker | None = None
         self.current_run_dir: Path | None = None
@@ -62,6 +70,11 @@ class TrainPage(QWidget):
         self.start_button = QPushButton('Start Training', self)
         self.stop_button = QPushButton('Stop Training', self)
         self.stop_button.setEnabled(False)
+        self.deploy_weights_edit = QLineEdit(self)
+        self.deploy_source_edit = QLineEdit(self)
+        self.deploy_status = QLabel('No deploy model or frame source selected yet.', self)
+        self.deploy_status.setProperty('role', 'muted')
+        self.deploy_status.setWordWrap(True)
         self.preview_label = QLabel('No frame preview yet.', self)
         self.preview_label.setAlignment(Qt.AlignCenter)
         self.preview_label.setMinimumSize(360, 220)
@@ -89,6 +102,14 @@ class TrainPage(QWidget):
         self._build()
         self.refresh_devices(log_runtime=False)
         self.refresh_preview()
+        if self._default_deploy_source() is not None:
+            self.use_current_frames_for_deploy()
+        else:
+            self._update_deploy_status()
+        latest_best = self.state.latest_best_weights()
+        if latest_best is not None:
+            self.deploy_weights_edit.setText(str(latest_best))
+            self._update_deploy_status('Loaded latest best.pt for deploy.')
 
     def _build(self) -> None:
         config_box = QGroupBox('Training Config', self)
@@ -117,6 +138,28 @@ class TrainPage(QWidget):
         action_layout.addWidget(self.start_button)
         action_layout.addWidget(self.stop_button)
         action_layout.addStretch(1)
+
+        deploy_box = QGroupBox('Quick Deploy To Frames', self)
+        deploy_form = QFormLayout(deploy_box)
+        deploy_form.addRow('Trained Weights (.pt)', self._path_row(self.deploy_weights_edit, self.choose_deploy_weights))
+        deploy_form.addRow('Frame Source', self._deploy_source_row())
+        deploy_actions = QWidget(deploy_box)
+        deploy_actions_layout = QHBoxLayout(deploy_actions)
+        deploy_actions_layout.setContentsMargins(0, 0, 0, 0)
+        latest_deploy_button = QPushButton('Use Latest best.pt', deploy_actions)
+        latest_deploy_button.clicked.connect(self.use_latest_best_weights_for_deploy)
+        current_frames_button = QPushButton('Use Current Session Frames', deploy_actions)
+        current_frames_button.clicked.connect(self.use_current_frames_for_deploy)
+        load_validation_button = QPushButton('Load In Validation', deploy_actions)
+        load_validation_button.clicked.connect(self.load_model_to_validation)
+        predict_validation_button = QPushButton('Predict Current Frames', deploy_actions)
+        predict_validation_button.clicked.connect(self.predict_model_on_frames)
+        deploy_actions_layout.addWidget(latest_deploy_button)
+        deploy_actions_layout.addWidget(current_frames_button)
+        deploy_actions_layout.addWidget(load_validation_button)
+        deploy_actions_layout.addWidget(predict_validation_button)
+        deploy_form.addRow('', deploy_actions)
+        deploy_form.addRow('', self.deploy_status)
 
         status_box = QGroupBox('Status', self)
         status_layout = QVBoxLayout(status_box)
@@ -162,7 +205,8 @@ class TrainPage(QWidget):
             '4. Use Stop Training to terminate a run cleanly from the GUI.\n'
             '5. The Run Log shows the exact training command, working folder, and runtime output.\n'
             '6. The Training Progress Plot reads results.csv live while training when Ultralytics writes it.\n'
-            '7. Validation and Export can auto-pick the latest best.pt after training.'
+            '7. Use Quick Deploy To Frames to load a trained model into Validation and optionally run prediction on the current frame folder immediately.\n'
+            '8. Validation and Export can auto-pick the latest best.pt after training.'
         )
         info_layout = QVBoxLayout(info_box)
         info_layout.addWidget(info_text)
@@ -172,6 +216,7 @@ class TrainPage(QWidget):
         left_layout.setContentsMargins(0, 0, 0, 0)
         left_layout.addWidget(config_box)
         left_layout.addWidget(action_box)
+        left_layout.addWidget(deploy_box)
         left_layout.addWidget(status_box)
         left_layout.addStretch(1)
 
@@ -229,6 +274,19 @@ class TrainPage(QWidget):
         layout.addWidget(button)
         return container
 
+    def _deploy_source_row(self) -> QWidget:
+        container = QWidget(self)
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self.deploy_source_edit, 1)
+        file_button = QPushButton('File', container)
+        file_button.clicked.connect(self.choose_deploy_source_file)
+        folder_button = QPushButton('Folder', container)
+        folder_button.clicked.connect(self.choose_deploy_source_folder)
+        layout.addWidget(file_button)
+        layout.addWidget(folder_button)
+        return container
+
     def _device_row(self) -> QWidget:
         container = QWidget(self)
         layout = QHBoxLayout(container)
@@ -278,6 +336,107 @@ class TrainPage(QWidget):
         if path:
             self.yaml_edit.setText(path)
 
+    def choose_deploy_weights(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(self, 'Choose trained weights', filter='PyTorch Weights (*.pt);;All Files (*)')
+        if path:
+            self.deploy_weights_edit.setText(path)
+            self._update_deploy_status('Loaded deploy weights.')
+
+    def choose_deploy_source_file(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            'Choose deploy source image/video',
+            filter='Media (*.jpg *.jpeg *.png *.bmp *.webp *.mp4 *.avi);;All Files (*)',
+        )
+        if path:
+            self.deploy_source_edit.setText(path)
+            self._update_deploy_status('Loaded deploy source file.')
+
+    def choose_deploy_source_folder(self) -> None:
+        path = QFileDialog.getExistingDirectory(self, 'Choose deploy source folder')
+        if path:
+            self.deploy_source_edit.setText(path)
+            self._update_deploy_status('Loaded deploy source folder.')
+
+    def _default_deploy_source(self) -> Path | None:
+        if self.state.current_session is not None:
+            return self.state.current_session.image_root
+        if self.state.current_image_path is not None:
+            return self.state.current_image_path
+        if self.state.sessions_root is not None:
+            return self.state.sessions_root
+        return None
+
+    def _update_deploy_status(self, message: str | None = None) -> None:
+        weights_text = self.deploy_weights_edit.text().strip() or 'not set'
+        source_text = self.deploy_source_edit.text().strip() or 'not set'
+        prefix = f'{message} ' if message else ''
+        self.deploy_status.setText(f'{prefix}Weights: {weights_text}\nSource: {source_text}')
+
+    def use_latest_best_weights_for_deploy(self) -> None:
+        best = self.state.latest_best_weights()
+        if best is None:
+            QMessageBox.information(self, 'No best.pt found', 'Train a model first, then try again.')
+            return
+        self.deploy_weights_edit.setText(str(best))
+        self._update_deploy_status('Loaded latest best.pt for deploy.')
+
+    def use_current_frames_for_deploy(self) -> None:
+        source = self._default_deploy_source()
+        if source is None:
+            QMessageBox.information(self, 'No current frames', 'Open a session or select a frame in Marking first.')
+            return
+        self.deploy_source_edit.setText(str(source))
+        self._update_deploy_status('Loaded current frame source for deploy.')
+
+    def _deploy_weights_path(self) -> Path | None:
+        raw = self.deploy_weights_edit.text().strip()
+        if raw:
+            path = Path(raw).expanduser()
+            return path if path.exists() else None
+        best = self.state.latest_best_weights()
+        if best is not None:
+            self.deploy_weights_edit.setText(str(best))
+            return best
+        return None
+
+    def _deploy_source_path(self) -> Path | None:
+        raw = self.deploy_source_edit.text().strip()
+        if raw:
+            path = Path(raw).expanduser()
+            return path if path.exists() else None
+        source = self._default_deploy_source()
+        if source is not None:
+            self.deploy_source_edit.setText(str(source))
+            return source
+        return None
+
+    def _send_to_validation(self, *, auto_predict: bool) -> None:
+        if self.open_validation_for_prediction is None:
+            QMessageBox.critical(self, 'Validation link unavailable', 'This build was not wired with the Validation handoff callback.')
+            return
+        weights_path = self._deploy_weights_path()
+        if weights_path is None:
+            QMessageBox.critical(self, 'Missing trained weights', 'Choose a trained .pt file first, or train a model and use the latest best.pt.')
+            return
+        source_path = self._deploy_source_path()
+        if source_path is None:
+            QMessageBox.critical(self, 'Missing frame source', 'Choose a frame or folder source first.')
+            return
+        dataset_yaml = self._ensure_training_yaml()
+        self.open_validation_for_prediction(weights_path, source_path, dataset_yaml, auto_predict)
+        if auto_predict:
+            self.set_status('Loaded model into Validation and started prediction on the selected frames.')
+        else:
+            self.set_status('Loaded model and frame source into Validation.')
+        self._update_deploy_status('Validation handoff ready.')
+
+    def load_model_to_validation(self) -> None:
+        self._send_to_validation(auto_predict=False)
+
+    def predict_model_on_frames(self) -> None:
+        self._send_to_validation(auto_predict=True)
+
     def use_current_root_defaults(self) -> None:
         dataset_yaml = self.state.preferred_dataset_yaml()
         if dataset_yaml is not None:
@@ -285,8 +444,17 @@ class TrainPage(QWidget):
         if self.state.sessions_root is not None:
             self.project_edit.setText(str(self.state.sessions_root / 'runs'))
         self.name_edit.setText(f'train_{datetime.now().strftime("%Y%m%d_%H%M%S")}')
+        if not self.deploy_source_edit.text().strip():
+            source = self._default_deploy_source()
+            if source is not None:
+                self.deploy_source_edit.setText(str(source))
+        if not self.deploy_weights_edit.text().strip():
+            best = self.state.latest_best_weights()
+            if best is not None:
+                self.deploy_weights_edit.setText(str(best))
         self.refresh_devices(log_runtime=False)
         self.refresh_preview()
+        self._update_deploy_status('Training defaults filled from the current sessions root.')
         self.set_status('Training defaults filled from the current sessions root.')
 
     def refresh_preview(self) -> None:
@@ -600,6 +768,10 @@ class TrainPage(QWidget):
         self.set_status(f'Training finished with exit code {exit_code}.')
         self.start_button.setEnabled(True)
         self.stop_button.setEnabled(False)
+        latest_best = self.state.latest_best_weights()
+        if exit_code == 0 and latest_best is not None:
+            self.deploy_weights_edit.setText(str(latest_best))
+            self._update_deploy_status('Loaded latest best.pt from the finished run.')
         self.refresh_preview()
 
     def _clear_thread(self) -> None:

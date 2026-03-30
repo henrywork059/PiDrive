@@ -348,6 +348,24 @@ class ValidatePage(QWidget):
         self.set_status('Loaded latest best.pt into Validation.')
         self.refresh_preview()
 
+    def prepare_prediction_from_training(
+        self,
+        *,
+        weights_path: Path | None = None,
+        source_path: Path | None = None,
+        dataset_yaml: Path | None = None,
+        auto_start: bool = False,
+    ) -> None:
+        if weights_path is not None:
+            self.weights_edit.setText(str(weights_path))
+        if dataset_yaml is not None:
+            self.yaml_edit.setText(str(dataset_yaml))
+        if source_path is not None:
+            self.source_edit.setText(str(source_path))
+        self.refresh_preview()
+        if auto_start:
+            self.start_predict()
+
     def _current_source_text(self) -> str:
         source_text = self.source_edit.text().strip()
         if source_text:
@@ -408,11 +426,11 @@ class ValidatePage(QWidget):
         if current is not None:
             try:
                 current.relative_to(directory)
-                if current.exists():
+                if current.exists() and current.parent == directory:
                     return current
             except ValueError:
                 pass
-        for path in sorted(directory.rglob('*')):
+        for path in sorted(directory.iterdir()):
             if path.is_file() and path.suffix.lower() in _IMAGE_SUFFIXES:
                 return path
         return None

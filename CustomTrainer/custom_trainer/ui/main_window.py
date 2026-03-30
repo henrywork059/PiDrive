@@ -15,7 +15,7 @@ from custom_trainer.ui.widgets.log_panel import LogPanel
 class CustomTrainerMainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle('CustomTrainer 0_2_3')
+        self.setWindowTitle('CustomTrainer 0_2_4')
         self.resize(1500, 920)
         self.setMinimumSize(960, 680)
         self._startup_geometry_applied = False
@@ -27,7 +27,7 @@ class CustomTrainerMainWindow(QMainWindow):
         self.tabs.setTabPosition(QTabWidget.North)
 
         self.marking_page = MarkingPage(self.state, self.log, self.set_status_message, self)
-        self.train_page = TrainPage(self.state, self.log, self.set_status_message, self)
+        self.train_page = TrainPage(self.state, self.log, self.set_status_message, self._open_validation_from_training, self)
         self.validate_page = ValidatePage(self.state, self.log, self.set_status_message, self)
         self.export_page = ExportPage(self.state, self.log, self.set_status_message, self)
 
@@ -107,6 +107,31 @@ class CustomTrainerMainWindow(QMainWindow):
     def log(self, message: str) -> None:
         self.log_panel.log(message)
 
+    def _open_validation_from_training(
+        self,
+        weights_path,
+        source_path,
+        dataset_yaml,
+        auto_predict: bool,
+    ) -> None:
+        self.validate_page.prepare_prediction_from_training(
+            weights_path=weights_path,
+            source_path=source_path,
+            dataset_yaml=dataset_yaml,
+            auto_start=False,
+        )
+        self.tabs.setCurrentWidget(self.validate_page)
+        if auto_predict:
+            QTimer.singleShot(
+                0,
+                lambda: self.validate_page.prepare_prediction_from_training(
+                    weights_path=weights_path,
+                    source_path=source_path,
+                    dataset_yaml=dataset_yaml,
+                    auto_start=True,
+                ),
+            )
+
     def show_shortcuts(self) -> None:
         QMessageBox.information(
             self,
@@ -127,6 +152,7 @@ class CustomTrainerMainWindow(QMainWindow):
                     'Delete -> Delete selected box',
                     'Ctrl + Click in frame list -> Multi-select frames',
                     'Validation prediction browser now lets you step through saved frames.',
+                    'Training page Quick Deploy To Frames can hand a trained model to Validation and optionally run prediction immediately.',
                 ]
             ),
         )
