@@ -25,14 +25,14 @@ CustomTrainer/
 └── PATCH_NOTES/
 ```
 
-## What changed in 0_2_5
+## What changed in 0_2_6
 
-- keeps the startup-safe device probing, dataset export / preflight fixes, fast Marking shortcuts, and top-level-only frame scanning from 0_2_4
-- reworks **Quick Deploy To Frames** so it stays fully inside the **Training** tab instead of switching over to Validation
-- adds direct **Quick Predict Here** inference on the Training page using the selected `.pt` model and frame file/folder source
-- adds a small result browser in the Training preview so you can step through saved quick-deploy outputs without leaving the tab
-- keeps one-click actions to load the latest `best.pt` and reuse the current session frames
-- updates the visible main window version to 0_2_5
+- keeps the startup-safe device probing, dataset export / preflight fixes, fast Marking shortcuts, and top-level-only frame scanning from 0_2_5
+- moves **Quick Deploy To Frames** out of Training and into the **Marking** tab only
+- adds direct **Quick Predict Here** inference on the Marking page using the selected `.pt` model and the current frame or current session frames
+- adds a small quick-deploy result browser inside Marking so you can step through saved prediction outputs without leaving the tab
+- keeps one-click actions to load the latest `best.pt`, the current frame, or the current session frames
+- updates the visible main window version to 0_2_6
 
 ## Main workflow
 
@@ -40,7 +40,7 @@ CustomTrainer/
 2. Choose the root folder that contains your sessions
 3. Label frames and save YOLO labels
 4. Open **Training** to train from the current sessions root
-5. Use **Training → Quick Deploy To Frames** to run quick prediction on a single frame or a top-level frames folder without leaving the Training tab
+5. Use **Marking → Quick Deploy To Frames** to run quick prediction on the current frame or current session frames without leaving Marking
 6. Open **Export** to export the newest trained weights
 
 ## Marking page highlights
@@ -55,6 +55,7 @@ CustomTrainer/
 - uses `X` to delete selected frame(s)
 - uses arrow keys to move the selected box
 - draws each class with its own box color
+- includes Quick Deploy To Frames for fast prediction on the current frame or current session directly inside Marking
 
 ## Training page highlights
 
@@ -63,7 +64,7 @@ CustomTrainer/
 - includes a dedicated **Run Log**
 - includes a live **Training Progress Plot** sourced from `results.csv`
 - keeps a mirrored frame preview from the Marking workflow
-- includes Quick Deploy To Frames for running quick frame prediction directly inside the Training tab
+- focuses on training configuration, run logs, and live metric plots while quick deploy now lives on Marking
 
 ## Validation page highlights
 

@@ -114,14 +114,6 @@ class TrainPage(QWidget):
         self._build()
         self.refresh_devices(log_runtime=False)
         self.refresh_preview()
-        if self._default_deploy_source() is not None:
-            self.use_current_frames_for_deploy()
-        else:
-            self._update_deploy_status()
-        latest_best = self.state.latest_best_weights()
-        if latest_best is not None:
-            self.deploy_weights_edit.setText(str(latest_best))
-            self._update_deploy_status('Loaded latest best.pt for deploy.')
 
     def _build(self) -> None:
         config_box = QGroupBox('Training Config', self)
@@ -226,7 +218,7 @@ class TrainPage(QWidget):
             '4. Use Stop Training to terminate a run cleanly from the GUI.\n'
             '5. The Run Log shows the exact training command, working folder, and runtime output.\n'
             '6. The Training Progress Plot reads results.csv live while training when Ultralytics writes it.\n'
-            '7. Quick Deploy stays inside the Training tab and can run prediction directly on a frame or frame folder.\n'
+            '7. Quick deploy has moved to the Marking tab for fast frame checks with the current session.\n'
             '8. Validation and Export can still auto-pick the latest best.pt after training.'
         )
         info_layout = QVBoxLayout(info_box)
@@ -237,7 +229,6 @@ class TrainPage(QWidget):
         left_layout.setContentsMargins(0, 0, 0, 0)
         left_layout.addWidget(config_box)
         left_layout.addWidget(action_box)
-        left_layout.addWidget(deploy_box)
         left_layout.addWidget(status_box)
         left_layout.addStretch(1)
 
@@ -484,17 +475,8 @@ class TrainPage(QWidget):
         if self.state.sessions_root is not None:
             self.project_edit.setText(str(self.state.sessions_root / 'runs'))
         self.name_edit.setText(f'train_{datetime.now().strftime("%Y%m%d_%H%M%S")}')
-        if not self.deploy_source_edit.text().strip():
-            source = self._default_deploy_source()
-            if source is not None:
-                self.deploy_source_edit.setText(str(source))
-        if not self.deploy_weights_edit.text().strip():
-            best = self.state.latest_best_weights()
-            if best is not None:
-                self.deploy_weights_edit.setText(str(best))
         self.refresh_devices(log_runtime=False)
         self.refresh_preview()
-        self._update_deploy_status('Training defaults filled from the current sessions root.')
         self.set_status('Training defaults filled from the current sessions root.')
 
     def _render_pixmap(self, image_path: Path, empty_text: str) -> bool:
@@ -976,10 +958,6 @@ class TrainPage(QWidget):
             self.plot_timer.stop()
             self._poll_training_progress()
             message = f'Training finished with exit code {exit_code}.'
-            latest_best = self.state.latest_best_weights()
-            if exit_code == 0 and latest_best is not None:
-                self.deploy_weights_edit.setText(str(latest_best))
-                self._update_deploy_status('Loaded latest best.pt from the finished run.')
         elif self.current_task_kind == 'deploy_predict':
             self._load_saved_prediction_frames()
             if exit_code == 0:
