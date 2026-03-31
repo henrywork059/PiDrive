@@ -25,14 +25,14 @@ CustomTrainer/
 └── PATCH_NOTES/
 ```
 
-## What changed in 0_2_6
+## What changed in 0_2_7
 
-- keeps the startup-safe device probing, dataset export / preflight fixes, fast Marking shortcuts, and top-level-only frame scanning from 0_2_5
-- moves **Quick Deploy To Frames** out of Training and into the **Marking** tab only
-- adds direct **Quick Predict Here** inference on the Marking page using the selected `.pt` model and the current frame or current session frames
-- adds a small quick-deploy result browser inside Marking so you can step through saved prediction outputs without leaving the tab
-- keeps one-click actions to load the latest `best.pt`, the current frame, or the current session frames
-- updates the visible main window version to 0_2_6
+- keeps the startup-safe device probing, dataset export / preflight fixes, fast Marking shortcuts, and top-level-only frame scanning from 0_2_6
+- adds **right-click drag** on the Marking canvas so a selected box can be repositioned with the mouse without losing right-click selection
+- keeps left-drag box creation intact
+- upgrades **Quick Deploy To Frames** on Marking so predicted boxes can be loaded into the main annotation canvas for editing and saving, not only shown in the side preview
+- keeps the quick-deploy result browser so you can step through predicted frames and load each one back into Marking
+- updates the visible main window version to 0_2_7
 
 ## Main workflow
 
@@ -40,7 +40,7 @@ CustomTrainer/
 2. Choose the root folder that contains your sessions
 3. Label frames and save YOLO labels
 4. Open **Training** to train from the current sessions root
-5. Use **Marking → Quick Deploy To Frames** to run quick prediction on the current frame or current session frames without leaving Marking
+5. Use **Marking → Quick Deploy To Frames** to run quick prediction on the current frame or current session frames, then refine the loaded predicted boxes directly in the main Marking canvas
 6. Open **Export** to export the newest trained weights
 
 ## Marking page highlights
@@ -50,12 +50,14 @@ CustomTrainer/
 - supports draggable split panels for session source / sessions / images / canvas / tools
 - supports multi-select frames with `Ctrl + Click`
 - uses `A / D` for previous / next frame and auto-saves the current labels before switching
+- lets you right-click a box to select it and right-drag the selected box to reposition it
 - uses `W / S` to cycle the selected box class or the active class for new boxes
 - uses `Delete` to remove the selected box
 - uses `X` to delete selected frame(s)
 - uses arrow keys to move the selected box
 - draws each class with its own box color
 - includes Quick Deploy To Frames for fast prediction on the current frame or current session directly inside Marking
+- can load quick-deploy predicted boxes into the main annotation canvas so you can correct and save them as labels
 
 ## Training page highlights
 

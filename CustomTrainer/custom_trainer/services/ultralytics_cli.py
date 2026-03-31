@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -155,6 +156,12 @@ def cmd_predict(args: argparse.Namespace) -> int:
         box_count = int(len(boxes)) if boxes is not None else 0
         image_name = result_path.name
         print(f'[predict] {image_name} -> {box_count} box(es)', flush=True)
+        print('[predict-json] ' + json.dumps({
+            'type': 'image',
+            'image_name': image_name,
+            'image_path': str(result_path),
+            'box_count': box_count,
+        }, ensure_ascii=False), flush=True)
         if boxes is not None:
             names = getattr(result, 'names', {}) or {}
             for box_index, box in enumerate(boxes, start=1):
@@ -172,6 +179,16 @@ def cmd_predict(args: argparse.Namespace) -> int:
                     cls_id = -1
                 label = names.get(cls_id, str(cls_id))
                 print(f'[predict-box] #{box_index} {label} conf={conf:.3f} xyxy={xyxy}', flush=True)
+                print('[predict-json] ' + json.dumps({
+                    'type': 'box',
+                    'image_name': image_name,
+                    'image_path': str(result_path),
+                    'box_index': box_index,
+                    'class_id': cls_id,
+                    'label': str(label),
+                    'conf': conf,
+                    'xyxy': xyxy,
+                }, ensure_ascii=False), flush=True)
         if result_path.suffix.lower() in _IMAGE_SUFFIXES or source_path.is_dir():
             save_path = _ensure_output_path(output_dir, result_path.name, index)
             result.plot(

@@ -15,7 +15,7 @@ from custom_trainer.ui.widgets.log_panel import LogPanel
 class CustomTrainerMainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle('CustomTrainer 0_2_6')
+        self.setWindowTitle('CustomTrainer 0_2_7')
         self.resize(1500, 920)
         self.setMinimumSize(960, 680)
         self._startup_geometry_applied = False
@@ -142,7 +142,7 @@ class CustomTrainerMainWindow(QMainWindow):
                     'Ctrl+Tab / Ctrl+Shift+Tab -> Next / previous page',
                     'Ctrl+S -> Save current labels on Marking page',
                     'PageUp / PageDown -> Previous / next image (extra shortcut)',
-                    'Right-click box -> Select box',
+                    'Right-click box -> Select or drag box',
                     'Left-drag -> Create box',
                     'Arrow keys -> Move selected box',
                     'Shift + Arrow keys -> Move selected box faster',
@@ -152,7 +152,7 @@ class CustomTrainerMainWindow(QMainWindow):
                     'Delete -> Delete selected box',
                     'Ctrl + Click in frame list -> Multi-select frames',
                     'Validation prediction browser now lets you step through saved frames.',
-                    'Marking page now includes Quick Deploy so you can run fast frame prediction without leaving Marking.',
+                    'Marking page Quick Deploy can now load predicted boxes into the main canvas so you can refine and save labels there.',
                 ]
             ),
         )

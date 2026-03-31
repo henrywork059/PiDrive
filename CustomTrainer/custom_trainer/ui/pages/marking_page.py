@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+import json
 from pathlib import Path
 from typing import Callable
 
@@ -29,7 +30,7 @@ from PySide6.QtWidgets import (
 from custom_trainer.services.dataset_service import ensure_dataset_yaml
 from custom_trainer.services.ui_state_service import get_last_sessions_root, get_splitter_state, set_last_sessions_root, set_splitter_state
 from custom_trainer.services.session_service import IMAGE_SUFFIXES, SessionInfo, discover_sessions, list_images, load_class_names, resolve_prediction_source, save_class_names, sync_legacy_labels
-from custom_trainer.services.yolo_io import pixel_to_yolo, read_yolo_label_file, write_yolo_label_file, yolo_to_pixel
+from custom_trainer.services.yolo_io import PixelBox, pixel_to_yolo, read_yolo_label_file, write_yolo_label_file, yolo_to_pixel
 from custom_trainer.services.ultralytics_runner import build_predict_command, runner_working_directory
 from custom_trainer.state import AppState
 from custom_trainer.ui.qt_helpers import CommandWorker
@@ -52,7 +53,10 @@ class MarkingPage(QWidget):
         self.last_prediction_summary: list[str] = []
         self.last_save_dir = ''
         self.predicted_frame_paths: list[Path] = []
+        self.predicted_boxes_by_name: dict[str, list[PixelBox]] = {}
+        self.predicted_source_paths_by_name: dict[str, Path] = {}
         self.current_preview_index = -1
+        self.pending_prediction_image_name: str | None = None
 
         self.root_edit = QLineEdit(self)
         self.session_list = QListWidget(self)
@@ -77,7 +81,7 @@ class MarkingPage(QWidget):
         self.deploy_preview_label.setAlignment(Qt.AlignCenter)
         self.deploy_preview_label.setMinimumSize(260, 180)
         self.deploy_preview_label.setStyleSheet('background: #0d1118; border: 1px solid #263244;')
-        self.deploy_preview_info = QLabel('Choose a trained .pt model and a frame or frame folder from Marking.', self)
+        self.deploy_preview_info = QLabel('Choose a trained .pt model and a frame or frame folder from Marking. Quick deploy can load predicted boxes into the main canvas for editing.', self)
         self.deploy_preview_info.setWordWrap(True)
         self.deploy_preview_info.setProperty('role', 'muted')
         self.deploy_frame_selector = QComboBox(self)
@@ -166,13 +170,13 @@ class MarkingPage(QWidget):
         tools_layout.addWidget(delete_frames_button, 2, 0, 1, 2)
         help_label = QLabel(
             'Draw: left-drag\n'
-            'Select box: right-click\n'
+            'Select / drag box: right-click, then drag\n'
             'Move selected box: Arrow keys (Shift = faster)\n'
             'Change frame: A / D (auto-save current labels)\n'
             'Cycle class: W / S\n'
             'Delete selected frame(s): X\n'
             'Delete selected box: Delete\n'
-            'Quick deploy: use the Quick Deploy panel on this tab',
+            'Quick deploy: predict into the main Marking frame so you can refine and save labels here',
             tools_box,
         )
         help_label.setProperty('role', 'muted')
@@ -413,6 +417,58 @@ class MarkingPage(QWidget):
         self.deploy_source_edit.setText(str(session.image_root))
         self._update_deploy_status('Loaded current session frames for quick deploy.')
 
+    def _clone_pixel_boxes(self, boxes: list[PixelBox]) -> list[PixelBox]:
+        return [PixelBox(class_id=box.class_id, x1=box.x1, y1=box.y1, x2=box.x2, y2=box.y2) for box in boxes]
+
+    def _apply_prediction_boxes_to_current_image(self, image_name: str, *, announce: bool) -> bool:
+        if self.current_image_path is None or self.current_image_path.name != image_name:
+            return False
+        boxes = self.predicted_boxes_by_name.get(image_name)
+        if boxes is None:
+            return False
+        if not self.current_image_path.exists():
+            return False
+        cloned_boxes = self._clone_pixel_boxes(boxes)
+        self.canvas.set_scene(self.current_image_path, cloned_boxes)
+        self.is_dirty = True
+        count = len(cloned_boxes)
+        self.selection_info.setText(f'Loaded {count} predicted box(es) into Marking for {image_name}. Adjust boxes, then save labels.')
+        if announce:
+            self.set_status(f'Loaded {count} predicted box(es) into Marking.')
+            self.log(f'Loaded quick deploy predictions into Marking for {image_name}: {count} box(es)')
+        self.refresh_deploy_preview()
+        return True
+
+    def _focus_prediction_in_marking(self, image_name: str) -> bool:
+        source_path = self.predicted_source_paths_by_name.get(image_name)
+        session = self.state.current_session
+        if session is None or source_path is None:
+            if self.current_image_path is not None and self.current_image_path.name == image_name:
+                return self._apply_prediction_boxes_to_current_image(image_name, announce=True)
+            return False
+        target_index = -1
+        try:
+            target_resolved = source_path.resolve()
+        except Exception:
+            target_resolved = source_path
+        for index, image_path in enumerate(session.image_paths):
+            try:
+                image_resolved = image_path.resolve()
+            except Exception:
+                image_resolved = image_path
+            if image_resolved == target_resolved or image_path.name == image_name:
+                target_index = index
+                break
+        if target_index < 0:
+            if self.current_image_path is not None and self.current_image_path.name == image_name:
+                return self._apply_prediction_boxes_to_current_image(image_name, announce=True)
+            return False
+        self.pending_prediction_image_name = image_name
+        if self.image_list.currentRow() == target_index:
+            return self._apply_prediction_boxes_to_current_image(image_name, announce=True)
+        self.image_list.setCurrentRow(target_index)
+        return True
+
     def restore_last_sessions_root(self, *, auto_scan: bool) -> None:
         remembered = get_last_sessions_root()
         if remembered is None:
@@ -566,7 +622,12 @@ class MarkingPage(QWidget):
             f'{image_path.name}\n'
             f'Label file: {label_path.name}'
         )
-        self.selection_info.setText('Right-click a box to select it.')
+        self.selection_info.setText('Right-click a box to select or drag it.')
+        if self.pending_prediction_image_name == image_path.name:
+            applied = self._apply_prediction_boxes_to_current_image(image_path.name, announce=True)
+            self.pending_prediction_image_name = None
+            if not applied:
+                self.selection_info.setText('Right-click a box to select or drag it.')
         self.log(f'Loaded image: {image_path.name}')
         self.refresh_deploy_preview()
         self.set_status(f'Image loaded: {image_path.name}')
@@ -680,7 +741,7 @@ class MarkingPage(QWidget):
             self.image_list.setCurrentRow(next_row)
         else:
             self.image_info.setText('No image selected.')
-            self.selection_info.setText('Right-click a box to select it.')
+            self.selection_info.setText('Right-click a box to select or drag it.')
         self.log(f'Deleted {deleted} frame(s) from session: {session.name}')
         self._reset_prediction_preview()
         self.refresh_deploy_preview()
@@ -810,7 +871,10 @@ class MarkingPage(QWidget):
         project_dir = self.state.preferred_runs_dir() / 'quick_predict'
         run_name = f'predict_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
         self.predicted_frame_paths = []
+        self.predicted_boxes_by_name = {}
+        self.predicted_source_paths_by_name = {}
         self.current_preview_index = -1
+        self.pending_prediction_image_name = None
         self.last_prediction_summary = []
         self.last_save_dir = ''
         self._refresh_deploy_frame_selector()
@@ -923,7 +987,7 @@ class MarkingPage(QWidget):
             info_lines = [
                 f'Quick deploy source: {source_path}',
                 f'Weights: {deploy_weights_text}',
-                'Run Quick Predict Here to render detections without leaving the Marking tab.',
+                'Run Quick Predict Here to render detections and load them into the main Marking frame for editing.',
             ]
             if source_note:
                 info_lines.append(f'Resolved source: {resolved_source_path}')
@@ -942,13 +1006,16 @@ class MarkingPage(QWidget):
         self.deploy_preview_info.setText(
             f'Current frame: {image_path.name}\n'
             f'Weights: {deploy_weights_text}\n'
-            'Use Current Frame or Use Current Session Frames before running quick deploy.'
+            'Use Current Frame or Use Current Session Frames before running quick deploy. Results can be loaded into the main Marking canvas.'
         )
         self.deploy_frame_status.setText('No quick deploy result frames yet.')
 
     def _reset_prediction_preview(self) -> None:
         self.predicted_frame_paths = []
+        self.predicted_boxes_by_name = {}
+        self.predicted_source_paths_by_name = {}
         self.current_preview_index = -1
+        self.pending_prediction_image_name = None
         self.last_prediction_summary = []
         self.last_save_dir = ''
         self._refresh_deploy_frame_selector()
@@ -986,9 +1053,38 @@ class MarkingPage(QWidget):
 
     def _handle_worker_line(self, line: str) -> None:
         self.log(line)
+        if line.startswith('[predict-json] '):
+            payload_text = line.removeprefix('[predict-json] ').strip()
+            try:
+                payload = json.loads(payload_text)
+            except Exception:
+                payload = None
+            if isinstance(payload, dict):
+                image_name = str(payload.get('image_name') or '').strip()
+                image_path_text = str(payload.get('image_path') or '').strip()
+                if image_name:
+                    if image_path_text:
+                        self.predicted_source_paths_by_name[image_name] = Path(image_path_text)
+                    if payload.get('type') == 'image':
+                        self.predicted_boxes_by_name[image_name] = []
+                    elif payload.get('type') == 'box':
+                        xyxy = payload.get('xyxy') or []
+                        if isinstance(xyxy, list) and len(xyxy) == 4:
+                            try:
+                                x1, y1, x2, y2 = (float(v) for v in xyxy)
+                                class_id = int(payload.get('class_id', -1))
+                            except Exception:
+                                pass
+                            else:
+                                boxes = self.predicted_boxes_by_name.setdefault(image_name, [])
+                                boxes.append(PixelBox(class_id=class_id, x1=x1, y1=y1, x2=x2, y2=y2))
+            self.refresh_deploy_preview()
+            return
         if line.startswith('[preview-image] '):
             preview_path = Path(line.removeprefix('[preview-image] ').strip())
             self._add_predicted_frame(preview_path)
+            if self.current_image_path is not None and preview_path.name == self.current_image_path.name:
+                self._focus_prediction_in_marking(preview_path.name)
             self.refresh_deploy_preview()
             return
         if line.startswith('[predict] '):
@@ -1029,8 +1125,14 @@ class MarkingPage(QWidget):
     def _on_deploy_finished(self, exit_code: int) -> None:
         self._load_saved_prediction_frames()
         if exit_code == 0:
+            applied_current = False
+            if self.current_image_path is not None:
+                applied_current = self._focus_prediction_in_marking(self.current_image_path.name)
             message = f'Quick deploy finished. {len(self.predicted_frame_paths)} result frame(s) available in Marking.'
-            self._update_deploy_status('Quick deploy results are ready in the Marking preview.')
+            if applied_current:
+                self._update_deploy_status('Quick deploy results are ready and the current frame has been loaded into the main Marking canvas for editing.')
+            else:
+                self._update_deploy_status('Quick deploy results are ready. Use the result browser to load a predicted frame into the main Marking canvas.')
         else:
             message = f'Quick deploy finished with exit code {exit_code}.'
         self._set_deploy_busy_state(False)
@@ -1046,6 +1148,7 @@ class MarkingPage(QWidget):
         if 0 <= index < len(self.predicted_frame_paths):
             self.current_preview_index = index
             self.refresh_deploy_preview()
+            self._focus_prediction_in_marking(self.predicted_frame_paths[index].name)
 
     def prev_deploy_result(self) -> None:
         if not self.predicted_frame_paths:
@@ -1053,6 +1156,7 @@ class MarkingPage(QWidget):
         self.current_preview_index = (self.current_preview_index - 1) % len(self.predicted_frame_paths)
         self._refresh_deploy_frame_selector()
         self.refresh_deploy_preview()
+        self._focus_prediction_in_marking(self.predicted_frame_paths[self.current_preview_index].name)
 
     def next_deploy_result(self) -> None:
         if not self.predicted_frame_paths:
@@ -1060,3 +1164,4 @@ class MarkingPage(QWidget):
         self.current_preview_index = (self.current_preview_index + 1) % len(self.predicted_frame_paths)
         self._refresh_deploy_frame_selector()
         self.refresh_deploy_preview()
+        self._focus_prediction_in_marking(self.predicted_frame_paths[self.current_preview_index].name)

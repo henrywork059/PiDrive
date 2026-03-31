@@ -28,6 +28,10 @@ class AnnotationCanvas(QWidget):
         self.selected_index: int | None = None
         self.drag_start: QPointF | None = None
         self.drag_end: QPointF | None = None
+        self.move_start_image: QPointF | None = None
+        self.move_origin_box: PixelBox | None = None
+        self.move_index: int | None = None
+        self.right_drag_moved = False
         self.setMinimumSize(360, 240)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.setFocusPolicy(Qt.StrongFocus)
@@ -58,6 +62,10 @@ class AnnotationCanvas(QWidget):
         self.selected_index = None
         self.drag_start = None
         self.drag_end = None
+        self.move_start_image = None
+        self.move_origin_box = None
+        self.move_index = None
+        self.right_drag_moved = False
         self.update()
         self.selection_changed.emit(-1)
 
@@ -70,6 +78,10 @@ class AnnotationCanvas(QWidget):
         self.selected_index = None
         self.drag_start = None
         self.drag_end = None
+        self.move_start_image = None
+        self.move_origin_box = None
+        self.move_index = None
+        self.right_drag_moved = False
         self.update()
         self.selection_changed.emit(-1)
 
@@ -140,6 +152,36 @@ class AnnotationCanvas(QWidget):
             painter.setPen(draw_pen)
             painter.drawRect(QRectF(self.drag_start, self.drag_end).normalized())
 
+    def _clone_box(self, box: PixelBox) -> PixelBox:
+        return PixelBox(class_id=box.class_id, x1=box.x1, y1=box.y1, x2=box.x2, y2=box.y2)
+
+    def _shift_box_within_bounds(self, box: PixelBox, dx: float, dy: float) -> PixelBox:
+        x1 = float(box.x1) + dx
+        x2 = float(box.x2) + dx
+        y1 = float(box.y1) + dy
+        y2 = float(box.y2) + dy
+
+        if x1 < 0.0:
+            x2 -= x1
+            x1 = 0.0
+        if x2 > float(self.image_width):
+            overflow = x2 - float(self.image_width)
+            x1 -= overflow
+            x2 = float(self.image_width)
+        if y1 < 0.0:
+            y2 -= y1
+            y1 = 0.0
+        if y2 > float(self.image_height):
+            overflow = y2 - float(self.image_height)
+            y1 -= overflow
+            y2 = float(self.image_height)
+
+        x1 = max(0.0, x1)
+        y1 = max(0.0, y1)
+        x2 = min(float(self.image_width), x2)
+        y2 = min(float(self.image_height), y2)
+        return PixelBox(class_id=box.class_id, x1=x1, y1=y1, x2=x2, y2=y2)
+
     def mousePressEvent(self, event: QMouseEvent) -> None:
         if self.pixmap.isNull():
             return
@@ -147,6 +189,11 @@ class AnnotationCanvas(QWidget):
         self.setFocus(Qt.MouseFocusReason)
         if event.button() == Qt.RightButton:
             self.select_box_at(pos)
+            if self.selected_index is not None and self.display_rect().contains(pos):
+                self.move_index = self.selected_index
+                self.move_start_image = self.widget_to_image(pos)
+                self.move_origin_box = self._clone_box(self.boxes[self.selected_index])
+                self.right_drag_moved = False
             return
         if event.button() == Qt.LeftButton and self.display_rect().contains(pos):
             self.drag_start = pos
@@ -154,12 +201,32 @@ class AnnotationCanvas(QWidget):
             self.update()
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
-        if self.drag_start is None:
+        if self.drag_start is not None:
+            self.drag_end = event.position()
+            self.update()
             return
-        self.drag_end = event.position()
+        if self.move_index is None or self.move_start_image is None or self.move_origin_box is None:
+            return
+        if self.move_index < 0 or self.move_index >= len(self.boxes):
+            return
+        current_image_pos = self.widget_to_image(event.position())
+        dx = current_image_pos.x() - self.move_start_image.x()
+        dy = current_image_pos.y() - self.move_start_image.y()
+        self.boxes[self.move_index] = self._shift_box_within_bounds(self.move_origin_box, dx, dy)
+        self.right_drag_moved = True
         self.update()
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        if event.button() == Qt.RightButton and self.move_index is not None:
+            moved = self.right_drag_moved
+            self.move_start_image = None
+            self.move_origin_box = None
+            self.move_index = None
+            self.right_drag_moved = False
+            if moved:
+                self.boxes_changed.emit()
+                self.update()
+            return
         if self.drag_start is None or self.drag_end is None:
             return
         start = self.widget_to_image(self.drag_start)
