@@ -73,6 +73,7 @@ class ObjectDetectionService:
         self.last_inference_ms = 0.0
         self._last_result: dict[str, Any] = {'detections': [], 'timestamp': 0.0}
         self._cache_window_s = 0.0
+        self._infer_lock = threading.Lock()
         self.apply_runtime_config(config or {})
         if self.active_model != 'none':
             self.deploy_model(self.active_model)
@@ -224,9 +225,9 @@ class ObjectDetectionService:
         with self._lock:
             return self.active_model
 
-    def get_status(self) -> dict[str, Any]:
+    def get_status(self, include_models: bool = True) -> dict[str, Any]:
         with self._lock:
-            return {
+            payload = {
                 'active_model': self.active_model,
                 'overlay_enabled': bool(self.overlay_enabled),
                 'confidence_threshold': float(self.confidence_threshold),
@@ -235,9 +236,11 @@ class ObjectDetectionService:
                 'last_error': str(self.last_error),
                 'last_inference_ms': float(self.last_inference_ms),
                 'ready': self.interpreter is not None,
-                'models': self.list_models(),
                 'last_detections': list(self._last_result.get('detections', [])),
             }
+        if include_models:
+            payload['models'] = self.list_models()
+        return payload
 
     def _letterbox(self, image, new_shape: int):
         h, w = image.shape[:2]
@@ -420,13 +423,15 @@ class ObjectDetectionService:
             detections = list(self._last_result.get('detections', []))
         if ready:
             now = time.monotonic()
-            if now - last_ts >= cache_window:
+            if now - last_ts >= cache_window and self._infer_lock.acquire(blocking=False):
                 try:
                     detections = self._infer_frame(frame_bgr)
                 except Exception as exc:
                     with self._lock:
                         self.last_error = f'Inference failed: {exc}'
                     detections = []
+                finally:
+                    self._infer_lock.release()
             annotated = self._draw_overlay(frame_bgr, detections)
         else:
             annotated = frame_bgr

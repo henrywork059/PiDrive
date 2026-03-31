@@ -23,7 +23,7 @@ from piserver.services.motor_service import MotorService  # noqa: E402
 from piserver.services.recorder_service import RecorderService  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent / 'gui_web'
-APP_VERSION = '0_2_11'
+APP_VERSION = '0_2_12'
 OD_MODEL_ROOT = CUSTOMDRIVE_ROOT / 'models' / 'object_detection'
 
 
@@ -126,6 +126,22 @@ class GuiControlContext:
         self._apply_defaults()
         return saved
 
+    def save_ai_config(self, ai_updates: dict[str, Any]) -> dict[str, Any]:
+        current = self.get_manual_config()
+        current_ai = current.get('ai', {}) if isinstance(current.get('ai'), dict) else {}
+        merged_ai = {**current_ai, **(ai_updates or {})}
+        current['ai'] = merged_ai
+        saved = save_manual_control_config(current)
+        self.manual_config = saved
+        self.object_detection_service.apply_runtime_config(saved.get('ai', {}))
+        configured_model = str(saved.get('ai', {}).get('deployed_model', 'none') or 'none').strip()
+        if configured_model and configured_model != 'none':
+            status = self.object_detection_service.get_status(include_models=False)
+            model_exists = (OD_MODEL_ROOT / configured_model).exists()
+            if model_exists and (configured_model != self.object_detection_service.get_active_model_name() or not status.get('ready')):
+                self.object_detection_service.deploy_model(configured_model, saved.get('ai', {}))
+        return saved
+
     def status_payload(self) -> dict[str, Any]:
         payload = self.control_service.snapshot()
         payload['manual_config'] = self.get_manual_config()
@@ -133,7 +149,7 @@ class GuiControlContext:
         payload['motor_config'] = self.motor_service.get_config()
         payload['camera_config'] = self.camera_service.get_config()
         payload['arm_status'] = self.arm_service.status()
-        payload['ai_status'] = self.object_detection_service.get_status()
+        payload['ai_status'] = self.object_detection_service.get_status(include_models=False)
         payload['app'] = 'gui_control'
         return payload
 
@@ -271,18 +287,18 @@ def create_app() -> Flask:
 
     @app.route('/api/ai/status')
     def api_ai_status():
-        return jsonify({'ok': True, 'ai_status': ctx.object_detection_service.get_status()})
+        return jsonify({'ok': True, 'ai_status': ctx.object_detection_service.get_status(include_models=False)})
 
     @app.route('/api/ai/models')
     def api_ai_models():
-        return jsonify({'ok': True, 'models': ctx.object_detection_service.list_models(), 'ai_status': ctx.object_detection_service.get_status()})
+        return jsonify({'ok': True, 'models': ctx.object_detection_service.list_models(), 'ai_status': ctx.object_detection_service.get_status(include_models=False)})
 
     @app.route('/api/ai/upload', methods=['POST'])
     def api_ai_upload():
         files = request.files.getlist('files')
         ok, saved, message = ctx.object_detection_service.save_uploaded_files(files)
         code = 200 if ok else 400
-        return jsonify({'ok': ok, 'saved': saved, 'message': message, 'models': ctx.object_detection_service.list_models(), 'ai_status': ctx.object_detection_service.get_status()}), code
+        return jsonify({'ok': ok, 'saved': saved, 'message': message, 'models': ctx.object_detection_service.list_models(), 'ai_status': ctx.object_detection_service.get_status(include_models=False)}), code
 
     @app.route('/api/ai/delete', methods=['POST'])
     def api_ai_delete():
@@ -292,7 +308,7 @@ def create_app() -> Flask:
         if ok:
             ctx.save_manual_config({'ai': {'deployed_model': ctx.object_detection_service.get_active_model_name()}})
         code = 200 if ok else 400
-        return jsonify({'ok': ok, 'message': message, 'models': ctx.object_detection_service.list_models(), 'ai_status': ctx.object_detection_service.get_status(), 'state': ctx.status_payload()}), code
+        return jsonify({'ok': ok, 'message': message, 'models': ctx.object_detection_service.list_models(), 'ai_status': ctx.object_detection_service.get_status(include_models=False), 'state': ctx.status_payload()}), code
 
     @app.route('/api/ai/deploy', methods=['POST'])
     def api_ai_deploy():
@@ -306,15 +322,15 @@ def create_app() -> Flask:
         }
         ok, message = ctx.object_detection_service.deploy_model(model_name, overrides)
         if ok:
-            ctx.save_manual_config({'ai': {
+            ctx.save_ai_config({
                 'deployed_model': ctx.object_detection_service.get_active_model_name(),
                 'confidence_threshold': overrides['confidence_threshold'],
                 'iou_threshold': overrides['iou_threshold'],
                 'overlay_enabled': overrides['overlay_enabled'],
                 'max_overlay_fps': overrides['max_overlay_fps'],
-            }})
+            })
         code = 200 if ok else 400
-        return jsonify({'ok': ok, 'message': message, 'ai_status': ctx.object_detection_service.get_status(), 'state': ctx.status_payload()}), code
+        return jsonify({'ok': ok, 'message': message, 'ai_status': ctx.object_detection_service.get_status(include_models=False), 'state': ctx.status_payload()}), code
 
     @app.route('/api/ai/config', methods=['POST'])
     def api_ai_config():
@@ -326,8 +342,8 @@ def create_app() -> Flask:
             'max_overlay_fps': float(data.get('max_overlay_fps', 6.0)),
             'deployed_model': str(data.get('deployed_model', ctx.object_detection_service.get_active_model_name()) or 'none'),
         }
-        saved = ctx.save_manual_config({'ai': ai_updates})
-        return jsonify({'ok': True, 'message': 'AI settings saved.', 'config': saved.get('ai', {}), 'ai_status': ctx.object_detection_service.get_status(), 'state': ctx.status_payload()})
+        saved = ctx.save_ai_config(ai_updates)
+        return jsonify({'ok': True, 'message': 'AI settings saved.', 'config': saved.get('ai', {}), 'ai_status': ctx.object_detection_service.get_status(include_models=False), 'state': ctx.status_payload()})
 
     @app.route('/api/manual-config', methods=['GET'])
     def api_manual_config_get():

@@ -31,6 +31,11 @@ const state = {
   driveSettingsLoaded: false,
   aiSettingsLoaded: false,
   aiModels: [],
+  statusBusy: false,
+  previewTimer: null,
+  previewBusy: false,
+  previewIntervalMs: 300,
+  previewSeq: 0,
 };
 
 function clamp(value, min, max) {
@@ -289,6 +294,9 @@ function updateStatusUi(data) {
   const previewText = cameraLive ? 'live' : 'paused';
   const driveState = data.safety_stop ? 'E-stop active' : 'Manual ready';
   const aiStatus = data.ai_status || {};
+  const overlayFps = Number(aiStatus.max_overlay_fps || 0);
+  const targetFps = aiStatus.ready && aiStatus.overlay_enabled ? Math.max(1, overlayFps || 4) : 5;
+  state.previewIntervalMs = clamp(1000 / targetFps, 250, 1000);
   setText('metricDriveState', driveState);
   setText('metricApplied', `S ${fmt(data.applied_steering)} · T ${fmt(data.applied_throttle)}`);
   setText('metricManual', `S ${fmt(state.manualSteering)} · T ${fmt(state.manualThrottle)}`);
@@ -322,11 +330,15 @@ function updateStatusUi(data) {
 }
 
 async function pollStatus() {
+  if (state.statusBusy) return;
+  state.statusBusy = true;
   try {
     const data = await fetchJson('/api/status');
     updateStatusUi(data);
   } catch (error) {
     setBanner('systemMessage', error.message || 'Status refresh failed.', 'warn');
+  } finally {
+    state.statusBusy = false;
   }
 }
 
@@ -365,12 +377,13 @@ async function togglePreview() {
     const video = document.getElementById('videoFeed');
     if (!state.previewEnabled) {
       video.classList.add('hidden');
+      window.clearTimeout(state.previewTimer);
       document.getElementById('viewerFallback').classList.remove('hidden');
       document.getElementById('viewerFallback').textContent = 'Preview paused.';
     } else {
       video.classList.remove('hidden');
       document.getElementById('viewerFallback').classList.add('hidden');
-      video.src = `/video_feed?ts=${Date.now()}`;
+      schedulePreviewTick(0);
     }
     await pollStatus();
   } catch (error) {
@@ -574,10 +587,49 @@ async function saveAiConfigOnly() {
   }
 }
 
-function refreshVideoFeedStream() {
+function getPreviewUrl() {
+  state.previewSeq += 1;
+  return `/api/camera/frame.jpg?ts=${Date.now()}&seq=${state.previewSeq}`;
+}
+
+function schedulePreviewTick(delayMs = null) {
+  window.clearTimeout(state.previewTimer);
+  if (!state.previewEnabled) return;
+  const delay = delayMs === null ? state.previewIntervalMs : delayMs;
+  state.previewTimer = window.setTimeout(requestPreviewFrame, Math.max(120, Number(delay || state.previewIntervalMs || 300)));
+}
+
+function requestPreviewFrame() {
+  if (!state.previewEnabled) return;
+  if (state.previewBusy) {
+    schedulePreviewTick(120);
+    return;
+  }
   const video = document.getElementById('videoFeed');
-  if (!video) return;
-  video.src = `/video_feed?ts=${Date.now()}`;
+  const fallback = document.getElementById('viewerFallback');
+  if (!video || !fallback) return;
+  state.previewBusy = true;
+  const preloader = new Image();
+  const finish = (nextDelay = null) => {
+    state.previewBusy = false;
+    schedulePreviewTick(nextDelay);
+  };
+  preloader.onload = () => {
+    video.src = preloader.src;
+    fallback.classList.add('hidden');
+    finish();
+  };
+  preloader.onerror = () => {
+    fallback.classList.remove('hidden');
+    setBanner('systemMessage', 'Camera preview frame failed to load.', 'warn');
+    finish(1000);
+  };
+  preloader.src = getPreviewUrl();
+}
+
+function refreshVideoFeedStream() {
+  if (!state.previewEnabled) return;
+  requestPreviewFrame();
 }
 
 function setupAiSettings() {
@@ -625,15 +677,13 @@ function setupSystemActions() {
   const video = document.getElementById('videoFeed');
   video.addEventListener('error', () => {
     document.getElementById('viewerFallback').classList.remove('hidden');
-    setBanner('systemMessage', 'Camera preview stream failed to load.', 'warn');
+    setBanner('systemMessage', 'Camera preview frame failed to load.', 'warn');
   });
   video.addEventListener('load', () => {
     document.getElementById('viewerFallback').classList.add('hidden');
   });
-  video.addEventListener('loadeddata', () => {
-    document.getElementById('viewerFallback').classList.add('hidden');
-  });
 }
+
 
 document.addEventListener('DOMContentLoaded', async () => {
   setupStyleSettings();
@@ -645,5 +695,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   syncStyleInputsFromCurrentVars();
   await pollStatus();
   await refreshAiModels();
-  state.statusTimer = window.setInterval(pollStatus, 350);
+  schedulePreviewTick(0);
+  state.statusTimer = window.setInterval(pollStatus, 1000);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      window.clearTimeout(state.previewTimer);
+    } else if (state.previewEnabled) {
+      schedulePreviewTick(0);
+    }
+  });
 });
