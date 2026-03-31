@@ -507,6 +507,7 @@ async function uploadAiFiles() {
     if (!response.ok) throw new Error(data.message || 'Upload failed.');
     setBanner('aiSettingsMessage', data.message || 'Files uploaded.', 'good');
     input.value = '';
+    refreshVideoFeedStream();
     state.aiModels = data.models || [];
     renderAiModelOptions();
   } catch (error) {
@@ -547,8 +548,7 @@ async function deployAiModel() {
     });
     setBanner('aiSettingsMessage', data.message || 'Model deployed.', 'good');
     state.aiSettingsLoaded = false;
-    const video = document.getElementById('videoFeed');
-    if (video) video.src = `/video_feed?ts=${Date.now()}`;
+    refreshVideoFeedStream();
     await pollStatus();
     await refreshAiModels(model);
   } catch (error) {
@@ -567,10 +567,17 @@ async function saveAiConfigOnly() {
       max_overlay_fps: Number(document.getElementById('aiOverlayFps').value || 6.0),
     });
     setBanner('aiSettingsMessage', data.message || 'AI settings saved.', 'good');
+    refreshVideoFeedStream();
     await pollStatus();
   } catch (error) {
     setBanner('aiSettingsMessage', error.message || 'AI settings save failed.', 'warn');
   }
+}
+
+function refreshVideoFeedStream() {
+  const video = document.getElementById('videoFeed');
+  if (!video) return;
+  video.src = `/video_feed?ts=${Date.now()}`;
 }
 
 function setupAiSettings() {

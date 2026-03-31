@@ -32,6 +32,16 @@ except Exception:  # pragma: no cover
 _SUPPORTED_UPLOAD_SUFFIXES = {'.tflite', '.txt', '.json'}
 
 
+def _safe_read_json(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding='utf-8'))
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
 def _atomic_write_bytes(path: Path, data: bytes) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp_path = tempfile.mkstemp(prefix=path.stem + '_', suffix='.tmp', dir=str(path.parent))
@@ -79,17 +89,49 @@ class ObjectDetectionService:
             if requested_model:
                 self.active_model = requested_model
 
+    def _resolve_bundle_config(self, filename: str) -> dict[str, Any]:
+        safe_name = Path(str(filename or '')).name
+        stem = Path(safe_name).stem
+        same_stem = _safe_read_json(self.root / f'{stem}.json')
+        if same_stem:
+            return same_stem
+        bundle_cfg = _safe_read_json(self.root / 'model_config.json')
+        model_filename = str(bundle_cfg.get('model_filename', '') or '').strip()
+        if model_filename and model_filename == safe_name:
+            return bundle_cfg
+        return {}
+
+    def _resolve_labels_path(self, filename: str, cfg: dict[str, Any] | None = None) -> Path | None:
+        safe_name = Path(str(filename or '')).name
+        stem = Path(safe_name).stem
+        cfg = cfg or {}
+        labels_name = str(cfg.get('labels_filename', '') or '').strip()
+        if labels_name:
+            candidate = self.root / Path(labels_name).name
+            if candidate.exists():
+                return candidate
+        same_stem = self.root / f'{stem}.txt'
+        if same_stem.exists():
+            return same_stem
+        bundle_labels = self.root / 'labels.txt'
+        if bundle_labels.exists():
+            return bundle_labels
+        return None
+
     def list_models(self) -> list[dict[str, Any]]:
         models: list[dict[str, Any]] = []
         active = self.get_active_model_name()
         for path in sorted(self.root.glob('*.tflite')):
-            stem = path.stem
+            cfg = self._resolve_bundle_config(path.name)
+            labels_path = self._resolve_labels_path(path.name, cfg)
             models.append({
                 'name': path.name,
-                'stem': stem,
-                'has_labels': (self.root / f'{stem}.txt').exists(),
-                'has_config': (self.root / f'{stem}.json').exists(),
+                'stem': path.stem,
+                'has_labels': labels_path is not None,
+                'has_config': bool(cfg),
                 'active': path.name == active,
+                'bundle_labels': labels_path.name if labels_path else '',
+                'bundle_config': 'model_config.json' if (self.root / 'model_config.json').exists() and str(cfg.get('model_filename', '') or '').strip() == path.name else '',
             })
         return models
 
@@ -139,21 +181,14 @@ class ObjectDetectionService:
         except Exception as exc:
             return False, f'Delete failed: {exc}'
 
-    def _load_labels(self, stem: str) -> list[str]:
-        path = self.root / f'{stem}.txt'
-        if not path.exists():
+    def _load_labels(self, filename: str, cfg: dict[str, Any] | None = None) -> list[str]:
+        path = self._resolve_labels_path(filename, cfg)
+        if path is None or not path.exists():
             return []
         return [line.strip() for line in path.read_text(encoding='utf-8').splitlines() if line.strip()]
 
-    def _load_model_config(self, stem: str) -> dict[str, Any]:
-        path = self.root / f'{stem}.json'
-        if not path.exists():
-            return {}
-        try:
-            data = json.loads(path.read_text(encoding='utf-8'))
-            return data if isinstance(data, dict) else {}
-        except Exception:
-            return {}
+    def _load_model_config(self, filename: str) -> dict[str, Any]:
+        return self._resolve_bundle_config(filename)
 
     def deploy_model(self, filename: str, config_overrides: dict[str, Any] | None = None) -> tuple[bool, str]:
         if InterpreterType is None:
@@ -168,9 +203,8 @@ class ObjectDetectionService:
         except Exception as exc:
             return False, f'Failed to load detector: {exc}'
 
-        stem = path.stem
-        labels = self._load_labels(stem)
-        cfg = self._load_model_config(stem)
+        cfg = self._load_model_config(path.name)
+        labels = self._load_labels(path.name, cfg)
         overrides = config_overrides or {}
         with self._lock:
             self.interpreter = interpreter
@@ -256,6 +290,20 @@ class ObjectDetectionService:
             return []
         return np.array(idxs).reshape(-1).astype(int).tolist()
 
+    def _normalize_prediction_matrix(self, arr):
+        if arr.ndim != 2:
+            return None
+        rows, cols = arr.shape
+        def looks_like_feature_dim(n: int) -> bool:
+            return 5 <= int(n) <= 512
+        if looks_like_feature_dim(cols) and not looks_like_feature_dim(rows):
+            return arr
+        if looks_like_feature_dim(rows) and not looks_like_feature_dim(cols):
+            return arr.T
+        if cols <= rows:
+            return arr
+        return arr.T
+
     def _parse_output(self, output, conf_threshold: float, num_classes: int, input_size: int):
         arr = np.squeeze(output)
         if arr.ndim == 3:
@@ -266,14 +314,20 @@ class ObjectDetectionService:
             classes = arr[:, 5].astype(np.int32)
             keep = scores >= conf_threshold
             return boxes[keep], scores[keep], classes[keep]
-        if arr.ndim != 2:
+        arr = self._normalize_prediction_matrix(arr)
+        if arr is None or arr.ndim != 2 or arr.shape[1] < 5:
             return np.empty((0, 4), dtype=np.float32), np.empty((0,), dtype=np.float32), np.empty((0,), dtype=np.int32)
-        if arr.shape[0] in (num_classes + 4, num_classes + 5):
-            arr = arr.T
-        elif arr.shape[1] not in (num_classes + 4, num_classes + 5):
-            if arr.shape[0] > arr.shape[1]:
-                arr = arr.T
-        has_obj = arr.shape[1] == num_classes + 5
+
+        feature_count = int(arr.shape[1])
+        expected_with_obj = int(num_classes) + 5 if num_classes > 0 else -1
+        expected_no_obj = int(num_classes) + 4 if num_classes > 0 else -1
+        if feature_count == expected_with_obj:
+            has_obj = True
+        elif feature_count == expected_no_obj:
+            has_obj = False
+        else:
+            has_obj = feature_count >= 6
+
         boxes = []
         scores = []
         class_ids = []
