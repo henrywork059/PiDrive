@@ -31,11 +31,10 @@ const state = {
   driveSettingsLoaded: false,
   aiSettingsLoaded: false,
   aiModels: [],
-  statusBusy: false,
+  aiLabelFiles: [],
+  statusInFlight: false,
   previewTimer: null,
-  previewBusy: false,
-  previewIntervalMs: 300,
-  previewSeq: 0,
+  previewInFlight: false,
 };
 
 function clamp(value, min, max) {
@@ -81,6 +80,22 @@ function setBanner(id, message, kind = 'muted') {
   if (!el) return;
   el.textContent = message || '';
   el.className = `banner ${kind}`;
+}
+
+
+function setPreviewImageSource() {
+  const video = document.getElementById('videoFeed');
+  if (!video || !state.previewEnabled) return;
+  video.src = `/api/camera/frame.jpg?ts=${Date.now()}`;
+}
+
+function schedulePreviewPoll(delayMs = 180) {
+  window.clearTimeout(state.previewTimer);
+  if (!state.previewEnabled) return;
+  state.previewTimer = window.setTimeout(() => {
+    state.previewInFlight = true;
+    setPreviewImageSource();
+  }, delayMs);
 }
 
 async function fetchJson(url, options = undefined) {
@@ -254,17 +269,18 @@ function populateDriveSettings(status) {
 
 function populateAiSettings(status) {
   const ai = status.ai_status || {};
+  document.getElementById('aiBackend').value = ai.backend || 'color';
   document.getElementById('aiConfidenceThreshold').value = Number(ai.confidence_threshold ?? 0.25).toFixed(2);
   document.getElementById('aiIouThreshold').value = Number(ai.iou_threshold ?? 0.45).toFixed(2);
   document.getElementById('aiOverlayEnabled').value = ai.overlay_enabled === false ? 'false' : 'true';
   document.getElementById('aiOverlayFps').value = Number(ai.max_overlay_fps ?? 6.0).toFixed(1);
-  const hasModelsPayload = Array.isArray(ai.models);
-  if (hasModelsPayload) {
-    state.aiModels = ai.models;
-  }
-  const currentSelected = document.getElementById('aiModelSelect')?.value || null;
-  const activeModel = ai.active_model || currentSelected || 'none';
-  renderAiModelOptions(activeModel);
+  document.getElementById('aiInputSize').value = Number(ai.input_size ?? 0).toFixed(0);
+  document.getElementById('aiTargetLabel').value = ai.target_label || 'he3';
+  document.getElementById('aiDropZoneLabel').value = ai.drop_zone_label || 'he3_zone';
+  state.aiModels = ai.models || state.aiModels || [];
+  state.aiLabelFiles = ai.label_files || state.aiLabelFiles || [];
+  renderAiModelOptions(ai.active_model || 'none');
+  renderAiLabelOptions(ai.labels_file || '');
   state.aiSettingsLoaded = true;
 }
 
@@ -273,13 +289,10 @@ function renderAiModelOptions(selectedName = 'none') {
   if (!select) return;
   const models = state.aiModels || [];
   select.innerHTML = '';
-  if (!models.length) {
-    const opt = document.createElement('option');
-    opt.value = '';
-    opt.textContent = 'No models uploaded';
-    select.appendChild(opt);
-    return;
-  }
+  const noneOpt = document.createElement('option');
+  noneOpt.value = 'none';
+  noneOpt.textContent = 'None';
+  select.appendChild(noneOpt);
   models.forEach((model) => {
     const opt = document.createElement('option');
     opt.value = model.name;
@@ -291,6 +304,32 @@ function renderAiModelOptions(selectedName = 'none') {
     if (model.name === selectedName) opt.selected = true;
     select.appendChild(opt);
   });
+  if (!models.some((model) => model.name === selectedName)) {
+    select.value = 'none';
+  }
+}
+
+function renderAiLabelOptions(selectedName = '') {
+  const select = document.getElementById('aiLabelsSelect');
+  if (!select) return;
+  const files = state.aiLabelFiles || [];
+  select.innerHTML = '';
+  const autoOpt = document.createElement('option');
+  autoOpt.value = '';
+  autoOpt.textContent = 'Auto (bundle labels)';
+  select.appendChild(autoOpt);
+  files.forEach((name) => {
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name;
+    if (name === selectedName) opt.selected = true;
+    select.appendChild(opt);
+  });
+  if (selectedName && files.includes(selectedName)) {
+    select.value = selectedName;
+  } else {
+    select.value = '';
+  }
 }
 
 function updateStatusUi(data) {
@@ -299,24 +338,21 @@ function updateStatusUi(data) {
   const previewText = cameraLive ? 'live' : 'paused';
   const driveState = data.safety_stop ? 'E-stop active' : 'Manual ready';
   const aiStatus = data.ai_status || {};
-  const overlayFps = Number(aiStatus.max_overlay_fps || 0);
-  const targetFps = aiStatus.ready && aiStatus.overlay_enabled ? Math.max(1, overlayFps || 4) : 5;
-  state.previewIntervalMs = clamp(1000 / targetFps, 250, 1000);
   setText('metricDriveState', driveState);
   setText('metricApplied', `S ${fmt(data.applied_steering)} · T ${fmt(data.applied_throttle)}`);
   setText('metricManual', `S ${fmt(state.manualSteering)} · T ${fmt(state.manualThrottle)}`);
   setText('metricCamera', `${data.camera_backend || 'unknown'} · ${data.camera_width || 0}×${data.camera_height || 0}`);
   setText('metricPreview', previewText);
   setText('metricArm', data.arm_status?.last_action || 'idle');
-  setText('metricAi', aiStatus.ready ? (aiStatus.active_model || 'ready') : 'off');
+  setText('metricAi', aiStatus.ready ? `${aiStatus.backend || 'tflite'} · ${aiStatus.active_model || 'ready'}` : (aiStatus.backend || 'off'));
   setText('metricMaxThrottle', fmt(data.max_throttle ?? state.maxThrottle));
   setText('metricSteerMix', fmt(data.steer_mix ?? state.steerMix));
   setText('metricSteerBias', fmt(data.steer_bias ?? state.steerBias));
   setText('metricWheels', `${fmt(data.motor_left)} / ${fmt(data.motor_right)}`);
   setText('metricFps', `${Number(data.fps || 0).toFixed(1)} FPS`);
   setText('statusMiniText', data.safety_stop ? 'estop' : 'manual');
-  setText('cameraPreviewMeta', aiStatus.ready && aiStatus.overlay_enabled ? 'streaming + AI overlay' : (cameraLive ? 'streaming' : 'paused'));
-  setText('systemRuntimePath', data.runtime_config_path || 'runtime.json');
+  setText('cameraPreviewMeta', aiStatus.ready && aiStatus.overlay_enabled && aiStatus.backend === 'tflite' ? 'streaming + AI overlay' : (cameraLive ? 'streaming' : 'paused'));
+  setText('systemRuntimePath', data.customdrive_runtime_settings_path || data.runtime_config_path || 'runtime.json');
   setText('systemArmLift', `${Number(data.arm_status?.lift_angle || 0).toFixed(0)}°`);
   setText('systemMotorDir', `${data.motor_left_direction ?? 1} / ${data.motor_right_direction ?? 1} / ${data.motor_steering_direction ?? 1}`);
   setBanner('statusBanner', data.system_message || 'Ready.', data.safety_stop ? 'warn' : 'muted');
@@ -335,15 +371,15 @@ function updateStatusUi(data) {
 }
 
 async function pollStatus() {
-  if (state.statusBusy) return;
-  state.statusBusy = true;
+  if (state.statusInFlight) return;
+  state.statusInFlight = true;
   try {
     const data = await fetchJson('/api/status');
     updateStatusUi(data);
   } catch (error) {
     setBanner('systemMessage', error.message || 'Status refresh failed.', 'warn');
   } finally {
-    state.statusBusy = false;
+    state.statusInFlight = false;
   }
 }
 
@@ -382,13 +418,13 @@ async function togglePreview() {
     const video = document.getElementById('videoFeed');
     if (!state.previewEnabled) {
       video.classList.add('hidden');
-      window.clearTimeout(state.previewTimer);
       document.getElementById('viewerFallback').classList.remove('hidden');
       document.getElementById('viewerFallback').textContent = 'Preview paused.';
     } else {
       video.classList.remove('hidden');
       document.getElementById('viewerFallback').classList.add('hidden');
-      schedulePreviewTick(0);
+      setPreviewImageSource();
+      schedulePreviewPoll(120);
     }
     await pollStatus();
   } catch (error) {
@@ -412,10 +448,7 @@ async function setEstop(enabled) {
 function bindHoldAction(buttonId, actionStart, actionStop) {
   const button = document.getElementById(buttonId);
   if (!button) return;
-  let activePointerId = null;
-  const stop = async (event = null) => {
-    if (event && activePointerId !== null && event.pointerId !== undefined && event.pointerId !== activePointerId) return;
-    activePointerId = null;
+  const stop = async () => {
     try {
       if (actionStop) await postJson('/api/arm/action', { action: actionStop });
       await pollStatus();
@@ -431,17 +464,8 @@ function bindHoldAction(buttonId, actionStart, actionStop) {
       setBanner('armMessage', error.message || 'Arm action failed.', 'warn');
     }
   };
-  button.addEventListener('pointerdown', (event) => {
-    event.preventDefault();
-    activePointerId = event.pointerId ?? null;
-    if (button.setPointerCapture && activePointerId !== null) {
-      try { button.setPointerCapture(activePointerId); } catch (_) {}
-    }
-    start();
-  });
-  button.addEventListener('pointerup', stop);
-  button.addEventListener('pointercancel', stop);
-  button.addEventListener('lostpointercapture', stop);
+  button.addEventListener('pointerdown', (event) => { event.preventDefault(); start(); });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach((name) => button.addEventListener(name, stop));
 }
 
 function bindClickAction(buttonId, action) {
@@ -500,9 +524,11 @@ async function refreshAiModels(selectedName = null) {
   try {
     const data = await fetchJson('/api/ai/models');
     state.aiModels = data.models || [];
+    state.aiLabelFiles = data.label_files || [];
     const targetName = selectedName || data.ai_status?.active_model || 'none';
     renderAiModelOptions(targetName);
-    if (!state.aiSettingsLoaded) populateAiSettings({ ai_status: { ...(data.ai_status || {}), models: data.models || [] } });
+    renderAiLabelOptions(data.ai_status?.labels_file || '');
+    if (!state.aiSettingsLoaded) populateAiSettings({ ai_status: data.ai_status });
     return data;
   } catch (error) {
     setBanner('aiSettingsMessage', error.message || 'Could not refresh AI models.', 'warn');
@@ -525,9 +551,10 @@ async function uploadAiFiles() {
     if (!response.ok) throw new Error(data.message || 'Upload failed.');
     setBanner('aiSettingsMessage', data.message || 'Files uploaded.', 'good');
     input.value = '';
-    refreshVideoFeedStream();
     state.aiModels = data.models || [];
-    renderAiModelOptions((data.models && data.models[0] && data.models[0].name) || document.getElementById('aiModelSelect').value || 'none');
+    state.aiLabelFiles = data.label_files || [];
+    renderAiModelOptions();
+    renderAiLabelOptions();
   } catch (error) {
     setBanner('aiSettingsMessage', error.message || 'Upload failed.', 'warn');
   }
@@ -543,7 +570,9 @@ async function deleteAiModel() {
     const data = await postJson('/api/ai/delete', { model });
     setBanner('aiSettingsMessage', data.message || 'Model deleted.', 'good');
     state.aiModels = data.models || [];
-    renderAiModelOptions((data.models && data.models[0] && data.models[0].name) || document.getElementById('aiModelSelect').value || 'none');
+    state.aiLabelFiles = data.label_files || [];
+    renderAiModelOptions();
+    renderAiLabelOptions();
     await pollStatus();
   } catch (error) {
     setBanner('aiSettingsMessage', error.message || 'Delete failed.', 'warn');
@@ -552,22 +581,29 @@ async function deleteAiModel() {
 
 async function deployAiModel() {
   const model = document.getElementById('aiModelSelect').value;
-  if (!model) {
+  if (!model || model === 'none') {
     setBanner('aiSettingsMessage', 'Select a model to deploy.', 'warn');
     return;
   }
   try {
     const data = await postJson('/api/ai/deploy', {
+      perception_backend: document.getElementById('aiBackend').value || 'tflite',
       model,
+      labels_file: document.getElementById('aiLabelsSelect').value || '',
+      input_size: Number(document.getElementById('aiInputSize').value || 0),
       confidence_threshold: Number(document.getElementById('aiConfidenceThreshold').value || 0.25),
       iou_threshold: Number(document.getElementById('aiIouThreshold').value || 0.45),
       overlay_enabled: document.getElementById('aiOverlayEnabled').value === 'true',
       max_overlay_fps: Number(document.getElementById('aiOverlayFps').value || 6.0),
+      target_label: document.getElementById('aiTargetLabel').value || 'he3',
+      drop_zone_label: document.getElementById('aiDropZoneLabel').value || 'he3_zone',
     });
     setBanner('aiSettingsMessage', data.message || 'Model deployed.', 'good');
-    await refreshAiModels(model);
-    refreshVideoFeedStream();
+    state.aiSettingsLoaded = false;
+    setPreviewImageSource();
+    schedulePreviewPoll(120);
     await pollStatus();
+    await refreshAiModels(model);
   } catch (error) {
     setBanner('aiSettingsMessage', error.message || 'Deploy failed.', 'warn');
   }
@@ -577,68 +613,28 @@ async function saveAiConfigOnly() {
   try {
     const currentModel = document.getElementById('aiModelSelect').value || 'none';
     const data = await postJson('/api/ai/config', {
+      perception_backend: document.getElementById('aiBackend').value || 'color',
       deployed_model: currentModel,
+      labels_file: document.getElementById('aiLabelsSelect').value || '',
+      input_size: Number(document.getElementById('aiInputSize').value || 0),
       confidence_threshold: Number(document.getElementById('aiConfidenceThreshold').value || 0.25),
       iou_threshold: Number(document.getElementById('aiIouThreshold').value || 0.45),
       overlay_enabled: document.getElementById('aiOverlayEnabled').value === 'true',
       max_overlay_fps: Number(document.getElementById('aiOverlayFps').value || 6.0),
+      target_label: document.getElementById('aiTargetLabel').value || 'he3',
+      drop_zone_label: document.getElementById('aiDropZoneLabel').value || 'he3_zone',
     });
     setBanner('aiSettingsMessage', data.message || 'AI settings saved.', 'good');
-    refreshVideoFeedStream();
     await pollStatus();
   } catch (error) {
     setBanner('aiSettingsMessage', error.message || 'AI settings save failed.', 'warn');
   }
 }
 
-function getPreviewUrl() {
-  state.previewSeq += 1;
-  return `/api/camera/frame.jpg?ts=${Date.now()}&seq=${state.previewSeq}`;
-}
-
-function schedulePreviewTick(delayMs = null) {
-  window.clearTimeout(state.previewTimer);
-  if (!state.previewEnabled) return;
-  const delay = delayMs === null ? state.previewIntervalMs : delayMs;
-  state.previewTimer = window.setTimeout(requestPreviewFrame, Math.max(120, Number(delay || state.previewIntervalMs || 300)));
-}
-
-function requestPreviewFrame() {
-  if (!state.previewEnabled) return;
-  if (state.previewBusy) {
-    schedulePreviewTick(120);
-    return;
-  }
-  const video = document.getElementById('videoFeed');
-  const fallback = document.getElementById('viewerFallback');
-  if (!video || !fallback) return;
-  state.previewBusy = true;
-  const preloader = new Image();
-  const finish = (nextDelay = null) => {
-    state.previewBusy = false;
-    schedulePreviewTick(nextDelay);
-  };
-  preloader.onload = () => {
-    video.src = preloader.src;
-    fallback.classList.add('hidden');
-    finish();
-  };
-  preloader.onerror = () => {
-    fallback.classList.remove('hidden');
-    setBanner('systemMessage', 'Camera preview frame failed to load.', 'warn');
-    finish(1000);
-  };
-  preloader.src = getPreviewUrl();
-}
-
-function refreshVideoFeedStream() {
-  if (!state.previewEnabled) return;
-  requestPreviewFrame();
-}
-
 function setupAiSettings() {
   document.getElementById('openAiSettingsBtn').addEventListener('click', async () => {
     await refreshAiModels(document.getElementById('aiModelSelect').value || null);
+    state.aiSettingsLoaded = false;
     await pollStatus();
     openModal('aiSettingsModal');
   });
@@ -647,7 +643,7 @@ function setupAiSettings() {
   document.getElementById('uploadAiFilesBtn').addEventListener('click', uploadAiFiles);
   document.getElementById('deleteAiModelBtn').addEventListener('click', deleteAiModel);
   document.getElementById('deployAiModelBtn').addEventListener('click', deployAiModel);
-  ['aiConfidenceThreshold', 'aiIouThreshold', 'aiOverlayEnabled', 'aiOverlayFps'].forEach((id) => {
+  ['aiBackend', 'aiConfidenceThreshold', 'aiIouThreshold', 'aiOverlayEnabled', 'aiOverlayFps', 'aiModelSelect', 'aiLabelsSelect', 'aiInputSize', 'aiTargetLabel', 'aiDropZoneLabel'].forEach((id) => {
     const el = document.getElementById(id);
     if (!el) return;
     el.addEventListener('change', saveAiConfigOnly);
@@ -678,15 +674,23 @@ function setupSystemActions() {
   document.getElementById('previewToggleBtn').addEventListener('click', togglePreview);
   document.getElementById('estopToggle').addEventListener('change', (event) => setEstop(event.target.checked));
   const video = document.getElementById('videoFeed');
+  const fallback = document.getElementById('viewerFallback');
   video.addEventListener('error', () => {
-    document.getElementById('viewerFallback').classList.remove('hidden');
+    state.previewInFlight = false;
+    fallback.classList.remove('hidden');
     setBanner('systemMessage', 'Camera preview frame failed to load.', 'warn');
+    schedulePreviewPoll(500);
   });
   video.addEventListener('load', () => {
-    document.getElementById('viewerFallback').classList.add('hidden');
+    state.previewInFlight = false;
+    fallback.classList.add('hidden');
+    schedulePreviewPoll((document.getElementById('aiOverlayEnabled').value === 'true' && document.getElementById('aiBackend').value === 'tflite') ? 220 : 160);
+  });
+  video.addEventListener('loadeddata', () => {
+    state.previewInFlight = false;
+    fallback.classList.add('hidden');
   });
 }
-
 
 document.addEventListener('DOMContentLoaded', async () => {
   setupStyleSettings();
@@ -698,13 +702,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   syncStyleInputsFromCurrentVars();
   await pollStatus();
   await refreshAiModels();
-  schedulePreviewTick(0);
-  state.statusTimer = window.setInterval(pollStatus, 1000);
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) {
-      window.clearTimeout(state.previewTimer);
-    } else if (state.previewEnabled) {
-      schedulePreviewTick(0);
-    }
-  });
+  setPreviewImageSource();
+  schedulePreviewPoll(120);
+  if (state.statusTimer) window.clearInterval(state.statusTimer);
+  state.statusTimer = window.setInterval(pollStatus, 1500);
 });

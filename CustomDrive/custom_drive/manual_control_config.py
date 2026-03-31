@@ -39,13 +39,20 @@ DEFAULT_MANUAL_CONTROL_CONFIG: dict[str, Any] = {
         'lift_step_interval_s': 0.1,
         'grip_hold_angle': 70,
         'grip_release_angle': 130,
+        'grip_step_angle': 1,
+        'grip_rate_deg_per_s': 10.0,
     },
     'ai': {
+        'perception_backend': 'color',
         'deployed_model': 'none',
+        'labels_file': '',
         'overlay_enabled': True,
+        'input_size': 0,
         'confidence_threshold': 0.25,
         'iou_threshold': 0.45,
         'max_overlay_fps': 6.0,
+        'target_label': 'he3',
+        'drop_zone_label': 'he3_zone',
     },
     'competition': {
         'current_session': 'session_1',
@@ -77,7 +84,6 @@ def _deep_merge(base: dict[str, Any], incoming: dict[str, Any]) -> dict[str, Any
     return out
 
 
-
 def _atomic_write_text(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp_path = tempfile.mkstemp(prefix=path.stem + '_', suffix='.tmp', dir=str(path.parent))
@@ -91,7 +97,6 @@ def _atomic_write_text(path: Path, text: str) -> None:
                 os.unlink(tmp_path)
         except OSError:
             pass
-
 
 
 def normalize_manual_control_config(data: dict[str, Any] | None) -> dict[str, Any]:
@@ -129,21 +134,33 @@ def normalize_manual_control_config(data: dict[str, Any] | None) -> dict[str, An
         'lift_step_interval_s': round(clamp_float(arm.get('lift_step_interval_s', 0.1), 0.1, 0.02, 1.0), 3),
         'grip_hold_angle': clamp_int(arm.get('grip_hold_angle', 70), 70, 0, 180),
         'grip_release_angle': clamp_int(arm.get('grip_release_angle', 130), 130, 0, 180),
+        'grip_step_angle': clamp_int(arm.get('grip_step_angle', 1), 1, 1, 45),
+        'grip_rate_deg_per_s': round(clamp_float(arm.get('grip_rate_deg_per_s', 10.0), 10.0, 0.5, 90.0), 3),
     }
     if merged['arm']['grip_channel'] in {merged['arm']['lift_channel'], merged['arm']['lift_channel_secondary']}:
         merged['arm']['grip_channel'] = 2
-
 
     ai = merged.get('ai') or {}
     deployed_model = str(ai.get('deployed_model', 'none') or 'none').strip() or 'none'
     if deployed_model != 'none' and not deployed_model.lower().endswith('.tflite'):
         deployed_model = 'none'
+    labels_file = str(ai.get('labels_file', '') or '').strip()
+    if labels_file and not labels_file.lower().endswith('.txt'):
+        labels_file = ''
+    perception_backend = str(ai.get('perception_backend', 'color') or 'color').strip().lower() or 'color'
+    if perception_backend not in {'color', 'tflite'}:
+        perception_backend = 'color'
     merged['ai'] = {
+        'perception_backend': perception_backend,
         'deployed_model': deployed_model,
+        'labels_file': labels_file,
         'overlay_enabled': bool(ai.get('overlay_enabled', True)),
+        'input_size': clamp_int(ai.get('input_size', 0), 0, 0, 4096),
         'confidence_threshold': round(clamp_float(ai.get('confidence_threshold', 0.25), 0.25, 0.01, 0.99), 3),
         'iou_threshold': round(clamp_float(ai.get('iou_threshold', 0.45), 0.45, 0.01, 0.99), 3),
         'max_overlay_fps': round(clamp_float(ai.get('max_overlay_fps', 6.0), 6.0, 0.5, 30.0), 2),
+        'target_label': str(ai.get('target_label', 'he3') or 'he3').strip() or 'he3',
+        'drop_zone_label': str(ai.get('drop_zone_label', 'he3_zone') or 'he3_zone').strip() or 'he3_zone',
     }
 
     competition = merged.get('competition') or {}
@@ -170,7 +187,6 @@ def normalize_manual_control_config(data: dict[str, Any] | None) -> dict[str, An
     return merged
 
 
-
 def load_manual_control_config(path: Path | None = None) -> dict[str, Any]:
     cfg_path = path or MANUAL_CONTROL_CONFIG_PATH
     if not cfg_path.exists():
@@ -182,7 +198,6 @@ def load_manual_control_config(path: Path | None = None) -> dict[str, Any]:
     except Exception:
         raw = {}
     return normalize_manual_control_config(raw)
-
 
 
 def save_manual_control_config(data: dict[str, Any] | None, path: Path | None = None) -> dict[str, Any]:

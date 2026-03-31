@@ -11,6 +11,7 @@ from .arm_service import ArmService
 from .manual_control_config import load_manual_control_config, save_manual_control_config
 from .object_detection_service import ObjectDetectionService
 from .project_paths import CUSTOMDRIVE_ROOT, DATA_DIR, PISERVER_ROOT, PISERVER_RUNTIME_PATH, ensure_piserver_import_paths
+from .runtime_settings import load_settings as load_runtime_settings, save_settings as save_runtime_settings
 
 ensure_piserver_import_paths()
 
@@ -23,36 +24,15 @@ from piserver.services.motor_service import MotorService  # noqa: E402
 from piserver.services.recorder_service import RecorderService  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent / 'gui_web'
-APP_VERSION = '0_2_12'
+APP_VERSION = '0_2_15'
 OD_MODEL_ROOT = CUSTOMDRIVE_ROOT / 'models' / 'object_detection'
-
-
-def _mjpeg_generator(camera_service: CameraService, detector_service: ObjectDetectionService):
-    seq = 0
-    while True:
-        jpeg_frame, seq = camera_service.wait_for_jpeg(seq, timeout=1.0)
-        if jpeg_frame is None:
-            time.sleep(0.05)
-            continue
-        out_jpeg = jpeg_frame
-        if detector_service.get_status().get('ready') and detector_service.get_status().get('overlay_enabled'):
-            live_frame = camera_service.get_latest_frame(copy=True)
-            if live_frame is not None:
-                annotated, _ = detector_service.annotate_frame_jpeg(live_frame)
-                if annotated is not None:
-                    out_jpeg = annotated
-        yield (
-            b'--frame\r\n'
-            b'Content-Type: image/jpeg\r\n'
-            b'Cache-Control: no-store, no-cache, must-revalidate, max-age=0\r\n'
-            b'Pragma: no-cache\r\n\r\n' + out_jpeg + b'\r\n'
-        )
 
 
 class GuiControlContext:
     def __init__(self) -> None:
         self.config_store = ConfigStore(PISERVER_RUNTIME_PATH)
         self.manual_config = load_manual_control_config()
+        self.runtime_settings = load_runtime_settings()
         initial_runtime = self.config_store.load()
 
         self.camera_service = CameraService()
@@ -79,8 +59,34 @@ class GuiControlContext:
         self.control_service.start()
         self._apply_defaults()
 
+    def _sync_runtime_perception_settings(self, manual_ai: dict[str, Any]) -> dict[str, Any]:
+        runtime_settings = load_runtime_settings()
+        perception = dict(runtime_settings.get('perception') or {})
+        model_name = str(manual_ai.get('deployed_model', 'none') or 'none').strip() or 'none'
+        labels_file = str(manual_ai.get('labels_file', '') or '').strip()
+        model_path = ''
+        labels_path = ''
+        if model_name != 'none':
+            model_path = str((OD_MODEL_ROOT / Path(model_name).name).resolve())
+        if labels_file:
+            labels_path = str((OD_MODEL_ROOT / Path(labels_file).name).resolve())
+        perception.update({
+            'perception_backend': str(manual_ai.get('perception_backend', 'color') or 'color').strip().lower() or 'color',
+            'model_path': model_path,
+            'labels_path': labels_path,
+            'input_size': int(manual_ai.get('input_size', 0) or 0),
+            'confidence_threshold': float(manual_ai.get('confidence_threshold', 0.25)),
+            'iou_threshold': float(manual_ai.get('iou_threshold', 0.45)),
+            'target_label': str(manual_ai.get('target_label', 'he3') or 'he3').strip() or 'he3',
+            'drop_zone_label': str(manual_ai.get('drop_zone_label', 'he3_zone') or 'he3_zone').strip() or 'he3_zone',
+        })
+        runtime_settings['perception'] = perception
+        self.runtime_settings = save_runtime_settings(runtime_settings)
+        return self.runtime_settings
+
     def _apply_defaults(self) -> None:
         self.manual_config = load_manual_control_config()
+        self.runtime_settings = load_runtime_settings()
         ui_cfg = self.manual_config.get('ui', {}) if isinstance(self.manual_config, dict) else {}
         default_speed = float(ui_cfg.get('manual_speed', 0.55))
         self.control_service.select_algorithm('manual')
@@ -89,8 +95,9 @@ class GuiControlContext:
         self.arm_service.reload(self.manual_config.get('arm', {}))
         self.object_detection_service.apply_runtime_config(self.manual_config.get('ai', {}))
         active_model = self.object_detection_service.get_active_model_name()
-        if active_model != 'none' and (OD_MODEL_ROOT / active_model).exists():
-            self.object_detection_service.deploy_model(active_model)
+        ai_cfg = self.manual_config.get('ai', {}) if isinstance(self.manual_config, dict) else {}
+        if active_model != 'none' and (OD_MODEL_ROOT / active_model).exists() and ai_cfg.get('perception_backend', 'color') == 'tflite':
+            self.object_detection_service.deploy_model(active_model, ai_cfg)
 
     def close(self) -> None:
         try:
@@ -123,6 +130,7 @@ class GuiControlContext:
                 merged[key] = value
         saved = save_manual_control_config(merged)
         self.manual_config = saved
+        self._sync_runtime_perception_settings(saved.get('ai', {}))
         self._apply_defaults()
         return saved
 
@@ -133,9 +141,10 @@ class GuiControlContext:
         current['ai'] = merged_ai
         saved = save_manual_control_config(current)
         self.manual_config = saved
+        self._sync_runtime_perception_settings(saved.get('ai', {}))
         self.object_detection_service.apply_runtime_config(saved.get('ai', {}))
         configured_model = str(saved.get('ai', {}).get('deployed_model', 'none') or 'none').strip()
-        if configured_model and configured_model != 'none':
+        if configured_model and configured_model != 'none' and saved.get('ai', {}).get('perception_backend', 'color') == 'tflite':
             status = self.object_detection_service.get_status(include_models=False)
             model_exists = (OD_MODEL_ROOT / configured_model).exists()
             if model_exists and (configured_model != self.object_detection_service.get_active_model_name() or not status.get('ready')):
@@ -146,6 +155,7 @@ class GuiControlContext:
         payload = self.control_service.snapshot()
         payload['manual_config'] = self.get_manual_config()
         payload['runtime_config_path'] = str(PISERVER_RUNTIME_PATH)
+        payload['customdrive_runtime_settings_path'] = str((CUSTOMDRIVE_ROOT / 'config' / 'runtime_settings.json').resolve())
         payload['motor_config'] = self.motor_service.get_config()
         payload['camera_config'] = self.camera_service.get_config()
         payload['arm_status'] = self.arm_service.status()
@@ -178,17 +188,6 @@ def create_app() -> Flask:
     def index():
         return render_template('index.html', app_version=APP_VERSION)
 
-    @app.route('/video_feed')
-    def video_feed():
-        response = Response(
-            _mjpeg_generator(ctx.camera_service, ctx.object_detection_service),
-            mimetype='multipart/x-mixed-replace; boundary=frame',
-        )
-        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
-        response.headers['Pragma'] = 'no-cache'
-        response.headers['Expires'] = '0'
-        return response
-
     @app.route('/api/camera/frame.jpg')
     def api_camera_frame():
         jpeg_frame = ctx.camera_service.get_jpeg_frame()
@@ -198,8 +197,12 @@ def create_app() -> Flask:
             return ('', 204)
         out_frame = jpeg_frame
         ai_status = ctx.object_detection_service.get_status(include_models=False)
-        if ai_status.get('ready') and ai_status.get('overlay_enabled'):
-            annotated, _ = ctx.object_detection_service.annotate_jpeg_bytes(jpeg_frame)
+        if ai_status.get('ready') and ai_status.get('overlay_enabled') and ai_status.get('backend') == 'tflite':
+            live_frame = ctx.camera_service.get_latest_frame(copy=True)
+            if live_frame is not None:
+                annotated, _ = ctx.object_detection_service.annotate_frame_jpeg(live_frame)
+            else:
+                annotated, _ = ctx.object_detection_service.annotate_jpeg_bytes(jpeg_frame)
             if annotated is not None:
                 out_frame = annotated
         response = Response(out_frame, mimetype='image/jpeg')
@@ -290,14 +293,26 @@ def create_app() -> Flask:
 
     @app.route('/api/ai/models')
     def api_ai_models():
-        return jsonify({'ok': True, 'models': ctx.object_detection_service.list_models(), 'ai_status': ctx.object_detection_service.get_status(include_models=False)})
+        return jsonify({
+            'ok': True,
+            'models': ctx.object_detection_service.list_models(),
+            'label_files': ctx.object_detection_service.list_label_files(),
+            'ai_status': ctx.object_detection_service.get_status(include_models=False),
+        })
 
     @app.route('/api/ai/upload', methods=['POST'])
     def api_ai_upload():
         files = request.files.getlist('files')
         ok, saved, message = ctx.object_detection_service.save_uploaded_files(files)
         code = 200 if ok else 400
-        return jsonify({'ok': ok, 'saved': saved, 'message': message, 'models': ctx.object_detection_service.list_models(), 'ai_status': ctx.object_detection_service.get_status(include_models=False)}), code
+        return jsonify({
+            'ok': ok,
+            'saved': saved,
+            'message': message,
+            'models': ctx.object_detection_service.list_models(),
+            'label_files': ctx.object_detection_service.list_label_files(),
+            'ai_status': ctx.object_detection_service.get_status(include_models=False),
+        }), code
 
     @app.route('/api/ai/delete', methods=['POST'])
     def api_ai_delete():
@@ -305,15 +320,24 @@ def create_app() -> Flask:
         model_name = str(data.get('model', '') or '').strip()
         ok, message = ctx.object_detection_service.delete_model_bundle(model_name)
         if ok:
-            ctx.save_manual_config({'ai': {'deployed_model': ctx.object_detection_service.get_active_model_name()}})
+            ctx.save_ai_config({'deployed_model': ctx.object_detection_service.get_active_model_name(), 'labels_file': ''})
         code = 200 if ok else 400
-        return jsonify({'ok': ok, 'message': message, 'models': ctx.object_detection_service.list_models(), 'ai_status': ctx.object_detection_service.get_status(include_models=False), 'state': ctx.status_payload()}), code
+        return jsonify({
+            'ok': ok,
+            'message': message,
+            'models': ctx.object_detection_service.list_models(),
+            'label_files': ctx.object_detection_service.list_label_files(),
+            'ai_status': ctx.object_detection_service.get_status(include_models=False),
+            'state': ctx.status_payload(),
+        }), code
 
     @app.route('/api/ai/deploy', methods=['POST'])
     def api_ai_deploy():
         data = request.get_json(silent=True) or {}
         model_name = str(data.get('model', '') or '').strip()
         overrides = {
+            'labels_file': str(data.get('labels_file', '') or '').strip(),
+            'input_size': int(data.get('input_size', 0) or 0),
             'confidence_threshold': data.get('confidence_threshold', 0.25),
             'iou_threshold': data.get('iou_threshold', 0.45),
             'overlay_enabled': data.get('overlay_enabled', True),
@@ -322,11 +346,16 @@ def create_app() -> Flask:
         ok, message = ctx.object_detection_service.deploy_model(model_name, overrides)
         if ok:
             ctx.save_ai_config({
+                'perception_backend': str(data.get('perception_backend', 'tflite') or 'tflite').strip().lower() or 'tflite',
                 'deployed_model': ctx.object_detection_service.get_active_model_name(),
+                'labels_file': Path(str(ctx.object_detection_service.get_status(include_models=False).get('labels_path', '') or '')).name,
+                'input_size': overrides['input_size'],
                 'confidence_threshold': overrides['confidence_threshold'],
                 'iou_threshold': overrides['iou_threshold'],
                 'overlay_enabled': overrides['overlay_enabled'],
                 'max_overlay_fps': overrides['max_overlay_fps'],
+                'target_label': str(data.get('target_label', 'he3') or 'he3').strip() or 'he3',
+                'drop_zone_label': str(data.get('drop_zone_label', 'he3_zone') or 'he3_zone').strip() or 'he3_zone',
             })
         code = 200 if ok else 400
         return jsonify({'ok': ok, 'message': message, 'ai_status': ctx.object_detection_service.get_status(include_models=False), 'state': ctx.status_payload()}), code
@@ -335,11 +364,16 @@ def create_app() -> Flask:
     def api_ai_config():
         data = request.get_json(silent=True) or {}
         ai_updates = {
+            'perception_backend': str(data.get('perception_backend', 'color') or 'color').strip().lower() or 'color',
+            'deployed_model': str(data.get('deployed_model', ctx.object_detection_service.get_active_model_name()) or 'none'),
+            'labels_file': str(data.get('labels_file', '') or '').strip(),
+            'input_size': int(data.get('input_size', 0) or 0),
             'overlay_enabled': bool(data.get('overlay_enabled', True)),
             'confidence_threshold': float(data.get('confidence_threshold', 0.25)),
             'iou_threshold': float(data.get('iou_threshold', 0.45)),
             'max_overlay_fps': float(data.get('max_overlay_fps', 6.0)),
-            'deployed_model': str(data.get('deployed_model', ctx.object_detection_service.get_active_model_name()) or 'none'),
+            'target_label': str(data.get('target_label', 'he3') or 'he3').strip() or 'he3',
+            'drop_zone_label': str(data.get('drop_zone_label', 'he3_zone') or 'he3_zone').strip() or 'he3_zone',
         }
         saved = ctx.save_ai_config(ai_updates)
         return jsonify({'ok': True, 'message': 'AI settings saved.', 'config': saved.get('ai', {}), 'ai_status': ctx.object_detection_service.get_status(include_models=False), 'state': ctx.status_payload()})

@@ -8,9 +8,10 @@ from pathlib import Path
 from typing import Any
 
 from .debug_tools import clamp_float, clamp_int, coerce_bool, sanitize_label_name
-from .project_paths import CONFIG_DIR
+from .project_paths import CONFIG_DIR, CUSTOMDRIVE_ROOT
 
 SETTINGS_PATH = CONFIG_DIR / 'runtime_settings.json'
+_DEFAULT_MODEL_DIR = CUSTOMDRIVE_ROOT / 'models' / 'object_detection'
 
 DEFAULT_SETTINGS: dict[str, Any] = {
     'camera': {
@@ -49,6 +50,14 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     },
     'perception': {
         'enabled': True,
+        'perception_backend': 'color',
+        'model_path': '',
+        'labels_path': '',
+        'input_size': 0,
+        'confidence_threshold': 0.25,
+        'iou_threshold': 0.45,
+        'target_label': 'he3',
+        'drop_zone_label': 'he3_zone',
         'blur_kernel': 5,
         'open_iterations': 1,
         'close_iterations': 1,
@@ -56,15 +65,11 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         'max_detections_per_label': 3,
         'labels': {
             'he3': {
-                'ranges': [
-                    {'lower': [5, 100, 90], 'upper': [35, 255, 255]}
-                ],
+                'ranges': [{'lower': [5, 100, 90], 'upper': [35, 255, 255]}],
                 'min_box_area_ratio': 0.0025,
             },
             'he3_zone': {
-                'ranges': [
-                    {'lower': [90, 80, 70], 'upper': [135, 255, 255]}
-                ],
+                'ranges': [{'lower': [90, 80, 70], 'upper': [135, 255, 255]}],
                 'min_box_area_ratio': 0.0040,
             },
         },
@@ -129,9 +134,6 @@ def _normalize_label_spec(spec: Any, fallback: dict[str, Any], default_min_ratio
     return out
 
 
-
-
-
 def _atomic_write_text(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp_path = tempfile.mkstemp(prefix=path.stem + '_', suffix='.tmp', dir=str(path.parent))
@@ -145,6 +147,17 @@ def _atomic_write_text(path: Path, text: str) -> None:
                 os.unlink(tmp_path)
         except OSError:
             pass
+
+
+def _normalize_optional_path(value: Any) -> str:
+    text = str(value or '').strip()
+    if not text:
+        return ''
+    path = Path(text).expanduser()
+    if path.is_absolute():
+        return str(path)
+    return str(path)
+
 
 def normalize_settings(data: dict[str, Any] | None) -> dict[str, Any]:
     merged = _deep_merge(DEFAULT_SETTINGS, data or {})
@@ -195,8 +208,19 @@ def normalize_settings(data: dict[str, Any] | None) -> dict[str, Any]:
 
     perception = merged.get('perception') or {}
     default_perception = DEFAULT_SETTINGS['perception']
+    backend = str(perception.get('perception_backend', 'color') or 'color').strip().lower() or 'color'
+    if backend not in {'color', 'tflite'}:
+        backend = 'color'
     normalized_perception: dict[str, Any] = {
         'enabled': coerce_bool(perception.get('enabled', True), True),
+        'perception_backend': backend,
+        'model_path': _normalize_optional_path(perception.get('model_path', '')),
+        'labels_path': _normalize_optional_path(perception.get('labels_path', '')),
+        'input_size': clamp_int(perception.get('input_size', 0), 0, 0, 4096),
+        'confidence_threshold': round(clamp_float(perception.get('confidence_threshold', 0.25), 0.25, 0.01, 0.99), 3),
+        'iou_threshold': round(clamp_float(perception.get('iou_threshold', 0.45), 0.45, 0.01, 0.99), 3),
+        'target_label': str(perception.get('target_label', default_perception.get('target_label', 'he3')) or default_perception.get('target_label', 'he3')).strip() or default_perception.get('target_label', 'he3'),
+        'drop_zone_label': str(perception.get('drop_zone_label', default_perception.get('drop_zone_label', 'he3_zone')) or default_perception.get('drop_zone_label', 'he3_zone')).strip() or default_perception.get('drop_zone_label', 'he3_zone'),
         'blur_kernel': clamp_int(perception.get('blur_kernel', 5), 5, 1, 31),
         'open_iterations': clamp_int(perception.get('open_iterations', 1), 1, 0, 10),
         'close_iterations': clamp_int(perception.get('close_iterations', 1), 1, 0, 10),
@@ -227,7 +251,6 @@ def normalize_settings(data: dict[str, Any] | None) -> dict[str, Any]:
     return merged
 
 
-
 def load_settings(path: Path | None = None) -> dict[str, Any]:
     cfg_path = path or SETTINGS_PATH
     if not cfg_path.exists():
@@ -239,7 +262,6 @@ def load_settings(path: Path | None = None) -> dict[str, Any]:
     except Exception:
         raw = {}
     return normalize_settings(raw)
-
 
 
 def save_settings(data: dict[str, Any], path: Path | None = None) -> dict[str, Any]:

@@ -77,6 +77,14 @@
         "min_box_area_ratio": 0.004,
         "max_detections_per_label": 3
       }
-    }
+    },
+    "perception_backend": "color",
+    "model_path": "",
+    "labels_path": "",
+    "input_size": 0,
+    "confidence_threshold": 0.25,
+    "iou_threshold": 0.45,
+    "target_label": "he3",
+    "drop_zone_label": "he3_zone"
   }
 }

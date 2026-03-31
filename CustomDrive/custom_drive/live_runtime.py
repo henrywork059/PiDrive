@@ -4,7 +4,6 @@ import copy
 import threading
 import time
 from dataclasses import asdict
-from pathlib import Path
 from typing import Any, Dict, Optional
 
 from .config import MissionConfig
@@ -14,8 +13,9 @@ from .mission_state import MissionState
 from .models import FramePerception
 from .perception import build_frame_perception, detections_as_dict, merge_perception_settings, perception_backend_ready
 from .picar_bridge import PiCarRobotBridge
+from .project_paths import CUSTOMDRIVE_ROOT, ensure_piserver_import_paths
 from .runtime_settings import load_settings, save_settings
-from .project_paths import ensure_piserver_import_paths
+from .tflite_perception import TFLitePerception
 
 
 def _load_piserver_services():
@@ -43,6 +43,7 @@ class LiveMissionRuntime:
         self.last_error = ''
 
         self.perception_settings = merge_perception_settings(self.settings.get('perception'))
+        self.tflite_perception = TFLitePerception(base_dir=CUSTOMDRIVE_ROOT)
         self.camera_service = CameraService()
         self.motor_service = MotorService()
         self._configure_services_from_settings(restart_camera=False)
@@ -50,9 +51,9 @@ class LiveMissionRuntime:
         self.camera_service.set_processing_enabled(True)
         self.camera_service.start()
 
-        ready, reason = perception_backend_ready()
-        self.perception_ready = ready
-        self.perception_message = reason
+        self.perception_ready = False
+        self.perception_message = 'uninitialized'
+        self._configure_perception_backend()
 
         self.bridge = PiCarRobotBridge(
             motor=self.motor_service,
@@ -76,6 +77,53 @@ class LiveMissionRuntime:
             self.last_error = str(message)
             self._record_event('Camera settings update reported a warning.', level='warning', event_type='camera', detail=self.last_error)
 
+    def _configure_perception_backend(self) -> None:
+        self.perception_settings = merge_perception_settings(self.settings.get('perception'))
+        ready, reason = perception_backend_ready(self.perception_settings)
+        self.perception_ready = ready
+        self.perception_message = reason
+        backend = self.perception_settings.get('perception_backend', 'color')
+        if backend != 'tflite':
+            self.tflite_perception.clear()
+            return
+        model_path = str(self.perception_settings.get('model_path', '') or '').strip()
+        labels_path = str(self.perception_settings.get('labels_path', '') or '').strip()
+        if not model_path:
+            self.perception_ready = False
+            self.perception_message = 'TFLite backend selected but no model path is configured.'
+            return
+        ok, message = self.tflite_perception.deploy(
+            model_path,
+            labels_path=labels_path or None,
+            input_size=int(self.perception_settings.get('input_size', 0) or 0),
+            confidence_threshold=float(self.perception_settings.get('confidence_threshold', 0.25)),
+            iou_threshold=float(self.perception_settings.get('iou_threshold', 0.45)),
+        )
+        self.perception_ready = ok
+        self.perception_message = message
+        if ok:
+            self._record_event(
+                'TFLite perception backend deployed.',
+                event_type='perception',
+                backend='tflite',
+                model_path=model_path,
+                labels_path=labels_path,
+                target_label=self.perception_settings.get('target_label', ''),
+                drop_zone_label=self.perception_settings.get('drop_zone_label', ''),
+            )
+        else:
+            self._record_event('TFLite perception backend failed to deploy.', level='warning', event_type='perception', detail=message)
+
+    def _build_mission_config(self) -> MissionConfig:
+        backend_conf = self.perception_settings or {}
+        min_conf = float(backend_conf.get('confidence_threshold', 0.45 if backend_conf.get('perception_backend') == 'tflite' else 0.45))
+        return MissionConfig(
+            target_label=str(backend_conf.get('target_label', 'he3') or 'he3').strip() or 'he3',
+            drop_zone_label=str(backend_conf.get('drop_zone_label', 'he3_zone') or 'he3_zone').strip() or 'he3_zone',
+            min_confidence=min_conf,
+            max_cycles=self.max_cycles,
+        )
+
     def close(self) -> None:
         self.stop_background(join=True)
         try:
@@ -90,6 +138,7 @@ class LiveMissionRuntime:
             self.motor_service.close()
         except Exception:
             pass
+        self.tflite_perception.clear()
         self._record_event('Live runtime closed.', event_type='runtime')
 
     def get_settings(self) -> dict[str, Any]:
@@ -106,7 +155,6 @@ class LiveMissionRuntime:
                     else:
                         merged[key] = value
             self.settings = save_settings(merged)
-            self.perception_settings = merge_perception_settings(self.settings.get('perception'))
             self._configure_services_from_settings(restart_camera=True)
             runtime_cfg = self.settings.get('runtime') or {}
             self.tick_s = float(runtime_cfg.get('tick_s_live', self.tick_s))
@@ -115,9 +163,7 @@ class LiveMissionRuntime:
             self.bridge.allow_virtual_grab_without_arm = bool(
                 runtime_cfg.get('allow_virtual_grab_without_arm', self.bridge.allow_virtual_grab_without_arm)
             )
-            ready, reason = perception_backend_ready()
-            self.perception_ready = ready
-            self.perception_message = reason
+            self._configure_perception_backend()
             self._record_event('Live runtime settings saved.', event_type='settings')
             return copy.deepcopy(self.settings)
 
@@ -127,7 +173,7 @@ class LiveMissionRuntime:
         with self._lock:
             self.stop_background(join=True)
             self.bridge.reset_mission_state()
-            self.config = MissionConfig(max_cycles=self.max_cycles)
+            self.config = self._build_mission_config()
             self.controller = MissionController(robot=self.bridge, config=self.config)
             self.controller.debug_limit = self.event_history_limit
             frame = self.camera_service.get_latest_frame(copy=False)
@@ -138,7 +184,14 @@ class LiveMissionRuntime:
             self.last_camera_error = str(getattr(self.camera_service, 'last_error', '') or '')
             self.last_frame_timestamp = 0.0
             self.last_error = self.last_camera_error
-            self._record_event('Live runtime reset.', event_type='runtime', max_cycles=self.max_cycles)
+            self._record_event(
+                'Live runtime reset.',
+                event_type='runtime',
+                max_cycles=self.max_cycles,
+                perception_backend=self.perception_settings.get('perception_backend', 'color'),
+                target_label=self.config.target_label,
+                drop_zone_label=self.config.drop_zone_label,
+            )
 
     def start(self) -> None:
         with self._lock:
@@ -153,7 +206,7 @@ class LiveMissionRuntime:
             if self.controller.state not in (MissionState.COMPLETE, MissionState.FAILED):
                 frame = self.camera_service.get_latest_frame(copy=True)
                 if frame is not None:
-                    self.last_perception = build_frame_perception(frame, self.perception_settings)
+                    self.last_perception = build_frame_perception(frame, self.perception_settings, tflite_backend=self.tflite_perception)
                     self.last_frame_timestamp = time.time()
                     if self.last_camera_error:
                         self._record_event('Camera recovered.', event_type='camera')
@@ -234,6 +287,7 @@ class LiveMissionRuntime:
         runtime_cfg = self.settings.get('runtime') or {}
         debug_events = list(self.controller.get_debug_events(limit=self.event_history_limit // 2)) + list(self._runtime_events[-(self.event_history_limit // 2):])
         debug_events = sorted(debug_events, key=lambda item: float(item.get('timestamp', 0.0)))[-self.event_history_limit:]
+        tflite_status = self.tflite_perception.status()
         return {
             'mode': self.mode,
             'state': snapshot.state,
@@ -262,6 +316,10 @@ class LiveMissionRuntime:
             'steer_mix': float(runtime_cfg.get('steer_mix', self.bridge.steer_mix)),
             'perception_ready': bool(self.perception_ready),
             'perception_message': self.perception_message,
+            'perception_backend': self.perception_settings.get('perception_backend', 'color'),
+            'target_label': self.config.target_label,
+            'drop_zone_label': self.config.drop_zone_label,
+            'tflite_status': tflite_status,
             'arm_bound': bool(self.bridge.arm is not None),
             'virtual_grab': bool(self.bridge.allow_virtual_grab_without_arm),
             'last_error': self.last_error,

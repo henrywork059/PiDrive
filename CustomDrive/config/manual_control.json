@@ -25,17 +25,20 @@
     "lift_step_interval_s": 0.1,
     "grip_hold_angle": 70,
     "grip_release_angle": 130,
-    "grip_default_angle": 90,
     "grip_step_angle": 1,
-    "grip_rate_deg_per_s": 10.0,
-    "lift_default_angle": 90
+    "grip_rate_deg_per_s": 10.0
   },
   "ai": {
     "deployed_model": "none",
     "overlay_enabled": true,
     "confidence_threshold": 0.25,
     "iou_threshold": 0.45,
-    "max_overlay_fps": 6.0
+    "max_overlay_fps": 6.0,
+    "perception_backend": "color",
+    "labels_file": "",
+    "input_size": 0,
+    "target_label": "he3",
+    "drop_zone_label": "he3_zone"
   },
   "competition": {
     "current_session": "session_1",
