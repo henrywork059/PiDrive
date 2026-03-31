@@ -197,12 +197,11 @@ def create_app() -> Flask:
         if jpeg_frame is None:
             return ('', 204)
         out_frame = jpeg_frame
-        if ctx.object_detection_service.get_status().get('ready') and ctx.object_detection_service.get_status().get('overlay_enabled'):
-            live_frame = ctx.camera_service.get_latest_frame(copy=True)
-            if live_frame is not None:
-                annotated, _ = ctx.object_detection_service.annotate_frame_jpeg(live_frame)
-                if annotated is not None:
-                    out_frame = annotated
+        ai_status = ctx.object_detection_service.get_status(include_models=False)
+        if ai_status.get('ready') and ai_status.get('overlay_enabled'):
+            annotated, _ = ctx.object_detection_service.annotate_jpeg_bytes(jpeg_frame)
+            if annotated is not None:
+                out_frame = annotated
         response = Response(out_frame, mimetype='image/jpeg')
         response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
         response.headers['Pragma'] = 'no-cache'

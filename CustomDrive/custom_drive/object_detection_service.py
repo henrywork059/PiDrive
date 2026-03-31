@@ -412,6 +412,21 @@ class ObjectDetectionService:
         cv2.putText(out, meta, (10, 22), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 255, 0), 2, cv2.LINE_AA)
         return out
 
+
+    def annotate_jpeg_bytes(self, jpeg_bytes: bytes | None) -> tuple[bytes | None, list[dict[str, Any]]]:
+        if jpeg_bytes is None or cv2 is None or np is None:
+            return jpeg_bytes, []
+        try:
+            arr = np.frombuffer(jpeg_bytes, dtype=np.uint8)
+            frame_bgr = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+        except Exception as exc:
+            with self._lock:
+                self.last_error = f'JPEG decode failed: {exc}'
+            return jpeg_bytes, []
+        if frame_bgr is None:
+            return jpeg_bytes, []
+        annotated, detections = self.annotate_frame_jpeg(frame_bgr)
+        return (annotated if annotated is not None else jpeg_bytes), detections
     def annotate_frame_jpeg(self, frame_bgr) -> tuple[bytes | None, list[dict[str, Any]]]:
         if frame_bgr is None or cv2 is None or np is None:
             return None, []

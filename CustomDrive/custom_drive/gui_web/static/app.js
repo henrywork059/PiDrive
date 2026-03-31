@@ -258,8 +258,13 @@ function populateAiSettings(status) {
   document.getElementById('aiIouThreshold').value = Number(ai.iou_threshold ?? 0.45).toFixed(2);
   document.getElementById('aiOverlayEnabled').value = ai.overlay_enabled === false ? 'false' : 'true';
   document.getElementById('aiOverlayFps').value = Number(ai.max_overlay_fps ?? 6.0).toFixed(1);
-  state.aiModels = ai.models || [];
-  renderAiModelOptions(ai.active_model || 'none');
+  const hasModelsPayload = Array.isArray(ai.models);
+  if (hasModelsPayload) {
+    state.aiModels = ai.models;
+  }
+  const currentSelected = document.getElementById('aiModelSelect')?.value || null;
+  const activeModel = ai.active_model || currentSelected || 'none';
+  renderAiModelOptions(activeModel);
   state.aiSettingsLoaded = true;
 }
 
@@ -497,7 +502,7 @@ async function refreshAiModels(selectedName = null) {
     state.aiModels = data.models || [];
     const targetName = selectedName || data.ai_status?.active_model || 'none';
     renderAiModelOptions(targetName);
-    if (!state.aiSettingsLoaded) populateAiSettings({ ai_status: data.ai_status });
+    if (!state.aiSettingsLoaded) populateAiSettings({ ai_status: { ...(data.ai_status || {}), models: data.models || [] } });
     return data;
   } catch (error) {
     setBanner('aiSettingsMessage', error.message || 'Could not refresh AI models.', 'warn');
@@ -522,7 +527,7 @@ async function uploadAiFiles() {
     input.value = '';
     refreshVideoFeedStream();
     state.aiModels = data.models || [];
-    renderAiModelOptions();
+    renderAiModelOptions((data.models && data.models[0] && data.models[0].name) || document.getElementById('aiModelSelect').value || 'none');
   } catch (error) {
     setBanner('aiSettingsMessage', error.message || 'Upload failed.', 'warn');
   }
@@ -538,7 +543,7 @@ async function deleteAiModel() {
     const data = await postJson('/api/ai/delete', { model });
     setBanner('aiSettingsMessage', data.message || 'Model deleted.', 'good');
     state.aiModels = data.models || [];
-    renderAiModelOptions();
+    renderAiModelOptions((data.models && data.models[0] && data.models[0].name) || document.getElementById('aiModelSelect').value || 'none');
     await pollStatus();
   } catch (error) {
     setBanner('aiSettingsMessage', error.message || 'Delete failed.', 'warn');
@@ -560,10 +565,9 @@ async function deployAiModel() {
       max_overlay_fps: Number(document.getElementById('aiOverlayFps').value || 6.0),
     });
     setBanner('aiSettingsMessage', data.message || 'Model deployed.', 'good');
-    state.aiSettingsLoaded = false;
+    await refreshAiModels(model);
     refreshVideoFeedStream();
     await pollStatus();
-    await refreshAiModels(model);
   } catch (error) {
     setBanner('aiSettingsMessage', error.message || 'Deploy failed.', 'warn');
   }
@@ -635,7 +639,6 @@ function refreshVideoFeedStream() {
 function setupAiSettings() {
   document.getElementById('openAiSettingsBtn').addEventListener('click', async () => {
     await refreshAiModels(document.getElementById('aiModelSelect').value || null);
-    state.aiSettingsLoaded = false;
     await pollStatus();
     openModal('aiSettingsModal');
   });
@@ -644,7 +647,7 @@ function setupAiSettings() {
   document.getElementById('uploadAiFilesBtn').addEventListener('click', uploadAiFiles);
   document.getElementById('deleteAiModelBtn').addEventListener('click', deleteAiModel);
   document.getElementById('deployAiModelBtn').addEventListener('click', deployAiModel);
-  ['aiConfidenceThreshold', 'aiIouThreshold', 'aiOverlayEnabled', 'aiOverlayFps', 'aiModelSelect'].forEach((id) => {
+  ['aiConfidenceThreshold', 'aiIouThreshold', 'aiOverlayEnabled', 'aiOverlayFps'].forEach((id) => {
     const el = document.getElementById(id);
     if (!el) return;
     el.addEventListener('change', saveAiConfigOnly);
