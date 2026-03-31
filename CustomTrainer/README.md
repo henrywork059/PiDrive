@@ -25,14 +25,14 @@ CustomTrainer/
 └── PATCH_NOTES/
 ```
 
-## What changed in 0_2_7
+## What changed in 0_2_8
 
 - keeps the startup-safe device probing, dataset export / preflight fixes, fast Marking shortcuts, and top-level-only frame scanning from 0_2_6
 - adds **right-click drag** on the Marking canvas so a selected box can be repositioned with the mouse without losing right-click selection
 - keeps left-drag box creation intact
-- upgrades **Quick Deploy To Frames** on Marking so predicted boxes can be loaded into the main annotation canvas for editing and saving, not only shown in the side preview
+- replaces the Marking-tab Quick Deploy panel with a single **Quick Deploy Current Frame** button that uses the latest `best.pt` on the active frame and loads predicted boxes into the main canvas
 - keeps the quick-deploy result browser so you can step through predicted frames and load each one back into Marking
-- updates the visible main window version to 0_2_7
+- updates the visible main window version to 0_2_8
 
 ## Main workflow
 
@@ -40,7 +40,7 @@ CustomTrainer/
 2. Choose the root folder that contains your sessions
 3. Label frames and save YOLO labels
 4. Open **Training** to train from the current sessions root
-5. Use **Marking → Quick Deploy To Frames** to run quick prediction on the current frame or current session frames, then refine the loaded predicted boxes directly in the main Marking canvas
+5. Use **Marking → Quick Deploy Current Frame** to run quick prediction on the active frame with the latest `best.pt`, then refine the loaded predicted boxes directly in the main Marking canvas
 6. Open **Export** to export the newest trained weights
 
 ## Marking page highlights
@@ -56,7 +56,7 @@ CustomTrainer/
 - uses `X` to delete selected frame(s)
 - uses arrow keys to move the selected box
 - draws each class with its own box color
-- includes Quick Deploy To Frames for fast prediction on the current frame or current session directly inside Marking
+- includes a single Quick Deploy button on Marking for fast prediction on the current frame
 - can load quick-deploy predicted boxes into the main annotation canvas so you can correct and save them as labels
 
 ## Training page highlights

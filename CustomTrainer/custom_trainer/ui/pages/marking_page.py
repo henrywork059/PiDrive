@@ -168,6 +168,9 @@ class MarkingPage(QWidget):
         tools_layout.addWidget(save_button, 1, 0)
         tools_layout.addWidget(delete_button, 1, 1)
         tools_layout.addWidget(delete_frames_button, 2, 0, 1, 2)
+        self.quick_deploy_button = QPushButton('Quick Deploy Current Frame', tools_box)
+        self.quick_deploy_button.clicked.connect(self.quick_deploy_current_frame)
+        tools_layout.addWidget(self.quick_deploy_button, 3, 0, 1, 2)
         help_label = QLabel(
             'Draw: left-drag\n'
             'Select / drag box: right-click, then drag\n'
@@ -176,12 +179,12 @@ class MarkingPage(QWidget):
             'Cycle class: W / S\n'
             'Delete selected frame(s): X\n'
             'Delete selected box: Delete\n'
-            'Quick deploy: predict into the main Marking frame so you can refine and save labels here',
+            'Quick deploy button: use the latest best.pt on the current frame and load predicted boxes into the main canvas',
             tools_box,
         )
         help_label.setProperty('role', 'muted')
         help_label.setWordWrap(True)
-        tools_layout.addWidget(help_label, 3, 0, 1, 2)
+        tools_layout.addWidget(help_label, 4, 0, 1, 2)
 
         deploy_box = QGroupBox('Quick Deploy To Frames', self)
         deploy_form = QFormLayout(deploy_box)
@@ -229,13 +232,11 @@ class MarkingPage(QWidget):
         self.right_splitter = QSplitter(Qt.Vertical, self)
         self.right_splitter.addWidget(classes_box)
         self.right_splitter.addWidget(tools_box)
-        self.right_splitter.addWidget(deploy_box)
         self.right_splitter.addWidget(info_box)
         self.right_splitter.setStretchFactor(0, 3)
         self.right_splitter.setStretchFactor(1, 2)
-        self.right_splitter.setStretchFactor(2, 3)
-        self.right_splitter.setStretchFactor(3, 2)
-        self.right_splitter.setSizes([300, 220, 360, 180])
+        self.right_splitter.setStretchFactor(2, 2)
+        self.right_splitter.setSizes([320, 260, 180])
 
         self.main_splitter = QSplitter(Qt.Horizontal, self)
         self.main_splitter.addWidget(self.left_splitter)
@@ -417,6 +418,24 @@ class MarkingPage(QWidget):
         self.deploy_source_edit.setText(str(session.image_root))
         self._update_deploy_status('Loaded current session frames for quick deploy.')
 
+    def quick_deploy_current_frame(self) -> None:
+        if self.thread is not None:
+            QMessageBox.information(self, 'Quick deploy running', 'A quick deploy task is already running.')
+            return
+        image_path = self.state.current_image_path
+        if image_path is None or not image_path.exists():
+            QMessageBox.information(self, 'No current frame', 'Open a frame on the Marking tab first.')
+            return
+        best = self.state.latest_best_weights()
+        if best is None:
+            QMessageBox.information(self, 'No trained weights found', 'No best.pt file was found under the current sessions root or session.')
+            return
+        if self.is_dirty:
+            self.save_current_labels()
+        self.deploy_weights_edit.setText(str(best))
+        self.deploy_source_edit.setText(str(image_path))
+        self.predict_model_on_frames()
+
     def _clone_pixel_boxes(self, boxes: list[PixelBox]) -> list[PixelBox]:
         return [PixelBox(class_id=box.class_id, x1=box.x1, y1=box.y1, x2=box.x2, y2=box.y2) for box in boxes]
 
@@ -429,9 +448,16 @@ class MarkingPage(QWidget):
         if not self.current_image_path.exists():
             return False
         cloned_boxes = self._clone_pixel_boxes(boxes)
+        count = len(cloned_boxes)
+        if count == 0:
+            self.selection_info.setText(f'Quick deploy found no boxes for {image_name}. Existing annotations were left unchanged.')
+            if announce:
+                self.set_status('Quick deploy found no boxes on the current frame.')
+                self.log(f'Quick deploy predictions for {image_name}: 0 box(es); existing annotations kept')
+            self.refresh_deploy_preview()
+            return True
         self.canvas.set_scene(self.current_image_path, cloned_boxes)
         self.is_dirty = True
-        count = len(cloned_boxes)
         self.selection_info.setText(f'Loaded {count} predicted box(es) into Marking for {image_name}. Adjust boxes, then save labels.')
         if announce:
             self.set_status(f'Loaded {count} predicted box(es) into Marking.')
@@ -1105,6 +1131,8 @@ class MarkingPage(QWidget):
         self.latest_deploy_button.setEnabled(not busy)
         self.current_frame_deploy_button.setEnabled(not busy)
         self.current_session_deploy_button.setEnabled(not busy)
+        if hasattr(self, 'quick_deploy_button'):
+            self.quick_deploy_button.setEnabled(not busy)
 
     def _launch_deploy(self, command: list[str], status_message: str) -> None:
         self.log(f'[cwd] {runner_working_directory()}')
@@ -1128,11 +1156,11 @@ class MarkingPage(QWidget):
             applied_current = False
             if self.current_image_path is not None:
                 applied_current = self._focus_prediction_in_marking(self.current_image_path.name)
-            message = f'Quick deploy finished. {len(self.predicted_frame_paths)} result frame(s) available in Marking.'
+            message = 'Quick deploy finished for the current frame.'
             if applied_current:
-                self._update_deploy_status('Quick deploy results are ready and the current frame has been loaded into the main Marking canvas for editing.')
+                self._update_deploy_status('Quick deploy loaded predicted boxes into the main Marking canvas for editing.')
             else:
-                self._update_deploy_status('Quick deploy results are ready. Use the result browser to load a predicted frame into the main Marking canvas.')
+                self._update_deploy_status('Quick deploy finished, but no predicted boxes were loaded into the current frame.')
         else:
             message = f'Quick deploy finished with exit code {exit_code}.'
         self._set_deploy_busy_state(False)

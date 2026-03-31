@@ -15,7 +15,7 @@ from custom_trainer.ui.widgets.log_panel import LogPanel
 class CustomTrainerMainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle('CustomTrainer 0_2_7')
+        self.setWindowTitle('CustomTrainer 0_2_8')
         self.resize(1500, 920)
         self.setMinimumSize(960, 680)
         self._startup_geometry_applied = False
@@ -152,7 +152,7 @@ class CustomTrainerMainWindow(QMainWindow):
                     'Delete -> Delete selected box',
                     'Ctrl + Click in frame list -> Multi-select frames',
                     'Validation prediction browser now lets you step through saved frames.',
-                    'Marking page Quick Deploy can now load predicted boxes into the main canvas so you can refine and save labels there.',
+                    'Marking page Quick Deploy is now a single button that runs on the current frame and loads predicted boxes into the main canvas.',
                 ]
             ),
         )
