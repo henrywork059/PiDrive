@@ -26,6 +26,10 @@ class ArmService:
         self._grip_stop = threading.Event()
         self._grip_lock = threading.RLock()
         self._grip_direction = 0
+        self._servo_io_lock = threading.RLock()
+        self._hold_thread: threading.Thread | None = None
+        self._hold_stop = threading.Event()
+        self._hold_lock = threading.RLock()
         self._current_lift_angle = 0
         self._current_grip_angle = 0
         self.last_action = 'idle'
@@ -38,6 +42,7 @@ class ArmService:
         self.reload(config or {})
 
     def reload(self, config: dict[str, Any] | None = None) -> dict[str, Any]:
+        self.stop_hold_refresh()
         self.stop_motion()
         self.stop_grip_motion()
         cfg = dict(config or {})
@@ -73,6 +78,7 @@ class ArmService:
             # Reassert current angles on startup so servos are held immediately.
             self._apply_lift_angle(self._current_lift_angle)
             self._apply_grip_angle(self._current_grip_angle)
+            self.start_hold_refresh()
             self.last_message = (
                 f'PCA9685 ready on 0x{address:02X}. '
                 f'Lift hold {self._current_lift_angle}°; grip hold {self._current_grip_angle}°.'
@@ -85,6 +91,7 @@ class ArmService:
         return self.status()
 
     def shutdown(self) -> None:
+        self.stop_hold_refresh()
         self.stop_motion()
         self.stop_grip_motion()
         self._kit = None
@@ -120,6 +127,17 @@ class ArmService:
         except Exception:
             value = 2.0
         return max(0.25, min(8.0, value))
+
+    def _hold_refresh_enabled(self) -> bool:
+        return bool(self._config.get('hold_refresh_enabled', True))
+
+    def _hold_refresh_interval_s(self) -> float:
+        value = self._config.get('hold_refresh_interval_s', 0.75)
+        try:
+            value = float(value)
+        except Exception:
+            value = 0.75
+        return max(0.1, min(10.0, value))
 
     def _step_interval_s(self) -> float:
         value = self._config.get('lift_step_interval_s', 0.1)
@@ -181,6 +199,60 @@ class ArmService:
     def _grip_step_interval_s(self) -> float:
         return max(0.02, min(1.0, self._grip_step_angle() / self._grip_rate_deg_per_s()))
 
+    def _hold_refresh_loop(self) -> None:
+        while not self._hold_stop.wait(self._hold_refresh_interval_s()):
+            if not self.enabled or not self.available:
+                continue
+            if not self._hold_refresh_enabled():
+                continue
+            with self._move_lock:
+                lift_busy = self._move_thread is not None or self._move_direction != 0
+            with self._grip_lock:
+                grip_busy = self._grip_thread is not None or self._grip_direction != 0
+            if lift_busy or grip_busy:
+                continue
+            try:
+                self._apply_lift_angle(self._current_lift_angle)
+                self._apply_grip_angle(self._current_grip_angle)
+                if self.last_error:
+                    self.last_error = ''
+                    self.last_message = (
+                        f'Arm hold restored: lift {self._current_lift_angle}°; '
+                        f'grip {self._current_grip_angle}°.'
+                    )
+            except Exception as exc:
+                self.last_error = str(exc)
+                self.last_message = f'Arm hold refresh failed: {exc}'
+
+    def start_hold_refresh(self) -> tuple[bool, str]:
+        if not self.enabled:
+            self.last_message = 'Arm disabled in config.'
+            return False, self.last_message
+        if not self.available:
+            self.last_message = self.last_error or 'Arm backend is not available.'
+            return False, self.last_message
+        if not self._hold_refresh_enabled():
+            self.last_message = 'Arm hold refresh disabled in config.'
+            return False, self.last_message
+        with self._hold_lock:
+            if self._hold_thread is not None and self._hold_thread.is_alive():
+                return True, 'Arm hold refresh already running.'
+            self._hold_stop = threading.Event()
+            self._hold_thread = threading.Thread(target=self._hold_refresh_loop, name='customdrive-arm-hold', daemon=True)
+            self._hold_thread.start()
+        return True, 'Arm hold refresh started.'
+
+    def stop_hold_refresh(self) -> tuple[bool, str]:
+        thread = None
+        with self._hold_lock:
+            thread = self._hold_thread
+            self._hold_stop.set()
+        if thread and thread.is_alive():
+            thread.join(timeout=0.3)
+        with self._hold_lock:
+            self._hold_thread = None
+        return True, 'Arm hold refresh stopped.'
+
     def _set_servo_angle(self, channel: int, angle: int) -> None:
         if not self.enabled:
             raise RuntimeError('Arm is disabled in config.')
@@ -188,7 +260,8 @@ class ArmService:
             if self.last_error:
                 raise RuntimeError(self.last_error)
             raise RuntimeError('Arm backend is not available.')
-        self._kit.servo[channel].angle = max(0, min(180, int(angle)))
+        with self._servo_io_lock:
+            self._kit.servo[channel].angle = max(0, min(180, int(angle)))
 
     def _apply_lift_angle(self, angle: int) -> None:
         angle = max(0, min(180, int(angle)))
@@ -435,6 +508,9 @@ class ArmService:
             'grip_open_direction': int(self._grip_open_direction()),
             'lift_angle': int(self._current_lift_angle),
             'grip_angle': int(self._current_grip_angle),
+            'hold_refresh_enabled': bool(self._hold_refresh_enabled()),
+            'hold_refresh_interval_s': float(self._hold_refresh_interval_s()),
+            'hold_refresh_running': bool(self._hold_thread is not None),
             'moving': bool(self._move_thread is not None),
             'grip_moving': bool(self._grip_thread is not None),
         }
