@@ -462,13 +462,13 @@ class Mission1SessionContext:
 
             if zone == 'left':
                 # Mission 1 rule: target centre in the left region -> turn left while continuing forward.
-                # With the shared MotorService mix, positive steering produces the leftward arc here.
-                steering = max_steering
+                # On the shared MotorService mix used here, negative steering gives the leftward arc.
+                steering = -max_steering
                 throttle = max(0.08, approach_speed * 0.55)
             elif zone == 'right':
                 # Mission 1 rule: target centre in the right region -> turn right while continuing forward.
-                # With the shared MotorService mix, negative steering produces the rightward arc here.
-                steering = -max_steering
+                # On the shared MotorService mix used here, positive steering gives the rightward arc.
+                steering = max_steering
                 throttle = max(0.08, approach_speed * 0.55)
             else:
                 steering = 0.0
