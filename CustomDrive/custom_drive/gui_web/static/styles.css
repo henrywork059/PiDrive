@@ -505,6 +505,19 @@ input[type='range'] {
   .viewer-frame { min-height: 220px; }
 }
 
+.debug-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--field-gap);
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.debug-toolbar-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
 .debug-pre {
   min-height: 180px;
   max-height: 260px;
@@ -518,4 +531,17 @@ input[type='range'] {
   font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   white-space: pre-wrap;
   word-break: break-word;
+}
+.debug-log {
+  width: 100%;
+  min-height: 220px;
+  max-height: 320px;
+  resize: vertical;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: calc(var(--radius) - 2px);
+  border: 1px solid rgba(var(--accent-rgb), 0.22);
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--text);
+  font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }

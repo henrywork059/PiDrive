@@ -272,6 +272,58 @@ def _coerce_xyxy(box: np.ndarray, *, input_size: int, order: str) -> np.ndarray:
     return np.array([x1, y1, x2, y2], dtype=np.float32)
 
 
+def _column_profile(values: np.ndarray) -> dict[str, Any]:
+    finite = values[np.isfinite(values)].astype(np.float32)
+    if finite.size == 0:
+        return {
+            'min': 0.0,
+            'max': 0.0,
+            'mean': 0.0,
+            'non_negative_ratio': 0.0,
+            'in_unit_ratio': 0.0,
+            'integer_like_ratio': 0.0,
+            'unique_count': 0,
+        }
+    rounded = np.round(finite)
+    integer_like = np.abs(finite - rounded) <= 1e-3
+    return {
+        'min': float(finite.min()),
+        'max': float(finite.max()),
+        'mean': float(finite.mean()),
+        'non_negative_ratio': float(np.mean(finite >= 0.0)),
+        'in_unit_ratio': float(np.mean((finite >= 0.0) & (finite <= 1.05))),
+        'integer_like_ratio': float(np.mean(integer_like)),
+        'unique_count': int(len(np.unique(rounded if np.any(integer_like) else np.round(finite, 3)))),
+    }
+
+
+def _six_col_variant_rank(info: dict[str, Any]) -> tuple[float, ...]:
+    score_profile = dict(info.get('score_profile', {}) or {})
+    class_profile = dict(info.get('class_profile', {}) or {})
+    score_max = float(info.get('score_max', 0.0) or 0.0)
+    score_unit_ratio = float(score_profile.get('in_unit_ratio', 0.0) or 0.0)
+    score_integer_ratio = float(score_profile.get('integer_like_ratio', 0.0) or 0.0)
+    class_integer_ratio = float(class_profile.get('integer_like_ratio', 0.0) or 0.0)
+    class_non_negative_ratio = float(class_profile.get('non_negative_ratio', 0.0) or 0.0)
+    class_unique_count = int(class_profile.get('unique_count', 0) or 0)
+    decoded_count = int(info.get('decoded_count', 0) or 0)
+    class_count = int(info.get('class_count', 0) or 0)
+    plausible_score = 1.0 if score_max <= 1.05 else (0.5 if score_max <= 1.5 else 0.0)
+    score_penalty = 0.0 if score_max <= 1.05 else min(score_max, 100.0)
+    unique_bonus = 1.0 if class_unique_count <= max(class_count + 2, 8) else 0.0
+    return (
+        plausible_score,
+        score_unit_ratio,
+        class_integer_ratio,
+        class_non_negative_ratio,
+        unique_bonus,
+        float(decoded_count),
+        -score_integer_ratio,
+        -score_penalty,
+        1.0 if str(info.get('coord_order', 'xyxy')) == 'xyxy' else 0.0,
+    )
+
+
 def _decode_six_column_variant(
     arr: np.ndarray,
     *,
@@ -294,9 +346,13 @@ def _decode_six_column_variant(
             'class_col': int(class_col),
             'coord_order': coord_order,
             'selected_variant': variant_name,
+            'score_profile': _column_profile(np.empty((0,), dtype=np.float32)),
+            'class_profile': _column_profile(np.empty((0,), dtype=np.float32)),
         }
     score_values = arr[:, score_col].astype(np.float32)
     class_values = arr[:, class_col].astype(np.float32)
+    score_profile = _column_profile(score_values)
+    class_profile = _column_profile(class_values)
     finite_scores = score_values[np.isfinite(score_values)]
     score_max = float(finite_scores.max()) if finite_scores.size else 0.0
     score_mean = float(finite_scores.mean()) if finite_scores.size else 0.0
@@ -308,7 +364,7 @@ def _decode_six_column_variant(
     inferred_class_count = int(max(num_classes, 0))
     for idx in kept_idx.tolist():
         row = arr[idx]
-        class_id = int(max(0.0, class_values[idx]))
+        class_id = int(max(0.0, round(float(class_values[idx]))))
         inferred_class_count = max(inferred_class_count, class_id + 1)
         boxes.append(_coerce_xyxy(row[:4], input_size=input_size, order=coord_order))
         scores.append(float(score_values[idx]))
@@ -316,7 +372,7 @@ def _decode_six_column_variant(
     if not boxes:
         inferred = class_values[np.isfinite(class_values)]
         if inferred.size:
-            inferred_class_count = max(inferred_class_count, int(np.max(inferred)) + 1)
+            inferred_class_count = max(inferred_class_count, int(np.max(np.round(inferred))) + 1)
         return (
             np.empty((0, 4), dtype=np.float32),
             np.empty((0,), dtype=np.float32),
@@ -331,6 +387,8 @@ def _decode_six_column_variant(
                 'class_col': int(class_col),
                 'coord_order': coord_order,
                 'selected_variant': variant_name,
+                'score_profile': score_profile,
+                'class_profile': class_profile,
             },
         )
     score_arr = np.array(scores, dtype=np.float32)
@@ -348,6 +406,8 @@ def _decode_six_column_variant(
             'class_col': int(class_col),
             'coord_order': coord_order,
             'selected_variant': variant_name,
+            'score_profile': score_profile,
+            'class_profile': class_profile,
         },
     )
 
@@ -373,6 +433,7 @@ def parse_output(output: np.ndarray, conf_threshold: float, num_classes: int, in
 
     if arr.ndim == 2 and arr.shape[-1] == 6:
         variants = []
+        variant_summaries = []
         for score_col, class_col, coord_order, variant_name in [
             (4, 5, 'xyxy', 'xyxy_score_class'),
             (5, 4, 'xyxy', 'xyxy_class_score'),
@@ -389,18 +450,26 @@ def parse_output(output: np.ndarray, conf_threshold: float, num_classes: int, in
                 coord_order=coord_order,
                 variant_name=variant_name,
             )
-            variants.append((variant_name, boxes_v, scores_v, classes_v, info_v))
-        selected = max(
-            variants,
-            key=lambda item: (
-                item[4].get('decoded_count', 0),
-                item[4].get('score_max', 0.0),
-                1 if item[4].get('score_col', -1) == 5 else 0,
-            ),
-        )
-        variant_name, boxes, scores, classes, info = selected
+            rank = _six_col_variant_rank(info_v)
+            variants.append((rank, variant_name, boxes_v, scores_v, classes_v, info_v))
+            variant_summaries.append({
+                'name': variant_name,
+                'decoded_count': int(info_v.get('decoded_count', 0)),
+                'score_max': float(info_v.get('score_max', 0.0)),
+                'score_mean': float(info_v.get('score_mean', 0.0)),
+                'score_col': int(info_v.get('score_col', -1)),
+                'class_col': int(info_v.get('class_col', -1)),
+                'coord_order': str(info_v.get('coord_order', 'unknown')),
+                'score_in_unit_ratio': float((info_v.get('score_profile', {}) or {}).get('in_unit_ratio', 0.0)),
+                'score_integer_like_ratio': float((info_v.get('score_profile', {}) or {}).get('integer_like_ratio', 0.0)),
+                'class_integer_like_ratio': float((info_v.get('class_profile', {}) or {}).get('integer_like_ratio', 0.0)),
+                'class_unique_count': int((info_v.get('class_profile', {}) or {}).get('unique_count', 0)),
+            })
+        selected = max(variants, key=lambda item: item[0])
+        _, variant_name, boxes, scores, classes, info = selected
         debug.update(info)
         debug['selected_variant'] = variant_name
+        debug['variant_candidates'] = variant_summaries
         return boxes, scores, classes, debug
 
     if arr.ndim != 2 or arr.shape[1] < 5:

@@ -113,13 +113,21 @@ class ArmService:
             value = 1
         return max(1, min(45, value))
 
+    def _speed_multiplier(self) -> float:
+        value = self._config.get('speed_multiplier', 2.0)
+        try:
+            value = float(value)
+        except Exception:
+            value = 2.0
+        return max(0.25, min(8.0, value))
+
     def _step_interval_s(self) -> float:
         value = self._config.get('lift_step_interval_s', 0.1)
         try:
             value = float(value)
         except Exception:
             value = 0.1
-        return max(0.02, min(1.0, value))
+        return max(0.02, min(1.0, value / self._speed_multiplier()))
 
     def _secondary_enabled(self) -> bool:
         return bool(self._config.get('lift_secondary_enabled', True))
@@ -153,7 +161,8 @@ class ArmService:
             value = float(value)
         except Exception:
             value = 10.0
-        return max(0.5, min(60.0, value))
+        value *= self._speed_multiplier()
+        return max(0.5, min(90.0, value))
 
     def _grip_step_interval_s(self) -> float:
         return max(0.02, min(1.0, self._grip_step_angle() / self._grip_rate_deg_per_s()))
@@ -403,6 +412,7 @@ class ArmService:
             'lift_secondary_enabled': self._secondary_enabled(),
             'lift_secondary_multiplier': self._secondary_multiplier(),
             'grip_channel': self._grip_channel(),
+            'speed_multiplier': float(self._speed_multiplier()),
             'lift_angle': int(self._current_lift_angle),
             'grip_angle': int(self._current_grip_angle),
             'moving': bool(self._move_thread is not None),

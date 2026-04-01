@@ -132,6 +132,7 @@ def normalize_manual_control_config(data: dict[str, Any] | None) -> dict[str, An
         'lift_down_angle': clamp_int(arm.get('lift_down_angle', 115), 115, 0, 180),
         'lift_step_angle': clamp_int(arm.get('lift_step_angle', 1), 1, 1, 45),
         'lift_step_interval_s': round(clamp_float(arm.get('lift_step_interval_s', 0.1), 0.1, 0.02, 1.0), 3),
+        'speed_multiplier': round(clamp_float(arm.get('speed_multiplier', 2.0), 2.0, 0.25, 8.0), 3),
         'grip_hold_angle': clamp_int(arm.get('grip_hold_angle', 70), 70, 0, 180),
         'grip_release_angle': clamp_int(arm.get('grip_release_angle', 130), 130, 0, 180),
         'grip_step_angle': clamp_int(arm.get('grip_step_angle', 1), 1, 1, 45),

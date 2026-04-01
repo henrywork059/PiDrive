@@ -37,6 +37,9 @@ const state = {
   previewInFlight: false,
   aiConfigTimer: null,
   aiDeployedModel: 'none',
+  aiDebugFrozen: false,
+  aiDebugLog: [],
+  aiDebugLastSignature: '',
 };
 
 function clamp(value, min, max) {
@@ -335,9 +338,7 @@ function renderAiLabelOptions(selectedName = '') {
     select.value = '';
   }
 }
-function renderAiDebug(debugPayload, aiStatus = null) {
-  const el = document.getElementById('aiDebugText');
-  if (!el) return;
+function formatAiDebugLines(debugPayload, aiStatus = null) {
   const status = aiStatus || {};
   const debug = debugPayload?.debug || status.debug || {};
   const lines = [
@@ -366,8 +367,94 @@ function renderAiDebug(debugPayload, aiStatus = null) {
     `score_max: ${Number(debug.score_max || 0).toFixed(4)}`,
     `score_mean: ${Number(debug.score_mean || 0).toFixed(4)}`,
   ];
-  el.textContent = lines.join('\n');}
+  const variants = Array.isArray(debug.variant_candidates) ? debug.variant_candidates : [];
+  if (variants.length) {
+    lines.push('variants:');
+    variants.forEach((item) => {
+      lines.push(
+        `  - ${String(item.name || 'variant')} | dec=${Number(item.decoded_count || 0)} | score_max=${Number(item.score_max || 0).toFixed(4)} | score_col=${Number(item.score_col ?? -1)} | class_col=${Number(item.class_col ?? -1)} | unit_ratio=${Number(item.score_in_unit_ratio || 0).toFixed(2)} | class_int=${Number(item.class_integer_like_ratio || 0).toFixed(2)} | class_unique=${Number(item.class_unique_count || 0)}`,
+      );
+    });
+  }
+  return lines;
+}
 
+function renderAiDebugHistory() {
+  const el = document.getElementById('aiDebugLogText');
+  if (!el) return;
+  el.value = state.aiDebugLog.length ? state.aiDebugLog.join('\n\n') : 'AI debug history will appear here.';
+}
+
+function appendAiDebugHistory(lines) {
+  const signature = lines.join('\n');
+  if (!signature || signature === state.aiDebugLastSignature) return;
+  state.aiDebugLastSignature = signature;
+  const stamp = new Date().toLocaleTimeString();
+  state.aiDebugLog.unshift(`[${stamp}]\n${signature}`);
+  state.aiDebugLog = state.aiDebugLog.slice(0, 60);
+  renderAiDebugHistory();
+}
+
+async function copyTextToClipboard(text) {
+  const value = String(text || '');
+  if (!value) return false;
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(value);
+      return true;
+    }
+  } catch {}
+  const temp = document.createElement('textarea');
+  temp.value = value;
+  document.body.appendChild(temp);
+  temp.select();
+  const ok = document.execCommand('copy');
+  document.body.removeChild(temp);
+  return ok;
+}
+
+function updateAiDebugFreezeButton() {
+  const btn = document.getElementById('toggleAiDebugFreezeBtn');
+  if (!btn) return;
+  btn.textContent = state.aiDebugFrozen ? 'Resume Snapshot' : 'Freeze Snapshot';
+}
+
+function renderAiDebug(debugPayload, aiStatus = null, options = {}) {
+  const el = document.getElementById('aiDebugText');
+  if (!el) return;
+  const { appendHistory = true, forceSnapshot = false } = options;
+  const lines = formatAiDebugLines(debugPayload, aiStatus);
+  if (!state.aiDebugFrozen || forceSnapshot) {
+    el.textContent = lines.join('\n');
+  }
+  if (appendHistory) appendAiDebugHistory(lines);
+  updateAiDebugFreezeButton();
+}
+
+async function copyAiDebugSnapshot() {
+  const text = document.getElementById('aiDebugText')?.textContent || '';
+  const ok = await copyTextToClipboard(text);
+  setBanner('aiSettingsMessage', ok ? 'AI debug snapshot copied.' : 'Could not copy AI debug snapshot.', ok ? 'good' : 'warn');
+}
+
+async function copyAiDebugHistory() {
+  const text = state.aiDebugLog.join('\n\n');
+  const ok = await copyTextToClipboard(text);
+  setBanner('aiSettingsMessage', ok ? 'AI debug history copied.' : 'Could not copy AI debug history.', ok ? 'good' : 'warn');
+}
+
+function clearAiDebugHistory() {
+  state.aiDebugLog = [];
+  state.aiDebugLastSignature = '';
+  renderAiDebugHistory();
+  setBanner('aiSettingsMessage', 'AI debug history cleared.', 'muted');
+}
+
+function toggleAiDebugFreeze() {
+  state.aiDebugFrozen = !state.aiDebugFrozen;
+  updateAiDebugFreezeButton();
+  setBanner('aiSettingsMessage', state.aiDebugFrozen ? 'AI debug snapshot frozen for copying.' : 'AI debug snapshot resumed.', state.aiDebugFrozen ? 'muted' : 'good');
+}
 
 function updateStatusUi(data) {
   const cameraLive = Boolean(data.camera_preview_live ?? data.camera_config?.preview_enabled ?? true);
@@ -405,7 +492,7 @@ function updateStatusUi(data) {
   setBanner('armMessage', armMessage, data.arm_status?.last_error ? 'warn' : 'muted');
   if (!state.driveSettingsLoaded) populateDriveSettings(data);
   if (!state.aiSettingsLoaded) populateAiSettings(data);
-  renderAiDebug(null, aiStatus);
+  renderAiDebug(null, aiStatus, { appendHistory: true });
 }
 
 async function pollStatus() {
@@ -644,7 +731,7 @@ async function deployAiModel() {
     schedulePreviewPoll(120);
     await pollStatus();
     await refreshAiModels(model);
-    renderAiDebug(null, data.ai_status);
+    renderAiDebug(null, data.ai_status, { appendHistory: true, forceSnapshot: true });
   } catch (error) {
     setBanner('aiSettingsMessage', error.message || 'Deploy failed.', 'warn');
   }
@@ -680,7 +767,7 @@ function scheduleAiConfigSave() {
 async function runAiDebug() {
   try {
     const data = await fetchJson('/api/ai/debug');
-    renderAiDebug(data.debug, data.ai_status);
+    renderAiDebug(data.debug, data.ai_status, { appendHistory: true, forceSnapshot: true });
     setBanner('aiSettingsMessage', 'AI debug refreshed.', 'good');
   } catch (error) {
     setBanner('aiSettingsMessage', error.message || 'AI debug failed.', 'warn');
@@ -700,6 +787,10 @@ function setupAiSettings() {
   document.getElementById('uploadAiFilesBtn').addEventListener('click', uploadAiFiles);
   document.getElementById('saveAiConfigBtn').addEventListener('click', saveAiConfigOnly);
   document.getElementById('runAiDebugBtn').addEventListener('click', runAiDebug);
+  document.getElementById('toggleAiDebugFreezeBtn').addEventListener('click', toggleAiDebugFreeze);
+  document.getElementById('copyAiDebugBtn').addEventListener('click', copyAiDebugSnapshot);
+  document.getElementById('copyAiDebugLogBtn').addEventListener('click', copyAiDebugHistory);
+  document.getElementById('clearAiDebugLogBtn').addEventListener('click', clearAiDebugHistory);
   document.getElementById('deleteAiModelBtn').addEventListener('click', deleteAiModel);
   document.getElementById('deployAiModelBtn').addEventListener('click', async () => { await deployAiModel(); await runAiDebug(); });
   ['aiBackend', 'aiConfidenceThreshold', 'aiIouThreshold', 'aiOverlayEnabled', 'aiOverlayFps', 'aiModelSelect', 'aiLabelsSelect', 'aiInputSize', 'aiTargetLabel', 'aiDropZoneLabel'].forEach((id) => {
@@ -764,6 +855,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   syncStyleInputsFromCurrentVars();
   await pollStatus();
   await refreshAiModels();
+  renderAiDebugHistory();
+  updateAiDebugFreezeButton();
   setPreviewImageSource();
   schedulePreviewPoll(120);
   if (state.statusTimer) window.clearInterval(state.statusTimer);

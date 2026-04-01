@@ -244,8 +244,24 @@
         </div>
         <div id="aiSettingsMessage" class="banner muted">Object detection settings ready.</div>
         <div class="field field-wide">
-          <label for="aiDebugText">AI debug</label>
+          <div class="debug-toolbar">
+            <label for="aiDebugText">AI debug snapshot</label>
+            <div class="stack-row debug-toolbar-actions">
+              <button id="toggleAiDebugFreezeBtn" class="secondary-btn" type="button">Freeze Snapshot</button>
+              <button id="copyAiDebugBtn" class="secondary-btn" type="button">Copy Snapshot</button>
+            </div>
+          </div>
           <pre id="aiDebugText" class="debug-pre">No debug run yet.</pre>
+        </div>
+        <div class="field field-wide">
+          <div class="debug-toolbar">
+            <label for="aiDebugLogText">AI debug history</label>
+            <div class="stack-row debug-toolbar-actions">
+              <button id="copyAiDebugLogBtn" class="secondary-btn" type="button">Copy History</button>
+              <button id="clearAiDebugLogBtn" class="secondary-btn" type="button">Clear History</button>
+            </div>
+          </div>
+          <textarea id="aiDebugLogText" class="debug-log" readonly>AI debug history will appear here.</textarea>
         </div>
       </div>
     </div>
