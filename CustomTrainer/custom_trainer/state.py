@@ -58,6 +58,32 @@ class AppState:
             return session.session_dir / 'runs'
         return Path('runs')
 
+
+    def latest_exported_model(self) -> Path | None:
+        search_roots: list[Path] = []
+        if self.sessions_root is not None:
+            search_roots.append(self.sessions_root)
+        session = self.current_session
+        if session is not None:
+            search_roots.append(session.session_dir)
+        export_suffixes = {'.tflite', '.onnx', '.torchscript', '.pb'}
+        candidates: list[Path] = []
+        seen: set[str] = set()
+        for root in search_roots:
+            key = root.resolve().as_posix() if root.exists() else root.as_posix().lower()
+            if key in seen or not root.exists():
+                continue
+            seen.add(key)
+            for path in root.rglob('*'):
+                if not path.is_file():
+                    continue
+                if path.suffix.lower() not in export_suffixes:
+                    continue
+                candidates.append(path)
+        if not candidates:
+            return None
+        candidates.sort(key=lambda path: path.stat().st_mtime, reverse=True)
+        return candidates[0]
     def latest_best_weights(self) -> Path | None:
         search_roots: list[Path] = []
         if self.sessions_root is not None:

@@ -6,6 +6,7 @@ from PySide6.QtWidgets import QDockWidget, QMainWindow, QMessageBox, QStatusBar,
 
 from custom_trainer.state import AppState
 from custom_trainer.ui.pages.export_page import ExportPage
+from custom_trainer.ui.pages.export_validate_page import ExportValidatePage
 from custom_trainer.ui.pages.marking_page import MarkingPage
 from custom_trainer.ui.pages.train_page import TrainPage
 from custom_trainer.ui.pages.validate_page import ValidatePage
@@ -15,7 +16,7 @@ from custom_trainer.ui.widgets.log_panel import LogPanel
 class CustomTrainerMainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle('CustomTrainer 0_2_8')
+        self.setWindowTitle('CustomTrainer 0_2_9')
         self.resize(1500, 920)
         self.setMinimumSize(960, 680)
         self._startup_geometry_applied = False
@@ -29,11 +30,13 @@ class CustomTrainerMainWindow(QMainWindow):
         self.marking_page = MarkingPage(self.state, self.log, self.set_status_message, self)
         self.train_page = TrainPage(self.state, self.log, self.set_status_message, self._open_validation_from_training, self)
         self.validate_page = ValidatePage(self.state, self.log, self.set_status_message, self)
+        self.export_validate_page = ExportValidatePage(self.state, self.log, self.set_status_message, self)
         self.export_page = ExportPage(self.state, self.log, self.set_status_message, self)
 
         self.tabs.addTab(self.marking_page, 'Marking')
         self.tabs.addTab(self.train_page, 'Training')
         self.tabs.addTab(self.validate_page, 'Validation')
+        self.tabs.addTab(self.export_validate_page, 'Export Validate')
         self.tabs.addTab(self.export_page, 'Export')
         self.setCentralWidget(self.tabs)
 
@@ -81,9 +84,11 @@ class CustomTrainerMainWindow(QMainWindow):
         self.marking_page.restore_splitters()
         self.train_page.restore_splitters()
         self.validate_page.restore_splitters()
+        self.export_validate_page.restore_splitters()
         self.export_page.restore_splitters()
         self.train_page.refresh_preview()
         self.validate_page.refresh_preview()
+        self.export_validate_page.refresh_preview()
 
     def _setup_shortcuts(self) -> None:
         for idx in range(self.tabs.count()):
@@ -138,7 +143,7 @@ class CustomTrainerMainWindow(QMainWindow):
             'Shortcuts',
             '\n'.join(
                 [
-                    'Ctrl+1..Ctrl+4 -> Switch pages',
+                    'Ctrl+1..Ctrl+5 -> Switch pages',
                     'Ctrl+Tab / Ctrl+Shift+Tab -> Next / previous page',
                     'Ctrl+S -> Save current labels on Marking page',
                     'PageUp / PageDown -> Previous / next image (extra shortcut)',
@@ -152,6 +157,7 @@ class CustomTrainerMainWindow(QMainWindow):
                     'Delete -> Delete selected box',
                     'Ctrl + Click in frame list -> Multi-select frames',
                     'Validation prediction browser now lets you step through saved frames.',
+                    'Export Validate adds a similar review flow for exported .tflite / .onnx models.',
                     'Marking page Quick Deploy is now a single button that runs on the current frame and loads predicted boxes into the main canvas.',
                 ]
             ),
@@ -161,5 +167,6 @@ class CustomTrainerMainWindow(QMainWindow):
         self.marking_page.save_splitters()
         self.train_page.save_splitters()
         self.validate_page.save_splitters()
+        self.export_validate_page.save_splitters()
         self.export_page.save_splitters()
         super().closeEvent(event)

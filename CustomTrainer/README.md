@@ -7,6 +7,7 @@ CustomTrainer is a PySide6 desktop workflow for YOLO-style labeling, training, v
 - **Marking** — browse sessions, edit boxes, maintain `classes.txt`, save YOLO labels
 - **Training** — launch Ultralytics training jobs from the GUI
 - **Validation** — run validation or prediction and visually inspect saved prediction frames
+- **Export Validate** — run validation or prediction against exported models such as `.tflite` / `.onnx`
 - **Export** — export trained weights to Pi-friendly formats
 
 ## Project layout
@@ -25,14 +26,14 @@ CustomTrainer/
 └── PATCH_NOTES/
 ```
 
-## What changed in 0_2_8
+## What changed in 0_2_9
 
-- keeps the startup-safe device probing, dataset export / preflight fixes, fast Marking shortcuts, and top-level-only frame scanning from 0_2_6
-- adds **right-click drag** on the Marking canvas so a selected box can be repositioned with the mouse without losing right-click selection
-- keeps left-drag box creation intact
-- replaces the Marking-tab Quick Deploy panel with a single **Quick Deploy Current Frame** button that uses the latest `best.pt` on the active frame and loads predicted boxes into the main canvas
-- keeps the quick-deploy result browser so you can step through predicted frames and load each one back into Marking
-- updates the visible main window version to 0_2_8
+- keeps the startup-safe device probing, dataset export / preflight fixes, fast Marking shortcuts, and top-level-only frame scanning from 0_2_8
+- adds a new **Export Validate** tab for checking exported models such as `.tflite` and `.onnx`
+- lets you run exported-model validation for metrics or exported-model prediction for saved preview frames
+- can auto-pick the latest exported model found under the current sessions root
+- keeps the regular **Validation** tab focused on `best.pt` / training-side checks
+- updates the visible main window version to 0_2_9
 
 ## Main workflow
 
@@ -42,6 +43,7 @@ CustomTrainer/
 4. Open **Training** to train from the current sessions root
 5. Use **Marking → Quick Deploy Current Frame** to run quick prediction on the active frame with the latest `best.pt`, then refine the loaded predicted boxes directly in the main Marking canvas
 6. Open **Export** to export the newest trained weights
+7. Open **Export Validate** to test the exported `.tflite` / `.onnx` model on the same frames
 
 ## Marking page highlights
 
@@ -76,6 +78,14 @@ CustomTrainer/
 - supports output styling controls for predicted boxes and labels
 - includes a dedicated **Run Log**
 
+## Export Validate page highlights
+
+- can run validation on exported models such as **TFLite** or **ONNX**
+- can run exported-model prediction on a single file **or a folder of frames**
+- saves exported-model prediction frames and lets you browse them with **Prev / Next Frame**
+- can auto-pick the latest exported model from the current sessions root
+- includes a dedicated **Run Log**
+
 ## Export page highlights
 
 - exports to **TFLite**, **ONNX**, **OpenVINO**, or **TorchScript**
@@ -95,8 +105,9 @@ python run_custom_trainer.py
 
 ## Notes
 
-- Training, validation, prediction, and export run through internal Python service wrappers.
+- Training, validation, prediction, exported-model validation, and export run through internal Python service wrappers.
 - Validation prediction on folders is useful for visually checking model performance across all session frames.
+- Export Validate gives you a similar review flow for exported models like `.tflite` and `.onnx`.
 - Screen-aware startup sizing keeps the main window inside the available desktop area on smaller displays.
 - UI state is stored locally so the app can remember the last sessions root and splitter positions.
 
