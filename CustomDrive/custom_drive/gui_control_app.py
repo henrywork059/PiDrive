@@ -24,7 +24,7 @@ from piserver.services.motor_service import MotorService  # noqa: E402
 from piserver.services.recorder_service import RecorderService  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent / 'gui_web'
-APP_VERSION = '0_3_4'
+APP_VERSION = '0_3_6'
 OD_MODEL_ROOT = CUSTOMDRIVE_ROOT / 'models' / 'object_detection'
 
 
@@ -58,6 +58,14 @@ class GuiControlContext:
         self.object_detection_service = ObjectDetectionService(OD_MODEL_ROOT, self.manual_config.get('ai', {}))
         self.control_service.start()
         self._apply_defaults()
+
+    def _sync_camera_processing(self) -> None:
+        ai_status = self.object_detection_service.get_status(include_models=False)
+        wants_raw_frames = bool(
+            ai_status.get('backend') == 'tflite'
+            and ai_status.get('active_model') not in {'', 'none'}
+        )
+        self.camera_service.set_processing_enabled(wants_raw_frames)
 
     def _sync_runtime_perception_settings(self, manual_ai: dict[str, Any]) -> dict[str, Any]:
         runtime_settings = load_runtime_settings()
@@ -98,6 +106,7 @@ class GuiControlContext:
         ai_cfg = self.manual_config.get('ai', {}) if isinstance(self.manual_config, dict) else {}
         if active_model != 'none' and (OD_MODEL_ROOT / active_model).exists() and ai_cfg.get('perception_backend', 'color') == 'tflite':
             self.object_detection_service.deploy_model(active_model, ai_cfg)
+        self._sync_camera_processing()
 
     def close(self) -> None:
         try:
@@ -149,6 +158,7 @@ class GuiControlContext:
             model_exists = (OD_MODEL_ROOT / configured_model).exists()
             if model_exists and (configured_model != self.object_detection_service.get_active_model_name() or not status.get('ready')):
                 self.object_detection_service.deploy_model(configured_model, saved.get('ai', {}))
+        self._sync_camera_processing()
         return saved
 
     def status_payload(self) -> dict[str, Any]:
@@ -198,7 +208,9 @@ def create_app() -> Flask:
         out_frame = jpeg_frame
         ai_status = ctx.object_detection_service.get_status(include_models=False)
         if ai_status.get('ready') and ai_status.get('overlay_enabled') and ai_status.get('backend') == 'tflite':
-            live_frame = ctx.camera_service.get_latest_frame(copy=True)
+            live_frame = ctx.camera_service.get_raw_frame(copy=True)
+            if live_frame is None:
+                live_frame = ctx.camera_service.get_latest_frame(copy=True)
             if live_frame is not None:
                 annotated, _ = ctx.object_detection_service.annotate_frame_jpeg(live_frame)
             else:
@@ -305,7 +317,9 @@ def create_app() -> Flask:
         run_flag = str(request.args.get('run', '0') or '0').strip().lower() in {'1', 'true', 'yes', 'on'}
         live_frame = None
         if run_flag:
-            live_frame = ctx.camera_service.get_latest_frame(copy=True)
+            live_frame = ctx.camera_service.get_raw_frame(copy=True)
+            if live_frame is None:
+                live_frame = ctx.camera_service.get_latest_frame(copy=True)
             if live_frame is None:
                 jpeg_frame = ctx.camera_service.get_jpeg_frame()
                 if jpeg_frame is not None:

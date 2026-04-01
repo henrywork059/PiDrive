@@ -441,6 +441,24 @@ def _decode_six_column_variant(
     )
 
 
+
+def _prefer_fixed_six_col_variant(info: dict[str, Any], *, model_type: str) -> bool:
+    model_key = str(model_type or '').strip().lower()
+    if model_key not in {'yolo_detect', 'yolo', 'ultralytics', 'ultralytics_yolo'}:
+        return False
+    if tuple(int(v) for v in (info.get('coord_cols') or [])) != (0, 1, 2, 3):
+        return False
+    if int(info.get('score_col', -1)) != 4 or int(info.get('class_col', -1)) != 5:
+        return False
+    if str(info.get('coord_order', '')) != 'xyxy':
+        return False
+    score_profile = dict(info.get('score_profile', {}) or {})
+    score_max = float(info.get('score_max', 0.0) or 0.0)
+    positive_ratio = float(score_profile.get('positive_ratio', 0.0) or 0.0)
+    nonzero_ratio = float(score_profile.get('nonzero_ratio', 0.0) or 0.0)
+    decoded_count = int(info.get('decoded_count', 0) or 0)
+    return bool(decoded_count > 0 or (0.0 < score_max <= 1.05 and positive_ratio > 0.0 and nonzero_ratio > 0.0))
+
 def parse_output(output: np.ndarray, conf_threshold: float, num_classes: int, input_size: int, model_type: str = 'yolo_detect'):
     debug: dict[str, Any] = {
         'raw_shape': list(np.asarray(output).shape),
@@ -471,6 +489,8 @@ def parse_output(output: np.ndarray, conf_threshold: float, num_classes: int, in
             ((0, 1, 2, 3), 5, 4, 'yxyx', 'yxyx_class_score'),
         ]
         seen_keys: set[tuple[tuple[int, int, int, int], int, int, str]] = set()
+        for coord_cols, score_col, class_col, coord_order, _variant_name in explicit_variants:
+            seen_keys.add((coord_cols, score_col, class_col, coord_order))
         all_specs = list(explicit_variants)
         for score_col in range(6):
             for class_col in range(6):
@@ -483,6 +503,7 @@ def parse_output(output: np.ndarray, conf_threshold: float, num_classes: int, in
                         continue
                     seen_keys.add(key)
                     all_specs.append((coord_cols, score_col, class_col, coord_order, f'cols{"".join(str(v) for v in coord_cols)}_{coord_order}_score{score_col}_class{class_col}'))
+        fixed_selected = None
         for coord_cols, score_col, class_col, coord_order, variant_name in all_specs:
             boxes_v, scores_v, classes_v, info_v = _decode_six_column_variant(
                 arr,
@@ -497,6 +518,8 @@ def parse_output(output: np.ndarray, conf_threshold: float, num_classes: int, in
             )
             rank = _six_col_variant_rank(info_v)
             variants.append((rank, variant_name, boxes_v, scores_v, classes_v, info_v))
+            if fixed_selected is None and _prefer_fixed_six_col_variant(info_v, model_type=model_type):
+                fixed_selected = (rank, variant_name, boxes_v, scores_v, classes_v, info_v)
             variant_summaries.append({
                 'name': variant_name,
                 'decoded_count': int(info_v.get('decoded_count', 0)),
@@ -512,7 +535,7 @@ def parse_output(output: np.ndarray, conf_threshold: float, num_classes: int, in
                 'class_integer_like_ratio': float((info_v.get('class_profile', {}) or {}).get('integer_like_ratio', 0.0)),
                 'class_unique_count': int((info_v.get('class_profile', {}) or {}).get('unique_count', 0)),
             })
-        selected = max(variants, key=lambda item: item[0])
+        selected = fixed_selected if fixed_selected is not None else max(variants, key=lambda item: item[0])
         _, variant_name, boxes, scores, classes, info = selected
         debug.update(info)
         debug['selected_variant'] = variant_name
