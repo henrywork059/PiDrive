@@ -472,7 +472,12 @@ class Mission1SessionContext:
 
             self.target_found = True
             target_center_x = float(target.box.bottom_center_x)
-            target_center_ratio = target_center_x / max(1.0, float(frame_w))
+            raw_target_center_ratio = target_center_x / max(1.0, float(frame_w))
+            # Mission 1 operator expectation is based on the displayed camera view.
+            # On the real test path, the detected x-position is effectively mirrored
+            # relative to the desired left/right driving rule, so flip the horizontal
+            # ratio before classifying target side and issuing turn commands.
+            target_center_ratio = 1.0 - raw_target_center_ratio
             bottom_ratio = target.box.bottom_center_y / max(1.0, float(frame_h))
             zone = self._tracking_zone(target_center_ratio, center_tolerance)
 
@@ -508,7 +513,8 @@ class Mission1SessionContext:
             self._set_drive(steering, throttle, f'class {target_class_id} tracking ({zone})')
             self.detail = (
                 f'Class {target_class_id} detected at {target.confidence:.2f}. '
-                f'zone={zone} x_ratio={target_center_ratio:.3f} bottom={bottom_ratio:.3f}'
+                f'zone={zone} raw_x_ratio={raw_target_center_ratio:.3f} '
+                f'tracking_x_ratio={target_center_ratio:.3f} bottom={bottom_ratio:.3f}'
             )
             time.sleep(tick_s)
 
