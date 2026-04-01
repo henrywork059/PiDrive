@@ -237,7 +237,8 @@ def build_route(cfg: Mission1StageTestConfig) -> list[RouteLeg]:
             )
         else:  # pragma: no cover - guarded earlier; kept defensive for future extensions.
             continue
-        route.append(RouteLeg(f'step_{index:02d}_{action.replace('-', '_')}', step.duration_s, command))
+        leg_name = f"step_{index:02d}_{action.replace('-', '_')}"
+        route.append(RouteLeg(leg_name, step.duration_s, command))
     return route
 
 
