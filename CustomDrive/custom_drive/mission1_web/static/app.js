@@ -48,10 +48,10 @@ function populateConfig(config) {
   document.getElementById('confidenceThreshold').value = session.confidence_threshold ?? 0.25;
   document.getElementById('iouThreshold').value = session.iou_threshold ?? 0.45;
   document.getElementById('loopTick').value = session.loop_tick_s ?? 0.08;
-  document.getElementById('alignKp').value = drive.align_kp ?? 1.0;
-  document.getElementById('maxSteering').value = drive.max_steering ?? 0.85;
-  document.getElementById('centerTolerance').value = drive.center_tolerance_ratio ?? 0.1;
-  document.getElementById('approachSpeed').value = drive.approach_speed ?? 0.2;
+  document.getElementById('forwardSpeed').value = drive.forward_speed ?? drive.approach_speed ?? 0.22;
+  document.getElementById('turnK').value = drive.turn_k ?? 0.005;
+  document.getElementById('turnSpeedMax').value = drive.turn_speed_max ?? drive.max_steering ?? 0.75;
+  document.getElementById('deadbandRatio').value = drive.target_x_deadband_ratio ?? 0.05;
 }
 
 function collectConfig() {
@@ -64,10 +64,10 @@ function collectConfig() {
       loop_tick_s: Number(document.getElementById('loopTick').value || 0.08),
     },
     drive: {
-      align_kp: Number(document.getElementById('alignKp').value || 1.0),
-      max_steering: Number(document.getElementById('maxSteering').value || 0.85),
-      center_tolerance_ratio: Number(document.getElementById('centerTolerance').value || 0.1),
-      approach_speed: Number(document.getElementById('approachSpeed').value || 0.2),
+      forward_speed: Number(document.getElementById('forwardSpeed').value || 0.22),
+      turn_k: Number(document.getElementById('turnK').value || 0.005),
+      turn_speed_max: Number(document.getElementById('turnSpeedMax').value || 0.75),
+      target_x_deadband_ratio: Number(document.getElementById('deadbandRatio').value || 0.05),
     },
   };
 }
@@ -75,7 +75,7 @@ function collectConfig() {
 function renderModelList(status) {
   const select = document.getElementById('modelSelect');
   const models = status.models || [];
-  const active = status.active_model || 'none';
+  const selected = status.selected_model || status.active_model || '';
   select.innerHTML = '';
   if (!models.length) {
     const option = document.createElement('option');
@@ -88,8 +88,34 @@ function renderModelList(status) {
     const option = document.createElement('option');
     option.value = model;
     option.textContent = model;
-    option.selected = model === active;
+    option.selected = model === selected;
     select.appendChild(option);
+  }
+}
+
+function renderDetections(status) {
+  const body = document.getElementById('detectionsBody');
+  const detections = status.detections || [];
+  body.innerHTML = '';
+  if (!detections.length) {
+    body.innerHTML = '<tr><td colspan="7" class="empty-cell">No detections in the latest AI output.</td></tr>';
+    return;
+  }
+  for (const det of detections) {
+    const row = document.createElement('tr');
+    if (det.is_target_class) {
+      row.classList.add('target-row');
+    }
+    row.innerHTML = `
+      <td>${escapeHtml(det.class_id)}</td>
+      <td>${fmt(det.confidence, 3)}</td>
+      <td>${fmt(det.center?.x, 1)}</td>
+      <td>${fmt(det.center?.y, 1)}</td>
+      <td>${fmt(det.box?.width, 1)}</td>
+      <td>${fmt(det.box?.height, 1)}</td>
+      <td>${det.is_target_class ? 'yes' : ''}</td>
+    `;
+    body.appendChild(row);
   }
 }
 
@@ -97,20 +123,28 @@ function renderStatus(status) {
   const statusEl = document.getElementById('status');
   const camera = status.camera || {};
   const motor = status.motor_config || {};
+  const pipeline = status.pipeline || {};
+  const target = status.target_detection || {};
+  const targetCenter = target.center || {};
+  const targetBox = target.box || {};
   statusEl.innerHTML = `
     <div class="status-grid">
       <div class="status-label">Running</div><div>${escapeHtml(status.running)}</div>
       <div class="status-label">Phase</div><div>${escapeHtml(status.phase)}</div>
       <div class="status-label">Detail</div><div>${escapeHtml(status.detail)}</div>
-      <div class="status-label">Active model</div><div>${escapeHtml(status.active_model || 'none')}</div>
+      <div class="status-label">Selected model</div><div>${escapeHtml(status.selected_model || 'none')}</div>
+      <div class="status-label">Loaded model</div><div>${escapeHtml(status.loaded_model || 'none')}</div>
       <div class="status-label">AI backend</div><div>${escapeHtml(status.ai_ready)} | ${escapeHtml(status.ai_message || '')}</div>
+      <div class="status-label">Pi pipeline FPS</div><div>${fmt(pipeline.fps || 0, 2)} fps | ${fmt(pipeline.cycle_time_ms || 0, 1)} ms/cycle</div>
+      <div class="status-label">Camera</div><div>${escapeHtml(camera.backend || 'offline')} | live=${escapeHtml(camera.preview_live ?? false)} | camera_fps=${fmt(camera.fps || 0, 1)}</div>
       <div class="status-label">Target found</div><div>${escapeHtml(status.target_found)}</div>
       <div class="status-label">Target side</div><div>${escapeHtml(status.target_side || '-')}</div>
       <div class="status-label">Car turn</div><div>${escapeHtml(status.car_turn_direction || '-')}</div>
-      <div class="status-label">Current leg</div><div>${escapeHtml(status.active_leg_name || '-')}</div>
-      <div class="status-label">Command</div><div>steer=${fmt(status.last_command?.steering)} throttle=${fmt(status.last_command?.throttle)} note=${escapeHtml(status.last_command?.note || '')}</div>
-      <div class="status-label">Camera</div><div>${escapeHtml(camera.backend || 'offline')} | live=${escapeHtml(camera.preview_live ?? false)} | fps=${fmt(camera.fps || 0, 1)}</div>
+      <div class="status-label">Target center</div><div>x=${fmt(targetCenter.x, 1)} y=${fmt(targetCenter.y, 1)}</div>
+      <div class="status-label">Target box</div><div>w=${fmt(targetBox.width, 1)} h=${fmt(targetBox.height, 1)}</div>
+      <div class="status-label">Command</div><div>left=${fmt(status.last_command?.left, 2)} right=${fmt(status.last_command?.right, 2)} note=${escapeHtml(status.last_command?.note || '')}</div>
       <div class="status-label">Motor GPIO</div><div>${escapeHtml(motor.gpio_available ?? false)}</div>
+      <div class="status-label">Output summary</div><div>${escapeHtml(status.last_output_summary || '-')}</div>
       <div class="status-label">Last error</div><div>${escapeHtml(status.last_error || camera.error || '-')}</div>
     </div>
   `;
@@ -125,56 +159,23 @@ function renderStatus(status) {
   }).join('\n');
 
   renderModelList(status);
+  renderDetections(status);
   renderViewer(status);
 }
 
 function renderViewer(status) {
-  const overlay = document.getElementById('frameOverlay');
   const video = document.getElementById('videoFeed');
   const note = document.getElementById('viewerNote');
-  const frame = status.frame || { width: 640, height: 360 };
-  overlay.setAttribute('viewBox', `0 0 ${frame.width || 640} ${frame.height || 360}`);
-  overlay.innerHTML = '';
-
-  if ((status.camera || {}).running) {
+  if ((status.camera || {}).running && (status.phase || '').startsWith('ai')) {
     video.style.display = 'block';
     video.src = `/api/frame.jpg?t=${Date.now()}`;
-    const targetSide = status.target_side || 'none';
-    const carTurn = status.car_turn_direction || 'stopped';
-    note.textContent = `Camera is active after the start route. Green boxes are detections. Yellow is the current target class. Target side: ${targetSide}. Car turn: ${carTurn}.`;
+    note.textContent = `Pi-generated annotated frame. Target side: ${status.target_side || 'none'}. Car turn: ${status.car_turn_direction || 'stopped'}. FPS: ${fmt(status.pipeline?.fps || 0, 2)}.`;
+  } else if ((status.phase || '') === 'start_route' || (status.phase || '') === 'route_pending') {
+    video.style.display = 'none';
+    note.textContent = 'Camera is still off while the start route is running.';
   } else {
     video.style.display = 'none';
-    note.textContent = 'Camera is still off until the start route finishes.';
-    const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    bg.setAttribute('x', '0');
-    bg.setAttribute('y', '0');
-    bg.setAttribute('width', String(frame.width || 640));
-    bg.setAttribute('height', String(frame.height || 360));
-    bg.setAttribute('fill', '#030712');
-    overlay.appendChild(bg);
-  }
-
-  const targetId = String(document.getElementById('targetClassId').value || '1');
-  for (const det of status.detections || []) {
-    const b = det.box || {};
-    const isTarget = String(det.label) === targetId;
-    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    rect.setAttribute('x', b.x1 || 0);
-    rect.setAttribute('y', b.y1 || 0);
-    rect.setAttribute('width', Math.max(0, (b.x2 || 0) - (b.x1 || 0)));
-    rect.setAttribute('height', Math.max(0, (b.y2 || 0) - (b.y1 || 0)));
-    rect.setAttribute('fill', 'none');
-    rect.setAttribute('stroke', isTarget ? '#facc15' : '#22c55e');
-    rect.setAttribute('stroke-width', isTarget ? '3' : '2');
-    overlay.appendChild(rect);
-
-    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    text.setAttribute('x', b.x1 || 0);
-    text.setAttribute('y', Math.max(14, (b.y1 || 0) - 4));
-    text.setAttribute('fill', isTarget ? '#fde68a' : '#86efac');
-    text.setAttribute('font-size', '12');
-    text.textContent = `${det.label} ${(Number(det.confidence || 0) * 100).toFixed(0)}%`;
-    overlay.appendChild(text);
+    note.textContent = 'Annotated frame will appear here after the route, camera start, and model load steps complete.';
   }
 }
 
@@ -230,7 +231,7 @@ async function uploadModel() {
       throw new Error(data.message || `Request failed: ${res.status}`);
     }
     input.value = '';
-    setMessage('modelMessage', data.message || 'Model uploaded and loaded.');
+    setMessage('modelMessage', data.message || 'Model uploaded and selected.');
     await refresh();
   } catch (err) {
     setMessage('modelMessage', err.message || 'Failed to upload model.', true);
@@ -245,10 +246,10 @@ async function loadSelectedModel() {
   }
   try {
     const data = await postJSON('/api/model/select', { name: select.value });
-    setMessage('modelMessage', data.message || 'Model loaded.');
+    setMessage('modelMessage', data.message || 'Model selected.');
     await refresh();
   } catch (err) {
-    setMessage('modelMessage', err.message || 'Failed to load model.', true);
+    setMessage('modelMessage', err.message || 'Failed to set model.', true);
   }
 }
 
@@ -271,7 +272,7 @@ async function init() {
     setMessage('configMessage', err.message || 'Failed to load config.', true);
   }
   await refresh();
-  setInterval(refresh, 500);
+  setInterval(refresh, 400);
 }
 
 document.getElementById('saveConfigBtn').onclick = saveConfig;

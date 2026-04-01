@@ -4,6 +4,7 @@ import argparse
 import socket
 import sys
 
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description='Run the CustomDrive Mission 1 session web app.')
     parser.add_argument('--host', default=None, help='Web host override. Defaults to CustomDrive/config/mission1_session.json.')
@@ -74,7 +75,8 @@ def main() -> None:
     print('CustomDrive Mission 1 session web app starting...')
     print(f'Host: {host}')
     print(f'Port: {port}')
-    print('This app runs the typed start route first, then starts camera + AI tracking for class 1.')
+    print('Pipeline: route -> camera on -> model load -> frame inference -> Pi-side box drawing -> web status + object list.')
+    print('Target coordinates use frame centre (0,0), with left as negative x and down as negative y.')
     for url in _candidate_urls(host, port):
         print(f'Open browser: {url}')
     app.run(host=host, port=port, threaded=True, use_reloader=False)
