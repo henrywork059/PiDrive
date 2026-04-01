@@ -1,124 +1,73 @@
 # PiDrive
 
-PiDrive is a single repository that contains multiple PiCar-related apps and utilities. Each project can be run independently, but they are designed to work together as a complete data collection, training, and deployment workflow.
+PiDrive is a monorepo for Raspberry Pi car runtime, model training, and mission-control workflows.
 
-## What is in this repo
+This document is synchronized to the **current repository snapshot** (not historical patch lines).
 
-- **`piCar_0_3_2/`** — legacy Flask runtime for manual driving, recording, and inference.
-- **`PiServer/`** — modular runtime with services for camera, motor, algorithms, recording, and web control.
-- **`piTrainer/`** — PySide6 desktop app for steering/throttle dataset curation and model training/export.
-- **`CustomTrainer/`** — PySide6 YOLO labeling/training/validation/export workflow with Pi runtime helpers.
-- **`CustomDrive/`** — mission-controller scaffold for autonomous competition-style routines (sim + live modes).
-- **`PiServer_0_3_4/` and `PiServer_0_4_1/`** — historical snapshot folders kept for reference; not part of the active runtime.
+## Repository status (current snapshot)
 
-## Current active vs. non-active code
+### Actively used projects
+- `PiServer/` — modular Flask runtime and web dashboard for camera/motor/control/model operations
+- `piTrainer/` — desktop trainer for driving models (steer/throttle)
+- `CustomTrainer/` — desktop YOLO workflow (label, train, validate, export)
+- `CustomDrive/` — mission and manual control utilities built around PiServer-style services
+- `PiBooter/` — Pi startup/network helper app
+- `piCar_0_3_2/` — legacy runtime retained for compatibility
 
-### Active (current version)
+### Reference/archive artifacts
+- `PiServer_0_3_4/`, `PiServer_0_4_1/`
+- timestamped `.zip` snapshots at repo root
 
-- `PiServer/`
-- `piTrainer/`
-- `CustomTrainer/`
-- `CustomDrive/`
-- `piCar_0_3_2/` (legacy but still runnable and intentionally retained)
+## Runtime/version markers found in code
 
-### Not in active runtime path (reference/archive)
+- `PiServer/piserver/app.py` -> `APP_VERSION = "0_4_10"`
+- `PiServer/piserver/web/static/app.js` -> layout key namespace `v0_3_21`
+- `CustomDrive/custom_drive/mission1_session_app.py` -> `APP_VERSION = '0_4_15'`
+- `CustomTrainer/custom_trainer/ui/main_window.py` -> window title `CustomTrainer 0_2_11`
 
-- `PiServer_0_3_4/`
-- `PiServer_0_4_1/`
-- top-level `*.zip` snapshot files
+> If patch-note files mention newer numbers than the constants above, treat those patch notes as historical documentation unless matching code is present.
 
-These non-active artifacts are useful for historical comparison, but they should not be used as launch targets for day-to-day development or deployment.
+## Requirements matrix
 
-## Repository layout
+| Project | Python | Install command |
+|---|---|---|
+| PiServer | 3.10+ (3.11 preferred) | `pip install -r PiServer/requirements.txt` |
+| piTrainer | 3.10+ (3.11 preferred) | `pip install -r piTrainer/requirements.txt` |
+| CustomTrainer | 3.10+ (3.11 preferred) | `pip install -r CustomTrainer/requirements.txt` |
+| CustomDrive | 3.10+ (3.11 preferred) | `pip install -r CustomDrive/requirements.txt` |
+| PiBooter | 3.10+ | `pip install -r PiBooter/requirements.txt` |
 
-```text
-PiDrive/
-├── README.md
-├── INSTRUCTIONS.md
-├── piCar_0_3_2/
-├── PiServer/
-├── piTrainer/
-├── CustomTrainer/
-└── CustomDrive/
-```
+Pi-only optional runtime dependencies include `picamera2`, `RPi.GPIO`, and `tflite-runtime`.
 
-## End-to-end workflow (recommended)
-
-1. **Collect driving data** with `piCar_0_3_2` or `PiServer` recording.
-2. **Train driving model** in `piTrainer` (steering/throttle).
-3. **Train object model** in `CustomTrainer` if your mission needs detection.
-4. **Deploy and run** on Pi with `PiServer` (manual/auto runtime).
-5. **Run mission logic** through `CustomDrive` for route/state-machine orchestration.
-
-## Prerequisites
-
-- Python **3.11** recommended across projects.
-- `pip` and `venv` available.
-- Raspberry Pi-specific packages (`picamera2`, `RPi.GPIO`, `tflite-runtime`) only required for live Pi hardware features.
-
-## Quick start by project
-
-### 1) `piCar_0_3_2` (legacy runtime)
+## Standard setup pattern
 
 ```bash
-cd piCar_0_3_2
-python server.py
-```
-
-Use this for historical compatibility or older workflows.
-
-### 2) `PiServer` (modular runtime)
-
-```bash
-cd PiServer
-python -m pip install -r requirements.txt
-python server.py
-```
-
-Open `http://<pi-ip>:5000` from a browser on the same network.
-
-### 3) `piTrainer` (driving model trainer)
-
-```bash
-cd piTrainer
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-python main.py
+python -m pip install --upgrade pip
 ```
 
-### 4) `CustomTrainer` (YOLO workflow)
+Then install the specific project requirements file.
 
-```bash
-cd CustomTrainer
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-python run_custom_trainer.py
-```
+## Launch commands (canonical)
 
-### 5) `CustomDrive` (mission scaffold)
+- PiServer: `python PiServer/server.py`
+- piTrainer: `python piTrainer/main.py`
+- CustomTrainer: `python CustomTrainer/run_custom_trainer.py`
+- CustomDrive demo: `python CustomDrive/run_custom_drive_demo.py`
+- CustomDrive GUI web: `python CustomDrive/run_custom_drive_gui.py`
+- PiBooter: `python PiBooter/run_pibooter.py`
 
-```bash
-cd CustomDrive
-python run_custom_drive_demo.py
-```
+## Instructional docs index
 
-`run_custom_drive_demo.py` is the canonical headless entry point. Other `run_*.py` files under `CustomDrive/` are utility launchers for specific testing or UI modes.
+- Repository maintenance/process: `INSTRUCTIONS.md`
+- Cross-project bug prevention guidance: `BUG_PREVENTION_NOTES.md`
+- PiServer usage: `PiServer/README.md`
+- CustomTrainer workflow: `CustomTrainer/README.md`
+- CustomDrive workflow: `CustomDrive/README.md`
+- piTrainer docs: `piTrainer/README.md`
+- Pi runtime helper for exported models: `CustomTrainer/custom_trainer/assets/pi_runtime/README_PI.md`
 
-## Documentation index
+## Known doc-version caveat
 
-- Repository maintenance and contribution workflow: `INSTRUCTIONS.md`
-- PiServer runtime setup and configuration: `PiServer/README.md`
-- piTrainer setup and usage: `piTrainer/README.md`
-- piTrainer package internals: `piTrainer/piTrainer/README.md`
-- CustomTrainer setup and workflow: `CustomTrainer/README.md`
-- Pi-side runtime bundle for detector inference: `CustomTrainer/custom_trainer/assets/pi_runtime/README_PI.md`
-- CustomDrive launch/configuration details: `CustomDrive/README.md`
-
-## Troubleshooting quick tips
-
-- If a GUI app does not start, confirm your virtual environment is active and dependencies were installed for that environment.
-- If Pi camera preview is blank, verify Pi camera stack (`libcamera`/`picamera2`) and permissions.
-- If motor output is not active, check whether runtime is in simulated fallback mode and whether GPIO dependencies are installed.
-- If training pages fail, verify TensorFlow / Ultralytics dependencies match your Python version.
+Some `PATCH_NOTES/` files document attempted or forward patches that may not match this checkout exactly. Validate behavior against code constants and entry points before deploying.
