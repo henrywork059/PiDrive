@@ -612,7 +612,23 @@ async function setEstop(enabled) {
 function bindHoldAction(buttonId, actionStart, actionStop) {
   const button = document.getElementById(buttonId);
   if (!button) return;
-  const stop = async () => {
+  let activePointerId = null;
+  let active = false;
+
+  const stop = async (event = null) => {
+    const pointerId = event && typeof event.pointerId === 'number' ? event.pointerId : null;
+    if (!active) return;
+    if (pointerId !== null && activePointerId !== null && pointerId !== activePointerId) return;
+    const releaseId = activePointerId;
+    active = false;
+    activePointerId = null;
+    if (releaseId !== null && typeof button.releasePointerCapture === 'function') {
+      try {
+        if (button.hasPointerCapture?.(releaseId)) button.releasePointerCapture(releaseId);
+      } catch (error) {
+        // Ignore pointer-capture release failures.
+      }
+    }
     try {
       if (actionStop) await postJson('/api/arm/action', { action: actionStop });
       await pollStatus();
@@ -620,16 +636,33 @@ function bindHoldAction(buttonId, actionStart, actionStop) {
       setBanner('armMessage', error.message || 'Arm stop failed.', 'warn');
     }
   };
-  const start = async () => {
+
+  const start = async (event) => {
+    if (active) return;
+    active = true;
+    activePointerId = typeof event.pointerId === 'number' ? event.pointerId : null;
+    if (activePointerId !== null && typeof button.setPointerCapture === 'function') {
+      try {
+        button.setPointerCapture(activePointerId);
+      } catch (error) {
+        // Ignore pointer-capture failures and fall back to normal pointer events.
+      }
+    }
     try {
       await postJson('/api/arm/action', { action: actionStart });
       await pollStatus();
     } catch (error) {
+      active = false;
+      activePointerId = null;
       setBanner('armMessage', error.message || 'Arm action failed.', 'warn');
     }
   };
-  button.addEventListener('pointerdown', (event) => { event.preventDefault(); start(); });
-  ['pointerup', 'pointerleave', 'pointercancel'].forEach((name) => button.addEventListener(name, stop));
+
+  button.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    start(event);
+  });
+  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach((name) => button.addEventListener(name, stop));
 }
 
 function bindClickAction(buttonId, action) {

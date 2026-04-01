@@ -129,6 +129,20 @@ class ArmService:
             value = 0.1
         return max(0.02, min(1.0, value / self._speed_multiplier()))
 
+    def _direction_sign(self, key: str, default: int) -> int:
+        value = self._config.get(key, default)
+        try:
+            value = int(value)
+        except Exception:
+            value = int(default)
+        return -1 if value < 0 else 1
+
+    def _lift_up_direction(self) -> int:
+        return self._direction_sign('lift_up_direction', -1)
+
+    def _grip_open_direction(self) -> int:
+        return self._direction_sign('grip_open_direction', -1)
+
     def _secondary_enabled(self) -> bool:
         return bool(self._config.get('lift_secondary_enabled', True))
 
@@ -265,7 +279,8 @@ class ArmService:
         if not self.available:
             self.last_message = self.last_error or 'Arm backend is not available.'
             return False, self.last_message
-        direction = -1 if action_key == 'up' else 1
+        up_direction = self._lift_up_direction()
+        direction = up_direction if action_key == 'up' else -up_direction
         self.stop_motion()
         with self._move_lock:
             self._move_direction = direction
@@ -297,6 +312,7 @@ class ArmService:
                 return False, self.last_message
         self.last_action = 'idle'
         self.last_action_at = time.time()
+        self.last_error = ''
         self.last_message = f'Lift stopped and held at {self._current_lift_angle}°.'
         return True, self.last_message
 
@@ -310,7 +326,8 @@ class ArmService:
         if not self.available:
             self.last_message = self.last_error or 'Arm backend is not available.'
             return False, self.last_message
-        direction = -1 if action_key == 'open' else 1
+        open_direction = self._grip_open_direction()
+        direction = open_direction if action_key == 'open' else -open_direction
         self.stop_grip_motion()
         with self._grip_lock:
             self._grip_direction = direction
@@ -342,6 +359,7 @@ class ArmService:
                 return False, self.last_message
         self.last_action = 'idle'
         self.last_action_at = time.time()
+        self.last_error = ''
         self.last_message = f'Gripper stopped and held at {self._current_grip_angle}° on channel 2.'
         return True, self.last_message
 
@@ -413,6 +431,8 @@ class ArmService:
             'lift_secondary_multiplier': self._secondary_multiplier(),
             'grip_channel': self._grip_channel(),
             'speed_multiplier': float(self._speed_multiplier()),
+            'lift_up_direction': int(self._lift_up_direction()),
+            'grip_open_direction': int(self._grip_open_direction()),
             'lift_angle': int(self._current_lift_angle),
             'grip_angle': int(self._current_grip_angle),
             'moving': bool(self._move_thread is not None),
