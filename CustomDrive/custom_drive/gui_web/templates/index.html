@@ -237,10 +237,16 @@
         <div class="stack-row panel-actions modal-actions-wrap">
           <button id="refreshAiModelsBtn" class="secondary-btn" type="button">Refresh Models</button>
           <button id="uploadAiFilesBtn" class="secondary-btn" type="button">Upload Files</button>
+          <button id="saveAiConfigBtn" class="secondary-btn" type="button">Save AI Settings</button>
+          <button id="runAiDebugBtn" class="secondary-btn" type="button">Run AI Debug</button>
           <button id="deleteAiModelBtn" class="danger-btn" type="button">Delete Model</button>
           <button id="deployAiModelBtn" type="button">Deploy Model</button>
         </div>
         <div id="aiSettingsMessage" class="banner muted">Object detection settings ready.</div>
+        <div class="field field-wide">
+          <label for="aiDebugText">AI debug</label>
+          <pre id="aiDebugText" class="debug-pre">No debug run yet.</pre>
+        </div>
       </div>
     </div>
   </div>

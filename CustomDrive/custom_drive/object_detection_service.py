@@ -56,7 +56,7 @@ class ObjectDetectionService:
         self.drop_zone_label = 'he3_zone'
         self.last_error = ''
         self.last_inference_ms = 0.0
-        self._last_result: dict[str, Any] = {'detections': [], 'timestamp': 0.0}
+        self._last_result: dict[str, Any] = {'detections': [], 'timestamp': 0.0, 'debug': {}}
         self._last_annotated_jpeg: bytes | None = None
         self._last_annotated_ts = 0.0
         self._cache_window_s = 1.0 / max(self.max_overlay_fps, 0.5)
@@ -156,7 +156,7 @@ class ObjectDetectionService:
                     self.active_model = 'none'
                     self.labels_file = ''
                     self.perception.clear()
-                    self._last_result = {'detections': [], 'timestamp': 0.0}
+                    self._last_result = {'detections': [], 'timestamp': 0.0, 'debug': {}}
                     self._last_annotated_jpeg = None
                     self._last_annotated_ts = 0.0
             return True, 'Deleted: ' + ', '.join(removed)
@@ -188,7 +188,7 @@ class ObjectDetectionService:
                 self._cache_window_s = 1.0 / max(self.max_overlay_fps, 0.5)
                 self.input_size = int(overrides.get('input_size', self.input_size) or self.input_size or 0)
                 self.labels_file = Path(str(self.perception.status().get('labels_path', '') or '')).name
-                self._last_result = {'detections': [], 'timestamp': 0.0}
+                self._last_result = {'detections': [], 'timestamp': 0.0, 'debug': {}}
                 self._last_annotated_jpeg = None
                 self._last_annotated_ts = 0.0
                 self.last_error = ''
@@ -221,6 +221,9 @@ class ObjectDetectionService:
                 'last_inference_ms': float(perception_status.get('last_inference_ms', self.last_inference_ms) or 0.0),
                 'ready': bool(self.backend_name == 'tflite' and perception_status.get('ready')),
                 'last_detections': list(self._last_result.get('detections', [])),
+                'last_detection_count': int(len(self._last_result.get('detections', []))),
+                'debug': dict(perception_status.get('debug', {}) or self._last_result.get('debug', {}) or {}),
+                'labels_mode': str(perception_status.get('labels_mode', 'missing')),
             }
         if include_models:
             payload['models'] = self.list_models()
@@ -238,12 +241,39 @@ class ObjectDetectionService:
 
     def _infer_frame(self, frame_bgr) -> list[dict[str, Any]]:
         detections = [self._detection_to_dict(det) for det in self.perception.infer_detections(frame_bgr)]
+        perception_status = self.perception.status()
         with self._lock:
-            self.last_inference_ms = float(self.perception.status().get('last_inference_ms', 0.0) or 0.0)
-            self.last_error = str(self.perception.status().get('last_error', '') or '')
+            self.last_inference_ms = float(perception_status.get('last_inference_ms', 0.0) or 0.0)
+            self.last_error = str(perception_status.get('last_error', '') or '')
             now_mono = time.monotonic()
-            self._last_result = {'detections': detections, 'timestamp': now_mono}
+            self._last_result = {
+                'detections': detections,
+                'timestamp': now_mono,
+                'debug': dict(perception_status.get('debug', {})),
+            }
         return detections
+
+    def run_debug_inference(self, frame_bgr=None) -> dict[str, Any]:
+        if frame_bgr is not None:
+            try:
+                self._infer_frame(frame_bgr)
+            except Exception as exc:
+                with self._lock:
+                    self.last_error = f'Inference failed: {exc}'
+        status = self.get_status(include_models=False)
+        return {
+            'backend': status.get('backend', 'color'),
+            'ready': bool(status.get('ready')),
+            'active_model': status.get('active_model', 'none'),
+            'labels_file': status.get('labels_file', ''),
+            'labels_mode': status.get('labels_mode', 'missing'),
+            'labels_count': len(status.get('labels', [])),
+            'resolved_input_size': int(status.get('resolved_input_size', 0) or 0),
+            'last_detection_count': int(status.get('last_detection_count', 0) or 0),
+            'last_error': str(status.get('last_error', '') or ''),
+            'last_inference_ms': float(status.get('last_inference_ms', 0.0) or 0.0),
+            'debug': dict(status.get('debug', {}) or {}),
+        }
 
     def _draw_overlay(self, frame_bgr, detections: list[dict[str, Any]]):
         if cv2 is None:
@@ -256,8 +286,21 @@ class ObjectDetectionService:
             text = f'{label} {score:.2f}'
             cv2.rectangle(out, (x1, y1), (x2, y2), (0, 255, 0), 2)
             cv2.putText(out, text, (x1, max(18, y1 - 8)), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 255, 0), 2, cv2.LINE_AA)
-        meta = f'OD {self.active_model}' if self.active_model != 'none' and self.backend_name == 'tflite' else 'OD off'
+        debug = self.perception.status().get('debug', {}) if self.backend_name == 'tflite' else {}
+        det_count = len(detections)
+        if self.active_model != 'none' and self.backend_name == 'tflite':
+            meta = f'OD {self.active_model} det={det_count}'
+            detail = (
+                f"raw={debug.get('raw_shape', [])} "
+                f"variant={debug.get('selected_variant', 'none')} "
+                f"cand={debug.get('candidate_count', 0)} dec={debug.get('decoded_count', 0)} keep={debug.get('nms_count', 0)}"
+            )
+        else:
+            meta = 'OD off'
+            detail = ''
         cv2.putText(out, meta, (10, 22), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 255, 0), 2, cv2.LINE_AA)
+        if detail:
+            cv2.putText(out, detail[:96], (10, 46), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 220, 255), 1, cv2.LINE_AA)
         return out
 
     def annotate_jpeg_bytes(self, jpeg_bytes: bytes | None) -> tuple[bytes | None, list[dict[str, Any]]]:

@@ -35,6 +35,8 @@ const state = {
   statusInFlight: false,
   previewTimer: null,
   previewInFlight: false,
+  aiConfigTimer: null,
+  aiDeployedModel: 'none',
 };
 
 function clamp(value, min, max) {
@@ -279,8 +281,10 @@ function populateAiSettings(status) {
   document.getElementById('aiDropZoneLabel').value = ai.drop_zone_label || 'he3_zone';
   state.aiModels = ai.models || state.aiModels || [];
   state.aiLabelFiles = ai.label_files || state.aiLabelFiles || [];
+  state.aiDeployedModel = ai.active_model || state.aiDeployedModel || 'none';
   renderAiModelOptions(ai.active_model || 'none');
   renderAiLabelOptions(ai.labels_file || '');
+  renderAiDebug(null, ai);
   state.aiSettingsLoaded = true;
 }
 
@@ -331,6 +335,36 @@ function renderAiLabelOptions(selectedName = '') {
     select.value = '';
   }
 }
+function renderAiDebug(debugPayload, aiStatus = null) {
+  const el = document.getElementById('aiDebugText');
+  if (!el) return;
+  const status = aiStatus || {};
+  const debug = debugPayload?.debug || status.debug || {};
+  const lines = [
+    `ready: ${String(debugPayload?.ready ?? status.ready ?? false)}`,
+    `backend: ${String(debugPayload?.backend ?? status.backend ?? 'color')}`,
+    `model: ${String(debugPayload?.active_model ?? status.active_model ?? 'none')}`,
+    `labels_file: ${String(debugPayload?.labels_file ?? status.labels_file ?? '')}`,
+    `labels_mode: ${String(debugPayload?.labels_mode ?? status.labels_mode ?? 'missing')}`,
+    `labels_count: ${Number(debugPayload?.labels_count ?? status.labels?.length ?? 0)}`,
+    `input_size: ${Number(debugPayload?.resolved_input_size ?? status.resolved_input_size ?? 0)}`,
+    `last_detection_count: ${Number(debugPayload?.last_detection_count ?? status.last_detection_count ?? 0)}`,
+    `last_inference_ms: ${Number(debugPayload?.last_inference_ms ?? status.last_inference_ms ?? 0).toFixed(1)}`,
+    `last_error: ${String(debugPayload?.last_error ?? status.last_error ?? '')}`,
+    `raw_shape: ${JSON.stringify(debug.raw_shape || [])}`,
+    `input_shape: ${JSON.stringify(debug.input_shape || [])}`,
+    `output_shapes: ${JSON.stringify(debug.output_shapes || [])}`,
+    `variant: ${String(debug.selected_variant || 'none')}`,
+    `layout: ${String(debug.layout || 'unknown')}`,
+    `candidates: ${Number(debug.candidate_count || 0)}`,
+    `decoded: ${Number(debug.decoded_count || 0)}`,
+    `after_nms: ${Number(debug.nms_count || 0)}`,
+    `class_count: ${Number(debug.class_count || 0)}`,
+    `score_max: ${Number(debug.score_max || 0).toFixed(4)}`,
+    `score_mean: ${Number(debug.score_mean || 0).toFixed(4)}`,
+  ];
+  el.textContent = lines.join('\n');}
+
 
 function updateStatusUi(data) {
   const cameraLive = Boolean(data.camera_preview_live ?? data.camera_config?.preview_enabled ?? true);
@@ -368,6 +402,7 @@ function updateStatusUi(data) {
   setBanner('armMessage', armMessage, data.arm_status?.last_error ? 'warn' : 'muted');
   if (!state.driveSettingsLoaded) populateDriveSettings(data);
   if (!state.aiSettingsLoaded) populateAiSettings(data);
+  renderAiDebug(null, aiStatus);
 }
 
 async function pollStatus() {
@@ -568,6 +603,7 @@ async function deleteAiModel() {
   }
   try {
     const data = await postJson('/api/ai/delete', { model });
+    state.aiDeployedModel = (data.ai_status && data.ai_status.active_model) || 'none';
     setBanner('aiSettingsMessage', data.message || 'Model deleted.', 'good');
     state.aiModels = data.models || [];
     state.aiLabelFiles = data.label_files || [];
@@ -598,12 +634,14 @@ async function deployAiModel() {
       target_label: document.getElementById('aiTargetLabel').value || 'he3',
       drop_zone_label: document.getElementById('aiDropZoneLabel').value || 'he3_zone',
     });
+    state.aiDeployedModel = model;
     setBanner('aiSettingsMessage', data.message || 'Model deployed.', 'good');
     state.aiSettingsLoaded = false;
     setPreviewImageSource();
     schedulePreviewPoll(120);
     await pollStatus();
     await refreshAiModels(model);
+    renderAiDebug(null, data.ai_status);
   } catch (error) {
     setBanner('aiSettingsMessage', error.message || 'Deploy failed.', 'warn');
   }
@@ -611,7 +649,7 @@ async function deployAiModel() {
 
 async function saveAiConfigOnly() {
   try {
-    const currentModel = document.getElementById('aiModelSelect').value || 'none';
+    const currentModel = state.aiDeployedModel || 'none';
     const data = await postJson('/api/ai/config', {
       perception_backend: document.getElementById('aiBackend').value || 'color',
       deployed_model: currentModel,
@@ -631,22 +669,43 @@ async function saveAiConfigOnly() {
   }
 }
 
+function scheduleAiConfigSave() {
+  window.clearTimeout(state.aiConfigTimer);
+  state.aiConfigTimer = window.setTimeout(() => { saveAiConfigOnly(); }, 700);
+}
+
+async function runAiDebug() {
+  try {
+    const data = await fetchJson('/api/ai/debug');
+    renderAiDebug(data.debug, data.ai_status);
+    setBanner('aiSettingsMessage', 'AI debug refreshed.', 'good');
+  } catch (error) {
+    setBanner('aiSettingsMessage', error.message || 'AI debug failed.', 'warn');
+  }
+}
+
 function setupAiSettings() {
   document.getElementById('openAiSettingsBtn').addEventListener('click', async () => {
     await refreshAiModels(document.getElementById('aiModelSelect').value || null);
     state.aiSettingsLoaded = false;
     await pollStatus();
+    await runAiDebug();
     openModal('aiSettingsModal');
   });
   document.getElementById('closeAiSettingsBtn').addEventListener('click', () => closeModal('aiSettingsModal'));
-  document.getElementById('refreshAiModelsBtn').addEventListener('click', () => refreshAiModels(document.getElementById('aiModelSelect').value || null));
+  document.getElementById('refreshAiModelsBtn').addEventListener('click', async () => { await refreshAiModels(document.getElementById('aiModelSelect').value || null); await runAiDebug(); });
   document.getElementById('uploadAiFilesBtn').addEventListener('click', uploadAiFiles);
+  document.getElementById('saveAiConfigBtn').addEventListener('click', saveAiConfigOnly);
+  document.getElementById('runAiDebugBtn').addEventListener('click', runAiDebug);
   document.getElementById('deleteAiModelBtn').addEventListener('click', deleteAiModel);
-  document.getElementById('deployAiModelBtn').addEventListener('click', deployAiModel);
+  document.getElementById('deployAiModelBtn').addEventListener('click', async () => { await deployAiModel(); await runAiDebug(); });
   ['aiBackend', 'aiConfidenceThreshold', 'aiIouThreshold', 'aiOverlayEnabled', 'aiOverlayFps', 'aiModelSelect', 'aiLabelsSelect', 'aiInputSize', 'aiTargetLabel', 'aiDropZoneLabel'].forEach((id) => {
     const el = document.getElementById(id);
     if (!el) return;
-    el.addEventListener('change', saveAiConfigOnly);
+    el.addEventListener('change', scheduleAiConfigSave);
+    if (el.tagName === 'INPUT') {
+      el.addEventListener('input', scheduleAiConfigSave);
+    }
   });
 }
 

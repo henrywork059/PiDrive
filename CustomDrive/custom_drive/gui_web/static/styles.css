@@ -504,3 +504,18 @@ input[type='range'] {
   }
   .viewer-frame { min-height: 220px; }
 }
+
+.debug-pre {
+  min-height: 180px;
+  max-height: 260px;
+  overflow: auto;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: calc(var(--radius) - 2px);
+  border: 1px solid rgba(var(--accent-rgb), 0.22);
+  background: rgba(0, 0, 0, 0.18);
+  color: var(--text);
+  font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

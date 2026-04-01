@@ -4,7 +4,7 @@ import json
 import threading
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 try:
     import cv2
@@ -185,36 +185,28 @@ def nms(boxes, scores, iou_threshold: float) -> list[int]:
     return [int(i) for i in idxs]
 
 
-def parse_output(output, conf_threshold: float, num_classes: int, input_size: int, model_type: str = 'yolo_detect'):
+def _normalize_output_2d(output: np.ndarray) -> tuple[np.ndarray, str]:
     arr = np.squeeze(output)
     if arr.ndim == 3:
         arr = np.squeeze(arr, axis=0)
-
-    if arr.ndim == 2 and arr.shape[-1] == 6:
-        boxes = arr[:, :4].astype(np.float32)
-        scores = arr[:, 4].astype(np.float32)
-        classes = arr[:, 5].astype(np.int32)
-        keep = scores >= conf_threshold
-        return boxes[keep], scores[keep], classes[keep]
-
     if arr.ndim != 2:
-        return np.empty((0, 4), dtype=np.float32), np.empty((0,), dtype=np.float32), np.empty((0,), dtype=np.int32)
-
-    if arr.shape[0] in (num_classes + 4, num_classes + 5):
+        return np.empty((0, 0), dtype=np.float32), 'invalid'
+    layout = 'as_is'
+    # Ultralytics exports commonly arrive as [channels, anchors], e.g. [6, 8400].
+    # Detect that even when labels.txt is missing.
+    if arr.shape[0] < arr.shape[1] and arr.shape[0] <= 256:
         arr = arr.T
-    elif arr.shape[1] not in (num_classes + 4, num_classes + 5):
-        if arr.shape[0] > arr.shape[1]:
-            arr = arr.T
+        layout = 'transposed'
+    return arr, layout
 
-    has_obj = False if model_type in {'yolo_detect', 'yolo', 'ultralytics', 'ultralytics_yolo'} else arr.shape[1] == num_classes + 5
-    if arr.shape[1] == num_classes + 5:
-        has_obj = True
-    elif arr.shape[1] == num_classes + 4:
-        has_obj = False
 
+def _decode_rows(arr: np.ndarray, *, conf_threshold: float, input_size: int, has_obj: bool) -> tuple[np.ndarray, np.ndarray, np.ndarray, dict[str, Any]]:
     boxes = []
     scores = []
     class_ids = []
+    max_score = 0.0
+    row_width = int(arr.shape[1]) if arr.ndim == 2 else 0
+    class_count = max(0, row_width - (5 if has_obj else 4))
     for row in arr:
         if has_obj:
             obj_conf = float(row[4])
@@ -225,6 +217,7 @@ def parse_output(output, conf_threshold: float, num_classes: int, input_size: in
             cls_scores = row[4:]
             class_id = int(np.argmax(cls_scores)) if len(cls_scores) else 0
             score = float(cls_scores[class_id]) if len(cls_scores) else 0.0
+        max_score = max(max_score, score)
         if score < conf_threshold:
             continue
         box = row[:4].astype(np.float32)
@@ -234,11 +227,108 @@ def parse_output(output, conf_threshold: float, num_classes: int, input_size: in
         boxes.append(xywh_to_xyxy(box))
         scores.append(score)
         class_ids.append(class_id)
-
     if not boxes:
-        return np.empty((0, 4), dtype=np.float32), np.empty((0,), dtype=np.float32), np.empty((0,), dtype=np.int32)
+        return (
+            np.empty((0, 4), dtype=np.float32),
+            np.empty((0,), dtype=np.float32),
+            np.empty((0,), dtype=np.int32),
+            {
+                'candidate_count': int(arr.shape[0]) if arr.ndim == 2 else 0,
+                'decoded_count': 0,
+                'class_count': class_count,
+                'score_max': float(max_score),
+                'score_mean': 0.0,
+                'has_objectness': has_obj,
+            },
+        )
+    score_arr = np.array(scores, dtype=np.float32)
+    return (
+        np.stack(boxes).astype(np.float32),
+        score_arr,
+        np.array(class_ids, dtype=np.int32),
+        {
+            'candidate_count': int(arr.shape[0]),
+            'decoded_count': len(boxes),
+            'class_count': class_count,
+            'score_max': float(max_score),
+            'score_mean': float(score_arr.mean()) if len(score_arr) else 0.0,
+            'has_objectness': has_obj,
+        },
+    )
 
-    return np.stack(boxes).astype(np.float32), np.array(scores, dtype=np.float32), np.array(class_ids, dtype=np.int32)
+
+def parse_output(output: np.ndarray, conf_threshold: float, num_classes: int, input_size: int, model_type: str = 'yolo_detect'):
+    debug: dict[str, Any] = {
+        'raw_shape': list(np.asarray(output).shape),
+        'layout': 'invalid',
+        'selected_variant': 'none',
+        'candidate_count': 0,
+        'decoded_count': 0,
+        'class_count': int(max(num_classes, 0)),
+        'score_max': 0.0,
+        'score_mean': 0.0,
+    }
+    arr, layout = _normalize_output_2d(output)
+    debug['layout'] = layout
+    if arr.size == 0:
+        return np.empty((0, 4), dtype=np.float32), np.empty((0,), dtype=np.float32), np.empty((0,), dtype=np.int32), debug
+
+    if arr.ndim == 2 and arr.shape[-1] == 6:
+        boxes = arr[:, :4].astype(np.float32)
+        scores = arr[:, 4].astype(np.float32)
+        classes = arr[:, 5].astype(np.int32)
+        keep = scores >= conf_threshold
+        debug.update({
+            'selected_variant': 'xyxy_score_class',
+            'candidate_count': int(arr.shape[0]),
+            'decoded_count': int(np.sum(keep)),
+            'class_count': int(max(classes.max() + 1, num_classes) if classes.size else max(num_classes, 0)),
+            'score_max': float(scores.max()) if scores.size else 0.0,
+            'score_mean': float(scores.mean()) if scores.size else 0.0,
+        })
+        return boxes[keep], scores[keep], classes[keep], debug
+
+    if arr.ndim != 2 or arr.shape[1] < 5:
+        debug['selected_variant'] = 'unsupported'
+        return np.empty((0, 4), dtype=np.float32), np.empty((0,), dtype=np.float32), np.empty((0,), dtype=np.int32), debug
+
+    preferred_noobj = model_type in {'yolo_detect', 'yolo', 'ultralytics', 'ultralytics_yolo'}
+    variants: list[tuple[str, np.ndarray, np.ndarray, np.ndarray, dict[str, Any]]] = []
+    if arr.shape[1] > 4:
+        boxes_noobj, scores_noobj, classes_noobj, info_noobj = _decode_rows(arr, conf_threshold=conf_threshold, input_size=input_size, has_obj=False)
+        variants.append(('no_objectness', boxes_noobj, scores_noobj, classes_noobj, info_noobj))
+    if arr.shape[1] > 5:
+        boxes_obj, scores_obj, classes_obj, info_obj = _decode_rows(arr, conf_threshold=conf_threshold, input_size=input_size, has_obj=True)
+        variants.append(('with_objectness', boxes_obj, scores_obj, classes_obj, info_obj))
+
+    selected = None
+    if preferred_noobj:
+        for variant in variants:
+            if variant[0] == 'no_objectness':
+                selected = variant
+                break
+    else:
+        for variant in variants:
+            if variant[0] == 'with_objectness':
+                selected = variant
+                break
+    if selected is None and variants:
+        selected = max(variants, key=lambda item: (item[4].get('decoded_count', 0), item[4].get('score_max', 0.0)))
+    if selected is None:
+        debug['selected_variant'] = 'none'
+        return np.empty((0, 4), dtype=np.float32), np.empty((0,), dtype=np.float32), np.empty((0,), dtype=np.int32), debug
+
+    variant_name, boxes, scores, classes, info = selected
+    # If the preferred interpretation found nothing but the other one did, automatically use the better one.
+    for alt in variants:
+        if alt is selected:
+            continue
+        if alt[4].get('decoded_count', 0) > info.get('decoded_count', 0):
+            variant_name, boxes, scores, classes, info = alt
+            break
+    debug.update(info)
+    debug['selected_variant'] = variant_name
+    return boxes, scores, classes, debug
 
 
 class TFLitePerception:
@@ -248,6 +338,7 @@ class TFLitePerception:
         self.interpreter = None
         self.bundle: ResolvedBundle | None = None
         self.labels: list[str] = []
+        self.labels_mode = 'missing'
         self.model_type = 'yolo_detect'
         self.confidence_threshold = 0.25
         self.iou_threshold = 0.45
@@ -256,6 +347,20 @@ class TFLitePerception:
         self.last_error = ''
         self.last_inference_ms = 0.0
         self.last_detections: list[Detection] = []
+        self.debug_info: dict[str, Any] = {
+            'input_shape': [],
+            'input_dtype': '',
+            'output_shapes': [],
+            'output_dtypes': [],
+            'layout': 'unknown',
+            'selected_variant': 'none',
+            'candidate_count': 0,
+            'decoded_count': 0,
+            'nms_count': 0,
+            'class_count': 0,
+            'score_max': 0.0,
+            'score_mean': 0.0,
+        }
 
     def deploy(
         self,
@@ -287,19 +392,39 @@ class TFLitePerception:
             return False, self.last_error
 
         config = bundle.config or {}
-        labels = load_labels(bundle.labels_path)
+        loaded_labels = load_labels(bundle.labels_path)
+        labels_mode = 'file'
         model_type = str(config.get('model_type', 'yolo_detect') or 'yolo_detect').strip() or 'yolo_detect'
         configured_size = int(input_size or config.get('image_size', 0) or 0)
+        input_details = interpreter.get_input_details()[0]
+        output_details = interpreter.get_output_details()
         try:
-            tensor_size = int(interpreter.get_input_details()[0]['shape'][1])
+            tensor_size = int(input_details['shape'][1])
         except Exception:
             tensor_size = 0
         resolved_size = tensor_size or configured_size or 640
 
+        # When labels.txt is missing, keep the pipeline working by synthesizing stable class names
+        # from the output shape. This preserves real labels when they exist and only falls back for debug.
+        arr_shape = []
+        if output_details:
+            arr_shape = list(output_details[0].get('shape', []))
+        if not loaded_labels and len(arr_shape) >= 3:
+            channels = int(arr_shape[-2] if arr_shape[-2] < arr_shape[-1] else arr_shape[-1])
+            inferred_classes = max(channels - 4, 1) if channels >= 5 else 0
+            if inferred_classes:
+                loaded_labels = [f'class_{idx}' for idx in range(inferred_classes)]
+                labels_mode = 'synthetic'
+        elif loaded_labels:
+            labels_mode = 'file'
+        else:
+            labels_mode = 'missing'
+
         with self._lock:
             self.interpreter = interpreter
             self.bundle = bundle
-            self.labels = labels
+            self.labels = loaded_labels
+            self.labels_mode = labels_mode
             self.model_type = model_type
             self.confidence_threshold = float(confidence_threshold if confidence_threshold is not None else config.get('confidence_threshold', 0.25))
             self.iou_threshold = float(iou_threshold if iou_threshold is not None else config.get('iou_threshold', 0.45))
@@ -308,6 +433,20 @@ class TFLitePerception:
             self.last_error = ''
             self.last_detections = []
             self.last_inference_ms = 0.0
+            self.debug_info = {
+                'input_shape': [int(v) for v in input_details.get('shape', [])],
+                'input_dtype': str(input_details.get('dtype', '')),
+                'output_shapes': [[int(v) for v in detail.get('shape', [])] for detail in output_details],
+                'output_dtypes': [str(detail.get('dtype', '')) for detail in output_details],
+                'layout': 'unknown',
+                'selected_variant': 'none',
+                'candidate_count': 0,
+                'decoded_count': 0,
+                'nms_count': 0,
+                'class_count': len(loaded_labels),
+                'score_max': 0.0,
+                'score_mean': 0.0,
+            }
         return True, f'Deployed detector: {bundle.model_path.name}'
 
     def clear(self) -> None:
@@ -315,9 +454,24 @@ class TFLitePerception:
             self.interpreter = None
             self.bundle = None
             self.labels = []
+            self.labels_mode = 'missing'
             self.last_detections = []
             self.last_error = ''
             self.last_inference_ms = 0.0
+            self.debug_info = {
+                'input_shape': [],
+                'input_dtype': '',
+                'output_shapes': [],
+                'output_dtypes': [],
+                'layout': 'unknown',
+                'selected_variant': 'none',
+                'candidate_count': 0,
+                'decoded_count': 0,
+                'nms_count': 0,
+                'class_count': 0,
+                'score_max': 0.0,
+                'score_mean': 0.0,
+            }
 
     def is_ready(self) -> bool:
         with self._lock:
@@ -331,6 +485,7 @@ class TFLitePerception:
                 'labels_path': str(self.bundle.labels_path) if self.bundle and self.bundle.labels_path else '',
                 'config_path': str(self.bundle.config_path) if self.bundle and self.bundle.config_path else '',
                 'labels': list(self.labels),
+                'labels_mode': self.labels_mode,
                 'model_type': self.model_type,
                 'confidence_threshold': float(self.confidence_threshold),
                 'iou_threshold': float(self.iou_threshold),
@@ -338,6 +493,7 @@ class TFLitePerception:
                 'resolved_input_size': int(self.resolved_input_size),
                 'last_error': str(self.last_error),
                 'last_inference_ms': float(self.last_inference_ms),
+                'debug': dict(self.debug_info),
             }
 
     def infer_detections(self, frame_bgr) -> list[Detection]:
@@ -352,15 +508,16 @@ class TFLitePerception:
         if interpreter is None or bundle is None or frame_bgr is None or cv2 is None or np is None:
             return []
         input_details = interpreter.get_input_details()[0]
-        output_details = interpreter.get_output_details()[0]
+        output_details = interpreter.get_output_details()
+        output_detail = max(output_details, key=lambda detail: int(np.prod(detail.get('shape', [1]))))
         tensor_size = int(input_details['shape'][1]) if len(input_details.get('shape', [])) > 1 else 0
         size = tensor_size or resolved_input_size or 640
         inp, scale, pad = preprocess(frame_bgr, size, input_details['dtype'])
         start = cv2.getTickCount() if cv2 is not None else 0.0
         interpreter.set_tensor(input_details['index'], inp)
         interpreter.invoke()
-        output = interpreter.get_tensor(output_details['index'])
-        boxes, scores, classes = parse_output(output, conf, len(labels), size, model_type=model_type)
+        output = interpreter.get_tensor(output_detail['index'])
+        boxes, scores, classes, parse_debug = parse_output(output, conf, len(labels), size, model_type=model_type)
         boxes = scale_boxes(boxes, scale, pad, frame_bgr.shape[:2])
         keep = nms(boxes, scores, iou)
         detections: list[Detection] = []
@@ -369,7 +526,7 @@ class TFLitePerception:
                 box = boxes[idx]
                 x1, y1, x2, y2 = box.astype(float).tolist()
                 class_id = int(classes[idx])
-                label = labels[class_id] if 0 <= class_id < len(labels) else str(class_id)
+                label = labels[class_id] if 0 <= class_id < len(labels) else f'class_{class_id}'
                 detections.append(
                     Detection(
                         label=label,
@@ -385,6 +542,18 @@ class TFLitePerception:
             self.last_inference_ms = float(elapsed_ms)
             self.last_detections = list(detections)
             self.last_error = ''
+            self.debug_info = {
+                **self.debug_info,
+                'layout': parse_debug.get('layout', 'unknown'),
+                'selected_variant': parse_debug.get('selected_variant', 'none'),
+                'candidate_count': int(parse_debug.get('candidate_count', 0)),
+                'decoded_count': int(parse_debug.get('decoded_count', 0)),
+                'nms_count': int(len(keep)),
+                'class_count': int(parse_debug.get('class_count', len(labels))),
+                'score_max': float(parse_debug.get('score_max', 0.0)),
+                'score_mean': float(parse_debug.get('score_mean', 0.0)),
+                'raw_shape': parse_debug.get('raw_shape', []),
+            }
         return detections
 
     def infer_frame(self, frame_bgr) -> FramePerception:
