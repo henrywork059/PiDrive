@@ -25,7 +25,7 @@ from piserver.services.camera_service import CameraService  # noqa: E402
 from piserver.services.motor_service import MotorService  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent / 'mission1_web'
-APP_VERSION = '0_4_6'
+APP_VERSION = '0_4_8'
 MISSION1_CONFIG_PATH = CONFIG_DIR / 'mission1_session.json'
 MISSION1_MODEL_DIR = CUSTOMDRIVE_ROOT / 'models' / 'mission1'
 
@@ -455,18 +455,23 @@ class Mission1SessionContext:
                 continue
 
             self.target_found = True
-            error_ratio = self._x_error_ratio(target, frame_w)
+            target_center_x = float(target.box.bottom_center_x)
+            target_center_ratio = target_center_x / max(1.0, float(frame_w))
             bottom_ratio = target.box.bottom_center_y / max(1.0, float(frame_h))
-            # Positive x error means the target is to the right side of the frame.
-            # MotorService's differential-drive mixing expects negative steering for a rightward arc,
-            # so invert the image-space error when generating steering.
-            steering = max(-max_steering, min(max_steering, -error_ratio * align_kp))
+            zone = self._tracking_zone(target_center_ratio, center_tolerance)
 
-            # Keep moving toward the target while steering instead of stopping whenever the target is off-centre.
-            # Slow down a little during larger heading corrections, but keep forward motion active.
-            if abs(error_ratio) > center_tolerance:
+            if zone == 'left':
+                # Mission 1 rule: target centre in the left region -> turn left while continuing forward.
+                # With the shared MotorService mix, positive steering produces the leftward arc here.
+                steering = max_steering
+                throttle = max(0.08, approach_speed * 0.55)
+            elif zone == 'right':
+                # Mission 1 rule: target centre in the right region -> turn right while continuing forward.
+                # With the shared MotorService mix, negative steering produces the rightward arc here.
+                steering = -max_steering
                 throttle = max(0.08, approach_speed * 0.55)
             else:
+                steering = 0.0
                 throttle = approach_speed
 
             if bottom_ratio >= target_reached_bottom_ratio:
@@ -477,10 +482,10 @@ class Mission1SessionContext:
                 self._record(self.detail, event_type='session', confidence=round(float(target.confidence), 3))
                 return
 
-            self._set_drive(steering, throttle, f'class {target_class_id} tracking')
+            self._set_drive(steering, throttle, f'class {target_class_id} tracking ({zone})')
             self.detail = (
                 f'Class {target_class_id} detected at {target.confidence:.2f}. '
-                f'x_err={error_ratio:+.3f} bottom={bottom_ratio:.3f}'
+                f'zone={zone} x_ratio={target_center_ratio:.3f} bottom={bottom_ratio:.3f}'
             )
             time.sleep(tick_s)
 
@@ -494,6 +499,15 @@ class Mission1SessionContext:
         frame_center_x = float(frame_width) * 0.5
         x_err = float(det.box.bottom_center_x) - frame_center_x
         return x_err / max(1.0, frame_center_x)
+
+    def _tracking_zone(self, target_center_ratio: float, center_band_ratio: float) -> str:
+        total_center_band = max(0.01, min(0.5, float(center_band_ratio)))
+        half_center_band = total_center_band * 0.5
+        if target_center_ratio < 0.5 - half_center_band:
+            return 'left'
+        if target_center_ratio > 0.5 + half_center_band:
+            return 'right'
+        return 'center'
 
     def status_payload(self) -> dict[str, Any]:
         thread = self._thread
