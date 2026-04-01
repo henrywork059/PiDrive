@@ -1,68 +1,64 @@
 # CustomDrive
 
-CustomDrive now includes a PiServer-style **GUI control web** entrypoint for manual driving and arm testing.
+CustomDrive provides mission-flow and manual-control applications built on shared runtime abstractions for simulated and live Pi operation.
 
-## Run the GUI control page
+## Current documented entry points
 
-From the `CustomDrive` folder:
+From `CustomDrive/`:
+
+- Demo runtime: `python run_custom_drive_demo.py`
+- GUI web control: `python run_custom_drive_gui.py`
+- Manual web mode: `python run_custom_drive_manual.py`
+- Mission 1 web mode: `python run_custom_drive_web.py`
+- Headless runtime launcher: `python run_custom_drive_headless.py`
+
+## Requirements
+
+Install dependencies with:
+
+```bash
+pip install -r requirements.txt
+```
+
+Recommended Python: **3.11**.
+
+Pi-only features depend on hardware/runtime libraries (camera/GPIO/TFLite). In non-Pi environments, fallback/sim behavior may be used depending on selected mode.
+
+## Important configuration files
+
+- `config/runtime_settings.json`
+- `config/run_settings.json`
+- `config/mission1_session.json`
+- `config/manual_control.json`
+- `config/servo_test.json`
+- `config/dual_servo_test.json`
+
+## Manual GUI web control
+
+Run:
 
 ```bash
 python run_custom_drive_gui.py
 ```
 
-Open the printed URL, usually:
+Typical URL:
+- local: `http://127.0.0.1:5050`
+- LAN: `http://<pi-ip>:5050`
 
-```text
-http://127.0.0.1:5050
-```
+Features include:
+- camera preview
+- drag-pad/drive controls
+- Drive Settings and Style Settings overlays
+- arm-control buttons using `config/manual_control.json`
 
-or from another device on the same network:
+## Mission 1 note
 
-```text
-http://<pi-ip>:5050
-```
+Mission-session UI version marker is defined in:
+- `custom_drive/mission1_session_app.py`
 
-## What this GUI includes
+When updating docs for Mission 1 behavior, verify this marker and parser behavior in `mission1_tflite_detector.py` to avoid stale release-note assumptions.
 
-- live camera preview using PiServer camera services
-- real manual drag-pad driving through PiServer motor/control services
-- separate **Drive Settings** and **Style Settings** overlay windows
-- responsive default layout that stays inside the browser window more reliably
-- left-side arm panel with:
-  - Up
-  - Down
-  - Open
-  - Close
+## Bug-prevention reference
 
-## Arm control notes
-
-The GUI arm panel uses `CustomDrive/config/manual_control.json`.
-
-The current default setup supports:
-
-- primary lift servo on channel `0`
-- optional secondary lift servo on channel `1`
-- optional separate grip servo on channel `2`
-
-Up and Down move the lift by **1° every 0.1 seconds** while the button is held.
-
-## Drive settings
-
-The **Drive Settings** window controls:
-
-- max throttle
-- steer mix
-- steer bias
-- left motor direction
-- right motor direction
-- steering direction
-- left/right max speed
-- left/right bias
-
-These are applied through PiServer motor/config flow and saved back into:
-
-- `PiServer/config/runtime.json`
-
-## Style settings
-
-The **Style Settings** window uses the same PiServer theme-variable method and stores custom style overrides in browser local storage.
+Before modifying detection, overlay, or session UI behavior, read:
+- `../BUG_PREVENTION_NOTES.md`
