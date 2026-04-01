@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "mode": "sim",
+  "tick_s": 0.05,
+  "forward_1_duration_s": 2.0,
+  "turn_right_duration_s": 2.0,
+  "forward_2_duration_s": 2.0,
+  "forward_throttle": 0.28,
+  "forward_steering": 0.0,
+  "turn_right_throttle": 0.22,
+  "turn_right_steering": 0.65,
+  "settle_stop_s": 0.25
+}
