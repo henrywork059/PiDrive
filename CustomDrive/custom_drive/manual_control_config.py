@@ -53,6 +53,7 @@ DEFAULT_MANUAL_CONTROL_CONFIG: dict[str, Any] = {
         'confidence_threshold': 0.25,
         'iou_threshold': 0.45,
         'max_overlay_fps': 6.0,
+        'overlay_frame_skip': 5,
         'target_label': 'he3',
         'drop_zone_label': 'he3_zone',
     },
@@ -166,6 +167,7 @@ def normalize_manual_control_config(data: dict[str, Any] | None) -> dict[str, An
         'confidence_threshold': round(clamp_float(ai.get('confidence_threshold', 0.25), 0.25, 0.01, 0.99), 3),
         'iou_threshold': round(clamp_float(ai.get('iou_threshold', 0.45), 0.45, 0.01, 0.99), 3),
         'max_overlay_fps': round(clamp_float(ai.get('max_overlay_fps', 6.0), 6.0, 0.5, 30.0), 2),
+        'overlay_frame_skip': clamp_int(ai.get('overlay_frame_skip', 5), 5, 1, 30),
         'target_label': str(ai.get('target_label', 'he3') or 'he3').strip() or 'he3',
         'drop_zone_label': str(ai.get('drop_zone_label', 'he3_zone') or 'he3_zone').strip() or 'he3_zone',
     }

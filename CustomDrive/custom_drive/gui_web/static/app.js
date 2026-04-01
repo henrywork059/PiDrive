@@ -42,6 +42,7 @@ const state = {
   aiDebugLastSignature: '',
   aiBackendHistory: [],
   aiBackendHistorySignature: '',
+  aiOverlayFps: 6.0,
 };
 
 function clamp(value, min, max) {
@@ -280,10 +281,9 @@ function populateAiSettings(status) {
   document.getElementById('aiConfidenceThreshold').value = Number(ai.confidence_threshold ?? 0.25).toFixed(2);
   document.getElementById('aiIouThreshold').value = Number(ai.iou_threshold ?? 0.45).toFixed(2);
   document.getElementById('aiOverlayEnabled').value = ai.overlay_enabled === false ? 'false' : 'true';
-  document.getElementById('aiOverlayFps').value = Number(ai.max_overlay_fps ?? 6.0).toFixed(1);
+  document.getElementById('aiOverlayFrameSkip').value = Number(ai.overlay_frame_skip ?? 5).toFixed(0);
+  state.aiOverlayFps = Number(ai.max_overlay_fps ?? state.aiOverlayFps ?? 6.0);
   document.getElementById('aiInputSize').value = Number(ai.input_size ?? 0).toFixed(0);
-  document.getElementById('aiTargetLabel').value = ai.target_label || 'he3';
-  document.getElementById('aiDropZoneLabel').value = ai.drop_zone_label || 'he3_zone';
   state.aiModels = ai.models || state.aiModels || [];
   state.aiLabelFiles = ai.label_files || state.aiLabelFiles || [];
   state.aiDeployedModel = ai.active_model || state.aiDeployedModel || 'none';
@@ -792,9 +792,8 @@ async function deployAiModel() {
       confidence_threshold: Number(document.getElementById('aiConfidenceThreshold').value || 0.25),
       iou_threshold: Number(document.getElementById('aiIouThreshold').value || 0.45),
       overlay_enabled: document.getElementById('aiOverlayEnabled').value === 'true',
-      max_overlay_fps: Number(document.getElementById('aiOverlayFps').value || 6.0),
-      target_label: document.getElementById('aiTargetLabel').value || 'he3',
-      drop_zone_label: document.getElementById('aiDropZoneLabel').value || 'he3_zone',
+      max_overlay_fps: Number(state.aiOverlayFps || 6.0),
+      overlay_frame_skip: Number(document.getElementById('aiOverlayFrameSkip').value || 5),
     });
     state.aiDeployedModel = model;
     setBanner('aiSettingsMessage', data.message || 'Model deployed.', 'good');
@@ -820,11 +819,10 @@ async function saveAiConfigOnly() {
       confidence_threshold: Number(document.getElementById('aiConfidenceThreshold').value || 0.25),
       iou_threshold: Number(document.getElementById('aiIouThreshold').value || 0.45),
       overlay_enabled: document.getElementById('aiOverlayEnabled').value === 'true',
-      max_overlay_fps: Number(document.getElementById('aiOverlayFps').value || 6.0),
-      target_label: document.getElementById('aiTargetLabel').value || 'he3',
-      drop_zone_label: document.getElementById('aiDropZoneLabel').value || 'he3_zone',
+      max_overlay_fps: Number(state.aiOverlayFps || 6.0),
+      overlay_frame_skip: Number(document.getElementById('aiOverlayFrameSkip').value || 5),
     });
-    setBanner('aiSettingsMessage', data.message || 'AI settings saved.', 'good');
+    setBanner('aiSettingsMessage', data.message || 'Overlay settings saved.', 'good');
     await pollStatus();
   } catch (error) {
     setBanner('aiSettingsMessage', error.message || 'AI settings save failed.', 'warn');
@@ -854,9 +852,7 @@ function setupAiSettings() {
     openModal('aiSettingsModal');
   });
   document.getElementById('closeAiSettingsBtn').addEventListener('click', () => closeModal('aiSettingsModal'));
-  document.getElementById('refreshAiModelsBtn').addEventListener('click', async () => { await refreshAiModels(document.getElementById('aiModelSelect').value || null); });
   document.getElementById('uploadAiFilesBtn').addEventListener('click', uploadAiFiles);
-  document.getElementById('saveAiConfigBtn').addEventListener('click', saveAiConfigOnly);
   document.getElementById('runAiDebugBtn').addEventListener('click', () => runAiDebug(true));
   document.getElementById('toggleAiDebugFreezeBtn').addEventListener('click', toggleAiDebugFreeze);
   document.getElementById('copyAiDebugBtn').addEventListener('click', copyAiDebugSnapshot);
@@ -864,12 +860,23 @@ function setupAiSettings() {
   document.getElementById('clearAiDebugLogBtn').addEventListener('click', async () => { await clearAiDebugHistory(); });
   document.getElementById('deleteAiModelBtn').addEventListener('click', deleteAiModel);
   document.getElementById('deployAiModelBtn').addEventListener('click', async () => { await deployAiModel(); });
-  ['aiBackend', 'aiConfidenceThreshold', 'aiIouThreshold', 'aiOverlayEnabled', 'aiOverlayFps', 'aiModelSelect', 'aiLabelsSelect', 'aiInputSize', 'aiTargetLabel', 'aiDropZoneLabel'].forEach((id) => {
+  ['aiBackend', 'aiConfidenceThreshold', 'aiIouThreshold', 'aiOverlayEnabled', 'aiOverlayFrameSkip'].forEach((id) => {
     const el = document.getElementById(id);
     if (!el) return;
     el.addEventListener('change', scheduleAiConfigSave);
     if (el.tagName === 'INPUT') {
       el.addEventListener('input', scheduleAiConfigSave);
+    }
+  });
+  ['aiModelSelect', 'aiLabelsSelect', 'aiInputSize'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const notifyPendingDeploy = () => {
+      setBanner('aiSettingsMessage', 'Model, labels, and input size changes take effect after Deploy.', 'muted');
+    };
+    el.addEventListener('change', notifyPendingDeploy);
+    if (el.tagName === 'INPUT') {
+      el.addEventListener('input', notifyPendingDeploy);
     }
   });
 }

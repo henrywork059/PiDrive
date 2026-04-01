@@ -24,7 +24,7 @@ from piserver.services.motor_service import MotorService  # noqa: E402
 from piserver.services.recorder_service import RecorderService  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent / 'gui_web'
-APP_VERSION = '0_3_6'
+APP_VERSION = '0_3_7'
 OD_MODEL_ROOT = CUSTOMDRIVE_ROOT / 'models' / 'object_detection'
 
 
@@ -373,19 +373,21 @@ def create_app() -> Flask:
     @app.route('/api/ai/deploy', methods=['POST'])
     def api_ai_deploy():
         data = request.get_json(silent=True) or {}
+        current_ai = (ctx.get_manual_config().get('ai') or {}) if isinstance(ctx.get_manual_config().get('ai'), dict) else {}
         model_name = str(data.get('model', '') or '').strip()
         overrides = {
-            'labels_file': str(data.get('labels_file', '') or '').strip(),
-            'input_size': int(data.get('input_size', 0) or 0),
-            'confidence_threshold': data.get('confidence_threshold', 0.25),
-            'iou_threshold': data.get('iou_threshold', 0.45),
-            'overlay_enabled': data.get('overlay_enabled', True),
-            'max_overlay_fps': data.get('max_overlay_fps', 6.0),
+            'labels_file': str(data.get('labels_file', current_ai.get('labels_file', '')) or '').strip(),
+            'input_size': int(data.get('input_size', current_ai.get('input_size', 0)) or 0),
+            'confidence_threshold': data.get('confidence_threshold', current_ai.get('confidence_threshold', 0.25)),
+            'iou_threshold': data.get('iou_threshold', current_ai.get('iou_threshold', 0.45)),
+            'overlay_enabled': data.get('overlay_enabled', current_ai.get('overlay_enabled', True)),
+            'max_overlay_fps': data.get('max_overlay_fps', current_ai.get('max_overlay_fps', 6.0)),
+            'overlay_frame_skip': data.get('overlay_frame_skip', current_ai.get('overlay_frame_skip', 5)),
         }
         ok, message = ctx.object_detection_service.deploy_model(model_name, overrides)
         if ok:
             ctx.save_ai_config({
-                'perception_backend': str(data.get('perception_backend', 'tflite') or 'tflite').strip().lower() or 'tflite',
+                'perception_backend': str(data.get('perception_backend', current_ai.get('perception_backend', 'tflite')) or 'tflite').strip().lower() or 'tflite',
                 'deployed_model': ctx.object_detection_service.get_active_model_name(),
                 'labels_file': Path(str(ctx.object_detection_service.get_status(include_models=False).get('labels_path', '') or '')).name,
                 'input_size': overrides['input_size'],
@@ -393,8 +395,9 @@ def create_app() -> Flask:
                 'iou_threshold': overrides['iou_threshold'],
                 'overlay_enabled': overrides['overlay_enabled'],
                 'max_overlay_fps': overrides['max_overlay_fps'],
-                'target_label': str(data.get('target_label', 'he3') or 'he3').strip() or 'he3',
-                'drop_zone_label': str(data.get('drop_zone_label', 'he3_zone') or 'he3_zone').strip() or 'he3_zone',
+                'overlay_frame_skip': overrides['overlay_frame_skip'],
+                'target_label': str(data.get('target_label', current_ai.get('target_label', 'he3')) or 'he3').strip() or 'he3',
+                'drop_zone_label': str(data.get('drop_zone_label', current_ai.get('drop_zone_label', 'he3_zone')) or 'he3_zone').strip() or 'he3_zone',
             })
         code = 200 if ok else 400
         return jsonify({'ok': ok, 'message': message, 'ai_status': ctx.object_detection_service.get_status(include_models=False), 'state': ctx.status_payload()}), code
@@ -402,17 +405,19 @@ def create_app() -> Flask:
     @app.route('/api/ai/config', methods=['POST'])
     def api_ai_config():
         data = request.get_json(silent=True) or {}
+        current_ai = (ctx.get_manual_config().get('ai') or {}) if isinstance(ctx.get_manual_config().get('ai'), dict) else {}
         ai_updates = {
-            'perception_backend': str(data.get('perception_backend', 'color') or 'color').strip().lower() or 'color',
-            'deployed_model': str(data.get('deployed_model', ctx.object_detection_service.get_active_model_name()) or 'none'),
-            'labels_file': str(data.get('labels_file', '') or '').strip(),
-            'input_size': int(data.get('input_size', 0) or 0),
-            'overlay_enabled': bool(data.get('overlay_enabled', True)),
-            'confidence_threshold': float(data.get('confidence_threshold', 0.25)),
-            'iou_threshold': float(data.get('iou_threshold', 0.45)),
-            'max_overlay_fps': float(data.get('max_overlay_fps', 6.0)),
-            'target_label': str(data.get('target_label', 'he3') or 'he3').strip() or 'he3',
-            'drop_zone_label': str(data.get('drop_zone_label', 'he3_zone') or 'he3_zone').strip() or 'he3_zone',
+            'perception_backend': str(data.get('perception_backend', current_ai.get('perception_backend', 'color')) or 'color').strip().lower() or 'color',
+            'deployed_model': str(data.get('deployed_model', current_ai.get('deployed_model', ctx.object_detection_service.get_active_model_name())) or 'none'),
+            'labels_file': str(data.get('labels_file', current_ai.get('labels_file', '')) or '').strip(),
+            'input_size': int(data.get('input_size', current_ai.get('input_size', 0)) or 0),
+            'overlay_enabled': bool(data.get('overlay_enabled', current_ai.get('overlay_enabled', True))),
+            'confidence_threshold': float(data.get('confidence_threshold', current_ai.get('confidence_threshold', 0.25))),
+            'iou_threshold': float(data.get('iou_threshold', current_ai.get('iou_threshold', 0.45))),
+            'max_overlay_fps': float(data.get('max_overlay_fps', current_ai.get('max_overlay_fps', 6.0))),
+            'overlay_frame_skip': int(data.get('overlay_frame_skip', current_ai.get('overlay_frame_skip', 5)) or current_ai.get('overlay_frame_skip', 5)),
+            'target_label': str(data.get('target_label', current_ai.get('target_label', 'he3')) or 'he3').strip() or 'he3',
+            'drop_zone_label': str(data.get('drop_zone_label', current_ai.get('drop_zone_label', 'he3_zone')) or 'he3_zone').strip() or 'he3_zone',
         }
         saved = ctx.save_ai_config(ai_updates)
         return jsonify({'ok': True, 'message': 'AI settings saved.', 'config': saved.get('ai', {}), 'ai_status': ctx.object_detection_service.get_status(include_models=False), 'state': ctx.status_payload()})

@@ -178,90 +178,108 @@
   </div>
 
   <div id="aiSettingsModal" class="modal-backdrop hidden" aria-hidden="true">
-    <div class="modal-window">
+    <div class="modal-window ai-modal-window">
       <div class="panel-head">
         <span>AI Settings</span>
         <button class="ghost-btn" id="closeAiSettingsBtn" type="button">Close</button>
       </div>
-      <div class="panel-body scroll-body modal-body">
-        <div class="field-grid two-col compact-grid">
-          <div class="field">
-            <label for="aiBackend">Perception backend</label>
-            <select id="aiBackend"><option value="color">Color</option><option value="tflite">TFLite</option></select>
+      <div class="panel-body scroll-body modal-body ai-modal-body">
+        <div class="panel-section">
+          <div class="section-head">
+            <div>
+              <div class="section-title">Model</div>
+              <div class="section-note">Upload a bundle, then choose the model you want to run.</div>
+            </div>
+            <div class="section-actions">
+              <button id="uploadAiFilesBtn" class="secondary-btn" type="button">Upload Files</button>
+              <button id="deleteAiModelBtn" class="danger-btn" type="button">Delete Model</button>
+              <button id="deployAiModelBtn" type="button">Deploy Model</button>
+            </div>
           </div>
-          <div class="field field-wide">
-            <label for="aiUploadFiles">Upload model files</label>
-            <input id="aiUploadFiles" type="file" multiple accept=".tflite,.txt,.json" />
-            <div class="small-note">Upload the detector `.tflite` file. CustomTrainer bundle files are also accepted exactly as exported: `labels.txt` and `model_config.json`.</div>
-          </div>
-          <div class="field">
-            <label for="aiModelSelect">Select model</label>
-            <select id="aiModelSelect"></select>
-          </div>
-          <div class="field">
-            <label for="aiLabelsSelect">Labels file</label>
-            <select id="aiLabelsSelect"></select>
-            <div class="small-note">Leave on Auto to use the model bundle labels.</div>
-          </div>
-          <div class="field">
-            <label for="aiInputSize">Input size</label>
-            <input id="aiInputSize" type="number" min="0" max="4096" step="1" value="0" />
-            <div class="small-note">0 = use model tensor size / bundle config.</div>
-          </div>
-          <div class="field">
-            <label for="aiConfidenceThreshold">Confidence</label>
-            <input id="aiConfidenceThreshold" type="number" min="0.01" max="0.99" step="0.01" value="0.25" />
-          </div>
-          <div class="field">
-            <label for="aiIouThreshold">IoU</label>
-            <input id="aiIouThreshold" type="number" min="0.01" max="0.99" step="0.01" value="0.45" />
-          </div>
-          <div class="field">
-            <label for="aiOverlayEnabled">Overlay</label>
-            <select id="aiOverlayEnabled"><option value="true">Enabled</option><option value="false">Disabled</option></select>
-          </div>
-          <div class="field">
-            <label for="aiOverlayFps">Overlay FPS</label>
-            <input id="aiOverlayFps" type="number" min="0.5" max="30" step="0.5" value="6.0" />
-          </div>
-          <div class="field">
-            <label for="aiTargetLabel">Mission target label</label>
-            <input id="aiTargetLabel" type="text" value="he3" />
-          </div>
-          <div class="field">
-            <label for="aiDropZoneLabel">Drop-zone label</label>
-            <input id="aiDropZoneLabel" type="text" value="he3_zone" />
+          <div class="field-grid two-col compact-grid ai-settings-grid">
+            <div class="field">
+              <label for="aiBackend">Perception backend</label>
+              <select id="aiBackend"><option value="color">Color</option><option value="tflite">TFLite</option></select>
+            </div>
+            <div class="field field-wide">
+              <label for="aiUploadFiles">Upload model files</label>
+              <input id="aiUploadFiles" type="file" multiple accept=".tflite,.txt,.json" />
+              <div class="small-note">Upload the detector `.tflite` file. CustomTrainer bundle files are also accepted exactly as exported: `labels.txt` and `model_config.json`.</div>
+            </div>
+            <div class="field">
+              <label for="aiModelSelect">Model</label>
+              <select id="aiModelSelect"></select>
+              <div class="small-note">Changing the model waits for the next Deploy.</div>
+            </div>
+            <div class="field">
+              <label for="aiLabelsSelect">Labels file</label>
+              <select id="aiLabelsSelect"></select>
+              <div class="small-note">Leave on Auto to use the model bundle labels.</div>
+            </div>
+            <div class="field">
+              <label for="aiInputSize">Input size</label>
+              <input id="aiInputSize" type="number" min="0" max="4096" step="1" value="0" />
+              <div class="small-note">0 = use model tensor size / bundle config. Re-deploy after changing this.</div>
+            </div>
           </div>
         </div>
-        <div class="small-note">Trainer labels stay unchanged. CustomDrive mission logic uses the target/drop labels configured here. Runtime mission settings are synced to <code>CustomDrive/config/runtime_settings.json</code>.</div>
-        <div class="stack-row panel-actions modal-actions-wrap">
-          <button id="refreshAiModelsBtn" class="secondary-btn" type="button">Refresh Models</button>
-          <button id="uploadAiFilesBtn" class="secondary-btn" type="button">Upload Files</button>
-          <button id="saveAiConfigBtn" class="secondary-btn" type="button">Save AI Settings</button>
-          <button id="runAiDebugBtn" class="secondary-btn" type="button">Run AI Debug</button>
-          <button id="deleteAiModelBtn" class="danger-btn" type="button">Delete Model</button>
-          <button id="deployAiModelBtn" type="button">Deploy Model</button>
+
+        <div class="panel-section">
+          <div class="section-head">
+            <div>
+              <div class="section-title">Overlay</div>
+              <div class="section-note">These settings auto-save. The overlay can be refreshed less often to reduce load.</div>
+            </div>
+          </div>
+          <div class="field-grid two-col compact-grid ai-settings-grid">
+            <div class="field">
+              <label for="aiOverlayEnabled">Overlay</label>
+              <select id="aiOverlayEnabled"><option value="true">Enabled</option><option value="false">Disabled</option></select>
+            </div>
+            <div class="field">
+              <label for="aiOverlayFrameSkip">Refresh every N frames</label>
+              <input id="aiOverlayFrameSkip" type="number" min="1" max="30" step="1" value="5" />
+              <div class="small-note">1 = every frame, 5 = once every 5 preview frames.</div>
+            </div>
+            <div class="field">
+              <label for="aiConfidenceThreshold">Confidence</label>
+              <input id="aiConfidenceThreshold" type="number" min="0.01" max="0.99" step="0.01" value="0.25" />
+            </div>
+            <div class="field">
+              <label for="aiIouThreshold">IoU</label>
+              <input id="aiIouThreshold" type="number" min="0.01" max="0.99" step="0.01" value="0.45" />
+            </div>
+          </div>
         </div>
+
         <div id="aiSettingsMessage" class="banner muted">Object detection settings ready.</div>
-        <div class="field field-wide">
-          <div class="debug-toolbar">
-            <label for="aiDebugText">AI debug snapshot</label>
-            <div class="stack-row debug-toolbar-actions">
+
+        <div class="panel-section">
+          <div class="section-head">
+            <div>
+              <div class="section-title">Debug</div>
+              <div class="section-note">Run a fresh AI check only when you want a new snapshot.</div>
+            </div>
+            <div class="section-actions">
+              <button id="runAiDebugBtn" class="secondary-btn" type="button">Run AI Debug</button>
               <button id="toggleAiDebugFreezeBtn" class="secondary-btn" type="button">Freeze Snapshot</button>
               <button id="copyAiDebugBtn" class="secondary-btn" type="button">Copy Snapshot</button>
             </div>
           </div>
-          <pre id="aiDebugText" class="debug-pre">No debug run yet.</pre>
-        </div>
-        <div class="field field-wide">
-          <div class="debug-toolbar">
-            <label for="aiDebugLogText">AI debug history / backend log</label>
-            <div class="stack-row debug-toolbar-actions">
-              <button id="copyAiDebugLogBtn" class="secondary-btn" type="button">Copy History</button>
-              <button id="clearAiDebugLogBtn" class="secondary-btn" type="button">Clear History</button>
-            </div>
+          <div class="field field-wide">
+            <label for="aiDebugText">AI debug snapshot</label>
+            <pre id="aiDebugText" class="debug-pre">No debug run yet.</pre>
           </div>
-          <textarea id="aiDebugLogText" class="debug-log" readonly>AI debug history / backend log will appear here.</textarea>
+          <div class="field field-wide">
+            <div class="debug-toolbar">
+              <label for="aiDebugLogText">AI debug history / backend log</label>
+              <div class="stack-row debug-toolbar-actions">
+                <button id="copyAiDebugLogBtn" class="secondary-btn" type="button">Copy History</button>
+                <button id="clearAiDebugLogBtn" class="secondary-btn" type="button">Clear History</button>
+              </div>
+            </div>
+            <textarea id="aiDebugLogText" class="debug-log" readonly>AI debug history / backend log will appear here.</textarea>
+          </div>
         </div>
       </div>
     </div>
