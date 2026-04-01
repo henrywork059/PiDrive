@@ -425,3 +425,21 @@ code {
     grid-template-columns: 1fr;
   }
 }
+
+
+.arm-table-wrap input {
+  margin-top: 0;
+}
+
+.arm-pose-id {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.role-grid {
+  margin-top: 12px;
+}
+
+.arm-panel .panel-subtitle {
+  margin-bottom: 12px;
+}

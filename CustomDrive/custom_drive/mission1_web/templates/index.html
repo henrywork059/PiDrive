@@ -94,6 +94,67 @@
         <div id="modelMessage" class="message"></div>
         <div class="subtle">The Pi loads the selected model only after the route finishes and the camera is already running.</div>
       </section>
+
+      <section class="panel arm-panel">
+        <h2>Mission 1 Arm Poses</h2>
+        <p class="panel-subtitle">Define numbered 3-servo poses here. The Mission 1 session will use the selected pose numbers for start, grip ready, grip, grip and lift, and release. Servo backend and channel wiring still come from the CustomDrive manual arm config.</p>
+
+        <div class="table-wrap arm-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Pose #</th>
+                <th>Servo 0</th>
+                <th>Servo 1</th>
+                <th>Servo 2</th>
+              </tr>
+            </thead>
+            <tbody id="armPositionsBody"></tbody>
+          </table>
+        </div>
+
+        <div class="grid two-col role-grid">
+          <label>
+            Starting position
+            <select id="armRoleStarting"></select>
+          </label>
+          <label>
+            Grip ready
+            <select id="armRoleGripReady"></select>
+          </label>
+          <label>
+            Grip
+            <select id="armRoleGrip"></select>
+          </label>
+          <label>
+            Grip and lift
+            <select id="armRoleGripAndLift"></select>
+          </label>
+          <label>
+            Release
+            <select id="armRoleRelease"></select>
+          </label>
+          <label>
+            Pose settle (s)
+            <input id="armPoseSettle" type="number" min="0.0" max="5.0" step="0.05" value="0.45" />
+          </label>
+          <label>
+            Grip trigger Y ratio
+            <input id="armGripYRatio" type="number" min="0.05" max="0.95" step="0.01" value="0.30" />
+          </label>
+        </div>
+
+        <div class="button-row arm-role-buttons">
+          <button type="button" class="secondary arm-load-role" data-role="starting_position">Load start pose</button>
+          <button type="button" class="secondary arm-load-role" data-role="grip_ready">Load grip ready</button>
+          <button type="button" class="secondary arm-load-role" data-role="grip">Load grip</button>
+          <button type="button" class="secondary arm-load-role" data-role="grip_and_lift">Load grip and lift</button>
+          <button type="button" class="secondary arm-load-role" data-role="release">Load release</button>
+        </div>
+
+        <div id="armMessage" class="message"></div>
+        <div class="subtle">Auto sequence: load starting position when Mission 1 starts. When the Pi first locates the target class it loads grip ready. When the target is in the forward path and Y is below the configured threshold, it loads grip, then grip and lift.</div>
+      </section>
     </aside>
 
     <section class="main-stack">

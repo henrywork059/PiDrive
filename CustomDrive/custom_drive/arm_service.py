@@ -600,6 +600,66 @@ class ArmService:
         self.last_message = f'Arm {action_key} sent on channel {channel} -> {angle}°.'
         return True, self.last_message
 
+    def set_joint_angles(
+        self,
+        servo0: int | None = None,
+        servo1: int | None = None,
+        servo2: int | None = None,
+        *,
+        note: str = '',
+    ) -> tuple[bool, str]:
+        if not self.enabled:
+            self.last_message = 'Arm disabled in config.'
+            return False, self.last_message
+        if not self.available:
+            self.last_message = self.last_error or 'Arm backend is not available.'
+            return False, self.last_message
+
+        self.stop_motion()
+        self.stop_grip_motion()
+
+        applied: list[str] = []
+        try:
+            if servo0 is not None:
+                angle0 = max(0, min(180, int(servo0)))
+                self._apply_servo_angle(0, angle0)
+                self._current_servo_angles[0] = angle0
+                applied.append(f'servo0={angle0}°')
+            if servo1 is not None and self._servo_enabled(1):
+                angle1 = max(0, min(180, int(servo1)))
+                self._apply_servo_angle(1, angle1)
+                self._current_servo_angles[1] = angle1
+                applied.append(f'servo1={angle1}°')
+            if servo2 is not None:
+                angle2 = max(0, min(180, int(servo2)))
+                self._apply_grip_angle(angle2)
+                self._current_grip_angle = angle2
+                applied.append(f'servo2={angle2}°')
+        except Exception as exc:
+            self.last_error = str(exc)
+            self.last_message = f'Arm pose apply failed: {exc}'
+            return False, self.last_message
+
+        label = str(note or '').strip()
+        self.last_action = 'set_pose'
+        self.last_error = ''
+        self.last_action_at = time.time()
+        prefix = f'{label}: ' if label else ''
+        if applied:
+            self.last_message = f'{prefix}Applied arm pose -> ' + ', '.join(applied) + '.'
+        else:
+            self.last_message = f'{prefix}No arm joint values were provided.'
+        return True, self.last_message
+
+    def set_pose(self, pose: dict[str, Any], *, note: str = '') -> tuple[bool, str]:
+        pose_dict = dict(pose or {})
+        return self.set_joint_angles(
+            servo0=pose_dict.get('servo0'),
+            servo1=pose_dict.get('servo1'),
+            servo2=pose_dict.get('servo2'),
+            note=note,
+        )
+
     def status(self) -> dict[str, Any]:
         return {
             'enabled': bool(self.enabled),

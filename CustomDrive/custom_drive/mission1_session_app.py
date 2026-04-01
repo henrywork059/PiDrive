@@ -18,7 +18,9 @@ try:
 except Exception:  # pragma: no cover
     cv2 = None  # type: ignore
 
+from .arm_service import ArmService
 from .debug_tools import append_event, clamp_float, clamp_int
+from .manual_control_config import load_manual_control_config
 from .mission1_tflite_detector import Mission1TFLiteDetector
 from .models import Detection
 from .project_paths import CONFIG_DIR, CUSTOMDRIVE_ROOT, PISERVER_RUNTIME_PATH, ensure_piserver_import_paths
@@ -30,9 +32,23 @@ from piserver.services.camera_service import CameraService  # noqa: E402
 from piserver.services.motor_service import MotorService  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent / 'mission1_web'
-APP_VERSION = '0_4_15'
+APP_VERSION = '0_5_1'
 MISSION1_CONFIG_PATH = CONFIG_DIR / 'mission1_session.json'
 MISSION1_MODEL_DIR = CUSTOMDRIVE_ROOT / 'models' / 'mission1'
+
+
+def _default_arm_positions() -> dict[str, dict[str, int]]:
+    return {
+        '1': {'servo0': 110, 'servo1': 110, 'servo2': 130},
+        '2': {'servo0': 92, 'servo1': 92, 'servo2': 128},
+        '3': {'servo0': 92, 'servo1': 92, 'servo2': 72},
+        '4': {'servo0': 62, 'servo1': 62, 'servo2': 72},
+        '5': {'servo0': 110, 'servo1': 110, 'servo2': 130},
+        '6': {'servo0': 90, 'servo1': 90, 'servo2': 90},
+        '7': {'servo0': 90, 'servo1': 90, 'servo2': 90},
+        '8': {'servo0': 90, 'servo1': 90, 'servo2': 90},
+    }
+
 
 DEFAULT_MISSION1_CONFIG: dict[str, Any] = {
     'server': {
@@ -69,6 +85,19 @@ DEFAULT_MISSION1_CONFIG: dict[str, Any] = {
         'selected_model': '',
         'active_model': '',
     },
+    'arm': {
+        'enabled': True,
+        'pose_settle_s': 0.45,
+        'grip_trigger_y_ratio': 0.3,
+        'positions': _default_arm_positions(),
+        'roles': {
+            'starting_position': 1,
+            'grip_ready': 2,
+            'grip': 3,
+            'grip_and_lift': 4,
+            'release': 5,
+        },
+    },
 }
 
 _BOX_TARGET_COLOR = (20, 220, 255)
@@ -76,7 +105,14 @@ _BOX_NORMAL_COLOR = (70, 230, 120)
 _BOX_TEXT_COLOR = (245, 248, 255)
 _CENTER_LINE_COLOR = (140, 150, 170)
 _CENTER_BAND_COLOR = (40, 90, 160)
-
+ARM_STAGE_ORDER = {
+    'idle': 0,
+    'starting_position_loaded': 1,
+    'grip_ready_loaded': 2,
+    'grip_loaded': 3,
+    'grip_and_lift_loaded': 4,
+    'release_loaded': 5,
+}
 
 def _deep_merge(base: dict[str, Any], incoming: dict[str, Any]) -> dict[str, Any]:
     out = copy.deepcopy(base)
@@ -110,6 +146,7 @@ def normalize_mission1_config(data: dict[str, Any] | None) -> dict[str, Any]:
     drive = merged.get('drive') if isinstance(merged.get('drive'), dict) else {}
     camera = merged.get('camera') if isinstance(merged.get('camera'), dict) else {}
     ai = merged.get('ai') if isinstance(merged.get('ai'), dict) else {}
+    arm = merged.get('arm') if isinstance(merged.get('arm'), dict) else {}
 
     selected_model = str(ai.get('selected_model', '') or '').strip()
     if not selected_model:
@@ -128,6 +165,32 @@ def normalize_mission1_config(data: dict[str, Any] | None) -> dict[str, Any]:
         'target_reached_bottom_ratio',
     }
     legacy_drive_keys = {key: copy.deepcopy(value) for key, value in drive.items() if key not in known_drive_keys}
+
+    default_positions = _default_arm_positions()
+    positions_in = arm.get('positions') if isinstance(arm.get('positions'), dict) else {}
+    position_keys: set[str] = set(default_positions.keys())
+    for key in positions_in.keys():
+        key_text = str(key).strip()
+        if key_text.isdigit():
+            position_keys.add(str(max(1, min(99, int(key_text)))))
+    positions_out: dict[str, dict[str, int]] = {}
+    for key in sorted(position_keys, key=lambda item: int(item)):
+        source = positions_in.get(key) if isinstance(positions_in.get(key), dict) else {}
+        fallback = default_positions.get(key, {'servo0': 90, 'servo1': 90, 'servo2': 90})
+        positions_out[key] = {
+            'servo0': clamp_int(source.get('servo0', fallback.get('servo0', 90)), fallback.get('servo0', 90), 0, 180),
+            'servo1': clamp_int(source.get('servo1', fallback.get('servo1', 90)), fallback.get('servo1', 90), 0, 180),
+            'servo2': clamp_int(source.get('servo2', fallback.get('servo2', 90)), fallback.get('servo2', 90), 0, 180),
+        }
+
+    roles_in = arm.get('roles') if isinstance(arm.get('roles'), dict) else {}
+
+    def _role_position(key: str, default_value: int) -> int:
+        raw = roles_in.get(key, default_value)
+        normalized_value = clamp_int(raw, default_value, 1, 99)
+        if str(normalized_value) not in positions_out:
+            return int(sorted(positions_out.keys(), key=lambda item: int(item))[0])
+        return normalized_value
 
     normalized = {
         'server': {
@@ -162,6 +225,19 @@ def normalize_mission1_config(data: dict[str, Any] | None) -> dict[str, Any]:
         'ai': {
             'selected_model': selected_model,
             'active_model': selected_model,
+        },
+        'arm': {
+            'enabled': bool(arm.get('enabled', True)),
+            'pose_settle_s': round(clamp_float(arm.get('pose_settle_s', 0.45), 0.45, 0.0, 5.0), 3),
+            'grip_trigger_y_ratio': round(clamp_float(arm.get('grip_trigger_y_ratio', 0.3), 0.3, 0.05, 0.95), 3),
+            'positions': positions_out,
+            'roles': {
+                'starting_position': _role_position('starting_position', 1),
+                'grip_ready': _role_position('grip_ready', 2),
+                'grip': _role_position('grip', 3),
+                'grip_and_lift': _role_position('grip_and_lift', 4),
+                'release': _role_position('release', 5),
+            },
         },
     }
     normalized['drive'].update(legacy_drive_keys)
@@ -231,6 +307,7 @@ class Mission1SessionContext:
         self.detector = Mission1TFLiteDetector(MISSION1_MODEL_DIR)
         self.motor_service = MotorService()
         self.camera_service: CameraService | None = None
+        self.arm_service = ArmService(load_manual_control_config().get('arm', {}))
 
         self.events: list[dict[str, Any]] = []
         self.current_phase = 'idle'
@@ -254,10 +331,17 @@ class Mission1SessionContext:
         self.loaded_model_name = 'none'
         self.selected_model_name = self._selected_model_name()
         self.last_output_summary = ''
+        self.arm_sequence_state = 'idle'
+        self.arm_last_pose_role = ''
+        self.arm_last_pose_number = 0
+        self.arm_sequence_note = 'Mission arm sequence idle.'
+        self.arm_target_lock_engaged = False
 
         self._apply_motor_defaults()
         ready, message = self.detector.backend_ready()
         self._record(message, event_type='model', level='info' if ready else 'warning')
+        arm_status = self.arm_service.status()
+        self._record(arm_status.get('last_message', 'Mission arm ready.'), event_type='arm', level='info' if arm_status.get('available') else 'warning')
 
     def _record(self, message: str, *, level: str = 'info', event_type: str = 'runtime', **fields: Any) -> None:
         append_event(self.events, message, level=level, event_type=event_type, limit=250, **fields)
@@ -268,6 +352,74 @@ class Mission1SessionContext:
         if not selected:
             selected = str(ai_cfg.get('active_model', '') or '').strip()
         return selected
+
+    def _reload_arm_backend(self) -> dict[str, Any]:
+        manual_cfg = load_manual_control_config()
+        arm_cfg = manual_cfg.get('arm') if isinstance(manual_cfg.get('arm'), dict) else {}
+        return self.arm_service.reload(arm_cfg)
+
+    def _arm_config(self) -> dict[str, Any]:
+        cfg = self.get_config().get('arm')
+        return cfg if isinstance(cfg, dict) else {}
+
+    def _arm_positions(self) -> dict[str, dict[str, int]]:
+        positions = self._arm_config().get('positions')
+        return positions if isinstance(positions, dict) else {}
+
+    def _arm_pose_for_role(self, role: str) -> tuple[int, dict[str, int]] | tuple[None, None]:
+        arm_cfg = self._arm_config()
+        roles = arm_cfg.get('roles') if isinstance(arm_cfg.get('roles'), dict) else {}
+        positions = self._arm_positions()
+        role_value = roles.get(role, 0)
+        try:
+            pose_number = int(role_value)
+        except Exception:
+            pose_number = 0
+        pose = positions.get(str(pose_number)) if pose_number > 0 else None
+        if not isinstance(pose, dict):
+            return None, None
+        return pose_number, {
+            'servo0': clamp_int(pose.get('servo0', 90), 90, 0, 180),
+            'servo1': clamp_int(pose.get('servo1', 90), 90, 0, 180),
+            'servo2': clamp_int(pose.get('servo2', 90), 90, 0, 180),
+        }
+
+    def _arm_stage_at_least(self, stage_name: str) -> bool:
+        return ARM_STAGE_ORDER.get(self.arm_sequence_state, 0) >= ARM_STAGE_ORDER.get(stage_name, 0)
+
+    def _load_arm_role_pose(self, role: str, *, reason: str, settle: bool = True) -> tuple[bool, str]:
+        arm_cfg = self._arm_config()
+        if not bool(arm_cfg.get('enabled', True)):
+            message = 'Mission arm auto sequence disabled in Mission 1 config.'
+            self.arm_sequence_note = message
+            return False, message
+
+        pose_number, pose = self._arm_pose_for_role(role)
+        if pose_number is None or pose is None:
+            message = f'No saved arm pose is mapped for role: {role}'
+            self.arm_sequence_note = message
+            self._record(message, event_type='arm', level='warning', role=role)
+            return False, message
+
+        ok, message = self.arm_service.set_pose(pose, note=f'{role.replace("_", " ")} pose #{pose_number}')
+        level = 'info' if ok else 'warning'
+        self._record(message, event_type='arm', level=level, role=role, pose_number=pose_number, reason=reason, pose=pose)
+        if ok:
+            self.arm_sequence_state = f'{role}_loaded'
+            self.arm_last_pose_role = role
+            self.arm_last_pose_number = int(pose_number)
+            self.arm_sequence_note = f'{role.replace("_", " ")} pose #{pose_number} loaded ({reason}).'
+            if settle:
+                settle_s = float(arm_cfg.get('pose_settle_s', 0.45) or 0.45)
+                if settle_s > 0.0:
+                    time.sleep(min(5.0, max(0.0, settle_s)))
+        else:
+            self.arm_sequence_note = message
+        return ok, message
+
+    def _stop_with_note(self, note: str) -> None:
+        self.motor_service.stop()
+        self.last_command = {'mode': 'stop', 'steering': 0.0, 'throttle': 0.0, 'left': 0.0, 'right': 0.0, 'note': str(note)}
 
     def _apply_motor_defaults(self) -> None:
         runtime_cfg = self.config_store.load()
@@ -318,6 +470,10 @@ class Mission1SessionContext:
         self._shutdown_camera()
         try:
             self.motor_service.close()
+        except Exception:
+            pass
+        try:
+            self.arm_service.shutdown()
         except Exception:
             pass
 
@@ -372,6 +528,8 @@ class Mission1SessionContext:
             return False, f'Selected model does not exist: {selected_model}'
 
         self.stop_session(join=True)
+        arm_status = self._reload_arm_backend()
+        self._record(arm_status.get('last_message', 'Mission arm backend refreshed.'), event_type='arm', level='info' if arm_status.get('available') else 'warning')
         with self._lock:
             self.route_text = route_text
             self.route_steps = copy.deepcopy(steps)
@@ -391,6 +549,11 @@ class Mission1SessionContext:
             self.pipeline_cycle_time_ms = 0.0
             self.last_output_summary = ''
             self.loaded_model_name = 'none'
+            self.arm_sequence_state = 'idle'
+            self.arm_last_pose_role = ''
+            self.arm_last_pose_number = 0
+            self.arm_sequence_note = 'Mission arm sequence queued.'
+            self.arm_target_lock_engaged = False
             self.started_at = time.monotonic()
             self._stop_event.clear()
             self._thread = threading.Thread(target=self._run_session, name='mission1-session', daemon=True)
@@ -473,8 +636,68 @@ class Mission1SessionContext:
             self.motor_service.stop()
             self.last_command = {'mode': 'stop', 'steering': 0.0, 'throttle': 0.0, 'left': 0.0, 'right': 0.0, 'note': str(note)}
 
+    def _update_target_side(self, target_x: float, deadband_px: float) -> str:
+        if abs(target_x) < deadband_px:
+            return 'center'
+        return 'left' if target_x < 0.0 else 'right'
+
+    def _run_arm_follow_sequence(
+        self,
+        *,
+        target_class_id: int,
+        target_x: float,
+        target_y: float,
+        frame_w: int,
+        frame_h: int,
+        deadband_px: float,
+    ) -> bool:
+        arm_cfg = self._arm_config()
+        if not bool(arm_cfg.get('enabled', True)):
+            return False
+
+        if not self._arm_stage_at_least('grip_ready_loaded'):
+            self._load_arm_role_pose('grip_ready', reason=f'class {target_class_id} detected', settle=True)
+
+        grip_trigger_y_px = -float(frame_h) * float(arm_cfg.get('grip_trigger_y_ratio', 0.3) or 0.3)
+        centered = abs(target_x) < deadband_px
+        close_enough = target_y < grip_trigger_y_px
+
+        if self._arm_stage_at_least('grip_and_lift_loaded'):
+            self.arm_target_lock_engaged = True
+            self.target_side = self._update_target_side(target_x, deadband_px)
+            self.car_turn_direction = 'stopped'
+            self._stop_with_note(f'class {target_class_id} captured -> holding after grip and lift')
+            self.detail = (
+                f'Target class {target_class_id} aligned at x={target_x:.1f}, y={target_y:.1f}. '
+                f'Grip and lift pose already loaded; motors held stopped.'
+            )
+            self.last_output_summary = self.detail
+            return True
+
+        if centered and close_enough:
+            self.arm_target_lock_engaged = True
+            self.target_side = 'center'
+            self.car_turn_direction = 'stopped'
+            self._stop_with_note(f'class {target_class_id} centered and low in frame -> arm grip sequence')
+            if not self._arm_stage_at_least('grip_loaded'):
+                self._load_arm_role_pose('grip', reason=f'class {target_class_id} centered and y={target_y:.1f}', settle=True)
+            if not self._arm_stage_at_least('grip_and_lift_loaded'):
+                self._load_arm_role_pose('grip_and_lift', reason=f'class {target_class_id} grip complete', settle=True)
+            self.detail = (
+                f'Target class {target_class_id} is in the forward path and y={target_y:.1f} px '
+                f'(< -{float(frame_h) * float(arm_cfg.get("grip_trigger_y_ratio", 0.3) or 0.3):.1f}). '
+                'Grip then grip-and-lift pose loaded.'
+            )
+            self.last_output_summary = self.detail
+            return True
+
+        return False
+
     def _run_session(self) -> None:
         try:
+            self._load_arm_role_pose('starting_position', reason='mission start', settle=True)
+            if self._stop_event.is_set():
+                return
             self._run_start_route()
             if self._stop_event.is_set():
                 return
@@ -620,8 +843,9 @@ class Mission1SessionContext:
                 self.target_found = False
                 self.target_side = 'not found'
                 self.car_turn_direction = 'stopped'
-                self.motor_service.stop()
-                self.last_command = {'mode': 'stop', 'steering': 0.0, 'throttle': 0.0, 'left': 0.0, 'right': 0.0, 'note': f'waiting for class {target_class_id}'}
+                if not self._arm_stage_at_least('grip_and_lift_loaded'):
+                    self.arm_target_lock_engaged = False
+                self._stop_with_note(f'waiting for class {target_class_id}')
                 self.last_output_summary = f'AI output returned {len(detection_rows)} object(s). Target class {target_class_id} not found.'
                 self.detail = self.last_output_summary
             else:
@@ -630,23 +854,33 @@ class Mission1SessionContext:
                 target_y = float(target['center']['y'])
                 deadband_px = max(1.0, float(frame_w) * x_deadband_ratio)
                 turn_speed = min(turn_speed_max, abs(target_x) * turn_k)
-                self.target_side = 'center' if abs(target_x) < deadband_px else ('left' if target_x < 0.0 else 'right')
-                if abs(target_x) < deadband_px:
-                    self.car_turn_direction = 'forward'
-                    self._drive_forward(forward_speed, f'class {target_class_id} centered -> forward')
-                elif target_x < 0.0:
-                    self.car_turn_direction = 'left'
-                    self._turn_in_place('left', turn_speed, f'class {target_class_id} x={target_x:.1f} -> left turn')
-                else:
-                    self.car_turn_direction = 'right'
-                    self._turn_in_place('right', turn_speed, f'class {target_class_id} x={target_x:.1f} -> right turn')
-                self.last_output_summary = (
-                    f'AI output returned {len(detection_rows)} object(s). '
-                    f'Target class {target_class_id} center=({target_x:.1f}, {target_y:.1f})px '
-                    f'box={target["box"]["width"]:.1f}x{target["box"]["height"]:.1f}px '
-                    f'conf={target["confidence"]:.3f}.'
+                self.target_side = self._update_target_side(target_x, deadband_px)
+                arm_handled = self._run_arm_follow_sequence(
+                    target_class_id=target_class_id,
+                    target_x=target_x,
+                    target_y=target_y,
+                    frame_w=frame_w,
+                    frame_h=frame_h,
+                    deadband_px=deadband_px,
                 )
-                self.detail = self.last_output_summary
+                if not arm_handled:
+                    self.arm_target_lock_engaged = False
+                    if abs(target_x) < deadband_px:
+                        self.car_turn_direction = 'forward'
+                        self._drive_forward(forward_speed, f'class {target_class_id} centered -> forward')
+                    elif target_x < 0.0:
+                        self.car_turn_direction = 'left'
+                        self._turn_in_place('left', turn_speed, f'class {target_class_id} x={target_x:.1f} -> left turn')
+                    else:
+                        self.car_turn_direction = 'right'
+                        self._turn_in_place('right', turn_speed, f'class {target_class_id} x={target_x:.1f} -> right turn')
+                    self.last_output_summary = (
+                        f'AI output returned {len(detection_rows)} object(s). '
+                        f'Target class {target_class_id} center=({target_x:.1f}, {target_y:.1f})px '
+                        f'box={target["box"]["width"]:.1f}x{target["box"]["height"]:.1f}px '
+                        f'conf={target["confidence"]:.3f}.'
+                    )
+                    self.detail = self.last_output_summary
 
             annotated = self._annotate_frame(frame, detection_rows, target_class_id)
             self.annotated_jpeg = self._encode_jpeg(annotated)
@@ -812,6 +1046,14 @@ class Mission1SessionContext:
                 'fps': round(float(self.pipeline_fps), 3),
                 'cycle_time_ms': round(float(self.pipeline_cycle_time_ms), 2),
             },
+            'arm_sequence': {
+                'state': self.arm_sequence_state,
+                'last_pose_role': self.arm_last_pose_role,
+                'last_pose_number': self.arm_last_pose_number,
+                'note': self.arm_sequence_note,
+                'target_lock_engaged': bool(self.arm_target_lock_engaged),
+            },
+            'arm_status': self.arm_service.status(),
             'motor_config': self.motor_service.get_config(),
             'last_error': self.last_error,
             'app_version': APP_VERSION,
@@ -887,6 +1129,18 @@ def create_mission1_session_app() -> Flask:
         if not name:
             return jsonify({'ok': False, 'message': 'Model name is required.'}), 400
         ok, message = ctx.select_model(name)
+        code = 200 if ok else 400
+        return jsonify({'ok': ok, 'message': message, 'status': ctx.status_payload()}), code
+
+    @app.route('/api/arm/load_role', methods=['POST'])
+    def api_arm_load_role():
+        data = request.get_json(silent=True) or {}
+        role = str(data.get('role') or '').strip()
+        if not role:
+            return jsonify({'ok': False, 'message': 'Arm role is required.', 'status': ctx.status_payload()}), 400
+        arm_status = ctx._reload_arm_backend()
+        ctx._record(arm_status.get('last_message', 'Mission arm backend refreshed.'), event_type='arm', level='info' if arm_status.get('available') else 'warning')
+        ok, message = ctx._load_arm_role_pose(role, reason='manual web load', settle=True)
         code = 200 if ok else 400
         return jsonify({'ok': ok, 'message': message, 'status': ctx.status_payload()}), code
 

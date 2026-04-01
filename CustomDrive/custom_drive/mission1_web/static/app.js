@@ -45,9 +45,108 @@ function setMessage(id, message, isError = false) {
   el.classList.toggle('error', Boolean(isError));
 }
 
+function defaultArmPositions() {
+  return {
+    '1': { servo0: 110, servo1: 110, servo2: 130 },
+    '2': { servo0: 92, servo1: 92, servo2: 128 },
+    '3': { servo0: 92, servo1: 92, servo2: 72 },
+    '4': { servo0: 62, servo1: 62, servo2: 72 },
+    '5': { servo0: 110, servo1: 110, servo2: 130 },
+    '6': { servo0: 90, servo1: 90, servo2: 90 },
+    '7': { servo0: 90, servo1: 90, servo2: 90 },
+    '8': { servo0: 90, servo1: 90, servo2: 90 },
+  };
+}
+
+function normalizeArmPositions(positions) {
+  const defaults = defaultArmPositions();
+  const merged = { ...defaults, ...(positions || {}) };
+  const keys = Object.keys(merged)
+    .filter((key) => /^\d+$/.test(String(key)))
+    .sort((a, b) => Number(a) - Number(b));
+  const out = {};
+  for (const key of keys) {
+    const source = merged[key] || {};
+    const fallback = defaults[key] || { servo0: 90, servo1: 90, servo2: 90 };
+    out[key] = {
+      servo0: Number(source.servo0 ?? fallback.servo0 ?? 90),
+      servo1: Number(source.servo1 ?? fallback.servo1 ?? 90),
+      servo2: Number(source.servo2 ?? fallback.servo2 ?? 90),
+    };
+  }
+  return out;
+}
+
+function renderArmConfig(armConfig) {
+  const positions = normalizeArmPositions(armConfig?.positions || {});
+  const roles = armConfig?.roles || {};
+  const body = document.getElementById('armPositionsBody');
+  body.innerHTML = '';
+  for (const key of Object.keys(positions)) {
+    const pose = positions[key];
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td class="arm-pose-id">${escapeHtml(key)}</td>
+      <td><input class="arm-angle" data-position="${escapeHtml(key)}" data-servo="servo0" type="number" min="0" max="180" step="1" value="${escapeHtml(pose.servo0)}" /></td>
+      <td><input class="arm-angle" data-position="${escapeHtml(key)}" data-servo="servo1" type="number" min="0" max="180" step="1" value="${escapeHtml(pose.servo1)}" /></td>
+      <td><input class="arm-angle" data-position="${escapeHtml(key)}" data-servo="servo2" type="number" min="0" max="180" step="1" value="${escapeHtml(pose.servo2)}" /></td>
+    `;
+    body.appendChild(row);
+  }
+
+  const selectMap = {
+    armRoleStarting: roles.starting_position ?? 1,
+    armRoleGripReady: roles.grip_ready ?? 2,
+    armRoleGrip: roles.grip ?? 3,
+    armRoleGripAndLift: roles.grip_and_lift ?? 4,
+    armRoleRelease: roles.release ?? 5,
+  };
+  for (const [id, selected] of Object.entries(selectMap)) {
+    const select = document.getElementById(id);
+    select.innerHTML = '';
+    for (const key of Object.keys(positions)) {
+      const option = document.createElement('option');
+      option.value = key;
+      option.textContent = `Pose ${key}`;
+      option.selected = Number(selected) === Number(key);
+      select.appendChild(option);
+    }
+  }
+
+  document.getElementById('armPoseSettle').value = armConfig?.pose_settle_s ?? 0.45;
+  document.getElementById('armGripYRatio').value = armConfig?.grip_trigger_y_ratio ?? 0.30;
+}
+
+function collectArmConfig() {
+  const positions = {};
+  document.querySelectorAll('#armPositionsBody input.arm-angle').forEach((input) => {
+    const position = String(input.dataset.position || '').trim();
+    const servo = String(input.dataset.servo || '').trim();
+    if (!position || !servo) return;
+    if (!positions[position]) {
+      positions[position] = {};
+    }
+    positions[position][servo] = Number(input.value || 0);
+  });
+  return {
+    enabled: true,
+    pose_settle_s: Number(document.getElementById('armPoseSettle').value || 0.45),
+    grip_trigger_y_ratio: Number(document.getElementById('armGripYRatio').value || 0.30),
+    positions,
+    roles: {
+      starting_position: Number(document.getElementById('armRoleStarting').value || 1),
+      grip_ready: Number(document.getElementById('armRoleGripReady').value || 2),
+      grip: Number(document.getElementById('armRoleGrip').value || 3),
+      grip_and_lift: Number(document.getElementById('armRoleGripAndLift').value || 4),
+      release: Number(document.getElementById('armRoleRelease').value || 5),
+    },
+  };
+}
+
 function populateConfig(config) {
   const session = config.session || {};
   const drive = config.drive || {};
+  const arm = config.arm || {};
   document.getElementById('routeText').value = session.route_text || '';
   document.getElementById('targetClassId').value = session.target_class_id ?? 1;
   document.getElementById('confidenceThreshold').value = session.confidence_threshold ?? 0.25;
@@ -57,6 +156,7 @@ function populateConfig(config) {
   document.getElementById('turnK').value = drive.turn_k ?? 0.005;
   document.getElementById('turnSpeedMax').value = drive.turn_speed_max ?? drive.max_steering ?? 0.75;
   document.getElementById('deadbandRatio').value = drive.target_x_deadband_ratio ?? 0.05;
+  renderArmConfig(arm);
 }
 
 function collectConfig() {
@@ -74,8 +174,10 @@ function collectConfig() {
       turn_speed_max: Number(document.getElementById('turnSpeedMax').value || 0.75),
       target_x_deadband_ratio: Number(document.getElementById('deadbandRatio').value || 0.05),
     },
+    arm: collectArmConfig(),
   };
 }
+
 
 function renderModelList(status) {
   const select = document.getElementById('modelSelect');
@@ -131,6 +233,7 @@ function renderSummaryCards(status) {
   const camera = status.camera || {};
   const target = status.target_detection || {};
   const targetCenter = target.center || {};
+  const armSequence = status.arm_sequence || {};
   const items = [
     { label: 'Phase', value: status.phase || 'idle' },
     { label: 'Objects', value: String(detections.length) },
@@ -138,6 +241,8 @@ function renderSummaryCards(status) {
     { label: 'Car turn', value: status.car_turn_direction || '-' },
     { label: 'Target X', value: fmtShort(targetCenter.x, 1) },
     { label: 'Pipeline FPS', value: `${fmtShort(pipeline.fps || 0, 2)} fps` },
+    { label: 'Arm stage', value: armSequence.state || 'idle' },
+    { label: 'Arm pose', value: armSequence.last_pose_number ? `#${armSequence.last_pose_number}` : '-' },
     { label: 'Camera FPS', value: `${fmtShort(camera.fps || 0, 1)} fps` },
     { label: 'Loaded model', value: status.loaded_model || 'none' },
   ];
@@ -158,6 +263,9 @@ function renderStatus(status) {
   const targetCenter = target.center || {};
   const targetBox = target.box || {};
   const deadbandRatio = Number(status.config?.drive?.target_x_deadband_ratio || 0.05);
+  const armSequence = status.arm_sequence || {};
+  const armStatus = status.arm_status || {};
+  const armConfig = status.config?.arm || {};
   statusEl.innerHTML = `
     <div class="status-grid">
       <div class="status-label">Running</div><div>${escapeHtml(status.running)}</div>
@@ -174,10 +282,15 @@ function renderStatus(status) {
       <div class="status-label">Target center</div><div>x=${fmt(targetCenter.x, 1)} y=${fmt(targetCenter.y, 1)}</div>
       <div class="status-label">Target box</div><div>w=${fmt(targetBox.width, 1)} h=${fmt(targetBox.height, 1)}</div>
       <div class="status-label">Forward deadband</div><div>${fmt(deadbandRatio * 100, 1)}% of frame width</div>
+      <div class="status-label">Arm backend</div><div>enabled=${escapeHtml(armStatus.enabled ?? false)} | available=${escapeHtml(armStatus.available ?? false)} | ${escapeHtml(armStatus.backend || 'disabled')}</div>
+      <div class="status-label">Arm sequence</div><div>${escapeHtml(armSequence.state || 'idle')} | ${escapeHtml(armSequence.note || '-')}</div>
+      <div class="status-label">Arm pose map</div><div>start=#${escapeHtml(armConfig.roles?.starting_position ?? '-')} ready=#${escapeHtml(armConfig.roles?.grip_ready ?? '-')} grip=#${escapeHtml(armConfig.roles?.grip ?? '-')} lift=#${escapeHtml(armConfig.roles?.grip_and_lift ?? '-')} release=#${escapeHtml(armConfig.roles?.release ?? '-')}</div>
+      <div class="status-label">Arm angles</div><div>servo0=${fmt(armStatus.servo0_angle, 0)} servo1=${fmt(armStatus.servo1_angle, 0)} servo2=${fmt(armStatus.grip_angle, 0)}</div>
       <div class="status-label">Command</div><div>left=${fmt(status.last_command?.left, 2)} right=${fmt(status.last_command?.right, 2)} note=${escapeHtml(status.last_command?.note || '')}</div>
       <div class="status-label">Motor GPIO</div><div>${escapeHtml(motor.gpio_available ?? false)}</div>
       <div class="status-label">Output summary</div><div>${escapeHtml(status.last_output_summary || '-')}</div>
-      <div class="status-label">Last error</div><div>${escapeHtml(status.last_error || camera.error || '-')}</div>
+      <div class="status-label">Arm status</div><div>${escapeHtml(armStatus.last_message || '-')}</div>
+      <div class="status-label">Last error</div><div>${escapeHtml(status.last_error || camera.error || armStatus.last_error || '-')}</div>
     </div>
   `;
 
@@ -263,7 +376,7 @@ function renderViewer(status) {
     svg.style.display = 'block';
     video.src = `/api/frame.jpg?t=${Date.now()}`;
     renderOverlay(status);
-    note.textContent = `Showing Pi-generated annotated frame plus web overlay boxes from the latest detection list. Target side: ${status.target_side || 'none'}. Car turn: ${status.car_turn_direction || 'stopped'}.`;
+    note.textContent = `Showing Pi-generated annotated frame plus web overlay boxes from the latest detection list. Target side: ${status.target_side || 'none'}. Car turn: ${status.car_turn_direction || 'stopped'}. Arm stage: ${status.arm_sequence?.state || 'idle'}.`;
   } else if (phase === 'start_route' || phase === 'route_pending') {
     video.style.display = 'none';
     svg.style.display = 'none';
@@ -282,9 +395,11 @@ async function saveConfig() {
     const data = await postJSON('/api/config', collectConfig());
     populateConfig(data.config || {});
     setMessage('configMessage', data.message || 'Mission 1 config saved.');
+    setMessage('armMessage', 'Mission 1 arm pose config saved.');
     await refresh();
   } catch (err) {
     setMessage('configMessage', err.message || 'Failed to save config.', true);
+    setMessage('armMessage', err.message || 'Failed to save Mission 1 arm pose config.', true);
   }
 }
 
@@ -351,6 +466,17 @@ async function loadSelectedModel() {
   }
 }
 
+async function loadArmRole(role) {
+  try {
+    await saveConfig();
+    const data = await postJSON('/api/arm/load_role', { role });
+    setMessage('armMessage', data.message || `Loaded ${role} pose.`);
+    await refresh();
+  } catch (err) {
+    setMessage('armMessage', err.message || `Failed to load ${role} pose.`, true);
+  }
+}
+
 async function refresh() {
   try {
     const status = await fetchJSON('/api/status');
@@ -378,5 +504,8 @@ document.getElementById('startBtn').onclick = startMission;
 document.getElementById('stopBtn').onclick = stopMission;
 document.getElementById('uploadModelBtn').onclick = uploadModel;
 document.getElementById('loadModelBtn').onclick = loadSelectedModel;
+document.querySelectorAll('.arm-load-role').forEach((button) => {
+  button.onclick = () => loadArmRole(String(button.dataset.role || ''));
+});
 
 init();
