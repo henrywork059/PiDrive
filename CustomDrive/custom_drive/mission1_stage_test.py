@@ -80,8 +80,14 @@ def load_config(path: Path = CONFIG_PATH) -> Mission1StageTestConfig:
     return cfg
 
 
+def save_config(cfg: Mission1StageTestConfig, path: Path = CONFIG_PATH) -> None:
+    payload = {key: getattr(cfg, key) for key in cfg.__dataclass_fields__}
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2) + '\n', encoding='utf-8')
+
+
 def build_arg_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description='Mission 1 stage test: forward 6s, right turn 5s, forward 6s.')
+    parser = argparse.ArgumentParser(description='Mission 1 stage test runner with configurable leg timings.')
     parser.add_argument('--mode', choices=['sim', 'live'], help='Override mode from config/mission1_stage_test.json')
     parser.add_argument('--tick', type=float, help='Loop interval in seconds')
     parser.add_argument('--forward-throttle', type=float, help='Throttle used for both forward legs')
@@ -91,6 +97,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument('--turn-right', dest='turn_right_duration_s', type=float, help='Right-turn-leg duration in seconds')
     parser.add_argument('--forward-2', dest='forward_2_duration_s', type=float, help='Second forward-leg duration in seconds')
     parser.add_argument('--settle-stop', type=float, help='Extra stop time after the route finishes')
+    parser.add_argument('--save-config', action='store_true', help='Save the resolved settings back into config/mission1_stage_test.json and exit')
+    parser.add_argument('--run-and-save', action='store_true', help='Save the resolved settings to config/mission1_stage_test.json before running')
     parser.add_argument('--info', action='store_true', help='Print the resolved route settings and exit')
     return parser
 
@@ -227,7 +235,12 @@ def run_route(cfg: Mission1StageTestConfig) -> int:
 
     print('=== Mission 1 stage test started ===')
     print_config_summary(cfg)
-    print('Testing sequence: forward 2s -> turn right 2s -> forward 2s')
+    print(
+        'Testing sequence: '
+        f'forward {cfg.forward_1_duration_s:.2f}s -> '
+        f'turn right {cfg.turn_right_duration_s:.2f}s -> '
+        f'forward {cfg.forward_2_duration_s:.2f}s'
+    )
     try:
         follower.start(route_name, bridge.now())
         while True:
@@ -260,6 +273,14 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         cfg = apply_cli_overrides(load_config(), args)
+        if args.save_config:
+            save_config(cfg)
+            print_config_summary(cfg)
+            print(f'\nSaved updated stage-test config to: {CONFIG_PATH}')
+            return 0
+        if args.run_and_save:
+            save_config(cfg)
+            print(f'Saved updated stage-test config to: {CONFIG_PATH}')
         if args.info:
             print_config_summary(cfg)
             return 0
