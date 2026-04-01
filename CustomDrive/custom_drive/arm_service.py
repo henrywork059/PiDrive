@@ -54,8 +54,12 @@ class ArmService:
         self.backend = str(cfg.get('backend', 'pca9685') or 'pca9685').strip().lower()
         self.enabled = bool(cfg.get('enabled', True))
         self.available = False
-        self._current_lift_angle = self._angle('lift_default_angle', self._angle('lift_down_angle', 90))
-        self._current_grip_angle = self._angle('grip_default_angle', 90)
+        # Use the normalized configured arm hold positions on reload.
+        # Older code looked for non-normalized *_default_angle keys and fell back
+        # to 90° for the gripper, which could leave the gripper in an unintended
+        # startup position even when grip_hold_angle was configured.
+        self._current_lift_angle = self._angle('lift_down_angle', 90)
+        self._current_grip_angle = self._angle('grip_hold_angle', 70)
 
         if not self.enabled:
             self.backend = self.backend or 'disabled'
@@ -199,6 +203,12 @@ class ArmService:
     def _grip_step_interval_s(self) -> float:
         return max(0.02, min(1.0, self._grip_step_angle() / self._grip_rate_deg_per_s()))
 
+    def _lift_action_name_for_direction(self, direction: int) -> str:
+        return 'up' if direction == self._lift_up_direction() else 'down'
+
+    def _grip_action_name_for_direction(self, direction: int) -> str:
+        return 'open' if direction == self._grip_open_direction() else 'close'
+
     def _hold_refresh_loop(self) -> None:
         while not self._hold_stop.wait(self._hold_refresh_interval_s()):
             if not self.enabled or not self.available:
@@ -285,7 +295,7 @@ class ArmService:
             step = self._step_angle() * direction
             next_angle = int(max(0, min(180, self._current_lift_angle + step)))
             if next_angle == self._current_lift_angle:
-                self.last_action = 'up' if direction < 0 else 'down'
+                self.last_action = self._lift_action_name_for_direction(direction)
                 self.last_action_at = time.time()
                 self.last_error = ''
                 self.last_message = f'Lift limit reached at {self._current_lift_angle}°.'
@@ -294,7 +304,7 @@ class ArmService:
             try:
                 self._apply_lift_angle(next_angle)
                 self._current_lift_angle = next_angle
-                self.last_action = 'up' if direction < 0 else 'down'
+                self.last_action = self._lift_action_name_for_direction(direction)
                 self.last_action_at = time.time()
                 self.last_error = ''
                 self.last_message = f'Lift moving {self.last_action}: {self._current_lift_angle}°.'
@@ -318,7 +328,7 @@ class ArmService:
             step = self._grip_step_angle() * direction
             next_angle = int(max(0, min(180, self._current_grip_angle + step)))
             if next_angle == self._current_grip_angle:
-                self.last_action = 'open' if direction < 0 else 'close'
+                self.last_action = self._grip_action_name_for_direction(direction)
                 self.last_action_at = time.time()
                 self.last_error = ''
                 self.last_message = f'Gripper limit reached at {self._current_grip_angle}° on channel 2.'
@@ -327,7 +337,7 @@ class ArmService:
             try:
                 self._apply_grip_angle(next_angle)
                 self._current_grip_angle = next_angle
-                self.last_action = 'open' if direction < 0 else 'close'
+                self.last_action = self._grip_action_name_for_direction(direction)
                 self.last_action_at = time.time()
                 self.last_error = ''
                 self.last_message = f'Gripper moving {self.last_action}: ch2 -> {self._current_grip_angle}°.'
@@ -510,9 +520,9 @@ class ArmService:
             'grip_angle': int(self._current_grip_angle),
             'hold_refresh_enabled': bool(self._hold_refresh_enabled()),
             'hold_refresh_interval_s': float(self._hold_refresh_interval_s()),
-            'hold_refresh_running': bool(self._hold_thread is not None),
-            'moving': bool(self._move_thread is not None),
-            'grip_moving': bool(self._grip_thread is not None),
+            'hold_refresh_running': bool(self._hold_thread is not None and self._hold_thread.is_alive()),
+            'moving': bool(self._move_thread is not None and self._move_thread.is_alive()),
+            'grip_moving': bool(self._grip_thread is not None and self._grip_thread.is_alive()),
         }
 
     def up(self) -> bool:
