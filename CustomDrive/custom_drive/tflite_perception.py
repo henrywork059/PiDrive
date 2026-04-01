@@ -257,6 +257,101 @@ def _decode_rows(arr: np.ndarray, *, conf_threshold: float, input_size: int, has
     )
 
 
+def _coerce_xyxy(box: np.ndarray, *, input_size: int, order: str) -> np.ndarray:
+    coords = box.astype(np.float32).copy()
+    if np.max(np.abs(coords)) <= 2.0:
+        coords *= float(input_size)
+    if order == 'xyxy':
+        x1, y1, x2, y2 = coords.tolist()
+    else:
+        y1, x1, y2, x2 = coords.tolist()
+    if x2 < x1:
+        x1, x2 = x2, x1
+    if y2 < y1:
+        y1, y2 = y2, y1
+    return np.array([x1, y1, x2, y2], dtype=np.float32)
+
+
+def _decode_six_column_variant(
+    arr: np.ndarray,
+    *,
+    conf_threshold: float,
+    num_classes: int,
+    input_size: int,
+    score_col: int,
+    class_col: int,
+    coord_order: str,
+    variant_name: str,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, dict[str, Any]]:
+    if arr.ndim != 2 or arr.shape[1] != 6:
+        return np.empty((0, 4), dtype=np.float32), np.empty((0,), dtype=np.float32), np.empty((0,), dtype=np.int32), {
+            'candidate_count': 0,
+            'decoded_count': 0,
+            'class_count': int(max(num_classes, 0)),
+            'score_max': 0.0,
+            'score_mean': 0.0,
+            'score_col': int(score_col),
+            'class_col': int(class_col),
+            'coord_order': coord_order,
+            'selected_variant': variant_name,
+        }
+    score_values = arr[:, score_col].astype(np.float32)
+    class_values = arr[:, class_col].astype(np.float32)
+    finite_scores = score_values[np.isfinite(score_values)]
+    score_max = float(finite_scores.max()) if finite_scores.size else 0.0
+    score_mean = float(finite_scores.mean()) if finite_scores.size else 0.0
+    keep = np.isfinite(score_values) & (score_values >= conf_threshold)
+    kept_idx = np.where(keep)[0]
+    boxes = []
+    scores = []
+    class_ids = []
+    inferred_class_count = int(max(num_classes, 0))
+    for idx in kept_idx.tolist():
+        row = arr[idx]
+        class_id = int(max(0.0, class_values[idx]))
+        inferred_class_count = max(inferred_class_count, class_id + 1)
+        boxes.append(_coerce_xyxy(row[:4], input_size=input_size, order=coord_order))
+        scores.append(float(score_values[idx]))
+        class_ids.append(class_id)
+    if not boxes:
+        inferred = class_values[np.isfinite(class_values)]
+        if inferred.size:
+            inferred_class_count = max(inferred_class_count, int(np.max(inferred)) + 1)
+        return (
+            np.empty((0, 4), dtype=np.float32),
+            np.empty((0,), dtype=np.float32),
+            np.empty((0,), dtype=np.int32),
+            {
+                'candidate_count': int(arr.shape[0]),
+                'decoded_count': 0,
+                'class_count': inferred_class_count,
+                'score_max': score_max,
+                'score_mean': score_mean,
+                'score_col': int(score_col),
+                'class_col': int(class_col),
+                'coord_order': coord_order,
+                'selected_variant': variant_name,
+            },
+        )
+    score_arr = np.array(scores, dtype=np.float32)
+    return (
+        np.stack(boxes).astype(np.float32),
+        score_arr,
+        np.array(class_ids, dtype=np.int32),
+        {
+            'candidate_count': int(arr.shape[0]),
+            'decoded_count': len(boxes),
+            'class_count': inferred_class_count,
+            'score_max': float(score_arr.max()) if score_arr.size else score_max,
+            'score_mean': float(score_arr.mean()) if score_arr.size else score_mean,
+            'score_col': int(score_col),
+            'class_col': int(class_col),
+            'coord_order': coord_order,
+            'selected_variant': variant_name,
+        },
+    )
+
+
 def parse_output(output: np.ndarray, conf_threshold: float, num_classes: int, input_size: int, model_type: str = 'yolo_detect'):
     debug: dict[str, Any] = {
         'raw_shape': list(np.asarray(output).shape),
@@ -267,6 +362,9 @@ def parse_output(output: np.ndarray, conf_threshold: float, num_classes: int, in
         'class_count': int(max(num_classes, 0)),
         'score_max': 0.0,
         'score_mean': 0.0,
+        'score_col': -1,
+        'class_col': -1,
+        'coord_order': 'unknown',
     }
     arr, layout = _normalize_output_2d(output)
     debug['layout'] = layout
@@ -274,19 +372,36 @@ def parse_output(output: np.ndarray, conf_threshold: float, num_classes: int, in
         return np.empty((0, 4), dtype=np.float32), np.empty((0,), dtype=np.float32), np.empty((0,), dtype=np.int32), debug
 
     if arr.ndim == 2 and arr.shape[-1] == 6:
-        boxes = arr[:, :4].astype(np.float32)
-        scores = arr[:, 4].astype(np.float32)
-        classes = arr[:, 5].astype(np.int32)
-        keep = scores >= conf_threshold
-        debug.update({
-            'selected_variant': 'xyxy_score_class',
-            'candidate_count': int(arr.shape[0]),
-            'decoded_count': int(np.sum(keep)),
-            'class_count': int(max(classes.max() + 1, num_classes) if classes.size else max(num_classes, 0)),
-            'score_max': float(scores.max()) if scores.size else 0.0,
-            'score_mean': float(scores.mean()) if scores.size else 0.0,
-        })
-        return boxes[keep], scores[keep], classes[keep], debug
+        variants = []
+        for score_col, class_col, coord_order, variant_name in [
+            (4, 5, 'xyxy', 'xyxy_score_class'),
+            (5, 4, 'xyxy', 'xyxy_class_score'),
+            (4, 5, 'yxyx', 'yxyx_score_class'),
+            (5, 4, 'yxyx', 'yxyx_class_score'),
+        ]:
+            boxes_v, scores_v, classes_v, info_v = _decode_six_column_variant(
+                arr,
+                conf_threshold=conf_threshold,
+                num_classes=num_classes,
+                input_size=input_size,
+                score_col=score_col,
+                class_col=class_col,
+                coord_order=coord_order,
+                variant_name=variant_name,
+            )
+            variants.append((variant_name, boxes_v, scores_v, classes_v, info_v))
+        selected = max(
+            variants,
+            key=lambda item: (
+                item[4].get('decoded_count', 0),
+                item[4].get('score_max', 0.0),
+                1 if item[4].get('score_col', -1) == 5 else 0,
+            ),
+        )
+        variant_name, boxes, scores, classes, info = selected
+        debug.update(info)
+        debug['selected_variant'] = variant_name
+        return boxes, scores, classes, debug
 
     if arr.ndim != 2 or arr.shape[1] < 5:
         debug['selected_variant'] = 'unsupported'
@@ -319,7 +434,6 @@ def parse_output(output: np.ndarray, conf_threshold: float, num_classes: int, in
         return np.empty((0, 4), dtype=np.float32), np.empty((0,), dtype=np.float32), np.empty((0,), dtype=np.int32), debug
 
     variant_name, boxes, scores, classes, info = selected
-    # If the preferred interpretation found nothing but the other one did, automatically use the better one.
     for alt in variants:
         if alt is selected:
             continue
@@ -393,7 +507,7 @@ class TFLitePerception:
 
         config = bundle.config or {}
         loaded_labels = load_labels(bundle.labels_path)
-        labels_mode = 'file'
+        labels_mode = 'file' if loaded_labels else 'missing'
         model_type = str(config.get('model_type', 'yolo_detect') or 'yolo_detect').strip() or 'yolo_detect'
         configured_size = int(input_size or config.get('image_size', 0) or 0)
         input_details = interpreter.get_input_details()[0]
@@ -403,22 +517,6 @@ class TFLitePerception:
         except Exception:
             tensor_size = 0
         resolved_size = tensor_size or configured_size or 640
-
-        # When labels.txt is missing, keep the pipeline working by synthesizing stable class names
-        # from the output shape. This preserves real labels when they exist and only falls back for debug.
-        arr_shape = []
-        if output_details:
-            arr_shape = list(output_details[0].get('shape', []))
-        if not loaded_labels and len(arr_shape) >= 3:
-            channels = int(arr_shape[-2] if arr_shape[-2] < arr_shape[-1] else arr_shape[-1])
-            inferred_classes = max(channels - 4, 1) if channels >= 5 else 0
-            if inferred_classes:
-                loaded_labels = [f'class_{idx}' for idx in range(inferred_classes)]
-                labels_mode = 'synthetic'
-        elif loaded_labels:
-            labels_mode = 'file'
-        else:
-            labels_mode = 'missing'
 
         with self._lock:
             self.interpreter = interpreter
@@ -516,7 +614,17 @@ class TFLitePerception:
         start = cv2.getTickCount() if cv2 is not None else 0.0
         interpreter.set_tensor(input_details['index'], inp)
         interpreter.invoke()
-        output = interpreter.get_tensor(output_detail['index'])
+        output = np.array(interpreter.get_tensor(output_detail['index']), copy=True)
+        quant = output_detail.get('quantization_parameters') or {}
+        scales = np.array(quant.get('scales', []), dtype=np.float32) if np is not None else None
+        zero_points = np.array(quant.get('zero_points', []), dtype=np.float32) if np is not None else None
+        if np is not None and np.issubdtype(output.dtype, np.integer):
+            if scales is not None and scales.size:
+                scale_value = float(scales.reshape(-1)[0])
+                zero_value = float(zero_points.reshape(-1)[0]) if zero_points is not None and zero_points.size else 0.0
+                output = (output.astype(np.float32) - zero_value) * scale_value
+            else:
+                output = output.astype(np.float32)
         boxes, scores, classes, parse_debug = parse_output(output, conf, len(labels), size, model_type=model_type)
         boxes = scale_boxes(boxes, scale, pad, frame_bgr.shape[:2])
         keep = nms(boxes, scores, iou)
@@ -539,6 +647,18 @@ class TFLitePerception:
         else:
             elapsed_ms = 0.0
         with self._lock:
+            inferred_class_count = int(parse_debug.get('class_count', len(labels)))
+            if not self.labels and inferred_class_count > 0:
+                self.labels = [f'class_{idx}' for idx in range(inferred_class_count)]
+                self.labels_mode = 'synthetic'
+                labels = list(self.labels)
+                for det in detections:
+                    try:
+                        class_id = int(det.label.split('_')[-1]) if det.label.startswith('class_') else -1
+                    except Exception:
+                        class_id = -1
+                    if 0 <= class_id < len(labels):
+                        det.label = labels[class_id]
             self.last_inference_ms = float(elapsed_ms)
             self.last_detections = list(detections)
             self.last_error = ''
@@ -549,10 +669,13 @@ class TFLitePerception:
                 'candidate_count': int(parse_debug.get('candidate_count', 0)),
                 'decoded_count': int(parse_debug.get('decoded_count', 0)),
                 'nms_count': int(len(keep)),
-                'class_count': int(parse_debug.get('class_count', len(labels))),
+                'class_count': inferred_class_count,
                 'score_max': float(parse_debug.get('score_max', 0.0)),
                 'score_mean': float(parse_debug.get('score_mean', 0.0)),
                 'raw_shape': parse_debug.get('raw_shape', []),
+                'score_col': int(parse_debug.get('score_col', -1)),
+                'class_col': int(parse_debug.get('class_col', -1)),
+                'coord_order': str(parse_debug.get('coord_order', 'unknown')),
             }
         return detections
 

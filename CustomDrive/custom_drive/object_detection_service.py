@@ -293,6 +293,7 @@ class ObjectDetectionService:
             detail = (
                 f"raw={debug.get('raw_shape', [])} "
                 f"variant={debug.get('selected_variant', 'none')} "
+                f"cols={debug.get('score_col', -1)}/{debug.get('class_col', -1)} "
                 f"cand={debug.get('candidate_count', 0)} dec={debug.get('decoded_count', 0)} keep={debug.get('nms_count', 0)}"
             )
         else:
