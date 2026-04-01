@@ -136,7 +136,7 @@ def normalize_manual_control_config(data: dict[str, Any] | None) -> dict[str, An
         'lift_step_angle': clamp_int(arm.get('lift_step_angle', 1), 1, 1, 45),
         'lift_step_interval_s': round(clamp_float(arm.get('lift_step_interval_s', 0.1), 0.1, 0.02, 1.0), 3),
         'lift_up_direction': -1 if str(arm.get('lift_up_direction', -1) or '-1').strip().startswith('-') else 1,
-        'speed_multiplier': round(clamp_float(arm.get('speed_multiplier', 2.0), 2.0, 0.25, 8.0), 3),
+        'speed_multiplier': round(clamp_float(arm.get('speed_multiplier', 4.0), 4.0, 0.25, 8.0), 3),
         'hold_refresh_enabled': bool(arm.get('hold_refresh_enabled', True)),
         'hold_refresh_interval_s': round(clamp_float(arm.get('hold_refresh_interval_s', 0.75), 0.75, 0.1, 10.0), 3),
         'grip_hold_angle': clamp_int(arm.get('grip_hold_angle', 70), 70, 0, 180),

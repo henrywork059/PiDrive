@@ -145,11 +145,11 @@ class ArmService:
         return max(1, min(45, value))
 
     def _speed_multiplier(self) -> float:
-        value = self._config.get('speed_multiplier', 2.0)
+        value = self._config.get('speed_multiplier', 4.0)
         try:
             value = float(value)
         except Exception:
-            value = 2.0
+            value = 4.0
         return max(0.25, min(8.0, value))
 
     def _hold_refresh_enabled(self) -> bool:
