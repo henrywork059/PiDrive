@@ -23,13 +23,13 @@ class Mission1StageTestConfig:
     enabled: bool = True
     mode: str = 'sim'
     tick_s: float = 0.05
-    forward_1_duration_s: float = 2.0
-    turn_right_duration_s: float = 2.0
-    forward_2_duration_s: float = 2.0
+    forward_1_duration_s: float = 6.0
+    turn_right_duration_s: float = 5.0
+    forward_2_duration_s: float = 6.0
     forward_throttle: float = 0.28
     forward_steering: float = 0.0
     turn_right_throttle: float = 0.22
-    turn_right_steering: float = 0.65
+    turn_right_steering: float = -0.65
     settle_stop_s: float = 0.25
 
 
@@ -69,19 +69,19 @@ def load_config(path: Path = CONFIG_PATH) -> Mission1StageTestConfig:
     if cfg.mode not in {'sim', 'live'}:
         cfg.mode = 'sim'
     cfg.tick_s = _clamp_float(cfg.tick_s, 0.05, 0.02, 1.0)
-    cfg.forward_1_duration_s = _clamp_float(cfg.forward_1_duration_s, 2.0, 0.05, 30.0)
-    cfg.turn_right_duration_s = _clamp_float(cfg.turn_right_duration_s, 2.0, 0.05, 30.0)
-    cfg.forward_2_duration_s = _clamp_float(cfg.forward_2_duration_s, 2.0, 0.05, 30.0)
+    cfg.forward_1_duration_s = _clamp_float(cfg.forward_1_duration_s, 6.0, 0.05, 30.0)
+    cfg.turn_right_duration_s = _clamp_float(cfg.turn_right_duration_s, 5.0, 0.05, 30.0)
+    cfg.forward_2_duration_s = _clamp_float(cfg.forward_2_duration_s, 6.0, 0.05, 30.0)
     cfg.forward_throttle = _clamp_float(cfg.forward_throttle, 0.28, -1.0, 1.0)
     cfg.forward_steering = _clamp_float(cfg.forward_steering, 0.0, -1.0, 1.0)
     cfg.turn_right_throttle = _clamp_float(cfg.turn_right_throttle, 0.22, -1.0, 1.0)
-    cfg.turn_right_steering = _clamp_float(cfg.turn_right_steering, 0.65, -1.0, 1.0)
+    cfg.turn_right_steering = _clamp_float(cfg.turn_right_steering, -0.65, -1.0, 1.0)
     cfg.settle_stop_s = _clamp_float(cfg.settle_stop_s, 0.25, 0.0, 5.0)
     return cfg
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description='Mission 1 stage test: forward 2s, right turn 2s, forward 2s.')
+    parser = argparse.ArgumentParser(description='Mission 1 stage test: forward 6s, right turn 5s, forward 6s.')
     parser.add_argument('--mode', choices=['sim', 'live'], help='Override mode from config/mission1_stage_test.json')
     parser.add_argument('--tick', type=float, help='Loop interval in seconds')
     parser.add_argument('--forward-throttle', type=float, help='Throttle used for both forward legs')
@@ -127,7 +127,7 @@ def build_route(cfg: Mission1StageTestConfig) -> list[RouteLeg]:
         RouteLeg(
             'turn_right_leg',
             cfg.turn_right_duration_s,
-            DriveCommand(steering=cfg.turn_right_steering, throttle=cfg.turn_right_throttle, note='mission1 test: turn right'),
+            DriveCommand(steering=cfg.turn_right_steering, throttle=cfg.turn_right_throttle, note='mission1 test: turn right (corrected for current inverted steering)'),
         ),
         RouteLeg(
             'forward_leg_2',
