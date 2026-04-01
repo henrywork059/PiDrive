@@ -25,6 +25,11 @@ function fmt(value, digits = 2) {
   return Number.isFinite(num) ? num.toFixed(digits) : '0.00';
 }
 
+function fmtShort(value, digits = 1) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num.toFixed(digits).replace(/\.0+$/, '') : '0';
+}
+
 function escapeHtml(value) {
   return String(value ?? '')
     .replaceAll('&', '&amp;')
@@ -119,6 +124,31 @@ function renderDetections(status) {
   }
 }
 
+function renderSummaryCards(status) {
+  const cards = document.getElementById('summaryCards');
+  const detections = status.detections || [];
+  const pipeline = status.pipeline || {};
+  const camera = status.camera || {};
+  const target = status.target_detection || {};
+  const targetCenter = target.center || {};
+  const items = [
+    { label: 'Phase', value: status.phase || 'idle' },
+    { label: 'Objects', value: String(detections.length) },
+    { label: 'Target side', value: status.target_side || '-' },
+    { label: 'Car turn', value: status.car_turn_direction || '-' },
+    { label: 'Target X', value: fmtShort(targetCenter.x, 1) },
+    { label: 'Pipeline FPS', value: `${fmtShort(pipeline.fps || 0, 2)} fps` },
+    { label: 'Camera FPS', value: `${fmtShort(camera.fps || 0, 1)} fps` },
+    { label: 'Loaded model', value: status.loaded_model || 'none' },
+  ];
+  cards.innerHTML = items.map((item) => `
+    <div class="summary-card">
+      <div class="summary-label">${escapeHtml(item.label)}</div>
+      <div class="summary-value">${escapeHtml(item.value)}</div>
+    </div>
+  `).join('');
+}
+
 function renderStatus(status) {
   const statusEl = document.getElementById('status');
   const camera = status.camera || {};
@@ -127,6 +157,7 @@ function renderStatus(status) {
   const target = status.target_detection || {};
   const targetCenter = target.center || {};
   const targetBox = target.box || {};
+  const deadbandRatio = Number(status.config?.drive?.target_x_deadband_ratio || 0.05);
   statusEl.innerHTML = `
     <div class="status-grid">
       <div class="status-label">Running</div><div>${escapeHtml(status.running)}</div>
@@ -142,6 +173,7 @@ function renderStatus(status) {
       <div class="status-label">Car turn</div><div>${escapeHtml(status.car_turn_direction || '-')}</div>
       <div class="status-label">Target center</div><div>x=${fmt(targetCenter.x, 1)} y=${fmt(targetCenter.y, 1)}</div>
       <div class="status-label">Target box</div><div>w=${fmt(targetBox.width, 1)} h=${fmt(targetBox.height, 1)}</div>
+      <div class="status-label">Forward deadband</div><div>${fmt(deadbandRatio * 100, 1)}% of frame width</div>
       <div class="status-label">Command</div><div>left=${fmt(status.last_command?.left, 2)} right=${fmt(status.last_command?.right, 2)} note=${escapeHtml(status.last_command?.note || '')}</div>
       <div class="status-label">Motor GPIO</div><div>${escapeHtml(motor.gpio_available ?? false)}</div>
       <div class="status-label">Output summary</div><div>${escapeHtml(status.last_output_summary || '-')}</div>
@@ -156,26 +188,93 @@ function renderStatus(status) {
       .map(([key, value]) => `${key}=${JSON.stringify(value)}`)
       .join(' ');
     return `[${fmt(entry.timestamp, 2)}] ${String(entry.level || 'info').toUpperCase()} ${entry.type || 'runtime'}: ${entry.message}${extra ? ` | ${extra}` : ''}`;
-  }).join('\n');
+  }).join('
+');
 
   renderModelList(status);
   renderDetections(status);
+  renderSummaryCards(status);
   renderViewer(status);
+}
+
+function renderOverlay(status) {
+  const svg = document.getElementById('viewerOverlay');
+  const frame = status.frame || {};
+  const width = Math.max(1, Number(frame.width || 640));
+  const height = Math.max(1, Number(frame.height || 360));
+  const detections = status.detections || [];
+  const deadbandRatio = Number(status.config?.drive?.target_x_deadband_ratio || 0.05);
+  const deadbandWidth = width * deadbandRatio;
+  const leftBand = width / 2 - deadbandWidth;
+  const rightBand = width / 2 + deadbandWidth;
+
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  svg.innerHTML = '';
+
+  const guideGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  guideGroup.setAttribute('class', 'overlay-guides');
+  guideGroup.innerHTML = `
+    <rect x="${leftBand}" y="0" width="${rightBand - leftBand}" height="${height}" class="overlay-deadband" />
+    <line x1="${width / 2}" y1="0" x2="${width / 2}" y2="${height}" class="overlay-axis" />
+    <line x1="0" y1="${height / 2}" x2="${width}" y2="${height / 2}" class="overlay-axis" />
+  `;
+  svg.appendChild(guideGroup);
+
+  for (const det of detections) {
+    const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    group.setAttribute('class', det.is_target_class ? 'overlay-box target-box' : 'overlay-box');
+    const x1 = Number(det.box?.x1 || 0);
+    const y1 = Number(det.box?.y1 || 0);
+    const boxW = Number(det.box?.width || 0);
+    const boxH = Number(det.box?.height || 0);
+    const cx = Number(det.center?.x_raw || ((det.box?.x1 || 0) + (det.box?.x2 || 0)) / 2);
+    const cy = Number(det.center?.y_raw || ((det.box?.y1 || 0) + (det.box?.y2 || 0)) / 2);
+    const label = `id ${det.class_id} ${fmt(det.confidence, 2)} | (${fmt(det.center?.x, 0)}, ${fmt(det.center?.y, 0)})`;
+    const labelWidth = Math.max(112, label.length * 6.5);
+    const labelHeight = 22;
+    const labelX = Math.max(0, Math.min(width - labelWidth - 2, x1));
+    const labelY = Math.max(0, y1 - labelHeight - 6);
+    group.innerHTML = `
+      <rect x="${x1}" y="${y1}" width="${boxW}" height="${boxH}" rx="6" ry="6" class="box-rect" />
+      <rect x="${labelX}" y="${labelY}" width="${labelWidth}" height="${labelHeight}" rx="6" ry="6" class="box-label-bg" />
+      <text x="${labelX + 8}" y="${labelY + 15}" class="box-label-text">${escapeHtml(label)}</text>
+      <circle cx="${cx}" cy="${cy}" r="4" class="box-center-dot" />
+    `;
+    svg.appendChild(group);
+  }
 }
 
 function renderViewer(status) {
   const video = document.getElementById('videoFeed');
+  const svg = document.getElementById('viewerOverlay');
   const note = document.getElementById('viewerNote');
-  if ((status.camera || {}).running && (status.phase || '').startsWith('ai')) {
+  const stats = document.getElementById('viewerStats');
+  const phase = status.phase || '';
+  const pipelineFps = fmt(status.pipeline?.fps || 0, 2);
+  const detectionCount = String((status.detections || []).length);
+  stats.innerHTML = `
+    <span class="stat-pill">Objects ${escapeHtml(detectionCount)}</span>
+    <span class="stat-pill">FPS ${escapeHtml(pipelineFps)}</span>
+    <span class="stat-pill">Target ${escapeHtml(status.target_side || 'none')}</span>
+    <span class="stat-pill">Turn ${escapeHtml(status.car_turn_direction || 'stopped')}</span>
+  `;
+
+  if ((status.camera || {}).running && phase.startsWith('ai')) {
     video.style.display = 'block';
+    svg.style.display = 'block';
     video.src = `/api/frame.jpg?t=${Date.now()}`;
-    note.textContent = `Pi-generated annotated frame. Target side: ${status.target_side || 'none'}. Car turn: ${status.car_turn_direction || 'stopped'}. FPS: ${fmt(status.pipeline?.fps || 0, 2)}.`;
-  } else if ((status.phase || '') === 'start_route' || (status.phase || '') === 'route_pending') {
+    renderOverlay(status);
+    note.textContent = `Showing Pi-generated annotated frame plus web overlay boxes from the latest detection list. Target side: ${status.target_side || 'none'}. Car turn: ${status.car_turn_direction || 'stopped'}.`;
+  } else if (phase === 'start_route' || phase === 'route_pending') {
     video.style.display = 'none';
+    svg.style.display = 'none';
+    svg.innerHTML = '';
     note.textContent = 'Camera is still off while the start route is running.';
   } else {
     video.style.display = 'none';
-    note.textContent = 'Annotated frame will appear here after the route, camera start, and model load steps complete.';
+    svg.style.display = 'none';
+    svg.innerHTML = '';
+    note.textContent = 'Annotated frame and object boxes will appear here after the route, camera start, and model load steps complete.';
   }
 }
 

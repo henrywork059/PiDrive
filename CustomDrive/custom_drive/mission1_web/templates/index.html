@@ -7,126 +7,162 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v={{ app_version }}" />
 </head>
 <body>
-  <header>
-    <h1>CustomDrive Mission 1 Session</h1>
-    <p>
-      Pipeline: run the typed start route, then the Pi turns on the camera, loads the selected AI model,
-      runs inference frame-by-frame, draws boxes and class IDs on the Pi, and posts the annotated frame plus object data to the web UI.
-    </p>
+  <header class="page-header">
+    <div>
+      <h1>CustomDrive Mission 1 Session</h1>
+      <p>
+        Mission 1 runs the typed route first, then the Pi starts the camera, loads the selected AI model,
+        draws object boxes on the Pi frame, and posts the annotated frame plus detection data back to the web GUI.
+      </p>
+    </div>
+    <div class="header-badge">Version {{ app_version }}</div>
   </header>
 
-  <main class="layout">
-    <section class="panel controls-panel">
-      <h2>Mission 1 Setup</h2>
-      <label>
-        Start route
-        <textarea id="routeText" rows="4" spellcheck="false"></textarea>
-      </label>
-      <div class="hint">Example: <code>--forward 2 --turn-right 5 --forward 5 --turn-right 5</code></div>
+  <main class="dashboard">
+    <aside class="sidebar-stack">
+      <section class="panel controls-panel">
+        <h2>Mission 1 Setup</h2>
+        <label>
+          Start route
+          <textarea id="routeText" rows="4" spellcheck="false"></textarea>
+        </label>
+        <div class="hint">Example: <code>--forward 2 --turn-right 5 --forward 5 --turn-right 5</code></div>
 
-      <div class="grid two-col">
-        <label>
-          Target class ID
-          <input id="targetClassId" type="number" min="0" step="1" value="1" />
-        </label>
-        <label>
-          Confidence threshold
-          <input id="confidenceThreshold" type="number" min="0.01" max="0.99" step="0.01" value="0.25" />
-        </label>
-        <label>
-          IoU threshold
-          <input id="iouThreshold" type="number" min="0.01" max="0.99" step="0.01" value="0.45" />
-        </label>
-        <label>
-          AI loop tick (s)
-          <input id="loopTick" type="number" min="0.02" max="1.0" step="0.01" value="0.08" />
-        </label>
-      </div>
+        <div class="grid two-col">
+          <label>
+            Target class ID
+            <input id="targetClassId" type="number" min="0" step="1" value="1" />
+          </label>
+          <label>
+            Confidence threshold
+            <input id="confidenceThreshold" type="number" min="0.01" max="0.99" step="0.01" value="0.25" />
+          </label>
+          <label>
+            IoU threshold
+            <input id="iouThreshold" type="number" min="0.01" max="0.99" step="0.01" value="0.45" />
+          </label>
+          <label>
+            AI loop tick (s)
+            <input id="loopTick" type="number" min="0.02" max="1.0" step="0.01" value="0.08" />
+          </label>
+        </div>
 
-      <div class="grid two-col">
-        <label>
-          Forward speed
-          <input id="forwardSpeed" type="number" min="0.0" max="1.0" step="0.01" value="0.22" />
-        </label>
-        <label>
-          Turn ratio k
-          <input id="turnK" type="number" min="0.0001" max="1.0" step="0.0001" value="0.005" />
-        </label>
-        <label>
-          Turn speed max
-          <input id="turnSpeedMax" type="number" min="0.05" max="1.0" step="0.01" value="0.75" />
-        </label>
-        <label>
-          Forward deadband
-          <input id="deadbandRatio" type="number" min="0.01" max="0.25" step="0.01" value="0.05" />
-        </label>
-      </div>
+        <div class="grid two-col">
+          <label>
+            Forward speed
+            <input id="forwardSpeed" type="number" min="0.0" max="1.0" step="0.01" value="0.22" />
+          </label>
+          <label>
+            Turn ratio k
+            <input id="turnK" type="number" min="0.0001" max="1.0" step="0.0001" value="0.005" />
+          </label>
+          <label>
+            Turn speed max
+            <input id="turnSpeedMax" type="number" min="0.05" max="1.0" step="0.01" value="0.75" />
+          </label>
+          <label>
+            Forward deadband
+            <input id="deadbandRatio" type="number" min="0.01" max="0.25" step="0.01" value="0.05" />
+          </label>
+        </div>
 
-      <div class="button-row">
-        <button id="saveConfigBtn" class="secondary">Save Mission 1 Config</button>
-        <button id="startBtn">Start Mission 1</button>
-        <button id="stopBtn" class="danger">Stop</button>
-      </div>
-      <div id="configMessage" class="message"></div>
-      <div class="subtle">Coordinate system: frame centre is (0, 0). Left is negative x. Down is negative y.</div>
+        <div class="button-row">
+          <button id="saveConfigBtn" class="secondary">Save Mission 1 Config</button>
+          <button id="startBtn">Start Mission 1</button>
+          <button id="stopBtn" class="danger">Stop</button>
+        </div>
+        <div id="configMessage" class="message"></div>
+        <div class="subtle">Coordinate system: frame centre is (0, 0). Left is negative x. Down is negative y.</div>
+      </section>
+
+      <section class="panel model-panel">
+        <h2>AI Model</h2>
+        <div class="grid compact-grid">
+          <label>
+            Available models
+            <select id="modelSelect"></select>
+          </label>
+          <label>
+            Upload .tflite model
+            <input id="modelUpload" type="file" accept=".tflite" />
+          </label>
+        </div>
+        <div class="button-row">
+          <button id="loadModelBtn">Set Selected Model</button>
+          <button id="uploadModelBtn" class="secondary">Upload + Set Model</button>
+        </div>
+        <div id="modelMessage" class="message"></div>
+        <div class="subtle">The Pi loads the selected model only after the route finishes and the camera is already running.</div>
+      </section>
+    </aside>
+
+    <section class="main-stack">
+      <section class="panel viewer-panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Annotated Pi Frame</h2>
+            <p class="panel-subtitle">Pi frame with Pi-side labels, plus web overlay boxes from the current detection list.</p>
+          </div>
+          <div id="viewerStats" class="viewer-stats"></div>
+        </div>
+
+        <div class="summary-cards" id="summaryCards"></div>
+
+        <div class="viewer-wrap">
+          <div class="viewer-stage">
+            <img id="videoFeed" alt="Mission 1 live camera with AI boxes" />
+            <svg id="viewerOverlay" class="viewer-overlay" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg>
+          </div>
+        </div>
+        <div id="viewerNote" class="hint"></div>
+      </section>
+
+      <section class="panel status-panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Status</h2>
+            <p class="panel-subtitle">Current Mission 1 runtime, camera, AI, and motor decision state.</p>
+          </div>
+        </div>
+        <div id="status"></div>
+      </section>
     </section>
 
-    <section class="panel model-panel">
-      <h2>AI Model</h2>
-      <div class="grid two-col compact-grid">
-        <label>
-          Available models
-          <select id="modelSelect"></select>
-        </label>
-        <label>
-          Upload .tflite model
-          <input id="modelUpload" type="file" accept=".tflite" />
-        </label>
-      </div>
-      <div class="button-row">
-        <button id="loadModelBtn">Set Selected Model</button>
-        <button id="uploadModelBtn" class="secondary">Upload + Set Model</button>
-      </div>
-      <div id="modelMessage" class="message"></div>
-      <div class="subtle">The selected model is loaded by the Pi only after the start route finishes and the camera is already on.</div>
-    </section>
+    <section class="bottom-grid">
+      <section class="panel detections-panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Detected Objects in Current Frame</h2>
+            <p class="panel-subtitle">Current-frame detections reported from the Pi with centre coordinates, box size, and confidence.</p>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Class</th>
+                <th>Conf</th>
+                <th>Center X</th>
+                <th>Center Y</th>
+                <th>Box W</th>
+                <th>Box H</th>
+                <th>Target</th>
+              </tr>
+            </thead>
+            <tbody id="detectionsBody"></tbody>
+          </table>
+        </div>
+      </section>
 
-    <section class="panel viewer-panel">
-      <h2>Annotated Pi Frame</h2>
-      <div class="viewer-wrap">
-        <img id="videoFeed" alt="Mission 1 live camera with AI boxes" />
-      </div>
-      <div id="viewerNote" class="hint"></div>
-    </section>
-
-    <section class="panel status-panel">
-      <h2>Status</h2>
-      <div id="status"></div>
-    </section>
-
-    <section class="panel detections-panel">
-      <h2>Detected Objects in Current Frame</h2>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Class</th>
-              <th>Conf</th>
-              <th>Center X</th>
-              <th>Center Y</th>
-              <th>Box W</th>
-              <th>Box H</th>
-              <th>Target</th>
-            </tr>
-          </thead>
-          <tbody id="detectionsBody"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <section class="panel logs-panel">
-      <h2>Mission Trace</h2>
-      <pre id="events"></pre>
+      <section class="panel logs-panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Mission Trace</h2>
+            <p class="panel-subtitle">Recent Mission 1 runtime events for debugging and future development.</p>
+          </div>
+        </div>
+        <pre id="events"></pre>
+      </section>
     </section>
   </main>
 

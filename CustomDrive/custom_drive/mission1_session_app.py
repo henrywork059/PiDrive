@@ -30,7 +30,7 @@ from piserver.services.camera_service import CameraService  # noqa: E402
 from piserver.services.motor_service import MotorService  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent / 'mission1_web'
-APP_VERSION = '0_4_13'
+APP_VERSION = '0_4_14'
 MISSION1_CONFIG_PATH = CONFIG_DIR / 'mission1_session.json'
 MISSION1_MODEL_DIR = CUSTOMDRIVE_ROOT / 'models' / 'mission1'
 
@@ -731,12 +731,25 @@ class Mission1SessionContext:
             y2 = int(round(float(box.get('y2', 0.0))))
             is_target = bool(item.get('is_target_class'))
             color = _BOX_TARGET_COLOR if is_target else _BOX_NORMAL_COLOR
-            cv2.rectangle(canvas, (x1, y1), (x2, y2), color, 2)
+            thickness = 3 if is_target else 2
+            cv2.rectangle(canvas, (x1, y1), (x2, y2), (0, 0, 0), thickness + 2)
+            cv2.rectangle(canvas, (x1, y1), (x2, y2), color, thickness)
+
+            center_raw = item.get('center', {})
+            cx = int(round(float(center_raw.get('x_raw', (x1 + x2) / 2.0))))
+            cy = int(round(float(center_raw.get('y_raw', (y1 + y2) / 2.0))))
+            cv2.circle(canvas, (cx, cy), 5 if is_target else 4, (0, 0, 0), -1)
+            cv2.circle(canvas, (cx, cy), 3 if is_target else 2, color, -1)
+
             caption = f"id {item.get('class_id')} {float(item.get('confidence', 0.0)):.2f}"
-            y_text = max(18, y1 - 8)
-            cv2.putText(canvas, caption, (max(4, x1), y_text), cv2.FONT_HERSHEY_SIMPLEX, 0.55, color, 2, cv2.LINE_AA)
             coord_text = f"({float(item['center']['x']):.0f}, {float(item['center']['y']):.0f})"
-            cv2.putText(canvas, coord_text, (max(4, x1), min(frame_h - 8, y_text + 20)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, _BOX_TEXT_COLOR, 1, cv2.LINE_AA)
+            label_y1 = max(0, y1 - 42)
+            label_y2 = min(frame_h - 1, label_y1 + 38)
+            label_x2 = min(frame_w - 1, x1 + max(124, int((x2 - x1) * 0.7)))
+            cv2.rectangle(canvas, (x1, label_y1), (label_x2, label_y2), (0, 0, 0), -1)
+            cv2.rectangle(canvas, (x1, label_y1), (label_x2, label_y2), color, 1)
+            cv2.putText(canvas, caption, (max(4, x1 + 6), min(frame_h - 18, label_y1 + 15)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2, cv2.LINE_AA)
+            cv2.putText(canvas, coord_text, (max(4, x1 + 6), min(frame_h - 6, label_y1 + 31)), cv2.FONT_HERSHEY_SIMPLEX, 0.46, _BOX_TEXT_COLOR, 1, cv2.LINE_AA)
 
         footer = f"FPS {self.pipeline_fps:.1f} | target={target_class_id} | model={self.loaded_model_name}"
         cv2.putText(canvas, footer, (10, max(24, frame_h - 12)), cv2.FONT_HERSHEY_SIMPLEX, 0.55, _BOX_TEXT_COLOR, 2, cv2.LINE_AA)
