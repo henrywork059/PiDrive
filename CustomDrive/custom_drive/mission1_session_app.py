@@ -457,8 +457,17 @@ class Mission1SessionContext:
             self.target_found = True
             error_ratio = self._x_error_ratio(target, frame_w)
             bottom_ratio = target.box.bottom_center_y / max(1.0, float(frame_h))
-            steering = max(-max_steering, min(max_steering, error_ratio * align_kp))
-            throttle = 0.0 if abs(error_ratio) > center_tolerance else approach_speed
+            # Positive x error means the target is to the right side of the frame.
+            # MotorService's differential-drive mixing expects negative steering for a rightward arc,
+            # so invert the image-space error when generating steering.
+            steering = max(-max_steering, min(max_steering, -error_ratio * align_kp))
+
+            # Keep moving toward the target while steering instead of stopping whenever the target is off-centre.
+            # Slow down a little during larger heading corrections, but keep forward motion active.
+            if abs(error_ratio) > center_tolerance:
+                throttle = max(0.08, approach_speed * 0.55)
+            else:
+                throttle = approach_speed
 
             if bottom_ratio >= target_reached_bottom_ratio:
                 self.motor_service.stop()
