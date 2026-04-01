@@ -188,8 +188,7 @@ function renderStatus(status) {
       .map(([key, value]) => `${key}=${JSON.stringify(value)}`)
       .join(' ');
     return `[${fmt(entry.timestamp, 2)}] ${String(entry.level || 'info').toUpperCase()} ${entry.type || 'runtime'}: ${entry.message}${extra ? ` | ${extra}` : ''}`;
-  }).join('
-');
+  }).join('\n');
 
   renderModelList(status);
   renderDetections(status);
