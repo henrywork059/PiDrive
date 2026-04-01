@@ -25,7 +25,7 @@ from piserver.services.camera_service import CameraService  # noqa: E402
 from piserver.services.motor_service import MotorService  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent / 'mission1_web'
-APP_VERSION = '0_4_10'
+APP_VERSION = '0_4_12'
 MISSION1_CONFIG_PATH = CONFIG_DIR / 'mission1_session.json'
 MISSION1_MODEL_DIR = CUSTOMDRIVE_ROOT / 'models' / 'mission1'
 
@@ -473,11 +473,10 @@ class Mission1SessionContext:
             self.target_found = True
             target_center_x = float(target.box.bottom_center_x)
             raw_target_center_ratio = target_center_x / max(1.0, float(frame_w))
-            # Mission 1 operator expectation is based on the displayed camera view.
-            # On the real test path, the detected x-position is effectively mirrored
-            # relative to the desired left/right driving rule, so flip the horizontal
-            # ratio before classifying target side and issuing turn commands.
-            target_center_ratio = 1.0 - raw_target_center_ratio
+            # Mission 1 control should follow the displayed frame side directly.
+            # Use the detector's raw horizontal ratio as-is for left/center/right
+            # classification so target-side status matches the visible frame.
+            target_center_ratio = raw_target_center_ratio
             bottom_ratio = target.box.bottom_center_y / max(1.0, float(frame_h))
             zone = self._tracking_zone(target_center_ratio, center_tolerance)
 
@@ -485,14 +484,16 @@ class Mission1SessionContext:
 
             if zone == 'left':
                 # Mission 1 rule: target centre in the left region -> turn left while continuing forward.
-                # On the shared MotorService mix used here, negative steering gives the leftward arc.
-                steering = -max_steering
+                # On the shared MotorService mix used here, positive steering matches the leftward arc
+                # seen on the real Mission 1 test vehicle.
+                steering = max_steering
                 throttle = max(0.08, approach_speed * 0.55)
                 self.car_turn_direction = 'left'
             elif zone == 'right':
                 # Mission 1 rule: target centre in the right region -> turn right while continuing forward.
-                # On the shared MotorService mix used here, positive steering gives the rightward arc.
-                steering = max_steering
+                # On the shared MotorService mix used here, negative steering matches the rightward arc
+                # seen on the real Mission 1 test vehicle.
+                steering = -max_steering
                 throttle = max(0.08, approach_speed * 0.55)
                 self.car_turn_direction = 'right'
             else:
