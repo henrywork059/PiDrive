@@ -516,7 +516,7 @@ function updateStatusUi(data) {
   setText('statusMiniText', data.safety_stop ? 'estop' : 'manual');
   setText('cameraPreviewMeta', aiStatus.ready && aiStatus.overlay_enabled && aiStatus.backend === 'tflite' ? 'streaming + AI overlay' : (cameraLive ? 'streaming' : 'paused'));
   setText('systemRuntimePath', data.customdrive_runtime_settings_path || data.runtime_config_path || 'runtime.json');
-  setText('systemArmLift', `${Number(data.arm_status?.lift_angle || 0).toFixed(0)}°`);
+  setText('systemArmLift', `${Number(data.arm_status?.servo0_angle ?? data.arm_status?.lift_angle ?? 0).toFixed(0)}° / ${Number(data.arm_status?.servo1_angle ?? 0).toFixed(0)}°`);
   setText('systemMotorDir', `${data.motor_left_direction ?? 1} / ${data.motor_right_direction ?? 1} / ${data.motor_steering_direction ?? 1}`);
   setBanner('statusBanner', data.system_message || 'Ready.', data.safety_stop ? 'warn' : 'muted');
   setBanner('systemMessage', data.last_error ? `Last error: ${data.last_error}` : (data.system_message || 'System ready.'), data.last_error ? 'warn' : 'muted');
@@ -808,6 +808,23 @@ async function deployAiModel() {
   }
 }
 
+async function stopAiDeployment() {
+  try {
+    const selectedModel = document.getElementById('aiModelSelect').value || null;
+    const data = await postJson('/api/ai/stop', {});
+    state.aiDeployedModel = 'none';
+    state.aiSettingsLoaded = false;
+    setBanner('aiSettingsMessage', data.message || 'AI deployment stopped.', 'good');
+    setPreviewImageSource();
+    schedulePreviewPoll(120);
+    await pollStatus();
+    await refreshAiModels(selectedModel);
+    renderAiDebug(null, data.ai_status, { appendHistory: true, forceSnapshot: true });
+  } catch (error) {
+    setBanner('aiSettingsMessage', error.message || 'Stop AI failed.', 'warn');
+  }
+}
+
 async function saveAiConfigOnly() {
   try {
     const currentModel = state.aiDeployedModel || 'none';
@@ -860,6 +877,7 @@ function setupAiSettings() {
   document.getElementById('clearAiDebugLogBtn').addEventListener('click', async () => { await clearAiDebugHistory(); });
   document.getElementById('deleteAiModelBtn').addEventListener('click', deleteAiModel);
   document.getElementById('deployAiModelBtn').addEventListener('click', async () => { await deployAiModel(); });
+  document.getElementById('stopAiBtn').addEventListener('click', async () => { await stopAiDeployment(); });
   ['aiBackend', 'aiConfidenceThreshold', 'aiIouThreshold', 'aiOverlayEnabled', 'aiOverlayFrameSkip'].forEach((id) => {
     const el = document.getElementById(id);
     if (!el) return;
@@ -895,8 +913,10 @@ function setupDrivePad() {
 }
 
 function setupArmControls() {
-  bindHoldAction('armUpBtn', 'start_up', 'stop_lift');
-  bindHoldAction('armDownBtn', 'start_down', 'stop_lift');
+  bindHoldAction('servo0PlusBtn', 'start_servo0_positive', 'stop_servo0');
+  bindHoldAction('servo0MinusBtn', 'start_servo0_negative', 'stop_servo0');
+  bindHoldAction('servo1PlusBtn', 'start_servo1_positive', 'stop_servo1');
+  bindHoldAction('servo1MinusBtn', 'start_servo1_negative', 'stop_servo1');
   bindHoldAction('armOpenBtn', 'start_open', 'stop_grip');
   bindHoldAction('armCloseBtn', 'start_close', 'stop_grip');
 }

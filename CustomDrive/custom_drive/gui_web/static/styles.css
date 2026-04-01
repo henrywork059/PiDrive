@@ -219,20 +219,34 @@ button:hover { border-color: var(--accent); }
 .hidden { display: none !important; }
 .arm-grid {
   display: grid;
-  grid-template-columns: 1fr;
-  grid-auto-rows: minmax(192px, auto);
   gap: var(--field-gap);
 }
+.direct-arm-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: minmax(108px, auto);
+}
 .arm-btn {
-  min-height: 192px !important;
-  height: 192px !important;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0 12px;
-  font-size: 1.08rem;
+  font-size: 1.02rem;
   font-weight: 700;
   line-height: 1.2;
+}
+.arm-direct-btn {
+  min-height: 108px !important;
+  height: 108px !important;
+}
+.arm-grip-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--field-gap);
+  margin-top: var(--field-gap);
+}
+.arm-grip-btn {
+  min-height: 70px !important;
+  height: 70px !important;
 }
 .small-note, .pad-note, .value-text {
   color: var(--muted);
@@ -258,33 +272,47 @@ button:hover { border-color: var(--accent); }
 .panel-arm .arm-btn {
   color: #f8fbef;
 }
-#armUpBtn {
+#servo0PlusBtn {
   background: linear-gradient(180deg, rgba(69, 139, 104, 0.96), rgba(45, 108, 76, 0.96));
   border-color: rgba(142, 216, 179, 0.42);
 }
-#armUpBtn:hover {
+#servo0PlusBtn:hover {
   border-color: rgba(184, 240, 213, 0.70);
 }
-#armDownBtn {
-  background: linear-gradient(180deg, rgba(194, 133, 48, 0.96), rgba(157, 102, 26, 0.96));
-  border-color: rgba(244, 191, 116, 0.42);
-}
-#armDownBtn:hover {
-  border-color: rgba(255, 217, 160, 0.70);
-}
-#armOpenBtn {
+#servo1PlusBtn {
   background: linear-gradient(180deg, rgba(64, 115, 181, 0.96), rgba(40, 83, 140, 0.96));
   border-color: rgba(132, 180, 244, 0.42);
 }
-#armOpenBtn:hover {
+#servo1PlusBtn:hover {
   border-color: rgba(176, 211, 255, 0.72);
 }
-#armCloseBtn {
+#servo0MinusBtn {
+  background: linear-gradient(180deg, rgba(194, 133, 48, 0.96), rgba(157, 102, 26, 0.96));
+  border-color: rgba(244, 191, 116, 0.42);
+}
+#servo0MinusBtn:hover {
+  border-color: rgba(255, 217, 160, 0.70);
+}
+#servo1MinusBtn {
   background: linear-gradient(180deg, rgba(170, 73, 84, 0.96), rgba(130, 44, 54, 0.96));
   border-color: rgba(233, 143, 152, 0.42);
 }
-#armCloseBtn:hover {
+#servo1MinusBtn:hover {
   border-color: rgba(255, 191, 198, 0.70);
+}
+#armOpenBtn {
+  background: linear-gradient(180deg, rgba(76, 122, 181, 0.96), rgba(46, 87, 145, 0.96));
+  border-color: rgba(145, 186, 244, 0.42);
+}
+#armOpenBtn:hover {
+  border-color: rgba(188, 216, 255, 0.72);
+}
+#armCloseBtn {
+  background: linear-gradient(180deg, rgba(128, 82, 161, 0.96), rgba(88, 50, 121, 0.96));
+  border-color: rgba(198, 160, 232, 0.42);
+}
+#armCloseBtn:hover {
+  border-color: rgba(225, 198, 249, 0.70);
 }
 .toggle-row {
   min-height: 38px;

@@ -45,7 +45,7 @@
             <div class="metric-card"><label>Motors</label><strong id="metricWheels">0.00 / 0.00</strong></div>
             <div class="metric-card"><label>FPS</label><strong id="metricFps">0.0 FPS</strong></div>
             <div class="metric-card"><label>Runtime</label><strong id="systemRuntimePath">runtime.json</strong></div>
-            <div class="metric-card"><label>Arm Lift</label><strong id="systemArmLift">0°</strong></div>
+            <div class="metric-card"><label>Arm 0 / 1</label><strong id="systemArmLift">0° / 0°</strong></div>
             <div class="metric-card"><label>Motor Dir</label><strong id="systemMotorDir">1 / 1 / 1</strong></div>
           </div>
           <div class="status-system-actions">
@@ -71,13 +71,17 @@
           <span class="panel-mini">servo</span>
         </div>
         <div class="panel-body scroll-body">
-          <div class="arm-grid">
-            <button id="armUpBtn" class="control-btn arm-btn" type="button">Up</button>
-            <button id="armDownBtn" class="control-btn arm-btn" type="button">Down</button>
-            <button id="armOpenBtn" class="control-btn arm-btn secondary-btn" type="button">Open</button>
-            <button id="armCloseBtn" class="control-btn arm-btn secondary-btn" type="button">Close</button>
+          <div class="arm-grid direct-arm-grid">
+            <button id="servo0PlusBtn" class="control-btn arm-btn arm-direct-btn" type="button">Servo 0 +</button>
+            <button id="servo1PlusBtn" class="control-btn arm-btn arm-direct-btn" type="button">Servo 1 +</button>
+            <button id="servo0MinusBtn" class="control-btn arm-btn arm-direct-btn" type="button">Servo 0 -</button>
+            <button id="servo1MinusBtn" class="control-btn arm-btn arm-direct-btn" type="button">Servo 1 -</button>
           </div>
-          <div class="small-note">Up and Down move 1° every 0.1s while held.</div>
+          <div class="arm-grip-grid">
+            <button id="armOpenBtn" class="control-btn arm-btn arm-grip-btn secondary-btn" type="button">Open</button>
+            <button id="armCloseBtn" class="control-btn arm-btn arm-grip-btn secondary-btn" type="button">Close</button>
+          </div>
+          <div class="small-note">Hold the direct buttons to move servo 0 and servo 1. Open / Close still control servo 2.</div>
           <div id="armMessage" class="banner muted">Arm ready.</div>
         </div>
       </article>
@@ -192,8 +196,9 @@
             </div>
             <div class="section-actions">
               <button id="uploadAiFilesBtn" class="secondary-btn" type="button">Upload Files</button>
-              <button id="deleteAiModelBtn" class="danger-btn" type="button">Delete Model</button>
               <button id="deployAiModelBtn" type="button">Deploy Model</button>
+              <button id="stopAiBtn" class="ghost-btn" type="button">Stop AI</button>
+              <button id="deleteAiModelBtn" class="danger-btn" type="button">Delete Model</button>
             </div>
           </div>
           <div class="field-grid two-col compact-grid ai-settings-grid">

@@ -239,6 +239,23 @@ class ObjectDetectionService:
                 self._set_last_error_locked(message)
         return ok, message
 
+    def undeploy_model(self) -> tuple[bool, str]:
+        with self._lock:
+            previous = self.active_model
+            self.active_model = 'none'
+            self.perception.clear()
+            self._last_result = {'detections': [], 'timestamp': 0.0, 'debug': {}}
+            self._last_annotated_jpeg = None
+            self._last_annotated_ts = 0.0
+            self._overlay_frame_counter = 0
+            self.last_inference_ms = 0.0
+            self._set_last_error_locked('')
+            if previous not in {'', 'none'}:
+                self._append_history_locked(f"Stopped AI deployment: {previous}", 'info')
+                return True, f'Stopped AI deployment: {previous}'
+            self._append_history_locked('AI deployment already stopped.', 'info')
+            return True, 'AI deployment already stopped.'
+
     def get_active_model_name(self) -> str:
         with self._lock:
             return self.active_model

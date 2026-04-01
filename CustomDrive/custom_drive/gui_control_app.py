@@ -24,7 +24,7 @@ from piserver.services.motor_service import MotorService  # noqa: E402
 from piserver.services.recorder_service import RecorderService  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent / 'gui_web'
-APP_VERSION = '0_3_7'
+APP_VERSION = '0_3_9'
 OD_MODEL_ROOT = CUSTOMDRIVE_ROOT / 'models' / 'object_detection'
 
 
@@ -366,6 +366,19 @@ def create_app() -> Flask:
             'message': message,
             'models': ctx.object_detection_service.list_models(),
             'label_files': ctx.object_detection_service.list_label_files(),
+            'ai_status': ctx.object_detection_service.get_status(include_models=False),
+            'state': ctx.status_payload(),
+        }), code
+
+    @app.route('/api/ai/stop', methods=['POST'])
+    def api_ai_stop():
+        ok, message = ctx.object_detection_service.undeploy_model()
+        if ok:
+            ctx.save_ai_config({'deployed_model': 'none'})
+        code = 200 if ok else 400
+        return jsonify({
+            'ok': ok,
+            'message': message,
             'ai_status': ctx.object_detection_service.get_status(include_models=False),
             'state': ctx.status_payload(),
         }), code
