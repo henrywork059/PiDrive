@@ -58,6 +58,7 @@ class MarkingPage(QWidget):
         self.predicted_source_paths_by_name: dict[str, Path] = {}
         self.current_preview_index = -1
         self.pending_prediction_image_name: str | None = None
+        self.right_panel_max_width = 280
         self.deploy_target_paths: list[Path] = []
         self.deploy_target_paths_by_name: dict[str, Path] = {}
 
@@ -171,15 +172,15 @@ class MarkingPage(QWidget):
         tools_layout.addWidget(save_button, 1, 0)
         tools_layout.addWidget(delete_button, 1, 1)
         tools_layout.addWidget(delete_frames_button, 2, 0, 1, 2)
-        self.quick_deploy_model_button = QPushButton('Choose Quick Deploy Model', tools_box)
+        self.quick_deploy_model_button = QPushButton('Choose Deploy Model', tools_box)
         self.quick_deploy_model_button.clicked.connect(self.choose_deploy_weights)
         self.quick_deploy_latest_button = QPushButton('Use Latest best.pt', tools_box)
         self.quick_deploy_latest_button.clicked.connect(self.use_latest_best_weights_for_deploy)
         self.quick_deploy_button = QPushButton('Quick Deploy Selected / Current', tools_box)
         self.quick_deploy_button.clicked.connect(self.quick_deploy_selected_frames)
-        tools_layout.addWidget(self.quick_deploy_model_button, 3, 0)
-        tools_layout.addWidget(self.quick_deploy_latest_button, 3, 1)
-        tools_layout.addWidget(self.quick_deploy_button, 4, 0, 1, 2)
+        tools_layout.addWidget(self.quick_deploy_model_button, 3, 0, 1, 2)
+        tools_layout.addWidget(self.quick_deploy_latest_button, 4, 0, 1, 2)
+        tools_layout.addWidget(self.quick_deploy_button, 5, 0, 1, 2)
         help_label = QLabel(
             'Draw: left-drag\n'
             'Select / drag box: right-click, then drag\n'
@@ -193,7 +194,7 @@ class MarkingPage(QWidget):
         )
         help_label.setProperty('role', 'muted')
         help_label.setWordWrap(True)
-        tools_layout.addWidget(help_label, 5, 0, 1, 2)
+        tools_layout.addWidget(help_label, 6, 0, 1, 2)
 
         deploy_box = QGroupBox('Quick Deploy To Frames', self)
         deploy_form = QFormLayout(deploy_box)
@@ -246,16 +247,19 @@ class MarkingPage(QWidget):
         self.right_splitter.setStretchFactor(0, 3)
         self.right_splitter.setStretchFactor(1, 2)
         self.right_splitter.setStretchFactor(2, 2)
-        self.right_splitter.setSizes([320, 260, 180])
+        self.right_splitter.setMinimumWidth(220)
+        self.right_splitter.setMaximumWidth(self.right_panel_max_width)
+        self.right_splitter.setSizes([300, 240, 160])
 
         self.main_splitter = QSplitter(Qt.Horizontal, self)
         self.main_splitter.addWidget(self.left_splitter)
         self.main_splitter.addWidget(preview_box)
         self.main_splitter.addWidget(self.right_splitter)
         self.main_splitter.setStretchFactor(0, 2)
-        self.main_splitter.setStretchFactor(1, 5)
-        self.main_splitter.setStretchFactor(2, 2)
-        self.main_splitter.setSizes([320, 900, 320])
+        self.main_splitter.setStretchFactor(1, 8)
+        self.main_splitter.setStretchFactor(2, 1)
+        self.main_splitter.setSizes([300, 1120, 240])
+        self._apply_main_splitter_constraints()
 
         root = QVBoxLayout(self)
         root.addWidget(self.main_splitter, 1)
@@ -542,6 +546,20 @@ class MarkingPage(QWidget):
         self.image_list.setCurrentRow(target_index)
         return True
 
+    def _apply_main_splitter_constraints(self) -> None:
+        splitter = getattr(self, 'main_splitter', None)
+        if splitter is None:
+            return
+        sizes = splitter.sizes()
+        if len(sizes) < 3:
+            return
+        left, center, right = sizes[:3]
+        max_right = int(getattr(self, 'right_panel_max_width', 280))
+        if right > max_right:
+            center += right - max_right
+            right = max_right
+        splitter.setSizes([left, max(center, 1), right])
+
     def restore_last_sessions_root(self, *, auto_scan: bool) -> None:
         remembered = get_last_sessions_root()
         if remembered is None:
@@ -559,6 +577,7 @@ class MarkingPage(QWidget):
             sizes = get_splitter_state(name)
             if sizes and splitter is not None:
                 splitter.setSizes(sizes)
+        self._apply_main_splitter_constraints()
 
     def save_splitters(self) -> None:
         for name, splitter in (

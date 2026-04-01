@@ -26,14 +26,13 @@ CustomTrainer/
 └── PATCH_NOTES/
 ```
 
-## What changed in 0_2_10
+## What changed in 0_2_11
 
-- keeps the startup-safe device probing, dataset export / preflight fixes, fast Marking shortcuts, and top-level-only frame scanning from 0_2_8
-- adds a new **Export Validate** tab for checking exported models such as `.tflite` and `.onnx`
-- lets you run exported-model validation for metrics or exported-model prediction for saved preview frames
-- can auto-pick the latest exported model found under the current sessions root
-- keeps the regular **Validation** tab focused on `best.pt` / training-side checks
-- updates the visible main window version to 0_2_9
+- keeps the startup-safe device probing, dataset export / preflight fixes, fast Marking shortcuts, top-level-only frame scanning, and Export Validate tab from earlier 0_2_x patches
+- reduces the default width of the Marking right-side tools panel so the main frame preview stays larger
+- clamps restored Marking splitter widths so an older saved wide right panel does not keep taking too much horizontal space
+- stacks the quick-deploy buttons vertically in Marking so the tools column can stay narrower
+- updates the visible main window version to 0_2_11
 
 ## Main workflow
 
