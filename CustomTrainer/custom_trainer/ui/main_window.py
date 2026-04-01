@@ -16,7 +16,7 @@ from custom_trainer.ui.widgets.log_panel import LogPanel
 class CustomTrainerMainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle('CustomTrainer 0_2_9')
+        self.setWindowTitle('CustomTrainer 0_2_10')
         self.resize(1500, 920)
         self.setMinimumSize(960, 680)
         self._startup_geometry_applied = False
@@ -158,7 +158,7 @@ class CustomTrainerMainWindow(QMainWindow):
                     'Ctrl + Click in frame list -> Multi-select frames',
                     'Validation prediction browser now lets you step through saved frames.',
                     'Export Validate adds a similar review flow for exported .tflite / .onnx models.',
-                    'Marking page Quick Deploy is now a single button that runs on the current frame and loads predicted boxes into the main canvas.',
+                    'Marking page Quick Deploy can use a chosen .pt model and runs on all selected frames (or the current frame if none are selected).',
                 ]
             ),
         )

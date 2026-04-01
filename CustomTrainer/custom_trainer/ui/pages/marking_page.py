@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 import json
+import shutil
 from pathlib import Path
 from typing import Callable
 
@@ -57,6 +58,8 @@ class MarkingPage(QWidget):
         self.predicted_source_paths_by_name: dict[str, Path] = {}
         self.current_preview_index = -1
         self.pending_prediction_image_name: str | None = None
+        self.deploy_target_paths: list[Path] = []
+        self.deploy_target_paths_by_name: dict[str, Path] = {}
 
         self.root_edit = QLineEdit(self)
         self.session_list = QListWidget(self)
@@ -74,7 +77,7 @@ class MarkingPage(QWidget):
         self.selection_info.setAlignment(Qt.AlignTop | Qt.AlignLeft)
         self.deploy_weights_edit = QLineEdit(self)
         self.deploy_source_edit = QLineEdit(self)
-        self.deploy_status = QLabel('No quick deploy model or frame source selected yet.', self)
+        self.deploy_status = QLabel('Quick deploy model: latest best.pt (auto)\nQuick deploy target: current frame', self)
         self.deploy_status.setProperty('role', 'muted')
         self.deploy_status.setWordWrap(True)
         self.deploy_preview_label = QLabel('No quick deploy preview yet.', self)
@@ -168,9 +171,15 @@ class MarkingPage(QWidget):
         tools_layout.addWidget(save_button, 1, 0)
         tools_layout.addWidget(delete_button, 1, 1)
         tools_layout.addWidget(delete_frames_button, 2, 0, 1, 2)
-        self.quick_deploy_button = QPushButton('Quick Deploy Current Frame', tools_box)
-        self.quick_deploy_button.clicked.connect(self.quick_deploy_current_frame)
-        tools_layout.addWidget(self.quick_deploy_button, 3, 0, 1, 2)
+        self.quick_deploy_model_button = QPushButton('Choose Quick Deploy Model', tools_box)
+        self.quick_deploy_model_button.clicked.connect(self.choose_deploy_weights)
+        self.quick_deploy_latest_button = QPushButton('Use Latest best.pt', tools_box)
+        self.quick_deploy_latest_button.clicked.connect(self.use_latest_best_weights_for_deploy)
+        self.quick_deploy_button = QPushButton('Quick Deploy Selected / Current', tools_box)
+        self.quick_deploy_button.clicked.connect(self.quick_deploy_selected_frames)
+        tools_layout.addWidget(self.quick_deploy_model_button, 3, 0)
+        tools_layout.addWidget(self.quick_deploy_latest_button, 3, 1)
+        tools_layout.addWidget(self.quick_deploy_button, 4, 0, 1, 2)
         help_label = QLabel(
             'Draw: left-drag\n'
             'Select / drag box: right-click, then drag\n'
@@ -179,12 +188,12 @@ class MarkingPage(QWidget):
             'Cycle class: W / S\n'
             'Delete selected frame(s): X\n'
             'Delete selected box: Delete\n'
-            'Quick deploy button: use the latest best.pt on the current frame and load predicted boxes into the main canvas',
+            'Quick deploy: choose a .pt model, then run it on all selected frames (or the current frame if none are selected). Predictions are written back as labels and the current frame is loaded into the main canvas.',
             tools_box,
         )
         help_label.setProperty('role', 'muted')
         help_label.setWordWrap(True)
-        tools_layout.addWidget(help_label, 4, 0, 1, 2)
+        tools_layout.addWidget(help_label, 5, 0, 1, 2)
 
         deploy_box = QGroupBox('Quick Deploy To Frames', self)
         deploy_form = QFormLayout(deploy_box)
@@ -227,6 +236,7 @@ class MarkingPage(QWidget):
         info_layout.addWidget(self.summary_value)
         info_layout.addWidget(self.image_info)
         info_layout.addWidget(self.selection_info)
+        info_layout.addWidget(self.deploy_status)
         info_layout.addStretch(1)
 
         self.right_splitter = QSplitter(Qt.Vertical, self)
@@ -370,7 +380,7 @@ class MarkingPage(QWidget):
         path, _ = QFileDialog.getOpenFileName(self, 'Choose trained model (.pt)', filter='PyTorch weights (*.pt);;All files (*)')
         if path:
             self.deploy_weights_edit.setText(path)
-            self._update_deploy_status('Loaded quick deploy weights.')
+            self._update_deploy_status('Loaded quick deploy model.')
 
     def choose_deploy_source_file(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
@@ -389,10 +399,11 @@ class MarkingPage(QWidget):
             self._update_deploy_status('Loaded quick deploy source folder.')
 
     def _update_deploy_status(self, message: str | None = None) -> None:
-        weights_text = self.deploy_weights_edit.text().strip() or 'not set'
-        source_text = self.deploy_source_edit.text().strip() or 'not set'
+        weights_text = self.deploy_weights_edit.text().strip() or 'latest best.pt (auto)'
+        source_text = self.deploy_source_edit.text().strip()
+        target_text = source_text or 'current frame'
         prefix = f'{message}\n' if message else ''
-        self.deploy_status.setText(f'{prefix}Weights: {weights_text}\nSource: {source_text}')
+        self.deploy_status.setText(f'{prefix}Quick deploy model: {weights_text}\nQuick deploy target: {target_text}')
 
     def use_latest_best_weights_for_deploy(self) -> None:
         best = self.state.latest_best_weights()
@@ -418,23 +429,59 @@ class MarkingPage(QWidget):
         self.deploy_source_edit.setText(str(session.image_root))
         self._update_deploy_status('Loaded current session frames for quick deploy.')
 
-    def quick_deploy_current_frame(self) -> None:
+    def _selected_image_paths(self) -> list[Path]:
+        session = self.state.current_session
+        if session is None:
+            return []
+        rows = sorted({index.row() for index in self.image_list.selectedIndexes() if index.row() >= 0})
+        paths: list[Path] = []
+        for row in rows:
+            if 0 <= row < len(session.image_paths):
+                paths.append(session.image_paths[row])
+        return paths
+
+    def _link_or_copy_selected_frames(self, image_paths: list[Path]) -> Path:
+        source_root = self.state.preferred_runs_dir() / 'quick_predict' / '_selected_sources' / datetime.now().strftime('%Y%m%d_%H%M%S_%f')
+        source_root.mkdir(parents=True, exist_ok=True)
+        for image_path in image_paths:
+            destination = source_root / image_path.name
+            try:
+                destination.hardlink_to(image_path)
+            except Exception:
+                shutil.copy2(image_path, destination)
+        return source_root
+
+    def quick_deploy_selected_frames(self) -> None:
         if self.thread is not None:
             QMessageBox.information(self, 'Quick deploy running', 'A quick deploy task is already running.')
             return
-        image_path = self.state.current_image_path
-        if image_path is None or not image_path.exists():
-            QMessageBox.information(self, 'No current frame', 'Open a frame on the Marking tab first.')
+        selected_paths = self._selected_image_paths()
+        if not selected_paths:
+            image_path = self.state.current_image_path
+            if image_path is None or not image_path.exists():
+                QMessageBox.information(self, 'No frame selected', 'Open a frame or select frames on the Marking tab first.')
+                return
+            selected_paths = [image_path]
+        weights_path = self._deploy_weights_path()
+        if weights_path is None:
+            QMessageBox.information(self, 'No trained weights found', 'Choose a trained .pt model or make sure a best.pt file exists first.')
             return
-        best = self.state.latest_best_weights()
-        if best is None:
-            QMessageBox.information(self, 'No trained weights found', 'No best.pt file was found under the current sessions root or session.')
+        if self.is_dirty and not self.save_current_labels():
+            QMessageBox.warning(self, 'Save failed', 'Could not save the current labels before quick deploy.')
             return
-        if self.is_dirty:
-            self.save_current_labels()
-        self.deploy_weights_edit.setText(str(best))
-        self.deploy_source_edit.setText(str(image_path))
-        self.predict_model_on_frames()
+        self.deploy_weights_edit.setText(str(weights_path))
+        if len(selected_paths) == 1:
+            source_path = selected_paths[0]
+            self.deploy_source_edit.setText(str(source_path))
+            self._update_deploy_status('Quick deploy will run on 1 frame.')
+        else:
+            source_path = self._link_or_copy_selected_frames(selected_paths)
+            self.deploy_source_edit.setText(str(source_path))
+            self._update_deploy_status(f'Quick deploy will run on {len(selected_paths)} selected frames.')
+        self.predict_model_on_frames(target_image_paths=selected_paths)
+
+    def quick_deploy_current_frame(self) -> None:
+        self.quick_deploy_selected_frames()
 
     def _clone_pixel_boxes(self, boxes: list[PixelBox]) -> list[PixelBox]:
         return [PixelBox(class_id=box.class_id, x1=box.x1, y1=box.y1, x2=box.x2, y2=box.y2) for box in boxes]
@@ -878,7 +925,7 @@ class MarkingPage(QWidget):
             return session.image_root
         return None
 
-    def predict_model_on_frames(self) -> None:
+    def predict_model_on_frames(self, *, target_image_paths: list[Path] | None = None) -> None:
         if self.thread is not None:
             QMessageBox.information(self, 'Quick deploy running', 'A quick deploy task is already running.')
             return
@@ -891,6 +938,10 @@ class MarkingPage(QWidget):
             QMessageBox.critical(self, 'Frame source missing', 'Choose a valid frame file or frame folder first.')
             return
         resolved_source_path, source_note = resolve_prediction_source(source_path)
+        if target_image_paths is None:
+            target_image_paths = self._selected_image_paths() or ([self.state.current_image_path] if self.state.current_image_path is not None else [])
+        self.deploy_target_paths = [path for path in target_image_paths if path is not None and path.exists()]
+        self.deploy_target_paths_by_name = {path.name: path for path in self.deploy_target_paths}
         if not resolved_source_path.exists():
             QMessageBox.critical(self, 'Invalid source', f'The selected quick deploy source does not exist:\n{source_path}')
             return
@@ -904,6 +955,8 @@ class MarkingPage(QWidget):
         self.last_prediction_summary = []
         self.last_save_dir = ''
         self._refresh_deploy_frame_selector()
+        if self.deploy_target_paths:
+            self.last_prediction_summary.append(f'Quick deploy target frames: {len(self.deploy_target_paths)}')
         if source_note:
             self.last_prediction_summary.append(source_note)
         command = build_predict_command(
@@ -1032,7 +1085,7 @@ class MarkingPage(QWidget):
         self.deploy_preview_info.setText(
             f'Current frame: {image_path.name}\n'
             f'Weights: {deploy_weights_text}\n'
-            'Use Current Frame or Use Current Session Frames before running quick deploy. Results can be loaded into the main Marking canvas.'
+            'Select frames in the image list or stay on the current frame before running quick deploy. Results are written back to labels and the current frame can be loaded into the main Marking canvas.'
         )
         self.deploy_frame_status.setText('No quick deploy result frames yet.')
 
@@ -1045,6 +1098,8 @@ class MarkingPage(QWidget):
         self.last_prediction_summary = []
         self.last_save_dir = ''
         self._refresh_deploy_frame_selector()
+        if self.deploy_target_paths:
+            self.last_prediction_summary.append(f'Quick deploy target frames: {len(self.deploy_target_paths)}')
         self.refresh_deploy_preview()
 
     def _add_predicted_frame(self, path: Path) -> None:
@@ -1089,7 +1144,10 @@ class MarkingPage(QWidget):
                 image_name = str(payload.get('image_name') or '').strip()
                 image_path_text = str(payload.get('image_path') or '').strip()
                 if image_name:
-                    if image_path_text:
+                    mapped_source = self.deploy_target_paths_by_name.get(image_name)
+                    if mapped_source is not None:
+                        self.predicted_source_paths_by_name[image_name] = mapped_source
+                    elif image_path_text:
                         self.predicted_source_paths_by_name[image_name] = Path(image_path_text)
                     if payload.get('type') == 'image':
                         self.predicted_boxes_by_name[image_name] = []
@@ -1133,6 +1191,10 @@ class MarkingPage(QWidget):
         self.current_session_deploy_button.setEnabled(not busy)
         if hasattr(self, 'quick_deploy_button'):
             self.quick_deploy_button.setEnabled(not busy)
+        if hasattr(self, 'quick_deploy_model_button'):
+            self.quick_deploy_model_button.setEnabled(not busy)
+        if hasattr(self, 'quick_deploy_latest_button'):
+            self.quick_deploy_latest_button.setEnabled(not busy)
 
     def _launch_deploy(self, command: list[str], status_message: str) -> None:
         self.log(f'[cwd] {runner_working_directory()}')
@@ -1150,19 +1212,76 @@ class MarkingPage(QWidget):
         self.set_status(status_message)
         self.thread.start()
 
+    def _save_quick_deploy_predictions(self) -> tuple[int, int]:
+        session = self.state.current_session
+        if session is None:
+            return 0, 0
+        saved = 0
+        kept = 0
+        for image_path in self.deploy_target_paths:
+            predicted_boxes = self.predicted_boxes_by_name.get(image_path.name)
+            if predicted_boxes is None:
+                kept += 1
+                continue
+            if not predicted_boxes:
+                kept += 1
+                continue
+            probe = QPixmap(str(image_path))
+            if probe.isNull() or probe.width() <= 0 or probe.height() <= 0:
+                kept += 1
+                continue
+            label_path = session.label_path_for_image(image_path)
+            yolo_boxes = [pixel_to_yolo(box, probe.width(), probe.height()) for box in predicted_boxes]
+            write_yolo_label_file(label_path, yolo_boxes)
+            saved += 1
+            if self.current_image_path is not None and self.current_image_path == image_path:
+                self.current_label_path = label_path
+        if saved:
+            self._invalidate_label_cache()
+        return saved, kept
+
+    def _refresh_markers_for_paths(self, image_paths: list[Path]) -> None:
+        session = self.state.current_session
+        if session is None:
+            return
+        rows_by_name = {path.name: index for index, path in enumerate(session.image_paths)}
+        for image_path in image_paths:
+            row = rows_by_name.get(image_path.name)
+            if row is None or row < 0 or row >= self.image_list.count():
+                continue
+            label_path = session.find_existing_label_path(image_path)
+            has_labels = False
+            if label_path is not None and label_path.exists():
+                try:
+                    has_labels = bool(label_path.read_text(encoding='utf-8').strip())
+                except Exception:
+                    has_labels = False
+            marker = '●' if has_labels else '○'
+            self.image_list.item(row).setText(f'{marker} {image_path.name}')
+        self.summary_value.setText(f'Session: {session.name} • {len(session.image_paths)} images • {session.labeled_count} labeled')
+
     def _on_deploy_finished(self, exit_code: int) -> None:
         self._load_saved_prediction_frames()
         if exit_code == 0:
+            saved_count, kept_count = self._save_quick_deploy_predictions()
+            self._refresh_markers_for_paths(self.deploy_target_paths)
             applied_current = False
             if self.current_image_path is not None:
                 applied_current = self._focus_prediction_in_marking(self.current_image_path.name)
-            message = 'Quick deploy finished for the current frame.'
-            if applied_current:
-                self._update_deploy_status('Quick deploy loaded predicted boxes into the main Marking canvas for editing.')
+            frame_count = len(self.deploy_target_paths) or 1
+            message = f'Quick deploy finished for {frame_count} frame(s).'
+            if saved_count:
+                self._update_deploy_status(f'Quick deploy wrote labels to {saved_count} frame(s).')
+            elif applied_current:
+                self._update_deploy_status('Quick deploy loaded predicted boxes into the current frame, but no label files were written.')
             else:
-                self._update_deploy_status('Quick deploy finished, but no predicted boxes were loaded into the current frame.')
+                self._update_deploy_status('Quick deploy finished, but no predicted boxes were written to label files.')
+            if kept_count:
+                self.log(f'Quick deploy kept existing labels on {kept_count} frame(s) because no boxes were predicted.')
         else:
             message = f'Quick deploy finished with exit code {exit_code}.'
+        self.deploy_target_paths = []
+        self.deploy_target_paths_by_name = {}
         self._set_deploy_busy_state(False)
         self.set_status(message)
         self.refresh_deploy_preview()

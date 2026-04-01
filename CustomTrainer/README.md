@@ -26,7 +26,7 @@ CustomTrainer/
 └── PATCH_NOTES/
 ```
 
-## What changed in 0_2_9
+## What changed in 0_2_10
 
 - keeps the startup-safe device probing, dataset export / preflight fixes, fast Marking shortcuts, and top-level-only frame scanning from 0_2_8
 - adds a new **Export Validate** tab for checking exported models such as `.tflite` and `.onnx`
@@ -41,7 +41,7 @@ CustomTrainer/
 2. Choose the root folder that contains your sessions
 3. Label frames and save YOLO labels
 4. Open **Training** to train from the current sessions root
-5. Use **Marking → Quick Deploy Current Frame** to run quick prediction on the active frame with the latest `best.pt`, then refine the loaded predicted boxes directly in the main Marking canvas
+5. On **Marking**, optionally click **Choose Quick Deploy Model** to pick a `.pt` file, select one or more frames in the frame list, then click **Quick Deploy Selected / Current** to write predicted labels back to those frames and load the current frame into the main canvas
 6. Open **Export** to export the newest trained weights
 7. Open **Export Validate** to test the exported `.tflite` / `.onnx` model on the same frames
 
@@ -58,7 +58,7 @@ CustomTrainer/
 - uses `X` to delete selected frame(s)
 - uses arrow keys to move the selected box
 - draws each class with its own box color
-- includes a single Quick Deploy button on Marking for fast prediction on the current frame
+- includes Marking quick-deploy controls for choosing a `.pt` model and running prediction on selected/current frames
 - can load quick-deploy predicted boxes into the main annotation canvas so you can correct and save them as labels
 
 ## Training page highlights
