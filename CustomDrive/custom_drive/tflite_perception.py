@@ -194,7 +194,7 @@ def _normalize_output_2d(output: np.ndarray) -> tuple[np.ndarray, str]:
     layout = 'as_is'
     # Ultralytics exports commonly arrive as [channels, anchors], e.g. [6, 8400].
     # Detect that even when labels.txt is missing.
-    if arr.shape[0] < arr.shape[1] and arr.shape[0] <= 256:
+    if arr.shape[1] != 6 and arr.shape[0] < arr.shape[1] and arr.shape[0] <= 256:
         arr = arr.T
         layout = 'transposed'
     return arr, layout
@@ -257,14 +257,19 @@ def _decode_rows(arr: np.ndarray, *, conf_threshold: float, input_size: int, has
     )
 
 
-def _coerce_xyxy(box: np.ndarray, *, input_size: int, order: str) -> np.ndarray:
-    coords = box.astype(np.float32).copy()
-    if np.max(np.abs(coords)) <= 2.0:
-        coords *= float(input_size)
+def _coerce_box(coords: np.ndarray, *, input_size: int, order: str) -> np.ndarray:
+    values = coords.astype(np.float32).copy()
+    if np.max(np.abs(values)) <= 2.0:
+        values *= float(input_size)
     if order == 'xyxy':
-        x1, y1, x2, y2 = coords.tolist()
+        x1, y1, x2, y2 = values.tolist()
+    elif order == 'yxyx':
+        y1, x1, y2, x2 = values.tolist()
+    elif order == 'xywh':
+        x, y, w, h = values.tolist()
+        return xywh_to_xyxy(np.array([x, y, w, h], dtype=np.float32))
     else:
-        y1, x1, y2, x2 = coords.tolist()
+        x1, y1, x2, y2 = values.tolist()
     if x2 < x1:
         x1, x2 = x2, x1
     if y2 < y1:
@@ -282,10 +287,13 @@ def _column_profile(values: np.ndarray) -> dict[str, Any]:
             'non_negative_ratio': 0.0,
             'in_unit_ratio': 0.0,
             'integer_like_ratio': 0.0,
+            'nonzero_ratio': 0.0,
+            'positive_ratio': 0.0,
             'unique_count': 0,
         }
     rounded = np.round(finite)
     integer_like = np.abs(finite - rounded) <= 1e-3
+    nonzero = np.abs(finite) > 1e-6
     return {
         'min': float(finite.min()),
         'max': float(finite.max()),
@@ -293,6 +301,8 @@ def _column_profile(values: np.ndarray) -> dict[str, Any]:
         'non_negative_ratio': float(np.mean(finite >= 0.0)),
         'in_unit_ratio': float(np.mean((finite >= 0.0) & (finite <= 1.05))),
         'integer_like_ratio': float(np.mean(integer_like)),
+        'nonzero_ratio': float(np.mean(nonzero)),
+        'positive_ratio': float(np.mean(finite > 0.0)),
         'unique_count': int(len(np.unique(rounded if np.any(integer_like) else np.round(finite, 3)))),
     }
 
@@ -303,24 +313,38 @@ def _six_col_variant_rank(info: dict[str, Any]) -> tuple[float, ...]:
     score_max = float(info.get('score_max', 0.0) or 0.0)
     score_unit_ratio = float(score_profile.get('in_unit_ratio', 0.0) or 0.0)
     score_integer_ratio = float(score_profile.get('integer_like_ratio', 0.0) or 0.0)
+    score_nonzero_ratio = float(score_profile.get('nonzero_ratio', 0.0) or 0.0)
+    score_positive_ratio = float(score_profile.get('positive_ratio', 0.0) or 0.0)
     class_integer_ratio = float(class_profile.get('integer_like_ratio', 0.0) or 0.0)
     class_non_negative_ratio = float(class_profile.get('non_negative_ratio', 0.0) or 0.0)
     class_unique_count = int(class_profile.get('unique_count', 0) or 0)
     decoded_count = int(info.get('decoded_count', 0) or 0)
     class_count = int(info.get('class_count', 0) or 0)
-    plausible_score = 1.0 if score_max <= 1.05 else (0.5 if score_max <= 1.5 else 0.0)
+    coord_mode = str(info.get('coord_order', 'xyxy') or 'xyxy')
+    coord_cols = tuple(int(v) for v in (info.get('coord_cols') or []))
+
+    strong_score = 1.0 if (0.0 < score_max <= 1.05 and score_nonzero_ratio > 0.01 and score_positive_ratio > 0.01) else 0.0
+    weak_score = 1.0 if (0.0 < score_max <= 5.0 and score_nonzero_ratio > 0.01 and score_integer_ratio < 0.9) else 0.0
+    zero_penalty = 0.0 if score_nonzero_ratio > 0.0 else -1.0
     score_penalty = 0.0 if score_max <= 1.05 else min(score_max, 100.0)
     unique_bonus = 1.0 if class_unique_count <= max(class_count + 2, 8) else 0.0
+    coord_bonus = 1.0 if coord_cols == (0, 1, 2, 3) else 0.0
     return (
-        plausible_score,
+        1.0 if decoded_count > 0 else 0.0,
+        strong_score,
+        weak_score,
+        score_nonzero_ratio,
+        score_positive_ratio,
         score_unit_ratio,
         class_integer_ratio,
         class_non_negative_ratio,
         unique_bonus,
+        coord_bonus,
+        1.0 if coord_mode == 'xyxy' else (0.5 if coord_mode == 'xywh' else 0.0),
         float(decoded_count),
         -score_integer_ratio,
+        zero_penalty,
         -score_penalty,
-        1.0 if str(info.get('coord_order', 'xyxy')) == 'xyxy' else 0.0,
     )
 
 
@@ -332,6 +356,7 @@ def _decode_six_column_variant(
     input_size: int,
     score_col: int,
     class_col: int,
+    coord_cols: tuple[int, int, int, int],
     coord_order: str,
     variant_name: str,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, dict[str, Any]]:
@@ -344,6 +369,7 @@ def _decode_six_column_variant(
             'score_mean': 0.0,
             'score_col': int(score_col),
             'class_col': int(class_col),
+            'coord_cols': list(coord_cols),
             'coord_order': coord_order,
             'selected_variant': variant_name,
             'score_profile': _column_profile(np.empty((0,), dtype=np.float32)),
@@ -366,7 +392,8 @@ def _decode_six_column_variant(
         row = arr[idx]
         class_id = int(max(0.0, round(float(class_values[idx]))))
         inferred_class_count = max(inferred_class_count, class_id + 1)
-        boxes.append(_coerce_xyxy(row[:4], input_size=input_size, order=coord_order))
+        coord_values = np.asarray([row[c] for c in coord_cols], dtype=np.float32)
+        boxes.append(_coerce_box(coord_values, input_size=input_size, order=coord_order))
         scores.append(float(score_values[idx]))
         class_ids.append(class_id)
     if not boxes:
@@ -385,6 +412,7 @@ def _decode_six_column_variant(
                 'score_mean': score_mean,
                 'score_col': int(score_col),
                 'class_col': int(class_col),
+                'coord_cols': list(coord_cols),
                 'coord_order': coord_order,
                 'selected_variant': variant_name,
                 'score_profile': score_profile,
@@ -404,6 +432,7 @@ def _decode_six_column_variant(
             'score_mean': float(score_arr.mean()) if score_arr.size else score_mean,
             'score_col': int(score_col),
             'class_col': int(class_col),
+            'coord_cols': list(coord_cols),
             'coord_order': coord_order,
             'selected_variant': variant_name,
             'score_profile': score_profile,
@@ -424,6 +453,7 @@ def parse_output(output: np.ndarray, conf_threshold: float, num_classes: int, in
         'score_mean': 0.0,
         'score_col': -1,
         'class_col': -1,
+        'coord_cols': [],
         'coord_order': 'unknown',
     }
     arr, layout = _normalize_output_2d(output)
@@ -434,12 +464,26 @@ def parse_output(output: np.ndarray, conf_threshold: float, num_classes: int, in
     if arr.ndim == 2 and arr.shape[-1] == 6:
         variants = []
         variant_summaries = []
-        for score_col, class_col, coord_order, variant_name in [
-            (4, 5, 'xyxy', 'xyxy_score_class'),
-            (5, 4, 'xyxy', 'xyxy_class_score'),
-            (4, 5, 'yxyx', 'yxyx_score_class'),
-            (5, 4, 'yxyx', 'yxyx_class_score'),
-        ]:
+        explicit_variants = [
+            ((0, 1, 2, 3), 4, 5, 'xyxy', 'xyxy_score_class'),
+            ((0, 1, 2, 3), 5, 4, 'xyxy', 'xyxy_class_score'),
+            ((0, 1, 2, 3), 4, 5, 'yxyx', 'yxyx_score_class'),
+            ((0, 1, 2, 3), 5, 4, 'yxyx', 'yxyx_class_score'),
+        ]
+        seen_keys: set[tuple[tuple[int, int, int, int], int, int, str]] = set()
+        all_specs = list(explicit_variants)
+        for score_col in range(6):
+            for class_col in range(6):
+                if class_col == score_col:
+                    continue
+                coord_cols = tuple(idx for idx in range(6) if idx not in {score_col, class_col})
+                for coord_order in ('xyxy', 'yxyx', 'xywh'):
+                    key = (coord_cols, score_col, class_col, coord_order)
+                    if key in seen_keys:
+                        continue
+                    seen_keys.add(key)
+                    all_specs.append((coord_cols, score_col, class_col, coord_order, f'cols{"".join(str(v) for v in coord_cols)}_{coord_order}_score{score_col}_class{class_col}'))
+        for coord_cols, score_col, class_col, coord_order, variant_name in all_specs:
             boxes_v, scores_v, classes_v, info_v = _decode_six_column_variant(
                 arr,
                 conf_threshold=conf_threshold,
@@ -447,6 +491,7 @@ def parse_output(output: np.ndarray, conf_threshold: float, num_classes: int, in
                 input_size=input_size,
                 score_col=score_col,
                 class_col=class_col,
+                coord_cols=coord_cols,
                 coord_order=coord_order,
                 variant_name=variant_name,
             )
@@ -459,9 +504,11 @@ def parse_output(output: np.ndarray, conf_threshold: float, num_classes: int, in
                 'score_mean': float(info_v.get('score_mean', 0.0)),
                 'score_col': int(info_v.get('score_col', -1)),
                 'class_col': int(info_v.get('class_col', -1)),
+                'coord_cols': list(info_v.get('coord_cols', [])),
                 'coord_order': str(info_v.get('coord_order', 'unknown')),
                 'score_in_unit_ratio': float((info_v.get('score_profile', {}) or {}).get('in_unit_ratio', 0.0)),
                 'score_integer_like_ratio': float((info_v.get('score_profile', {}) or {}).get('integer_like_ratio', 0.0)),
+                'score_nonzero_ratio': float((info_v.get('score_profile', {}) or {}).get('nonzero_ratio', 0.0)),
                 'class_integer_like_ratio': float((info_v.get('class_profile', {}) or {}).get('integer_like_ratio', 0.0)),
                 'class_unique_count': int((info_v.get('class_profile', {}) or {}).get('unique_count', 0)),
             })
@@ -469,7 +516,7 @@ def parse_output(output: np.ndarray, conf_threshold: float, num_classes: int, in
         _, variant_name, boxes, scores, classes, info = selected
         debug.update(info)
         debug['selected_variant'] = variant_name
-        debug['variant_candidates'] = variant_summaries
+        debug['variant_candidates'] = sorted(variant_summaries, key=lambda item: (-int(item.get('decoded_count', 0)), -float(item.get('score_nonzero_ratio', 0.0)), -float(item.get('score_max', 0.0)), str(item.get('name', ''))))[:16]
         return boxes, scores, classes, debug
 
     if arr.ndim != 2 or arr.shape[1] < 5:
@@ -585,6 +632,7 @@ class TFLitePerception:
     def __init__(self, *, base_dir: str | Path | None = None):
         self.base_dir = Path(base_dir).resolve() if base_dir is not None else None
         self._lock = threading.RLock()
+        self._invoke_lock = threading.Lock()
         self.interpreter = None
         self.bundle: ResolvedBundle | None = None
         self.labels: list[str] = []
@@ -756,9 +804,10 @@ class TFLitePerception:
         inp, scale, pad = preprocess(frame_bgr, size, input_dtype)
         start = cv2.getTickCount() if cv2 is not None else 0.0
         try:
-            interpreter.set_tensor(input_index, inp)
-            interpreter.invoke()
-            output = np.array(interpreter.get_tensor(output_index), copy=True)
+            with self._invoke_lock:
+                interpreter.set_tensor(input_index, inp)
+                interpreter.invoke()
+                output = np.array(interpreter.get_tensor(output_index), copy=True)
         except Exception as exc:
             if cv2 is not None:
                 elapsed_ms = (cv2.getTickCount() - start) * 1000.0 / max(cv2.getTickFrequency(), 1.0)

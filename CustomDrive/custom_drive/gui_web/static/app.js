@@ -362,6 +362,7 @@ function formatAiDebugLines(debugPayload, aiStatus = null) {
     `layout: ${String(debug.layout || 'unknown')}`,
     `score_col: ${Number(debug.score_col ?? -1)}`,
     `class_col: ${Number(debug.class_col ?? -1)}`,
+    `coord_cols: ${JSON.stringify(debug.coord_cols || [])}`,
     `coord_order: ${String(debug.coord_order || 'unknown')}`,
     `candidates: ${Number(debug.candidate_count || 0)}`,
     `decoded: ${Number(debug.decoded_count || 0)}`,
@@ -375,7 +376,7 @@ function formatAiDebugLines(debugPayload, aiStatus = null) {
     lines.push('variants:');
     variants.forEach((item) => {
       lines.push(
-        `  - ${String(item.name || 'variant')} | dec=${Number(item.decoded_count || 0)} | score_max=${Number(item.score_max || 0).toFixed(4)} | score_col=${Number(item.score_col ?? -1)} | class_col=${Number(item.class_col ?? -1)} | unit_ratio=${Number(item.score_in_unit_ratio || 0).toFixed(2)} | class_int=${Number(item.class_integer_like_ratio || 0).toFixed(2)} | class_unique=${Number(item.class_unique_count || 0)}`,
+        `  - ${String(item.name || 'variant')} | dec=${Number(item.decoded_count || 0)} | score_max=${Number(item.score_max || 0).toFixed(4)} | score_col=${Number(item.score_col ?? -1)} | class_col=${Number(item.class_col ?? -1)} | coords=${JSON.stringify(item.coord_cols || [])}/${String(item.coord_order || 'unknown')} | nz_ratio=${Number(item.score_nonzero_ratio || 0).toFixed(2)} | unit_ratio=${Number(item.score_in_unit_ratio || 0).toFixed(2)} | class_int=${Number(item.class_integer_like_ratio || 0).toFixed(2)} | class_unique=${Number(item.class_unique_count || 0)}`,
       );
     });
   }
@@ -802,9 +803,9 @@ function scheduleAiConfigSave() {
   state.aiConfigTimer = window.setTimeout(() => { saveAiConfigOnly(); }, 700);
 }
 
-async function runAiDebug() {
+async function runAiDebug(forceRun = false) {
   try {
-    const data = await fetchJson('/api/ai/debug');
+    const data = await fetchJson(forceRun ? '/api/ai/debug?run=1' : '/api/ai/debug');
     renderAiDebug(data.debug, data.ai_status, { appendHistory: true, forceSnapshot: true });
     setBanner('aiSettingsMessage', 'AI debug refreshed.', 'good');
   } catch (error) {
@@ -817,20 +818,19 @@ function setupAiSettings() {
     await refreshAiModels(document.getElementById('aiModelSelect').value || null);
     state.aiSettingsLoaded = false;
     await pollStatus();
-    await runAiDebug();
     openModal('aiSettingsModal');
   });
   document.getElementById('closeAiSettingsBtn').addEventListener('click', () => closeModal('aiSettingsModal'));
-  document.getElementById('refreshAiModelsBtn').addEventListener('click', async () => { await refreshAiModels(document.getElementById('aiModelSelect').value || null); await runAiDebug(); });
+  document.getElementById('refreshAiModelsBtn').addEventListener('click', async () => { await refreshAiModels(document.getElementById('aiModelSelect').value || null); });
   document.getElementById('uploadAiFilesBtn').addEventListener('click', uploadAiFiles);
   document.getElementById('saveAiConfigBtn').addEventListener('click', saveAiConfigOnly);
-  document.getElementById('runAiDebugBtn').addEventListener('click', runAiDebug);
+  document.getElementById('runAiDebugBtn').addEventListener('click', () => runAiDebug(true));
   document.getElementById('toggleAiDebugFreezeBtn').addEventListener('click', toggleAiDebugFreeze);
   document.getElementById('copyAiDebugBtn').addEventListener('click', copyAiDebugSnapshot);
   document.getElementById('copyAiDebugLogBtn').addEventListener('click', copyAiDebugHistory);
   document.getElementById('clearAiDebugLogBtn').addEventListener('click', async () => { await clearAiDebugHistory(); });
   document.getElementById('deleteAiModelBtn').addEventListener('click', deleteAiModel);
-  document.getElementById('deployAiModelBtn').addEventListener('click', async () => { await deployAiModel(); await runAiDebug(); });
+  document.getElementById('deployAiModelBtn').addEventListener('click', async () => { await deployAiModel(); });
   ['aiBackend', 'aiConfidenceThreshold', 'aiIouThreshold', 'aiOverlayEnabled', 'aiOverlayFps', 'aiModelSelect', 'aiLabelsSelect', 'aiInputSize', 'aiTargetLabel', 'aiDropZoneLabel'].forEach((id) => {
     const el = document.getElementById(id);
     if (!el) return;

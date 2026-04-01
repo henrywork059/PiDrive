@@ -298,13 +298,20 @@ class ObjectDetectionService:
             }
         return detections
 
-    def run_debug_inference(self, frame_bgr=None) -> dict[str, Any]:
-        if frame_bgr is not None:
-            try:
-                self._infer_frame(frame_bgr)
-            except Exception as exc:
+    def run_debug_inference(self, frame_bgr=None, *, force_inference: bool = False) -> dict[str, Any]:
+        if force_inference and frame_bgr is not None:
+            acquired = self._infer_lock.acquire(blocking=False)
+            if acquired:
+                try:
+                    self._infer_frame(frame_bgr)
+                except Exception as exc:
+                    with self._lock:
+                        self._set_last_error_locked(f'Inference failed: {exc}')
+                finally:
+                    self._infer_lock.release()
+            else:
                 with self._lock:
-                    self._set_last_error_locked(f'Inference failed: {exc}')
+                    self._append_history_locked('Skipped debug inference: detector is already busy.', 'info')
         status = self.get_status(include_models=False)
         return {
             'backend': status.get('backend', 'color'),

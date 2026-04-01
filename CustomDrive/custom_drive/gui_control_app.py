@@ -24,7 +24,7 @@ from piserver.services.motor_service import MotorService  # noqa: E402
 from piserver.services.recorder_service import RecorderService  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent / 'gui_web'
-APP_VERSION = '0_3_2'
+APP_VERSION = '0_3_3'
 OD_MODEL_ROOT = CUSTOMDRIVE_ROOT / 'models' / 'object_detection'
 
 
@@ -302,18 +302,21 @@ def create_app() -> Flask:
 
     @app.route('/api/ai/debug')
     def api_ai_debug():
-        live_frame = ctx.camera_service.get_latest_frame(copy=True)
-        if live_frame is None:
-            jpeg_frame = ctx.camera_service.get_jpeg_frame()
-            if jpeg_frame is not None:
-                try:
-                    import cv2  # noqa: WPS433
-                    import numpy as np  # noqa: WPS433
-                    arr = np.frombuffer(jpeg_frame, dtype=np.uint8)
-                    live_frame = cv2.imdecode(arr, cv2.IMREAD_COLOR)
-                except Exception:
-                    live_frame = None
-        debug = ctx.object_detection_service.run_debug_inference(live_frame)
+        run_flag = str(request.args.get('run', '0') or '0').strip().lower() in {'1', 'true', 'yes', 'on'}
+        live_frame = None
+        if run_flag:
+            live_frame = ctx.camera_service.get_latest_frame(copy=True)
+            if live_frame is None:
+                jpeg_frame = ctx.camera_service.get_jpeg_frame()
+                if jpeg_frame is not None:
+                    try:
+                        import cv2  # noqa: WPS433
+                        import numpy as np  # noqa: WPS433
+                        arr = np.frombuffer(jpeg_frame, dtype=np.uint8)
+                        live_frame = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+                    except Exception:
+                        live_frame = None
+        debug = ctx.object_detection_service.run_debug_inference(live_frame, force_inference=run_flag)
         return jsonify({'ok': True, 'debug': debug, 'ai_status': ctx.object_detection_service.get_status(include_models=False)})
 
     @app.route('/api/ai/debug_log/clear', methods=['POST'])
