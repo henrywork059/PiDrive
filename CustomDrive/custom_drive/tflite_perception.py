@@ -514,6 +514,73 @@ def parse_output(output: np.ndarray, conf_threshold: float, num_classes: int, in
     return boxes, scores, classes, debug
 
 
+def _shape_list(detail: dict[str, Any], key: str = 'shape') -> list[int]:
+    raw = detail.get(key, [])
+    try:
+        arr = np.asarray(raw, dtype=np.int64).reshape(-1) if np is not None else []
+        return [int(v) for v in arr]
+    except Exception:
+        try:
+            return [int(v) for v in raw]
+        except Exception:
+            return []
+
+
+def _dtype_name(value: Any) -> str:
+    try:
+        return str(np.dtype(value).name) if np is not None else str(value)
+    except Exception:
+        return str(value)
+
+
+def _first_quant_value(raw: Any, default: float = 0.0) -> float:
+    try:
+        arr = np.asarray(raw, dtype=np.float32).reshape(-1) if np is not None else []
+        if getattr(arr, 'size', 0):
+            return float(arr[0])
+    except Exception:
+        pass
+    return float(default)
+
+
+def _build_input_meta(detail: dict[str, Any]) -> dict[str, Any]:
+    shape = _shape_list(detail)
+    dtype = detail.get('dtype', np.float32 if np is not None else float)
+    tensor_size = int(shape[1]) if len(shape) > 1 else 0
+    return {
+        'index': int(detail.get('index', 0)),
+        'dtype': dtype,
+        'dtype_name': _dtype_name(dtype),
+        'shape': shape,
+        'size': tensor_size,
+    }
+
+
+def _build_output_meta(details: list[dict[str, Any]]) -> tuple[dict[str, Any], list[list[int]], list[str]]:
+    if not details:
+        return {
+            'index': 0,
+            'dtype': np.float32 if np is not None else float,
+            'dtype_name': _dtype_name(np.float32 if np is not None else float),
+            'shape': [],
+            'quant_scale': 0.0,
+            'quant_zero_point': 0.0,
+        }, [], []
+    selected = max(details, key=lambda detail: int(np.prod(np.asarray(detail.get('shape', [1]), dtype=np.int64))) if np is not None else 1)
+    output_shapes = [_shape_list(detail) for detail in details]
+    output_dtypes = [_dtype_name(detail.get('dtype', np.float32 if np is not None else float)) for detail in details]
+    quant = selected.get('quantization_parameters') or {}
+    dtype = selected.get('dtype', np.float32 if np is not None else float)
+    return {
+        'index': int(selected.get('index', 0)),
+        'dtype': dtype,
+        'dtype_name': _dtype_name(dtype),
+        'shape': _shape_list(selected),
+        'quant_scale': _first_quant_value(quant.get('scales', []), 0.0),
+        'quant_zero_point': _first_quant_value(quant.get('zero_points', []), 0.0),
+    }, output_shapes, output_dtypes
+
+
 class TFLitePerception:
     def __init__(self, *, base_dir: str | Path | None = None):
         self.base_dir = Path(base_dir).resolve() if base_dir is not None else None
@@ -530,6 +597,8 @@ class TFLitePerception:
         self.last_error = ''
         self.last_inference_ms = 0.0
         self.last_detections: list[Detection] = []
+        self._input_meta: dict[str, Any] = {}
+        self._output_meta: dict[str, Any] = {}
         self.debug_info: dict[str, Any] = {
             'input_shape': [],
             'input_dtype': '',
@@ -581,11 +650,9 @@ class TFLitePerception:
         configured_size = int(input_size or config.get('image_size', 0) or 0)
         input_details = interpreter.get_input_details()[0]
         output_details = interpreter.get_output_details()
-        try:
-            tensor_size = int(input_details['shape'][1])
-        except Exception:
-            tensor_size = 0
-        resolved_size = tensor_size or configured_size or 640
+        input_meta = _build_input_meta(input_details)
+        output_meta, output_shapes, output_dtypes = _build_output_meta(output_details)
+        resolved_size = int(input_meta.get('size', 0) or configured_size or 640)
 
         with self._lock:
             self.interpreter = interpreter
@@ -600,11 +667,13 @@ class TFLitePerception:
             self.last_error = ''
             self.last_detections = []
             self.last_inference_ms = 0.0
+            self._input_meta = input_meta
+            self._output_meta = output_meta
             self.debug_info = {
-                'input_shape': [int(v) for v in input_details.get('shape', [])],
-                'input_dtype': str(input_details.get('dtype', '')),
-                'output_shapes': [[int(v) for v in detail.get('shape', [])] for detail in output_details],
-                'output_dtypes': [str(detail.get('dtype', '')) for detail in output_details],
+                'input_shape': list(input_meta.get('shape', [])),
+                'input_dtype': str(input_meta.get('dtype_name', '')),
+                'output_shapes': output_shapes,
+                'output_dtypes': output_dtypes,
                 'layout': 'unknown',
                 'selected_variant': 'none',
                 'candidate_count': 0,
@@ -623,6 +692,8 @@ class TFLitePerception:
             self.labels = []
             self.labels_mode = 'missing'
             self.last_detections = []
+            self._input_meta = {}
+            self._output_meta = {}
             self.last_error = ''
             self.last_inference_ms = 0.0
             self.debug_info = {
@@ -672,25 +743,44 @@ class TFLitePerception:
             conf = float(self.confidence_threshold)
             iou = float(self.iou_threshold)
             resolved_input_size = int(self.resolved_input_size)
+            input_meta = dict(self._input_meta)
+            output_meta = dict(self._output_meta)
         if interpreter is None or bundle is None or frame_bgr is None or cv2 is None or np is None:
             return []
-        input_details = interpreter.get_input_details()[0]
-        output_details = interpreter.get_output_details()
-        output_detail = max(output_details, key=lambda detail: int(np.prod(detail.get('shape', [1]))))
-        tensor_size = int(input_details['shape'][1]) if len(input_details.get('shape', [])) > 1 else 0
+
+        input_index = int(input_meta.get('index', 0))
+        input_dtype = input_meta.get('dtype', np.float32)
+        tensor_size = int(input_meta.get('size', 0) or 0)
+        output_index = int(output_meta.get('index', 0))
         size = tensor_size or resolved_input_size or 640
-        inp, scale, pad = preprocess(frame_bgr, size, input_details['dtype'])
+        inp, scale, pad = preprocess(frame_bgr, size, input_dtype)
         start = cv2.getTickCount() if cv2 is not None else 0.0
-        interpreter.set_tensor(input_details['index'], inp)
-        interpreter.invoke()
-        output = np.array(interpreter.get_tensor(output_detail['index']), copy=True)
-        quant = output_detail.get('quantization_parameters') or {}
-        scales = np.array(quant.get('scales', []), dtype=np.float32) if np is not None else None
-        zero_points = np.array(quant.get('zero_points', []), dtype=np.float32) if np is not None else None
-        if np is not None and np.issubdtype(output.dtype, np.integer):
-            if scales is not None and scales.size:
-                scale_value = float(scales.reshape(-1)[0])
-                zero_value = float(zero_points.reshape(-1)[0]) if zero_points is not None and zero_points.size else 0.0
+        try:
+            interpreter.set_tensor(input_index, inp)
+            interpreter.invoke()
+            output = np.array(interpreter.get_tensor(output_index), copy=True)
+        except Exception as exc:
+            if cv2 is not None:
+                elapsed_ms = (cv2.getTickCount() - start) * 1000.0 / max(cv2.getTickFrequency(), 1.0)
+            else:
+                elapsed_ms = 0.0
+            with self._lock:
+                self.last_inference_ms = float(elapsed_ms)
+                self.last_detections = []
+                self.last_error = f'Inference failed: {exc}'
+                self.debug_info = {
+                    **self.debug_info,
+                    'raw_shape': [],
+                    'candidate_count': 0,
+                    'decoded_count': 0,
+                    'nms_count': 0,
+                }
+            return []
+
+        if np.issubdtype(output.dtype, np.integer):
+            scale_value = float(output_meta.get('quant_scale', 0.0) or 0.0)
+            zero_value = float(output_meta.get('quant_zero_point', 0.0) or 0.0)
+            if scale_value:
                 output = (output.astype(np.float32) - zero_value) * scale_value
             else:
                 output = output.astype(np.float32)
@@ -745,6 +835,7 @@ class TFLitePerception:
                 'score_col': int(parse_debug.get('score_col', -1)),
                 'class_col': int(parse_debug.get('class_col', -1)),
                 'coord_order': str(parse_debug.get('coord_order', 'unknown')),
+                'variant_candidates': list(parse_debug.get('variant_candidates', [])),
             }
         return detections
 

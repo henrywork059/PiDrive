@@ -40,6 +40,8 @@ const state = {
   aiDebugFrozen: false,
   aiDebugLog: [],
   aiDebugLastSignature: '',
+  aiBackendHistory: [],
+  aiBackendHistorySignature: '',
 };
 
 function clamp(value, min, max) {
@@ -352,6 +354,7 @@ function formatAiDebugLines(debugPayload, aiStatus = null) {
     `last_detection_count: ${Number(debugPayload?.last_detection_count ?? status.last_detection_count ?? 0)}`,
     `last_inference_ms: ${Number(debugPayload?.last_inference_ms ?? status.last_inference_ms ?? 0).toFixed(1)}`,
     `last_error: ${String(debugPayload?.last_error ?? status.last_error ?? '')}`,
+    `overlay_frame_skip: ${Number(debugPayload?.overlay_frame_skip ?? status.overlay_frame_skip ?? 0)}`,
     `raw_shape: ${JSON.stringify(debug.raw_shape || [])}`,
     `input_shape: ${JSON.stringify(debug.input_shape || [])}`,
     `output_shapes: ${JSON.stringify(debug.output_shapes || [])}`,
@@ -382,7 +385,16 @@ function formatAiDebugLines(debugPayload, aiStatus = null) {
 function renderAiDebugHistory() {
   const el = document.getElementById('aiDebugLogText');
   if (!el) return;
-  el.value = state.aiDebugLog.length ? state.aiDebugLog.join('\n\n') : 'AI debug history will appear here.';
+  const parts = [];
+  if (state.aiBackendHistory.length) {
+    parts.push('AI backend log');
+    parts.push(state.aiBackendHistory.join('\n'));
+  }
+  if (state.aiDebugLog.length) {
+    parts.push('AI debug snapshots');
+    parts.push(state.aiDebugLog.join('\n\n'));
+  }
+  el.value = parts.length ? parts.join('\n\n---\n\n') : 'AI backend log and debug history will appear here.';
 }
 
 function appendAiDebugHistory(lines) {
@@ -392,6 +404,23 @@ function appendAiDebugHistory(lines) {
   const stamp = new Date().toLocaleTimeString();
   state.aiDebugLog.unshift(`[${stamp}]\n${signature}`);
   state.aiDebugLog = state.aiDebugLog.slice(0, 60);
+  renderAiDebugHistory();
+}
+
+function syncAiBackendHistory(entries = []) {
+  const normalized = Array.isArray(entries)
+    ? entries.map((entry) => {
+        const ts = Number(entry?.timestamp || 0);
+        const stamp = ts ? new Date(ts * 1000).toLocaleTimeString() : '--:--:--';
+        const level = String(entry?.level || 'info').toUpperCase();
+        const message = String(entry?.message || '').trim();
+        return message ? `[${stamp}] ${level}: ${message}` : '';
+      }).filter(Boolean)
+    : [];
+  const signature = normalized.join('\n');
+  if (signature === state.aiBackendHistorySignature) return;
+  state.aiBackendHistorySignature = signature;
+  state.aiBackendHistory = normalized.slice(0, 120);
   renderAiDebugHistory();
 }
 
@@ -438,16 +467,24 @@ async function copyAiDebugSnapshot() {
 }
 
 async function copyAiDebugHistory() {
-  const text = state.aiDebugLog.join('\n\n');
+  const text = document.getElementById('aiDebugLogText')?.value || '';
   const ok = await copyTextToClipboard(text);
   setBanner('aiSettingsMessage', ok ? 'AI debug history copied.' : 'Could not copy AI debug history.', ok ? 'good' : 'warn');
 }
 
-function clearAiDebugHistory() {
+async function clearAiDebugHistory() {
   state.aiDebugLog = [];
   state.aiDebugLastSignature = '';
+  try {
+    const data = await postJson('/api/ai/debug_log/clear', {});
+    syncAiBackendHistory(data.ai_status?.history || []);
+    setBanner('aiSettingsMessage', data.message || 'AI backend log cleared.', 'muted');
+  } catch (error) {
+    state.aiBackendHistory = [];
+    state.aiBackendHistorySignature = '';
+    setBanner('aiSettingsMessage', error.message || 'AI debug history cleared locally.', 'warn');
+  }
   renderAiDebugHistory();
-  setBanner('aiSettingsMessage', 'AI debug history cleared.', 'muted');
 }
 
 function toggleAiDebugFreeze() {
@@ -462,6 +499,7 @@ function updateStatusUi(data) {
   const previewText = cameraLive ? 'live' : 'paused';
   const driveState = data.safety_stop ? 'E-stop active' : 'Manual ready';
   const aiStatus = data.ai_status || {};
+  syncAiBackendHistory(aiStatus.history || []);
   setText('metricDriveState', driveState);
   setText('metricApplied', `S ${fmt(data.applied_steering)} · T ${fmt(data.applied_throttle)}`);
   setText('metricManual', `S ${fmt(state.manualSteering)} · T ${fmt(state.manualThrottle)}`);
@@ -790,7 +828,7 @@ function setupAiSettings() {
   document.getElementById('toggleAiDebugFreezeBtn').addEventListener('click', toggleAiDebugFreeze);
   document.getElementById('copyAiDebugBtn').addEventListener('click', copyAiDebugSnapshot);
   document.getElementById('copyAiDebugLogBtn').addEventListener('click', copyAiDebugHistory);
-  document.getElementById('clearAiDebugLogBtn').addEventListener('click', clearAiDebugHistory);
+  document.getElementById('clearAiDebugLogBtn').addEventListener('click', async () => { await clearAiDebugHistory(); });
   document.getElementById('deleteAiModelBtn').addEventListener('click', deleteAiModel);
   document.getElementById('deployAiModelBtn').addEventListener('click', async () => { await deployAiModel(); await runAiDebug(); });
   ['aiBackend', 'aiConfidenceThreshold', 'aiIouThreshold', 'aiOverlayEnabled', 'aiOverlayFps', 'aiModelSelect', 'aiLabelsSelect', 'aiInputSize', 'aiTargetLabel', 'aiDropZoneLabel'].forEach((id) => {

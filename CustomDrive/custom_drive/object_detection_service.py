@@ -51,6 +51,7 @@ class ObjectDetectionService:
         self.confidence_threshold = 0.25
         self.iou_threshold = 0.45
         self.max_overlay_fps = 6.0
+        self.overlay_frame_skip = 5
         self.input_size = 0
         self.target_label = 'he3'
         self.drop_zone_label = 'he3_zone'
@@ -61,9 +62,45 @@ class ObjectDetectionService:
         self._last_annotated_ts = 0.0
         self._cache_window_s = 1.0 / max(self.max_overlay_fps, 0.5)
         self._infer_lock = threading.Lock()
+        self._overlay_frame_counter = 0
+        self._debug_history: list[dict[str, Any]] = []
+        self._last_logged_error = ''
         self.apply_runtime_config(config or {})
         if self.active_model != 'none' and self.backend_name == 'tflite':
             self.deploy_model(self.active_model)
+
+    def _append_history_locked(self, message: str, level: str = 'info') -> None:
+        text = str(message or '').strip()
+        if not text:
+            return
+        entry = {
+            'timestamp': time.time(),
+            'level': str(level or 'info'),
+            'message': text,
+        }
+        if self._debug_history and self._debug_history[0].get('message') == entry['message'] and self._debug_history[0].get('level') == entry['level']:
+            self._debug_history[0]['timestamp'] = entry['timestamp']
+            return
+        self._debug_history.insert(0, entry)
+        self._debug_history = self._debug_history[:120]
+
+    def _history_payload_locked(self) -> list[dict[str, Any]]:
+        return [dict(item) for item in self._debug_history]
+
+    def _set_last_error_locked(self, message: str) -> None:
+        text = str(message or '').strip()
+        self.last_error = text
+        if text:
+            if text != self._last_logged_error:
+                self._append_history_locked(text, 'error')
+                self._last_logged_error = text
+        else:
+            self._last_logged_error = ''
+
+    def clear_debug_history(self) -> None:
+        with self._lock:
+            self._debug_history = []
+            self._last_logged_error = '' if not self.last_error else self._last_logged_error
 
     def list_label_files(self) -> list[str]:
         return self.perception.labels_candidates()
@@ -77,6 +114,7 @@ class ObjectDetectionService:
             self.confidence_threshold = max(0.01, min(0.99, float(cfg.get('confidence_threshold', self.confidence_threshold))))
             self.iou_threshold = max(0.01, min(0.99, float(cfg.get('iou_threshold', self.iou_threshold))))
             self.max_overlay_fps = max(0.5, min(30.0, float(cfg.get('max_overlay_fps', self.max_overlay_fps))))
+            self.overlay_frame_skip = max(1, min(30, int(cfg.get('overlay_frame_skip', self.overlay_frame_skip) or self.overlay_frame_skip)))
             self._cache_window_s = 1.0 / max(self.max_overlay_fps, 0.5)
             self.input_size = max(0, int(cfg.get('input_size', self.input_size) or 0))
             self.target_label = str(cfg.get('target_label', self.target_label) or self.target_label).strip() or 'he3'
@@ -159,6 +197,8 @@ class ObjectDetectionService:
                     self._last_result = {'detections': [], 'timestamp': 0.0, 'debug': {}}
                     self._last_annotated_jpeg = None
                     self._last_annotated_ts = 0.0
+                    self._overlay_frame_counter = 0
+                    self._append_history_locked(f"Deleted model bundle: {safe_name}", 'info')
             return True, 'Deleted: ' + ', '.join(removed)
         except Exception as exc:
             return False, f'Delete failed: {exc}'
@@ -185,15 +225,18 @@ class ObjectDetectionService:
                 self.iou_threshold = float(overrides.get('iou_threshold', self.iou_threshold))
                 self.overlay_enabled = bool(overrides.get('overlay_enabled', self.overlay_enabled))
                 self.max_overlay_fps = max(0.5, min(30.0, float(overrides.get('max_overlay_fps', self.max_overlay_fps))))
+                self.overlay_frame_skip = max(1, min(30, int(overrides.get('overlay_frame_skip', self.overlay_frame_skip) or self.overlay_frame_skip)))
                 self._cache_window_s = 1.0 / max(self.max_overlay_fps, 0.5)
                 self.input_size = int(overrides.get('input_size', self.input_size) or self.input_size or 0)
                 self.labels_file = Path(str(self.perception.status().get('labels_path', '') or '')).name
                 self._last_result = {'detections': [], 'timestamp': 0.0, 'debug': {}}
                 self._last_annotated_jpeg = None
                 self._last_annotated_ts = 0.0
-                self.last_error = ''
+                self._overlay_frame_counter = 0
+                self._set_last_error_locked('')
+                self._append_history_locked(f"Deployed detector: {safe_name}", 'info')
             else:
-                self.last_error = message
+                self._set_last_error_locked(message)
         return ok, message
 
     def get_active_model_name(self) -> str:
@@ -213,6 +256,7 @@ class ObjectDetectionService:
                 'confidence_threshold': float(self.confidence_threshold),
                 'iou_threshold': float(self.iou_threshold),
                 'max_overlay_fps': float(self.max_overlay_fps),
+                'overlay_frame_skip': int(self.overlay_frame_skip),
                 'input_size': int(self.input_size),
                 'resolved_input_size': int(perception_status.get('resolved_input_size', 0) or 0),
                 'target_label': self.target_label,
@@ -224,6 +268,7 @@ class ObjectDetectionService:
                 'last_detection_count': int(len(self._last_result.get('detections', []))),
                 'debug': dict(perception_status.get('debug', {}) or self._last_result.get('debug', {}) or {}),
                 'labels_mode': str(perception_status.get('labels_mode', 'missing')),
+                'history': self._history_payload_locked(),
             }
         if include_models:
             payload['models'] = self.list_models()
@@ -244,7 +289,7 @@ class ObjectDetectionService:
         perception_status = self.perception.status()
         with self._lock:
             self.last_inference_ms = float(perception_status.get('last_inference_ms', 0.0) or 0.0)
-            self.last_error = str(perception_status.get('last_error', '') or '')
+            self._set_last_error_locked(str(perception_status.get('last_error', '') or ''))
             now_mono = time.monotonic()
             self._last_result = {
                 'detections': detections,
@@ -259,7 +304,7 @@ class ObjectDetectionService:
                 self._infer_frame(frame_bgr)
             except Exception as exc:
                 with self._lock:
-                    self.last_error = f'Inference failed: {exc}'
+                    self._set_last_error_locked(f'Inference failed: {exc}')
         status = self.get_status(include_models=False)
         return {
             'backend': status.get('backend', 'color'),
@@ -289,7 +334,7 @@ class ObjectDetectionService:
         debug = self.perception.status().get('debug', {}) if self.backend_name == 'tflite' else {}
         det_count = len(detections)
         if self.active_model != 'none' and self.backend_name == 'tflite':
-            meta = f'OD {self.active_model} det={det_count}'
+            meta = f'OD {self.active_model} det={det_count} every={int(self.overlay_frame_skip)}f'
             detail = (
                 f"raw={debug.get('raw_shape', [])} "
                 f"variant={debug.get('selected_variant', 'none')} "
@@ -312,7 +357,7 @@ class ObjectDetectionService:
             frame_bgr = cv2.imdecode(arr, cv2.IMREAD_COLOR)
         except Exception as exc:
             with self._lock:
-                self.last_error = f'JPEG decode failed: {exc}'
+                self._set_last_error_locked(f'JPEG decode failed: {exc}')
             return jpeg_bytes, []
         if frame_bgr is None:
             return jpeg_bytes, []
@@ -325,21 +370,23 @@ class ObjectDetectionService:
         with self._lock:
             ready = self.backend_name == 'tflite' and self.perception.is_ready() and self.overlay_enabled
             last_ts = float(self._last_result.get('timestamp', 0.0))
-            cache_window = float(self._cache_window_s)
             detections = list(self._last_result.get('detections', []))
-            cached_jpeg = self._last_annotated_jpeg
-            cached_jpeg_ts = float(self._last_annotated_ts)
+            cache_window = float(self._cache_window_s)
+            frame_skip = max(1, int(self.overlay_frame_skip))
+            self._overlay_frame_counter += 1
+            frame_counter = int(self._overlay_frame_counter)
         if ready:
             now = time.monotonic()
-            if cached_jpeg is not None and now - cached_jpeg_ts < max(cache_window, 0.18):
-                return cached_jpeg, detections
-            if now - last_ts >= cache_window and self._infer_lock.acquire(blocking=False):
+            stale = last_ts <= 0.0 or (now - last_ts) >= max(cache_window * frame_skip, 1.2)
+            due_for_inference = stale or (frame_counter % frame_skip == 0) or (not detections and (now - last_ts) >= min(cache_window, 0.35))
+            if due_for_inference and self._infer_lock.acquire(blocking=False):
                 try:
-                    detections = self._infer_frame(frame_bgr)
+                    source_frame = frame_bgr.copy() if hasattr(frame_bgr, 'copy') else frame_bgr
+                    detections = self._infer_frame(source_frame)
                 except Exception as exc:
                     with self._lock:
-                        self.last_error = f'Inference failed: {exc}'
-                    detections = []
+                        self._set_last_error_locked(f'Inference failed: {exc}')
+                    detections = list(detections)
                 finally:
                     self._infer_lock.release()
             annotated = self._draw_overlay(frame_bgr, detections)

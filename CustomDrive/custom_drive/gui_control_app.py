@@ -24,7 +24,7 @@ from piserver.services.motor_service import MotorService  # noqa: E402
 from piserver.services.recorder_service import RecorderService  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent / 'gui_web'
-APP_VERSION = '0_3_1'
+APP_VERSION = '0_3_2'
 OD_MODEL_ROOT = CUSTOMDRIVE_ROOT / 'models' / 'object_detection'
 
 
@@ -315,6 +315,11 @@ def create_app() -> Flask:
                     live_frame = None
         debug = ctx.object_detection_service.run_debug_inference(live_frame)
         return jsonify({'ok': True, 'debug': debug, 'ai_status': ctx.object_detection_service.get_status(include_models=False)})
+
+    @app.route('/api/ai/debug_log/clear', methods=['POST'])
+    def api_ai_debug_log_clear():
+        ctx.object_detection_service.clear_debug_history()
+        return jsonify({'ok': True, 'message': 'AI backend log cleared.', 'ai_status': ctx.object_detection_service.get_status(include_models=False)})
 
 
     @app.route('/api/ai/upload', methods=['POST'])
