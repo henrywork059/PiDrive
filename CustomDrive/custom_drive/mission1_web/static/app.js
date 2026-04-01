@@ -105,6 +105,8 @@ function renderStatus(status) {
       <div class="status-label">Active model</div><div>${escapeHtml(status.active_model || 'none')}</div>
       <div class="status-label">AI backend</div><div>${escapeHtml(status.ai_ready)} | ${escapeHtml(status.ai_message || '')}</div>
       <div class="status-label">Target found</div><div>${escapeHtml(status.target_found)}</div>
+      <div class="status-label">Target side</div><div>${escapeHtml(status.target_side || '-')}</div>
+      <div class="status-label">Car turn</div><div>${escapeHtml(status.car_turn_direction || '-')}</div>
       <div class="status-label">Current leg</div><div>${escapeHtml(status.active_leg_name || '-')}</div>
       <div class="status-label">Command</div><div>steer=${fmt(status.last_command?.steering)} throttle=${fmt(status.last_command?.throttle)} note=${escapeHtml(status.last_command?.note || '')}</div>
       <div class="status-label">Camera</div><div>${escapeHtml(camera.backend || 'offline')} | live=${escapeHtml(camera.preview_live ?? false)} | fps=${fmt(camera.fps || 0, 1)}</div>
@@ -137,7 +139,9 @@ function renderViewer(status) {
   if ((status.camera || {}).running) {
     video.style.display = 'block';
     video.src = `/api/frame.jpg?t=${Date.now()}`;
-    note.textContent = 'Camera is active after the start route. Green boxes are detections. Yellow is the current target class.';
+    const targetSide = status.target_side || 'none';
+    const carTurn = status.car_turn_direction || 'stopped';
+    note.textContent = `Camera is active after the start route. Green boxes are detections. Yellow is the current target class. Target side: ${targetSide}. Car turn: ${carTurn}.`;
   } else {
     video.style.display = 'none';
     note.textContent = 'Camera is still off until the start route finishes.';

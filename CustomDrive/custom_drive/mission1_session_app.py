@@ -25,7 +25,7 @@ from piserver.services.camera_service import CameraService  # noqa: E402
 from piserver.services.motor_service import MotorService  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent / 'mission1_web'
-APP_VERSION = '0_4_8'
+APP_VERSION = '0_4_10'
 MISSION1_CONFIG_PATH = CONFIG_DIR / 'mission1_session.json'
 MISSION1_MODEL_DIR = CUSTOMDRIVE_ROOT / 'models' / 'mission1'
 
@@ -199,6 +199,8 @@ class Mission1SessionContext:
         self.active_leg_index = -1
         self.active_leg_name = ''
         self.target_found = False
+        self.target_side = 'none'
+        self.car_turn_direction = 'stopped'
         self.last_error = ''
         self.started_at = 0.0
         self._apply_motor_defaults()
@@ -329,6 +331,8 @@ class Mission1SessionContext:
             self.last_command = {'steering': 0.0, 'throttle': 0.0, 'note': 'queued'}
             self.last_detections = []
             self.target_found = False
+            self.target_side = 'none'
+            self.car_turn_direction = 'stopped'
             self.last_error = ''
             self.started_at = time.monotonic()
             self._stop_event.clear()
@@ -352,6 +356,8 @@ class Mission1SessionContext:
         if self.current_phase not in {'idle', 'complete', 'stopped', 'failed'}:
             self.current_phase = 'stopped'
             self.detail = 'Mission 1 session stopped.'
+            self.target_side = 'none'
+            self.car_turn_direction = 'stopped'
             self.last_command = {'steering': 0.0, 'throttle': 0.0, 'note': 'stopped'}
         return True, 'Mission 1 session stopped.'
 
@@ -381,16 +387,20 @@ class Mission1SessionContext:
             if self._stop_event.is_set() and self.current_phase not in {'complete', 'failed'}:
                 self.current_phase = 'stopped'
                 self.detail = 'Mission 1 session stopped.'
+                self.target_side = 'none'
+                self.car_turn_direction = 'stopped'
                 self.last_command = {'steering': 0.0, 'throttle': 0.0, 'note': 'stopped'}
             self._thread = None
 
     def _run_start_route(self) -> None:
         self.current_phase = 'start_route'
+        self.target_side = 'route'
         for index, step in enumerate(self.route_steps):
             if self._stop_event.is_set():
                 return
             self.active_leg_index = index
             self.active_leg_name = str(step.get('name', ''))
+            self.car_turn_direction = self._route_turn_direction(step)
             self.detail = f"Running route step {index + 1}/{len(self.route_steps)}: {self.active_leg_name}"
             self._record(self.detail, event_type='route', duration_s=float(step.get('duration_s', 0.0)))
             deadline = time.monotonic() + float(step.get('duration_s', 0.0))
@@ -400,6 +410,8 @@ class Mission1SessionContext:
         self.motor_service.stop()
         self.active_leg_name = ''
         self.active_leg_index = -1
+        self.target_side = 'none'
+        self.car_turn_direction = 'stopped'
         self.detail = 'Start route complete. Turning on camera and deploying AI model.'
         self._record(self.detail, event_type='route')
 
@@ -436,6 +448,8 @@ class Mission1SessionContext:
             frame = camera_service.get_latest_frame(copy=True)
             if frame is None:
                 self.target_found = False
+                self.target_side = 'no frame'
+                self.car_turn_direction = 'stopped'
                 self.last_detections = []
                 self.detail = 'Waiting for camera frame.'
                 time.sleep(tick_s)
@@ -448,6 +462,8 @@ class Mission1SessionContext:
             target = self._best_target_detection(detections, target_label)
             if target is None:
                 self.target_found = False
+                self.target_side = 'not found'
+                self.car_turn_direction = 'stopped'
                 self.motor_service.stop()
                 self.last_command = {'steering': 0.0, 'throttle': 0.0, 'note': 'waiting for class 1'}
                 self.detail = f'AI running. Waiting for class {target_class_id}.'
@@ -460,23 +476,30 @@ class Mission1SessionContext:
             bottom_ratio = target.box.bottom_center_y / max(1.0, float(frame_h))
             zone = self._tracking_zone(target_center_ratio, center_tolerance)
 
+            self.target_side = zone
+
             if zone == 'left':
                 # Mission 1 rule: target centre in the left region -> turn left while continuing forward.
                 # On the shared MotorService mix used here, negative steering gives the leftward arc.
                 steering = -max_steering
                 throttle = max(0.08, approach_speed * 0.55)
+                self.car_turn_direction = 'left'
             elif zone == 'right':
                 # Mission 1 rule: target centre in the right region -> turn right while continuing forward.
                 # On the shared MotorService mix used here, positive steering gives the rightward arc.
                 steering = max_steering
                 throttle = max(0.08, approach_speed * 0.55)
+                self.car_turn_direction = 'right'
             else:
                 steering = 0.0
                 throttle = approach_speed
+                self.car_turn_direction = 'forward'
 
             if bottom_ratio >= target_reached_bottom_ratio:
                 self.motor_service.stop()
                 self.current_phase = 'complete'
+                self.target_side = zone
+                self.car_turn_direction = 'stopped'
                 self.detail = f'Class {target_class_id} reached.'
                 self.last_command = {'steering': 0.0, 'throttle': 0.0, 'note': 'target reached'}
                 self._record(self.detail, event_type='session', confidence=round(float(target.confidence), 3))
@@ -488,6 +511,19 @@ class Mission1SessionContext:
                 f'zone={zone} x_ratio={target_center_ratio:.3f} bottom={bottom_ratio:.3f}'
             )
             time.sleep(tick_s)
+
+    def _route_turn_direction(self, step: dict[str, Any]) -> str:
+        steering = float(step.get('steering', 0.0) or 0.0)
+        throttle = float(step.get('throttle', 0.0) or 0.0)
+        if steering < 0:
+            return 'left'
+        if steering > 0:
+            return 'right'
+        if throttle > 0:
+            return 'forward'
+        if throttle < 0:
+            return 'backward'
+        return 'stopped'
 
     def _best_target_detection(self, detections: list[Detection], target_label: str) -> Detection | None:
         matches = [det for det in detections if str(det.label).strip() == target_label]
@@ -523,6 +559,8 @@ class Mission1SessionContext:
             'active_leg_index': self.active_leg_index,
             'active_leg_name': self.active_leg_name,
             'target_found': bool(self.target_found),
+            'target_side': self.target_side,
+            'car_turn_direction': self.car_turn_direction,
             'detections': [
                 {
                     'label': det.label,
