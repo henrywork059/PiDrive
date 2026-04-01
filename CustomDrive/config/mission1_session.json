@@ -1,0 +1,30 @@
+{
+  "server": {
+    "host": "0.0.0.0",
+    "port": 5050,
+    "refresh_ms": 200
+  },
+  "session": {
+    "route_text": "--forward 2 --turn-right 5 --forward 5 --turn-right 5",
+    "target_class_id": 1,
+    "confidence_threshold": 0.25,
+    "iou_threshold": 0.45,
+    "loop_tick_s": 0.08
+  },
+  "drive": {
+    "steer_mix": 0.75,
+    "align_kp": 1.0,
+    "max_steering": 0.85,
+    "center_tolerance_ratio": 0.1,
+    "approach_speed": 0.2,
+    "target_reached_bottom_ratio": 0.85
+  },
+  "camera": {
+    "start_after_route": true,
+    "preview_enabled": true,
+    "processing_enabled": true
+  },
+  "ai": {
+    "active_model": ""
+  }
+}
