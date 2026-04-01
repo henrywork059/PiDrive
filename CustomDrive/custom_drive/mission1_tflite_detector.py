@@ -223,17 +223,36 @@ class Mission1TFLiteDetector:
         idxs = np.array(idxs).reshape(-1).tolist()
         return [int(item) for item in idxs]
 
+    def _decode_six_column_boxes(self, raw_boxes, input_size: int):
+        if raw_boxes.size == 0:
+            return raw_boxes.astype(np.float32)
+        boxes = raw_boxes.astype(np.float32).copy()
+        is_normalized = bool(np.max(np.abs(boxes)) <= 2.0)
+        looks_like_xywh = bool(np.any(boxes[:, 2] < boxes[:, 0]) or np.any(boxes[:, 3] < boxes[:, 1]))
+        if is_normalized:
+            boxes[:, [0, 2]] *= float(input_size)
+            boxes[:, [1, 3]] *= float(input_size)
+        if looks_like_xywh:
+            boxes = np.stack([self._xywh_to_xyxy(box) for box in boxes], axis=0).astype(np.float32)
+        return boxes.astype(np.float32)
+
     def _parse_output(self, output, conf_threshold: float, num_classes: int, input_size: int):
         arr = np.squeeze(output)
         if arr.ndim == 3:
             arr = np.squeeze(arr, axis=0)
+        if arr.ndim == 1 and arr.shape[0] == 6:
+            arr = arr.reshape(1, 6)
 
         if arr.ndim == 2 and arr.shape[-1] == 6:
-            boxes = arr[:, :4].astype(np.float32)
+            raw_boxes = arr[:, :4].astype(np.float32)
             scores = arr[:, 4].astype(np.float32)
-            classes = arr[:, 5].astype(np.int32)
+            classes = np.rint(arr[:, 5]).astype(np.int32)
             keep = scores >= conf_threshold
-            return boxes[keep], scores[keep], classes[keep]
+            raw_boxes = raw_boxes[keep]
+            scores = scores[keep]
+            classes = classes[keep]
+            boxes = self._decode_six_column_boxes(raw_boxes, input_size)
+            return boxes, scores, classes
 
         if arr.ndim != 2:
             return np.empty((0, 4), dtype=np.float32), np.empty((0,), dtype=np.float32), np.empty((0,), dtype=np.int32)
