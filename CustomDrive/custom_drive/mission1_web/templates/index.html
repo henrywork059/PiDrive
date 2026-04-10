@@ -29,11 +29,7 @@
         <div class="hint">Example: <code>--forward 2 --turn-right 5 --forward 5 --turn-right 5</code></div>
 
         <div class="grid two-col">
-          <label>
-            Legacy target class ID
-            <input id="targetClassId" type="number" min="0" step="1" value="1" />
-          </label>
-          <label>
+<label>
             Confidence threshold
             <input id="confidenceThreshold" type="number" min="0.01" max="0.99" step="0.01" value="0.25" />
           </label>
@@ -139,8 +135,8 @@
             <input id="armPoseSettle" type="number" min="0.0" max="5.0" step="0.05" value="0.45" />
           </label>
           <label>
-            Grip trigger Y ratio
-            <input id="armGripYRatio" type="number" min="0.05" max="0.95" step="0.01" value="0.30" />
+            Grip trigger Y (%)
+            <input id="armGripYRatio" type="number" min="5" max="95" step="1" value="30" />
           </label>
         </div>
 

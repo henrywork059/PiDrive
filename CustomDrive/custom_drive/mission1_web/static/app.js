@@ -201,7 +201,7 @@ function renderArmConfig(armConfig) {
   }
 
   document.getElementById('armPoseSettle').value = armConfig?.pose_settle_s ?? 0.45;
-  document.getElementById('armGripYRatio').value = armConfig?.grip_trigger_y_ratio ?? 0.30;
+  document.getElementById('armGripYRatio').value = fmtShort((Number(armConfig?.grip_trigger_y_ratio ?? 0.30) || 0) * 100, 0);
 }
 
 function collectArmConfig() {
@@ -218,7 +218,7 @@ function collectArmConfig() {
   return {
     enabled: true,
     pose_settle_s: Number(document.getElementById('armPoseSettle').value || 0.45),
-    grip_trigger_y_ratio: Number(document.getElementById('armGripYRatio').value || 0.30),
+    grip_trigger_y_ratio: Number(document.getElementById('armGripYRatio').value || 30) / 100,
     positions,
     roles: {
       starting_position: Number(document.getElementById('armRoleStarting').value || 1),
@@ -235,7 +235,6 @@ function populateConfig(config) {
   const drive = config.drive || {};
   const arm = config.arm || {};
   document.getElementById('routeText').value = session.route_text || '';
-  document.getElementById('targetClassId').value = session.target_class_id ?? 1;
   document.getElementById('confidenceThreshold').value = session.confidence_threshold ?? 0.25;
   document.getElementById('iouThreshold').value = session.iou_threshold ?? 0.45;
   document.getElementById('loopTick').value = session.loop_tick_s ?? 0.08;
@@ -250,7 +249,6 @@ function collectConfig() {
   return {
     session: {
       route_text: document.getElementById('routeText').value || '',
-      target_class_id: Number(document.getElementById('targetClassId').value || 1),
       confidence_threshold: Number(document.getElementById('confidenceThreshold').value || 0.25),
       iou_threshold: Number(document.getElementById('iouThreshold').value || 0.45),
       loop_tick_s: Number(document.getElementById('loopTick').value || 0.08),

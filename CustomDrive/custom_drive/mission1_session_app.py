@@ -32,7 +32,7 @@ from piserver.services.camera_service import CameraService  # noqa: E402
 from piserver.services.motor_service import MotorService  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent / 'mission1_web'
-APP_VERSION = '0_5_14'
+APP_VERSION = '0_5_15'
 MISSION1_CONFIG_PATH = CONFIG_DIR / 'mission1_session.json'
 MISSION1_MODEL_DIR = CUSTOMDRIVE_ROOT / 'models' / 'mission1'
 
@@ -258,6 +258,16 @@ def _normalize_direction_value(value: Any, default: int = 1) -> int:
     except Exception:
         return -1 if int(default) < 0 else 1
 
+
+def _normalize_ratio_percent_or_fraction(value: Any, default: float, minimum: float, maximum: float) -> float:
+    try:
+        numeric = float(value)
+    except Exception:
+        numeric = float(default)
+    if numeric > 1.0:
+        numeric = numeric / 100.0
+    return clamp_float(numeric, float(default), float(minimum), float(maximum))
+
 def _deep_merge(base: dict[str, Any], incoming: dict[str, Any]) -> dict[str, Any]:
     out = copy.deepcopy(base)
     for key, value in (incoming or {}).items():
@@ -396,7 +406,7 @@ def normalize_mission1_config(data: dict[str, Any] | None) -> dict[str, Any]:
             'enabled': bool(arm.get('enabled', True)),
             'pose_settle_s': round(clamp_float(arm.get('pose_settle_s', 0.45), 0.45, 0.0, 5.0), 3),
             'motion_stop_settle_s': round(clamp_float(arm.get('motion_stop_settle_s', 0.2), 0.2, 0.0, 2.0), 3),
-            'grip_trigger_y_ratio': round(clamp_float(arm.get('grip_trigger_y_ratio', 0.3), 0.3, 0.05, 0.95), 3),
+            'grip_trigger_y_ratio': round(_normalize_ratio_percent_or_fraction(arm.get('grip_trigger_y_ratio', 0.3), 0.3, 0.05, 0.95), 3),
             'capture_x_tolerance_ratio': round(clamp_float(arm.get('capture_x_tolerance_ratio', 0.05), 0.05, 0.01, 0.25), 3),
             'positions': positions_out,
             'roles': {
@@ -720,7 +730,24 @@ class Mission1SessionContext:
         if target_side is not None:
             self.target_side = str(target_side)
 
-    def _stop_for_pose_transition(self, *, mission_state: str, current_phase: str, detail: str, note: str) -> None:
+    def _sleep_with_live_updates(self, duration_s: float, *, frame_snapshot=None) -> None:
+        total_s = max(0.0, float(duration_s or 0.0))
+        if total_s <= 0.0 or self._stop_event.is_set():
+            return
+        deadline = time.monotonic() + min(5.0, total_s)
+        while not self._stop_event.is_set():
+            now = time.monotonic()
+            if now >= deadline:
+                break
+            if frame_snapshot is not None:
+                try:
+                    annotated = self._annotate_frame(frame_snapshot, self.last_detections)
+                    self.annotated_jpeg = self._encode_jpeg(annotated)
+                except Exception:
+                    pass
+            time.sleep(min(0.05, max(0.0, deadline - now)))
+
+    def _stop_for_pose_transition(self, *, mission_state: str, current_phase: str, detail: str, note: str, frame_snapshot=None) -> None:
         self.current_phase = current_phase
         self.mission_state = mission_state
         self._set_motion_state('hold_stop', turn='stopped', target_side='center')
@@ -729,7 +756,7 @@ class Mission1SessionContext:
         self.last_output_summary = detail
         settle_s = float(self._arm_config().get('motion_stop_settle_s', 0.2) or 0.2)
         if settle_s > 0.0 and not self._stop_event.is_set():
-            time.sleep(min(2.0, max(0.0, settle_s)))
+            self._sleep_with_live_updates(min(2.0, max(0.0, settle_s)), frame_snapshot=frame_snapshot)
 
     def _drive_toward_target(self, target_x: float, deadband_px: float, forward_speed: float, turn_k: float, turn_speed_max: float, note_prefix: str) -> None:
         turn_speed = min(turn_speed_max, abs(target_x) * turn_k)
@@ -744,7 +771,7 @@ class Mission1SessionContext:
             self._set_motion_state('turn_right_to_target', turn='right', target_side='right')
             self._turn_in_place('right', turn_speed, f'{note_prefix} -> right turn')
 
-    def _load_arm_role_pose(self, role: str, *, reason: str, settle: bool = True) -> tuple[bool, str]:
+    def _load_arm_role_pose(self, role: str, *, reason: str, settle: bool = True, frame_snapshot=None) -> tuple[bool, str]:
         arm_cfg = self._arm_config()
         if not bool(arm_cfg.get('enabled', True)):
             message = 'Mission arm auto sequence disabled in Mission 1 config.'
@@ -769,7 +796,7 @@ class Mission1SessionContext:
             if settle:
                 settle_s = float(arm_cfg.get('pose_settle_s', 0.45) or 0.45)
                 if settle_s > 0.0:
-                    time.sleep(min(5.0, max(0.0, settle_s)))
+                    self._sleep_with_live_updates(min(5.0, max(0.0, settle_s)), frame_snapshot=frame_snapshot)
         else:
             self.arm_sequence_note = message
         return ok, message
@@ -1325,11 +1352,12 @@ class Mission1SessionContext:
                             current_phase='ai_dropoff_stop',
                             detail=f'Drop-off class {desired_dropoff} reached the release zone. Stopping before release pose.',
                             note=f'class {desired_dropoff} centered and low in frame -> stop before release',
+                            frame_snapshot=frame,
                         )
                         self.current_phase = 'ai_dropoff_release'
                         self.mission_state = 'dropoff_release'
                         self._set_motion_state('release_pose', turn='stopped', target_side='center')
-                        self._load_arm_role_pose('release', reason=f'drop-off class {desired_dropoff} reached', settle=True)
+                        self._load_arm_role_pose('release', reason=f'drop-off class {desired_dropoff} reached', settle=True, frame_snapshot=frame)
                         self._record(
                             f'Released held class {self.held_class_id} at drop-off class {desired_dropoff}.',
                             event_type='mission',
@@ -1405,7 +1433,7 @@ class Mission1SessionContext:
                     self.target_found = True
                     self.target_side = self._update_target_side(target_x, tracking_deadband_px)
                     if not self._arm_stage_at_least('grip_ready_loaded') or self.arm_last_pose_role == 'starting_position':
-                        self._load_arm_role_pose('grip_ready', reason=f'pickup class {locked_class} detected', settle=True)
+                        self._load_arm_role_pose('grip_ready', reason=f'pickup class {locked_class} detected', settle=True, frame_snapshot=frame)
                     if close_enough:
                         self.current_phase = 'ai_pickup_stop'
                         self.mission_state = 'pickup_stop_for_grip'
@@ -1415,17 +1443,18 @@ class Mission1SessionContext:
                             current_phase='ai_pickup_stop',
                             detail=f'Pickup class {locked_class} reached the grip zone. Stopping before grip pose.',
                             note=f'class {locked_class} centered and low in frame -> stop before grip',
+                            frame_snapshot=frame,
                         )
                         self.current_phase = 'ai_pickup_grip'
                         self.mission_state = 'pickup_grip'
                         self._set_motion_state('grip_pose', turn='stopped', target_side='center')
                         if not self._arm_stage_at_least('grip_loaded'):
-                            self._load_arm_role_pose('grip', reason=f'pickup class {locked_class} centered and y={target_y:.1f}', settle=True)
+                            self._load_arm_role_pose('grip', reason=f'pickup class {locked_class} centered and y={target_y:.1f}', settle=True, frame_snapshot=frame)
                         self.current_phase = 'ai_pickup_lift'
                         self.mission_state = 'pickup_lift'
                         self._set_motion_state('grip_and_lift_pose', turn='stopped', target_side='center')
                         if not self._arm_stage_at_least('grip_and_lift_loaded'):
-                            self._load_arm_role_pose('grip_and_lift', reason=f'pickup class {locked_class} grip complete', settle=True)
+                            self._load_arm_role_pose('grip_and_lift', reason=f'pickup class {locked_class} grip complete', settle=True, frame_snapshot=frame)
                         self.held_class_id = locked_class
                         self.dropoff_target_class_id = self._dropoff_class_for(locked_class)
                         self.pickup_target_class_id = None
