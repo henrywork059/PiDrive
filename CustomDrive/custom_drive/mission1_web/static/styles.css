@@ -664,3 +664,36 @@ code {
   background: rgba(var(--theme-rgb, 148, 163, 184), 0.14);
   color: var(--theme-hex, var(--text));
 }
+
+
+.motor-control-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.9fr);
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.motor-setting-row {
+  margin-top: 10px;
+}
+
+.motor-setting-field {
+  margin-bottom: 0;
+  color: var(--muted);
+}
+
+.motor-setting-field select {
+  margin-top: 6px;
+}
+
+.motor-button-row {
+  display: grid;
+  gap: 10px;
+  align-content: end;
+}
+
+@media (max-width: 980px) {
+  .motor-control-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -32,7 +32,7 @@ from piserver.services.camera_service import CameraService  # noqa: E402
 from piserver.services.motor_service import MotorService  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent / 'mission1_web'
-APP_VERSION = '0_5_11'
+APP_VERSION = '0_5_12'
 MISSION1_CONFIG_PATH = CONFIG_DIR / 'mission1_session.json'
 MISSION1_MODEL_DIR = CUSTOMDRIVE_ROOT / 'models' / 'mission1'
 
@@ -245,6 +245,18 @@ def _rotation_label(left_value: float, right_value: float, *, deadband: float = 
     if right_dir == 'stopped':
         return 'pivot_left' if left_dir == 'forward' else 'pivot_right'
     return 'mixed'
+
+
+def _normalize_direction_value(value: Any, default: int = 1) -> int:
+    raw = str(value if value is not None else default).strip().lower()
+    if raw in {'-1', 'reverse', 'reversed', 'invert', 'inverted', 'ccw'}:
+        return -1
+    if raw in {'1', '+1', 'forward', 'normal', 'default', 'cw'}:
+        return 1
+    try:
+        return -1 if int(raw) < 0 else 1
+    except Exception:
+        return -1 if int(default) < 0 else 1
 
 def _deep_merge(base: dict[str, Any], incoming: dict[str, Any]) -> dict[str, Any]:
     out = copy.deepcopy(base)
@@ -775,6 +787,34 @@ class Mission1SessionContext:
             except Exception as exc:
                 self._record(f'Failed to apply PiServer motor config: {exc}', level='warning', event_type='motor')
 
+    def save_motor_config(self, updates: dict[str, Any] | None) -> tuple[bool, str, dict[str, Any]]:
+        payload = updates if isinstance(updates, dict) else {}
+        current_cfg = self.motor_service.get_config()
+        allowed: dict[str, Any] = {}
+        for key in ('left_direction', 'right_direction', 'steering_direction'):
+            if key in payload:
+                allowed[key] = _normalize_direction_value(payload.get(key), int(current_cfg.get(key, 1) or 1))
+        if not allowed:
+            return False, 'No motor direction changes were provided.', current_cfg
+        try:
+            runtime_cfg = self.config_store.load_raw()
+            motor_cfg = runtime_cfg.get('motor') if isinstance(runtime_cfg.get('motor'), dict) else {}
+            merged_motor = dict(motor_cfg)
+            merged_motor.update(allowed)
+            self.config_store.merge_save({'motor': merged_motor})
+            applied = self.motor_service.apply_settings(allowed)
+        except Exception as exc:
+            self._record(f'Failed to save Mission 1 motor config: {exc}', level='warning', event_type='motor')
+            return False, f'Failed to save motor config: {exc}', self.motor_service.get_config()
+        self._record(
+            'Mission 1 motor direction config updated.',
+            event_type='motor',
+            left_direction=applied.get('left_direction'),
+            right_direction=applied.get('right_direction'),
+            steering_direction=applied.get('steering_direction'),
+        )
+        return True, 'Mission 1 motor direction config saved and applied.', applied
+
     def _ensure_camera_started(self) -> tuple[bool, str]:
         with self._lock:
             if self.camera_service is not None:
@@ -873,6 +913,7 @@ class Mission1SessionContext:
             return False, f'Selected model does not exist: {selected_model}'
 
         self.stop_session(join=True)
+        self._apply_motor_defaults()
         arm_status = self._reload_arm_backend()
         self._record(arm_status.get('last_message', 'Mission arm backend refreshed.'), event_type='arm', level='info' if arm_status.get('available') else 'warning')
         with self._lock:
@@ -1618,9 +1659,15 @@ class Mission1SessionContext:
         left_direction = _motor_direction_label(left_value)
         right_direction = _motor_direction_label(right_value)
         rotation = _rotation_label(left_value, right_value)
+        motor_cfg = self.motor_service.get_config()
         return {
             'mode': str(command.get('mode', '') or 'stop'),
             'note': str(command.get('note', '') or ''),
+            'config': {
+                'left_direction': int(motor_cfg.get('left_direction', 1) or 1),
+                'right_direction': int(motor_cfg.get('right_direction', 1) or 1),
+                'steering_direction': int(motor_cfg.get('steering_direction', 1) or 1),
+            },
             'left': {
                 'value': left_value,
                 'direction': left_direction,
@@ -1788,6 +1835,18 @@ def create_mission1_session_app() -> Flask:
         ok, message = ctx._load_arm_role_pose(role, reason='manual web load', settle=True)
         code = 200 if ok else 400
         return jsonify({'ok': ok, 'message': message, 'status': ctx.status_payload()}), code
+
+    @app.route('/api/motor/config', methods=['GET'])
+    def api_motor_config_get():
+        return jsonify({'ok': True, 'config': ctx.motor_service.get_config()})
+
+    @app.route('/api/motor/config', methods=['POST'])
+    def api_motor_config_save():
+        data = request.get_json(silent=True) or {}
+        motor_payload = data.get('motor') if isinstance(data.get('motor'), dict) else data
+        ok, message, config = ctx.save_motor_config(motor_payload if isinstance(motor_payload, dict) else {})
+        code = 200 if ok else 400
+        return jsonify({'ok': ok, 'message': message, 'config': config, 'status': ctx.status_payload()}), code
 
     @app.route('/api/session/start', methods=['POST'])
     def api_session_start():

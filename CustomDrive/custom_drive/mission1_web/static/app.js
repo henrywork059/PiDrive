@@ -108,6 +108,14 @@ function motorRotationLabel(motorStatus) {
   return formatDirectionLabel(String(motorStatus?.vehicle_rotation || 'stopped'));
 }
 
+function directionSettingLabel(value) {
+  return Number(value || 1) < 0 ? 'Inverted (-1)' : 'Normal (+1)';
+}
+
+function invertDirectionValue(value) {
+  return Number(value || 1) < 0 ? 1 : -1;
+}
+
 function themePanelCard(content, theme, extraClass = '') {
   return `<div class="themed-block ${escapeHtml(extraClass)}" style="${escapeHtml(themeToCssVars(theme))}">${content}</div>`;
 }
@@ -393,7 +401,7 @@ function renderArmPositionPanel(status) {
 function renderMotorPositionPanel(status) {
   const panel = document.getElementById('motorPositionPanel');
   const motorStatus = status.motor_status || {};
-  const motorConfig = status.motor_config || {};
+  const motorConfig = motorStatus.config || status.motor_config || {};
   const motionTheme = status.motion_theme || {};
   const left = motorStatus.left || {};
   const right = motorStatus.right || {};
@@ -402,11 +410,15 @@ function renderMotorPositionPanel(status) {
   const rightDirection = String(right.direction || directionLabel(right.value));
   const leftPower = Math.max(0, Math.min(100, Number(left.power_ratio || Math.abs(Number(left.value || 0))) * 100));
   const rightPower = Math.max(0, Math.min(100, Number(right.power_ratio || Math.abs(Number(right.value || 0))) * 100));
+  const leftDirSetting = Number(motorConfig.left_direction || 1) < 0 ? -1 : 1;
+  const rightDirSetting = Number(motorConfig.right_direction || 1) < 0 ? -1 : 1;
+  const steeringDirSetting = Number(motorConfig.steering_direction || 1) < 0 ? -1 : 1;
   panel.innerHTML = themePanelCard(`
     <div class="panel-chip-row">
       ${themeBadge(`Motion: ${status.intended_motion || 'idle'}`, motionTheme)}
       <span class="theme-badge ${directionClass(motorStatus.vehicle_rotation)}">Rotation ${escapeHtml(rotation)}</span>
       <span class="theme-badge neutral-badge">GPIO ${escapeHtml(motorConfig.gpio_available ?? false)}</span>
+      <span class="theme-badge neutral-badge">Steering dir ${escapeHtml(directionSettingLabel(steeringDirSetting))}</span>
     </div>
     <div class="motor-grid">
       <div class="motor-card ${directionClass(leftDirection)}">
@@ -418,6 +430,14 @@ function renderMotorPositionPanel(status) {
           <div class="motor-value">${fmt(Number(left.value || 0), 2)}</div>
         </div>
         <div class="motor-bar"><span style="width:${leftPower}%"></span></div>
+        <div class="motor-setting-row">
+          <label class="motor-setting-field">Direction
+            <select id="motorLeftDirectionSelect">
+              <option value="1" ${leftDirSetting > 0 ? 'selected' : ''}>Normal (+1)</option>
+              <option value="-1" ${leftDirSetting < 0 ? 'selected' : ''}>Inverted (-1)</option>
+            </select>
+          </label>
+        </div>
       </div>
       <div class="motor-card ${directionClass(rightDirection)}">
         <div class="motor-head">
@@ -428,14 +448,51 @@ function renderMotorPositionPanel(status) {
           <div class="motor-value">${fmt(Number(right.value || 0), 2)}</div>
         </div>
         <div class="motor-bar"><span style="width:${rightPower}%"></span></div>
+        <div class="motor-setting-row">
+          <label class="motor-setting-field">Direction
+            <select id="motorRightDirectionSelect">
+              <option value="1" ${rightDirSetting > 0 ? 'selected' : ''}>Normal (+1)</option>
+              <option value="-1" ${rightDirSetting < 0 ? 'selected' : ''}>Inverted (-1)</option>
+            </select>
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="motor-control-grid">
+      <label class="motor-setting-field">Turn / steering direction
+        <select id="motorSteeringDirectionSelect">
+          <option value="1" ${steeringDirSetting > 0 ? 'selected' : ''}>Normal (+1)</option>
+          <option value="-1" ${steeringDirSetting < 0 ? 'selected' : ''}>Inverted (-1)</option>
+        </select>
+      </label>
+      <div class="motor-button-row">
+        <button type="button" class="secondary" id="saveMotorConfigBtn">Apply motor directions</button>
+        <button type="button" class="secondary" id="flipSteeringDirectionBtn">Flip turn direction</button>
       </div>
     </div>
     <div class="motor-footer-grid">
       <div><span class="status-label-inline">Command mode</span> ${escapeHtml(motorStatus.mode || status.last_command?.mode || '-')}</div>
       <div><span class="status-label-inline">Command note</span> ${escapeHtml(motorStatus.note || status.last_command?.note || '-')}</div>
+      <div><span class="status-label-inline">Route link</span> Start-route turns use this same steering direction setting.</div>
+      <div><span class="status-label-inline">Use case</span> If turn-right spins the wrong way, flip the steering direction here.</div>
     </div>
+    <div id="motorMessage" class="message"></div>
   `, motionTheme, 'motor-live-block');
+
+  const saveBtn = document.getElementById('saveMotorConfigBtn');
+  if (saveBtn) saveBtn.onclick = saveMotorConfig;
+  const flipBtn = document.getElementById('flipSteeringDirectionBtn');
+  if (flipBtn) {
+    flipBtn.onclick = async () => {
+      const select = document.getElementById('motorSteeringDirectionSelect');
+      if (select) {
+        select.value = String(invertDirectionValue(select.value));
+      }
+      await saveMotorConfig();
+    };
+  }
 }
+
 
 function renderStatus(status) {
   const statusEl = document.getElementById('status');
@@ -671,6 +728,25 @@ async function loadArmRole(role) {
     setMessage('armMessage', err.message || `Failed to load ${role} pose.`, true);
   }
 }
+
+
+async function saveMotorConfig() {
+  const leftSelect = document.getElementById('motorLeftDirectionSelect');
+  const rightSelect = document.getElementById('motorRightDirectionSelect');
+  const steeringSelect = document.getElementById('motorSteeringDirectionSelect');
+  try {
+    const data = await postJSON('/api/motor/config', {
+      left_direction: Number(leftSelect?.value || 1),
+      right_direction: Number(rightSelect?.value || 1),
+      steering_direction: Number(steeringSelect?.value || 1),
+    });
+    await refresh();
+    setMessage('motorMessage', data.message || 'Mission 1 motor directions saved.');
+  } catch (err) {
+    setMessage('motorMessage', err.message || 'Failed to save motor directions.', true);
+  }
+}
+
 
 async function refresh() {
   if (refreshInFlight) {
