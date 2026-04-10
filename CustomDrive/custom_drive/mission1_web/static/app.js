@@ -1,3 +1,29 @@
+const STATUS_REFRESH_MS = 600;
+const FRAME_REFRESH_MS = 250;
+let refreshInFlight = false;
+let refreshTimer = null;
+let frameTimer = null;
+let frameRequestInFlight = false;
+let latestFrameRequestId = 0;
+let currentStatus = null;
+
+function shouldShowLiveFrame(status) {
+  if (!status) return false;
+  const camera = status.camera || {};
+  const phase = String(status.phase || '');
+  return Boolean(camera.running) && phase.startsWith('ai');
+}
+
+function scheduleRefresh(delay = STATUS_REFRESH_MS) {
+  if (refreshTimer) clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(refresh, delay);
+}
+
+function scheduleFrameRefresh(delay = FRAME_REFRESH_MS) {
+  if (frameTimer) clearTimeout(frameTimer);
+  frameTimer = setTimeout(refreshFrame, delay);
+}
+
 async function fetchJSON(path, options = undefined) {
   const res = await fetch(path, options);
   let data = {};
@@ -369,6 +395,7 @@ function renderViewer(status) {
   const note = document.getElementById('viewerNote');
   const stats = document.getElementById('viewerStats');
   const phase = status.phase || '';
+  const liveFrameVisible = shouldShowLiveFrame(status);
   const pipelineFps = fmt(status.pipeline?.fps || 0, 2);
   const detectionCount = String((status.detections || []).length);
   stats.innerHTML = `
@@ -380,10 +407,9 @@ function renderViewer(status) {
     <span class="stat-pill">Turn ${escapeHtml(status.car_turn_direction || 'stopped')}</span>
   `;
 
-  if ((status.camera || {}).running && phase.startsWith('ai')) {
+  if (liveFrameVisible) {
     video.style.display = 'block';
     svg.style.display = 'block';
-    video.src = `/api/frame.jpg?t=${Date.now()}`;
     renderOverlay(status);
     note.textContent = `Showing Pi-generated annotated frame plus web overlay boxes from the latest detection list. Mission state: ${status.mission_state || 'idle'}. Holding class: ${status.held_class_id ?? '-'}. Drop-off class: ${status.dropoff_target_class_id ?? '-'}. Target side: ${status.target_side || 'none'}. Car turn: ${status.car_turn_direction || 'stopped'}. Arm stage: ${status.arm_sequence?.state || 'idle'}.`;
   } else if (phase === 'start_route' || phase === 'route_pending') {
@@ -487,12 +513,59 @@ async function loadArmRole(role) {
 }
 
 async function refresh() {
+  if (refreshInFlight) {
+    return;
+  }
+  refreshInFlight = true;
   try {
     const status = await fetchJSON('/api/status');
+    currentStatus = status;
     renderStatus(status);
   } catch (err) {
     setMessage('configMessage', err.message || 'Refresh failed.', true);
+  } finally {
+    refreshInFlight = false;
+    scheduleRefresh();
   }
+}
+
+function refreshFrame() {
+  const video = document.getElementById('videoFeed');
+  const svg = document.getElementById('viewerOverlay');
+  if (!shouldShowLiveFrame(currentStatus)) {
+    frameRequestInFlight = false;
+    if (video) {
+      video.removeAttribute('src');
+      video.style.display = 'none';
+    }
+    if (svg) {
+      svg.style.display = 'none';
+    }
+    scheduleFrameRefresh();
+    return;
+  }
+  if (!video) {
+    scheduleFrameRefresh();
+    return;
+  }
+  if (frameRequestInFlight) {
+    scheduleFrameRefresh();
+    return;
+  }
+
+  frameRequestInFlight = true;
+  const requestId = ++latestFrameRequestId;
+  const finish = () => {
+    if (requestId === latestFrameRequestId) {
+      frameRequestInFlight = false;
+    }
+  };
+
+  video.onload = finish;
+  video.onerror = finish;
+  video.src = `/api/frame.jpg?t=${Date.now()}`;
+  window.setTimeout(finish, Math.max(800, FRAME_REFRESH_MS * 3));
+  scheduleFrameRefresh();
 }
 
 async function init() {
@@ -505,7 +578,7 @@ async function init() {
     setMessage('configMessage', err.message || 'Failed to load config.', true);
   }
   await refresh();
-  setInterval(refresh, 400);
+  scheduleFrameRefresh();
 }
 
 document.getElementById('saveConfigBtn').onclick = saveConfig;
