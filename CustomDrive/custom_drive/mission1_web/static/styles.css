@@ -469,6 +469,21 @@ code {
   --theme-hex: #cbd5e1;
 }
 
+.sim-badge {
+  --theme-rgb: 56, 189, 248;
+  --theme-hex: #7dd3fc;
+}
+
+.turn-badge-normal {
+  --theme-rgb: 34, 197, 94;
+  --theme-hex: #86efac;
+}
+
+.turn-badge-inverted {
+  --theme-rgb: 251, 191, 36;
+  --theme-hex: #fde68a;
+}
+
 .summary-card.themed,
 .themed-block,
 .stage-themed-grid,
@@ -597,6 +612,15 @@ code {
   color: #cbd5e1;
 }
 
+.mini-badge-sim {
+  background: rgba(56, 189, 248, 0.16);
+  color: #7dd3fc;
+}
+
+.sim-note {
+  color: #7dd3fc;
+}
+
 .arm-servo-card.is-disabled {
   opacity: 0.65;
 }
@@ -693,14 +717,15 @@ code {
 }
 
 .motor-toggle-card,
-.motor-hint-card {
+.motor-hint-card,
+.toggle-box-button {
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 12px;
   align-items: start;
   padding: 12px 14px;
   border-radius: 14px;
-  border: 1px solid var(--panel-border);
+  border: 1px solid var(--border);
   background: rgba(15, 23, 42, 0.34);
 }
 
@@ -708,26 +733,59 @@ code {
   grid-template-columns: 1fr;
 }
 
-.motor-toggle-card input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  margin-top: 2px;
-}
-
-.motor-toggle-copy {
+.toggle-box-button {
+  width: 100%;
   display: grid;
-  gap: 2px;
-}
-
-.motor-toggle-title {
+  gap: 4px;
+  justify-items: start;
+  text-align: left;
+  padding: 12px 14px;
+  background: rgba(15, 23, 42, 0.34);
   color: var(--text);
-  font-weight: 700;
+  border: 1px solid var(--border);
 }
 
-.motor-toggle-sub {
+.toggle-box-button:hover {
+  border-color: rgba(var(--theme-rgb, 148, 163, 184), 0.45);
+}
+
+.toggle-box-button.is-active {
+  background: rgba(var(--theme-rgb, 148, 163, 184), 0.14);
+  border-color: rgba(var(--theme-rgb, 148, 163, 184), 0.5);
+  box-shadow: inset 0 0 0 1px rgba(var(--theme-rgb, 148, 163, 184), 0.1);
+}
+
+.toggle-box-turn.is-active {
+  background: rgba(251, 191, 36, 0.12);
+  border-color: rgba(251, 191, 36, 0.48);
+}
+
+.toggle-box-eyebrow {
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.toggle-box-value {
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.toggle-box-sub {
   color: var(--muted);
   font-size: 0.9rem;
   line-height: 1.35;
+}
+
+.toggle-box-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.single-column {
+  grid-template-columns: 1fr;
 }
 
 @media (max-width: 980px) {

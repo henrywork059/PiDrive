@@ -47,6 +47,8 @@ class ArmService:
         self.backend = 'disabled'
         self.available = False
         self.enabled = False
+        self.simulated = False
+        self.hardware_available = False
         self.reload(config or {})
 
     def reload(self, config: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -63,6 +65,8 @@ class ArmService:
         self.backend = str(cfg.get('backend', 'pca9685') or 'pca9685').strip().lower()
         self.enabled = bool(cfg.get('enabled', True))
         self.available = False
+        self.simulated = False
+        self.hardware_available = False
 
         primary_default = self._angle('lift_down_angle', 90)
         secondary_default = self._secondary_default_angle(primary_default)
@@ -88,6 +92,7 @@ class ArmService:
             frequency = int(cfg.get('frequency_hz', 50) or 50)
             self._kit = ServoKit(channels=channels, address=address, frequency=frequency)
             self.available = True
+            self.hardware_available = True
 
             self._apply_servo_angle(0, self._current_servo_angles[0])
             if self._servo_enabled(1):
@@ -109,9 +114,18 @@ class ArmService:
                 )
         except Exception as exc:  # pragma: no cover - hardware/env dependent
             self._kit = None
-            self.available = False
             self.last_error = str(exc)
-            self.last_message = f'Arm init failed: {exc}'
+            if isinstance(exc, ModuleNotFoundError) and 'adafruit_servokit' in str(exc):
+                self.backend = 'simulated'
+                self.available = True
+                self.simulated = True
+                self.hardware_available = False
+                self.last_message = 'Arm simulation mode active: adafruit_servokit not available. Pose logic updates are recorded, but no physical servo output is sent.'
+            else:
+                self.available = False
+                self.simulated = False
+                self.hardware_available = False
+                self.last_message = f'Arm init failed: {exc}'
         return self.status()
 
     def shutdown(self) -> None:
@@ -245,6 +259,8 @@ class ArmService:
     def _set_servo_angle(self, channel: int, angle: int) -> None:
         if not self.enabled:
             raise RuntimeError('Arm is disabled in config.')
+        if self.simulated and self._kit is None:
+            return
         if self._kit is None or not self.available:
             if self.last_error:
                 raise RuntimeError(self.last_error)
@@ -370,6 +386,9 @@ class ArmService:
         if not self.enabled:
             self.last_message = 'Arm disabled in config.'
             return False, self.last_message
+        if self.simulated:
+            self.last_message = 'Arm simulation mode active; hold refresh is not needed.'
+            return True, self.last_message
         if not self.available:
             self.last_message = self.last_error or 'Arm backend is not available.'
             return False, self.last_message
@@ -675,6 +694,8 @@ class ArmService:
             'enabled': bool(self.enabled),
             'available': bool(self.available),
             'backend': self.backend,
+            'simulated': bool(self.simulated),
+            'hardware_available': bool(self.hardware_available),
             'last_action': self.last_action,
             'last_error': self.last_error,
             'last_message': self.last_message,

@@ -347,11 +347,46 @@ function renderSummaryCards(status) {
   `).join('');
 }
 
+
+function armModeLabel(armStatus) {
+  if (armStatus.simulated) return 'simulated';
+  if (armStatus.available) return 'hardware';
+  return 'unavailable';
+}
+
+function motorLogicLabel(steeringDirection) {
+  return Number(steeringDirection || 1) < 0 ? 'inverted' : 'normal';
+}
+
+function hardwareDirectionButtonHtml(id, title, currentDirection, subtitle) {
+  const inverted = Number(currentDirection || 1) < 0;
+  const stateLabel = inverted ? 'Inverted' : 'Normal';
+  return `
+    <button type="button" class="toggle-box-button ${inverted ? 'is-active' : ''}" id="${id}">
+      <span class="toggle-box-eyebrow">${escapeHtml(title)}</span>
+      <span class="toggle-box-value">${escapeHtml(stateLabel)}</span>
+      <span class="toggle-box-sub">${escapeHtml(subtitle)}</span>
+    </button>
+  `;
+}
+
+function turnLogicButtonHtml(id, steeringDirection) {
+  const inverted = Number(steeringDirection || 1) < 0;
+  return `
+    <button type="button" class="toggle-box-button toggle-box-turn ${inverted ? 'is-active' : ''}" id="${id}">
+      <span class="toggle-box-eyebrow">Turn logic</span>
+      <span class="toggle-box-value">${inverted ? 'Inverted' : 'Normal'}</span>
+      <span class="toggle-box-sub">Normal: turn left = left motor back, right motor forward. Inverted flips that software turn mapping.</span>
+    </button>
+  `;
+}
+
 function renderArmPositionPanel(status) {
   const panel = document.getElementById('armPositionPanel');
   const armStatus = status.arm_status || {};
   const armSequence = status.arm_sequence || {};
   const armTheme = status.arm_theme || {};
+  const armMode = armModeLabel(armStatus);
   const servoItems = [
     { label: 'Servo 0', angle: armStatus.servo0_angle, channel: armStatus.servo0_channel, moving: armStatus.servo0_moving },
     { label: 'Servo 1', angle: armStatus.servo1_angle, channel: armStatus.servo1_channel, moving: armStatus.servo1_moving, disabled: armStatus.servo1_enabled === false },
@@ -367,7 +402,7 @@ function renderArmPositionPanel(status) {
             <div class="servo-label">${escapeHtml(servo.label)}</div>
             <div class="servo-meta">channel ${escapeHtml(servo.channel ?? '-')}</div>
           </div>
-          <span class="mini-badge ${moving ? 'mini-badge-live' : 'mini-badge-muted'}">${moving ? 'moving' : (servo.disabled ? 'disabled' : 'held')}</span>
+          <span class="mini-badge ${moving ? 'mini-badge-live' : (armStatus.simulated ? 'mini-badge-sim' : 'mini-badge-muted')}">${moving ? 'moving' : (servo.disabled ? 'disabled' : (armStatus.simulated ? 'simulated' : 'held'))}</span>
         </div>
         <div class="servo-angle">${fmtShort(angle, 0)}°</div>
         <div class="servo-bar"><span style="width:${servoBarPercent(angle)}%"></span></div>
@@ -379,7 +414,8 @@ function renderArmPositionPanel(status) {
     <div class="panel-chip-row">
       ${themeBadge(`Arm stage: ${armSequence.state || 'idle'}`, armTheme)}
       ${themeBadge(`Pose: ${armSequence.last_pose_number ? `#${armSequence.last_pose_number}` : '-'}`, armTheme, 'arm-badge')}
-      <span class="theme-badge neutral-badge">Backend ${escapeHtml(armStatus.backend || 'disabled')}</span>
+      <span class="theme-badge ${armStatus.simulated ? 'sim-badge' : 'neutral-badge'}">Backend ${escapeHtml(armStatus.backend || 'disabled')}</span>
+      <span class="theme-badge ${armStatus.simulated ? 'sim-badge' : 'neutral-badge'}">Mode ${escapeHtml(armMode)}</span>
     </div>
     <div class="arm-overview-grid">
       <div class="arm-info-card">
@@ -389,12 +425,12 @@ function renderArmPositionPanel(status) {
       </div>
       <div class="arm-info-card">
         <div class="info-title">Backend status</div>
-        <div class="info-main">enabled=${escapeHtml(armStatus.enabled ?? false)} · available=${escapeHtml(armStatus.available ?? false)}</div>
+        <div class="info-main">enabled=${escapeHtml(armStatus.enabled ?? false)} · available=${escapeHtml(armStatus.available ?? false)} · hardware=${escapeHtml(armStatus.hardware_available ?? false)}</div>
         <div class="info-sub">hold refresh=${escapeHtml(armStatus.hold_refresh_running ?? false)} · speed x${fmtShort(armStatus.speed_multiplier ?? 1, 2)}</div>
       </div>
     </div>
     <div class="arm-servo-grid">${servoCards}</div>
-    <div class="arm-footer-note">${escapeHtml(armStatus.last_message || '-')}</div>
+    <div class="arm-footer-note ${armStatus.simulated ? 'sim-note' : ''}">${escapeHtml(armStatus.last_message || '-')}</div>
   `, armTheme, 'arm-live-block');
 }
 
@@ -412,12 +448,14 @@ function renderMotorPositionPanel(status) {
   const rightPower = Math.max(0, Math.min(100, Number(right.power_ratio || Math.abs(Number(right.value || 0))) * 100));
   const leftDirSetting = Number(motorConfig.left_direction || 1) < 0 ? -1 : 1;
   const rightDirSetting = Number(motorConfig.right_direction || 1) < 0 ? -1 : 1;
+  const steeringDirection = Number(motorConfig.steering_direction || 1) < 0 ? -1 : 1;
+  const turnLogic = motorLogicLabel(steeringDirection);
   panel.innerHTML = themePanelCard(`
     <div class="panel-chip-row">
       ${themeBadge(`Motion: ${status.intended_motion || 'idle'}`, motionTheme)}
       <span class="theme-badge ${directionClass(motorStatus.vehicle_rotation)}">Rotation ${escapeHtml(rotation)}</span>
       <span class="theme-badge neutral-badge">GPIO ${escapeHtml(motorConfig.gpio_available ?? false)}</span>
-      <span class="theme-badge neutral-badge">Software turn logic fixed</span>
+      <span class="theme-badge ${turnLogic === 'inverted' ? 'turn-badge-inverted' : 'turn-badge-normal'}">Turn logic ${escapeHtml(turnLogic)}</span>
     </div>
     <div class="motor-grid">
       <div class="motor-card ${directionClass(leftDirection)}">
@@ -430,13 +468,7 @@ function renderMotorPositionPanel(status) {
         </div>
         <div class="motor-bar"><span style="width:${leftPower}%"></span></div>
         <div class="motor-setting-row">
-          <label class="motor-toggle-card">
-            <input type="checkbox" id="motorLeftDirectionToggle" ${leftDirSetting < 0 ? 'checked' : ''} />
-            <span class="motor-toggle-copy">
-              <span class="motor-toggle-title">Invert hardware output</span>
-              <span class="motor-toggle-sub">Remembered calibration for the left motor only.</span>
-            </span>
-          </label>
+          ${hardwareDirectionButtonHtml('motorLeftDirectionToggleBtn', 'Left hardware output', leftDirSetting, 'Affects hardware motor output polarity only.')}
         </div>
       </div>
       <div class="motor-card ${directionClass(rightDirection)}">
@@ -449,36 +481,34 @@ function renderMotorPositionPanel(status) {
         </div>
         <div class="motor-bar"><span style="width:${rightPower}%"></span></div>
         <div class="motor-setting-row">
-          <label class="motor-toggle-card">
-            <input type="checkbox" id="motorRightDirectionToggle" ${rightDirSetting < 0 ? 'checked' : ''} />
-            <span class="motor-toggle-copy">
-              <span class="motor-toggle-title">Invert hardware output</span>
-              <span class="motor-toggle-sub">Remembered calibration for the right motor only.</span>
-            </span>
-          </label>
+          ${hardwareDirectionButtonHtml('motorRightDirectionToggleBtn', 'Right hardware output', rightDirSetting, 'Affects hardware motor output polarity only.')}
         </div>
       </div>
     </div>
-    <div class="motor-control-grid">
+    <div class="motor-control-grid single-column">
       <div class="motor-hint-card">
         <div class="status-label-inline">Calibration rule</div>
-        <div>These toggle boxes only change the remembered hardware motor output polarity. Mission 1 turn logic and route logic stay the same.</div>
+        <div>Hardware output toggles change only the remembered left/right motor polarity. The turn logic control changes the software turn mapping used by both live Mission 1 turning and the start route.</div>
       </div>
-      <div class="motor-button-row">
-        <button type="button" class="secondary" id="saveMotorConfigBtn">Save hardware motor directions</button>
+      <div class="toggle-box-stack">
+        ${turnLogicButtonHtml('turnLogicToggleBtn', steeringDirection)}
       </div>
     </div>
     <div class="motor-footer-grid">
       <div><span class="status-label-inline">Command mode</span> ${escapeHtml(motorStatus.mode || status.last_command?.mode || '-')}</div>
       <div><span class="status-label-inline">Command note</span> ${escapeHtml(motorStatus.note || status.last_command?.note || '-')}</div>
-      <div><span class="status-label-inline">Route link</span> Start-route and live Mission 1 outputs both use this same remembered hardware motor calibration.</div>
-      <div><span class="status-label-inline">Use case</span> If the physical wheel spins opposite to the intended output, toggle that motor here.</div>
+      <div><span class="status-label-inline">Route link</span> Start-route and live Mission 1 outputs both use this same remembered motor calibration and turn logic.</div>
+      <div><span class="status-label-inline">Use case</span> Toggle hardware output if a wheel spins opposite to the intended direction. Toggle turn logic if “turn left/right” is swapped.</div>
     </div>
     <div id="motorMessage" class="message"></div>
   `, motionTheme, 'motor-live-block');
 
-  const saveBtn = document.getElementById('saveMotorConfigBtn');
-  if (saveBtn) saveBtn.onclick = saveMotorConfig;
+  const leftBtn = document.getElementById('motorLeftDirectionToggleBtn');
+  if (leftBtn) leftBtn.onclick = () => saveMotorConfig({ left_direction: leftDirSetting < 0 ? 1 : -1 });
+  const rightBtn = document.getElementById('motorRightDirectionToggleBtn');
+  if (rightBtn) rightBtn.onclick = () => saveMotorConfig({ right_direction: rightDirSetting < 0 ? 1 : -1 });
+  const turnBtn = document.getElementById('turnLogicToggleBtn');
+  if (turnBtn) turnBtn.onclick = () => saveMotorConfig({ steering_direction: steeringDirection < 0 ? 1 : -1 });
 }
 
 
@@ -533,7 +563,7 @@ function renderStatus(status) {
       <div class="status-label">Command</div><div>left=${fmt(status.last_command?.left, 2)} right=${fmt(status.last_command?.right, 2)} note=${escapeHtml(status.last_command?.note || '')}</div>
       <div class="status-label">Motor GPIO</div><div>${escapeHtml(motor.gpio_available ?? false)}</div>
       <div class="status-label">Output summary</div><div>${escapeHtml(status.last_output_summary || '-')}</div>
-      <div class="status-label">Arm status</div><div>${escapeHtml(armStatus.last_message || '-')}</div>
+      <div class="status-label">Arm status</div><div>${escapeHtml(armStatus.simulated ? 'Simulation mode active. ' : '')}${escapeHtml(armStatus.last_message || '-')}</div>
       <div class="status-label">Last error</div><div>${escapeHtml(status.last_error || camera.error || armStatus.last_error || '-')}</div>
     </div>
   `;
@@ -718,18 +748,18 @@ async function loadArmRole(role) {
 }
 
 
-async function saveMotorConfig() {
-  const leftToggle = document.getElementById('motorLeftDirectionToggle');
-  const rightToggle = document.getElementById('motorRightDirectionToggle');
+async function saveMotorConfig(payload) {
   try {
-    const data = await postJSON('/api/motor/config', {
-      left_direction: leftToggle?.checked ? -1 : 1,
-      right_direction: rightToggle?.checked ? -1 : 1,
-    });
-    await refresh();
-    setMessage('motorMessage', data.message || 'Mission 1 hardware motor directions saved.');
+    const data = await postJSON('/api/motor/config', payload || {});
+    if (data.status) {
+      currentStatus = data.status;
+      renderStatus(currentStatus);
+    } else {
+      await refresh();
+    }
+    setMessage('motorMessage', data.message || 'Mission 1 motor calibration saved.');
   } catch (err) {
-    setMessage('motorMessage', err.message || 'Failed to save hardware motor directions.', true);
+    setMessage('motorMessage', err.message || 'Failed to save Mission 1 motor calibration.', true);
   }
 }
 
