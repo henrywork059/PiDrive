@@ -1088,11 +1088,26 @@ class Mission1SessionContext:
                         )
                         self.current_phase = 'ai_dropoff_search'
                         self.mission_state = 'dropoff_search'
+                        self.target_found = False
+                        self.target_side = 'search'
+                        self.car_turn_direction = 'right'
+                        self.arm_target_lock_engaged = False
                         self.last_output_summary = (
                             f'Class {locked_class} is centered and close enough. Grip and lift pose loaded. '
                             f'Holding class {locked_class}; next search class {self.dropoff_target_class_id}.'
                         )
                         self.detail = self.last_output_summary
+                        if self.dropoff_target_class_id is not None:
+                            self._turn_in_place(
+                                'right',
+                                search_rotate_speed,
+                                f'pickup class {locked_class} secured -> start clockwise search for class {self.dropoff_target_class_id}',
+                            )
+                            self.last_output_summary = (
+                                f'Picked up class {locked_class}. Starting clockwise search for drop-off class '
+                                f'{self.dropoff_target_class_id} immediately.'
+                            )
+                            self.detail = self.last_output_summary
                     else:
                         self.current_phase = 'ai_pickup_track'
                         self.mission_state = 'pickup_track'
