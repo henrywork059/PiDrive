@@ -32,7 +32,7 @@ from piserver.services.camera_service import CameraService  # noqa: E402
 from piserver.services.motor_service import MotorService  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent / 'mission1_web'
-APP_VERSION = '0_5_7'
+APP_VERSION = '0_5_9'
 MISSION1_CONFIG_PATH = CONFIG_DIR / 'mission1_session.json'
 MISSION1_MODEL_DIR = CUSTOMDRIVE_ROOT / 'models' / 'mission1'
 
@@ -99,6 +99,7 @@ DEFAULT_MISSION1_CONFIG: dict[str, Any] = {
         'enabled': True,
         'pose_settle_s': 0.45,
         'grip_trigger_y_ratio': 0.3,
+        'capture_x_tolerance_ratio': 0.05,
         'positions': _default_arm_positions(),
         'roles': {
             'starting_position': 1,
@@ -262,6 +263,7 @@ def normalize_mission1_config(data: dict[str, Any] | None) -> dict[str, Any]:
             'enabled': bool(arm.get('enabled', True)),
             'pose_settle_s': round(clamp_float(arm.get('pose_settle_s', 0.45), 0.45, 0.0, 5.0), 3),
             'grip_trigger_y_ratio': round(clamp_float(arm.get('grip_trigger_y_ratio', 0.3), 0.3, 0.05, 0.95), 3),
+            'capture_x_tolerance_ratio': round(clamp_float(arm.get('capture_x_tolerance_ratio', 0.05), 0.05, 0.01, 0.25), 3),
             'positions': positions_out,
             'roles': {
                 'starting_position': _role_position('starting_position', 1),
@@ -372,6 +374,8 @@ class Mission1SessionContext:
         self.dropoff_target_class_id: int | None = None
         self.pickup_target_class_id: int | None = None
         self.mission_state = 'pickup_search'
+        self._last_pickup_gate_log_at = 0.0
+        self._last_dropoff_gate_log_at = 0.0
 
         self._apply_motor_defaults()
         ready, message = self.detector.backend_ready()
@@ -519,10 +523,52 @@ class Mission1SessionContext:
         if isinstance(target, dict):
             target['is_target_class'] = True
 
-    def _target_close_enough(self, target_x: float, target_y: float, frame_w: int, frame_h: int) -> tuple[bool, float]:
-        deadband_px = max(1.0, float(frame_w) * float(self.get_config().get('drive', {}).get('target_x_deadband_ratio', 0.05)))
-        grip_trigger_y_px = -float(frame_h) * float(self._arm_config().get('grip_trigger_y_ratio', 0.3) or 0.3)
-        return abs(target_x) < deadband_px and target_y < grip_trigger_y_px, deadband_px
+    def _tracking_deadband_px(self, frame_w: int) -> float:
+        return max(1.0, float(frame_w) * float(self.get_config().get('drive', {}).get('target_x_deadband_ratio', 0.05)))
+
+    def _capture_deadband_px(self, frame_w: int) -> float:
+        return max(1.0, float(frame_w) * float(self._arm_config().get('capture_x_tolerance_ratio', 0.05) or 0.05))
+
+    def _grip_trigger_y_px(self, frame_h: int) -> float:
+        return -float(frame_h) * float(self._arm_config().get('grip_trigger_y_ratio', 0.3) or 0.3)
+
+    def _target_close_enough(self, target_x: float, target_y: float, frame_w: int, frame_h: int) -> tuple[bool, float, float]:
+        capture_deadband_px = self._capture_deadband_px(frame_w)
+        grip_trigger_y_px = self._grip_trigger_y_px(frame_h)
+        return abs(target_x) < capture_deadband_px and target_y < grip_trigger_y_px, capture_deadband_px, grip_trigger_y_px
+
+    def _maybe_log_gate_status(
+        self,
+        gate_name: str,
+        *,
+        class_id: int,
+        target_x: float,
+        target_y: float,
+        tracking_deadband_px: float,
+        capture_deadband_px: float,
+        grip_trigger_y_px: float,
+        close_enough: bool,
+    ) -> None:
+        attr_name = '_last_pickup_gate_log_at' if gate_name == 'pickup' else '_last_dropoff_gate_log_at'
+        now = time.time()
+        last_at = float(getattr(self, attr_name, 0.0) or 0.0)
+        if now - last_at < 1.0:
+            return
+        setattr(self, attr_name, now)
+        self._record(
+            f'{gate_name} gate check for class {class_id}: target=({target_x:.1f}, {target_y:.1f})px '
+            f'track_deadband={tracking_deadband_px:.1f}px capture_deadband={capture_deadband_px:.1f}px '
+            f'grip_trigger_y={grip_trigger_y_px:.1f}px close_enough={close_enough}.',
+            event_type='mission',
+            level='info',
+            class_id=int(class_id),
+            target_x=round(float(target_x), 2),
+            target_y=round(float(target_y), 2),
+            tracking_deadband_px=round(float(tracking_deadband_px), 2),
+            capture_deadband_px=round(float(capture_deadband_px), 2),
+            grip_trigger_y_px=round(float(grip_trigger_y_px), 2),
+            close_enough=bool(close_enough),
+        )
 
     def _drive_toward_target(self, target_x: float, deadband_px: float, forward_speed: float, turn_k: float, turn_speed_max: float, note_prefix: str) -> None:
         turn_speed = min(turn_speed_max, abs(target_x) * turn_k)
@@ -1068,8 +1114,9 @@ class Mission1SessionContext:
                     self.target_found = True
                     target_x = float(target['center']['x'])
                     target_y = float(target['center']['y'])
-                    close_enough, deadband_px = self._target_close_enough(target_x, target_y, frame_w, frame_h)
-                    self.target_side = self._update_target_side(target_x, deadband_px)
+                    tracking_deadband_px = self._tracking_deadband_px(frame_w)
+                    close_enough, capture_deadband_px, grip_trigger_y_px = self._target_close_enough(target_x, target_y, frame_w, frame_h)
+                    self.target_side = self._update_target_side(target_x, tracking_deadband_px)
                     if close_enough:
                         self.arm_target_lock_engaged = True
                         self.target_side = 'center'
@@ -1101,9 +1148,19 @@ class Mission1SessionContext:
                         self.last_output_summary = self.detail
                     else:
                         self.arm_target_lock_engaged = True
+                        self._maybe_log_gate_status(
+                            'dropoff',
+                            class_id=desired_dropoff,
+                            target_x=target_x,
+                            target_y=target_y,
+                            tracking_deadband_px=tracking_deadband_px,
+                            capture_deadband_px=capture_deadband_px,
+                            grip_trigger_y_px=grip_trigger_y_px,
+                            close_enough=close_enough,
+                        )
                         self._drive_toward_target(
                             target_x,
-                            deadband_px,
+                            tracking_deadband_px,
                             forward_speed,
                             turn_k,
                             turn_speed_max,
@@ -1136,9 +1193,10 @@ class Mission1SessionContext:
                     self.pickup_target_class_id = locked_class
                     target_x = float(target['center']['x'])
                     target_y = float(target['center']['y'])
-                    close_enough, deadband_px = self._target_close_enough(target_x, target_y, frame_w, frame_h)
+                    tracking_deadband_px = self._tracking_deadband_px(frame_w)
+                    close_enough, capture_deadband_px, grip_trigger_y_px = self._target_close_enough(target_x, target_y, frame_w, frame_h)
                     self.target_found = True
-                    self.target_side = self._update_target_side(target_x, deadband_px)
+                    self.target_side = self._update_target_side(target_x, tracking_deadband_px)
                     if not self._arm_stage_at_least('grip_ready_loaded') or self.arm_last_pose_role == 'starting_position':
                         self._load_arm_role_pose('grip_ready', reason=f'pickup class {locked_class} detected', settle=True)
                     if close_enough:
@@ -1187,9 +1245,19 @@ class Mission1SessionContext:
                         self.current_phase = 'ai_pickup_track'
                         self.mission_state = 'pickup_track'
                         self.arm_target_lock_engaged = True
+                        self._maybe_log_gate_status(
+                            'pickup',
+                            class_id=locked_class,
+                            target_x=target_x,
+                            target_y=target_y,
+                            tracking_deadband_px=tracking_deadband_px,
+                            capture_deadband_px=capture_deadband_px,
+                            grip_trigger_y_px=grip_trigger_y_px,
+                            close_enough=close_enough,
+                        )
                         self._drive_toward_target(
                             target_x,
-                            deadband_px,
+                            tracking_deadband_px,
                             forward_speed,
                             turn_k,
                             turn_speed_max,

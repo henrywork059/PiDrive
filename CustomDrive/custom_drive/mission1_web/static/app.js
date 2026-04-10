@@ -365,27 +365,16 @@ function renderOverlay(status) {
   `;
   svg.appendChild(guideGroup);
 
-  for (const det of detections) {
-    const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    group.setAttribute('class', det.is_target_class ? 'overlay-box target-box' : 'overlay-box');
-    const x1 = Number(det.box?.x1 || 0);
-    const y1 = Number(det.box?.y1 || 0);
-    const boxW = Number(det.box?.width || 0);
-    const boxH = Number(det.box?.height || 0);
-    const cx = Number(det.center?.x_raw || ((det.box?.x1 || 0) + (det.box?.x2 || 0)) / 2);
-    const cy = Number(det.center?.y_raw || ((det.box?.y1 || 0) + (det.box?.y2 || 0)) / 2);
-    const label = `id ${det.class_id} ${fmt(det.confidence, 2)} | (${fmt(det.center?.x, 0)}, ${fmt(det.center?.y, 0)})`;
-    const labelWidth = Math.max(112, label.length * 6.5);
-    const labelHeight = 22;
-    const labelX = Math.max(0, Math.min(width - labelWidth - 2, x1));
-    const labelY = Math.max(0, y1 - labelHeight - 6);
-    group.innerHTML = `
-      <rect x="${x1}" y="${y1}" width="${boxW}" height="${boxH}" rx="6" ry="6" class="box-rect" />
-      <rect x="${labelX}" y="${labelY}" width="${labelWidth}" height="${labelHeight}" rx="6" ry="6" class="box-label-bg" />
-      <text x="${labelX + 8}" y="${labelY + 15}" class="box-label-text">${escapeHtml(label)}</text>
-      <circle cx="${cx}" cy="${cy}" r="4" class="box-center-dot" />
+  const target = detections.find((det) => det && det.is_target_class) || null;
+  if (target) {
+    const targetGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    targetGroup.setAttribute('class', 'overlay-guides');
+    const cx = Number(target.center?.x_raw || ((target.box?.x1 || 0) + (target.box?.x2 || 0)) / 2);
+    const cy = Number(target.center?.y_raw || ((target.box?.y1 || 0) + (target.box?.y2 || 0)) / 2);
+    targetGroup.innerHTML = `
+      <circle cx="${cx}" cy="${cy}" r="6" class="box-center-dot" />
     `;
-    svg.appendChild(group);
+    svg.appendChild(targetGroup);
   }
 }
 
@@ -411,7 +400,7 @@ function renderViewer(status) {
     video.style.display = 'block';
     svg.style.display = 'block';
     renderOverlay(status);
-    note.textContent = `Showing Pi-generated annotated frame plus web overlay boxes from the latest detection list. Mission state: ${status.mission_state || 'idle'}. Holding class: ${status.held_class_id ?? '-'}. Drop-off class: ${status.dropoff_target_class_id ?? '-'}. Target side: ${status.target_side || 'none'}. Car turn: ${status.car_turn_direction || 'stopped'}. Arm stage: ${status.arm_sequence?.state || 'idle'}.`;
+    note.textContent = `Showing the Pi-generated annotated frame with a light guide overlay only. Mission state: ${status.mission_state || 'idle'}. Holding class: ${status.held_class_id ?? '-'}. Drop-off class: ${status.dropoff_target_class_id ?? '-'}. Target side: ${status.target_side || 'none'}. Car turn: ${status.car_turn_direction || 'stopped'}. Arm stage: ${status.arm_sequence?.state || 'idle'}.`;
   } else if (phase === 'start_route' || phase === 'route_pending') {
     video.style.display = 'none';
     svg.style.display = 'none';
