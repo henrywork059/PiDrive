@@ -730,22 +730,23 @@ class Mission1SessionContext:
         }
 
     def _apply_direct_motor_command(self, left_target: float, right_target: float, note: str) -> tuple[float, float]:
-        left_value = self.motor_service._apply_motor_tuning(  # type: ignore[attr-defined]
-            float(left_target),
-            float(self.motor_service.left_max_speed),
-            float(self.motor_service.left_bias),
-            int(self.motor_service.left_direction),
-        )
-        right_value = self.motor_service._apply_motor_tuning(  # type: ignore[attr-defined]
-            float(right_target),
-            float(self.motor_service.right_max_speed),
-            float(self.motor_service.right_bias),
-            int(self.motor_service.right_direction),
-        )
-        self.motor_service.left.set_speed(left_value)
-        self.motor_service.right.set_speed(right_value)
-        self.motor_service.last_left = left_value
-        self.motor_service.last_right = right_value
+        with self.motor_service._lock:  # type: ignore[attr-defined]
+            left_value = self.motor_service._apply_motor_tuning(  # type: ignore[attr-defined]
+                float(left_target),
+                float(self.motor_service.left_max_speed),
+                float(self.motor_service.left_bias),
+                int(self.motor_service.left_direction),
+            )
+            right_value = self.motor_service._apply_motor_tuning(  # type: ignore[attr-defined]
+                float(right_target),
+                float(self.motor_service.right_max_speed),
+                float(self.motor_service.right_bias),
+                int(self.motor_service.right_direction),
+            )
+            self.motor_service.left.set_speed(left_value)
+            self.motor_service.right.set_speed(right_value)
+            self.motor_service.last_left = left_value
+            self.motor_service.last_right = right_value
         self.last_command = {
             'mode': 'direct_motor',
             'steering': 0.0,
@@ -763,12 +764,23 @@ class Mission1SessionContext:
     def _turn_in_place(self, direction: str, magnitude: float, note: str) -> None:
         magnitude = clamp_float(magnitude, 0.0, 0.0, 1.0)
         if direction == 'left':
-            self._apply_direct_motor_command(-magnitude, magnitude, note)
+            steering = -magnitude
         elif direction == 'right':
-            self._apply_direct_motor_command(magnitude, -magnitude, note)
+            steering = magnitude
         else:
             self.motor_service.stop()
             self.last_command = {'mode': 'stop', 'steering': 0.0, 'throttle': 0.0, 'left': 0.0, 'right': 0.0, 'note': str(note)}
+            return
+
+        left, right = self.motor_service.update(steering=steering, throttle=0.0, steer_mix=1.0)
+        self.last_command = {
+            'mode': 'turn_in_place',
+            'steering': float(steering),
+            'throttle': 0.0,
+            'left': float(left),
+            'right': float(right),
+            'note': str(note),
+        }
 
     def _update_target_side(self, target_x: float, deadband_px: float) -> str:
         if abs(target_x) < deadband_px:
