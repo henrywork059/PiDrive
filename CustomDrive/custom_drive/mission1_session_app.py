@@ -32,7 +32,7 @@ from piserver.services.camera_service import CameraService  # noqa: E402
 from piserver.services.motor_service import MotorService  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent / 'mission1_web'
-APP_VERSION = '0_5_2'
+APP_VERSION = '0_5_4'
 MISSION1_CONFIG_PATH = CONFIG_DIR / 'mission1_session.json'
 MISSION1_MODEL_DIR = CUSTOMDRIVE_ROOT / 'models' / 'mission1'
 
@@ -67,7 +67,7 @@ DEFAULT_MISSION1_CONFIG: dict[str, Any] = {
         'forward_speed': 0.22,
         'turn_k': 0.005,
         'turn_speed_max': 0.75,
-        'target_x_deadband_ratio': 0.05,
+        'target_x_deadband_ratio': 0.035,
         # Legacy keys kept for backward compatibility with earlier Mission 1 patches.
         'steer_mix': 0.75,
         'align_kp': 1.0,
@@ -160,6 +160,12 @@ def normalize_mission1_config(data: dict[str, Any] | None) -> dict[str, Any]:
     if not selected_model:
         selected_model = str(ai.get('active_model', '') or '').strip()
 
+    deadband_migration_version = clamp_int(drive.get('_target_x_deadband_migration_v', 0), 0, 0, 99)
+    raw_target_x_deadband_ratio = clamp_float(drive.get('target_x_deadband_ratio', 0.035), 0.035, 0.01, 0.25)
+    if deadband_migration_version < 1:
+        raw_target_x_deadband_ratio = clamp_float(raw_target_x_deadband_ratio * 0.7, 0.035, 0.01, 0.25)
+        deadband_migration_version = 1
+
     known_drive_keys = {
         'forward_speed',
         'turn_k',
@@ -170,6 +176,7 @@ def normalize_mission1_config(data: dict[str, Any] | None) -> dict[str, Any]:
         'max_steering',
         'center_tolerance_ratio',
         'approach_speed',
+        '_target_x_deadband_migration_v',
         'target_reached_bottom_ratio',
     }
     legacy_drive_keys = {key: copy.deepcopy(value) for key, value in drive.items() if key not in known_drive_keys}
@@ -217,7 +224,8 @@ def normalize_mission1_config(data: dict[str, Any] | None) -> dict[str, Any]:
             'forward_speed': round(clamp_float(drive.get('forward_speed', drive.get('approach_speed', 0.22)), 0.22, 0.0, 1.0), 3),
             'turn_k': round(clamp_float(drive.get('turn_k', 0.005), 0.005, 0.0001, 1.0), 5),
             'turn_speed_max': round(clamp_float(drive.get('turn_speed_max', drive.get('max_steering', 0.75)), 0.75, 0.05, 1.0), 3),
-            'target_x_deadband_ratio': round(clamp_float(drive.get('target_x_deadband_ratio', 0.05), 0.05, 0.01, 0.25), 3),
+            'target_x_deadband_ratio': round(raw_target_x_deadband_ratio, 3),
+            '_target_x_deadband_migration_v': deadband_migration_version,
             'steer_mix': round(clamp_float(drive.get('steer_mix', 0.75), 0.75, 0.0, 1.0), 3),
             'align_kp': round(clamp_float(drive.get('align_kp', 1.0), 1.0, 0.1, 4.0), 3),
             'max_steering': round(clamp_float(drive.get('max_steering', 0.85), 0.85, 0.05, 1.0), 3),
