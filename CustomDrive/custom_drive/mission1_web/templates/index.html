@@ -12,7 +12,7 @@
       <h1>CustomDrive Mission 1 Session</h1>
       <p>
         Mission 1 runs the typed route first, then the Pi starts the camera, loads the selected AI model,
-        draws object boxes on the Pi frame, and posts the annotated frame plus detection data back to the web GUI.
+        searches class 1/2 for pickup, grips and lifts the held class, then searches class 3/4 for drop-off based on what it is holding.
       </p>
     </div>
     <div class="header-badge">Version {{ app_version }}</div>
@@ -30,7 +30,7 @@
 
         <div class="grid two-col">
           <label>
-            Target class ID
+            Legacy target class ID
             <input id="targetClassId" type="number" min="0" step="1" value="1" />
           </label>
           <label>
@@ -72,7 +72,7 @@
           <button id="stopBtn" class="danger">Stop</button>
         </div>
         <div id="configMessage" class="message"></div>
-        <div class="subtle">Coordinate system: frame centre is (0, 0). Left is negative x. Down is negative y.</div>
+        <div class="subtle">Coordinate system: frame centre is (0, 0). Left is negative x. Down is negative y. The current Mission 1 loop automatically searches class 1/2 for pickup, then class 3/4 for drop-off.</div>
       </section>
 
       <section class="panel model-panel">
@@ -153,7 +153,7 @@
         </div>
 
         <div id="armMessage" class="message"></div>
-        <div class="subtle">Auto sequence: load starting position when Mission 1 starts. When the Pi first locates the target class it loads grip ready. When the target is in the forward path and Y is below the configured threshold, it loads grip, then grip and lift.</div>
+        <div class="subtle">Auto sequence: load starting position when Mission 1 starts. When the Pi locates a pickup target (class 1/2) it loads grip ready. When the target is in the forward path and Y is below the configured threshold, it loads grip then grip and lift. At the drop-off target (class 3/4 depending on the held class) it loads release, reverses, then restarts pickup search.</div>
       </section>
     </aside>
 

@@ -236,8 +236,10 @@ function renderSummaryCards(status) {
   const armSequence = status.arm_sequence || {};
   const items = [
     { label: 'Phase', value: status.phase || 'idle' },
+    { label: 'Mission state', value: status.mission_state || '-' },
     { label: 'Objects', value: String(detections.length) },
     { label: 'Target side', value: status.target_side || '-' },
+    { label: 'Holding', value: status.held_class_id ?? '-' },
     { label: 'Car turn', value: status.car_turn_direction || '-' },
     { label: 'Target X', value: fmtShort(targetCenter.x, 1) },
     { label: 'Pipeline FPS', value: `${fmtShort(pipeline.fps || 0, 2)} fps` },
@@ -276,6 +278,11 @@ function renderStatus(status) {
       <div class="status-label">AI backend</div><div>${escapeHtml(status.ai_ready)} | ${escapeHtml(status.ai_message || '')}</div>
       <div class="status-label">Pi pipeline FPS</div><div>${fmt(pipeline.fps || 0, 2)} fps | ${fmt(pipeline.cycle_time_ms || 0, 1)} ms/cycle</div>
       <div class="status-label">Camera</div><div>${escapeHtml(camera.backend || 'offline')} | live=${escapeHtml(camera.preview_live ?? false)} | camera_fps=${fmt(camera.fps || 0, 1)}</div>
+      <div class="status-label">Mission state</div><div>${escapeHtml(status.mission_state || '-')}</div>
+      <div class="status-label">Pickup classes</div><div>${escapeHtml((status.pickup_classes || []).join('/'))}</div>
+      <div class="status-label">Holding class</div><div>${escapeHtml(status.held_class_id ?? '-')}</div>
+      <div class="status-label">Drop-off class</div><div>${escapeHtml(status.dropoff_target_class_id ?? '-')}</div>
+      <div class="status-label">Pickup lock</div><div>${escapeHtml(status.pickup_target_class_id ?? '-')}</div>
       <div class="status-label">Target found</div><div>${escapeHtml(status.target_found)}</div>
       <div class="status-label">Target side</div><div>${escapeHtml(status.target_side || '-')}</div>
       <div class="status-label">Car turn</div><div>${escapeHtml(status.car_turn_direction || '-')}</div>
@@ -367,6 +374,8 @@ function renderViewer(status) {
   stats.innerHTML = `
     <span class="stat-pill">Objects ${escapeHtml(detectionCount)}</span>
     <span class="stat-pill">FPS ${escapeHtml(pipelineFps)}</span>
+    <span class="stat-pill">State ${escapeHtml(status.mission_state || 'idle')}</span>
+    <span class="stat-pill">Holding ${escapeHtml(status.held_class_id ?? '-')}</span>
     <span class="stat-pill">Target ${escapeHtml(status.target_side || 'none')}</span>
     <span class="stat-pill">Turn ${escapeHtml(status.car_turn_direction || 'stopped')}</span>
   `;
@@ -376,7 +385,7 @@ function renderViewer(status) {
     svg.style.display = 'block';
     video.src = `/api/frame.jpg?t=${Date.now()}`;
     renderOverlay(status);
-    note.textContent = `Showing Pi-generated annotated frame plus web overlay boxes from the latest detection list. Target side: ${status.target_side || 'none'}. Car turn: ${status.car_turn_direction || 'stopped'}. Arm stage: ${status.arm_sequence?.state || 'idle'}.`;
+    note.textContent = `Showing Pi-generated annotated frame plus web overlay boxes from the latest detection list. Mission state: ${status.mission_state || 'idle'}. Holding class: ${status.held_class_id ?? '-'}. Drop-off class: ${status.dropoff_target_class_id ?? '-'}. Target side: ${status.target_side || 'none'}. Car turn: ${status.car_turn_direction || 'stopped'}. Arm stage: ${status.arm_sequence?.state || 'idle'}.`;
   } else if (phase === 'start_route' || phase === 'route_pending') {
     video.style.display = 'none';
     svg.style.display = 'none';

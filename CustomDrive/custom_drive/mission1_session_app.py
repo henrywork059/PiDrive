@@ -32,7 +32,7 @@ from piserver.services.camera_service import CameraService  # noqa: E402
 from piserver.services.motor_service import MotorService  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent / 'mission1_web'
-APP_VERSION = '0_5_1'
+APP_VERSION = '0_5_2'
 MISSION1_CONFIG_PATH = CONFIG_DIR / 'mission1_session.json'
 MISSION1_MODEL_DIR = CUSTOMDRIVE_ROOT / 'models' / 'mission1'
 
@@ -80,6 +80,13 @@ DEFAULT_MISSION1_CONFIG: dict[str, Any] = {
         'start_after_route': True,
         'preview_enabled': True,
         'processing_enabled': True,
+    },
+    'mission': {
+        'pickup_classes': [1, 2],
+        'dropoff_map': {'1': 3, '2': 4},
+        'search_rotate_speed': 0.28,
+        'reverse_after_release_s': 0.9,
+        'reverse_speed': 0.18,
     },
     'ai': {
         'selected_model': '',
@@ -145,6 +152,7 @@ def normalize_mission1_config(data: dict[str, Any] | None) -> dict[str, Any]:
     session = merged.get('session') if isinstance(merged.get('session'), dict) else {}
     drive = merged.get('drive') if isinstance(merged.get('drive'), dict) else {}
     camera = merged.get('camera') if isinstance(merged.get('camera'), dict) else {}
+    mission = merged.get('mission') if isinstance(merged.get('mission'), dict) else {}
     ai = merged.get('ai') if isinstance(merged.get('ai'), dict) else {}
     arm = merged.get('arm') if isinstance(merged.get('arm'), dict) else {}
 
@@ -221,6 +229,16 @@ def normalize_mission1_config(data: dict[str, Any] | None) -> dict[str, Any]:
             'start_after_route': bool(camera.get('start_after_route', True)),
             'preview_enabled': bool(camera.get('preview_enabled', True)),
             'processing_enabled': bool(camera.get('processing_enabled', True)),
+        },
+        'mission': {
+            'pickup_classes': [clamp_int(item, 1, 1, 9999) for item in (mission.get('pickup_classes') or [1, 2])][:8] or [1, 2],
+            'dropoff_map': {
+                '1': clamp_int((mission.get('dropoff_map') or {}).get('1', 3), 3, 0, 9999),
+                '2': clamp_int((mission.get('dropoff_map') or {}).get('2', 4), 4, 0, 9999),
+            },
+            'search_rotate_speed': round(clamp_float(mission.get('search_rotate_speed', 0.28), 0.28, 0.05, 1.0), 3),
+            'reverse_after_release_s': round(clamp_float(mission.get('reverse_after_release_s', 0.9), 0.9, 0.0, 5.0), 3),
+            'reverse_speed': round(clamp_float(mission.get('reverse_speed', 0.18), 0.18, 0.0, 1.0), 3),
         },
         'ai': {
             'selected_model': selected_model,
@@ -336,6 +354,10 @@ class Mission1SessionContext:
         self.arm_last_pose_number = 0
         self.arm_sequence_note = 'Mission arm sequence idle.'
         self.arm_target_lock_engaged = False
+        self.held_class_id: int | None = None
+        self.dropoff_target_class_id: int | None = None
+        self.pickup_target_class_id: int | None = None
+        self.mission_state = 'pickup_search'
 
         self._apply_motor_defaults()
         ready, message = self.detector.backend_ready()
@@ -386,6 +408,106 @@ class Mission1SessionContext:
 
     def _arm_stage_at_least(self, stage_name: str) -> bool:
         return ARM_STAGE_ORDER.get(self.arm_sequence_state, 0) >= ARM_STAGE_ORDER.get(stage_name, 0)
+
+    def _mission_config(self) -> dict[str, Any]:
+        cfg = self.get_config().get('mission')
+        return cfg if isinstance(cfg, dict) else {}
+
+    def _pickup_classes(self) -> list[int]:
+        mission_cfg = self._mission_config()
+        pickup_classes = mission_cfg.get('pickup_classes') if isinstance(mission_cfg.get('pickup_classes'), list) else [1, 2]
+        out: list[int] = []
+        for item in pickup_classes:
+            try:
+                class_id = int(item)
+            except Exception:
+                continue
+            if class_id >= 0 and class_id not in out:
+                out.append(class_id)
+        return out or [1, 2]
+
+    def _dropoff_class_for(self, held_class_id: int | None) -> int | None:
+        if held_class_id is None:
+            return None
+        mapping = self._mission_config().get('dropoff_map')
+        if isinstance(mapping, dict):
+            try:
+                return int(mapping.get(str(int(held_class_id))))
+            except Exception:
+                return None
+        return None
+
+    def _search_rotate_speed(self) -> float:
+        mission_cfg = self._mission_config()
+        return float(mission_cfg.get('search_rotate_speed', 0.28) or 0.28)
+
+    def _reverse_after_release(self) -> None:
+        mission_cfg = self._mission_config()
+        duration_s = float(mission_cfg.get('reverse_after_release_s', 0.9) or 0.9)
+        reverse_speed = float(mission_cfg.get('reverse_speed', 0.18) or 0.18)
+        if duration_s <= 0.0 or reverse_speed <= 0.0:
+            self._stop_with_note('release complete -> reverse skipped by mission config')
+            return
+        deadline = time.monotonic() + duration_s
+        self.current_phase = 'ai_reverse_reset'
+        self.mission_state = 'reverse_reset'
+        self.target_side = 'reverse'
+        self.car_turn_direction = 'backward'
+        self.detail = f'Release complete. Reversing for {duration_s:.2f}s before pickup search restart.'
+        self.last_output_summary = self.detail
+        self._record(self.detail, event_type='mission', reverse_speed=reverse_speed, duration_s=duration_s)
+        while time.monotonic() < deadline and not self._stop_event.is_set():
+            self._apply_direct_motor_command(-reverse_speed, -reverse_speed, 'release complete -> reverse reset')
+            time.sleep(0.05)
+        self._stop_with_note('reverse reset complete')
+
+    def _class_id_int(self, item: dict[str, Any]) -> int | None:
+        try:
+            return int(item.get('class_id'))
+        except Exception:
+            return None
+
+    def _best_detection_for_classes(
+        self,
+        detections: list[dict[str, Any]],
+        class_ids: list[int],
+        *,
+        preferred_class_id: int | None = None,
+    ) -> dict[str, Any] | None:
+        if not class_ids:
+            return None
+        matches = [item for item in detections if self._class_id_int(item) in class_ids]
+        if not matches:
+            return None
+        if preferred_class_id is not None:
+            preferred_matches = [item for item in matches if self._class_id_int(item) == int(preferred_class_id)]
+            if preferred_matches:
+                matches = preferred_matches
+        return max(matches, key=lambda item: (float(item['box']['width']) * float(item['box']['height']), float(item.get('confidence', 0.0))))
+
+    def _mark_active_target(self, detections: list[dict[str, Any]], target: dict[str, Any] | None) -> None:
+        for item in detections:
+            item['is_target_class'] = False
+        if isinstance(target, dict):
+            target['is_target_class'] = True
+
+    def _target_close_enough(self, target_x: float, target_y: float, frame_w: int, frame_h: int) -> tuple[bool, float]:
+        deadband_px = max(1.0, float(frame_w) * float(self.get_config().get('drive', {}).get('target_x_deadband_ratio', 0.05)))
+        grip_trigger_y_px = -float(frame_h) * float(self._arm_config().get('grip_trigger_y_ratio', 0.3) or 0.3)
+        return abs(target_x) < deadband_px and target_y < grip_trigger_y_px, deadband_px
+
+    def _drive_toward_target(self, target_x: float, deadband_px: float, forward_speed: float, turn_k: float, turn_speed_max: float, note_prefix: str) -> None:
+        turn_speed = min(turn_speed_max, abs(target_x) * turn_k)
+        self.target_side = self._update_target_side(target_x, deadband_px)
+        if abs(target_x) < deadband_px:
+            self.car_turn_direction = 'forward'
+            self._drive_forward(forward_speed, f'{note_prefix} -> forward')
+        elif target_x < 0.0:
+            self.car_turn_direction = 'left'
+            self._turn_in_place('left', turn_speed, f'{note_prefix} -> left turn')
+        else:
+            self.car_turn_direction = 'right'
+            self._turn_in_place('right', turn_speed, f'{note_prefix} -> right turn')
 
     def _load_arm_role_pose(self, role: str, *, reason: str, settle: bool = True) -> tuple[bool, str]:
         arm_cfg = self._arm_config()
@@ -554,6 +676,10 @@ class Mission1SessionContext:
             self.arm_last_pose_number = 0
             self.arm_sequence_note = 'Mission arm sequence queued.'
             self.arm_target_lock_engaged = False
+            self.held_class_id = None
+            self.dropoff_target_class_id = None
+            self.pickup_target_class_id = None
+            self.mission_state = 'pickup_search'
             self.started_at = time.monotonic()
             self._stop_event.clear()
             self._thread = threading.Thread(target=self._run_session, name='mission1-session', daemon=True)
@@ -793,17 +919,16 @@ class Mission1SessionContext:
         ready, message = self.detector.backend_ready()
         if not ready:
             raise RuntimeError(message)
-        self.current_phase = 'ai_loop'
         session_cfg = self.get_config().get('session', {})
         drive_cfg = self.get_config().get('drive', {})
-        target_class_id = int(session_cfg.get('target_class_id', 1))
+        pickup_classes = self._pickup_classes()
         confidence_threshold = float(session_cfg.get('confidence_threshold', 0.25))
         iou_threshold = float(session_cfg.get('iou_threshold', 0.45))
         tick_s = float(session_cfg.get('loop_tick_s', 0.08))
         forward_speed = float(drive_cfg.get('forward_speed', drive_cfg.get('approach_speed', 0.22)))
         turn_k = float(drive_cfg.get('turn_k', 0.005))
         turn_speed_max = float(drive_cfg.get('turn_speed_max', drive_cfg.get('max_steering', 0.75)))
-        x_deadband_ratio = float(drive_cfg.get('target_x_deadband_ratio', 0.05))
+        search_rotate_speed = float(self._search_rotate_speed())
 
         last_cycle_start = None
         fps_window_start = time.monotonic()
@@ -817,6 +942,8 @@ class Mission1SessionContext:
 
             frame = camera_service.get_latest_frame(copy=True)
             if frame is None:
+                self.current_phase = 'ai_wait_frame'
+                self.mission_state = 'wait_frame'
                 self.target_found = False
                 self.target_side = 'no frame'
                 self.car_turn_direction = 'stopped'
@@ -834,55 +961,157 @@ class Mission1SessionContext:
             self.last_frame = {'width': frame_w, 'height': frame_h}
 
             detections = self.detector.detect(frame, conf_threshold=confidence_threshold, iou_threshold=iou_threshold)
-            detection_rows = self._build_detection_rows(detections, frame_w, frame_h, target_class_id)
-            self.last_detections = detection_rows
-            target = self._best_target_detection(detection_rows, target_class_id)
-            self.control_target = copy.deepcopy(target)
+            detection_rows = self._build_detection_rows(detections, frame_w, frame_h)
+            target: dict[str, Any] | None = None
 
-            if target is None:
-                self.target_found = False
-                self.target_side = 'not found'
-                self.car_turn_direction = 'stopped'
-                if not self._arm_stage_at_least('grip_and_lift_loaded'):
+            if self.held_class_id in pickup_classes:
+                desired_dropoff = self._dropoff_class_for(self.held_class_id)
+                self.dropoff_target_class_id = desired_dropoff
+                if desired_dropoff is None:
+                    raise RuntimeError(f'No drop-off class is mapped for held class {self.held_class_id}.')
+                target = self._best_detection_for_classes(detection_rows, [desired_dropoff])
+                self.control_target = copy.deepcopy(target)
+                self._mark_active_target(detection_rows, target)
+                self.last_detections = detection_rows
+
+                if target is None:
+                    self.current_phase = 'ai_dropoff_search'
+                    self.mission_state = 'dropoff_search'
+                    self.target_found = False
+                    self.target_side = 'search'
+                    self.car_turn_direction = 'right'
                     self.arm_target_lock_engaged = False
-                self._stop_with_note(f'waiting for class {target_class_id}')
-                self.last_output_summary = f'AI output returned {len(detection_rows)} object(s). Target class {target_class_id} not found.'
-                self.detail = self.last_output_summary
-            else:
-                self.target_found = True
-                target_x = float(target['center']['x'])
-                target_y = float(target['center']['y'])
-                deadband_px = max(1.0, float(frame_w) * x_deadband_ratio)
-                turn_speed = min(turn_speed_max, abs(target_x) * turn_k)
-                self.target_side = self._update_target_side(target_x, deadband_px)
-                arm_handled = self._run_arm_follow_sequence(
-                    target_class_id=target_class_id,
-                    target_x=target_x,
-                    target_y=target_y,
-                    frame_w=frame_w,
-                    frame_h=frame_h,
-                    deadband_px=deadband_px,
-                )
-                if not arm_handled:
-                    self.arm_target_lock_engaged = False
-                    if abs(target_x) < deadband_px:
-                        self.car_turn_direction = 'forward'
-                        self._drive_forward(forward_speed, f'class {target_class_id} centered -> forward')
-                    elif target_x < 0.0:
-                        self.car_turn_direction = 'left'
-                        self._turn_in_place('left', turn_speed, f'class {target_class_id} x={target_x:.1f} -> left turn')
-                    else:
-                        self.car_turn_direction = 'right'
-                        self._turn_in_place('right', turn_speed, f'class {target_class_id} x={target_x:.1f} -> right turn')
+                    self._turn_in_place('right', search_rotate_speed, f'holding class {self.held_class_id} -> rotate clockwise for class {desired_dropoff}')
                     self.last_output_summary = (
-                        f'AI output returned {len(detection_rows)} object(s). '
-                        f'Target class {target_class_id} center=({target_x:.1f}, {target_y:.1f})px '
-                        f'box={target["box"]["width"]:.1f}x{target["box"]["height"]:.1f}px '
-                        f'conf={target["confidence"]:.3f}.'
+                        f'Holding class {self.held_class_id}. No class {desired_dropoff} detected. '
+                        'Rotating clockwise to search the drop-off area.'
                     )
                     self.detail = self.last_output_summary
+                else:
+                    self.current_phase = 'ai_dropoff_track'
+                    self.mission_state = 'dropoff_track'
+                    self.target_found = True
+                    target_x = float(target['center']['x'])
+                    target_y = float(target['center']['y'])
+                    close_enough, deadband_px = self._target_close_enough(target_x, target_y, frame_w, frame_h)
+                    self.target_side = self._update_target_side(target_x, deadband_px)
+                    if close_enough:
+                        self.arm_target_lock_engaged = True
+                        self.target_side = 'center'
+                        self.car_turn_direction = 'stopped'
+                        self._stop_with_note(f'class {desired_dropoff} centered and low in frame -> release sequence')
+                        self._load_arm_role_pose('release', reason=f'drop-off class {desired_dropoff} reached', settle=True)
+                        self._record(
+                            f'Released held class {self.held_class_id} at drop-off class {desired_dropoff}.',
+                            event_type='mission',
+                            held_class_id=self.held_class_id,
+                            dropoff_class_id=desired_dropoff,
+                        )
+                        self.last_output_summary = (
+                            f'Drop-off class {desired_dropoff} is centered and close enough. '
+                            f'Release pose loaded for held class {self.held_class_id}.'
+                        )
+                        self.detail = self.last_output_summary
+                        released_class = self.held_class_id
+                        self.held_class_id = None
+                        self.dropoff_target_class_id = None
+                        self.pickup_target_class_id = None
+                        self._reverse_after_release()
+                        if self._stop_event.is_set():
+                            break
+                        self._load_arm_role_pose('starting_position', reason='pickup search restart after release', settle=True)
+                        self.current_phase = 'ai_pickup_search'
+                        self.mission_state = 'pickup_search'
+                        self.detail = f'Release and reverse complete. Restarting pickup search after dropping class {released_class}.'
+                        self.last_output_summary = self.detail
+                    else:
+                        self.arm_target_lock_engaged = True
+                        self._drive_toward_target(
+                            target_x,
+                            deadband_px,
+                            forward_speed,
+                            turn_k,
+                            turn_speed_max,
+                            f'drop-off class {desired_dropoff} x={target_x:.1f}',
+                        )
+                        self.last_output_summary = (
+                            f'Holding class {self.held_class_id}. Tracking drop-off class {desired_dropoff} center=({target_x:.1f}, {target_y:.1f})px '
+                            f'box={target["box"]["width"]:.1f}x{target["box"]["height"]:.1f}px conf={target["confidence"]:.3f}.'
+                        )
+                        self.detail = self.last_output_summary
+            else:
+                target = self._best_detection_for_classes(detection_rows, pickup_classes, preferred_class_id=self.pickup_target_class_id)
+                self.control_target = copy.deepcopy(target)
+                self._mark_active_target(detection_rows, target)
+                self.last_detections = detection_rows
 
-            annotated = self._annotate_frame(frame, detection_rows, target_class_id)
+                if target is None:
+                    self.current_phase = 'ai_pickup_search'
+                    self.mission_state = 'pickup_search'
+                    self.target_found = False
+                    self.target_side = 'search'
+                    self.car_turn_direction = 'right'
+                    self.pickup_target_class_id = None
+                    self.arm_target_lock_engaged = False
+                    self._turn_in_place('right', search_rotate_speed, 'pickup search -> rotate clockwise for class 1/2')
+                    self.last_output_summary = 'No class 1/2 detected. Rotating clockwise to search the pickup area.'
+                    self.detail = self.last_output_summary
+                else:
+                    locked_class = self._class_id_int(target)
+                    self.pickup_target_class_id = locked_class
+                    target_x = float(target['center']['x'])
+                    target_y = float(target['center']['y'])
+                    close_enough, deadband_px = self._target_close_enough(target_x, target_y, frame_w, frame_h)
+                    self.target_found = True
+                    self.target_side = self._update_target_side(target_x, deadband_px)
+                    if not self._arm_stage_at_least('grip_ready_loaded') or self.arm_last_pose_role == 'starting_position':
+                        self._load_arm_role_pose('grip_ready', reason=f'pickup class {locked_class} detected', settle=True)
+                    if close_enough:
+                        self.current_phase = 'ai_pickup_capture'
+                        self.mission_state = 'pickup_capture'
+                        self.arm_target_lock_engaged = True
+                        self.target_side = 'center'
+                        self.car_turn_direction = 'stopped'
+                        self._stop_with_note(f'class {locked_class} centered and low in frame -> grip sequence')
+                        if not self._arm_stage_at_least('grip_loaded'):
+                            self._load_arm_role_pose('grip', reason=f'pickup class {locked_class} centered and y={target_y:.1f}', settle=True)
+                        if not self._arm_stage_at_least('grip_and_lift_loaded'):
+                            self._load_arm_role_pose('grip_and_lift', reason=f'pickup class {locked_class} grip complete', settle=True)
+                        self.held_class_id = locked_class
+                        self.dropoff_target_class_id = self._dropoff_class_for(locked_class)
+                        self.pickup_target_class_id = None
+                        self._record(
+                            f'Picked up class {locked_class}. Now searching for drop-off class {self.dropoff_target_class_id}.',
+                            event_type='mission',
+                            held_class_id=self.held_class_id,
+                            dropoff_class_id=self.dropoff_target_class_id,
+                        )
+                        self.current_phase = 'ai_dropoff_search'
+                        self.mission_state = 'dropoff_search'
+                        self.last_output_summary = (
+                            f'Class {locked_class} is centered and close enough. Grip and lift pose loaded. '
+                            f'Holding class {locked_class}; next search class {self.dropoff_target_class_id}.'
+                        )
+                        self.detail = self.last_output_summary
+                    else:
+                        self.current_phase = 'ai_pickup_track'
+                        self.mission_state = 'pickup_track'
+                        self.arm_target_lock_engaged = True
+                        self._drive_toward_target(
+                            target_x,
+                            deadband_px,
+                            forward_speed,
+                            turn_k,
+                            turn_speed_max,
+                            f'pickup class {locked_class} x={target_x:.1f}',
+                        )
+                        self.last_output_summary = (
+                            f'Locked pickup target class {locked_class}. center=({target_x:.1f}, {target_y:.1f})px '
+                            f'box={target["box"]["width"]:.1f}x{target["box"]["height"]:.1f}px conf={target["confidence"]:.3f}.'
+                        )
+                        self.detail = self.last_output_summary
+
+            annotated = self._annotate_frame(frame, detection_rows)
             self.annotated_jpeg = self._encode_jpeg(annotated)
 
             now = time.monotonic()
@@ -900,7 +1129,7 @@ class Mission1SessionContext:
             sleep_time = max(0.0, tick_s - (time.monotonic() - loop_started))
             time.sleep(sleep_time)
 
-    def _build_detection_rows(self, detections: list[Detection], frame_w: int, frame_h: int, target_class_id: int) -> list[dict[str, Any]]:
+    def _build_detection_rows(self, detections: list[Detection], frame_w: int, frame_h: int) -> list[dict[str, Any]]:
         rows: list[dict[str, Any]] = []
         frame_cx = float(frame_w) * 0.5
         frame_cy = float(frame_h) * 0.5
@@ -932,19 +1161,13 @@ class Mission1SessionContext:
                     'width': round(float(det.box.width), 2),
                     'height': round(float(det.box.height), 2),
                 },
-                'is_target_class': str(class_id) == str(target_class_id),
+                'is_target_class': False,
             }
             rows.append(row)
         rows.sort(key=lambda item: (float(item['confidence']), float(item['box']['width']) * float(item['box']['height'])), reverse=True)
         return rows
 
-    def _best_target_detection(self, detections: list[dict[str, Any]], target_class_id: int) -> dict[str, Any] | None:
-        matches = [item for item in detections if str(item.get('class_id')) == str(target_class_id)]
-        if not matches:
-            return None
-        return max(matches, key=lambda item: (float(item.get('confidence', 0.0)), float(item['box']['width']) * float(item['box']['height'])))
-
-    def _annotate_frame(self, frame_bgr, detections: list[dict[str, Any]], target_class_id: int):
+    def _annotate_frame(self, frame_bgr, detections: list[dict[str, Any]]):
         if frame_bgr is None or cv2 is None:
             return frame_bgr
         canvas = frame_bgr.copy()
@@ -985,7 +1208,12 @@ class Mission1SessionContext:
             cv2.putText(canvas, caption, (max(4, x1 + 6), min(frame_h - 18, label_y1 + 15)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2, cv2.LINE_AA)
             cv2.putText(canvas, coord_text, (max(4, x1 + 6), min(frame_h - 6, label_y1 + 31)), cv2.FONT_HERSHEY_SIMPLEX, 0.46, _BOX_TEXT_COLOR, 1, cv2.LINE_AA)
 
-        footer = f"FPS {self.pipeline_fps:.1f} | target={target_class_id} | model={self.loaded_model_name}"
+        footer = (
+            f"FPS {self.pipeline_fps:.1f} | state={self.mission_state} | "
+            f"holding={self.held_class_id if self.held_class_id is not None else '-'} | "
+            f"dropoff={self.dropoff_target_class_id if self.dropoff_target_class_id is not None else '-'} | "
+            f"model={self.loaded_model_name}"
+        )
         cv2.putText(canvas, footer, (10, max(24, frame_h - 12)), cv2.FONT_HERSHEY_SIMPLEX, 0.55, _BOX_TEXT_COLOR, 2, cv2.LINE_AA)
         return canvas
 
@@ -1018,6 +1246,11 @@ class Mission1SessionContext:
             'target_found': bool(self.target_found),
             'target_side': self.target_side,
             'car_turn_direction': self.car_turn_direction,
+            'mission_state': self.mission_state,
+            'held_class_id': self.held_class_id,
+            'dropoff_target_class_id': self.dropoff_target_class_id,
+            'pickup_target_class_id': self.pickup_target_class_id,
+            'pickup_classes': self._pickup_classes(),
             'detections': copy.deepcopy(self.last_detections),
             'target_detection': target,
             'frame': copy.deepcopy(self.last_frame),
