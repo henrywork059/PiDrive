@@ -200,6 +200,7 @@ class ArmService:
         return self._channel('lift_channel_secondary', 1)
 
     def _grip_channel(self) -> int:
+        # Servo 2 remains the dedicated gripper channel in the accepted CustomDrive arm layout.
         return 2
 
     def _servo_channel(self, index: int) -> int:
@@ -619,22 +620,27 @@ class ArmService:
         self.stop_grip_motion()
 
         applied: list[str] = []
+        skipped: list[str] = []
         try:
-            if servo0 is not None:
-                angle0 = max(0, min(180, int(servo0)))
-                self._apply_servo_angle(0, angle0)
-                self._current_servo_angles[0] = angle0
-                applied.append(f'servo0={angle0}°')
-            if servo1 is not None and self._servo_enabled(1):
-                angle1 = max(0, min(180, int(servo1)))
-                self._apply_servo_angle(1, angle1)
-                self._current_servo_angles[1] = angle1
-                applied.append(f'servo1={angle1}°')
-            if servo2 is not None:
-                angle2 = max(0, min(180, int(servo2)))
-                self._apply_grip_angle(angle2)
-                self._current_grip_angle = angle2
-                applied.append(f'servo2={angle2}°')
+            with self._servo_io_lock:
+                if servo0 is not None:
+                    angle0 = max(0, min(180, int(servo0)))
+                    self._apply_servo_angle(0, angle0)
+                    self._current_servo_angles[0] = angle0
+                    applied.append(f'servo0={angle0}°')
+                if servo1 is not None:
+                    if self._servo_enabled(1):
+                        angle1 = max(0, min(180, int(servo1)))
+                        self._apply_servo_angle(1, angle1)
+                        self._current_servo_angles[1] = angle1
+                        applied.append(f'servo1={angle1}°')
+                    else:
+                        skipped.append('servo1 disabled')
+                if servo2 is not None:
+                    angle2 = max(0, min(180, int(servo2)))
+                    self._apply_grip_angle(angle2)
+                    self._current_grip_angle = angle2
+                    applied.append(f'servo2={angle2}°')
         except Exception as exc:
             self.last_error = str(exc)
             self.last_message = f'Arm pose apply failed: {exc}'
@@ -645,8 +651,12 @@ class ArmService:
         self.last_error = ''
         self.last_action_at = time.time()
         prefix = f'{label}: ' if label else ''
-        if applied:
+        if applied and skipped:
+            self.last_message = f'{prefix}Applied arm pose -> ' + ', '.join(applied) + f' (skipped: {", ".join(skipped)}).'
+        elif applied:
             self.last_message = f'{prefix}Applied arm pose -> ' + ', '.join(applied) + '.'
+        elif skipped:
+            self.last_message = f'{prefix}No arm joint values were applied ({", ".join(skipped)}).'
         else:
             self.last_message = f'{prefix}No arm joint values were provided.'
         return True, self.last_message
@@ -677,6 +687,7 @@ class ArmService:
             'lift_secondary_enabled': self._servo_enabled(1),
             'lift_secondary_multiplier': self._secondary_multiplier(),
             'grip_channel': self._grip_channel(),
+            'servo2_channel': self._grip_channel(),
             'speed_multiplier': float(self._speed_multiplier()),
             'lift_up_direction': int(self._lift_up_direction()),
             'grip_open_direction': int(self._grip_open_direction()),
@@ -684,6 +695,7 @@ class ArmService:
             'servo1_angle': int(self._current_servo_angles[1]),
             'lift_angle': int(self._current_servo_angles[0]),
             'grip_angle': int(self._current_grip_angle),
+            'servo2_angle': int(self._current_grip_angle),
             'hold_refresh_enabled': bool(self._hold_refresh_enabled()),
             'hold_refresh_interval_s': float(self._hold_refresh_interval_s()),
             'hold_refresh_running': bool(self._hold_thread is not None and self._hold_thread.is_alive()),
