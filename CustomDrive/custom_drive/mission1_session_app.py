@@ -32,7 +32,7 @@ from piserver.services.camera_service import CameraService  # noqa: E402
 from piserver.services.motor_service import MotorService  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent / 'mission1_web'
-APP_VERSION = '0_5_9'
+APP_VERSION = '0_5_10'
 MISSION1_CONFIG_PATH = CONFIG_DIR / 'mission1_session.json'
 MISSION1_MODEL_DIR = CUSTOMDRIVE_ROOT / 'models' / 'mission1'
 
@@ -98,6 +98,7 @@ DEFAULT_MISSION1_CONFIG: dict[str, Any] = {
     'arm': {
         'enabled': True,
         'pose_settle_s': 0.45,
+        'motion_stop_settle_s': 0.2,
         'grip_trigger_y_ratio': 0.3,
         'capture_x_tolerance_ratio': 0.05,
         'positions': _default_arm_positions(),
@@ -262,6 +263,7 @@ def normalize_mission1_config(data: dict[str, Any] | None) -> dict[str, Any]:
         'arm': {
             'enabled': bool(arm.get('enabled', True)),
             'pose_settle_s': round(clamp_float(arm.get('pose_settle_s', 0.45), 0.45, 0.0, 5.0), 3),
+            'motion_stop_settle_s': round(clamp_float(arm.get('motion_stop_settle_s', 0.2), 0.2, 0.0, 2.0), 3),
             'grip_trigger_y_ratio': round(clamp_float(arm.get('grip_trigger_y_ratio', 0.3), 0.3, 0.05, 0.95), 3),
             'capture_x_tolerance_ratio': round(clamp_float(arm.get('capture_x_tolerance_ratio', 0.05), 0.05, 0.01, 0.25), 3),
             'positions': positions_out,
@@ -356,6 +358,7 @@ class Mission1SessionContext:
         self.target_found = False
         self.target_side = 'none'
         self.car_turn_direction = 'stopped'
+        self.intended_motion = 'idle'
         self.last_error = ''
         self.started_at = 0.0
         self.control_target: dict[str, Any] | None = None
@@ -483,8 +486,7 @@ class Mission1SessionContext:
         deadline = time.monotonic() + duration_s
         self.current_phase = 'ai_reverse_reset'
         self.mission_state = 'reverse_reset'
-        self.target_side = 'reverse'
-        self.car_turn_direction = 'backward'
+        self._set_motion_state('reverse_reset', turn='backward', target_side='reverse')
         self.detail = f'Release complete. Reversing for {duration_s:.2f}s before pickup search restart.'
         self.last_output_summary = self.detail
         self._record(self.detail, event_type='mission', reverse_speed=reverse_speed, duration_s=duration_s)
@@ -570,17 +572,35 @@ class Mission1SessionContext:
             close_enough=bool(close_enough),
         )
 
+    def _set_motion_state(self, intended_motion: str, *, turn: str | None = None, target_side: str | None = None) -> None:
+        self.intended_motion = str(intended_motion or 'idle')
+        if turn is not None:
+            self.car_turn_direction = str(turn)
+        if target_side is not None:
+            self.target_side = str(target_side)
+
+    def _stop_for_pose_transition(self, *, mission_state: str, current_phase: str, detail: str, note: str) -> None:
+        self.current_phase = current_phase
+        self.mission_state = mission_state
+        self._set_motion_state('hold_stop', turn='stopped', target_side='center')
+        self._stop_with_note(note)
+        self.detail = detail
+        self.last_output_summary = detail
+        settle_s = float(self._arm_config().get('motion_stop_settle_s', 0.2) or 0.2)
+        if settle_s > 0.0 and not self._stop_event.is_set():
+            time.sleep(min(2.0, max(0.0, settle_s)))
+
     def _drive_toward_target(self, target_x: float, deadband_px: float, forward_speed: float, turn_k: float, turn_speed_max: float, note_prefix: str) -> None:
         turn_speed = min(turn_speed_max, abs(target_x) * turn_k)
         self.target_side = self._update_target_side(target_x, deadband_px)
         if abs(target_x) < deadband_px:
-            self.car_turn_direction = 'forward'
+            self._set_motion_state('approach_forward', turn='forward', target_side='center')
             self._drive_forward(forward_speed, f'{note_prefix} -> forward')
         elif target_x < 0.0:
-            self.car_turn_direction = 'left'
+            self._set_motion_state('turn_left_to_target', turn='left', target_side='left')
             self._turn_in_place('left', turn_speed, f'{note_prefix} -> left turn')
         else:
-            self.car_turn_direction = 'right'
+            self._set_motion_state('turn_right_to_target', turn='right', target_side='right')
             self._turn_in_place('right', turn_speed, f'{note_prefix} -> right turn')
 
     def _load_arm_role_pose(self, role: str, *, reason: str, settle: bool = True) -> tuple[bool, str]:
@@ -738,6 +758,7 @@ class Mission1SessionContext:
             self.target_found = False
             self.target_side = 'none'
             self.car_turn_direction = 'stopped'
+            self.intended_motion = 'queued'
             self.last_error = ''
             self.control_target = None
             self.annotated_jpeg = None
@@ -780,6 +801,7 @@ class Mission1SessionContext:
             self.detail = 'Mission 1 session stopped.'
             self.target_side = 'none'
             self.car_turn_direction = 'stopped'
+            self.intended_motion = 'stopped'
             self.last_command = {'mode': 'stop', 'steering': 0.0, 'throttle': 0.0, 'left': 0.0, 'right': 0.0, 'note': 'stopped'}
         return True, 'Mission 1 session stopped.'
 
@@ -974,18 +996,22 @@ class Mission1SessionContext:
                 if motion == 'forward':
                     self.target_side = 'route'
                     self.car_turn_direction = 'forward'
+                    self.intended_motion = 'route_forward'
                     self._drive_forward(route_forward_speed, f'route forward @ {route_forward_speed:.2f}')
                 elif motion == 'backward':
                     self.target_side = 'route'
                     self.car_turn_direction = 'backward'
+                    self.intended_motion = 'route_backward'
                     self._drive_backward(route_backward_speed, f'route backward @ {route_backward_speed:.2f}')
                 elif motion == 'turn_left':
                     self.target_side = 'route'
                     self.car_turn_direction = 'left'
+                    self.intended_motion = 'route_turn_left'
                     self._turn_in_place('left', route_turn_speed, f'route turn left @ {route_turn_speed:.2f}')
                 elif motion == 'turn_right':
                     self.target_side = 'route'
                     self.car_turn_direction = 'right'
+                    self.intended_motion = 'route_turn_right'
                     self._turn_in_place('right', route_turn_speed, f'route turn right @ {route_turn_speed:.2f}')
                 else:
                     self._stop_with_note(f'unsupported route motion: {motion or self.active_leg_name}')
@@ -1001,6 +1027,7 @@ class Mission1SessionContext:
 
     def _run_camera_boot(self) -> None:
         self.current_phase = 'camera_boot'
+        self.intended_motion = 'camera_boot'
         self.detail = 'Start route complete. Turning on camera.'
         self._record(self.detail, event_type='camera')
         ok, message = self._ensure_camera_started()
@@ -1024,6 +1051,7 @@ class Mission1SessionContext:
 
     def _run_model_boot(self) -> None:
         self.current_phase = 'model_boot'
+        self.intended_motion = 'model_boot'
         self.selected_model_name = self._selected_model_name()
         if not self.selected_model_name:
             raise RuntimeError('No Mission 1 model is selected.')
@@ -1068,6 +1096,7 @@ class Mission1SessionContext:
                 self.target_found = False
                 self.target_side = 'no frame'
                 self.car_turn_direction = 'stopped'
+                self.intended_motion = 'wait_for_frame'
                 self.last_detections = []
                 self.control_target = None
                 self.last_output_summary = 'No camera frame received yet.'
@@ -1099,8 +1128,7 @@ class Mission1SessionContext:
                     self.current_phase = 'ai_dropoff_search'
                     self.mission_state = 'dropoff_search'
                     self.target_found = False
-                    self.target_side = 'search'
-                    self.car_turn_direction = 'right'
+                    self._set_motion_state('search_rotate_clockwise', turn='right', target_side='search')
                     self.arm_target_lock_engaged = False
                     self._turn_in_place('right', search_rotate_speed, f'holding class {self.held_class_id} -> rotate clockwise for class {desired_dropoff}')
                     self.last_output_summary = (
@@ -1119,9 +1147,15 @@ class Mission1SessionContext:
                     self.target_side = self._update_target_side(target_x, tracking_deadband_px)
                     if close_enough:
                         self.arm_target_lock_engaged = True
-                        self.target_side = 'center'
-                        self.car_turn_direction = 'stopped'
-                        self._stop_with_note(f'class {desired_dropoff} centered and low in frame -> release sequence')
+                        self._stop_for_pose_transition(
+                            mission_state='dropoff_stop_for_release',
+                            current_phase='ai_dropoff_stop',
+                            detail=f'Drop-off class {desired_dropoff} reached the release zone. Stopping before release pose.',
+                            note=f'class {desired_dropoff} centered and low in frame -> stop before release',
+                        )
+                        self.current_phase = 'ai_dropoff_release'
+                        self.mission_state = 'dropoff_release'
+                        self._set_motion_state('release_pose', turn='stopped', target_side='center')
                         self._load_arm_role_pose('release', reason=f'drop-off class {desired_dropoff} reached', settle=True)
                         self._record(
                             f'Released held class {self.held_class_id} at drop-off class {desired_dropoff}.',
@@ -1144,6 +1178,7 @@ class Mission1SessionContext:
                         self._load_arm_role_pose('starting_position', reason='pickup search restart after release', settle=True)
                         self.current_phase = 'ai_pickup_search'
                         self.mission_state = 'pickup_search'
+                        self._set_motion_state('search_rotate_clockwise', turn='right', target_side='search')
                         self.detail = f'Release and reverse complete. Restarting pickup search after dropping class {released_class}.'
                         self.last_output_summary = self.detail
                     else:
@@ -1181,8 +1216,7 @@ class Mission1SessionContext:
                     self.current_phase = 'ai_pickup_search'
                     self.mission_state = 'pickup_search'
                     self.target_found = False
-                    self.target_side = 'search'
-                    self.car_turn_direction = 'right'
+                    self._set_motion_state('search_rotate_clockwise', turn='right', target_side='search')
                     self.pickup_target_class_id = None
                     self.arm_target_lock_engaged = False
                     self._turn_in_place('right', search_rotate_speed, 'pickup search -> rotate clockwise for class 1/2')
@@ -1200,14 +1234,23 @@ class Mission1SessionContext:
                     if not self._arm_stage_at_least('grip_ready_loaded') or self.arm_last_pose_role == 'starting_position':
                         self._load_arm_role_pose('grip_ready', reason=f'pickup class {locked_class} detected', settle=True)
                     if close_enough:
-                        self.current_phase = 'ai_pickup_capture'
-                        self.mission_state = 'pickup_capture'
+                        self.current_phase = 'ai_pickup_stop'
+                        self.mission_state = 'pickup_stop_for_grip'
                         self.arm_target_lock_engaged = True
-                        self.target_side = 'center'
-                        self.car_turn_direction = 'stopped'
-                        self._stop_with_note(f'class {locked_class} centered and low in frame -> grip sequence')
+                        self._stop_for_pose_transition(
+                            mission_state='pickup_stop_for_grip',
+                            current_phase='ai_pickup_stop',
+                            detail=f'Pickup class {locked_class} reached the grip zone. Stopping before grip pose.',
+                            note=f'class {locked_class} centered and low in frame -> stop before grip',
+                        )
+                        self.current_phase = 'ai_pickup_grip'
+                        self.mission_state = 'pickup_grip'
+                        self._set_motion_state('grip_pose', turn='stopped', target_side='center')
                         if not self._arm_stage_at_least('grip_loaded'):
                             self._load_arm_role_pose('grip', reason=f'pickup class {locked_class} centered and y={target_y:.1f}', settle=True)
+                        self.current_phase = 'ai_pickup_lift'
+                        self.mission_state = 'pickup_lift'
+                        self._set_motion_state('grip_and_lift_pose', turn='stopped', target_side='center')
                         if not self._arm_stage_at_least('grip_and_lift_loaded'):
                             self._load_arm_role_pose('grip_and_lift', reason=f'pickup class {locked_class} grip complete', settle=True)
                         self.held_class_id = locked_class
@@ -1222,8 +1265,7 @@ class Mission1SessionContext:
                         self.current_phase = 'ai_dropoff_search'
                         self.mission_state = 'dropoff_search'
                         self.target_found = False
-                        self.target_side = 'search'
-                        self.car_turn_direction = 'right'
+                        self._set_motion_state('search_rotate_clockwise', turn='right', target_side='search')
                         self.arm_target_lock_engaged = False
                         self.last_output_summary = (
                             f'Class {locked_class} is centered and close enough. Grip and lift pose loaded. '
@@ -1366,13 +1408,26 @@ class Mission1SessionContext:
             cv2.putText(canvas, caption, (max(4, x1 + 6), min(frame_h - 18, label_y1 + 15)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2, cv2.LINE_AA)
             cv2.putText(canvas, coord_text, (max(4, x1 + 6), min(frame_h - 6, label_y1 + 31)), cv2.FONT_HERSHEY_SIMPLEX, 0.46, _BOX_TEXT_COLOR, 1, cv2.LINE_AA)
 
-        footer = (
-            f"FPS {self.pipeline_fps:.1f} | state={self.mission_state} | "
-            f"holding={self.held_class_id if self.held_class_id is not None else '-'} | "
-            f"dropoff={self.dropoff_target_class_id if self.dropoff_target_class_id is not None else '-'} | "
-            f"model={self.loaded_model_name}"
-        )
-        cv2.putText(canvas, footer, (10, max(24, frame_h - 12)), cv2.FONT_HERSHEY_SIMPLEX, 0.55, _BOX_TEXT_COLOR, 2, cv2.LINE_AA)
+        overlay_lines = [
+            f"phase={self.current_phase} | state={self.mission_state} | motion={self.intended_motion}",
+            f"turn={self.car_turn_direction} | target={self.target_side} | holding={self.held_class_id if self.held_class_id is not None else '-'} | dropoff={self.dropoff_target_class_id if self.dropoff_target_class_id is not None else '-'}",
+            f"arm={self.arm_sequence_state} | model={self.loaded_model_name} | FPS={self.pipeline_fps:.1f}",
+        ]
+        if self.control_target is not None:
+            target_center = self.control_target.get('center', {}) if isinstance(self.control_target, dict) else {}
+            overlay_lines.append(
+                f"target center=({float(target_center.get('x', 0.0)):.1f}, {float(target_center.get('y', 0.0)):.1f}) | note={self.last_command.get('note', '')}"
+            )
+        else:
+            overlay_lines.append(f"note={self.last_command.get('note', '')}")
+
+        panel_height = min(frame_h - 8, 18 + 22 * len(overlay_lines))
+        cv2.rectangle(canvas, (8, 8), (frame_w - 8, panel_height), (0, 0, 0), -1)
+        cv2.rectangle(canvas, (8, 8), (frame_w - 8, panel_height), _CENTER_BAND_COLOR, 1)
+        for idx, line in enumerate(overlay_lines):
+            y = 28 + idx * 22
+            cv2.putText(canvas, line[:140], (16, y), cv2.FONT_HERSHEY_SIMPLEX, 0.56, _BOX_TEXT_COLOR, 2, cv2.LINE_AA)
+
         return canvas
 
     def _encode_jpeg(self, frame_bgr) -> bytes | None:
@@ -1404,6 +1459,7 @@ class Mission1SessionContext:
             'target_found': bool(self.target_found),
             'target_side': self.target_side,
             'car_turn_direction': self.car_turn_direction,
+            'intended_motion': self.intended_motion,
             'mission_state': self.mission_state,
             'held_class_id': self.held_class_id,
             'dropoff_target_class_id': self.dropoff_target_class_id,

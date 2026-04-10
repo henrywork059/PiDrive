@@ -267,6 +267,7 @@ function renderSummaryCards(status) {
     { label: 'Target side', value: status.target_side || '-' },
     { label: 'Holding', value: status.held_class_id ?? '-' },
     { label: 'Car turn', value: status.car_turn_direction || '-' },
+    { label: 'Intended motion', value: status.intended_motion || '-' },
     { label: 'Target X', value: fmtShort(targetCenter.x, 1) },
     { label: 'Pipeline FPS', value: `${fmtShort(pipeline.fps || 0, 2)} fps` },
     { label: 'Arm stage', value: armSequence.state || 'idle' },
@@ -312,6 +313,7 @@ function renderStatus(status) {
       <div class="status-label">Target found</div><div>${escapeHtml(status.target_found)}</div>
       <div class="status-label">Target side</div><div>${escapeHtml(status.target_side || '-')}</div>
       <div class="status-label">Car turn</div><div>${escapeHtml(status.car_turn_direction || '-')}</div>
+      <div class="status-label">Intended motion</div><div>${escapeHtml(status.intended_motion || '-')}</div>
       <div class="status-label">Target center</div><div>x=${fmt(targetCenter.x, 1)} y=${fmt(targetCenter.y, 1)}</div>
       <div class="status-label">Target box</div><div>w=${fmt(targetBox.width, 1)} h=${fmt(targetBox.height, 1)}</div>
       <div class="status-label">Forward deadband</div><div>${fmt(deadbandRatio * 100, 1)}% of frame width</div>
@@ -394,13 +396,14 @@ function renderViewer(status) {
     <span class="stat-pill">Holding ${escapeHtml(status.held_class_id ?? '-')}</span>
     <span class="stat-pill">Target ${escapeHtml(status.target_side || 'none')}</span>
     <span class="stat-pill">Turn ${escapeHtml(status.car_turn_direction || 'stopped')}</span>
+    <span class="stat-pill">Motion ${escapeHtml(status.intended_motion || 'idle')}</span>
   `;
 
   if (liveFrameVisible) {
     video.style.display = 'block';
     svg.style.display = 'block';
     renderOverlay(status);
-    note.textContent = `Showing the Pi-generated annotated frame with a light guide overlay only. Mission state: ${status.mission_state || 'idle'}. Holding class: ${status.held_class_id ?? '-'}. Drop-off class: ${status.dropoff_target_class_id ?? '-'}. Target side: ${status.target_side || 'none'}. Car turn: ${status.car_turn_direction || 'stopped'}. Arm stage: ${status.arm_sequence?.state || 'idle'}.`;
+    note.textContent = `Showing the Pi-generated annotated frame with a live mission-status overlay and a light guide overlay. Mission state: ${status.mission_state || 'idle'}. Intended motion: ${status.intended_motion || 'idle'}. Holding class: ${status.held_class_id ?? '-'}. Drop-off class: ${status.dropoff_target_class_id ?? '-'}. Target side: ${status.target_side || 'none'}. Car turn: ${status.car_turn_direction || 'stopped'}. Arm stage: ${status.arm_sequence?.state || 'idle'}.`;
   } else if (phase === 'start_route' || phase === 'route_pending') {
     video.style.display = 'none';
     svg.style.display = 'none';
