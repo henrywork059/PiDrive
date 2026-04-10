@@ -412,13 +412,12 @@ function renderMotorPositionPanel(status) {
   const rightPower = Math.max(0, Math.min(100, Number(right.power_ratio || Math.abs(Number(right.value || 0))) * 100));
   const leftDirSetting = Number(motorConfig.left_direction || 1) < 0 ? -1 : 1;
   const rightDirSetting = Number(motorConfig.right_direction || 1) < 0 ? -1 : 1;
-  const steeringDirSetting = Number(motorConfig.steering_direction || 1) < 0 ? -1 : 1;
   panel.innerHTML = themePanelCard(`
     <div class="panel-chip-row">
       ${themeBadge(`Motion: ${status.intended_motion || 'idle'}`, motionTheme)}
       <span class="theme-badge ${directionClass(motorStatus.vehicle_rotation)}">Rotation ${escapeHtml(rotation)}</span>
       <span class="theme-badge neutral-badge">GPIO ${escapeHtml(motorConfig.gpio_available ?? false)}</span>
-      <span class="theme-badge neutral-badge">Steering dir ${escapeHtml(directionSettingLabel(steeringDirSetting))}</span>
+      <span class="theme-badge neutral-badge">Software turn logic fixed</span>
     </div>
     <div class="motor-grid">
       <div class="motor-card ${directionClass(leftDirection)}">
@@ -431,11 +430,12 @@ function renderMotorPositionPanel(status) {
         </div>
         <div class="motor-bar"><span style="width:${leftPower}%"></span></div>
         <div class="motor-setting-row">
-          <label class="motor-setting-field">Direction
-            <select id="motorLeftDirectionSelect">
-              <option value="1" ${leftDirSetting > 0 ? 'selected' : ''}>Normal (+1)</option>
-              <option value="-1" ${leftDirSetting < 0 ? 'selected' : ''}>Inverted (-1)</option>
-            </select>
+          <label class="motor-toggle-card">
+            <input type="checkbox" id="motorLeftDirectionToggle" ${leftDirSetting < 0 ? 'checked' : ''} />
+            <span class="motor-toggle-copy">
+              <span class="motor-toggle-title">Invert hardware output</span>
+              <span class="motor-toggle-sub">Remembered calibration for the left motor only.</span>
+            </span>
           </label>
         </div>
       </div>
@@ -449,48 +449,36 @@ function renderMotorPositionPanel(status) {
         </div>
         <div class="motor-bar"><span style="width:${rightPower}%"></span></div>
         <div class="motor-setting-row">
-          <label class="motor-setting-field">Direction
-            <select id="motorRightDirectionSelect">
-              <option value="1" ${rightDirSetting > 0 ? 'selected' : ''}>Normal (+1)</option>
-              <option value="-1" ${rightDirSetting < 0 ? 'selected' : ''}>Inverted (-1)</option>
-            </select>
+          <label class="motor-toggle-card">
+            <input type="checkbox" id="motorRightDirectionToggle" ${rightDirSetting < 0 ? 'checked' : ''} />
+            <span class="motor-toggle-copy">
+              <span class="motor-toggle-title">Invert hardware output</span>
+              <span class="motor-toggle-sub">Remembered calibration for the right motor only.</span>
+            </span>
           </label>
         </div>
       </div>
     </div>
     <div class="motor-control-grid">
-      <label class="motor-setting-field">Turn / steering direction
-        <select id="motorSteeringDirectionSelect">
-          <option value="1" ${steeringDirSetting > 0 ? 'selected' : ''}>Normal (+1)</option>
-          <option value="-1" ${steeringDirSetting < 0 ? 'selected' : ''}>Inverted (-1)</option>
-        </select>
-      </label>
+      <div class="motor-hint-card">
+        <div class="status-label-inline">Calibration rule</div>
+        <div>These toggle boxes only change the remembered hardware motor output polarity. Mission 1 turn logic and route logic stay the same.</div>
+      </div>
       <div class="motor-button-row">
-        <button type="button" class="secondary" id="saveMotorConfigBtn">Apply motor directions</button>
-        <button type="button" class="secondary" id="flipSteeringDirectionBtn">Flip turn direction</button>
+        <button type="button" class="secondary" id="saveMotorConfigBtn">Save hardware motor directions</button>
       </div>
     </div>
     <div class="motor-footer-grid">
       <div><span class="status-label-inline">Command mode</span> ${escapeHtml(motorStatus.mode || status.last_command?.mode || '-')}</div>
       <div><span class="status-label-inline">Command note</span> ${escapeHtml(motorStatus.note || status.last_command?.note || '-')}</div>
-      <div><span class="status-label-inline">Route link</span> Start-route turns use this same steering direction setting.</div>
-      <div><span class="status-label-inline">Use case</span> If turn-right spins the wrong way, flip the steering direction here.</div>
+      <div><span class="status-label-inline">Route link</span> Start-route and live Mission 1 outputs both use this same remembered hardware motor calibration.</div>
+      <div><span class="status-label-inline">Use case</span> If the physical wheel spins opposite to the intended output, toggle that motor here.</div>
     </div>
     <div id="motorMessage" class="message"></div>
   `, motionTheme, 'motor-live-block');
 
   const saveBtn = document.getElementById('saveMotorConfigBtn');
   if (saveBtn) saveBtn.onclick = saveMotorConfig;
-  const flipBtn = document.getElementById('flipSteeringDirectionBtn');
-  if (flipBtn) {
-    flipBtn.onclick = async () => {
-      const select = document.getElementById('motorSteeringDirectionSelect');
-      if (select) {
-        select.value = String(invertDirectionValue(select.value));
-      }
-      await saveMotorConfig();
-    };
-  }
 }
 
 
@@ -731,19 +719,17 @@ async function loadArmRole(role) {
 
 
 async function saveMotorConfig() {
-  const leftSelect = document.getElementById('motorLeftDirectionSelect');
-  const rightSelect = document.getElementById('motorRightDirectionSelect');
-  const steeringSelect = document.getElementById('motorSteeringDirectionSelect');
+  const leftToggle = document.getElementById('motorLeftDirectionToggle');
+  const rightToggle = document.getElementById('motorRightDirectionToggle');
   try {
     const data = await postJSON('/api/motor/config', {
-      left_direction: Number(leftSelect?.value || 1),
-      right_direction: Number(rightSelect?.value || 1),
-      steering_direction: Number(steeringSelect?.value || 1),
+      left_direction: leftToggle?.checked ? -1 : 1,
+      right_direction: rightToggle?.checked ? -1 : 1,
     });
     await refresh();
-    setMessage('motorMessage', data.message || 'Mission 1 motor directions saved.');
+    setMessage('motorMessage', data.message || 'Mission 1 hardware motor directions saved.');
   } catch (err) {
-    setMessage('motorMessage', err.message || 'Failed to save motor directions.', true);
+    setMessage('motorMessage', err.message || 'Failed to save hardware motor directions.', true);
   }
 }
 

@@ -32,7 +32,7 @@ from piserver.services.camera_service import CameraService  # noqa: E402
 from piserver.services.motor_service import MotorService  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent / 'mission1_web'
-APP_VERSION = '0_5_12'
+APP_VERSION = '0_5_13'
 MISSION1_CONFIG_PATH = CONFIG_DIR / 'mission1_session.json'
 MISSION1_MODEL_DIR = CUSTOMDRIVE_ROOT / 'models' / 'mission1'
 
@@ -783,7 +783,9 @@ class Mission1SessionContext:
         motor_cfg = runtime_cfg.get('motor') if isinstance(runtime_cfg, dict) else None
         if isinstance(motor_cfg, dict):
             try:
-                self.motor_service.apply_settings(motor_cfg)
+                mission_motor_cfg = dict(motor_cfg)
+                mission_motor_cfg['steering_direction'] = 1
+                self.motor_service.apply_settings(mission_motor_cfg)
             except Exception as exc:
                 self._record(f'Failed to apply PiServer motor config: {exc}', level='warning', event_type='motor')
 
@@ -791,29 +793,30 @@ class Mission1SessionContext:
         payload = updates if isinstance(updates, dict) else {}
         current_cfg = self.motor_service.get_config()
         allowed: dict[str, Any] = {}
-        for key in ('left_direction', 'right_direction', 'steering_direction'):
+        for key in ('left_direction', 'right_direction'):
             if key in payload:
                 allowed[key] = _normalize_direction_value(payload.get(key), int(current_cfg.get(key, 1) or 1))
         if not allowed:
-            return False, 'No motor direction changes were provided.', current_cfg
+            return False, 'No hardware motor direction changes were provided.', current_cfg
         try:
             runtime_cfg = self.config_store.load_raw()
             motor_cfg = runtime_cfg.get('motor') if isinstance(runtime_cfg.get('motor'), dict) else {}
             merged_motor = dict(motor_cfg)
             merged_motor.update(allowed)
+            merged_motor['steering_direction'] = 1
             self.config_store.merge_save({'motor': merged_motor})
-            applied = self.motor_service.apply_settings(allowed)
+            applied = self.motor_service.apply_settings({**allowed, 'steering_direction': 1})
         except Exception as exc:
             self._record(f'Failed to save Mission 1 motor config: {exc}', level='warning', event_type='motor')
             return False, f'Failed to save motor config: {exc}', self.motor_service.get_config()
         self._record(
-            'Mission 1 motor direction config updated.',
+            'Mission 1 hardware motor output direction config updated. Software turn logic kept unchanged.',
             event_type='motor',
             left_direction=applied.get('left_direction'),
             right_direction=applied.get('right_direction'),
             steering_direction=applied.get('steering_direction'),
         )
-        return True, 'Mission 1 motor direction config saved and applied.', applied
+        return True, 'Mission 1 hardware motor output directions saved. Software turn logic unchanged.', applied
 
     def _ensure_camera_started(self) -> tuple[bool, str]:
         with self._lock:

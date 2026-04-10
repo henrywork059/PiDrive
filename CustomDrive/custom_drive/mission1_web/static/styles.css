@@ -692,6 +692,44 @@ code {
   align-content: end;
 }
 
+.motor-toggle-card,
+.motor-hint-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: start;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--panel-border);
+  background: rgba(15, 23, 42, 0.34);
+}
+
+.motor-hint-card {
+  grid-template-columns: 1fr;
+}
+
+.motor-toggle-card input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+}
+
+.motor-toggle-copy {
+  display: grid;
+  gap: 2px;
+}
+
+.motor-toggle-title {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.motor-toggle-sub {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
 @media (max-width: 980px) {
   .motor-control-grid {
     grid-template-columns: 1fr;
