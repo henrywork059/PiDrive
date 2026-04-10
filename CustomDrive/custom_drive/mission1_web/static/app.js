@@ -65,6 +65,59 @@ function escapeHtml(value) {
     .replaceAll("'", '&#039;');
 }
 
+function themeToCssVars(theme) {
+  const rgb = Array.isArray(theme?.rgb) ? theme.rgb.join(', ') : '148, 163, 184';
+  const hex = theme?.hex || '#94a3b8';
+  const panelHex = theme?.panel_hex || '#1f2937';
+  return `--theme-rgb:${rgb}; --theme-hex:${hex}; --theme-panel:${panelHex};`;
+}
+
+function themeBadge(label, theme, extraClass = '') {
+  return `<span class="theme-badge ${escapeHtml(extraClass)}" style="${escapeHtml(themeToCssVars(theme))}">${escapeHtml(label)}</span>`;
+}
+
+function directionLabel(value, deadband = 0.03) {
+  const num = Number(value || 0);
+  if (!Number.isFinite(num) || Math.abs(num) <= deadband) return 'stopped';
+  return num > 0 ? 'forward' : 'reverse';
+}
+
+function directionClass(direction) {
+  switch (String(direction || '').toLowerCase()) {
+    case 'forward':
+      return 'dir-forward';
+    case 'reverse':
+      return 'dir-reverse';
+    case 'clockwise':
+      return 'dir-clockwise';
+    case 'counterclockwise':
+      return 'dir-counterclockwise';
+    case 'pivot_left':
+    case 'pivot_right':
+      return 'dir-pivot';
+    default:
+      return 'dir-stopped';
+  }
+}
+
+function formatDirectionLabel(direction) {
+  return String(direction || 'stopped').replaceAll('_', ' ');
+}
+
+function motorRotationLabel(motorStatus) {
+  return formatDirectionLabel(String(motorStatus?.vehicle_rotation || 'stopped'));
+}
+
+function themePanelCard(content, theme, extraClass = '') {
+  return `<div class="themed-block ${escapeHtml(extraClass)}" style="${escapeHtml(themeToCssVars(theme))}">${content}</div>`;
+}
+
+function servoBarPercent(angle) {
+  const num = Number(angle || 0);
+  if (!Number.isFinite(num)) return 0;
+  return Math.max(0, Math.min(100, (num / 180) * 100));
+}
+
 function setMessage(id, message, isError = false) {
   const el = document.getElementById(id);
   el.textContent = message || '';
@@ -260,33 +313,135 @@ function renderSummaryCards(status) {
   const target = status.target_detection || {};
   const targetCenter = target.center || {};
   const armSequence = status.arm_sequence || {};
+  const stageTheme = status.stage_theme || {};
+  const motionTheme = status.motion_theme || {};
+  const armTheme = status.arm_theme || {};
   const items = [
-    { label: 'Phase', value: status.phase || 'idle' },
-    { label: 'Mission state', value: status.mission_state || '-' },
-    { label: 'Objects', value: String(detections.length) },
-    { label: 'Target side', value: status.target_side || '-' },
-    { label: 'Holding', value: status.held_class_id ?? '-' },
-    { label: 'Car turn', value: status.car_turn_direction || '-' },
-    { label: 'Intended motion', value: status.intended_motion || '-' },
-    { label: 'Target X', value: fmtShort(targetCenter.x, 1) },
-    { label: 'Pipeline FPS', value: `${fmtShort(pipeline.fps || 0, 2)} fps` },
-    { label: 'Arm stage', value: armSequence.state || 'idle' },
-    { label: 'Arm pose', value: armSequence.last_pose_number ? `#${armSequence.last_pose_number}` : '-' },
-    { label: 'Camera FPS', value: `${fmtShort(camera.fps || 0, 1)} fps` },
-    { label: 'Loaded model', value: status.loaded_model || 'none' },
+    { label: 'Phase', value: status.phase || 'idle', theme: stageTheme },
+    { label: 'Mission state', value: status.mission_state || '-', theme: stageTheme },
+    { label: 'Objects', value: String(detections.length), theme: stageTheme },
+    { label: 'Target side', value: status.target_side || '-', theme: motionTheme },
+    { label: 'Holding', value: status.held_class_id ?? '-', theme: armTheme },
+    { label: 'Car turn', value: status.car_turn_direction || '-', theme: motionTheme },
+    { label: 'Intended motion', value: status.intended_motion || '-', theme: motionTheme },
+    { label: 'Target X', value: fmtShort(targetCenter.x, 1), theme: motionTheme },
+    { label: 'Pipeline FPS', value: `${fmtShort(pipeline.fps || 0, 2)} fps`, theme: stageTheme },
+    { label: 'Arm stage', value: armSequence.state || 'idle', theme: armTheme },
+    { label: 'Arm pose', value: armSequence.last_pose_number ? `#${armSequence.last_pose_number}` : '-', theme: armTheme },
+    { label: 'Camera FPS', value: `${fmtShort(camera.fps || 0, 1)} fps`, theme: stageTheme },
+    { label: 'Loaded model', value: status.loaded_model || 'none', theme: stageTheme },
   ];
   cards.innerHTML = items.map((item) => `
-    <div class="summary-card">
+    <div class="summary-card themed" style="${escapeHtml(themeToCssVars(item.theme || {}))}">
       <div class="summary-label">${escapeHtml(item.label)}</div>
       <div class="summary-value">${escapeHtml(item.value)}</div>
     </div>
   `).join('');
 }
 
+function renderArmPositionPanel(status) {
+  const panel = document.getElementById('armPositionPanel');
+  const armStatus = status.arm_status || {};
+  const armSequence = status.arm_sequence || {};
+  const armTheme = status.arm_theme || {};
+  const servoItems = [
+    { label: 'Servo 0', angle: armStatus.servo0_angle, channel: armStatus.servo0_channel, moving: armStatus.servo0_moving },
+    { label: 'Servo 1', angle: armStatus.servo1_angle, channel: armStatus.servo1_channel, moving: armStatus.servo1_moving, disabled: armStatus.servo1_enabled === false },
+    { label: 'Servo 2', angle: armStatus.servo2_angle ?? armStatus.grip_angle, channel: armStatus.servo2_channel ?? armStatus.grip_channel, moving: armStatus.grip_moving },
+  ];
+  const servoCards = servoItems.map((servo) => {
+    const angle = Number(servo.angle ?? 0);
+    const moving = Boolean(servo.moving);
+    return `
+      <div class="arm-servo-card ${servo.disabled ? 'is-disabled' : ''}" style="${escapeHtml(themeToCssVars(armTheme))}">
+        <div class="servo-card-head">
+          <div>
+            <div class="servo-label">${escapeHtml(servo.label)}</div>
+            <div class="servo-meta">channel ${escapeHtml(servo.channel ?? '-')}</div>
+          </div>
+          <span class="mini-badge ${moving ? 'mini-badge-live' : 'mini-badge-muted'}">${moving ? 'moving' : (servo.disabled ? 'disabled' : 'held')}</span>
+        </div>
+        <div class="servo-angle">${fmtShort(angle, 0)}°</div>
+        <div class="servo-bar"><span style="width:${servoBarPercent(angle)}%"></span></div>
+      </div>
+    `;
+  }).join('');
+
+  panel.innerHTML = themePanelCard(`
+    <div class="panel-chip-row">
+      ${themeBadge(`Arm stage: ${armSequence.state || 'idle'}`, armTheme)}
+      ${themeBadge(`Pose: ${armSequence.last_pose_number ? `#${armSequence.last_pose_number}` : '-'}`, armTheme, 'arm-badge')}
+      <span class="theme-badge neutral-badge">Backend ${escapeHtml(armStatus.backend || 'disabled')}</span>
+    </div>
+    <div class="arm-overview-grid">
+      <div class="arm-info-card">
+        <div class="info-title">Sequence</div>
+        <div class="info-main">${escapeHtml(armSequence.note || '-')}</div>
+        <div class="info-sub">last role=${escapeHtml(armSequence.last_pose_role || '-')} · target lock=${escapeHtml(armSequence.target_lock_engaged ?? false)}</div>
+      </div>
+      <div class="arm-info-card">
+        <div class="info-title">Backend status</div>
+        <div class="info-main">enabled=${escapeHtml(armStatus.enabled ?? false)} · available=${escapeHtml(armStatus.available ?? false)}</div>
+        <div class="info-sub">hold refresh=${escapeHtml(armStatus.hold_refresh_running ?? false)} · speed x${fmtShort(armStatus.speed_multiplier ?? 1, 2)}</div>
+      </div>
+    </div>
+    <div class="arm-servo-grid">${servoCards}</div>
+    <div class="arm-footer-note">${escapeHtml(armStatus.last_message || '-')}</div>
+  `, armTheme, 'arm-live-block');
+}
+
+function renderMotorPositionPanel(status) {
+  const panel = document.getElementById('motorPositionPanel');
+  const motorStatus = status.motor_status || {};
+  const motorConfig = status.motor_config || {};
+  const motionTheme = status.motion_theme || {};
+  const left = motorStatus.left || {};
+  const right = motorStatus.right || {};
+  const rotation = motorRotationLabel(motorStatus);
+  const leftDirection = String(left.direction || directionLabel(left.value));
+  const rightDirection = String(right.direction || directionLabel(right.value));
+  const leftPower = Math.max(0, Math.min(100, Number(left.power_ratio || Math.abs(Number(left.value || 0))) * 100));
+  const rightPower = Math.max(0, Math.min(100, Number(right.power_ratio || Math.abs(Number(right.value || 0))) * 100));
+  panel.innerHTML = themePanelCard(`
+    <div class="panel-chip-row">
+      ${themeBadge(`Motion: ${status.intended_motion || 'idle'}`, motionTheme)}
+      <span class="theme-badge ${directionClass(motorStatus.vehicle_rotation)}">Rotation ${escapeHtml(rotation)}</span>
+      <span class="theme-badge neutral-badge">GPIO ${escapeHtml(motorConfig.gpio_available ?? false)}</span>
+    </div>
+    <div class="motor-grid">
+      <div class="motor-card ${directionClass(leftDirection)}">
+        <div class="motor-head">
+          <div>
+            <div class="motor-label">Left motor</div>
+            <div class="motor-direction">${escapeHtml(formatDirectionLabel(leftDirection))}</div>
+          </div>
+          <div class="motor-value">${fmt(Number(left.value || 0), 2)}</div>
+        </div>
+        <div class="motor-bar"><span style="width:${leftPower}%"></span></div>
+      </div>
+      <div class="motor-card ${directionClass(rightDirection)}">
+        <div class="motor-head">
+          <div>
+            <div class="motor-label">Right motor</div>
+            <div class="motor-direction">${escapeHtml(formatDirectionLabel(rightDirection))}</div>
+          </div>
+          <div class="motor-value">${fmt(Number(right.value || 0), 2)}</div>
+        </div>
+        <div class="motor-bar"><span style="width:${rightPower}%"></span></div>
+      </div>
+    </div>
+    <div class="motor-footer-grid">
+      <div><span class="status-label-inline">Command mode</span> ${escapeHtml(motorStatus.mode || status.last_command?.mode || '-')}</div>
+      <div><span class="status-label-inline">Command note</span> ${escapeHtml(motorStatus.note || status.last_command?.note || '-')}</div>
+    </div>
+  `, motionTheme, 'motor-live-block');
+}
+
 function renderStatus(status) {
   const statusEl = document.getElementById('status');
   const camera = status.camera || {};
   const motor = status.motor_config || {};
+  const motorStatus = status.motor_status || {};
   const pipeline = status.pipeline || {};
   const target = status.target_detection || {};
   const targetCenter = target.center || {};
@@ -295,8 +450,17 @@ function renderStatus(status) {
   const armSequence = status.arm_sequence || {};
   const armStatus = status.arm_status || {};
   const armConfig = status.config?.arm || {};
+  const stageTheme = status.stage_theme || {};
+  const motionTheme = status.motion_theme || {};
+  const armTheme = status.arm_theme || {};
   statusEl.innerHTML = `
-    <div class="status-grid">
+    <div class="panel-chip-row">
+      ${themeBadge(`Stage ${status.mission_state || status.phase || 'idle'}`, stageTheme)}
+      ${themeBadge(`Motion ${status.intended_motion || 'idle'}`, motionTheme)}
+      ${themeBadge(`Arm ${armSequence.state || 'idle'}`, armTheme)}
+      <span class="theme-badge ${directionClass(motorStatus.vehicle_rotation)}">Rotation ${escapeHtml(motorRotationLabel(motorStatus))}</span>
+    </div>
+    <div class="status-grid stage-themed-grid" style="${escapeHtml(themeToCssVars(stageTheme))}">
       <div class="status-label">Running</div><div>${escapeHtml(status.running)}</div>
       <div class="status-label">Phase</div><div>${escapeHtml(status.phase)}</div>
       <div class="status-label">Detail</div><div>${escapeHtml(status.detail)}</div>
@@ -320,7 +484,7 @@ function renderStatus(status) {
       <div class="status-label">Arm backend</div><div>enabled=${escapeHtml(armStatus.enabled ?? false)} | available=${escapeHtml(armStatus.available ?? false)} | ${escapeHtml(armStatus.backend || 'disabled')}</div>
       <div class="status-label">Arm sequence</div><div>${escapeHtml(armSequence.state || 'idle')} | ${escapeHtml(armSequence.note || '-')}</div>
       <div class="status-label">Arm pose map</div><div>start=#${escapeHtml(armConfig.roles?.starting_position ?? '-')} ready=#${escapeHtml(armConfig.roles?.grip_ready ?? '-')} grip=#${escapeHtml(armConfig.roles?.grip ?? '-')} lift=#${escapeHtml(armConfig.roles?.grip_and_lift ?? '-')} release=#${escapeHtml(armConfig.roles?.release ?? '-')}</div>
-      <div class="status-label">Arm angles</div><div>servo0=${fmt(armStatus.servo0_angle, 0)} servo1=${fmt(armStatus.servo1_angle, 0)} servo2=${fmt(armStatus.grip_angle, 0)}</div>
+      <div class="status-label">Arm angles</div><div>servo0=${fmt(armStatus.servo0_angle, 0)} servo1=${fmt(armStatus.servo1_angle, 0)} servo2=${fmt(armStatus.servo2_angle ?? armStatus.grip_angle, 0)}</div>
       <div class="status-label">Command</div><div>left=${fmt(status.last_command?.left, 2)} right=${fmt(status.last_command?.right, 2)} note=${escapeHtml(status.last_command?.note || '')}</div>
       <div class="status-label">Motor GPIO</div><div>${escapeHtml(motor.gpio_available ?? false)}</div>
       <div class="status-label">Output summary</div><div>${escapeHtml(status.last_output_summary || '-')}</div>
@@ -338,11 +502,14 @@ function renderStatus(status) {
     return `[${fmt(entry.timestamp, 2)}] ${String(entry.level || 'info').toUpperCase()} ${entry.type || 'runtime'}: ${entry.message}${extra ? ` | ${extra}` : ''}`;
   }).join('\n');
 
+  renderArmPositionPanel(status);
+  renderMotorPositionPanel(status);
   renderModelList(status);
   renderDetections(status);
   renderSummaryCards(status);
   renderViewer(status);
 }
+
 
 function renderOverlay(status) {
   const svg = document.getElementById('viewerOverlay');
@@ -392,11 +559,12 @@ function renderViewer(status) {
   stats.innerHTML = `
     <span class="stat-pill">Objects ${escapeHtml(detectionCount)}</span>
     <span class="stat-pill">FPS ${escapeHtml(pipelineFps)}</span>
-    <span class="stat-pill">State ${escapeHtml(status.mission_state || 'idle')}</span>
+    <span class="stat-pill themed-pill" style="${escapeHtml(themeToCssVars(status.stage_theme || {}))}">State ${escapeHtml(status.mission_state || 'idle')}</span>
     <span class="stat-pill">Holding ${escapeHtml(status.held_class_id ?? '-')}</span>
     <span class="stat-pill">Target ${escapeHtml(status.target_side || 'none')}</span>
     <span class="stat-pill">Turn ${escapeHtml(status.car_turn_direction || 'stopped')}</span>
-    <span class="stat-pill">Motion ${escapeHtml(status.intended_motion || 'idle')}</span>
+    <span class="stat-pill themed-pill" style="${escapeHtml(themeToCssVars(status.motion_theme || {}))}">Motion ${escapeHtml(status.intended_motion || 'idle')}</span>
+    <span class="stat-pill themed-pill" style="${escapeHtml(themeToCssVars(status.arm_theme || {}))}">Arm ${escapeHtml(status.arm_sequence?.state || 'idle')}</span>
   `;
 
   if (liveFrameVisible) {

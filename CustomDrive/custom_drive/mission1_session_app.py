@@ -32,7 +32,7 @@ from piserver.services.camera_service import CameraService  # noqa: E402
 from piserver.services.motor_service import MotorService  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent / 'mission1_web'
-APP_VERSION = '0_5_10'
+APP_VERSION = '0_5_11'
 MISSION1_CONFIG_PATH = CONFIG_DIR / 'mission1_session.json'
 MISSION1_MODEL_DIR = CUSTOMDRIVE_ROOT / 'models' / 'mission1'
 
@@ -117,6 +117,19 @@ _BOX_NORMAL_COLOR = (70, 230, 120)
 _BOX_TEXT_COLOR = (245, 248, 255)
 _CENTER_LINE_COLOR = (140, 150, 170)
 _CENTER_BAND_COLOR = (40, 90, 160)
+_THEME_PRESETS: dict[str, dict[str, Any]] = {
+    'idle': {'hex': '#94a3b8', 'rgb': (148, 163, 184), 'bgr': (184, 163, 148), 'label': 'Idle'},
+    'route': {'hex': '#38bdf8', 'rgb': (56, 189, 248), 'bgr': (248, 189, 56), 'label': 'Route'},
+    'boot': {'hex': '#60a5fa', 'rgb': (96, 165, 250), 'bgr': (250, 165, 96), 'label': 'Boot'},
+    'pickup': {'hex': '#fbbf24', 'rgb': (251, 191, 36), 'bgr': (36, 191, 251), 'label': 'Pickup'},
+    'track': {'hex': '#22c55e', 'rgb': (34, 197, 94), 'bgr': (94, 197, 34), 'label': 'Track'},
+    'pose_stop': {'hex': '#f97316', 'rgb': (249, 115, 22), 'bgr': (22, 115, 249), 'label': 'Pose stop'},
+    'grip': {'hex': '#f43f5e', 'rgb': (244, 63, 94), 'bgr': (94, 63, 244), 'label': 'Grip'},
+    'lift': {'hex': '#10b981', 'rgb': (16, 185, 129), 'bgr': (129, 185, 16), 'label': 'Lift'},
+    'dropoff': {'hex': '#a855f7', 'rgb': (168, 85, 247), 'bgr': (247, 85, 168), 'label': 'Drop-off'},
+    'release': {'hex': '#2dd4bf', 'rgb': (45, 212, 191), 'bgr': (191, 212, 45), 'label': 'Release'},
+    'reverse': {'hex': '#ef4444', 'rgb': (239, 68, 68), 'bgr': (68, 68, 239), 'label': 'Reverse'},
+}
 ARM_STAGE_ORDER = {
     'idle': 0,
     'starting_position_loaded': 1,
@@ -125,6 +138,113 @@ ARM_STAGE_ORDER = {
     'grip_and_lift_loaded': 4,
     'release_loaded': 5,
 }
+
+
+def _darken_bgr(color: tuple[int, int, int], factor: float = 0.28) -> tuple[int, int, int]:
+    return tuple(max(0, min(255, int(round(channel * factor)))) for channel in color)
+
+
+def _theme_payload(key: str) -> dict[str, Any]:
+    theme = dict(_THEME_PRESETS.get(key, _THEME_PRESETS['idle']))
+    bgr = tuple(theme.get('bgr', _THEME_PRESETS['idle']['bgr']))
+    theme['key'] = key if key in _THEME_PRESETS else 'idle'
+    theme['panel_bgr'] = _darken_bgr(bgr, 0.28)
+    theme['panel_hex'] = '#%02x%02x%02x' % tuple(max(0, min(255, int(round(channel * 0.28)))) for channel in theme.get('rgb', (148, 163, 184)))
+    return theme
+
+
+def _stage_theme_key(phase: str, mission_state: str) -> str:
+    state = str(mission_state or '').strip().lower()
+    phase_key = str(phase or '').strip().lower()
+    if state in {'pickup_stop_for_grip', 'dropoff_stop_for_release'}:
+        return 'pose_stop'
+    if state == 'pickup_grip':
+        return 'grip'
+    if state == 'pickup_lift':
+        return 'lift'
+    if state == 'dropoff_release':
+        return 'release'
+    if state == 'reverse_reset':
+        return 'reverse'
+    if state.startswith('dropoff'):
+        return 'dropoff'
+    if state == 'pickup_track':
+        return 'track'
+    if state.startswith('pickup') or state == 'wait_frame':
+        return 'pickup'
+    if phase_key in {'route'}:
+        return 'route'
+    if phase_key in {'camera_boot', 'model_boot'}:
+        return 'boot'
+    return 'idle'
+
+
+def _motion_theme_key(intended_motion: str) -> str:
+    motion = str(intended_motion or '').strip().lower()
+    if motion.startswith('route_'):
+        return 'route'
+    if motion in {'camera_boot', 'model_boot', 'wait_for_frame'}:
+        return 'boot'
+    if motion in {'search_rotate_clockwise'}:
+        return 'pickup'
+    if motion in {'approach_forward', 'turn_left_to_target', 'turn_right_to_target'}:
+        return 'track'
+    if motion == 'hold_stop':
+        return 'pose_stop'
+    if motion == 'grip_pose':
+        return 'grip'
+    if motion == 'grip_and_lift_pose':
+        return 'lift'
+    if motion == 'release_pose':
+        return 'release'
+    if motion == 'reverse_reset':
+        return 'reverse'
+    if motion in {'stopped', 'idle', 'queued'}:
+        return 'idle'
+    return 'track'
+
+
+def _arm_theme_key(arm_state: str) -> str:
+    state = str(arm_state or '').strip().lower()
+    if state in {'grip_loaded'}:
+        return 'grip'
+    if state in {'grip_and_lift_loaded'}:
+        return 'lift'
+    if state in {'release_loaded'}:
+        return 'release'
+    if state in {'grip_ready_loaded', 'starting_position_loaded'}:
+        return 'pickup'
+    return 'idle'
+
+
+def _motor_direction_label(value: float, *, deadband: float = 0.03) -> str:
+    try:
+        numeric = float(value)
+    except Exception:
+        numeric = 0.0
+    if abs(numeric) <= deadband:
+        return 'stopped'
+    return 'forward' if numeric > 0.0 else 'reverse'
+
+
+def _rotation_label(left_value: float, right_value: float, *, deadband: float = 0.03) -> str:
+    left_dir = _motor_direction_label(left_value, deadband=deadband)
+    right_dir = _motor_direction_label(right_value, deadband=deadband)
+    if left_dir == 'stopped' and right_dir == 'stopped':
+        return 'stopped'
+    if left_dir == 'forward' and right_dir == 'forward':
+        return 'forward'
+    if left_dir == 'reverse' and right_dir == 'reverse':
+        return 'backward'
+    if left_dir == 'forward' and right_dir == 'reverse':
+        return 'clockwise'
+    if left_dir == 'reverse' and right_dir == 'forward':
+        return 'counterclockwise'
+    if left_dir == 'stopped':
+        return 'pivot_right' if right_dir == 'forward' else 'pivot_left'
+    if right_dir == 'stopped':
+        return 'pivot_left' if left_dir == 'forward' else 'pivot_right'
+    return 'mixed'
 
 def _deep_merge(base: dict[str, Any], incoming: dict[str, Any]) -> dict[str, Any]:
     out = copy.deepcopy(base)
@@ -429,6 +549,15 @@ class Mission1SessionContext:
 
     def _arm_stage_at_least(self, stage_name: str) -> bool:
         return ARM_STAGE_ORDER.get(self.arm_sequence_state, 0) >= ARM_STAGE_ORDER.get(stage_name, 0)
+
+    def _stage_theme(self) -> dict[str, Any]:
+        return _theme_payload(_stage_theme_key(self.current_phase, self.mission_state))
+
+    def _motion_theme(self) -> dict[str, Any]:
+        return _theme_payload(_motion_theme_key(self.intended_motion))
+
+    def _arm_theme(self) -> dict[str, Any]:
+        return _theme_payload(_arm_theme_key(self.arm_sequence_state))
 
     def _mission_config(self) -> dict[str, Any]:
         cfg = self.get_config().get('mission')
@@ -1408,10 +1537,14 @@ class Mission1SessionContext:
             cv2.putText(canvas, caption, (max(4, x1 + 6), min(frame_h - 18, label_y1 + 15)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2, cv2.LINE_AA)
             cv2.putText(canvas, coord_text, (max(4, x1 + 6), min(frame_h - 6, label_y1 + 31)), cv2.FONT_HERSHEY_SIMPLEX, 0.46, _BOX_TEXT_COLOR, 1, cv2.LINE_AA)
 
+        stage_theme = self._stage_theme()
+        motion_theme = self._motion_theme()
+        arm_theme = self._arm_theme()
         overlay_lines = [
-            f"phase={self.current_phase} | state={self.mission_state} | motion={self.intended_motion}",
-            f"turn={self.car_turn_direction} | target={self.target_side} | holding={self.held_class_id if self.held_class_id is not None else '-'} | dropoff={self.dropoff_target_class_id if self.dropoff_target_class_id is not None else '-'}",
-            f"arm={self.arm_sequence_state} | model={self.loaded_model_name} | FPS={self.pipeline_fps:.1f}",
+            f"phase={self.current_phase} | state={self.mission_state}",
+            f"motion={self.intended_motion} | turn={self.car_turn_direction} | target={self.target_side}",
+            f"arm={self.arm_sequence_state} | holding={self.held_class_id if self.held_class_id is not None else '-'} | dropoff={self.dropoff_target_class_id if self.dropoff_target_class_id is not None else '-'}",
+            f"model={self.loaded_model_name or '-'} | FPS={self.pipeline_fps:.1f}",
         ]
         if self.control_target is not None:
             target_center = self.control_target.get('center', {}) if isinstance(self.control_target, dict) else {}
@@ -1421,12 +1554,49 @@ class Mission1SessionContext:
         else:
             overlay_lines.append(f"note={self.last_command.get('note', '')}")
 
-        panel_height = min(frame_h - 8, 18 + 22 * len(overlay_lines))
-        cv2.rectangle(canvas, (8, 8), (frame_w - 8, panel_height), (0, 0, 0), -1)
-        cv2.rectangle(canvas, (8, 8), (frame_w - 8, panel_height), _CENTER_BAND_COLOR, 1)
+        badge_height = 24
+        badge_gap = 8
+        badge_y1 = 12
+        badge_y2 = badge_y1 + badge_height
+        stage_text = f"STATE {self.mission_state or '-'}"
+        motion_text = f"MOTION {self.intended_motion or '-'}"
+        arm_text = f"ARM {self.arm_sequence_state or '-'}"
+        stage_width = min(frame_w - 24, max(160, 16 + 10 * len(stage_text)))
+        motion_width = min(frame_w - 24, max(176, 16 + 10 * len(motion_text)))
+        arm_width = min(frame_w - 24, max(156, 16 + 10 * len(arm_text)))
+        stage_x1 = 12
+        stage_x2 = stage_x1 + stage_width
+        motion_x1 = min(frame_w - motion_width - 12, stage_x2 + badge_gap)
+        motion_x2 = motion_x1 + motion_width
+        arm_x1 = stage_x1
+        arm_x2 = arm_x1 + arm_width
+        arm_y1 = badge_y2 + 6
+        arm_y2 = arm_y1 + badge_height
+        cv2.rectangle(canvas, (stage_x1, badge_y1), (stage_x2, badge_y2), tuple(stage_theme['panel_bgr']), -1)
+        cv2.rectangle(canvas, (stage_x1, badge_y1), (stage_x2, badge_y2), tuple(stage_theme['bgr']), 2)
+        cv2.rectangle(canvas, (motion_x1, badge_y1), (motion_x2, badge_y2), tuple(motion_theme['panel_bgr']), -1)
+        cv2.rectangle(canvas, (motion_x1, badge_y1), (motion_x2, badge_y2), tuple(motion_theme['bgr']), 2)
+        cv2.rectangle(canvas, (arm_x1, arm_y1), (arm_x2, arm_y2), tuple(arm_theme['panel_bgr']), -1)
+        cv2.rectangle(canvas, (arm_x1, arm_y1), (arm_x2, arm_y2), tuple(arm_theme['bgr']), 2)
+        cv2.putText(canvas, stage_text[:44], (stage_x1 + 10, badge_y1 + 17), cv2.FONT_HERSHEY_SIMPLEX, 0.52, tuple(stage_theme['bgr']), 2, cv2.LINE_AA)
+        cv2.putText(canvas, motion_text[:44], (motion_x1 + 10, badge_y1 + 17), cv2.FONT_HERSHEY_SIMPLEX, 0.52, tuple(motion_theme['bgr']), 2, cv2.LINE_AA)
+        cv2.putText(canvas, arm_text[:40], (arm_x1 + 10, arm_y1 + 17), cv2.FONT_HERSHEY_SIMPLEX, 0.52, tuple(arm_theme['bgr']), 2, cv2.LINE_AA)
+
+        panel_y1 = arm_y2 + 10
+        panel_height = min(frame_h - 8 - panel_y1, 14 + 22 * len(overlay_lines))
+        panel_y2 = panel_y1 + panel_height
+        cv2.rectangle(canvas, (8, panel_y1), (frame_w - 8, panel_y2), (0, 0, 0), -1)
+        cv2.rectangle(canvas, (8, panel_y1), (frame_w - 8, panel_y2), tuple(stage_theme['bgr']), 1)
         for idx, line in enumerate(overlay_lines):
-            y = 28 + idx * 22
-            cv2.putText(canvas, line[:140], (16, y), cv2.FONT_HERSHEY_SIMPLEX, 0.56, _BOX_TEXT_COLOR, 2, cv2.LINE_AA)
+            y = panel_y1 + 20 + idx * 22
+            line_color = _BOX_TEXT_COLOR
+            if idx == 0:
+                line_color = tuple(stage_theme['bgr'])
+            elif idx == 1:
+                line_color = tuple(motion_theme['bgr'])
+            elif idx == 2:
+                line_color = tuple(arm_theme['bgr'])
+            cv2.putText(canvas, line[:140], (16, y), cv2.FONT_HERSHEY_SIMPLEX, 0.56, line_color, 2, cv2.LINE_AA)
 
         return canvas
 
@@ -1440,6 +1610,30 @@ class Mission1SessionContext:
         except Exception:
             return None
         return None
+
+    def _motor_status_payload(self) -> dict[str, Any]:
+        command = dict(self.last_command or {})
+        left_value = float(command.get('left', 0.0) or 0.0)
+        right_value = float(command.get('right', 0.0) or 0.0)
+        left_direction = _motor_direction_label(left_value)
+        right_direction = _motor_direction_label(right_value)
+        rotation = _rotation_label(left_value, right_value)
+        return {
+            'mode': str(command.get('mode', '') or 'stop'),
+            'note': str(command.get('note', '') or ''),
+            'left': {
+                'value': left_value,
+                'direction': left_direction,
+                'power_ratio': round(min(1.0, abs(left_value)), 3),
+            },
+            'right': {
+                'value': right_value,
+                'direction': right_direction,
+                'power_ratio': round(min(1.0, abs(right_value)), 3),
+            },
+            'vehicle_rotation': rotation,
+            'intended_motion': self.intended_motion,
+        }
 
     def status_payload(self) -> dict[str, Any]:
         thread = self._thread
@@ -1493,6 +1687,9 @@ class Mission1SessionContext:
                 'fps': round(float(self.pipeline_fps), 3),
                 'cycle_time_ms': round(float(self.pipeline_cycle_time_ms), 2),
             },
+            'stage_theme': self._stage_theme(),
+            'motion_theme': self._motion_theme(),
+            'arm_theme': self._arm_theme(),
             'arm_sequence': {
                 'state': self.arm_sequence_state,
                 'last_pose_role': self.arm_last_pose_role,
@@ -1501,6 +1698,7 @@ class Mission1SessionContext:
                 'target_lock_engaged': bool(self.arm_target_lock_engaged),
             },
             'arm_status': self.arm_service.status(),
+            'motor_status': self._motor_status_payload(),
             'motor_config': self.motor_service.get_config(),
             'last_error': self.last_error,
             'app_version': APP_VERSION,
