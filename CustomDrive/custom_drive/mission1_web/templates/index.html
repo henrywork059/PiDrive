@@ -135,8 +135,16 @@
             <input id="armPoseSettle" type="number" min="0.0" max="5.0" step="0.05" value="0.45" />
           </label>
           <label>
-            Grip trigger Y (%)
-            <input id="armGripYRatio" type="number" min="5" max="95" step="1" value="30" />
+            Grip trigger Y (%: 100 top, 0 bottom)
+            <input id="armGripYRatio" type="number" min="0" max="100" step="1" value="30" />
+          </label>
+          <label>
+            Drop-off trigger Y (%: 100 top, 0 bottom)
+            <input id="armDropoffYRatio" type="number" min="0" max="100" step="1" value="30" />
+          </label>
+          <label>
+            Backward time after drop-off (s)
+            <input id="reverseAfterRelease" type="number" min="0.0" max="5.0" step="0.05" value="0.9" />
           </label>
         </div>
 
@@ -149,7 +157,7 @@
         </div>
 
         <div id="armMessage" class="message"></div>
-        <div class="subtle">Auto sequence: load starting position when Mission 1 starts. When the Pi locates a pickup target (class 1/2) it loads grip ready. When the target is in the forward path and Y is below the configured threshold, it loads grip then grip and lift. At the drop-off target (class 3/4 depending on the held class) it loads release, reverses, then restarts pickup search.</div>
+        <div class="subtle">Auto sequence: load starting position when Mission 1 starts. When the Pi locates a pickup target (class 1/2) it loads grip ready. Grip trigger Y and Drop-off trigger Y use a frame percentage where <strong>100% is the top of the frame</strong> and <strong>0% is the bottom</strong>. When the target reaches the configured trigger and is centered enough, Mission 1 stops, runs the pose sequence, then uses the configured backward time after drop-off before restarting pickup search.</div>
       </section>
     </aside>
 

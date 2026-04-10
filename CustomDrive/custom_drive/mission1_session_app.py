@@ -32,7 +32,7 @@ from piserver.services.camera_service import CameraService  # noqa: E402
 from piserver.services.motor_service import MotorService  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent / 'mission1_web'
-APP_VERSION = '0_5_15'
+APP_VERSION = '0_5_16'
 MISSION1_CONFIG_PATH = CONFIG_DIR / 'mission1_session.json'
 MISSION1_MODEL_DIR = CUSTOMDRIVE_ROOT / 'models' / 'mission1'
 
@@ -100,6 +100,7 @@ DEFAULT_MISSION1_CONFIG: dict[str, Any] = {
         'pose_settle_s': 0.45,
         'motion_stop_settle_s': 0.2,
         'grip_trigger_y_ratio': 0.3,
+        'dropoff_trigger_y_ratio': 0.3,
         'capture_x_tolerance_ratio': 0.05,
         'positions': _default_arm_positions(),
         'roles': {
@@ -406,7 +407,8 @@ def normalize_mission1_config(data: dict[str, Any] | None) -> dict[str, Any]:
             'enabled': bool(arm.get('enabled', True)),
             'pose_settle_s': round(clamp_float(arm.get('pose_settle_s', 0.45), 0.45, 0.0, 5.0), 3),
             'motion_stop_settle_s': round(clamp_float(arm.get('motion_stop_settle_s', 0.2), 0.2, 0.0, 2.0), 3),
-            'grip_trigger_y_ratio': round(_normalize_ratio_percent_or_fraction(arm.get('grip_trigger_y_ratio', 0.3), 0.3, 0.05, 0.95), 3),
+            'grip_trigger_y_ratio': round(_normalize_ratio_percent_or_fraction(arm.get('grip_trigger_y_ratio', 0.3), 0.3, 0.0, 1.0), 3),
+            'dropoff_trigger_y_ratio': round(_normalize_ratio_percent_or_fraction(arm.get('dropoff_trigger_y_ratio', 0.3), 0.3, 0.0, 1.0), 3),
             'capture_x_tolerance_ratio': round(clamp_float(arm.get('capture_x_tolerance_ratio', 0.05), 0.05, 0.01, 0.25), 3),
             'positions': positions_out,
             'roles': {
@@ -682,13 +684,20 @@ class Mission1SessionContext:
     def _capture_deadband_px(self, frame_w: int) -> float:
         return max(1.0, float(frame_w) * float(self._arm_config().get('capture_x_tolerance_ratio', 0.05) or 0.05))
 
-    def _grip_trigger_y_px(self, frame_h: int) -> float:
-        return -float(frame_h) * float(self._arm_config().get('grip_trigger_y_ratio', 0.3) or 0.3)
+    def _trigger_y_px(self, frame_h: int, ratio: float) -> float:
+        frame_half_h = float(frame_h) * 0.5
+        clamped_ratio = clamp_float(ratio, 0.3, 0.0, 1.0)
+        return (-frame_half_h) + (float(frame_h) * clamped_ratio)
 
-    def _target_close_enough(self, target_x: float, target_y: float, frame_w: int, frame_h: int) -> tuple[bool, float, float]:
+    def _pickup_trigger_y_px(self, frame_h: int) -> float:
+        return self._trigger_y_px(frame_h, float(self._arm_config().get('grip_trigger_y_ratio', 0.3) or 0.3))
+
+    def _dropoff_trigger_y_px(self, frame_h: int) -> float:
+        return self._trigger_y_px(frame_h, float(self._arm_config().get('dropoff_trigger_y_ratio', self._arm_config().get('grip_trigger_y_ratio', 0.3)) or 0.3))
+
+    def _target_close_enough(self, target_x: float, target_y: float, frame_w: int, trigger_y_px: float) -> tuple[bool, float, float]:
         capture_deadband_px = self._capture_deadband_px(frame_w)
-        grip_trigger_y_px = self._grip_trigger_y_px(frame_h)
-        return abs(target_x) < capture_deadband_px and target_y < grip_trigger_y_px, capture_deadband_px, grip_trigger_y_px
+        return abs(target_x) < capture_deadband_px and target_y <= trigger_y_px, capture_deadband_px, trigger_y_px
 
     def _maybe_log_gate_status(
         self,
@@ -699,7 +708,7 @@ class Mission1SessionContext:
         target_y: float,
         tracking_deadband_px: float,
         capture_deadband_px: float,
-        grip_trigger_y_px: float,
+        trigger_y_px: float,
         close_enough: bool,
     ) -> None:
         attr_name = '_last_pickup_gate_log_at' if gate_name == 'pickup' else '_last_dropoff_gate_log_at'
@@ -711,7 +720,7 @@ class Mission1SessionContext:
         self._record(
             f'{gate_name} gate check for class {class_id}: target=({target_x:.1f}, {target_y:.1f})px '
             f'track_deadband={tracking_deadband_px:.1f}px capture_deadband={capture_deadband_px:.1f}px '
-            f'grip_trigger_y={grip_trigger_y_px:.1f}px close_enough={close_enough}.',
+            f'trigger_y={trigger_y_px:.1f}px close_enough={close_enough}.',
             event_type='mission',
             level='info',
             class_id=int(class_id),
@@ -719,7 +728,7 @@ class Mission1SessionContext:
             target_y=round(float(target_y), 2),
             tracking_deadband_px=round(float(tracking_deadband_px), 2),
             capture_deadband_px=round(float(capture_deadband_px), 2),
-            grip_trigger_y_px=round(float(grip_trigger_y_px), 2),
+            trigger_y_px=round(float(trigger_y_px), 2),
             close_enough=bool(close_enough),
         )
 
@@ -1096,9 +1105,9 @@ class Mission1SessionContext:
         if not self._arm_stage_at_least('grip_ready_loaded'):
             self._load_arm_role_pose('grip_ready', reason=f'class {target_class_id} detected', settle=True)
 
-        grip_trigger_y_px = -float(frame_h) * float(arm_cfg.get('grip_trigger_y_ratio', 0.3) or 0.3)
+        grip_trigger_y_px = self._pickup_trigger_y_px(frame_h)
         centered = abs(target_x) < deadband_px
-        close_enough = target_y < grip_trigger_y_px
+        close_enough = target_y <= grip_trigger_y_px
 
         if self._arm_stage_at_least('grip_and_lift_loaded'):
             self.arm_target_lock_engaged = True
@@ -1123,7 +1132,7 @@ class Mission1SessionContext:
                 self._load_arm_role_pose('grip_and_lift', reason=f'class {target_class_id} grip complete', settle=True)
             self.detail = (
                 f'Target class {target_class_id} is in the forward path and y={target_y:.1f} px '
-                f'(< -{float(frame_h) * float(arm_cfg.get("grip_trigger_y_ratio", 0.3) or 0.3):.1f}). '
+                f'(<= {grip_trigger_y_px:.1f}). '
                 'Grip then grip-and-lift pose loaded.'
             )
             self.last_output_summary = self.detail
@@ -1343,7 +1352,8 @@ class Mission1SessionContext:
                     target_x = float(target['center']['x'])
                     target_y = float(target['center']['y'])
                     tracking_deadband_px = self._tracking_deadband_px(frame_w)
-                    close_enough, capture_deadband_px, grip_trigger_y_px = self._target_close_enough(target_x, target_y, frame_w, frame_h)
+                    pickup_trigger_y_px = self._pickup_trigger_y_px(frame_h)
+                    close_enough, capture_deadband_px, trigger_y_px = self._target_close_enough(target_x, target_y, frame_w, pickup_trigger_y_px)
                     self.target_side = self._update_target_side(target_x, tracking_deadband_px)
                     if close_enough:
                         self.arm_target_lock_engaged = True
@@ -1391,7 +1401,7 @@ class Mission1SessionContext:
                             target_y=target_y,
                             tracking_deadband_px=tracking_deadband_px,
                             capture_deadband_px=capture_deadband_px,
-                            grip_trigger_y_px=grip_trigger_y_px,
+                            trigger_y_px=trigger_y_px,
                             close_enough=close_enough,
                         )
                         self._drive_toward_target(
@@ -1429,7 +1439,8 @@ class Mission1SessionContext:
                     target_x = float(target['center']['x'])
                     target_y = float(target['center']['y'])
                     tracking_deadband_px = self._tracking_deadband_px(frame_w)
-                    close_enough, capture_deadband_px, grip_trigger_y_px = self._target_close_enough(target_x, target_y, frame_w, frame_h)
+                    dropoff_trigger_y_px = self._dropoff_trigger_y_px(frame_h)
+                    close_enough, capture_deadband_px, trigger_y_px = self._target_close_enough(target_x, target_y, frame_w, dropoff_trigger_y_px)
                     self.target_found = True
                     self.target_side = self._update_target_side(target_x, tracking_deadband_px)
                     if not self._arm_stage_at_least('grip_ready_loaded') or self.arm_last_pose_role == 'starting_position':
@@ -1496,7 +1507,7 @@ class Mission1SessionContext:
                             target_y=target_y,
                             tracking_deadband_px=tracking_deadband_px,
                             capture_deadband_px=capture_deadband_px,
-                            grip_trigger_y_px=grip_trigger_y_px,
+                            trigger_y_px=trigger_y_px,
                             close_enough=close_enough,
                         )
                         self._drive_toward_target(

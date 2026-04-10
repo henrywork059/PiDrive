@@ -202,6 +202,7 @@ function renderArmConfig(armConfig) {
 
   document.getElementById('armPoseSettle').value = armConfig?.pose_settle_s ?? 0.45;
   document.getElementById('armGripYRatio').value = fmtShort((Number(armConfig?.grip_trigger_y_ratio ?? 0.30) || 0) * 100, 0);
+  document.getElementById('armDropoffYRatio').value = fmtShort((Number(armConfig?.dropoff_trigger_y_ratio ?? 0.30) || 0) * 100, 0);
 }
 
 function collectArmConfig() {
@@ -219,6 +220,7 @@ function collectArmConfig() {
     enabled: true,
     pose_settle_s: Number(document.getElementById('armPoseSettle').value || 0.45),
     grip_trigger_y_ratio: Number(document.getElementById('armGripYRatio').value || 30) / 100,
+    dropoff_trigger_y_ratio: Number(document.getElementById('armDropoffYRatio').value || 30) / 100,
     positions,
     roles: {
       starting_position: Number(document.getElementById('armRoleStarting').value || 1),
@@ -234,6 +236,7 @@ function populateConfig(config) {
   const session = config.session || {};
   const drive = config.drive || {};
   const arm = config.arm || {};
+  const mission = config.mission || {};
   document.getElementById('routeText').value = session.route_text || '';
   document.getElementById('confidenceThreshold').value = session.confidence_threshold ?? 0.25;
   document.getElementById('iouThreshold').value = session.iou_threshold ?? 0.45;
@@ -242,6 +245,7 @@ function populateConfig(config) {
   document.getElementById('turnK').value = drive.turn_k ?? 0.005;
   document.getElementById('turnSpeedMax').value = drive.turn_speed_max ?? drive.max_steering ?? 0.75;
   document.getElementById('deadbandRatio').value = drive.target_x_deadband_ratio ?? 0.05;
+  document.getElementById('reverseAfterRelease').value = mission.reverse_after_release_s ?? 0.9;
   renderArmConfig(arm);
 }
 
@@ -258,6 +262,9 @@ function collectConfig() {
       turn_k: Number(document.getElementById('turnK').value || 0.005),
       turn_speed_max: Number(document.getElementById('turnSpeedMax').value || 0.75),
       target_x_deadband_ratio: Number(document.getElementById('deadbandRatio').value || 0.05),
+    },
+    mission: {
+      reverse_after_release_s: Number(document.getElementById('reverseAfterRelease').value || 0.9),
     },
     arm: collectArmConfig(),
   };
@@ -554,6 +561,9 @@ function renderStatus(status) {
       <div class="status-label">Target center</div><div>x=${fmt(targetCenter.x, 1)} y=${fmt(targetCenter.y, 1)}</div>
       <div class="status-label">Target box</div><div>w=${fmt(targetBox.width, 1)} h=${fmt(targetBox.height, 1)}</div>
       <div class="status-label">Forward deadband</div><div>${fmt(deadbandRatio * 100, 1)}% of frame width</div>
+      <div class="status-label">Grip trigger Y</div><div>${fmt((Number(armConfig.grip_trigger_y_ratio || 0) * 100), 0)}% (100=top, 0=bottom)</div>
+      <div class="status-label">Drop-off trigger Y</div><div>${fmt((Number(armConfig.dropoff_trigger_y_ratio || 0) * 100), 0)}% (100=top, 0=bottom)</div>
+      <div class="status-label">Backward after drop-off</div><div>${fmt(Number(status.config?.mission?.reverse_after_release_s || 0.9), 2)} s</div>
       <div class="status-label">Arm backend</div><div>enabled=${escapeHtml(armStatus.enabled ?? false)} | available=${escapeHtml(armStatus.available ?? false)} | ${escapeHtml(armStatus.backend || 'disabled')}</div>
       <div class="status-label">Arm sequence</div><div>${escapeHtml(armSequence.state || 'idle')} | ${escapeHtml(armSequence.note || '-')}</div>
       <div class="status-label">Arm pose map</div><div>start=#${escapeHtml(armConfig.roles?.starting_position ?? '-')} ready=#${escapeHtml(armConfig.roles?.grip_ready ?? '-')} grip=#${escapeHtml(armConfig.roles?.grip ?? '-')} lift=#${escapeHtml(armConfig.roles?.grip_and_lift ?? '-')} release=#${escapeHtml(armConfig.roles?.release ?? '-')}</div>
