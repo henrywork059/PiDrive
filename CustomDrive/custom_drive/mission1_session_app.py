@@ -32,7 +32,7 @@ from piserver.services.camera_service import CameraService  # noqa: E402
 from piserver.services.motor_service import MotorService  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent / 'mission1_web'
-APP_VERSION = '0_5_4'
+APP_VERSION = '0_5_6'
 MISSION1_CONFIG_PATH = CONFIG_DIR / 'mission1_session.json'
 MISSION1_MODEL_DIR = CUSTOMDRIVE_ROOT / 'models' / 'mission1'
 
@@ -87,6 +87,9 @@ DEFAULT_MISSION1_CONFIG: dict[str, Any] = {
         'search_rotate_speed': 0.28,
         'reverse_after_release_s': 0.9,
         'reverse_speed': 0.18,
+        'route_forward_speed': 0.22,
+        'route_backward_speed': 0.18,
+        'route_turn_speed': 0.75,
     },
     'ai': {
         'selected_model': '',
@@ -247,6 +250,9 @@ def normalize_mission1_config(data: dict[str, Any] | None) -> dict[str, Any]:
             'search_rotate_speed': round(clamp_float(mission.get('search_rotate_speed', 0.28), 0.28, 0.05, 1.0), 3),
             'reverse_after_release_s': round(clamp_float(mission.get('reverse_after_release_s', 0.9), 0.9, 0.0, 5.0), 3),
             'reverse_speed': round(clamp_float(mission.get('reverse_speed', 0.18), 0.18, 0.0, 1.0), 3),
+            'route_forward_speed': round(clamp_float(mission.get('route_forward_speed', drive.get('forward_speed', 0.22)), drive.get('forward_speed', 0.22), 0.0, 1.0), 3),
+            'route_backward_speed': round(clamp_float(mission.get('route_backward_speed', mission.get('reverse_speed', 0.18)), mission.get('reverse_speed', 0.18), 0.0, 1.0), 3),
+            'route_turn_speed': round(clamp_float(mission.get('route_turn_speed', drive.get('turn_speed_max', drive.get('max_steering', 0.75))), drive.get('turn_speed_max', drive.get('max_steering', 0.75)), 0.05, 1.0), 3),
         },
         'ai': {
             'selected_model': selected_model,
@@ -311,13 +317,13 @@ def parse_route_text(route_text: str) -> list[dict[str, Any]]:
             raise ValueError(f'Duration for {flag} must be greater than zero.')
 
         if flag == '--forward':
-            steps.append({'flag': flag, 'name': 'forward', 'duration_s': duration, 'steering': 0.0, 'throttle': 0.22})
+            steps.append({'flag': flag, 'name': 'forward', 'duration_s': duration, 'motion': 'forward'})
         elif flag == '--backward':
-            steps.append({'flag': flag, 'name': 'backward', 'duration_s': duration, 'steering': 0.0, 'throttle': -0.18})
+            steps.append({'flag': flag, 'name': 'backward', 'duration_s': duration, 'motion': 'backward'})
         elif flag == '--turn-right':
-            steps.append({'flag': flag, 'name': 'turn-right', 'duration_s': duration, 'steering': 0.9, 'throttle': 0.0})
+            steps.append({'flag': flag, 'name': 'turn-right', 'duration_s': duration, 'motion': 'turn_right'})
         elif flag == '--turn-left':
-            steps.append({'flag': flag, 'name': 'turn-left', 'duration_s': duration, 'steering': -0.9, 'throttle': 0.0})
+            steps.append({'flag': flag, 'name': 'turn-left', 'duration_s': duration, 'motion': 'turn_left'})
         else:
             raise ValueError(f'Unsupported route flag: {flag}')
     return steps
@@ -448,6 +454,20 @@ class Mission1SessionContext:
     def _search_rotate_speed(self) -> float:
         mission_cfg = self._mission_config()
         return float(mission_cfg.get('search_rotate_speed', 0.28) or 0.28)
+
+    def _route_forward_speed(self) -> float:
+        mission_cfg = self._mission_config()
+        drive_cfg = self.get_config().get('drive', {})
+        return float(mission_cfg.get('route_forward_speed', drive_cfg.get('forward_speed', drive_cfg.get('approach_speed', 0.22))) or drive_cfg.get('forward_speed', drive_cfg.get('approach_speed', 0.22)) or 0.22)
+
+    def _route_backward_speed(self) -> float:
+        mission_cfg = self._mission_config()
+        return float(mission_cfg.get('route_backward_speed', mission_cfg.get('reverse_speed', 0.18)) or mission_cfg.get('reverse_speed', 0.18) or 0.18)
+
+    def _route_turn_speed(self) -> float:
+        mission_cfg = self._mission_config()
+        drive_cfg = self.get_config().get('drive', {})
+        return float(mission_cfg.get('route_turn_speed', drive_cfg.get('turn_speed_max', drive_cfg.get('max_steering', 0.75))) or drive_cfg.get('turn_speed_max', drive_cfg.get('max_steering', 0.75)) or 0.75)
 
     def _reverse_after_release(self) -> None:
         mission_cfg = self._mission_config()
@@ -761,6 +781,10 @@ class Mission1SessionContext:
         speed = clamp_float(speed, 0.0, 0.0, 1.0)
         self._apply_direct_motor_command(speed, speed, note)
 
+    def _drive_backward(self, speed: float, note: str) -> None:
+        speed = clamp_float(speed, 0.0, 0.0, 1.0)
+        self._apply_direct_motor_command(-speed, -speed, note)
+
     def _turn_in_place(self, direction: str, magnitude: float, note: str) -> None:
         magnitude = clamp_float(magnitude, 0.0, 0.0, 1.0)
         if direction == 'left':
@@ -879,16 +903,47 @@ class Mission1SessionContext:
         self.current_phase = 'start_route'
         self.target_side = 'route'
         self.car_turn_direction = 'route'
+        route_forward_speed = clamp_float(self._route_forward_speed(), 0.0, 0.0, 1.0)
+        route_backward_speed = clamp_float(self._route_backward_speed(), 0.0, 0.0, 1.0)
+        route_turn_speed = clamp_float(self._route_turn_speed(), 0.75, 0.05, 1.0)
         for index, step in enumerate(self.route_steps):
             if self._stop_event.is_set():
                 return
             self.active_leg_index = index
             self.active_leg_name = str(step.get('name', ''))
+            motion = str(step.get('motion', '') or '')
+            duration_s = float(step.get('duration_s', 0.0) or 0.0)
             self.detail = f"Running route step {index + 1}/{len(self.route_steps)}: {self.active_leg_name}"
-            self._record(self.detail, event_type='route', duration_s=float(step.get('duration_s', 0.0)))
-            deadline = time.monotonic() + float(step.get('duration_s', 0.0))
+            self._record(
+                self.detail,
+                event_type='route',
+                duration_s=duration_s,
+                motion=motion,
+                route_forward_speed=route_forward_speed,
+                route_backward_speed=route_backward_speed,
+                route_turn_speed=route_turn_speed,
+            )
+            deadline = time.monotonic() + duration_s
             while time.monotonic() < deadline and not self._stop_event.is_set():
-                self._set_route_drive(float(step.get('steering', 0.0)), float(step.get('throttle', 0.0)), self.active_leg_name)
+                if motion == 'forward':
+                    self.target_side = 'route'
+                    self.car_turn_direction = 'forward'
+                    self._drive_forward(route_forward_speed, f'route forward @ {route_forward_speed:.2f}')
+                elif motion == 'backward':
+                    self.target_side = 'route'
+                    self.car_turn_direction = 'backward'
+                    self._drive_backward(route_backward_speed, f'route backward @ {route_backward_speed:.2f}')
+                elif motion == 'turn_left':
+                    self.target_side = 'route'
+                    self.car_turn_direction = 'left'
+                    self._turn_in_place('left', route_turn_speed, f'route turn left @ {route_turn_speed:.2f}')
+                elif motion == 'turn_right':
+                    self.target_side = 'route'
+                    self.car_turn_direction = 'right'
+                    self._turn_in_place('right', route_turn_speed, f'route turn right @ {route_turn_speed:.2f}')
+                else:
+                    self._stop_with_note(f'unsupported route motion: {motion or self.active_leg_name}')
+                    raise RuntimeError(f'Unsupported route motion: {motion or self.active_leg_name}')
                 time.sleep(0.05)
         self.motor_service.stop()
         self.active_leg_name = ''
