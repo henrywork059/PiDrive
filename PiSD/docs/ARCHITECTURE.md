@@ -1,68 +1,80 @@
 # PiSD Architecture Notes
 
-## Purpose
+## Goal
 
-PiSD should let us rebuild the PiServer-style control stack from a clean foundation while preserving the existing PiServer as a working reference.
+PiSD is a clean rebuild path for PiServer-style GUI and runtime services.
 
-The first design should be simulation-first, then hardware-backed.
+The design should make every function testable in simulation before connecting real Raspberry Pi hardware.
 
-## Proposed layers
+## Current structure
 
 ```text
-PiSD.py
-└── future app package
-    ├── web_ui/              # HTML/CSS/JS GUI
-    ├── api/                 # Flask/FastAPI route layer
-    ├── services/            # camera, motor, recorder, model, autonomy
-    ├── adapters/            # simulated adapters and Raspberry Pi hardware adapters
-    ├── config/              # defaults and schema helpers
-    ├── state/               # runtime status and event history
-    └── tests/               # smoke and behavior tests
+PiSD/
+├── PiSD.py
+├── config/defaults.json
+├── pisd/app.py
+├── pisd/core/value_utils.py
+├── pisd/services/camera_service.py
+└── pisd/services/motor_service.py
 ```
 
 ## Layer rules
 
-### GUI layer
+### Launcher layer
 
-The GUI should only call APIs and display state. It should not directly own hardware logic.
+`PiSD.py` should only parse arguments and start the app.
 
-### API layer
+### Web/API layer
 
-The API should validate input, call services, and return clear JSON responses. It should not hide failures.
+`pisd/app.py` owns Flask routes and the temporary GUI.
+
+Rules:
+
+- call services through clear methods
+- return JSON status for actions
+- keep emergency stop reachable
+- avoid direct camera/GPIO code in routes
 
 ### Service layer
 
-Each major function should have its own service:
+`pisd/services/` owns runtime behavior.
+
+Current services:
 
 - camera service
 - motor service
-- model service
-- recorder service
-- settings service
-- autonomy service
 
-### Adapter layer
+Each service must support:
 
-Every hardware-facing function should have two adapters:
+- real adapter path when hardware is available
+- simulation fallback when hardware is unavailable
+- clear status output
+- safe failure messages
 
-- simulated adapter for PC and safe testing
-- Raspberry Pi adapter for live hardware
+### Core helper layer
 
-This lets GUI and API work continue even when the Pi camera, GPIO, or motor driver is not available.
+`pisd/core/` contains small shared helpers such as value clamping.
 
-## First implementation target
+## Hardware mode
 
-The first real PiSD version should add these modules before adding complex AI/autonomy:
+PiSD defaults to simulation mode. Real adapters are enabled by:
 
-1. `config/defaults.json`
-2. `pisd_app/__init__.py`
-3. `pisd_app/api/status.py`
-4. `pisd_app/services/runtime_state.py`
-5. `pisd_app/web_ui/templates/index.html`
-6. `pisd_app/web_ui/static/app.js`
-7. `pisd_app/web_ui/static/styles.css`
-8. `tests/test_status.py`
+```bash
+python PiSD.py --hardware
+```
 
-## Compatibility rule
+This protects development computers and prevents accidental motor activity.
 
-Do not copy old PiServer files blindly. Use PiServer as a reference, but rebuild in PiSD with clearer module boundaries and tests.
+## Future target structure
+
+Add these only when needed:
+
+```text
+pisd/services/settings_service.py
+pisd/services/recorder_service.py
+pisd/services/model_service.py
+pisd/services/autonomy_service.py
+pisd/web/static/
+pisd/web/templates/
+tests/
+```

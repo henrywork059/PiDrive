@@ -1,120 +1,79 @@
 # PiSD GUI and Function Specification Draft
 
+## Current GUI shell
+
+The current page at `/` is a small hardware-service test shell.
+
+It includes:
+
+- camera preview image
+- start/stop camera buttons
+- steering slider
+- throttle slider
+- emergency stop button
+- live JSON status panel
+
+## Current API endpoints
+
+```text
+GET  /api/status
+POST /api/camera/start
+POST /api/camera/stop
+GET  /api/camera/config
+POST /api/camera/apply
+GET  /api/camera/frame.jpg
+GET  /video_feed
+GET  /api/motor/config
+POST /api/motor/apply
+POST /api/control/manual
+POST /api/control/stop
+```
+
 ## Design goals
 
 - fast loading
 - clear control state
-- low-latency preview path
-- obvious safety controls
+- safe default simulation mode
+- obvious emergency stop
 - no hidden backend failures
-- settings that actually apply
-- simulation-first development
+- all controls call real APIs
 
-## Suggested main tabs
+## Suggested future tabs
 
-### 1. Manual
-
-Purpose: direct driving control.
-
-Possible controls:
+### Manual
 
 - steering slider
 - throttle slider
-- stop button
-- reverse enable/disable
+- steer mix
+- reverse option
 - trim controls
 - speed limit
-- steering direction toggle
+- stop button
 
-### 2. Camera
-
-Purpose: preview and camera configuration.
-
-Possible controls:
+### Camera
 
 - preview start/stop
-- preview resolution
+- resolution
 - preview quality
-- snapshot button
-- snapshot folder display
-- AWB/exposure controls later
-- camera restart button
+- snapshot
+- exposure/AWB controls
+- camera restart
 
-### 3. Full Auto
-
-Purpose: autonomy test mode.
-
-Possible controls:
-
-- enable/disable autonomy
-- model selection
-- inference FPS display
-- confidence/debug output
-- safe fallback to manual mode
-
-### 4. Lane Detection
-
-Purpose: focused lane detection testing.
-
-Possible controls:
-
-- enable overlay
-- threshold settings
-- ROI controls
-- debug image mode
-- timing display
-
-### 5. Settings
-
-Purpose: persistent runtime settings.
-
-Possible controls:
+### Settings
 
 - save settings
 - reload settings
 - reset defaults
-- export settings
-- import settings later
+- export/import later
 
-### 6. Diagnostics
+### Diagnostics
 
-Purpose: show what is actually happening.
-
-Possible displays:
-
-- backend status
+- backend mode
 - camera state
 - motor state
-- model state
-- API errors
-- recent events
-- hardware adapter mode
+- last error
+- event log
 
-## API-first rule
+### Full Auto / Lane Detection
 
-Every GUI control should call an API endpoint or update state through a clear service. Avoid UI-only controls that look successful but do not change backend behavior.
-
-## First API endpoints to build after this placeholder
-
-```text
-GET  /api/status
-GET  /api/settings
-POST /api/settings
-POST /api/control/stop
-POST /api/control/manual
-GET  /api/camera/state
-POST /api/camera/preview
-POST /api/camera/snapshot
-GET  /api/logs/recent
-```
-
-## Safety behavior
-
-Emergency stop must remain visible in all drive-related tabs.
-
-When a hardware function is unavailable, the GUI should show:
-
-- unavailable function name
-- likely reason
-- current fallback mode
-- next check/action
+Add later after the manual, camera, and motor layers are stable.

@@ -1,18 +1,23 @@
 # PiSD Test Plan
 
-## Current placeholder checks
+## Local checks
 
 From inside `PiSD/`:
 
 ```bash
+python -m py_compile PiSD.py pisd/app.py pisd/core/value_utils.py pisd/services/camera_service.py pisd/services/motor_service.py
 python PiSD.py --status-only
-python -m py_compile PiSD.py
 ```
 
-After installing packages:
+## Package install check
 
 ```bash
-python -m pip install -r requirement.txt
+python -m pip install -r requirements.txt
+```
+
+## Web smoke test
+
+```bash
 python PiSD.py
 ```
 
@@ -23,46 +28,36 @@ http://127.0.0.1:5050
 http://127.0.0.1:5050/api/status
 ```
 
-## Future smoke tests
+Expected in simulation mode:
 
-### GUI smoke test
+- web page loads
+- status JSON returns
+- camera can start in simulation
+- preview image changes over time
+- steering/throttle sliders update motor simulation state
+- STOP resets left/right motor output to zero
 
-- page loads
-- no console errors
-- status panel updates
-- unavailable features are clearly labelled
+## Raspberry Pi hardware test
 
-### API smoke test
+Only run when the car is safe and wheels are lifted or motor power is controlled.
 
-- `/api/status` returns JSON
-- settings GET/POST round-trips safely
-- invalid settings return readable errors
-- stop endpoint always responds
+```bash
+python PiSD.py --host 0.0.0.0 --port 5050 --hardware
+```
 
-### Camera simulation test
+Camera checks:
 
-- simulated preview starts
-- simulated frame changes over time
-- snapshot saves a new image each time
-- no repeated stale frame bug
+- `/api/camera/start` returns ok
+- `/api/camera/frame.jpg` returns a current image
+- `/video_feed` streams frames
+- `/api/camera/stop` releases the camera
 
-### Motor simulation test
+Motor checks:
 
-- steering command updates state
-- throttle command updates state
-- stop command resets output
-- limits are clamped safely
-
-### Hardware adapter test
-
-Only run on Raspberry Pi after simulation behavior is stable.
-
-- camera detected
-- preview starts
-- snapshot saves current frame
-- motor adapter initializes
-- stop command works
-- settings survive restart
+- `/api/motor/config` reports `adapter: rpigpio`
+- small steering/throttle values move the expected motors
+- `/api/control/stop` stops outputs immediately
+- direction settings can be changed safely if wiring is reversed
 
 ## Verification rule
 
