@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+from pisd.core.errors import ErrorReport, ErrorReporter, PiSDErrorCodes
 from pisd.core.value_utils import clamp_float, clamp_int
 
 try:  # Optional on non-Pi computers.
@@ -91,9 +92,10 @@ class CameraConfig:
 class CameraService:
     """PiSD camera service with real Picamera2 path and safe simulation fallback.
 
-    The service intentionally does not require Picamera2 at import time. On a PC,
-    it can generate changing simulated frames. On a Raspberry Pi, run PiSD with
-    hardware enabled and install python3-picamera2 to use the real camera path.
+    All recoverable camera problems are reported through PiSD error codes and
+    visible through status/API responses. Hardware failures should not silently
+    crash the app; the service records the cause and falls back to simulation
+    when a safe fallback is possible.
     """
 
     def __init__(self, config: dict[str, Any] | None = None, hardware_enabled: bool = False):
@@ -102,9 +104,11 @@ class CameraService:
         self.hardware_enabled = bool(hardware_enabled)
         self.backend = "not_started"
         self.last_error = ""
+        self.last_error_code = PiSDErrorCodes.OK
         self.running = False
         self.frame_seq = 0
         self.last_frame_at = ""
+        self.errors = ErrorReporter("camera")
         self._picam2 = None
         self._thread: threading.Thread | None = None
         self._stop_event = threading.Event()
@@ -112,6 +116,20 @@ class CameraService:
         self._frame_lock = threading.Lock()
         self._latest_jpeg: Optional[bytes] = None
         self._latest_raw: Any = None
+
+    def _record(
+        self,
+        code: str,
+        message: str,
+        *,
+        severity: str = "error",
+        context: dict[str, Any] | None = None,
+        exc: BaseException | None = None,
+    ) -> ErrorReport:
+        report = self.errors.report(code, message, severity=severity, context=context, exc=exc)
+        self.last_error = report.message
+        self.last_error_code = report.code
+        return report
 
     def get_config(self) -> dict[str, Any]:
         with self._lock:
@@ -127,8 +145,10 @@ class CameraService:
                     "frame_seq": self.frame_seq,
                     "last_frame_at": self.last_frame_at,
                     "last_error": self.last_error,
+                    "last_error_code": self.last_error_code,
                 }
             )
+            data.update(self.errors.status_fields(limit=5))
             return data
 
     def status(self) -> dict[str, Any]:
@@ -149,18 +169,22 @@ class CameraService:
             if self.running:
                 return True, f"Camera already running via {self.backend}."
             self._stop_event.clear()
-            self.last_error = ""
 
             if self.hardware_enabled and Picamera2 is not None:
                 ok, message = self._open_picamera2_locked()
                 if ok:
                     self.backend = "picamera2"
+                    self.last_error = ""
+                    self.last_error_code = PiSDErrorCodes.OK
                 else:
-                    self.last_error = message
                     self.backend = "simulation"
             else:
                 if self.hardware_enabled and Picamera2 is None:
-                    self.last_error = "Picamera2 not available; using simulation."
+                    self._record(
+                        PiSDErrorCodes.CAMERA_PICAMERA2_MISSING,
+                        "Picamera2 is not available; camera service is using simulation.",
+                        severity="warning",
+                    )
                 self.backend = "simulation"
 
             self.running = True
@@ -169,7 +193,7 @@ class CameraService:
             if self.backend == "picamera2":
                 return True, "Camera started with Picamera2."
             if self.last_error:
-                return True, f"Camera simulation started. Note: {self.last_error}"
+                return True, f"Camera simulation started. Code {self.last_error_code}: {self.last_error}"
             return True, "Camera simulation started."
 
     def stop(self) -> tuple[bool, str]:
@@ -203,6 +227,7 @@ class CameraService:
 
     def _open_picamera2_locked(self) -> tuple[bool, str]:
         if Picamera2 is None:
+            self._record(PiSDErrorCodes.CAMERA_PICAMERA2_MISSING, "Picamera2 is not installed.", severity="warning")
             return False, "Picamera2 is not installed."
         try:
             picam2 = Picamera2()
@@ -220,6 +245,12 @@ class CameraService:
             return True, "Picamera2 opened."
         except Exception as exc:
             self._picam2 = None
+            self._record(
+                PiSDErrorCodes.CAMERA_OPEN_FAILED,
+                f"Failed to open Picamera2: {exc}",
+                context={"width": self.config.width, "height": self.config.height, "format": self.config.format},
+                exc=exc,
+            )
             return False, f"Failed to open Picamera2: {exc}"
 
     def _apply_picamera_controls_locked(self) -> None:
@@ -239,15 +270,21 @@ class CameraService:
         try:
             self._picam2.set_controls(controls)
         except Exception as exc:
-            self.last_error = f"Failed to apply camera controls: {exc}"
+            self._record(
+                PiSDErrorCodes.CAMERA_CONTROL_APPLY_FAILED,
+                f"Failed to apply camera controls: {exc}",
+                severity="warning",
+                context={"controls": controls},
+                exc=exc,
+            )
 
     def _close_picamera2_locked(self) -> None:
         try:
             if self._picam2 is not None:
                 self._picam2.stop()
                 self._picam2.close()
-        except Exception:
-            pass
+        except Exception as exc:
+            self._record(PiSDErrorCodes.CAMERA_STOP_FAILED, f"Failed to stop/close Picamera2: {exc}", exc=exc)
         self._picam2 = None
 
     def _capture_loop(self) -> None:
@@ -266,14 +303,28 @@ class CameraService:
                     with self._lock:
                         self.frame_seq += 1
                         self.last_frame_at = datetime.now(timezone.utc).isoformat()
+                else:
+                    self._record(
+                        PiSDErrorCodes.CAMERA_ENCODE_FAILED,
+                        "Camera frame could not be JPEG encoded.",
+                        context={"backend": self.backend},
+                    )
             except Exception as exc:
-                with self._lock:
-                    self.last_error = f"Capture error: {exc}"
+                self._record(
+                    PiSDErrorCodes.CAMERA_CAPTURE_FAILED,
+                    f"Capture error: {exc}",
+                    context={"backend": self.backend},
+                    exc=exc,
+                )
                 if self.backend == "picamera2":
                     with self._lock:
                         self._close_picamera2_locked()
                         self.backend = "simulation"
-                        self.last_error += " Falling back to simulation."
+                        self._record(
+                            PiSDErrorCodes.CAMERA_CAPTURE_FAILED,
+                            "Picamera2 capture failed; falling back to simulation.",
+                            severity="warning",
+                        )
             interval = 1.0 / max(self.config.fps, 1)
             elapsed = time.time() - start
             self._stop_event.wait(max(0.001, interval - elapsed))
@@ -313,7 +364,12 @@ class CameraService:
                 if ok:
                     return encoded.tobytes()
             except Exception as exc:
-                self.last_error = f"OpenCV JPEG encode failed: {exc}"
+                self._record(
+                    PiSDErrorCodes.CAMERA_ENCODE_FAILED,
+                    f"OpenCV JPEG encode failed: {exc}",
+                    severity="warning",
+                    exc=exc,
+                )
         if Image is not None:
             try:
                 if np is not None and hasattr(frame, "shape"):
@@ -324,11 +380,20 @@ class CameraService:
                 img.save(buf, format="JPEG", quality=quality)
                 return buf.getvalue()
             except Exception as exc:
-                self.last_error = f"Pillow JPEG encode failed: {exc}"
+                self._record(
+                    PiSDErrorCodes.CAMERA_ENCODE_FAILED,
+                    f"Pillow JPEG encode failed: {exc}",
+                    severity="warning",
+                    exc=exc,
+                )
         return None
 
     def _encode_pillow_placeholder(self) -> bytes | None:
         if Image is None:
+            self._record(
+                PiSDErrorCodes.CAMERA_ENCODE_FAILED,
+                "No JPEG encoder is available. Install opencv-python or Pillow.",
+            )
             return None
         img = Image.new("RGB", (max(64, self.config.width), max(48, self.config.height)), (40, 40, 40))
         if ImageDraw is not None:

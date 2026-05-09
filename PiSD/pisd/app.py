@@ -6,19 +6,36 @@ from pathlib import Path
 from typing import Any
 
 from pisd import __version__
+from pisd.core.errors import ErrorReporter, PiSDErrorCodes, ok_payload, report_payload
 from pisd.services.camera_service import CameraService
 from pisd.services.motor_service import MotorService
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULTS_PATH = PROJECT_ROOT / "config" / "defaults.json"
+APP_ERRORS = ErrorReporter("app")
 
 
 def load_defaults() -> dict[str, Any]:
     try:
         with DEFAULTS_PATH.open("r", encoding="utf-8") as handle:
             data = json.load(handle)
-        return data if isinstance(data, dict) else {}
-    except Exception:
+        if not isinstance(data, dict):
+            APP_ERRORS.report(
+                PiSDErrorCodes.APP_CONFIG_LOAD_FAILED,
+                "config/defaults.json did not contain a JSON object; using empty defaults.",
+                severity="warning",
+                context={"path": str(DEFAULTS_PATH)},
+            )
+            return {}
+        return data
+    except Exception as exc:
+        APP_ERRORS.report(
+            PiSDErrorCodes.APP_CONFIG_LOAD_FAILED,
+            f"Failed to load config/defaults.json; using empty defaults: {exc}",
+            severity="warning",
+            context={"path": str(DEFAULTS_PATH)},
+            exc=exc,
+        )
         return {}
 
 
@@ -26,7 +43,15 @@ def create_app(hardware_enabled: bool = False):
     try:
         from flask import Flask, Response, jsonify, render_template_string, request
     except ImportError as exc:  # pragma: no cover
-        raise RuntimeError("Flask is not installed. Run: python -m pip install -r requirements.txt") from exc
+        APP_ERRORS.report(
+            PiSDErrorCodes.APP_DEPENDENCY_MISSING,
+            "Flask is not installed. Run: python -m pip install -r requirements.txt",
+            exc=exc,
+        )
+        raise RuntimeError(
+            f"{PiSDErrorCodes.APP_DEPENDENCY_MISSING}: Flask is not installed. "
+            "Run: python -m pip install -r requirements.txt"
+        ) from exc
 
     defaults = load_defaults()
     camera_service = CameraService(defaults.get("camera"), hardware_enabled=hardware_enabled)
@@ -34,6 +59,14 @@ def create_app(hardware_enabled: bool = False):
 
     app = Flask(__name__)
     app.config["pisd_services"] = {"camera": camera_service, "motor": motor_service}
+    app.config["pisd_errors"] = APP_ERRORS
+
+    def all_errors(limit: int = 10) -> dict[str, Any]:
+        return {
+            "app": APP_ERRORS.history(limit=limit),
+            "camera": camera_service.errors.history(limit=limit),
+            "motor": motor_service.errors.history(limit=limit),
+        }
 
     def build_status() -> dict[str, Any]:
         return {
@@ -41,9 +74,31 @@ def create_app(hardware_enabled: bool = False):
             "version": __version__,
             "hardware_requested": bool(hardware_enabled),
             "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+            "code": PiSDErrorCodes.OK,
             "camera": camera_service.status(),
             "motor": motor_service.status(),
+            "errors": all_errors(limit=5),
         }
+
+    def get_json_payload() -> tuple[dict[str, Any], Any | None]:
+        if not request.data:
+            return {}, None
+        data = request.get_json(silent=True)
+        if data is None:
+            report = APP_ERRORS.report(
+                PiSDErrorCodes.API_INVALID_JSON,
+                "Request body was not valid JSON.",
+                context={"path": request.path},
+            )
+            return {}, report
+        if not isinstance(data, dict):
+            report = APP_ERRORS.report(
+                PiSDErrorCodes.API_INVALID_JSON,
+                "JSON payload must be an object.",
+                context={"path": request.path, "payload_type": type(data).__name__},
+            )
+            return {}, report
+        return data, None
 
     @app.get("/")
     def index():
@@ -53,35 +108,72 @@ def create_app(hardware_enabled: bool = False):
     def api_status():
         return jsonify(build_status())
 
+    @app.get("/api/errors")
+    def api_errors():
+        return jsonify(ok_payload("Recent PiSD error reports.", errors=all_errors(limit=25)))
+
+    @app.post("/api/errors/clear")
+    def api_errors_clear():
+        APP_ERRORS.clear()
+        camera_service.errors.clear()
+        motor_service.errors.clear()
+        return jsonify(ok_payload("Error history cleared."))
+
     @app.post("/api/camera/start")
     def api_camera_start():
-        ok, message = camera_service.start()
-        return jsonify({"ok": ok, "message": message, "camera": camera_service.status()})
+        try:
+            ok, message = camera_service.start()
+            report = camera_service.errors.latest() if camera_service.last_error else None
+            return jsonify(report_payload(ok, report, message, camera=camera_service.status()))
+        except Exception as exc:
+            report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"Camera start API failed: {exc}", exc=exc)
+            return jsonify(report_payload(False, report)), 500
 
     @app.post("/api/camera/stop")
     def api_camera_stop():
-        ok, message = camera_service.stop()
-        return jsonify({"ok": ok, "message": message, "camera": camera_service.status()})
+        try:
+            ok, message = camera_service.stop()
+            report = camera_service.errors.latest() if camera_service.last_error else None
+            return jsonify(report_payload(ok, report, message, camera=camera_service.status()))
+        except Exception as exc:
+            report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"Camera stop API failed: {exc}", exc=exc)
+            return jsonify(report_payload(False, report)), 500
 
     @app.get("/api/camera/config")
     def api_camera_config():
-        return jsonify({"ok": True, "config": camera_service.get_config()})
+        return jsonify(ok_payload("Camera config loaded.", config=camera_service.get_config()))
 
     @app.post("/api/camera/apply")
     def api_camera_apply():
-        data = request.get_json(silent=True) or {}
-        ok, message, config = camera_service.apply_settings(data, restart=True)
-        return jsonify({"ok": ok, "message": message, "config": config})
+        data, json_error = get_json_payload()
+        if json_error is not None:
+            return jsonify(report_payload(False, json_error)), 400
+        try:
+            ok, message, config = camera_service.apply_settings(data, restart=True)
+            report = camera_service.errors.latest() if not ok else None
+            return jsonify(report_payload(ok, report, message, config=config))
+        except Exception as exc:
+            report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"Camera apply API failed: {exc}", exc=exc)
+            return jsonify(report_payload(False, report)), 500
 
     @app.get("/api/camera/frame.jpg")
     def api_camera_frame():
-        frame = camera_service.get_jpeg_frame()
-        if frame is None:
-            camera_service.start()
+        try:
             frame = camera_service.get_jpeg_frame()
-        if frame is None:
-            return jsonify({"ok": False, "message": "No frame available yet."}), 503
-        return Response(frame, mimetype="image/jpeg", headers={"Cache-Control": "no-store, max-age=0"})
+            if frame is None:
+                camera_service.start()
+                frame = camera_service.get_jpeg_frame()
+            if frame is None:
+                report = camera_service._record(  # internal service helper used to keep status and API code aligned
+                    PiSDErrorCodes.CAMERA_NO_FRAME,
+                    "No JPEG camera frame is available yet.",
+                    context={"path": request.path},
+                )
+                return jsonify(report_payload(False, report)), 503
+            return Response(frame, mimetype="image/jpeg", headers={"Cache-Control": "no-store, max-age=0"})
+        except Exception as exc:
+            report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"Camera frame API failed: {exc}", exc=exc)
+            return jsonify(report_payload(False, report)), 500
 
     @app.get("/video_feed")
     def video_feed():
@@ -99,28 +191,57 @@ def create_app(hardware_enabled: bool = False):
 
     @app.get("/api/motor/config")
     def api_motor_config():
-        return jsonify({"ok": True, "config": motor_service.get_config()})
+        return jsonify(ok_payload("Motor config loaded.", config=motor_service.get_config()))
 
     @app.post("/api/motor/apply")
     def api_motor_apply():
-        data = request.get_json(silent=True) or {}
-        config = motor_service.apply_settings(data)
-        return jsonify({"ok": True, "config": config})
+        data, json_error = get_json_payload()
+        if json_error is not None:
+            return jsonify(report_payload(False, json_error)), 400
+        try:
+            config = motor_service.apply_settings(data)
+            report = motor_service.errors.latest() if motor_service.last_error else None
+            return jsonify(report_payload(True, report, "Motor settings applied.", config=config))
+        except Exception as exc:
+            report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"Motor apply API failed: {exc}", exc=exc)
+            return jsonify(report_payload(False, report)), 500
 
     @app.post("/api/control/manual")
     def api_control_manual():
-        data = request.get_json(silent=True) or {}
-        left, right = motor_service.update(
-            steering=data.get("steering", 0.0),
-            throttle=data.get("throttle", 0.0),
-            steer_mix=data.get("steer_mix"),
-        )
-        return jsonify({"ok": True, "left": left, "right": right, "motor": motor_service.status()})
+        data, json_error = get_json_payload()
+        if json_error is not None:
+            return jsonify(report_payload(False, json_error)), 400
+        try:
+            left, right = motor_service.update(
+                steering=data.get("steering", 0.0),
+                throttle=data.get("throttle", 0.0),
+                steer_mix=data.get("steer_mix"),
+            )
+            report = motor_service.errors.latest() if motor_service.last_error else None
+            return jsonify(report_payload(True, report, "Manual motor command applied.", left=left, right=right, motor=motor_service.status()))
+        except Exception as exc:
+            report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"Manual control API failed: {exc}", exc=exc)
+            return jsonify(report_payload(False, report)), 500
 
     @app.post("/api/control/stop")
     def api_control_stop():
-        motor_service.stop()
-        return jsonify({"ok": True, "message": "Motors stopped.", "motor": motor_service.status()})
+        try:
+            motor_service.stop()
+            report = motor_service.errors.latest() if motor_service.last_error else None
+            return jsonify(report_payload(True, report, "Motors stopped.", motor=motor_service.status()))
+        except Exception as exc:
+            report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"Motor stop API failed: {exc}", exc=exc)
+            return jsonify(report_payload(False, report)), 500
+
+    @app.errorhandler(404)
+    def api_not_found(_exc):
+        report = APP_ERRORS.report(PiSDErrorCodes.API_NOT_FOUND, f"Route not found: {request.path}", context={"path": request.path})
+        return jsonify(report_payload(False, report)), 404
+
+    @app.errorhandler(Exception)
+    def api_unhandled(exc):
+        report = APP_ERRORS.report(PiSDErrorCodes.API_UNHANDLED_EXCEPTION, f"Unhandled API exception: {exc}", exc=exc)
+        return jsonify(report_payload(False, report)), 500
 
     @app.teardown_appcontext
     def cleanup(_exc):

@@ -17,6 +17,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from pisd.app import create_app, load_defaults  # noqa: E402
+from pisd.core.errors import ErrorReporter, PiSDErrorCodes  # noqa: E402
 from pisd.services.camera_service import CameraService  # noqa: E402
 from pisd.services.motor_service import MotorService  # noqa: E402
 
@@ -45,6 +46,7 @@ def build_status_for_cli(hardware_enabled: bool) -> dict:
     try:
         return {
             "app": "PiSD",
+            "code": PiSDErrorCodes.OK,
             "mode": "hardware" if hardware_enabled else "simulation",
             "camera": camera.status(),
             "motor": motor.status(),
@@ -64,7 +66,9 @@ def main(argv: list[str] | None = None) -> int:
     try:
         app = create_app(hardware_enabled=args.hardware)
     except RuntimeError as exc:
-        print(f"[PiSD] {exc}", file=sys.stderr)
+        reporter = ErrorReporter("launcher")
+        report = reporter.report(PiSDErrorCodes.APP_STARTUP_FAILED, f"PiSD startup failed: {exc}", exc=exc)
+        print(f"[PiSD] {report.code}: {report.message}", file=sys.stderr)
         print("[PiSD] You can still check service wiring with: python PiSD.py --status-only")
         return 2
 

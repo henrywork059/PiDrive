@@ -12,6 +12,8 @@ This document records how the `PiSD/` folder should be developed so it remains a
 - Use PiServer as a behavior reference, then rebuild in PiSD with clearer boundaries.
 - Keep only one Python dependency file: `PiSD/requirements.txt`.
 - Keep all patch notes in `PiSD/PATCH_NOTES/`.
+- Put runnable diagnostics in `PiSD/scripts/`.
+- Put generated diagnostic files in `PiSD/test_outputs/`.
 
 ## Folder instructions
 
@@ -40,6 +42,8 @@ Rules:
 - route handlers should call services
 - route handlers should not directly control GPIO or camera hardware
 - every hardware action should return clear JSON status
+- every JSON response must include a PiSD `code` field
+- caught errors should use `pisd.core.errors` instead of plain text-only messages
 
 ### `pisd/services/`
 
@@ -60,10 +64,47 @@ Rules:
 
 Small shared helpers only.
 
+Current helpers:
+
+- `value_utils.py` — parsing, clamping, and direction helpers
+- `errors.py` — shared PiSD error codes, error history, and API payload helpers
+
 Rules:
 
 - keep helpers generic
 - avoid UI or hardware code here
+- add new error codes in `errors.py` and document them in `docs/ERROR_CODES.md`
+
+### `scripts/`
+
+Runnable service and API checks.
+
+Current scripts:
+
+- `check_service_imports.py` — imports services, loads defaults, and creates the Flask app factory
+- `test_camera_service.py` — starts camera service and saves a JPEG frame
+- `test_motor_service.py` — checks motor mapping and optional real GPIO output
+- `test_api_endpoints.py` — checks API route calls with Flask's test client
+- `test_live_http_api.py` — checks HTTP calls against a running PiSD server
+- `check_error_reporting.py` — verifies shared error-code/reporting schema without Flask or hardware
+
+Rules:
+
+- scripts must be safe by default
+- real motor output must require an explicit flag
+- scripts should print JSON-like status useful for debugging
+- scripts should exit with non-zero status when a required check fails
+- failing scripts should include a `PISD-TEST-*` code, not just a plain text error
+
+### `test_outputs/`
+
+Generated outputs from local service tests.
+
+Rules:
+
+- keep only small diagnostic files here
+- do not rely on files here as source code
+- it is safe to delete generated files between tests
 
 ### `docs/`
 
@@ -93,7 +134,7 @@ For PiSD patch zips:
 
 - preserve exact folder structure beginning with `PiSD/`
 - include the full PiSD starter component unless the user requests patch-only delivery
-- do not add extra nesting such as `PiSD_0_0_1/PiSD/`
+- do not add extra nesting such as `PiSD_0_0_3/PiSD/`
 - do not include unrelated PiDrive folders
 
 ## Anti-rollback checks
@@ -104,4 +145,6 @@ Before packaging:
 - confirm `PiSD.py` still launches the app
 - confirm `/api/control/stop` still exists
 - confirm camera and motor services still have simulation fallback
+- confirm service test scripts exist under `PiSD/scripts/`
+- confirm `pisd/core/errors.py` exists and API JSON responses include `code` fields
 - confirm docs do not reference removed `requirement.txt`

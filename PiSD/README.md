@@ -6,15 +6,15 @@ It is intentionally separate from the existing `PiServer/` folder. PiSD may refe
 
 ## Current version
 
-`PiSD_0_0_1`
+`PiSD_0_0_3`
 
-This patch keeps only one dependency file:
+This version keeps only one dependency file:
 
 ```text
 PiSD/requirements.txt
 ```
 
-`requirement.txt` was removed to avoid duplicate install instructions.
+`requirement.txt` must not be restored.
 
 ## Folder layout
 
@@ -26,23 +26,36 @@ PiSD/
 ├── config/
 │   └── defaults.json             # safe default camera/motor settings
 ├── pisd/
-│   ├── __init__.py
+│   ├── __init__.py               # PiSD package version
 │   ├── app.py                    # Flask GUI/API wiring
 │   ├── core/
+│   │   ├── errors.py             # shared error codes/reporting helpers
 │   │   └── value_utils.py        # clamp/parse helpers
 │   └── services/
 │       ├── camera_service.py     # Picamera2 + simulation camera service
 │       └── motor_service.py      # RPi.GPIO-style + simulation motor service
+├── scripts/
+│   ├── check_error_reporting.py  # error-code/reporting schema check
+│   ├── check_service_imports.py  # import/default/app wiring check
+│   ├── test_api_endpoints.py     # Flask test-client API smoke test
+│   ├── test_camera_service.py    # camera frame capture test
+│   ├── test_live_http_api.py     # HTTP test against running server
+│   └── test_motor_service.py     # motor mapping and optional GPIO test
+├── test_outputs/                 # generated test captures/log-friendly outputs
 ├── docs/
 │   ├── ARCHITECTURE.md
 │   ├── DEVELOPMENT_PLAN.md
+│   ├── ERROR_CODES.md
+│   ├── FUTURE_CODE_RULES.md
 │   ├── DIRECTORY_GUIDE.md
 │   ├── GUI_FUNCTION_SPEC.md
 │   ├── HARDWARE_SERVICES.md
 │   └── TEST_PLAN.md
 └── PATCH_NOTES/
     ├── PATCH_NOTES_PiSD_0_0_0.md
-    └── PATCH_NOTES_PiSD_0_0_1.md
+    ├── PATCH_NOTES_PiSD_0_0_1.md
+    ├── PATCH_NOTES_PiSD_0_0_2.md
+    └── PATCH_NOTES_PiSD_0_0_3.md
 ```
 
 ## Install
@@ -97,10 +110,71 @@ python PiSD.py --host 0.0.0.0 --port 5050 --hardware
 
 This is intentional. It prevents accidental motor activation while developing the GUI on a PC.
 
-## API endpoints added in this patch
+## Service testing scripts
+
+All scripts are run from inside `PiSD/`.
+
+Error-code/reporting schema check:
+
+```bash
+python scripts/check_error_reporting.py
+```
+
+Basic import and service wiring check:
+
+```bash
+python scripts/check_service_imports.py
+```
+
+Camera service check. In simulation mode this writes a generated frame to `test_outputs/`:
+
+```bash
+python scripts/test_camera_service.py
+```
+
+Real camera service check on the Pi:
+
+```bash
+python scripts/test_camera_service.py --hardware
+```
+
+API route check without starting a network server:
+
+```bash
+python scripts/test_api_endpoints.py
+```
+
+Motor mapping check in simulation mode:
+
+```bash
+python scripts/test_motor_service.py
+```
+
+Optional real motor GPIO output check on the Pi. Use only when the wheels are lifted and the car is safe:
+
+```bash
+python scripts/test_motor_service.py --hardware --enable-motor-output
+```
+
+Live HTTP check against a running PiSD server:
+
+```bash
+python PiSD.py --host 0.0.0.0 --port 5050 --hardware
+python scripts/test_live_http_api.py --base-url http://127.0.0.1:5050
+```
+
+The live HTTP script does not send movement commands unless this flag is added:
+
+```bash
+python scripts/test_live_http_api.py --base-url http://127.0.0.1:5050 --enable-motor-output
+```
+
+## API endpoints
 
 ```text
 GET  /api/status
+GET  /api/errors
+POST /api/errors/clear
 POST /api/camera/start
 POST /api/camera/stop
 GET  /api/camera/config
@@ -111,6 +185,34 @@ GET  /api/motor/config
 POST /api/motor/apply
 POST /api/control/manual
 POST /api/control/stop
+```
+
+## Error detection and reporting rule
+
+All current and future PiSD code should report problems with a structured PiSD code. JSON API responses should include at least:
+
+```json
+{"ok": true, "code": "PISD-OK-000", "message": "OK"}
+```
+
+Failures should include a non-OK code, message, component, timestamp, and diagnostic context. See:
+
+```text
+docs/ERROR_CODES.md
+docs/FUTURE_CODE_RULES.md
+```
+
+Useful diagnostics:
+
+```bash
+python scripts/check_error_reporting.py
+```
+
+At runtime:
+
+```text
+/api/status
+/api/errors
 ```
 
 ## Hardware service notes
