@@ -184,7 +184,7 @@ class CameraConfig:
     format: str = "BGR888"
     preview_quality: int = 65
     capture_source: str = "request"
-    array_color_order: str = "auto"
+    array_color_order: str = "rgb"
     buffer_count: int = 3
     queue: bool = False
     hflip: bool = False
@@ -219,7 +219,7 @@ class CameraConfig:
         self.preview_quality = clamp_int(quality_value, 20, 95, self.preview_quality)
         self.capture_source = _clean_choice(data.get("capture_source", self.capture_source), "request", _VALID_CAPTURE_SOURCES)
         self.array_color_order = _clean_choice(
-            data.get("array_color_order", self.array_color_order), "auto", _VALID_ARRAY_COLOR_ORDERS
+            data.get("array_color_order", self.array_color_order), "rgb", _VALID_ARRAY_COLOR_ORDERS
         )
         self.buffer_count = clamp_int(data.get("buffer_count", self.buffer_count), 1, 12, self.buffer_count)
         if "queue" in data:
@@ -387,7 +387,10 @@ class CameraService:
             "valid_capture_sources": sorted(_VALID_CAPTURE_SOURCES),
             "valid_array_color_orders": sorted(_VALID_ARRAY_COLOR_ORDERS),
             "recommended_visual_capture_source": "request",
-            "note": "Use capture_source=request for visual colour reference; array modes are diagnostic/CV only.",
+            "recommended_array_color_order": "rgb",
+            "verified_colour_reference": "01_request_awb_auto",
+            "verified_array_reference": "91_array_rgb",
+            "note": "Use capture_source=request for visual colour reference. For raw array/CV paths, this OV5647 test setup matched array_color_order=rgb.",
         }
         if not self.hardware_enabled or Picamera2 is None:
             base.update({"camera_controls": {}, "camera_properties": {}, "sensor_modes": [], "warning": "Hardware not requested or Picamera2 missing."})

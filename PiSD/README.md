@@ -6,7 +6,7 @@ It is intentionally separate from the existing `PiServer/` folder. PiSD may refe
 
 ## Current version
 
-`PiSD_0_0_4`
+`PiSD_0_0_6`
 
 This version keeps only one dependency file:
 
@@ -57,7 +57,9 @@ PiSD/
     ├── PATCH_NOTES_PiSD_0_0_1.md
     ├── PATCH_NOTES_PiSD_0_0_2.md
     ├── PATCH_NOTES_PiSD_0_0_3.md
-    └── PATCH_NOTES_PiSD_0_0_4.md
+    ├── PATCH_NOTES_PiSD_0_0_4.md
+    ├── PATCH_NOTES_PiSD_0_0_5.md
+    └── PATCH_NOTES_PiSD_0_0_6.md
 ```
 
 ## Install
@@ -147,13 +149,12 @@ Camera colour diagnostic on the Pi. Use this if the real camera opens but the sa
 python scripts/diagnose_camera_color.py --hardware
 ```
 
-This saves comparison files under `test_outputs/camera_color/`. The first image, `01_request_awb_auto.jpg`, is the new preferred preview baseline.
+This saves comparison files under `test_outputs/camera_color/`. The first image, `01_request_awb_auto.jpg`, is the preferred preview baseline. When array diagnostics are enabled, `91_array_rgb` is the known-good raw array reference.
 
-Raw array colour-order checks:
+Raw array colour-order check. Use RGB first because the `91_array_rgb` diagnostic was confirmed correct:
 
 ```bash
 python scripts/test_camera_service.py --hardware --capture-source array --array-color-order rgb --output test_outputs/array_rgb.jpg
-python scripts/test_camera_service.py --hardware --capture-source array --array-color-order bgr --output test_outputs/array_bgr.jpg
 ```
 
 API route check without starting a network server:
@@ -266,7 +267,7 @@ PiSD now exposes camera settings through the service, API, and scripts. The defa
 "capture_source": "request"
 ```
 
-Keep this for GUI preview and colour checking. The raw `array` path remains available for future computer-vision work, but it is diagnostic-only because the old `03_array_auto` and `05_array_bgr_interpretation` colour outputs were reported wrong on the OV5647 test.
+Keep this for GUI preview and colour checking. The raw `array` path remains available for future computer-vision work. Use `array_color_order: "rgb"` because the `91_array_rgb` diagnostic was confirmed correct, while the earlier auto/BGR array outputs were wrong on the OV5647 test.
 
 ### Capability dump
 

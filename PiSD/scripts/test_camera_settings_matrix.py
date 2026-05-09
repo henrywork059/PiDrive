@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Run a matrix of camera setting changes through the PiSD CameraService.
 
-The default matrix uses the request/PIL path because Henry reported that array
-colour diagnostics 03 and 05 were wrong on the OV5647 test frame. Add
---include-array-diagnostics only when intentionally testing CV/raw-array colour
+The default matrix uses the request/PIL path. Hardware colour checks showed
+01_request_awb_auto is correct for visual capture and 91_array_rgb is correct
+for raw array/CV interpretation on this OV5647 setup. Add
+--include-array-diagnostics only when intentionally retesting raw-array colour
 interpretation.
 """
 
@@ -76,6 +77,7 @@ def main() -> int:
     defaults = load_defaults()
     base_config = dict(defaults.get("camera", {}))
     base_config["capture_source"] = "request"
+    base_config["array_color_order"] = "rgb"
 
     scenarios: list[tuple[str, dict[str, Any]]] = [
         ("01_request_default", {"capture_source": "request", "auto_exposure": True, "auto_white_balance": True}),
@@ -91,7 +93,7 @@ def main() -> int:
         scenarios.extend(
             [
                 ("09_array_auto_diagnostic", {"capture_source": "array", "array_color_order": "auto"}),
-                ("10_array_rgb_diagnostic", {"capture_source": "array", "array_color_order": "rgb"}),
+                ("10_array_rgb_confirmed_correct", {"capture_source": "array", "array_color_order": "rgb"}),
                 ("11_array_bgr_diagnostic", {"capture_source": "array", "array_color_order": "bgr"}),
             ]
         )
@@ -103,7 +105,7 @@ def main() -> int:
 
     payload = {
         "code": PiSDErrorCodes.OK if all(item["ok"] for item in results) else PiSDErrorCodes.TEST_CAMERA_SETTINGS_MATRIX_FAILED,
-        "note": "Request/PIL frames are the visual colour reference. Array diagnostics are optional and may have colour-order mismatch.",
+        "note": "Request/PIL frames are the visual reference. array_color_order=rgb is the known-good raw array/CV setting from the 91 colour test.",
         "output_dir": str(output_dir),
         "results": results,
     }

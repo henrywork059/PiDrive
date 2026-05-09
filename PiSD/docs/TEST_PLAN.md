@@ -205,7 +205,7 @@ Only keep manual gains if the result is visually better under the real lighting 
 
 ## PiSD 0.0.5 camera settings tests
 
-The visual camera path should use `capture_source=request`. Raw array tests are now optional because colour diagnostics showed array cases such as old `03_array_auto` and `05_array_bgr_interpretation` can be wrong on the OV5647 setup.
+The visual camera path should use `capture_source=request`, with `01_request_awb_auto` confirmed correct. Raw array tests are optional; when needed, use `array_color_order=rgb` first because `91_array_rgb` was confirmed correct on the OV5647 setup.
 
 ### Dump camera capabilities
 

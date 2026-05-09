@@ -6,7 +6,7 @@
     "format": "BGR888",
     "preview_quality": 65,
     "capture_source": "request",
-    "array_color_order": "auto",
+    "array_color_order": "rgb",
     "buffer_count": 3,
     "queue": false,
     "hflip": false,

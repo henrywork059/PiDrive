@@ -78,4 +78,4 @@ Patch notes must state which error/reporting checks actually ran.
 
 For browser preview or saved visual evidence, prefer the Picamera2 request/PIL path when the backend is Picamera2. Raw arrays are still allowed for computer vision, but future code must state the expected channel order and report failures with PiSD error codes.
 
-Do not silently swap RGB/BGR channels. If a future camera module adds a new format or colour conversion path, expose the selected path in service status using fields similar to `last_capture_source` and `last_array_color_order`.
+Do not silently swap RGB/BGR channels. For the current OV5647 setup, `01_request_awb_auto` is the visual reference and `91_array_rgb` is the raw array/CV reference. If a future camera module adds a new format or colour conversion path, expose the selected path in service status using fields similar to `last_capture_source` and `last_array_color_order`.

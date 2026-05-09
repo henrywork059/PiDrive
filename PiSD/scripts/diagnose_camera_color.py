@@ -4,7 +4,8 @@
 This script is intended for the OV5647/Picamera2 colour debugging path. It saves
 multiple JPEGs using different PiSD camera-service capture paths so the user can
 compare whether the colour problem is caused by AWB/tuning or RGB/BGR array
-encoding.
+encoding. Hardware testing showed 01_request_awb_auto and 91_array_rgb are
+the correct references for this OV5647 setup.
 """
 
 from __future__ import annotations
@@ -31,7 +32,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", default=str(PROJECT_ROOT / "test_outputs" / "camera_color"))
     parser.add_argument("--format", default="BGR888", help="Picamera2 main stream format to test.")
     parser.add_argument("--include-rgb-format", action="store_true", help="Also test RGB888 request path.")
-    parser.add_argument("--include-array-diagnostics", action="store_true", help="Also save array-path diagnostics. These may have wrong colour and are not the visual reference.")
+    parser.add_argument("--include-array-diagnostics", action="store_true", help="Also save array-path diagnostics. On this OV5647 setup, 91_array_rgb is the known-good array reference.")
     return parser.parse_args()
 
 
@@ -73,6 +74,7 @@ def main() -> int:
     defaults = load_defaults()
     base_config = dict(defaults.get("camera", {}))
     base_config["format"] = args.format
+    base_config["array_color_order"] = "rgb"
 
     scenarios = [
         (
@@ -114,7 +116,7 @@ def main() -> int:
                     },
                 ),
                 (
-                    "91_array_rgb_diagnostic_known_colour_risk",
+                    "91_array_rgb_confirmed_correct",
                     {
                         "capture_source": "array",
                         "array_color_order": "rgb",
@@ -150,8 +152,9 @@ def main() -> int:
         results.append(capture_scenario(base_config, args.hardware, args.seconds, label, updates, output_dir))
 
     summary_path = output_dir / "summary.json"
-    summary_path.write_text(json.dumps({"note": "Request/PIL frames are the visual colour reference. Array diagnostics are optional and may be wrong on OV5647 colour tests.", "results": results}, indent=2), encoding="utf-8")
-    print(json.dumps({"output_dir": str(output_dir), "summary": str(summary_path), "note": "Request/PIL frames are the visual colour reference. Array diagnostics are optional and may be wrong on OV5647 colour tests.", "results": results}, indent=2))
+    note = "01_request_awb_auto is the trusted visual reference. 91_array_rgb_confirmed_correct is the known-good raw array/CV reference for this OV5647 setup."
+    summary_path.write_text(json.dumps({"note": note, "results": results}, indent=2), encoding="utf-8")
+    print(json.dumps({"output_dir": str(output_dir), "summary": str(summary_path), "note": note, "results": results}, indent=2))
 
     if not all(item.get("ok") for item in results):
         print(f"{PiSDErrorCodes.TEST_CAMERA_COLOR_DIAGNOSTIC_FAILED}: at least one colour diagnostic frame failed.", file=sys.stderr)

@@ -27,7 +27,7 @@ Use this only for diagnostics or future computer vision pipelines:
 "capture_source": "array"
 ```
 
-Known note from hardware testing: `03_array_auto` and `05_array_bgr_interpretation` were reported wrong in colour diagnostics. Therefore array modes are no longer included in the default colour diagnostic run. Use `--include-array-diagnostics` only when intentionally testing array colour order.
+Known note from hardware testing: `01_request_awb_auto` was confirmed correct for visual preview, and `91_array_rgb` was confirmed correct for the raw array/CV path. Earlier auto/BGR array outputs were wrong, so array modes remain optional diagnostics and default to RGB.
 
 ## Main configuration settings
 
@@ -75,7 +75,7 @@ Known note from hardware testing: `03_array_auto` and `05_array_bgr_interpretati
 |---|---|
 | `noise_reduction_mode` | `off`, `fast`, `high-quality`, `minimal`, or `zsl` when supported |
 | `scaler_crop` | optional crop as `[x, y, width, height]` or `x,y,width,height` |
-| `array_color_order` | array path interpretation: `auto`, `bgr`, `rgb`, `bgra`, `rgba`, `swap_rb`, `none` |
+| `array_color_order` | array path interpretation: `auto`, `bgr`, `rgb`, `bgra`, `rgba`, `swap_rb`, `none`; default/recommended = `rgb` |
 
 ## Main test commands
 
@@ -126,6 +126,7 @@ Run optional array diagnostics only when needed:
 ```bash
 python3 scripts/test_camera_settings_matrix.py --hardware --include-array-diagnostics
 python3 scripts/diagnose_camera_color.py --hardware --include-array-diagnostics
+python3 scripts/test_camera_service.py --hardware --capture-source array --array-color-order rgb
 ```
 
 ## Error-code expectation
