@@ -220,3 +220,21 @@ Compare these images first:
 If `01_request_awb_auto.jpg` looks correct but the array images look wrong, the issue is array channel interpretation. Keep preview on `capture_source: "request"` and choose the correct `array_color_order` only for CV processing.
 
 If both request images are wrong, the issue is more likely camera tuning, lighting, AWB mode, or manual colour gains rather than OpenCV channel order.
+
+---
+
+## Camera controls expanded in PiSD 0.0.5
+
+The camera service now exposes and reports these major categories:
+
+- stream size, pixel format, FPS, buffer count, queue mode, JPEG quality
+- hflip/vflip transform
+- auto/manual exposure, exposure time, analogue gain, exposure compensation
+- AE metering, AE exposure mode, and AE constraint mode when supported by libcamera
+- auto/manual white balance, AWB mode, manual colour gains, AWB settle delay
+- brightness, contrast, saturation, sharpness
+- noise reduction mode when supported
+- optional scaler crop
+- capture path selection: request/PIL visual path or raw array diagnostic path
+
+Use `GET /api/camera/capabilities` or `python3 scripts/dump_camera_capabilities.py --hardware` to see what the connected camera exposes. Not every libcamera control is guaranteed on every camera module; unsupported values should report a PiSD warning/error code rather than crash.

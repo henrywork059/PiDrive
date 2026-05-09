@@ -200,3 +200,39 @@ python scripts/test_camera_service.py --hardware --colour-gains 1.5,1.2 --output
 ```
 
 Only keep manual gains if the result is visually better under the real lighting used by the car.
+
+---
+
+## PiSD 0.0.5 camera settings tests
+
+The visual camera path should use `capture_source=request`. Raw array tests are now optional because colour diagnostics showed array cases such as old `03_array_auto` and `05_array_bgr_interpretation` can be wrong on the OV5647 setup.
+
+### Dump camera capabilities
+
+```bash
+python3 scripts/dump_camera_capabilities.py --hardware
+```
+
+### Test individual camera settings
+
+```bash
+python3 scripts/test_camera_service.py --hardware --capture-source request
+python3 scripts/test_camera_service.py --hardware --width 640 --height 360 --fps 15 --preview-quality 80 --buffer-count 4 --no-queue
+python3 scripts/test_camera_service.py --hardware --manual-exposure --exposure-us 8000 --analogue-gain 1.5
+python3 scripts/test_camera_service.py --hardware --awb-mode daylight
+python3 scripts/test_camera_service.py --hardware --awb-off --colour-gains 1.8,1.2
+python3 scripts/test_camera_service.py --hardware --brightness 0.05 --contrast 1.2 --saturation 1.2 --sharpness 1.1
+```
+
+### Run the camera settings matrix
+
+```bash
+python3 scripts/test_camera_settings_matrix.py --hardware
+```
+
+Optional raw array diagnostics:
+
+```bash
+python3 scripts/test_camera_settings_matrix.py --hardware --include-array-diagnostics
+python3 scripts/diagnose_camera_color.py --hardware --include-array-diagnostics
+```

@@ -255,3 +255,70 @@ Motor service:
 ## Development rule
 
 Keep PiSD as a clean test path. Do not replace `PiServer/` until PiSD has been tested enough and the user explicitly asks for merge/replacement.
+
+---
+
+## PiSD 0.0.5 camera setting tests
+
+PiSD now exposes camera settings through the service, API, and scripts. The default visual preview path is:
+
+```json
+"capture_source": "request"
+```
+
+Keep this for GUI preview and colour checking. The raw `array` path remains available for future computer-vision work, but it is diagnostic-only because the old `03_array_auto` and `05_array_bgr_interpretation` colour outputs were reported wrong on the OV5647 test.
+
+### Capability dump
+
+```bash
+python3 scripts/dump_camera_capabilities.py --hardware
+```
+
+### Single setting tests
+
+```bash
+python3 scripts/test_camera_service.py --hardware --capture-source request
+python3 scripts/test_camera_service.py --hardware --width 640 --height 360 --fps 15 --preview-quality 80 --buffer-count 4 --no-queue
+python3 scripts/test_camera_service.py --hardware --manual-exposure --exposure-us 8000 --analogue-gain 1.5
+python3 scripts/test_camera_service.py --hardware --awb-mode daylight
+python3 scripts/test_camera_service.py --hardware --awb-off --colour-gains 1.8,1.2
+python3 scripts/test_camera_service.py --hardware --brightness 0.05 --contrast 1.2 --saturation 1.2 --sharpness 1.1
+```
+
+### Matrix test
+
+```bash
+python3 scripts/test_camera_settings_matrix.py --hardware
+```
+
+Optional raw-array diagnostics:
+
+```bash
+python3 scripts/test_camera_settings_matrix.py --hardware --include-array-diagnostics
+python3 scripts/diagnose_camera_color.py --hardware --include-array-diagnostics
+```
+
+### API settings endpoint
+
+Start the server:
+
+```bash
+python3 PiSD.py --host 0.0.0.0 --port 5050 --hardware
+```
+
+Check camera config and capabilities:
+
+```bash
+curl http://127.0.0.1:5050/api/camera/config
+curl http://127.0.0.1:5050/api/camera/capabilities
+```
+
+Apply camera settings:
+
+```bash
+curl -X POST http://127.0.0.1:5050/api/camera/apply \
+  -H 'Content-Type: application/json' \
+  -d '{"width":640,"height":360,"fps":15,"preview_quality":80,"capture_source":"request"}'
+```
+
+All setting failures, ignored values, or unsupported libcamera controls should be reported through PiSD error codes, especially `PISD-CAM-009` and `PISD-CAM-010`.

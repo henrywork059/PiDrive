@@ -164,3 +164,13 @@ PiSD/test_outputs/camera_color/
 ```
 
 These generated files are for local Pi testing only and should not be committed into future source patches unless the user explicitly asks to include sample captures.
+
+---
+
+## PiSD 0.0.5 camera setting files
+
+- `docs/CAMERA_SETTINGS.md` documents all currently exposed PiSD camera settings and test commands.
+- `scripts/dump_camera_capabilities.py` prints Picamera2 camera controls, properties, and sensor modes.
+- `scripts/test_camera_settings_matrix.py` runs a repeatable set of size, quality, buffer, exposure, white balance, colour, flip, and noise-reduction checks.
+- `scripts/test_camera_service.py` accepts command-line overrides for the main camera settings, so individual controls can be tested without editing code.
+- `scripts/diagnose_camera_color.py` now keeps array colour tests optional because the array path is diagnostic/CV-only, not the visual reference.

@@ -143,6 +143,14 @@ def create_app(hardware_enabled: bool = False):
     def api_camera_config():
         return jsonify(ok_payload("Camera config loaded.", config=camera_service.get_config()))
 
+    @app.get("/api/camera/capabilities")
+    def api_camera_capabilities():
+        try:
+            return jsonify(ok_payload("Camera capabilities loaded.", capabilities=camera_service.get_capabilities()))
+        except Exception as exc:
+            report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"Camera capabilities API failed: {exc}", exc=exc)
+            return jsonify(report_payload(False, report)), 500
+
     @app.post("/api/camera/apply")
     def api_camera_apply():
         data, json_error = get_json_payload()

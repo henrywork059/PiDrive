@@ -31,14 +31,18 @@ try:  # Available on Raspberry Pi OS with python3-picamera2.
 except Exception:  # pragma: no cover
     Picamera2 = None  # type: ignore
 
-try:  # Optional Picamera2/libcamera enum access for AWB mode names.
+try:  # Optional Picamera2/libcamera enum access for camera controls.
+    from libcamera import Transform as LibcameraTransform  # type: ignore
     from libcamera import controls as libcamera_controls  # type: ignore
 except Exception:  # pragma: no cover
+    LibcameraTransform = None  # type: ignore
     libcamera_controls = None  # type: ignore
 
 
 _VALID_CAPTURE_SOURCES = {"request", "array"}
 _VALID_ARRAY_COLOR_ORDERS = {"auto", "bgr", "rgb", "bgra", "rgba", "swap_rb", "none"}
+_VALID_FORMATS = {"BGR888", "RGB888", "XBGR8888", "XRGB8888", "BGRA8888", "RGBA8888"}
+
 _AWB_MODE_MAP = {
     "auto": "Auto",
     "normal": "Auto",
@@ -50,11 +54,126 @@ _AWB_MODE_MAP = {
     "cloudy": "Cloudy",
     "custom": "Custom",
 }
+_AE_METERING_MODE_MAP = {
+    "centre-weighted": "CentreWeighted",
+    "center-weighted": "CentreWeighted",
+    "centre": "CentreWeighted",
+    "center": "CentreWeighted",
+    "spot": "Spot",
+    "matrix": "Matrix",
+    "custom": "Custom",
+}
+_AE_EXPOSURE_MODE_MAP = {
+    "normal": "Normal",
+    "short": "Short",
+    "long": "Long",
+    "custom": "Custom",
+}
+_AE_CONSTRAINT_MODE_MAP = {
+    "normal": "Normal",
+    "highlight": "Highlight",
+    "highlights": "Highlight",
+    "shadows": "Shadows",
+    "custom": "Custom",
+}
+_NOISE_REDUCTION_MODE_MAP = {
+    "off": "Off",
+    "fast": "Fast",
+    "high-quality": "HighQuality",
+    "high_quality": "HighQuality",
+    "hq": "HighQuality",
+    "minimal": "Minimal",
+    "zsl": "ZSL",
+}
+
+_RESTART_KEYS = {
+    "width",
+    "height",
+    "fps",
+    "format",
+    "buffer_count",
+    "queue",
+    "hflip",
+    "vflip",
+}
+
+_KNOWN_CAMERA_KEYS = {
+    "width",
+    "height",
+    "fps",
+    "format",
+    "preview_quality",
+    "jpeg_quality",
+    "capture_source",
+    "array_color_order",
+    "buffer_count",
+    "queue",
+    "hflip",
+    "vflip",
+    "auto_exposure",
+    "exposure_us",
+    "analogue_gain",
+    "exposure_compensation",
+    "ae_metering_mode",
+    "ae_exposure_mode",
+    "ae_constraint_mode",
+    "auto_white_balance",
+    "awb_mode",
+    "colour_gains_red",
+    "colour_gains_blue",
+    "awb_settle_seconds",
+    "brightness",
+    "contrast",
+    "saturation",
+    "sharpness",
+    "noise_reduction_mode",
+    "scaler_crop",
+}
 
 
 def _clean_choice(value: Any, default: str, valid: set[str]) -> str:
     text = str(value if value is not None else default).strip().lower()
     return text if text in valid else default
+
+
+def _parse_bool(value: Any, default: bool) -> bool:
+    if value is None:
+        return bool(default)
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    text = str(value).strip().lower()
+    if text in {"1", "true", "yes", "y", "on", "enable", "enabled"}:
+        return True
+    if text in {"0", "false", "no", "n", "off", "disable", "disabled"}:
+        return False
+    return bool(default)
+
+
+def _normalise_mode(value: Any, default: str) -> str:
+    text = str(value if value is not None else default).strip().lower().replace(" ", "-")
+    return text or default
+
+
+def _parse_scaler_crop(value: Any) -> list[int] | None:
+    if value in (None, "", [], ()):
+        return None
+    if isinstance(value, str):
+        pieces = [piece.strip() for piece in value.split(",")]
+    elif isinstance(value, (list, tuple)):
+        pieces = list(value)
+    else:
+        return None
+    if len(pieces) != 4:
+        return None
+    try:
+        x, y, w, h = [int(float(piece)) for piece in pieces]
+    except Exception:
+        return None
+    if w <= 0 or h <= 0 or x < 0 or y < 0:
+        return None
+    return [x, y, w, h]
 
 
 @dataclass
@@ -66,10 +185,17 @@ class CameraConfig:
     preview_quality: int = 65
     capture_source: str = "request"
     array_color_order: str = "auto"
+    buffer_count: int = 3
+    queue: bool = False
+    hflip: bool = False
+    vflip: bool = False
     auto_exposure: bool = True
     exposure_us: int = 12000
     analogue_gain: float = 1.0
     exposure_compensation: float = 0.0
+    ae_metering_mode: str = "centre-weighted"
+    ae_exposure_mode: str = "normal"
+    ae_constraint_mode: str = "normal"
     auto_white_balance: bool = True
     awb_mode: str = "auto"
     colour_gains_red: float = 0.0
@@ -79,33 +205,44 @@ class CameraConfig:
     contrast: float = 1.0
     saturation: float = 1.0
     sharpness: float = 1.0
+    noise_reduction_mode: str = "fast"
+    scaler_crop: list[int] | None = None
 
     def apply(self, data: dict[str, Any] | None) -> None:
         if not isinstance(data, dict):
             return
         self.width = clamp_int(data.get("width", self.width), 64, 3840, self.width)
         self.height = clamp_int(data.get("height", self.height), 48, 2160, self.height)
-        self.fps = clamp_int(data.get("fps", self.fps), 1, 60, self.fps)
+        self.fps = clamp_int(data.get("fps", self.fps), 1, 120, self.fps)
         self.format = str(data.get("format", self.format) or self.format).upper()
-        self.preview_quality = clamp_int(
-            data.get("preview_quality", self.preview_quality), 20, 95, self.preview_quality
-        )
+        quality_value = data.get("preview_quality", data.get("jpeg_quality", self.preview_quality))
+        self.preview_quality = clamp_int(quality_value, 20, 95, self.preview_quality)
         self.capture_source = _clean_choice(data.get("capture_source", self.capture_source), "request", _VALID_CAPTURE_SOURCES)
         self.array_color_order = _clean_choice(
             data.get("array_color_order", self.array_color_order), "auto", _VALID_ARRAY_COLOR_ORDERS
         )
+        self.buffer_count = clamp_int(data.get("buffer_count", self.buffer_count), 1, 12, self.buffer_count)
+        if "queue" in data:
+            self.queue = _parse_bool(data.get("queue"), self.queue)
+        if "hflip" in data:
+            self.hflip = _parse_bool(data.get("hflip"), self.hflip)
+        if "vflip" in data:
+            self.vflip = _parse_bool(data.get("vflip"), self.vflip)
         if "auto_exposure" in data:
-            self.auto_exposure = bool(data.get("auto_exposure"))
-        self.exposure_us = clamp_int(data.get("exposure_us", self.exposure_us), 100, 200000, self.exposure_us)
+            self.auto_exposure = _parse_bool(data.get("auto_exposure"), self.auto_exposure)
+        self.exposure_us = clamp_int(data.get("exposure_us", self.exposure_us), 100, 1_000_000, self.exposure_us)
         self.analogue_gain = clamp_float(
             data.get("analogue_gain", self.analogue_gain), 0.0, 64.0, self.analogue_gain
         )
         self.exposure_compensation = clamp_float(
             data.get("exposure_compensation", self.exposure_compensation), -8.0, 8.0, self.exposure_compensation
         )
+        self.ae_metering_mode = _normalise_mode(data.get("ae_metering_mode", self.ae_metering_mode), self.ae_metering_mode)
+        self.ae_exposure_mode = _normalise_mode(data.get("ae_exposure_mode", self.ae_exposure_mode), self.ae_exposure_mode)
+        self.ae_constraint_mode = _normalise_mode(data.get("ae_constraint_mode", self.ae_constraint_mode), self.ae_constraint_mode)
         if "auto_white_balance" in data:
-            self.auto_white_balance = bool(data.get("auto_white_balance"))
-        self.awb_mode = str(data.get("awb_mode", self.awb_mode) or self.awb_mode).strip().lower()
+            self.auto_white_balance = _parse_bool(data.get("auto_white_balance"), self.auto_white_balance)
+        self.awb_mode = _normalise_mode(data.get("awb_mode", self.awb_mode), self.awb_mode)
         self.colour_gains_red = clamp_float(
             data.get("colour_gains_red", self.colour_gains_red), 0.0, 16.0, self.colour_gains_red
         )
@@ -113,12 +250,17 @@ class CameraConfig:
             data.get("colour_gains_blue", self.colour_gains_blue), 0.0, 16.0, self.colour_gains_blue
         )
         self.awb_settle_seconds = clamp_float(
-            data.get("awb_settle_seconds", self.awb_settle_seconds), 0.0, 5.0, self.awb_settle_seconds
+            data.get("awb_settle_seconds", self.awb_settle_seconds), 0.0, 10.0, self.awb_settle_seconds
         )
         self.brightness = clamp_float(data.get("brightness", self.brightness), -1.0, 1.0, self.brightness)
         self.contrast = clamp_float(data.get("contrast", self.contrast), 0.0, 32.0, self.contrast)
         self.saturation = clamp_float(data.get("saturation", self.saturation), 0.0, 32.0, self.saturation)
         self.sharpness = clamp_float(data.get("sharpness", self.sharpness), 0.0, 16.0, self.sharpness)
+        self.noise_reduction_mode = _normalise_mode(
+            data.get("noise_reduction_mode", self.noise_reduction_mode), self.noise_reduction_mode
+        )
+        if "scaler_crop" in data:
+            self.scaler_crop = _parse_scaler_crop(data.get("scaler_crop"))
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -129,10 +271,17 @@ class CameraConfig:
             "preview_quality": int(self.preview_quality),
             "capture_source": str(self.capture_source),
             "array_color_order": str(self.array_color_order),
+            "buffer_count": int(self.buffer_count),
+            "queue": bool(self.queue),
+            "hflip": bool(self.hflip),
+            "vflip": bool(self.vflip),
             "auto_exposure": bool(self.auto_exposure),
             "exposure_us": int(self.exposure_us),
             "analogue_gain": float(self.analogue_gain),
             "exposure_compensation": float(self.exposure_compensation),
+            "ae_metering_mode": str(self.ae_metering_mode),
+            "ae_exposure_mode": str(self.ae_exposure_mode),
+            "ae_constraint_mode": str(self.ae_constraint_mode),
             "auto_white_balance": bool(self.auto_white_balance),
             "awb_mode": str(self.awb_mode),
             "colour_gains_red": float(self.colour_gains_red),
@@ -142,16 +291,18 @@ class CameraConfig:
             "contrast": float(self.contrast),
             "saturation": float(self.saturation),
             "sharpness": float(self.sharpness),
+            "noise_reduction_mode": str(self.noise_reduction_mode),
+            "scaler_crop": list(self.scaler_crop) if self.scaler_crop else None,
         }
 
 
 class CameraService:
     """PiSD camera service with real Picamera2 path and safe simulation fallback.
 
-    The default Picamera2 path now uses request.make_image("main") for JPEG
-    preview output. This intentionally avoids the common RGB/BGR channel-order
-    trap that can happen when raw arrays are sent through OpenCV JPEG encoding.
-    The array path remains available for computer-vision diagnostics.
+    Visual preview and saved test frames use the Picamera2 request/PIL image path
+    by default. The raw array path remains available as a diagnostic/computer-
+    vision path, but it should not be treated as the visual reference when colour
+    tests show RGB/BGR mismatches.
     """
 
     def __init__(self, config: dict[str, Any] | None = None, hardware_enabled: bool = False):
@@ -175,6 +326,8 @@ class CameraService:
         self._last_metadata: dict[str, Any] = {}
         self._last_capture_source = ""
         self._last_array_color_order = ""
+        self._last_applied_controls: dict[str, Any] = {}
+        self._last_video_config: dict[str, Any] = {}
 
     def _record(
         self,
@@ -190,6 +343,10 @@ class CameraService:
         self.last_error_code = report.code
         return report
 
+    def _clear_last_error_if_ok(self) -> None:
+        self.last_error = ""
+        self.last_error_code = PiSDErrorCodes.OK
+
     def get_config(self) -> dict[str, Any]:
         with self._lock:
             data = self.config.as_dict()
@@ -200,6 +357,7 @@ class CameraService:
                     "opencv_available": cv2 is not None,
                     "pillow_available": Image is not None,
                     "libcamera_controls_available": libcamera_controls is not None,
+                    "libcamera_transform_available": LibcameraTransform is not None,
                     "backend": self.backend,
                     "running": self.running,
                     "frame_seq": self.frame_seq,
@@ -207,6 +365,8 @@ class CameraService:
                     "last_capture_source": self._last_capture_source,
                     "last_array_color_order": self._last_array_color_order,
                     "last_metadata": dict(self._last_metadata),
+                    "last_applied_controls": dict(self._last_applied_controls),
+                    "last_video_config": dict(self._last_video_config),
                     "last_error": self.last_error,
                     "last_error_code": self.last_error_code,
                 }
@@ -217,15 +377,128 @@ class CameraService:
     def status(self) -> dict[str, Any]:
         return self.get_config()
 
+    def get_capabilities(self) -> dict[str, Any]:
+        """Return camera capabilities without requiring the service to be running."""
+        base: dict[str, Any] = {
+            "code": PiSDErrorCodes.OK,
+            "hardware_enabled": bool(self.hardware_enabled),
+            "picamera2_available": Picamera2 is not None,
+            "supported_settings": sorted(_KNOWN_CAMERA_KEYS),
+            "valid_capture_sources": sorted(_VALID_CAPTURE_SOURCES),
+            "valid_array_color_orders": sorted(_VALID_ARRAY_COLOR_ORDERS),
+            "recommended_visual_capture_source": "request",
+            "note": "Use capture_source=request for visual colour reference; array modes are diagnostic/CV only.",
+        }
+        if not self.hardware_enabled or Picamera2 is None:
+            base.update({"camera_controls": {}, "camera_properties": {}, "sensor_modes": [], "warning": "Hardware not requested or Picamera2 missing."})
+            return base
+
+        picam2 = None
+        try:
+            picam2 = self._picam2 if self._picam2 is not None else Picamera2()
+            base["camera_controls"] = self._serialise_camera_controls(getattr(picam2, "camera_controls", {}) or {})
+            base["camera_properties"] = self._serialise_simple_dict(getattr(picam2, "camera_properties", {}) or {})
+            base["sensor_modes"] = self._serialise_sensor_modes(getattr(picam2, "sensor_modes", []) or [])
+            return base
+        except Exception as exc:
+            report = self._record(
+                PiSDErrorCodes.CAMERA_CAPABILITY_QUERY_FAILED,
+                f"Failed to query camera capabilities: {exc}",
+                severity="warning",
+                exc=exc,
+            )
+            base.update({"code": report.code, "warning": report.message, "camera_controls": {}, "camera_properties": {}, "sensor_modes": []})
+            return base
+        finally:
+            if picam2 is not None and picam2 is not self._picam2:
+                try:
+                    picam2.close()
+                except Exception:
+                    pass
+
+    def _serialise_camera_controls(self, controls: dict[str, Any]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, value in controls.items():
+            if isinstance(value, (list, tuple)):
+                result[str(key)] = [self._serialise_value(item) for item in value]
+            else:
+                result[str(key)] = self._serialise_value(value)
+        return result
+
+    def _serialise_simple_dict(self, data: dict[str, Any]) -> dict[str, Any]:
+        return {str(key): self._serialise_value(value) for key, value in data.items()}
+
+    def _serialise_sensor_modes(self, modes: list[Any]) -> list[Any]:
+        output = []
+        for mode in modes:
+            if isinstance(mode, dict):
+                output.append(self._serialise_simple_dict(mode))
+            else:
+                output.append(self._serialise_value(mode))
+        return output
+
+    def _serialise_value(self, value: Any) -> Any:
+        if isinstance(value, (str, int, float, bool)) or value is None:
+            return value
+        if isinstance(value, (tuple, list)):
+            return [self._serialise_value(item) for item in value]
+        return str(value)
+
     def apply_settings(self, data: dict[str, Any] | None, restart: bool = True) -> tuple[bool, str, dict[str, Any]]:
+        warnings = self._validate_settings_input(data)
         with self._lock:
             was_running = self.running
+            before = self.config.as_dict()
             self.config.apply(data or {})
-        if restart and was_running:
+            after = self.config.as_dict()
+        restart_needed = any(before.get(key) != after.get(key) for key in _RESTART_KEYS)
+        for warning in warnings:
+            self._record(
+                PiSDErrorCodes.CAMERA_SETTING_INVALID,
+                warning,
+                severity="warning",
+                context={"settings": data or {}},
+            )
+        if was_running and restart and restart_needed:
             self.stop()
             ok, message = self.start()
-            return ok, message, self.get_config()
+            return ok, f"Camera settings updated with restart. {message}", self.get_config()
+        if was_running and not restart_needed:
+            with self._lock:
+                self._apply_picamera_controls_locked()
+            return True, "Camera runtime controls updated without restart.", self.get_config()
+        if was_running and restart:
+            with self._lock:
+                self._apply_picamera_controls_locked()
+            return True, "Camera settings updated.", self.get_config()
         return True, "Camera settings updated.", self.get_config()
+
+    def _validate_settings_input(self, data: dict[str, Any] | None) -> list[str]:
+        warnings: list[str] = []
+        if data is None:
+            return warnings
+        if not isinstance(data, dict):
+            return ["Camera settings payload must be a JSON object/dict."]
+        unknown = sorted(set(data) - _KNOWN_CAMERA_KEYS)
+        if unknown:
+            warnings.append(f"Unknown camera setting key(s) ignored: {', '.join(unknown)}")
+        if "format" in data and str(data.get("format", "")).upper() not in _VALID_FORMATS:
+            warnings.append(f"Camera format '{data.get('format')}' is not in the known PiSD preview list; Picamera2 may reject it.")
+        if "capture_source" in data and str(data.get("capture_source", "")).lower() not in _VALID_CAPTURE_SOURCES:
+            warnings.append("capture_source must be 'request' or 'array'; PiSD kept the previous/default value.")
+        if "array_color_order" in data and str(data.get("array_color_order", "")).lower() not in _VALID_ARRAY_COLOR_ORDERS:
+            warnings.append("array_color_order is invalid; PiSD kept the previous/default value.")
+        if "scaler_crop" in data and _parse_scaler_crop(data.get("scaler_crop")) is None and data.get("scaler_crop") not in (None, "", [], ()):  # noqa: E501
+            warnings.append("scaler_crop must be four values: x,y,width,height.")
+        if "auto_white_balance" in data and _parse_bool(data.get("auto_white_balance"), True) and (
+            float(data.get("colour_gains_red", 0) or 0) > 0 or float(data.get("colour_gains_blue", 0) or 0) > 0
+        ):
+            warnings.append("Manual colour gains only apply when auto_white_balance is false.")
+        if "auto_exposure" in data and _parse_bool(data.get("auto_exposure"), True) and (
+            "exposure_us" in data or "analogue_gain" in data
+        ):
+            warnings.append("Manual exposure_us/analogue_gain only apply when auto_exposure is false.")
+        return warnings
 
     def start(self) -> tuple[bool, str]:
         with self._lock:
@@ -237,8 +510,7 @@ class CameraService:
                 ok, message = self._open_picamera2_locked()
                 if ok:
                     self.backend = "picamera2"
-                    self.last_error = ""
-                    self.last_error_code = PiSDErrorCodes.OK
+                    self._clear_last_error_if_ok()
                 else:
                     self.backend = "simulation"
             else:
@@ -295,21 +567,32 @@ class CameraService:
         try:
             picam2 = Picamera2()
             frame_duration = max(1, int(1_000_000 / max(self.config.fps, 1)))
-            video_config = picam2.create_video_configuration(
-                main={"size": (self.config.width, self.config.height), "format": self.config.format},
-                controls={"FrameDurationLimits": (frame_duration, frame_duration)},
-                queue=False,
-                buffer_count=3,
-            )
+            controls = self._build_picamera_controls(include_frame_duration=True)
+            transform = self._build_transform()
+            kwargs: dict[str, Any] = {
+                "main": {"size": (self.config.width, self.config.height), "format": self.config.format},
+                "controls": {"FrameDurationLimits": (frame_duration, frame_duration), **controls},
+                "queue": bool(self.config.queue),
+                "buffer_count": int(self.config.buffer_count),
+            }
+            if transform is not None:
+                kwargs["transform"] = transform
+            video_config = picam2.create_video_configuration(**kwargs)
             picam2.configure(video_config)
             picam2.start()
             self._picam2 = picam2
-            if (
-                not self.config.auto_white_balance
-                and self.config.colour_gains_red <= 0.0
-                and self.config.colour_gains_blue <= 0.0
-                and self.config.awb_settle_seconds > 0
-            ):
+            with self._lock:
+                self._last_video_config = {
+                    "size": [self.config.width, self.config.height],
+                    "format": self.config.format,
+                    "fps": self.config.fps,
+                    "frame_duration_us": frame_duration,
+                    "buffer_count": self.config.buffer_count,
+                    "queue": self.config.queue,
+                    "hflip": self.config.hflip,
+                    "vflip": self.config.vflip,
+                }
+            if self.config.awb_settle_seconds > 0:
                 time.sleep(float(self.config.awb_settle_seconds))
             self._apply_picamera_controls_locked()
             return True, "Picamera2 opened."
@@ -318,47 +601,82 @@ class CameraService:
             self._record(
                 PiSDErrorCodes.CAMERA_OPEN_FAILED,
                 f"Failed to open Picamera2: {exc}",
-                context={"width": self.config.width, "height": self.config.height, "format": self.config.format},
+                context={
+                    "width": self.config.width,
+                    "height": self.config.height,
+                    "format": self.config.format,
+                    "buffer_count": self.config.buffer_count,
+                    "queue": self.config.queue,
+                },
                 exc=exc,
             )
             return False, f"Failed to open Picamera2: {exc}"
 
-    def _resolve_awb_mode(self) -> Any | None:
-        mode_key = str(self.config.awb_mode or "auto").strip().lower()
-        enum_name = _AWB_MODE_MAP.get(mode_key)
-        if enum_name is None:
-            self._record(
-                PiSDErrorCodes.CAMERA_COLOR_CONTROL_FAILED,
-                f"Unsupported AWB mode '{self.config.awb_mode}'. Keeping default auto AWB mode.",
-                severity="warning",
-                context={"awb_mode": self.config.awb_mode},
-            )
+    def _build_transform(self) -> Any | None:
+        if not (self.config.hflip or self.config.vflip):
             return None
-        if enum_name == "Auto" and mode_key in {"auto", "normal"}:
-            return None
-        if libcamera_controls is None or not hasattr(libcamera_controls, "AwbModeEnum"):
+        if LibcameraTransform is None:
             self._record(
-                PiSDErrorCodes.CAMERA_COLOR_CONTROL_FAILED,
-                "libcamera AWB mode enum is unavailable; AWB mode name was ignored.",
+                PiSDErrorCodes.CAMERA_CONTROL_APPLY_FAILED,
+                "libcamera Transform is unavailable; hflip/vflip could not be applied.",
                 severity="warning",
-                context={"awb_mode": self.config.awb_mode},
+                context={"hflip": self.config.hflip, "vflip": self.config.vflip},
             )
             return None
         try:
-            return getattr(libcamera_controls.AwbModeEnum, enum_name)
+            return LibcameraTransform(hflip=int(self.config.hflip), vflip=int(self.config.vflip))
         except Exception as exc:
             self._record(
-                PiSDErrorCodes.CAMERA_COLOR_CONTROL_FAILED,
-                f"AWB mode '{self.config.awb_mode}' could not be resolved: {exc}",
+                PiSDErrorCodes.CAMERA_CONTROL_APPLY_FAILED,
+                f"Failed to create libcamera transform: {exc}",
                 severity="warning",
-                context={"awb_mode": self.config.awb_mode, "enum_name": enum_name},
                 exc=exc,
             )
             return None
 
-    def _apply_picamera_controls_locked(self) -> None:
-        if self._picam2 is None:
-            return
+    def _resolve_control_enum(self, class_name: str, label: str, mapping: dict[str, str], control_name: str) -> Any | None:
+        key = str(label or "").strip().lower().replace(" ", "-")
+        enum_member = mapping.get(key)
+        if enum_member is None:
+            self._record(
+                PiSDErrorCodes.CAMERA_CONTROL_APPLY_FAILED,
+                f"Unsupported {control_name} value '{label}'.",
+                severity="warning",
+                context={control_name: label},
+            )
+            return None
+        if libcamera_controls is None:
+            self._record(
+                PiSDErrorCodes.CAMERA_CONTROL_APPLY_FAILED,
+                f"libcamera controls are unavailable; {control_name} was ignored.",
+                severity="warning",
+                context={control_name: label},
+            )
+            return None
+        enum_class = getattr(libcamera_controls, class_name, None)
+        if enum_class is None and hasattr(libcamera_controls, "draft"):
+            enum_class = getattr(libcamera_controls.draft, class_name, None)
+        if enum_class is None:
+            self._record(
+                PiSDErrorCodes.CAMERA_CONTROL_APPLY_FAILED,
+                f"libcamera enum {class_name} is unavailable; {control_name} was ignored.",
+                severity="warning",
+                context={control_name: label},
+            )
+            return None
+        try:
+            return getattr(enum_class, enum_member)
+        except Exception as exc:
+            self._record(
+                PiSDErrorCodes.CAMERA_CONTROL_APPLY_FAILED,
+                f"{control_name} '{label}' could not be resolved: {exc}",
+                severity="warning",
+                context={control_name: label, "enum_member": enum_member},
+                exc=exc,
+            )
+            return None
+
+    def _build_picamera_controls(self, *, include_frame_duration: bool = False) -> dict[str, Any]:
         controls: dict[str, Any] = {
             "AeEnable": bool(self.config.auto_exposure),
             "AwbEnable": bool(self.config.auto_white_balance),
@@ -368,18 +686,50 @@ class CameraService:
             "Sharpness": float(self.config.sharpness),
             "ExposureValue": float(self.config.exposure_compensation),
         }
+        if include_frame_duration:
+            frame_duration = max(1, int(1_000_000 / max(self.config.fps, 1)))
+            controls["FrameDurationLimits"] = (frame_duration, frame_duration)
         if not self.config.auto_exposure:
             controls["ExposureTime"] = int(self.config.exposure_us)
             controls["AnalogueGain"] = float(self.config.analogue_gain)
-        awb_mode = self._resolve_awb_mode()
+        awb_mode = self._resolve_control_enum("AwbModeEnum", self.config.awb_mode, _AWB_MODE_MAP, "awb_mode")
         if awb_mode is not None and self.config.auto_white_balance:
             controls["AwbMode"] = awb_mode
+        metering_mode = self._resolve_control_enum(
+            "AeMeteringModeEnum", self.config.ae_metering_mode, _AE_METERING_MODE_MAP, "ae_metering_mode"
+        )
+        if metering_mode is not None:
+            controls["AeMeteringMode"] = metering_mode
+        exposure_mode = self._resolve_control_enum(
+            "AeExposureModeEnum", self.config.ae_exposure_mode, _AE_EXPOSURE_MODE_MAP, "ae_exposure_mode"
+        )
+        if exposure_mode is not None:
+            controls["AeExposureMode"] = exposure_mode
+        constraint_mode = self._resolve_control_enum(
+            "AeConstraintModeEnum", self.config.ae_constraint_mode, _AE_CONSTRAINT_MODE_MAP, "ae_constraint_mode"
+        )
+        if constraint_mode is not None:
+            controls["AeConstraintMode"] = constraint_mode
+        noise_reduction = self._resolve_control_enum(
+            "NoiseReductionModeEnum", self.config.noise_reduction_mode, _NOISE_REDUCTION_MODE_MAP, "noise_reduction_mode"
+        )
+        if noise_reduction is not None:
+            controls["NoiseReductionMode"] = noise_reduction
         if not self.config.auto_white_balance:
             controls["AwbEnable"] = False
             if self.config.colour_gains_red > 0.0 and self.config.colour_gains_blue > 0.0:
                 controls["ColourGains"] = (float(self.config.colour_gains_red), float(self.config.colour_gains_blue))
+        if self.config.scaler_crop:
+            controls["ScalerCrop"] = tuple(int(item) for item in self.config.scaler_crop)
+        return controls
+
+    def _apply_picamera_controls_locked(self) -> None:
+        if self._picam2 is None:
+            return
+        controls = self._build_picamera_controls(include_frame_duration=True)
         try:
             self._picam2.set_controls(controls)
+            self._last_applied_controls = {key: self._serialise_value(value) for key, value in controls.items()}
         except Exception as exc:
             self._record(
                 PiSDErrorCodes.CAMERA_CONTROL_APPLY_FAILED,
@@ -483,21 +833,20 @@ class CameraService:
         for key in (
             "ExposureTime",
             "AnalogueGain",
+            "DigitalGain",
             "ColourGains",
             "AwbEnable",
             "AeEnable",
+            "AeLocked",
+            "LensPosition",
             "ColourTemperature",
             "Lux",
             "FrameDuration",
+            "SensorTimestamp",
+            "ScalerCrop",
         ):
             if key in metadata:
-                value = metadata.get(key)
-                if isinstance(value, (str, int, float, bool)) or value is None:
-                    selected[key] = value
-                elif isinstance(value, (tuple, list)):
-                    selected[key] = [float(item) if isinstance(item, (int, float)) else str(item) for item in value]
-                else:
-                    selected[key] = str(value)
+                selected[key] = self._serialise_value(metadata.get(key))
         return selected
 
     def _frame_from_pil(self, pil_image: Any) -> Any:

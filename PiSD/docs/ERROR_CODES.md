@@ -127,3 +127,11 @@ Additional codes:
 | `PISD-TEST-005` | Test | Camera colour diagnostic script failed to save one or more expected frames. |
 
 Colour-control warnings are normally non-fatal. They should appear in `recent_errors` and `/api/errors` so the user can see exactly which setting was ignored or failed.
+
+---
+
+## PiSD 0.0.5 added camera setting codes
+
+- `PISD-CAM-009` — camera setting was invalid, unknown, ignored, or only partly applicable.
+- `PISD-CAM-010` — camera capability query failed.
+- `PISD-TEST-006` — camera settings matrix test failed.
