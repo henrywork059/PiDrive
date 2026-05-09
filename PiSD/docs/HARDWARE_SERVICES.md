@@ -172,3 +172,51 @@ Check reporting schema without hardware:
 ```bash
 python scripts/check_error_reporting.py
 ```
+
+## Camera colour / AWB debugging notes
+
+Patch `0.0.4` changes the default Picamera2 preview path from raw `capture_array()` plus OpenCV JPEG encoding to a Picamera2 request/PIL image path. This is intentional because the raw array path is useful for computer vision but can make colour debugging confusing when the array channel order is interpreted incorrectly.
+
+Current camera colour-related settings in `config/defaults.json`:
+
+```json
+{
+  "capture_source": "request",
+  "array_color_order": "auto",
+  "auto_white_balance": true,
+  "awb_mode": "auto",
+  "colour_gains_red": 0.0,
+  "colour_gains_blue": 0.0,
+  "awb_settle_seconds": 0.5
+}
+```
+
+Recommended meaning:
+
+- `capture_source: "request"` — use Picamera2 request image/JPEG path for preview; this is the preferred default for colour checking.
+- `capture_source: "array"` — use raw array capture and PiSD/OpenCV encoding for computer-vision tests.
+- `array_color_order` — only affects the `array` path. Try `rgb` or `bgr` if colours are swapped.
+- `auto_white_balance` — keep `true` for normal use; set `false` only when testing a fixed AWB lock or manual `ColourGains`.
+- `colour_gains_red` / `colour_gains_blue` — if both are above zero, PiSD sends Picamera2 `ColourGains`, which disables auto AWB.
+
+Colour diagnostic command:
+
+```bash
+python scripts/diagnose_camera_color.py --hardware
+```
+
+This saves comparison frames under:
+
+```text
+PiSD/test_outputs/camera_color/
+```
+
+Compare these images first:
+
+- `01_request_awb_auto.jpg` — preferred default preview path.
+- `02_request_awb_off_lock.jpg` — lets AWB settle briefly, then locks it.
+- `03_array_auto.jpg`, `04_array_rgb_interpretation.jpg`, `05_array_bgr_interpretation.jpg` — raw array colour-order checks.
+
+If `01_request_awb_auto.jpg` looks correct but the array images look wrong, the issue is array channel interpretation. Keep preview on `capture_source: "request"` and choose the correct `array_color_order` only for CV processing.
+
+If both request images are wrong, the issue is more likely camera tuning, lighting, AWB mode, or manual colour gains rather than OpenCV channel order.

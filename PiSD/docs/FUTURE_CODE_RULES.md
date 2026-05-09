@@ -73,3 +73,9 @@ Any new service or API endpoint should add or update a script under `scripts/` t
 - service status exposes `last_error_code` and `recent_errors`
 
 Patch notes must state which error/reporting checks actually ran.
+
+## Camera colour pipeline rule
+
+For browser preview or saved visual evidence, prefer the Picamera2 request/PIL path when the backend is Picamera2. Raw arrays are still allowed for computer vision, but future code must state the expected channel order and report failures with PiSD error codes.
+
+Do not silently swap RGB/BGR channels. If a future camera module adds a new format or colour conversion path, expose the selected path in service status using fields similar to `last_capture_source` and `last_array_color_order`.

@@ -20,7 +20,7 @@ try:  # Optional; used for JPEG encoding and simulated frames.
 except Exception:  # pragma: no cover
     cv2 = None  # type: ignore
 
-try:  # Optional fallback JPEG encoder.
+try:  # Optional fallback JPEG encoder and Picamera2 request-image path.
     from PIL import Image, ImageDraw  # type: ignore
 except Exception:  # pragma: no cover
     Image = None  # type: ignore
@@ -31,6 +31,31 @@ try:  # Available on Raspberry Pi OS with python3-picamera2.
 except Exception:  # pragma: no cover
     Picamera2 = None  # type: ignore
 
+try:  # Optional Picamera2/libcamera enum access for AWB mode names.
+    from libcamera import controls as libcamera_controls  # type: ignore
+except Exception:  # pragma: no cover
+    libcamera_controls = None  # type: ignore
+
+
+_VALID_CAPTURE_SOURCES = {"request", "array"}
+_VALID_ARRAY_COLOR_ORDERS = {"auto", "bgr", "rgb", "bgra", "rgba", "swap_rb", "none"}
+_AWB_MODE_MAP = {
+    "auto": "Auto",
+    "normal": "Auto",
+    "incandescent": "Incandescent",
+    "tungsten": "Tungsten",
+    "fluorescent": "Fluorescent",
+    "indoor": "Indoor",
+    "daylight": "Daylight",
+    "cloudy": "Cloudy",
+    "custom": "Custom",
+}
+
+
+def _clean_choice(value: Any, default: str, valid: set[str]) -> str:
+    text = str(value if value is not None else default).strip().lower()
+    return text if text in valid else default
+
 
 @dataclass
 class CameraConfig:
@@ -39,10 +64,17 @@ class CameraConfig:
     fps: int = 12
     format: str = "BGR888"
     preview_quality: int = 65
+    capture_source: str = "request"
+    array_color_order: str = "auto"
     auto_exposure: bool = True
     exposure_us: int = 12000
     analogue_gain: float = 1.0
+    exposure_compensation: float = 0.0
     auto_white_balance: bool = True
+    awb_mode: str = "auto"
+    colour_gains_red: float = 0.0
+    colour_gains_blue: float = 0.0
+    awb_settle_seconds: float = 0.5
     brightness: float = 0.0
     contrast: float = 1.0
     saturation: float = 1.0
@@ -58,14 +90,31 @@ class CameraConfig:
         self.preview_quality = clamp_int(
             data.get("preview_quality", self.preview_quality), 20, 95, self.preview_quality
         )
+        self.capture_source = _clean_choice(data.get("capture_source", self.capture_source), "request", _VALID_CAPTURE_SOURCES)
+        self.array_color_order = _clean_choice(
+            data.get("array_color_order", self.array_color_order), "auto", _VALID_ARRAY_COLOR_ORDERS
+        )
         if "auto_exposure" in data:
             self.auto_exposure = bool(data.get("auto_exposure"))
         self.exposure_us = clamp_int(data.get("exposure_us", self.exposure_us), 100, 200000, self.exposure_us)
         self.analogue_gain = clamp_float(
             data.get("analogue_gain", self.analogue_gain), 0.0, 64.0, self.analogue_gain
         )
+        self.exposure_compensation = clamp_float(
+            data.get("exposure_compensation", self.exposure_compensation), -8.0, 8.0, self.exposure_compensation
+        )
         if "auto_white_balance" in data:
             self.auto_white_balance = bool(data.get("auto_white_balance"))
+        self.awb_mode = str(data.get("awb_mode", self.awb_mode) or self.awb_mode).strip().lower()
+        self.colour_gains_red = clamp_float(
+            data.get("colour_gains_red", self.colour_gains_red), 0.0, 16.0, self.colour_gains_red
+        )
+        self.colour_gains_blue = clamp_float(
+            data.get("colour_gains_blue", self.colour_gains_blue), 0.0, 16.0, self.colour_gains_blue
+        )
+        self.awb_settle_seconds = clamp_float(
+            data.get("awb_settle_seconds", self.awb_settle_seconds), 0.0, 5.0, self.awb_settle_seconds
+        )
         self.brightness = clamp_float(data.get("brightness", self.brightness), -1.0, 1.0, self.brightness)
         self.contrast = clamp_float(data.get("contrast", self.contrast), 0.0, 32.0, self.contrast)
         self.saturation = clamp_float(data.get("saturation", self.saturation), 0.0, 32.0, self.saturation)
@@ -78,10 +127,17 @@ class CameraConfig:
             "fps": int(self.fps),
             "format": str(self.format),
             "preview_quality": int(self.preview_quality),
+            "capture_source": str(self.capture_source),
+            "array_color_order": str(self.array_color_order),
             "auto_exposure": bool(self.auto_exposure),
             "exposure_us": int(self.exposure_us),
             "analogue_gain": float(self.analogue_gain),
+            "exposure_compensation": float(self.exposure_compensation),
             "auto_white_balance": bool(self.auto_white_balance),
+            "awb_mode": str(self.awb_mode),
+            "colour_gains_red": float(self.colour_gains_red),
+            "colour_gains_blue": float(self.colour_gains_blue),
+            "awb_settle_seconds": float(self.awb_settle_seconds),
             "brightness": float(self.brightness),
             "contrast": float(self.contrast),
             "saturation": float(self.saturation),
@@ -92,10 +148,10 @@ class CameraConfig:
 class CameraService:
     """PiSD camera service with real Picamera2 path and safe simulation fallback.
 
-    All recoverable camera problems are reported through PiSD error codes and
-    visible through status/API responses. Hardware failures should not silently
-    crash the app; the service records the cause and falls back to simulation
-    when a safe fallback is possible.
+    The default Picamera2 path now uses request.make_image("main") for JPEG
+    preview output. This intentionally avoids the common RGB/BGR channel-order
+    trap that can happen when raw arrays are sent through OpenCV JPEG encoding.
+    The array path remains available for computer-vision diagnostics.
     """
 
     def __init__(self, config: dict[str, Any] | None = None, hardware_enabled: bool = False):
@@ -116,6 +172,9 @@ class CameraService:
         self._frame_lock = threading.Lock()
         self._latest_jpeg: Optional[bytes] = None
         self._latest_raw: Any = None
+        self._last_metadata: dict[str, Any] = {}
+        self._last_capture_source = ""
+        self._last_array_color_order = ""
 
     def _record(
         self,
@@ -140,10 +199,14 @@ class CameraService:
                     "picamera2_available": Picamera2 is not None,
                     "opencv_available": cv2 is not None,
                     "pillow_available": Image is not None,
+                    "libcamera_controls_available": libcamera_controls is not None,
                     "backend": self.backend,
                     "running": self.running,
                     "frame_seq": self.frame_seq,
                     "last_frame_at": self.last_frame_at,
+                    "last_capture_source": self._last_capture_source,
+                    "last_array_color_order": self._last_array_color_order,
+                    "last_metadata": dict(self._last_metadata),
                     "last_error": self.last_error,
                     "last_error_code": self.last_error_code,
                 }
@@ -236,11 +299,18 @@ class CameraService:
                 main={"size": (self.config.width, self.config.height), "format": self.config.format},
                 controls={"FrameDurationLimits": (frame_duration, frame_duration)},
                 queue=False,
-                buffer_count=2,
+                buffer_count=3,
             )
             picam2.configure(video_config)
             picam2.start()
             self._picam2 = picam2
+            if (
+                not self.config.auto_white_balance
+                and self.config.colour_gains_red <= 0.0
+                and self.config.colour_gains_blue <= 0.0
+                and self.config.awb_settle_seconds > 0
+            ):
+                time.sleep(float(self.config.awb_settle_seconds))
             self._apply_picamera_controls_locked()
             return True, "Picamera2 opened."
         except Exception as exc:
@@ -253,6 +323,39 @@ class CameraService:
             )
             return False, f"Failed to open Picamera2: {exc}"
 
+    def _resolve_awb_mode(self) -> Any | None:
+        mode_key = str(self.config.awb_mode or "auto").strip().lower()
+        enum_name = _AWB_MODE_MAP.get(mode_key)
+        if enum_name is None:
+            self._record(
+                PiSDErrorCodes.CAMERA_COLOR_CONTROL_FAILED,
+                f"Unsupported AWB mode '{self.config.awb_mode}'. Keeping default auto AWB mode.",
+                severity="warning",
+                context={"awb_mode": self.config.awb_mode},
+            )
+            return None
+        if enum_name == "Auto" and mode_key in {"auto", "normal"}:
+            return None
+        if libcamera_controls is None or not hasattr(libcamera_controls, "AwbModeEnum"):
+            self._record(
+                PiSDErrorCodes.CAMERA_COLOR_CONTROL_FAILED,
+                "libcamera AWB mode enum is unavailable; AWB mode name was ignored.",
+                severity="warning",
+                context={"awb_mode": self.config.awb_mode},
+            )
+            return None
+        try:
+            return getattr(libcamera_controls.AwbModeEnum, enum_name)
+        except Exception as exc:
+            self._record(
+                PiSDErrorCodes.CAMERA_COLOR_CONTROL_FAILED,
+                f"AWB mode '{self.config.awb_mode}' could not be resolved: {exc}",
+                severity="warning",
+                context={"awb_mode": self.config.awb_mode, "enum_name": enum_name},
+                exc=exc,
+            )
+            return None
+
     def _apply_picamera_controls_locked(self) -> None:
         if self._picam2 is None:
             return
@@ -263,10 +366,18 @@ class CameraService:
             "Contrast": float(self.config.contrast),
             "Saturation": float(self.config.saturation),
             "Sharpness": float(self.config.sharpness),
+            "ExposureValue": float(self.config.exposure_compensation),
         }
         if not self.config.auto_exposure:
             controls["ExposureTime"] = int(self.config.exposure_us)
             controls["AnalogueGain"] = float(self.config.analogue_gain)
+        awb_mode = self._resolve_awb_mode()
+        if awb_mode is not None and self.config.auto_white_balance:
+            controls["AwbMode"] = awb_mode
+        if not self.config.auto_white_balance:
+            controls["AwbEnable"] = False
+            if self.config.colour_gains_red > 0.0 and self.config.colour_gains_blue > 0.0:
+                controls["ColourGains"] = (float(self.config.colour_gains_red), float(self.config.colour_gains_blue))
         try:
             self._picam2.set_controls(controls)
         except Exception as exc:
@@ -274,7 +385,7 @@ class CameraService:
                 PiSDErrorCodes.CAMERA_CONTROL_APPLY_FAILED,
                 f"Failed to apply camera controls: {exc}",
                 severity="warning",
-                context={"controls": controls},
+                context={"controls": {k: str(v) for k, v in controls.items()}},
                 exc=exc,
             )
 
@@ -292,10 +403,21 @@ class CameraService:
             start = time.time()
             try:
                 if self.backend == "picamera2" and self._picam2 is not None:
-                    frame = self._picam2.capture_array("main")
+                    if self.config.capture_source == "request":
+                        frame, jpeg = self._capture_picamera_request()
+                    else:
+                        frame = self._picam2.capture_array("main")
+                        frame = self._normalize_array_frame(frame)
+                        jpeg = self._encode_jpeg(frame)
+                        with self._lock:
+                            self._last_capture_source = "array"
+                            self._last_array_color_order = self.config.array_color_order
                 else:
                     frame = self._make_simulated_frame()
-                jpeg = self._encode_jpeg(frame)
+                    jpeg = self._encode_jpeg(frame)
+                    with self._lock:
+                        self._last_capture_source = "simulation"
+                        self._last_array_color_order = "bgr"
                 if jpeg:
                     with self._frame_lock:
                         self._latest_raw = frame
@@ -307,13 +429,13 @@ class CameraService:
                     self._record(
                         PiSDErrorCodes.CAMERA_ENCODE_FAILED,
                         "Camera frame could not be JPEG encoded.",
-                        context={"backend": self.backend},
+                        context={"backend": self.backend, "capture_source": self.config.capture_source},
                     )
             except Exception as exc:
                 self._record(
                     PiSDErrorCodes.CAMERA_CAPTURE_FAILED,
                     f"Capture error: {exc}",
-                    context={"backend": self.backend},
+                    context={"backend": self.backend, "capture_source": self.config.capture_source},
                     exc=exc,
                 )
                 if self.backend == "picamera2":
@@ -328,6 +450,150 @@ class CameraService:
             interval = 1.0 / max(self.config.fps, 1)
             elapsed = time.time() - start
             self._stop_event.wait(max(0.001, interval - elapsed))
+
+    def _capture_picamera_request(self) -> tuple[Any, bytes | None]:
+        if self._picam2 is None:
+            return None, None
+        request = None
+        try:
+            request = self._picam2.capture_request()
+            pil_image = request.make_image("main")
+            metadata = request.get_metadata() or {}
+            frame = self._frame_from_pil(pil_image)
+            jpeg = self._jpeg_from_pil(pil_image)
+            with self._lock:
+                self._last_metadata = self._safe_metadata(metadata)
+                self._last_capture_source = "request"
+                self._last_array_color_order = "pil_rgb"
+            return frame, jpeg
+        finally:
+            if request is not None:
+                try:
+                    request.release()
+                except Exception as exc:
+                    self._record(
+                        PiSDErrorCodes.CAMERA_CAPTURE_FAILED,
+                        f"Failed to release Picamera2 request: {exc}",
+                        severity="warning",
+                        exc=exc,
+                    )
+
+    def _safe_metadata(self, metadata: dict[str, Any]) -> dict[str, Any]:
+        selected = {}
+        for key in (
+            "ExposureTime",
+            "AnalogueGain",
+            "ColourGains",
+            "AwbEnable",
+            "AeEnable",
+            "ColourTemperature",
+            "Lux",
+            "FrameDuration",
+        ):
+            if key in metadata:
+                value = metadata.get(key)
+                if isinstance(value, (str, int, float, bool)) or value is None:
+                    selected[key] = value
+                elif isinstance(value, (tuple, list)):
+                    selected[key] = [float(item) if isinstance(item, (int, float)) else str(item) for item in value]
+                else:
+                    selected[key] = str(value)
+        return selected
+
+    def _frame_from_pil(self, pil_image: Any) -> Any:
+        if pil_image is None or np is None:
+            return None
+        try:
+            arr = np.array(pil_image)
+            if getattr(arr, "ndim", 0) == 2:
+                if cv2 is not None:
+                    return cv2.cvtColor(arr, cv2.COLOR_GRAY2BGR)
+                return np.stack([arr, arr, arr], axis=-1)
+            if getattr(arr, "ndim", 0) == 3:
+                channels = int(arr.shape[2])
+                if channels >= 3:
+                    rgb = arr[:, :, :3]
+                    return rgb[:, :, ::-1].copy()
+            return arr.copy()
+        except Exception as exc:
+            self._record(
+                PiSDErrorCodes.CAMERA_CAPTURE_FAILED,
+                f"Failed to convert Picamera2 PIL image to frame array: {exc}",
+                severity="warning",
+                exc=exc,
+            )
+            return None
+
+    def _jpeg_from_pil(self, pil_image: Any) -> bytes | None:
+        if pil_image is None:
+            return None
+        try:
+            img = pil_image
+            target_size = (int(self.config.width), int(self.config.height))
+            if tuple(getattr(img, "size", target_size)) != target_size:
+                img = img.resize(target_size)
+            buf = io.BytesIO()
+            img.save(buf, format="JPEG", quality=int(self.config.preview_quality), optimize=False)
+            return buf.getvalue()
+        except Exception as exc:
+            self._record(
+                PiSDErrorCodes.CAMERA_ENCODE_FAILED,
+                f"Picamera2 request-image JPEG encode failed: {exc}",
+                severity="warning",
+                exc=exc,
+            )
+            return None
+
+    def _normalize_array_frame(self, frame: Any) -> Any:
+        if frame is None or np is None or not hasattr(frame, "shape"):
+            return frame
+        try:
+            order = str(self.config.array_color_order or "auto").lower()
+            if order == "auto":
+                fmt = str(self.config.format or "BGR888").upper()
+                if fmt.startswith("RGB"):
+                    order = "rgb"
+                elif fmt.startswith("BGR"):
+                    order = "bgr"
+                elif fmt.startswith("XBGR") or fmt.startswith("BGRA"):
+                    order = "bgra"
+                elif fmt.startswith("XRGB") or fmt.startswith("RGBA"):
+                    order = "rgba"
+                else:
+                    order = "bgr"
+            if len(frame.shape) == 2:
+                if cv2 is not None:
+                    return cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+                return np.stack([frame, frame, frame], axis=-1)
+            if len(frame.shape) != 3:
+                return frame
+            channels = int(frame.shape[2])
+            if channels < 3:
+                return frame
+            if order == "none":
+                return frame.copy()
+            if order in {"rgb", "swap_rb"}:
+                return frame[:, :, :3][:, :, ::-1].copy()
+            if order == "bgr":
+                return frame[:, :, :3].copy()
+            if order == "rgba":
+                if cv2 is not None and channels >= 4:
+                    return cv2.cvtColor(frame, cv2.COLOR_RGBA2BGR)
+                return frame[:, :, [2, 1, 0]].copy()
+            if order == "bgra":
+                if cv2 is not None and channels >= 4:
+                    return cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
+                return frame[:, :, :3].copy()
+            return frame[:, :, :3].copy()
+        except Exception as exc:
+            self._record(
+                PiSDErrorCodes.CAMERA_COLOR_CONTROL_FAILED,
+                f"Failed to normalize camera array colour order: {exc}",
+                severity="warning",
+                context={"array_color_order": self.config.array_color_order, "format": self.config.format},
+                exc=exc,
+            )
+            return frame
 
     def _make_simulated_frame(self) -> Any:
         width = int(self.config.width)

@@ -116,3 +116,14 @@ POST /api/errors/clear
 ```
 
 `/api/status` also includes recent app, camera, and motor errors.
+
+## Patch 0.0.4 camera colour diagnostic additions
+
+Additional codes:
+
+| Code | Component | Meaning |
+|---|---|---|
+| `PISD-CAM-008` | Camera | Camera colour control, AWB mode, or array colour-order handling warning/failure. |
+| `PISD-TEST-005` | Test | Camera colour diagnostic script failed to save one or more expected frames. |
+
+Colour-control warnings are normally non-fatal. They should appear in `recent_errors` and `/api/errors` so the user can see exactly which setting was ignored or failed.

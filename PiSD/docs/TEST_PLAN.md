@@ -153,3 +153,50 @@ Expected:
 ## Verification rule
 
 Patch notes must only claim tests that were actually run.
+
+## Camera colour diagnostic test
+
+Use this when the camera opens but the saved frame colour looks wrong.
+
+```bash
+python scripts/diagnose_camera_color.py --hardware
+```
+
+Optional extended check:
+
+```bash
+python scripts/diagnose_camera_color.py --hardware --include-rgb-format
+```
+
+Expected:
+
+- files are saved under `test_outputs/camera_color/`
+- `summary.json` records backend, capture source, colour path, metadata, and any PiSD error code
+- `01_request_awb_auto.jpg` should be treated as the main preview baseline
+
+Single-frame camera test with explicit preview path:
+
+```bash
+python scripts/test_camera_service.py --hardware --capture-source request
+```
+
+Raw array colour-order comparison:
+
+```bash
+python scripts/test_camera_service.py --hardware --capture-source array --array-color-order rgb --output test_outputs/array_rgb.jpg
+python scripts/test_camera_service.py --hardware --capture-source array --array-color-order bgr --output test_outputs/array_bgr.jpg
+```
+
+Manual AWB lock test:
+
+```bash
+python scripts/test_camera_service.py --hardware --awb-off --output test_outputs/awb_off_lock.jpg
+```
+
+Manual colour gains example:
+
+```bash
+python scripts/test_camera_service.py --hardware --colour-gains 1.5,1.2 --output test_outputs/manual_colour_gains.jpg
+```
+
+Only keep manual gains if the result is visually better under the real lighting used by the car.

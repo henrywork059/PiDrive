@@ -148,3 +148,19 @@ Before packaging:
 - confirm service test scripts exist under `PiSD/scripts/`
 - confirm `pisd/core/errors.py` exists and API JSON responses include `code` fields
 - confirm docs do not reference removed `requirement.txt`
+
+## Patch 0.0.4 colour diagnostic files
+
+Additional test script:
+
+```text
+PiSD/scripts/diagnose_camera_color.py
+```
+
+Generated output directory:
+
+```text
+PiSD/test_outputs/camera_color/
+```
+
+These generated files are for local Pi testing only and should not be committed into future source patches unless the user explicitly asks to include sample captures.

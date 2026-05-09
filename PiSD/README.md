@@ -6,7 +6,7 @@ It is intentionally separate from the existing `PiServer/` folder. PiSD may refe
 
 ## Current version
 
-`PiSD_0_0_3`
+`PiSD_0_0_4`
 
 This version keeps only one dependency file:
 
@@ -39,6 +39,7 @@ PiSD/
 │   ├── check_service_imports.py  # import/default/app wiring check
 │   ├── test_api_endpoints.py     # Flask test-client API smoke test
 │   ├── test_camera_service.py    # camera frame capture test
+│   ├── diagnose_camera_color.py   # real camera colour/AWB diagnostic captures
 │   ├── test_live_http_api.py     # HTTP test against running server
 │   └── test_motor_service.py     # motor mapping and optional GPIO test
 ├── test_outputs/                 # generated test captures/log-friendly outputs
@@ -55,7 +56,8 @@ PiSD/
     ├── PATCH_NOTES_PiSD_0_0_0.md
     ├── PATCH_NOTES_PiSD_0_0_1.md
     ├── PATCH_NOTES_PiSD_0_0_2.md
-    └── PATCH_NOTES_PiSD_0_0_3.md
+    ├── PATCH_NOTES_PiSD_0_0_3.md
+    └── PATCH_NOTES_PiSD_0_0_4.md
 ```
 
 ## Install
@@ -136,6 +138,22 @@ Real camera service check on the Pi:
 
 ```bash
 python scripts/test_camera_service.py --hardware
+```
+
+
+Camera colour diagnostic on the Pi. Use this if the real camera opens but the saved colour looks wrong:
+
+```bash
+python scripts/diagnose_camera_color.py --hardware
+```
+
+This saves comparison files under `test_outputs/camera_color/`. The first image, `01_request_awb_auto.jpg`, is the new preferred preview baseline.
+
+Raw array colour-order checks:
+
+```bash
+python scripts/test_camera_service.py --hardware --capture-source array --array-color-order rgb --output test_outputs/array_rgb.jpg
+python scripts/test_camera_service.py --hardware --capture-source array --array-color-order bgr --output test_outputs/array_bgr.jpg
 ```
 
 API route check without starting a network server:
@@ -222,6 +240,8 @@ Camera service:
 - uses Picamera2 when `--hardware` is enabled and Picamera2 is available
 - falls back to a simulated changing frame when Picamera2 is unavailable
 - exposes current JPEG frames through `/api/camera/frame.jpg`
+- defaults to the Picamera2 request/PIL JPEG path for better colour fidelity in preview images
+- keeps the raw array/OpenCV path available for computer-vision diagnostics via `capture_source: "array"`
 - exposes MJPEG stream through `/video_feed`
 
 Motor service:
