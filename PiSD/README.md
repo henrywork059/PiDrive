@@ -6,7 +6,9 @@ It is intentionally separate from the existing `PiServer/` folder. PiSD may refe
 
 ## Current version
 
-`PiSD_0_1_2` — patch on top of stable `PiSD_0_1_0` with one-by-one motor calibration tests and a standard OK/FAIL validation script
+`PiSD_0_2_0` — second stable full baseline promoted before the first GUI patch.
+
+This package is built from stable `PiSD_0_1_0` plus the accepted `PiSD_0_1_1` motor-channel calibration patch and `PiSD_0_1_2` standard validation patch.
 
 This stable baseline keeps only one dependency file:
 
@@ -19,7 +21,9 @@ PiSD/requirements.txt
 
 ## Stable baseline notes
 
-`PiSD_0_1_0` is the first stable PiSD baseline after the hardware-service validation cycle.
+`PiSD_0_2_0` is the current stable PiSD baseline before GUI development.
+
+It keeps the tested camera/motor/error-reporting foundation from `PiSD_0_1_0`, then adds one-by-one motor channel calibration and the standard OK/FAIL validation script.
 
 Confirmed by Raspberry Pi test logs supplied by the user:
 
@@ -30,8 +34,10 @@ Confirmed by Raspberry Pi test logs supplied by the user:
 - GPIO motor adapter starts as `rpigpio`
 - safe invalid-JSON API handling returns `PISD-API-001` instead of crashing
 - live API camera start/frame/status/stop endpoints work
+- one-by-one motor calibration testing is available for cars with different motor wiring
+- standard validation prints simple `OK` / `FAIL` lines with `PISD-*` codes
 
-Real wheel direction still depends on physical observation. Use the lifted-wheel motor tests before driving on the floor.
+Real wheel direction is intentionally left configurable for the later GUI settings page. Use the lifted-wheel motor channel tests to confirm each car's wiring before driving on the floor.
 
 ## Folder layout
 
@@ -83,7 +89,8 @@ PiSD/
     ├── PATCH_NOTES_PiSD_0_0_6.md
     ├── PATCH_NOTES_PiSD_0_1_0.md
     ├── PATCH_NOTES_PiSD_0_1_1.md
-    └── PATCH_NOTES_PiSD_0_1_2.md
+    ├── PATCH_NOTES_PiSD_0_1_2.md
+    └── PATCH_NOTES_PiSD_0_2_0.md
 ```
 
 ## Install
