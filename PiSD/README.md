@@ -6,7 +6,7 @@ It is intentionally separate from the existing `PiServer/` folder. PiSD may refe
 
 ## Current version
 
-`PiSD_0_2_0` — second stable full baseline promoted before the first GUI patch.
+`PiSD_0_2_1` — first patch after v2 baseline, adding the temporary testing server GUI for API/settings validation.
 
 This package is built from stable `PiSD_0_1_0` plus the accepted `PiSD_0_1_1` motor-channel calibration patch and `PiSD_0_1_2` standard validation patch.
 
@@ -21,7 +21,7 @@ PiSD/requirements.txt
 
 ## Stable baseline notes
 
-`PiSD_0_2_0` is the current stable PiSD baseline before GUI development.
+`PiSD_0_2_0` is the current stable rollback baseline before GUI development. `PiSD_0_2_1` is a patch-only testing GUI layer built on top of that baseline.
 
 It keeps the tested camera/motor/error-reporting foundation from `PiSD_0_1_0`, then adds one-by-one motor channel calibration and the standard OK/FAIL validation script.
 
@@ -51,6 +51,9 @@ PiSD/
 ├── pisd/
 │   ├── __init__.py               # PiSD package version
 │   ├── app.py                    # Flask GUI/API wiring
+│   ├── web/
+│   │   ├── templates/testing_server.html
+│   │   └── static/               # testing GUI CSS/JS
 │   ├── core/
 │   │   ├── errors.py             # shared error codes/reporting helpers
 │   │   └── value_utils.py        # clamp/parse helpers
@@ -78,7 +81,8 @@ PiSD/
 │   ├── HARDWARE_SERVICES.md
 │   ├── MOTOR_CALIBRATION.md
 │   ├── STABLE_BASELINE.md
-│   └── TEST_PLAN.md
+│   ├── TEST_PLAN.md
+│   └── TESTING_SERVER_GUI.md
 └── PATCH_NOTES/
     ├── PATCH_NOTES_PiSD_0_0_0.md
     ├── PATCH_NOTES_PiSD_0_0_1.md
@@ -90,7 +94,8 @@ PiSD/
     ├── PATCH_NOTES_PiSD_0_1_0.md
     ├── PATCH_NOTES_PiSD_0_1_1.md
     ├── PATCH_NOTES_PiSD_0_1_2.md
-    └── PATCH_NOTES_PiSD_0_2_0.md
+    ├── PATCH_NOTES_PiSD_0_2_0.md
+    └── PATCH_NOTES_PiSD_0_2_1.md
 ```
 
 ## Install
@@ -107,6 +112,34 @@ On Raspberry Pi OS, install camera packages with `apt` first when testing real c
 sudo apt update
 sudo apt install -y python3-picamera2 python3-libcamera python3-opencv
 ```
+
+
+## Testing server GUI
+
+Run the temporary browser-based API/settings tester:
+
+```bash
+python3 PiSD.py --host 0.0.0.0 --port 5050 --hardware
+```
+
+Open:
+
+```text
+http://<pi-ip>:5050/
+http://<pi-ip>:5050/testing
+```
+
+Use this page to check camera settings, motor settings, one-by-one motor channel tests, custom API calls, STOP, and visible `PISD-*` response codes before building the final PiServer-style GUI.
+
+The GUI files are:
+
+```text
+PiSD/pisd/web/templates/testing_server.html
+PiSD/pisd/web/static/css/testing_server.css
+PiSD/pisd/web/static/js/testing_server.js
+```
+
+Real motor output remains locked unless the page sends `enable_motor_output: true`; keep wheels lifted.
 
 ## Run in safe simulation mode
 
@@ -128,6 +161,7 @@ Status-only check:
 ```bash
 python PiSD.py --status-only
 ```
+
 
 ## Run on the Raspberry Pi LAN
 

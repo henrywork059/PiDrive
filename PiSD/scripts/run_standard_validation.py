@@ -418,6 +418,36 @@ def _check_api_stop_and_errors(client) -> list[CheckResult]:
     return results
 
 
+
+def _check_api_testing_gui(client) -> list[CheckResult]:
+    results: list[CheckResult] = []
+
+    response = client.get("/testing")
+    page_ok = response.status_code == 200 and b"PiSD Testing Server GUI" in response.data
+    results.append(
+        CheckResult(
+            "api.testing_gui.page",
+            page_ok,
+            PiSDErrorCodes.OK if page_ok else PiSDErrorCodes.TEST_GUI_ROUTE_FAILED,
+            "testing GUI page loaded" if page_ok else f"testing GUI page returned HTTP {response.status_code}",
+            {"http_status": response.status_code, "bytes": len(response.data)},
+        )
+    )
+
+    response = client.get("/api/test-gui/manifest")
+    payload = response.get_json(silent=True) or {}
+    manifest_ok = response.status_code == 200 and payload.get("code") == PiSDErrorCodes.OK and bool(payload.get("endpoints"))
+    results.append(
+        CheckResult(
+            "api.testing_gui.manifest",
+            manifest_ok,
+            _json_code(payload, PiSDErrorCodes.TEST_GUI_ROUTE_FAILED),
+            "testing GUI manifest loaded" if manifest_ok else f"testing GUI manifest returned HTTP {response.status_code}",
+            {"http_status": response.status_code, "endpoint_count": len(payload.get("endpoints") or [])},
+        )
+    )
+    return results
+
 def _run_api_checks(args: argparse.Namespace) -> list[CheckResult]:
     try:
         app = create_app(hardware_enabled=bool(args.hardware))
@@ -433,6 +463,7 @@ def _run_api_checks(args: argparse.Namespace) -> list[CheckResult]:
 
     client = app.test_client()
     results: list[CheckResult] = []
+    results.extend(_check_api_testing_gui(client))
     results.append(_check_api_status(client))
     if not args.skip_camera:
         results.extend(_check_api_camera(client))

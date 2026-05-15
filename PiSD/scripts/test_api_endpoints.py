@@ -52,6 +52,18 @@ def main() -> int:
     res = _expect(client.get("/api/status"))
     results.append({"endpoint": "GET /api/status", "status": res.status_code, "json": res.get_json()})
 
+
+    res = _expect(client.get("/testing"))
+    if b"PiSD Testing Server GUI" not in res.data:
+        raise AssertionError("GET /testing did not return the testing GUI page")
+    results.append({"endpoint": "GET /testing", "status": res.status_code, "bytes": len(res.data)})
+
+    res = _expect(client.get("/api/test-gui/manifest"))
+    manifest_json = res.get_json() or {}
+    if manifest_json.get("code") != PiSDErrorCodes.OK or not manifest_json.get("endpoints"):
+        raise AssertionError("GET /api/test-gui/manifest did not return endpoint manifest")
+    results.append({"endpoint": "GET /api/test-gui/manifest", "status": res.status_code, "json": manifest_json})
+
     res = _expect(client.post("/api/camera/start"))
     results.append({"endpoint": "POST /api/camera/start", "status": res.status_code, "json": res.get_json()})
     time.sleep(0.4)

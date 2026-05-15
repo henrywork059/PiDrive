@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PiSD Testing Server GUI</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/testing_server.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">PiSD testing server</p>
+      <h1>Settings and API call tester</h1>
+      <p class="subtitle">Use this temporary GUI to verify camera, motor, settings, and local API behaviour before building the final control server UI.</p>
+    </div>
+    <div class="top-actions">
+      <span id="globalCode" class="code-pill">{{ initial_status.code }}</span>
+      <button id="refreshStatusBtn" class="button secondary">Refresh status</button>
+      <button id="stopAllBtn" class="button danger">STOP</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="card wide">
+      <div class="card-header">
+        <div>
+          <h2>Camera preview and service calls</h2>
+          <p>Trusted preview path: <code>capture_source=request</code>. Confirmed CV array path: <code>array_color_order=rgb</code>.</p>
+        </div>
+        <span class="hint">01 visual / 91 array</span>
+      </div>
+      <div class="preview-grid">
+        <div class="preview-box">
+          <img id="cameraPreview" src="/api/camera/frame.jpg" alt="Camera preview">
+        </div>
+        <div class="button-stack">
+          <button class="button primary" data-call='{"method":"POST","path":"/api/camera/start"}'>Start camera</button>
+          <button class="button secondary" data-call='{"method":"POST","path":"/api/camera/stop"}'>Stop camera</button>
+          <button id="refreshFrameBtn" class="button secondary">Refresh frame</button>
+          <button class="button secondary" data-call='{"method":"GET","path":"/api/camera/config"}'>Read camera config</button>
+          <button class="button secondary" data-call='{"method":"GET","path":"/api/camera/capabilities"}'>Read capabilities</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Camera settings apply test</h2>
+      <form id="cameraSettingsForm" class="form-grid">
+        <label>Width <input name="width" type="number" value="426" min="160" max="1920"></label>
+        <label>Height <input name="height" type="number" value="240" min="120" max="1080"></label>
+        <label>FPS <input name="fps" type="number" value="12" min="1" max="60" step="1"></label>
+        <label>JPEG quality <input name="preview_quality" type="number" value="65" min="10" max="95"></label>
+        <label>Capture source
+          <select name="capture_source">
+            <option value="request" selected>request</option>
+            <option value="array">array</option>
+          </select>
+        </label>
+        <label>Array colour order
+          <select name="array_color_order">
+            <option value="rgb" selected>rgb</option>
+            <option value="bgr">bgr</option>
+            <option value="auto">auto</option>
+          </select>
+        </label>
+        <label>Buffer count <input name="buffer_count" type="number" value="3" min="1" max="8"></label>
+        <label>Queue
+          <select name="queue" data-type="boolean">
+            <option value="false" selected>false</option>
+            <option value="true">true</option>
+          </select>
+        </label>
+        <label>Auto exposure
+          <select name="auto_exposure" data-type="boolean">
+            <option value="true" selected>true</option>
+            <option value="false">false</option>
+          </select>
+        </label>
+        <label>Exposure us <input name="exposure_us" type="number" value="12000" min="100" max="200000"></label>
+        <label>Analogue gain <input name="analogue_gain" type="number" value="1.0" min="1" max="16" step="0.1"></label>
+        <label>Exposure compensation <input name="exposure_compensation" type="number" value="0" min="-8" max="8" step="0.1"></label>
+        <label>Auto WB
+          <select name="auto_white_balance" data-type="boolean">
+            <option value="true" selected>true</option>
+            <option value="false">false</option>
+          </select>
+        </label>
+        <label>AWB mode
+          <select name="awb_mode">
+            <option value="auto" selected>auto</option>
+            <option value="daylight">daylight</option>
+            <option value="cloudy">cloudy</option>
+            <option value="tungsten">tungsten</option>
+            <option value="fluorescent">fluorescent</option>
+            <option value="indoor">indoor</option>
+          </select>
+        </label>
+        <label>Red gain <input name="colour_gains_red" type="number" value="0" min="0" max="8" step="0.05"></label>
+        <label>Blue gain <input name="colour_gains_blue" type="number" value="0" min="0" max="8" step="0.05"></label>
+        <label>Brightness <input name="brightness" type="number" value="0" min="-1" max="1" step="0.05"></label>
+        <label>Contrast <input name="contrast" type="number" value="1" min="0" max="4" step="0.05"></label>
+        <label>Saturation <input name="saturation" type="number" value="1" min="0" max="4" step="0.05"></label>
+        <label>Sharpness <input name="sharpness" type="number" value="1" min="0" max="16" step="0.1"></label>
+      </form>
+      <button id="applyCameraBtn" class="button primary">Apply camera settings</button>
+    </section>
+
+    <section class="card">
+      <h2>Motor settings apply test</h2>
+      <p class="small">These settings should not move the wheels. Movement is only in the channel test below.</p>
+      <form id="motorSettingsForm" class="form-grid">
+        <label>Left direction
+          <select name="left_direction" data-type="number">
+            <option value="1" selected>1</option>
+            <option value="-1">-1</option>
+          </select>
+        </label>
+        <label>Right direction
+          <select name="right_direction" data-type="number">
+            <option value="1" selected>1</option>
+            <option value="-1">-1</option>
+          </select>
+        </label>
+        <label>Steering direction
+          <select name="steering_direction" data-type="number">
+            <option value="1" selected>1</option>
+            <option value="-1">-1</option>
+          </select>
+        </label>
+        <label>Left max speed <input name="left_max_speed" type="number" value="1.0" min="0" max="1" step="0.01"></label>
+        <label>Right max speed <input name="right_max_speed" type="number" value="1.0" min="0" max="1" step="0.01"></label>
+        <label>Left bias <input name="left_bias" type="number" value="0" min="-1" max="1" step="0.01"></label>
+        <label>Right bias <input name="right_bias" type="number" value="0" min="-1" max="1" step="0.01"></label>
+        <label>Steer mix <input name="steer_mix" type="number" value="1" min="0" max="2" step="0.05"></label>
+      </form>
+      <button id="applyMotorBtn" class="button primary">Apply motor settings</button>
+    </section>
+
+    <section class="card">
+      <h2>One-by-one motor channel test</h2>
+      <p class="warning">Lift the wheels first. Real output is locked unless the arming checkbox is selected.</p>
+      <form id="motorChannelForm" class="form-grid">
+        <label>Side
+          <select name="side">
+            <option value="left">left</option>
+            <option value="right">right</option>
+          </select>
+        </label>
+        <label>Direction
+          <select name="direction" data-type="number">
+            <option value="1">1</option>
+            <option value="-1">-1</option>
+          </select>
+        </label>
+        <label>Speed <input name="speed" type="number" value="0.12" min="0" max="1" step="0.01"></label>
+        <label>Duration seconds <input name="duration" type="number" value="0.25" min="0.05" max="3" step="0.05"></label>
+        <label class="checkbox-line"><input name="enable_motor_output" type="checkbox"> Wheels lifted, enable real output</label>
+      </form>
+      <div class="button-row">
+        <button id="testMotorBtn" class="button primary">Run channel test</button>
+        <button class="button danger" data-call='{"method":"POST","path":"/api/control/stop"}'>STOP</button>
+      </div>
+    </section>
+
+    <section class="card wide">
+      <h2>Custom API caller</h2>
+      <div class="api-caller">
+        <select id="customMethod">
+          <option>GET</option>
+          <option>POST</option>
+        </select>
+        <input id="customPath" value="/api/status" spellcheck="false">
+        <button id="customSendBtn" class="button primary">Send</button>
+      </div>
+      <textarea id="customBody" class="json-input" spellcheck="false">{}</textarea>
+      <div id="manifestList" class="manifest"></div>
+    </section>
+
+    <section class="card wide">
+      <div class="card-header">
+        <h2>Status, response and error codes</h2>
+        <button class="button secondary" data-call='{"method":"POST","path":"/api/errors/clear"}'>Clear errors</button>
+      </div>
+      <div class="status-grid">
+        <pre id="lastResponse" class="console">Waiting for API call...</pre>
+        <pre id="statusPanel" class="console">{{ initial_status | tojson(indent=2) }}</pre>
+      </div>
+    </section>
+  </main>
+
+  <script id="initialStatusJson" type="application/json">{{ initial_status | tojson }}</script>
+  <script id="manifestJson" type="application/json">{{ manifest | tojson }}</script>
+  <script src="{{ url_for('static', filename='js/testing_server.js') }}"></script>
+</body>
+</html>

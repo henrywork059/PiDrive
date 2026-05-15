@@ -162,3 +162,8 @@ FAIL PISD-TEST-002 camera.service_frame - camera frame failed: ...
 ```
 
 Use this script as the preferred quick checklist before building or changing the main PiSD server GUI.
+
+
+## Testing GUI validation
+
+- `PISD-TEST-009` — testing server GUI route or manifest failed local validation.

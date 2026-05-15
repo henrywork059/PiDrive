@@ -18,6 +18,8 @@ OK   PISD-OK-000   services.import_and_status - camera and motor services import
 OK   PISD-OK-000   camera.service_frame - frame captured (12345 bytes)
 OK   PISD-OK-000   camera.apply_settings - camera settings applied and frame captured
 OK   PISD-OK-000   motor.service_channels - left/right direction tests completed and stopped
+OK   PISD-OK-000   api.testing_gui.page - testing GUI page loaded
+OK   PISD-OK-000   api.testing_gui.manifest - testing GUI manifest loaded
 OK   PISD-OK-000   api.status - status endpoint returned OK
 OK   PISD-OK-000   api.camera.start - camera start endpoint OK
 OK   PISD-OK-000   api.camera.frame - camera frame endpoint returned JPEG (12345 bytes)
@@ -64,6 +66,47 @@ python3 scripts/run_standard_validation.py --hardware --enable-motor-output --mo
 ```
 
 `PISD-TEST-008` means at least one standard validation item failed. Read the failed line and `summary.json` for the exact function and code.
+
+
+## Testing server GUI check
+
+Start the server:
+
+```bash
+python3 PiSD.py --host 0.0.0.0 --port 5050 --hardware
+```
+
+Open:
+
+```text
+http://<pi-ip>:5050/
+http://<pi-ip>:5050/testing
+```
+
+Expected:
+
+- page title says `PiSD Testing Server GUI`
+- global code starts as `PISD-OK-000`
+- camera service buttons call real camera APIs
+- camera settings form calls `/api/camera/apply`
+- motor settings form calls `/api/motor/apply` without moving wheels
+- motor channel test calls `/api/motor/test-channel`
+- unarmed real motor output returns `PISD-MOT-008`
+- STOP calls `/api/control/stop`
+- custom API caller can call `/api/status` and show JSON output
+
+Local no-network page validation:
+
+```bash
+python3 scripts/run_standard_validation.py --skip-camera --skip-motor
+```
+
+Expected OK lines:
+
+```text
+OK   PISD-OK-000   api.testing_gui.page - testing GUI page loaded
+OK   PISD-OK-000   api.testing_gui.manifest - testing GUI manifest loaded
+```
 
 ## Local checks
 

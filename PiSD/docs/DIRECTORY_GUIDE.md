@@ -35,7 +35,7 @@ Rules:
 
 ### `pisd/app.py`
 
-Owns Flask route wiring and simple web GUI shell.
+Owns Flask route wiring and the temporary testing server GUI/API shell.
 
 Rules:
 
@@ -44,6 +44,23 @@ Rules:
 - every hardware action should return clear JSON status
 - every JSON response must include a PiSD `code` field
 - caught errors should use `pisd.core.errors` instead of plain text-only messages
+
+### `pisd/web/`
+
+Contains browser testing GUI files.
+
+Current files:
+
+- `templates/testing_server.html` — temporary API/settings test page
+- `static/css/testing_server.css` — testing page styles
+- `static/js/testing_server.js` — testing page API caller logic
+
+Rules:
+
+- keep this as a temporary testing interface until the final GUI is designed
+- every action should call an API endpoint rather than bypassing the backend
+- display returned `PISD-*` codes clearly
+- real motor output must remain locked unless explicitly armed
 
 ### `pisd/services/`
 

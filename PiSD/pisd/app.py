@@ -13,6 +13,9 @@ from pisd.services.motor_service import MotorService
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULTS_PATH = PROJECT_ROOT / "config" / "defaults.json"
 APP_ERRORS = ErrorReporter("app")
+WEB_ROOT = Path(__file__).resolve().parent / "web"
+WEB_TEMPLATE_DIR = WEB_ROOT / "templates"
+WEB_STATIC_DIR = WEB_ROOT / "static"
 
 
 def load_defaults() -> dict[str, Any]:
@@ -41,7 +44,7 @@ def load_defaults() -> dict[str, Any]:
 
 def create_app(hardware_enabled: bool = False):
     try:
-        from flask import Flask, Response, jsonify, render_template_string, request
+        from flask import Flask, Response, jsonify, render_template, request
     except ImportError as exc:  # pragma: no cover
         APP_ERRORS.report(
             PiSDErrorCodes.APP_DEPENDENCY_MISSING,
@@ -57,7 +60,12 @@ def create_app(hardware_enabled: bool = False):
     camera_service = CameraService(defaults.get("camera"), hardware_enabled=hardware_enabled)
     motor_service = MotorService(defaults.get("motor"), hardware_enabled=hardware_enabled)
 
-    app = Flask(__name__)
+    app = Flask(
+        __name__,
+        template_folder=str(WEB_TEMPLATE_DIR),
+        static_folder=str(WEB_STATIC_DIR),
+        static_url_path="/testing/static",
+    )
     app.config["pisd_services"] = {"camera": camera_service, "motor": motor_service}
     app.config["pisd_errors"] = APP_ERRORS
 
@@ -100,9 +108,56 @@ def create_app(hardware_enabled: bool = False):
             return {}, report
         return data, None
 
+    def test_gui_manifest() -> dict[str, Any]:
+        return {
+            "app": "PiSD",
+            "version": __version__,
+            "code": PiSDErrorCodes.OK,
+            "message": "Testing server GUI endpoint manifest loaded.",
+            "pages": ["/", "/testing"],
+            "static_base": "/testing/static/",
+            "endpoints": [
+                {"method": "GET", "path": "/api/status", "purpose": "Read full PiSD camera/motor/error status."},
+                {"method": "GET", "path": "/api/errors", "purpose": "Read recent app, camera, and motor error history."},
+                {"method": "POST", "path": "/api/errors/clear", "purpose": "Clear error history."},
+                {"method": "POST", "path": "/api/camera/start", "purpose": "Start camera service."},
+                {"method": "POST", "path": "/api/camera/stop", "purpose": "Stop camera service."},
+                {"method": "GET", "path": "/api/camera/config", "purpose": "Read current camera settings."},
+                {"method": "GET", "path": "/api/camera/capabilities", "purpose": "Read Picamera2 capabilities when available."},
+                {"method": "POST", "path": "/api/camera/apply", "purpose": "Apply camera settings and restart camera."},
+                {"method": "GET", "path": "/api/camera/frame.jpg", "purpose": "Fetch one JPEG frame."},
+                {"method": "GET", "path": "/video_feed", "purpose": "Multipart MJPEG preview feed."},
+                {"method": "GET", "path": "/api/motor/config", "purpose": "Read current motor settings."},
+                {"method": "POST", "path": "/api/motor/apply", "purpose": "Apply motor settings without moving the car."},
+                {"method": "POST", "path": "/api/motor/test-channel", "purpose": "Test one motor side/direction/speed/duration."},
+                {"method": "POST", "path": "/api/control/manual", "purpose": "Send manual steering/throttle command."},
+                {"method": "POST", "path": "/api/control/stop", "purpose": "Emergency stop / set outputs to zero."},
+            ],
+            "known_good_camera": {
+                "visual_reference": "01_request_awb_auto",
+                "array_reference": "91_array_rgb_confirmed_correct",
+                "capture_source": "request",
+                "array_color_order": "rgb",
+            },
+            "safety": {
+                "motor_output_default": "locked",
+                "real_motor_channel_tests_require_enable_motor_output": True,
+                "keep_wheels_lifted": True,
+            },
+        }
+
     @app.get("/")
+    @app.get("/testing")
     def index():
-        return render_template_string(INDEX_HTML, status=json.dumps(build_status(), indent=2))
+        return render_template(
+            "testing_server.html",
+            initial_status=build_status(),
+            manifest=test_gui_manifest(),
+        )
+
+    @app.get("/api/test-gui/manifest")
+    def api_test_gui_manifest():
+        return jsonify(test_gui_manifest())
 
     @app.get("/api/status")
     def api_status():
@@ -283,90 +338,3 @@ def create_app(hardware_enabled: bool = False):
         return None
 
     return app
-
-
-INDEX_HTML = """
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>PiSD Hardware Service Sandbox</title>
-  <style>
-    body { font-family: system-ui, sans-serif; margin: 0; background: #111827; color: #e5e7eb; }
-    header, main { max-width: 1100px; margin: auto; padding: 1rem; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
-    .card { background: #1f2937; border: 1px solid #374151; border-radius: 14px; padding: 1rem; }
-    button { border: 0; border-radius: 10px; padding: 0.65rem 0.9rem; cursor: pointer; margin: 0.2rem; }
-    input[type=range] { width: 100%; }
-    img { width: 100%; border-radius: 12px; background: #000; min-height: 160px; object-fit: contain; }
-    pre { white-space: pre-wrap; overflow: auto; background: #030712; border-radius: 10px; padding: 0.75rem; font-size: 0.85rem; }
-    .danger { background: #dc2626; color: white; }
-    .primary { background: #2563eb; color: white; }
-    .muted { background: #4b5563; color: white; }
-  </style>
-</head>
-<body>
-<header>
-  <h1>PiSD Hardware Service Sandbox</h1>
-  <p>Clean PiServer rebuild area with camera and motor services patched in behind safe API endpoints.</p>
-</header>
-<main class="grid">
-  <section class="card">
-    <h2>Camera</h2>
-    <img id="preview" src="/api/camera/frame.jpg" alt="Camera preview">
-    <p>
-      <button class="primary" onclick="post('/api/camera/start')">Start camera</button>
-      <button class="muted" onclick="post('/api/camera/stop')">Stop camera</button>
-    </p>
-  </section>
-  <section class="card">
-    <h2>Manual motor control</h2>
-    <label>Steering <span id="steeringOut">0.00</span></label>
-    <input id="steering" type="range" min="-1" max="1" value="0" step="0.01" oninput="sendControl()">
-    <label>Throttle <span id="throttleOut">0.00</span></label>
-    <input id="throttle" type="range" min="-1" max="1" value="0" step="0.01" oninput="sendControl()">
-    <p><button class="danger" onclick="stopMotors()">STOP</button></p>
-  </section>
-  <section class="card">
-    <h2>Status</h2>
-    <pre id="status">{{ status }}</pre>
-  </section>
-</main>
-<script>
-async function post(url, body = {}) {
-  const res = await fetch(url, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
-  await refreshStatus();
-  return res.json();
-}
-async function refreshStatus() {
-  const res = await fetch('/api/status', {cache: 'no-store'});
-  const data = await res.json();
-  document.getElementById('status').textContent = JSON.stringify(data, null, 2);
-}
-let pending = false;
-async function sendControl() {
-  if (pending) return;
-  pending = true;
-  const steering = Number(document.getElementById('steering').value);
-  const throttle = Number(document.getElementById('throttle').value);
-  document.getElementById('steeringOut').textContent = steering.toFixed(2);
-  document.getElementById('throttleOut').textContent = throttle.toFixed(2);
-  try { await post('/api/control/manual', {steering, throttle}); } finally { pending = false; }
-}
-async function stopMotors() {
-  document.getElementById('steering').value = 0;
-  document.getElementById('throttle').value = 0;
-  document.getElementById('steeringOut').textContent = '0.00';
-  document.getElementById('throttleOut').textContent = '0.00';
-  await post('/api/control/stop');
-}
-setInterval(() => {
-  const img = document.getElementById('preview');
-  img.src = '/api/camera/frame.jpg?t=' + Date.now();
-  refreshStatus();
-}, 1000);
-</script>
-</body>
-</html>
-"""

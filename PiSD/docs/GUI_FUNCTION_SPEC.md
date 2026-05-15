@@ -2,20 +2,24 @@
 
 ## Current GUI shell
 
-The current page at `/` is a small hardware-service test shell.
+`PiSD_0_2_1` provides a temporary testing server GUI at `/` and `/testing`.
+
+This page is intentionally not the final driving UI. It is a browser-based API and settings tester for checking backend service behaviour before the actual PiServer-style GUI is designed.
 
 It includes:
 
-- camera preview image
-- start/stop camera buttons
-- steering slider
-- throttle slider
+- camera preview and camera service buttons
+- camera settings apply form
+- motor settings apply form
+- one-by-one motor channel test panel
+- custom API caller
+- status / last response / error-code panels
 - emergency stop button
-- live JSON status panel
 
 ## Current API endpoints
 
 ```text
+GET  /api/test-gui/manifest
 GET  /api/status
 POST /api/camera/start
 POST /api/camera/stop
@@ -77,3 +81,10 @@ POST /api/control/stop
 ### Full Auto / Lane Detection
 
 Add later after the manual, camera, and motor layers are stable.
+
+
+## Testing GUI behaviour
+
+The testing GUI should only prove API and settings behaviour. Do not add final layout/docking/recording/model features here yet. The final GUI should be built later after these calls are confirmed stable.
+
+Motor movement remains locked by default. `/api/motor/test-channel` must continue to refuse real output with `PISD-MOT-008` unless `enable_motor_output` is true.
