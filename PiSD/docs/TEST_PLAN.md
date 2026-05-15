@@ -422,3 +422,32 @@ python3 scripts/test_live_http_api.py --base-url http://127.0.0.1:5050 --enable-
 ```
 
 This now also calls `POST /api/motor/test-channel` before the existing manual control check.
+
+## Panel testing GUI validation
+
+After applying `PiSD_0_2_3`, run:
+
+```bash
+python3 scripts/test_panel_testing_page.py
+```
+
+Expected successful output includes:
+
+```text
+OK   PISD-OK-000   panel_gui.file.template - pisd/web/templates/panel_testing.html exists
+OK   PISD-OK-000   panel_gui.source_contract - panel lab source includes panel registry, style controls, size controls, and responsive rules
+OK   PISD-OK-000   panel_gui.route.page - /panel-testing loaded
+OK   PISD-OK-000   panel_gui.manifest_contract - panel manifest lists planned final panels and style controls
+```
+
+Static-only packaging check:
+
+```bash
+python3 scripts/test_panel_testing_page.py --static-only
+```
+
+The standard validation script now also checks the panel testing GUI unless `--skip-gui` is used:
+
+```bash
+python3 scripts/run_standard_validation.py --skip-camera --skip-motor
+```

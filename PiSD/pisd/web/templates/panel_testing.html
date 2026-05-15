@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PiSD Panel Testing Lab</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/panel_testing.css') }}">
+</head>
+<body>
+  <header class="pt-hero">
+    <div class="pt-hero-copy">
+      <p class="pt-kicker">PiSD panel testing lab</p>
+      <h1>Flexible GUI panel stress page</h1>
+      <p class="pt-summary">
+        This page is for testing the planned final GUI panels before the actual control GUI is built.
+        The panels are newly designed for this lab and are not copied from the old testing-server layout.
+      </p>
+    </div>
+    <div class="pt-hero-actions">
+      <a class="pt-link-button" href="/testing">API testing page</a>
+      <button id="ptRefreshStatus" class="pt-button">Refresh status</button>
+      <button id="ptRunAllChecks" class="pt-button pt-button-primary">Run all panel checks</button>
+      <button id="ptStopAll" class="pt-button pt-button-danger">STOP</button>
+    </div>
+  </header>
+
+  <main class="pt-shell" id="ptShell" data-density="comfortable" data-layout="adaptive">
+    <aside class="pt-control-panel" aria-label="Panel environment controls">
+      <section class="pt-control-section">
+        <h2>Environment settings</h2>
+        <p>Use these controls to test panel style, size, density, and layout adaptability.</p>
+        <label>Theme
+          <select id="ptTheme">
+            <option value="dark" selected>dark</option>
+            <option value="light">light</option>
+            <option value="contrast">high contrast</option>
+          </select>
+        </label>
+        <label>Layout mode
+          <select id="ptLayoutMode">
+            <option value="adaptive" selected>adaptive grid</option>
+            <option value="single">single column</option>
+            <option value="dense">dense dashboard</option>
+            <option value="wide">wide control desk</option>
+          </select>
+        </label>
+        <label>Test viewport
+          <select id="ptViewportPreset">
+            <option value="auto" selected>auto / browser width</option>
+            <option value="phone">phone width</option>
+            <option value="tablet">tablet width</option>
+            <option value="laptop">laptop width</option>
+            <option value="wall">large monitor</option>
+          </select>
+        </label>
+        <label>Panel size preset
+          <select id="ptPanelSizePreset">
+            <option value="auto" selected>auto</option>
+            <option value="compact">compact</option>
+            <option value="standard">standard</option>
+            <option value="large">large</option>
+            <option value="stress">stress: mixed</option>
+          </select>
+        </label>
+        <label>Density
+          <select id="ptDensity">
+            <option value="compact">compact</option>
+            <option value="comfortable" selected>comfortable</option>
+            <option value="spacious">spacious</option>
+          </select>
+        </label>
+      </section>
+
+      <section class="pt-control-section">
+        <h2>Style tuning</h2>
+        <label>Font scale <input id="ptFontScale" type="range" min="0.8" max="1.35" step="0.05" value="1.0"></label>
+        <label>Panel gap <input id="ptPanelGap" type="range" min="6" max="28" step="1" value="14"></label>
+        <label>Corner radius <input id="ptPanelRadius" type="range" min="0" max="28" step="1" value="18"></label>
+        <label>Border strength <input id="ptBorderStrength" type="range" min="0" max="1" step="0.05" value="0.35"></label>
+        <label>Shadow strength <input id="ptShadowStrength" type="range" min="0" max="1" step="0.05" value="0.35"></label>
+        <label>Minimum panel width <input id="ptMinPanelWidth" type="range" min="220" max="520" step="10" value="300"></label>
+        <label>Preview aspect
+          <select id="ptPreviewAspect">
+            <option value="16/9" selected>16:9</option>
+            <option value="4/3">4:3</option>
+            <option value="1/1">1:1</option>
+            <option value="21/9">21:9</option>
+          </select>
+        </label>
+      </section>
+
+      <section class="pt-control-section">
+        <h2>Panel stress tools</h2>
+        <button id="ptApplySettings" class="pt-button pt-button-primary">Apply settings</button>
+        <button id="ptCycleSizes" class="pt-button">Cycle panel sizes</button>
+        <button id="ptResetPanels" class="pt-button">Reset panel lab</button>
+        <button id="ptExportPanelReport" class="pt-button">Export JSON report</button>
+      </section>
+    </aside>
+
+    <section class="pt-lab-area" aria-label="Panel preview area">
+      <div class="pt-lab-toolbar">
+        <div>
+          <h2>Planned actual-GUI panels</h2>
+          <p id="ptPanelCount">Loading panel registry...</p>
+        </div>
+        <div class="pt-toolbar-status">
+          <span id="ptGlobalCode" class="pt-code-pill">{{ initial_status.code }}</span>
+          <span id="ptEnvironmentLabel">adaptive / comfortable</span>
+        </div>
+      </div>
+
+      <div id="ptViewportFrame" class="pt-viewport-frame" data-preset="auto">
+        <div id="ptPanelGrid" class="pt-panel-grid" aria-live="polite"></div>
+      </div>
+
+      <section class="pt-report-wrap">
+        <h2>Panel test output</h2>
+        <pre id="ptPanelReport" class="pt-console">Panel lab ready. Press "Run all panel checks".</pre>
+      </section>
+    </section>
+  </main>
+
+  <script id="panelInitialStatusJson" type="application/json">{{ initial_status | tojson }}</script>
+  <script id="panelManifestJson" type="application/json">{{ panel_manifest | tojson }}</script>
+  <script src="{{ url_for('static', filename='js/panel_testing.js') }}"></script>
+</body>
+</html>

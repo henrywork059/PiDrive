@@ -35,6 +35,9 @@ WEB_ROOT = PROJECT_ROOT / "pisd" / "web"
 WEB_TEMPLATE = WEB_ROOT / "templates" / "testing_server.html"
 WEB_CSS = WEB_ROOT / "static" / "css" / "testing_server.css"
 WEB_JS = WEB_ROOT / "static" / "js" / "testing_server.js"
+PANEL_TEMPLATE = WEB_ROOT / "templates" / "panel_testing.html"
+PANEL_CSS = WEB_ROOT / "static" / "css" / "panel_testing.css"
+PANEL_JS = WEB_ROOT / "static" / "js" / "panel_testing.js"
 
 
 @dataclass
@@ -336,6 +339,83 @@ def _check_testing_gui_source_contract() -> CheckResult:
         {key: value for key, value in missing.items() if value},
     )
 
+
+
+def _check_panel_testing_static_files() -> CheckResult:
+    files = {
+        "template": PANEL_TEMPLATE,
+        "css": PANEL_CSS,
+        "js": PANEL_JS,
+    }
+    missing = [name for name, path in files.items() if not path.exists() or path.stat().st_size <= 0]
+    ok = not missing
+    return CheckResult(
+        "panel_gui.static_files",
+        ok,
+        PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_PANEL_GUI_CONTRACT_FAILED,
+        "panel testing GUI template/CSS/JS files exist" if ok else f"missing or empty files: {', '.join(missing)}",
+        {name: str(path.relative_to(PROJECT_ROOT)) for name, path in files.items()},
+    )
+
+
+def _check_panel_testing_source_contract() -> CheckResult:
+    try:
+        template = PANEL_TEMPLATE.read_text(encoding="utf-8")
+        css = PANEL_CSS.read_text(encoding="utf-8")
+        js = PANEL_JS.read_text(encoding="utf-8")
+    except Exception as exc:
+        return CheckResult(
+            "panel_gui.source_contract",
+            False,
+            PiSDErrorCodes.TEST_PANEL_GUI_CONTRACT_FAILED,
+            f"failed to read panel GUI files: {exc}",
+            {"exception_type": type(exc).__name__},
+        )
+    required_template_tokens = [
+        "PiSD Panel Testing Lab",
+        "ptPanelGrid",
+        "ptPanelReport",
+        "ptTheme",
+        "ptLayoutMode",
+        "ptViewportPreset",
+        "ptPanelSizePreset",
+        "ptFontScale",
+        "ptMinPanelWidth",
+        "ptPreviewAspect",
+    ]
+    required_js_tokens = [
+        "PANEL_BLUEPRINTS",
+        "system-status-panel",
+        "camera-preview-panel",
+        "camera-settings-panel",
+        "motor-settings-panel",
+        "motor-channel-panel",
+        "manual-drive-panel",
+        "safety-stop-panel",
+        "error-monitor-panel",
+        "api-inspector-panel",
+        "validation-panel",
+        "recording-panel",
+        "model-runtime-panel",
+        "applyPanelSizePreset",
+        "runAllPanelChecks",
+        "PISD-TEST-012",
+    ]
+    required_css_tokens = ["--pt-min-panel-width", "--pt-preview-aspect", ".pt-panel-grid", "container-type: inline-size", "@media (max-width: 850px)"]
+    missing = {
+        "template": [token for token in required_template_tokens if token not in template],
+        "js": [token for token in required_js_tokens if token not in js],
+        "css": [token for token in required_css_tokens if token not in css],
+    }
+    ok = not any(missing.values())
+    return CheckResult(
+        "panel_gui.source_contract",
+        ok,
+        PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_PANEL_GUI_CONTRACT_FAILED,
+        "panel testing GUI source contains panel registry, flexible style controls, size controls, and responsive rules" if ok else "panel testing GUI source contract is missing required tokens",
+        {key: value for key, value in missing.items() if value},
+    )
+
 def _check_api_status(client) -> CheckResult:
     response = client.get("/api/status")
     payload = response.get_json(silent=True) or {}
@@ -593,6 +673,74 @@ def _check_api_testing_gui(client) -> list[CheckResult]:
     )
     return results
 
+
+
+def _check_api_panel_testing_gui(client) -> list[CheckResult]:
+    results: list[CheckResult] = []
+    response = client.get("/panel-testing")
+    page_ok = response.status_code == 200 and b"PiSD Panel Testing Lab" in response.data and b"ptPanelGrid" in response.data
+    results.append(
+        CheckResult(
+            "api.panel_gui.page",
+            page_ok,
+            PiSDErrorCodes.OK if page_ok else PiSDErrorCodes.TEST_PANEL_GUI_CONTRACT_FAILED,
+            "/panel-testing page loaded" if page_ok else f"/panel-testing returned HTTP {response.status_code} or missing expected content",
+            {"http_status": response.status_code, "bytes": len(response.data)},
+        )
+    )
+
+    for path, label, marker in (
+        ("/testing/static/css/panel_testing.css", "api.panel_gui.static_css", b".pt-panel-grid"),
+        ("/testing/static/js/panel_testing.js", "api.panel_gui.static_js", b"PANEL_BLUEPRINTS"),
+    ):
+        response = client.get(path)
+        asset_ok = response.status_code == 200 and marker in response.data
+        results.append(
+            CheckResult(
+                label,
+                asset_ok,
+                PiSDErrorCodes.OK if asset_ok else PiSDErrorCodes.TEST_PANEL_GUI_CONTRACT_FAILED,
+                f"{path} asset loaded" if asset_ok else f"{path} returned HTTP {response.status_code} or missing marker",
+                {"http_status": response.status_code, "bytes": len(response.data)},
+            )
+        )
+
+    response = client.get("/api/panel-testing/manifest")
+    payload = response.get_json(silent=True) or {}
+    panels = {str(item.get("id")) for item in payload.get("panels") or [] if isinstance(item, dict)}
+    required_panels = {
+        "system-status-panel",
+        "camera-preview-panel",
+        "camera-settings-panel",
+        "motor-settings-panel",
+        "motor-channel-panel",
+        "manual-drive-panel",
+        "safety-stop-panel",
+        "error-monitor-panel",
+        "api-inspector-panel",
+        "validation-panel",
+        "recording-panel",
+        "model-runtime-panel",
+    }
+    style_controls = set(payload.get("style_controls") or [])
+    required_controls = {"theme", "layout_mode", "viewport_preset", "panel_size_preset", "density", "font_scale", "panel_gap", "corner_radius", "minimum_panel_width", "preview_aspect"}
+    manifest_ok = (
+        response.status_code == 200
+        and payload.get("code") == PiSDErrorCodes.OK
+        and required_panels.issubset(panels)
+        and required_controls.issubset(style_controls)
+    )
+    results.append(
+        CheckResult(
+            "api.panel_gui.manifest_contract",
+            manifest_ok,
+            _json_code(payload, PiSDErrorCodes.TEST_PANEL_GUI_CONTRACT_FAILED),
+            "panel testing manifest lists planned panels and style controls" if manifest_ok else "panel testing manifest contract failed",
+            {"http_status": response.status_code, "missing_panels": sorted(required_panels - panels), "missing_controls": sorted(required_controls - style_controls)},
+        )
+    )
+    return results
+
 def _run_api_checks(args: argparse.Namespace) -> list[CheckResult]:
     try:
         app = create_app(hardware_enabled=bool(args.hardware))
@@ -610,6 +758,7 @@ def _run_api_checks(args: argparse.Namespace) -> list[CheckResult]:
     results: list[CheckResult] = []
     if not args.skip_gui:
         results.extend(_check_api_testing_gui(client))
+        results.extend(_check_api_panel_testing_gui(client))
     results.append(_check_api_status(client))
     if not args.skip_camera:
         results.extend(_check_api_camera(client))
@@ -637,6 +786,8 @@ def main() -> int:
     if not args.skip_gui:
         checks.append(_safe_check("gui.static_files", _check_testing_gui_static_files))
         checks.append(_safe_check("gui.source_contract", _check_testing_gui_source_contract))
+        checks.append(_safe_check("panel_gui.static_files", _check_panel_testing_static_files))
+        checks.append(_safe_check("panel_gui.source_contract", _check_panel_testing_source_contract))
 
     if not args.skip_camera:
         checks.append(_safe_check("camera.service_frame", lambda: _check_camera_service(bool(args.hardware))))

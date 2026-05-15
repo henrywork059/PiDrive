@@ -177,3 +177,19 @@ PiSD/pisd/web/templates/testing_server.html
 PiSD/pisd/web/static/css/testing_server.css
 PiSD/pisd/web/static/js/testing_server.js
 ```
+
+## Related panel testing page
+
+`PiSD_0_2_3` adds a separate page:
+
+```text
+/panel-testing
+```
+
+This is not the same as `/testing`. `/testing` is for API and settings calls. `/panel-testing` is for checking the planned final-GUI panel list, panel size modes, flexible layout behaviour, and style controls before the actual GUI server is built.
+
+Validation command:
+
+```bash
+python3 scripts/test_panel_testing_page.py
+```

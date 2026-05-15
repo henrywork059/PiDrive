@@ -171,3 +171,17 @@ Use this script as the preferred quick checklist before building or changing the
 - `PISD-TEST-011` — testing server GUI API contract or browser smoke-test sequence failed validation.
 
 The testing GUI must keep visible `PISD-*` response codes and must keep real motor output locked unless the request explicitly includes `enable_motor_output: true`.
+
+## Panel testing GUI validation codes
+
+```text
+PISD-TEST-012
+```
+
+Meaning: the `/panel-testing` page, static assets, panel registry, style controls, size controls, responsive source contract, or panel manifest failed validation.
+
+Typical check command:
+
+```bash
+python3 scripts/test_panel_testing_page.py
+```

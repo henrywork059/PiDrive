@@ -90,3 +90,38 @@ Add later after the manual, camera, and motor layers are stable.
 The testing GUI should only prove API and settings behaviour. Do not add final layout/docking/recording/model features here yet. The final GUI should be built later after these calls are confirmed stable.
 
 Motor movement remains locked by default. `/api/motor/test-channel` must continue to refuse real output with `PISD-MOT-008` unless `enable_motor_output` is true. The safe smoke-test button must never arm real motor output; it should accept either a safe simulation run or the expected `PISD-MOT-008` refusal in hardware mode.
+
+## Panel testing page added in PiSD 0.2.3
+
+`/panel-testing` is a new panel layout lab before the actual GUI server is built. It does not copy the old testing-server cards. It rebuilds the planned final-GUI panels as flexible, responsive test components.
+
+Panels currently listed for final GUI planning:
+
+- System Status
+- Camera Preview
+- Camera Settings
+- Motor Settings
+- Motor Channel Calibration
+- Manual Drive
+- Safety Stop
+- Error Monitor
+- API Inspector
+- Validation Checklist
+- Recording and Dataset
+- Model and Lane Runtime
+
+The panel lab includes environment and style controls for:
+
+- theme
+- layout mode
+- viewport preset
+- panel size preset
+- density
+- font scale
+- panel gap
+- corner radius
+- border and shadow strength
+- minimum panel width
+- preview aspect ratio
+
+Use this page to decide which panel sizes, densities, and layout behaviour are safe before building the final server GUI.

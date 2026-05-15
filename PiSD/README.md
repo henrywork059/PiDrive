@@ -6,7 +6,7 @@ It is intentionally separate from the existing `PiServer/` folder. PiSD may refe
 
 ## Current version
 
-`PiSD_0_2_2` — testing GUI hardening patch, adding browser smoke testing and stronger static/API contract validation before the final server GUI.
+`PiSD_0_2_3` — GUI panel testing patch, adding a separate flexible panel lab for testing planned final-GUI panels, panel sizes, panel style settings, and responsive behaviour before the actual GUI server is built.
 
 This package is built from stable `PiSD_0_1_0` plus the accepted `PiSD_0_1_1` motor-channel calibration patch and `PiSD_0_1_2` standard validation patch.
 
@@ -21,7 +21,7 @@ PiSD/requirements.txt
 
 ## Stable baseline notes
 
-`PiSD_0_2_0` is the current stable rollback baseline before GUI development. `PiSD_0_2_1` added the testing GUI, and `PiSD_0_2_2` strengthens the GUI/API testing layer on top of that baseline.
+`PiSD_0_2_0` is the current stable rollback baseline before GUI development. `PiSD_0_2_1` added the testing GUI, `PiSD_0_2_2` strengthens the GUI/API testing layer, and `PiSD_0_2_3` adds a separate flexible panel testing lab on top of that baseline.
 
 It keeps the tested camera/motor/error-reporting foundation from `PiSD_0_1_0`, then adds one-by-one motor channel calibration and the standard OK/FAIL validation script.
 
@@ -53,7 +53,8 @@ PiSD/
 │   ├── app.py                    # Flask GUI/API wiring
 │   ├── web/
 │   │   ├── templates/testing_server.html
-│   │   └── static/               # testing GUI CSS/JS
+│   │   ├── templates/panel_testing.html
+│   │   └── static/               # testing GUI and panel-lab CSS/JS
 │   ├── core/
 │   │   ├── errors.py             # shared error codes/reporting helpers
 │   │   └── value_utils.py        # clamp/parse helpers
@@ -82,7 +83,8 @@ PiSD/
 │   ├── MOTOR_CALIBRATION.md
 │   ├── STABLE_BASELINE.md
 │   ├── TEST_PLAN.md
-│   └── TESTING_SERVER_GUI.md
+│   ├── TESTING_SERVER_GUI.md
+│   └── PANEL_TESTING_GUI.md
 └── PATCH_NOTES/
     ├── PATCH_NOTES_PiSD_0_0_0.md
     ├── PATCH_NOTES_PiSD_0_0_1.md
@@ -96,7 +98,8 @@ PiSD/
     ├── PATCH_NOTES_PiSD_0_1_2.md
     ├── PATCH_NOTES_PiSD_0_2_0.md
     ├── PATCH_NOTES_PiSD_0_2_1.md
-    └── PATCH_NOTES_PiSD_0_2_2.md
+    ├── PATCH_NOTES_PiSD_0_2_2.md
+    └── PATCH_NOTES_PiSD_0_2_3.md
 ```
 
 ## Install
@@ -143,6 +146,61 @@ PiSD/pisd/web/static/js/testing_server.js
 ```
 
 Real motor output remains locked unless the page sends `enable_motor_output: true`; keep wheels lifted.
+
+## Panel testing GUI
+
+Run the same PiSD server, then open the panel lab:
+
+```text
+http://<pi-ip>:5050/panel-testing
+```
+
+This page is a layout and component test bed for the future actual GUI. The panels are remade for the new lab and are not copied from the older API testing page.
+
+It lists the planned final-GUI panels:
+
+```text
+System Status
+Camera Preview
+Camera Settings
+Motor Settings
+Motor Channel Calibration
+Manual Drive
+Safety Stop
+Error Monitor
+API Inspector
+Validation Checklist
+Recording and Dataset
+Model and Lane Runtime
+```
+
+Use the left settings column to test every panel under different environments:
+
+```text
+theme
+layout mode
+phone/tablet/laptop/large-monitor width presets
+compact/standard/large/stress panel sizes
+density
+font scale
+panel gap
+corner radius
+border/shadow strength
+minimum panel width
+preview aspect ratio
+```
+
+Focused panel-lab validation:
+
+```bash
+python scripts/test_panel_testing_page.py
+```
+
+Static-only version:
+
+```bash
+python scripts/test_panel_testing_page.py --static-only
+```
 
 ## Run in safe simulation mode
 
@@ -216,6 +274,18 @@ Static-only version, useful on a packaging PC without Flask:
 
 ```bash
 python scripts/test_testing_server_gui.py --static-only
+```
+
+Focused panel-testing GUI validation. This checks the flexible panel lab files, planned panel registry, style controls, size controls, responsive rules, route, static assets, and manifest:
+
+```bash
+python scripts/test_panel_testing_page.py
+```
+
+Static-only version:
+
+```bash
+python scripts/test_panel_testing_page.py --static-only
 ```
 
 Error-code/reporting schema check:
