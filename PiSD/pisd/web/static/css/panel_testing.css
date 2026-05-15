@@ -400,3 +400,27 @@ button, input, select, textarea {
     max-height: none;
   }
 }
+
+.pt-contract-strip {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  align-items: center;
+  color: var(--pt-muted);
+  font-size: 0.84rem;
+}
+
+.pt-code-inline {
+  display: inline-flex;
+  border-radius: 999px;
+  padding: 0.18rem 0.45rem;
+  background: rgba(117, 167, 255, 0.12);
+  color: var(--pt-accent);
+  border: 1px solid rgba(117, 167, 255, 0.35);
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+
+.pt-console-mini {
+  min-height: 76px;
+  font-size: 0.84rem;
+}

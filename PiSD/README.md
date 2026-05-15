@@ -506,3 +506,47 @@ All setting failures, ignored values, or unsupported libcamera controls should b
 ## Motor calibration
 
 See `docs/MOTOR_CALIBRATION.md`.
+
+## PiSD 0.2.4 panel API contracts
+
+The `/panel-testing` page now tests both panel layout and panel API contracts before the actual GUI server is built.
+
+Run the focused contract check:
+
+```bash
+python3 scripts/test_panel_api_contracts.py
+```
+
+Hardware-mode check without arming motors:
+
+```bash
+python3 scripts/test_panel_api_contracts.py --hardware
+```
+
+Start the testing server:
+
+```bash
+python3 PiSD.py --host 0.0.0.0 --port 5050 --hardware
+```
+
+Open:
+
+```text
+http://<pi-ip>:5050/panel-testing
+```
+
+Use these page buttons:
+
+```text
+Run structure checks
+Run panel API checks
+Save preset / Load preset / Export preset / Import preset
+```
+
+The contract endpoint is:
+
+```text
+GET /api/panel-testing/contracts
+```
+
+Expected safe panel API checks should return `PISD-OK-000`, `PISD-MOT-008` for unarmed hardware motor-channel safety refusal, or `PISD-TEST-013` for intentional future placeholders.

@@ -20,6 +20,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from pisd.app import create_app  # noqa: E402
 from pisd.core.errors import PiSDErrorCodes  # noqa: E402
+from pisd.core.panel_contracts import get_panel_contracts  # noqa: E402
 
 WEB_ROOT = PROJECT_ROOT / "pisd" / "web"
 WEB_TEMPLATE = WEB_ROOT / "templates" / "panel_testing.html"
@@ -133,10 +134,20 @@ def check_source_contract() -> Result:
     required_js = [
         "PANEL_BLUEPRINTS",
         "runAllPanelChecks",
+        "runAllPanelApiChecks",
+        "runPanelApiTest",
+        "showContract",
+        "showLastResponse",
+        "showExpected",
         "applyPanelSizePreset",
         "collectSettings",
+        "savePreset",
+        "loadPreset",
+        "exportPreset",
+        "importPresetFile",
         "PISD-TEST-012",
-        *REQUIRED_PANELS,
+        "PISD-TEST-013",
+        "PISD-TEST-014",
     ]
     missing = {
         "template": [token for token in required_template if token not in template],
@@ -149,7 +160,7 @@ def check_source_contract() -> Result:
         "panel_gui.source_contract",
         ok,
         PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_PANEL_GUI_CONTRACT_FAILED,
-        "panel lab source includes panel registry, style controls, size controls, and responsive rules" if ok else "panel lab source contract failed",
+        "panel lab source includes registry loading, style controls, size controls, presets, and API contract actions" if ok else "panel lab source contract failed",
         {"missing": missing},
     )
 
@@ -193,23 +204,39 @@ def check_routes(hardware: bool) -> list[Result]:
 
     response = client.get("/api/panel-testing/manifest")
     payload = response.get_json(silent=True) or {}
-    panels = {str(item.get("id")) for item in payload.get("panels") or [] if isinstance(item, dict)}
+    panels_payload = payload.get("panels") or []
+    panels = {str(item.get("id")) for item in panels_payload if isinstance(item, dict)}
     controls = set(payload.get("style_controls") or [])
     required_control_names = {"theme", "layout_mode", "viewport_preset", "panel_size_preset", "density", "font_scale", "panel_gap", "corner_radius", "minimum_panel_width", "preview_aspect"}
+    contracts_ok = all(isinstance(item.get("safe_test"), dict) and isinstance(item.get("endpoints"), list) for item in panels_payload if isinstance(item, dict))
     ok = (
         response.status_code == 200
         and payload.get("code") == PiSDErrorCodes.OK
         and set(REQUIRED_PANELS).issubset(panels)
         and required_control_names.issubset(controls)
         and payload.get("panel_count", 0) >= len(REQUIRED_PANELS)
+        and contracts_ok
     )
     results.append(
         Result(
             "panel_gui.manifest_contract",
             ok,
             payload.get("code") or PiSDErrorCodes.TEST_PANEL_GUI_CONTRACT_FAILED,
-            "panel manifest lists planned final panels and style controls" if ok else "panel manifest contract failed",
-            {"http_status": response.status_code, "missing_panels": sorted(set(REQUIRED_PANELS) - panels), "missing_controls": sorted(required_control_names - controls)},
+            "panel manifest lists planned final panels, style controls, and API contracts" if ok else "panel manifest contract failed",
+            {"http_status": response.status_code, "missing_panels": sorted(set(REQUIRED_PANELS) - panels), "missing_controls": sorted(required_control_names - controls), "contracts_ok": contracts_ok},
+        )
+    )
+
+    response = client.get("/api/panel-testing/contracts")
+    payload = response.get_json(silent=True) or {}
+    ok = response.status_code == 200 and payload.get("code") == PiSDErrorCodes.OK and len(payload.get("panels") or []) >= len(REQUIRED_PANELS)
+    results.append(
+        Result(
+            "panel_gui.contracts_route",
+            ok,
+            payload.get("code") or PiSDErrorCodes.TEST_PANEL_API_CONTRACT_FAILED,
+            "panel contracts route loaded" if ok else f"panel contracts route returned HTTP {response.status_code}",
+            {"http_status": response.status_code, "panel_count": len(payload.get("panels") or [])},
         )
     )
     return results

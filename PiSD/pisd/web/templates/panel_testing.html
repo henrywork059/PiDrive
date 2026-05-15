@@ -19,7 +19,8 @@
     <div class="pt-hero-actions">
       <a class="pt-link-button" href="/testing">API testing page</a>
       <button id="ptRefreshStatus" class="pt-button">Refresh status</button>
-      <button id="ptRunAllChecks" class="pt-button pt-button-primary">Run all panel checks</button>
+      <button id="ptRunAllChecks" class="pt-button pt-button-primary">Run structure checks</button>
+      <button id="ptRunPanelApiChecks" class="pt-button">Run panel API checks</button>
       <button id="ptStopAll" class="pt-button pt-button-danger">STOP</button>
     </div>
   </header>
@@ -94,6 +95,11 @@
         <button id="ptApplySettings" class="pt-button pt-button-primary">Apply settings</button>
         <button id="ptCycleSizes" class="pt-button">Cycle panel sizes</button>
         <button id="ptResetPanels" class="pt-button">Reset panel lab</button>
+        <button id="ptSavePreset" class="pt-button">Save preset</button>
+        <button id="ptLoadPreset" class="pt-button">Load preset</button>
+        <button id="ptExportPreset" class="pt-button">Export preset</button>
+        <button id="ptImportPresetButton" class="pt-button">Import preset</button>
+        <input id="ptImportPreset" type="file" accept="application/json,.json" hidden>
         <button id="ptExportPanelReport" class="pt-button">Export JSON report</button>
       </section>
     </aside>
@@ -116,7 +122,8 @@
 
       <section class="pt-report-wrap">
         <h2>Panel test output</h2>
-        <pre id="ptPanelReport" class="pt-console">Panel lab ready. Press "Run all panel checks".</pre>
+        <p class="pt-muted">Use structure checks for flexible layout validation, and panel API checks for safe endpoint-contract validation.</p>
+        <pre id="ptPanelReport" class="pt-console">Panel lab ready. Press "Run structure checks" or "Run panel API checks".</pre>
       </section>
     </section>
   </main>

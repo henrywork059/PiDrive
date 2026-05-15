@@ -451,3 +451,57 @@ The standard validation script now also checks the panel testing GUI unless `--s
 ```bash
 python3 scripts/run_standard_validation.py --skip-camera --skip-motor
 ```
+
+---
+
+## PiSD 0.2.4 panel API contract validation
+
+After applying `PiSD_0_2_4_patch`, validate the panel API contracts before starting the final GUI server work.
+
+Static/data-only contract check:
+
+```bash
+python3 scripts/test_panel_api_contracts.py --static-only
+```
+
+Full safe local API contract check:
+
+```bash
+python3 scripts/test_panel_api_contracts.py
+```
+
+Hardware-mode check without arming motors:
+
+```bash
+python3 scripts/test_panel_api_contracts.py --hardware
+```
+
+Expected output contains simple `OK`, `SKIP`, or `FAIL` lines with PiSD codes:
+
+```text
+OK   PISD-OK-000   panel_contract.registry - 12 panel contracts declared
+OK   PISD-OK-000   panel_contract.fields - all panel contracts include required fields
+OK   PISD-OK-000   panel.system_status.api - safe action returned expected code via HTTP 200
+SKIP PISD-TEST-013 panel.recording.placeholder - future placeholder intentionally skipped
+```
+
+In the browser, open:
+
+```text
+http://<pi-ip>:5050/panel-testing
+```
+
+Use:
+
+```text
+Run structure checks
+Run panel API checks
+```
+
+`Run panel API checks` must not arm real motor output. Motor-channel checks should either pass in simulation with `PISD-OK-000` or refuse safely in hardware mode with `PISD-MOT-008`.
+
+The standard validation script also checks panel API contract data and the contract routes:
+
+```bash
+python3 scripts/run_standard_validation.py --hardware --skip-camera --skip-motor
+```

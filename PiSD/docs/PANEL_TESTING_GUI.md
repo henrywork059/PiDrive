@@ -126,3 +126,101 @@ POST /api/control/stop
 ```
 
 The motor channel and manual-drive panel shapes are for layout and interaction testing before building the final GUI.
+
+---
+
+## PiSD 0.2.4 panel API contract testing
+
+`PiSD_0_2_4` expands the panel testing page from a visual/layout lab into a visual plus API-contract lab.
+
+Each planned final-GUI panel now has a contract containing:
+
+```text
+panel id
+title
+group
+purpose
+required endpoints
+safe test action
+expected PISD code or codes
+dangerous-action flag
+minimum panel width
+responsive behaviour note
+```
+
+The panel page now provides these actions on each panel:
+
+```text
+Test panel       checks panel structure and runs its safe API action
+Contract         shows the declared API contract
+Last             shows the latest response from that panel's safe API test
+Expected         shows the expected endpoint and PISD code
+```
+
+The page-level buttons are:
+
+```text
+Run structure checks     checks panel DOM, size controls, and contract presence
+Run panel API checks     runs every safe panel API contract test
+Save preset              saves the current panel style/size settings to browser localStorage
+Load preset              reloads the browser-saved preset
+Export preset            downloads a JSON preset
+Import preset            imports a JSON preset
+Export JSON report       downloads the current test report
+```
+
+Safe panel API checks do not arm real motor output. The motor-channel panel accepts either:
+
+```text
+PISD-OK-000   simulation-safe result
+PISD-MOT-008  real-hardware safety refusal when not armed
+```
+
+Future placeholder panels use:
+
+```text
+PISD-TEST-013
+```
+
+Contract failures use:
+
+```text
+PISD-TEST-014
+```
+
+## API contract endpoints
+
+```text
+GET /api/panel-testing/manifest
+GET /api/panel-testing/contracts
+```
+
+## New validation script
+
+Run:
+
+```bash
+python3 scripts/test_panel_api_contracts.py
+```
+
+Hardware-mode contract test without arming motors:
+
+```bash
+python3 scripts/test_panel_api_contracts.py --hardware
+```
+
+Static/contract-data only:
+
+```bash
+python3 scripts/test_panel_api_contracts.py --static-only
+```
+
+Example successful output:
+
+```text
+OK   PISD-OK-000   panel_contract.registry - 12 panel contracts declared
+OK   PISD-OK-000   panel_contract.fields - all panel contracts include required fields
+OK   PISD-OK-000   panel_contract.manifest_route - manifest route includes panel API contracts
+OK   PISD-OK-000   panel.system_status.api - safe action returned expected code via HTTP 200
+SKIP PISD-TEST-013 panel.recording.placeholder - future placeholder intentionally skipped
+```

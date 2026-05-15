@@ -185,3 +185,18 @@ Typical check command:
 ```bash
 python3 scripts/test_panel_testing_page.py
 ```
+
+## PiSD 0.2.4 added panel API contract codes
+
+- `PISD-TEST-013` — panel API contract safe test was intentionally skipped because the panel is a future placeholder, such as Recording/Dataset or Model/Lane Runtime.
+- `PISD-TEST-014` — panel API contract map, endpoint declaration, expected-code declaration, or safe panel API action failed validation.
+
+The panel testing page must distinguish three states:
+
+```text
+OK   PISD-OK-000   panel.camera_preview.api - HTTP 200
+SKIP PISD-TEST-013 panel.recording.placeholder - future placeholder
+FAIL PISD-TEST-014 panel.camera_settings.api - expected code mismatch
+```
+
+A skipped future placeholder is acceptable before the final GUI stage. A failed contract means the panel cannot be safely wired into the actual GUI yet.

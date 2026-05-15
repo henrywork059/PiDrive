@@ -7,6 +7,7 @@ from typing import Any
 
 from pisd import __version__
 from pisd.core.errors import ErrorReporter, PiSDErrorCodes, ok_payload, report_payload
+from pisd.core.panel_contracts import build_panel_testing_manifest, get_panel_contracts
 from pisd.services.camera_service import CameraService
 from pisd.services.motor_service import MotorService
 
@@ -148,50 +149,15 @@ def create_app(hardware_enabled: bool = False):
 
 
     def panel_testing_manifest() -> dict[str, Any]:
-        panels = [
-            {"id": "system-status-panel", "title": "System Status", "group": "diagnostics", "purpose": "Show app version, hardware mode, service state, and latest PISD code."},
-            {"id": "camera-preview-panel", "title": "Camera Preview", "group": "camera", "purpose": "Display the trusted request/PIL visual stream and refresh frames."},
-            {"id": "camera-settings-panel", "title": "Camera Settings", "group": "camera", "purpose": "Test size, quality, exposure, WB, buffer, transform, and image tuning controls."},
-            {"id": "motor-settings-panel", "title": "Motor Settings", "group": "motor", "purpose": "Adjust per-car direction, speed limits, bias, and steering mix without moving wheels."},
-            {"id": "motor-channel-panel", "title": "Motor Channel Calibration", "group": "motor", "purpose": "Test left/right motors one by one with direction, speed, duration, and safe arming."},
-            {"id": "manual-drive-panel", "title": "Manual Drive", "group": "control", "purpose": "Low-speed bench control for forward, reverse, left, right, and stop commands."},
-            {"id": "safety-stop-panel", "title": "Safety Stop", "group": "safety", "purpose": "Always-visible emergency stop, motor-lock state, and safety reminders."},
-            {"id": "error-monitor-panel", "title": "Error Monitor", "group": "diagnostics", "purpose": "Show recent app, camera, and motor error codes with clear/refresh actions."},
-            {"id": "api-inspector-panel", "title": "API Inspector", "group": "diagnostics", "purpose": "Send custom GET/POST requests and verify response codes before wiring final controls."},
-            {"id": "validation-panel", "title": "Validation Checklist", "group": "testing", "purpose": "Expose simple checks for panel health, responsive behaviour, and local API status."},
-            {"id": "recording-panel", "title": "Recording and Dataset", "group": "future", "purpose": "Reserve final GUI space for frame capture, steering labels, sessions, and dataset export."},
-            {"id": "model-runtime-panel", "title": "Model and Lane Runtime", "group": "future", "purpose": "Reserve final GUI space for model loading, lane detection, and autonomous runtime status."},
-        ]
-        return {
-            "app": "PiSD",
-            "version": __version__,
-            "code": PiSDErrorCodes.OK,
-            "message": "Panel testing GUI manifest loaded.",
-            "page": "/panel-testing",
-            "static_base": "/testing/static/",
-            "design_rules": [
-                "Panels are rebuilt for the new panel lab rather than copied from older testing GUI panels.",
-                "Panels must remain flexible across phone, tablet, laptop, and large-monitor layouts.",
-                "Panel style, size, density, spacing, radius, border, shadow, and preview aspect must be testable from the page.",
-                "Real motor output remains locked unless an explicit hardware test arms it.",
-            ],
-            "panel_count": len(panels),
-            "panels": panels,
-            "style_controls": [
-                "theme",
-                "layout_mode",
-                "viewport_preset",
-                "panel_size_preset",
-                "density",
-                "font_scale",
-                "panel_gap",
-                "corner_radius",
-                "border_strength",
-                "shadow_strength",
-                "minimum_panel_width",
-                "preview_aspect",
-            ],
-        }
+        return build_panel_testing_manifest(__version__)
+
+    def panel_contracts_payload() -> dict[str, Any]:
+        return ok_payload(
+            "Panel API contracts loaded.",
+            panels=get_panel_contracts(),
+            contract_failure_code=PiSDErrorCodes.TEST_PANEL_API_CONTRACT_FAILED,
+            future_placeholder_code=PiSDErrorCodes.TEST_PANEL_CONTRACT_SKIPPED,
+        )
 
     @app.get("/")
     @app.get("/testing")
@@ -217,6 +183,10 @@ def create_app(hardware_enabled: bool = False):
     @app.get("/api/panel-testing/manifest")
     def api_panel_testing_manifest():
         return jsonify(panel_testing_manifest())
+
+    @app.get("/api/panel-testing/contracts")
+    def api_panel_testing_contracts():
+        return jsonify(panel_contracts_payload())
 
     @app.get("/api/status")
     def api_status():

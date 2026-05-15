@@ -26,6 +26,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from pisd.app import create_app, load_defaults  # noqa: E402
 from pisd.core.errors import PiSDErrorCodes, ok_payload, report_payload, ErrorReporter  # noqa: E402
+from pisd.core.panel_contracts import get_panel_contracts  # noqa: E402
 from pisd.services.camera_service import CameraService  # noqa: E402
 from pisd.services.motor_service import MotorService  # noqa: E402
 
@@ -382,6 +383,11 @@ def _check_panel_testing_source_contract() -> CheckResult:
         "ptFontScale",
         "ptMinPanelWidth",
         "ptPreviewAspect",
+        "ptRunPanelApiChecks",
+        "ptSavePreset",
+        "ptLoadPreset",
+        "ptExportPreset",
+        "ptImportPreset",
     ]
     required_js_tokens = [
         "PANEL_BLUEPRINTS",
@@ -399,9 +405,20 @@ def _check_panel_testing_source_contract() -> CheckResult:
         "model-runtime-panel",
         "applyPanelSizePreset",
         "runAllPanelChecks",
+        "runAllPanelApiChecks",
+        "runPanelApiTest",
+        "showContract",
+        "showLastResponse",
+        "showExpected",
+        "savePreset",
+        "loadPreset",
+        "exportPreset",
+        "importPresetFile",
         "PISD-TEST-012",
+        "PISD-TEST-013",
+        "PISD-TEST-014",
     ]
-    required_css_tokens = ["--pt-min-panel-width", "--pt-preview-aspect", ".pt-panel-grid", "container-type: inline-size", "@media (max-width: 850px)"]
+    required_css_tokens = ["--pt-min-panel-width", "--pt-preview-aspect", ".pt-panel-grid", ".pt-contract-strip", ".pt-code-inline", "container-type: inline-size", "@media (max-width: 850px)"]
     missing = {
         "template": [token for token in required_template_tokens if token not in template],
         "js": [token for token in required_js_tokens if token not in js],
@@ -412,7 +429,7 @@ def _check_panel_testing_source_contract() -> CheckResult:
         "panel_gui.source_contract",
         ok,
         PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_PANEL_GUI_CONTRACT_FAILED,
-        "panel testing GUI source contains panel registry, flexible style controls, size controls, and responsive rules" if ok else "panel testing GUI source contract is missing required tokens",
+        "panel testing GUI source contains registry loading, style controls, presets, API contract actions, and responsive rules" if ok else "panel testing GUI source contract is missing required tokens",
         {key: value for key, value in missing.items() if value},
     )
 
@@ -707,7 +724,8 @@ def _check_api_panel_testing_gui(client) -> list[CheckResult]:
 
     response = client.get("/api/panel-testing/manifest")
     payload = response.get_json(silent=True) or {}
-    panels = {str(item.get("id")) for item in payload.get("panels") or [] if isinstance(item, dict)}
+    panel_payload = payload.get("panels") or []
+    panels = {str(item.get("id")) for item in panel_payload if isinstance(item, dict)}
     required_panels = {
         "system-status-panel",
         "camera-preview-panel",
@@ -724,22 +742,62 @@ def _check_api_panel_testing_gui(client) -> list[CheckResult]:
     }
     style_controls = set(payload.get("style_controls") or [])
     required_controls = {"theme", "layout_mode", "viewport_preset", "panel_size_preset", "density", "font_scale", "panel_gap", "corner_radius", "minimum_panel_width", "preview_aspect"}
+    contracts_ok = all(isinstance(item.get("safe_test"), dict) and isinstance(item.get("endpoints"), list) for item in panel_payload if isinstance(item, dict))
     manifest_ok = (
         response.status_code == 200
         and payload.get("code") == PiSDErrorCodes.OK
         and required_panels.issubset(panels)
         and required_controls.issubset(style_controls)
+        and contracts_ok
     )
     results.append(
         CheckResult(
             "api.panel_gui.manifest_contract",
             manifest_ok,
             _json_code(payload, PiSDErrorCodes.TEST_PANEL_GUI_CONTRACT_FAILED),
-            "panel testing manifest lists planned panels and style controls" if manifest_ok else "panel testing manifest contract failed",
-            {"http_status": response.status_code, "missing_panels": sorted(required_panels - panels), "missing_controls": sorted(required_controls - style_controls)},
+            "panel testing manifest lists planned panels, style controls, and API contracts" if manifest_ok else "panel testing manifest contract failed",
+            {"http_status": response.status_code, "missing_panels": sorted(required_panels - panels), "missing_controls": sorted(required_controls - style_controls), "contracts_ok": contracts_ok},
+        )
+    )
+
+    response = client.get("/api/panel-testing/contracts")
+    payload = response.get_json(silent=True) or {}
+    contracts_route_ok = response.status_code == 200 and payload.get("code") == PiSDErrorCodes.OK and len(payload.get("panels") or []) >= len(required_panels)
+    results.append(
+        CheckResult(
+            "api.panel_gui.contracts_route",
+            contracts_route_ok,
+            _json_code(payload, PiSDErrorCodes.TEST_PANEL_API_CONTRACT_FAILED),
+            "panel testing contracts route loaded" if contracts_route_ok else f"panel contracts route returned HTTP {response.status_code}",
+            {"http_status": response.status_code, "panel_count": len(payload.get("panels") or [])},
         )
     )
     return results
+
+
+
+def _check_panel_api_contract_data() -> CheckResult:
+    contracts = get_panel_contracts()
+    required_panels = {
+        "system-status-panel", "camera-preview-panel", "camera-settings-panel", "motor-settings-panel",
+        "motor-channel-panel", "manual-drive-panel", "safety-stop-panel", "error-monitor-panel",
+        "api-inspector-panel", "validation-panel", "recording-panel", "model-runtime-panel",
+    }
+    panel_ids = {str(item.get("id")) for item in contracts}
+    incomplete = [
+        item.get("id")
+        for item in contracts
+        if not item.get("id") or not item.get("title") or not isinstance(item.get("endpoints"), list) or not isinstance(item.get("safe_test"), dict)
+    ]
+    missing = sorted(required_panels - panel_ids)
+    ok = not missing and not incomplete
+    return CheckResult(
+        "panel_api.contract_data",
+        ok,
+        PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_PANEL_API_CONTRACT_FAILED,
+        "panel API contract data complete" if ok else "panel API contract data missing required entries",
+        {"contract_count": len(contracts), "missing_panels": missing, "incomplete": incomplete},
+    )
 
 def _run_api_checks(args: argparse.Namespace) -> list[CheckResult]:
     try:
@@ -788,6 +846,7 @@ def main() -> int:
         checks.append(_safe_check("gui.source_contract", _check_testing_gui_source_contract))
         checks.append(_safe_check("panel_gui.static_files", _check_panel_testing_static_files))
         checks.append(_safe_check("panel_gui.source_contract", _check_panel_testing_source_contract))
+        checks.append(_safe_check("panel_api.contract_data", _check_panel_api_contract_data))
 
     if not args.skip_camera:
         checks.append(_safe_check("camera.service_frame", lambda: _check_camera_service(bool(args.hardware))))

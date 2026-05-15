@@ -125,3 +125,38 @@ The panel lab includes environment and style controls for:
 - preview aspect ratio
 
 Use this page to decide which panel sizes, densities, and layout behaviour are safe before building the final server GUI.
+
+---
+
+## PiSD 0.2.4 panel API contract rule
+
+Before a planned final-GUI panel is implemented, it should have a declared contract in:
+
+```text
+PiSD/pisd/core/panel_contracts.py
+```
+
+Each contract should define:
+
+```text
+id
+title
+group
+purpose
+body/default size
+minimum width
+responsive behaviour
+endpoint list
+safe test action
+expected PISD code(s)
+dangerous_action flag
+```
+
+The final GUI should not directly add a new control panel without first adding or updating this panel contract and passing:
+
+```bash
+python3 scripts/test_panel_api_contracts.py
+python3 scripts/test_panel_testing_page.py
+```
+
+Motor or drive panels must treat real movement as dangerous. Safe API tests may only use zero-output commands or unarmed checks that return `PISD-MOT-008` on hardware.
