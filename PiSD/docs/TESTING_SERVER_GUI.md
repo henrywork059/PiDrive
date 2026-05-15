@@ -2,7 +2,7 @@
 
 ## Purpose
 
-`PiSD_0_2_1` adds a temporary testing server GUI before the final PiDrive/PiServer-style GUI is built.
+`PiSD_0_2_1` added a temporary testing server GUI before the final PiDrive/PiServer-style GUI is built. `PiSD_0_2_2` adds stronger tests for that testing GUI before the final control GUI is designed.
 
 This page is not intended to be the final driving interface. Its job is to make every important service and API call easy to test from a browser:
 
@@ -12,6 +12,7 @@ This page is not intended to be the final driving interface. Its job is to make 
 - one-by-one motor channel test
 - emergency stop
 - custom API calls
+- browser-side safe smoke test
 - status and error-code visibility
 
 ## Run
@@ -51,7 +52,13 @@ PISD-MOT-008
 
 ### 1. Camera API calls
 
-Use the Camera Preview card:
+First click `Run safe smoke test`. It should exercise safe API calls and finish with:
+
+```text
+OK   PISD-OK-000   browser.smoke_summary - failed=0
+```
+
+Then use the Camera Preview card:
 
 1. Click `Start camera`.
 2. Click `Refresh frame`.
@@ -134,9 +141,21 @@ POST /api/motor/test-channel
 
 For POST requests, edit the JSON body box.
 
-## Local validation command
+## Local validation commands
 
-The standard validation script now checks the testing GUI page and its endpoint manifest:
+Focused testing-GUI validation:
+
+```bash
+python3 scripts/test_testing_server_gui.py
+```
+
+Static-only version for packaging PCs without Flask:
+
+```bash
+python3 scripts/test_testing_server_gui.py --static-only
+```
+
+The standard validation script also checks the testing GUI files and local route contract:
 
 ```bash
 python3 scripts/run_standard_validation.py --skip-camera --skip-motor
@@ -145,8 +164,10 @@ python3 scripts/run_standard_validation.py --skip-camera --skip-motor
 Expected lines include:
 
 ```text
-OK   PISD-OK-000   api.testing_gui.page - testing GUI page loaded
-OK   PISD-OK-000   api.testing_gui.manifest - testing GUI manifest loaded
+OK   PISD-OK-000   gui.static_files - testing GUI template/CSS/JS files exist
+OK   PISD-OK-000   gui.source_contract - testing GUI source contains required IDs, API calls, safety checks, and code display
+OK   PISD-OK-000   api.testing_gui.root_page - / testing GUI page loaded
+OK   PISD-OK-000   api.testing_gui.manifest_contract - testing GUI manifest includes required endpoints and known-good camera references
 ```
 
 ## Files

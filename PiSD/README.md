@@ -6,7 +6,7 @@ It is intentionally separate from the existing `PiServer/` folder. PiSD may refe
 
 ## Current version
 
-`PiSD_0_2_1` — first patch after v2 baseline, adding the temporary testing server GUI for API/settings validation.
+`PiSD_0_2_2` — testing GUI hardening patch, adding browser smoke testing and stronger static/API contract validation before the final server GUI.
 
 This package is built from stable `PiSD_0_1_0` plus the accepted `PiSD_0_1_1` motor-channel calibration patch and `PiSD_0_1_2` standard validation patch.
 
@@ -21,7 +21,7 @@ PiSD/requirements.txt
 
 ## Stable baseline notes
 
-`PiSD_0_2_0` is the current stable rollback baseline before GUI development. `PiSD_0_2_1` is a patch-only testing GUI layer built on top of that baseline.
+`PiSD_0_2_0` is the current stable rollback baseline before GUI development. `PiSD_0_2_1` added the testing GUI, and `PiSD_0_2_2` strengthens the GUI/API testing layer on top of that baseline.
 
 It keeps the tested camera/motor/error-reporting foundation from `PiSD_0_1_0`, then adds one-by-one motor channel calibration and the standard OK/FAIL validation script.
 
@@ -95,7 +95,8 @@ PiSD/
     ├── PATCH_NOTES_PiSD_0_1_1.md
     ├── PATCH_NOTES_PiSD_0_1_2.md
     ├── PATCH_NOTES_PiSD_0_2_0.md
-    └── PATCH_NOTES_PiSD_0_2_1.md
+    ├── PATCH_NOTES_PiSD_0_2_1.md
+    └── PATCH_NOTES_PiSD_0_2_2.md
 ```
 
 ## Install
@@ -130,6 +131,8 @@ http://<pi-ip>:5050/testing
 ```
 
 Use this page to check camera settings, motor settings, one-by-one motor channel tests, custom API calls, STOP, and visible `PISD-*` response codes before building the final PiServer-style GUI.
+
+`PiSD_0_2_2` also adds a **Run safe smoke test** button on the testing page. It runs safe browser-side API checks for status, manifest, camera start/frame/apply, motor config/apply, unarmed motor-channel safety, and STOP. It does not arm real motor output.
 
 The GUI files are:
 
@@ -184,7 +187,7 @@ This is intentional. It prevents accidental motor activation while developing th
 All scripts are run from inside `PiSD/`.
 
 
-Standard all-in-one validation checklist. This prints simple `OK` / `FAIL` lines with PiSD codes and writes `test_outputs/standard_validation/summary.json`:
+Standard all-in-one validation checklist. This prints simple `OK` / `FAIL` lines with PiSD codes and writes `test_outputs/standard_validation/summary.json`. It now includes static testing-GUI file checks and stronger local API contract checks when Flask is available:
 
 ```bash
 python scripts/run_standard_validation.py
@@ -200,6 +203,19 @@ Real camera plus real one-by-one motor output check. Lift the wheels first:
 
 ```bash
 python scripts/run_standard_validation.py --hardware --enable-motor-output
+```
+
+
+Focused testing-GUI validation. This checks the testing page files, smoke-test controls, static asset route contract, manifest endpoint, invalid motor input, 404 error code, and safe unarmed motor behaviour:
+
+```bash
+python scripts/test_testing_server_gui.py
+```
+
+Static-only version, useful on a packaging PC without Flask:
+
+```bash
+python scripts/test_testing_server_gui.py --static-only
 ```
 
 Error-code/reporting schema check:

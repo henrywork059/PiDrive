@@ -15,11 +15,18 @@ Expected successful output uses one line per function:
 OK   PISD-OK-000   config.load_defaults - defaults loaded
 OK   PISD-OK-000   core.error_reporting_schema - error payloads include PiSD codes
 OK   PISD-OK-000   services.import_and_status - camera and motor services imported
+OK   PISD-OK-000   gui.static_files - testing GUI template/CSS/JS files exist
+OK   PISD-OK-000   gui.source_contract - testing GUI source contains required IDs, API calls, safety checks, and code display
 OK   PISD-OK-000   camera.service_frame - frame captured (12345 bytes)
 OK   PISD-OK-000   camera.apply_settings - camera settings applied and frame captured
 OK   PISD-OK-000   motor.service_channels - left/right direction tests completed and stopped
-OK   PISD-OK-000   api.testing_gui.page - testing GUI page loaded
-OK   PISD-OK-000   api.testing_gui.manifest - testing GUI manifest loaded
+OK   PISD-OK-000   api.testing_gui.root_page - / testing GUI page loaded
+OK   PISD-OK-000   api.testing_gui.page - /testing testing GUI page loaded
+OK   PISD-OK-000   api.testing_gui.static_css - /testing/static/css/testing_server.css asset loaded
+OK   PISD-OK-000   api.testing_gui.static_js - /testing/static/js/testing_server.js asset loaded
+OK   PISD-OK-000   api.testing_gui.manifest_contract - testing GUI manifest includes required endpoints and known-good camera references
+OK   PISD-MOT-007  api.motor.test_channel_invalid_side - invalid motor side returned PISD-MOT-007
+OK   PISD-API-003  api.not_found_error_code - unknown route returned PISD-API-003
 OK   PISD-OK-000   api.status - status endpoint returned OK
 OK   PISD-OK-000   api.camera.start - camera start endpoint OK
 OK   PISD-OK-000   api.camera.frame - camera frame endpoint returned JPEG (12345 bytes)
@@ -68,6 +75,30 @@ python3 scripts/run_standard_validation.py --hardware --enable-motor-output --mo
 `PISD-TEST-008` means at least one standard validation item failed. Read the failed line and `summary.json` for the exact function and code.
 
 
+
+Focused testing-GUI validation:
+
+```bash
+python3 scripts/test_testing_server_gui.py
+```
+
+Expected OK examples:
+
+```text
+OK   PISD-OK-000   gui.file.template - pisd/web/templates/testing_server.html exists
+OK   PISD-OK-000   gui.source_contract - GUI source includes required controls, smoke test, API paths, and safety code
+OK   PISD-OK-000   api.testing_gui.root - / loaded
+OK   PISD-OK-000   api.static.js - /testing/static/js/testing_server.js loaded
+OK   PISD-MOT-007  api.motor.invalid_channel_code - invalid motor channel returns PISD-MOT-007
+OK   PISD-API-003  api.not_found_code - unknown route returns PISD-API-003
+```
+
+On a packaging PC without Flask, use static-only mode:
+
+```bash
+python3 scripts/test_testing_server_gui.py --static-only
+```
+
 ## Testing server GUI check
 
 Start the server:
@@ -94,6 +125,7 @@ Expected:
 - unarmed real motor output returns `PISD-MOT-008`
 - STOP calls `/api/control/stop`
 - custom API caller can call `/api/status` and show JSON output
+- `Run safe smoke test` completes status/manifest/camera/motor-safety/STOP checks without arming real motor output
 
 Local no-network page validation:
 
@@ -104,8 +136,13 @@ python3 scripts/run_standard_validation.py --skip-camera --skip-motor
 Expected OK lines:
 
 ```text
-OK   PISD-OK-000   api.testing_gui.page - testing GUI page loaded
-OK   PISD-OK-000   api.testing_gui.manifest - testing GUI manifest loaded
+OK   PISD-OK-000   api.testing_gui.root_page - / testing GUI page loaded
+OK   PISD-OK-000   api.testing_gui.page - /testing testing GUI page loaded
+OK   PISD-OK-000   api.testing_gui.static_css - /testing/static/css/testing_server.css asset loaded
+OK   PISD-OK-000   api.testing_gui.static_js - /testing/static/js/testing_server.js asset loaded
+OK   PISD-OK-000   api.testing_gui.manifest_contract - testing GUI manifest includes required endpoints and known-good camera references
+OK   PISD-MOT-007  api.motor.test_channel_invalid_side - invalid motor side returned PISD-MOT-007
+OK   PISD-API-003  api.not_found_error_code - unknown route returned PISD-API-003
 ```
 
 ## Local checks

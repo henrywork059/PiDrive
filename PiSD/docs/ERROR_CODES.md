@@ -167,3 +167,7 @@ Use this script as the preferred quick checklist before building or changing the
 ## Testing GUI validation
 
 - `PISD-TEST-009` — testing server GUI route or manifest failed local validation.
+- `PISD-TEST-010` — testing server GUI template, CSS, JS, or static asset contract failed validation.
+- `PISD-TEST-011` — testing server GUI API contract or browser smoke-test sequence failed validation.
+
+The testing GUI must keep visible `PISD-*` response codes and must keep real motor output locked unless the request explicitly includes `enable_motor_output: true`.

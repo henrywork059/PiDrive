@@ -31,6 +31,10 @@ from pisd.services.motor_service import MotorService  # noqa: E402
 
 OUTPUT_DIR = PROJECT_ROOT / "test_outputs" / "standard_validation"
 SUMMARY_PATH = OUTPUT_DIR / "summary.json"
+WEB_ROOT = PROJECT_ROOT / "pisd" / "web"
+WEB_TEMPLATE = WEB_ROOT / "templates" / "testing_server.html"
+WEB_CSS = WEB_ROOT / "static" / "css" / "testing_server.css"
+WEB_JS = WEB_ROOT / "static" / "js" / "testing_server.js"
 
 
 @dataclass
@@ -59,6 +63,7 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Actually move motors during channel tests. Requires --hardware. Keep wheels lifted.",
     )
+    parser.add_argument("--skip-gui", action="store_true", help="Skip static/browser testing GUI validation checks.")
     parser.add_argument(
         "--skip-api",
         action="store_true",
@@ -258,6 +263,79 @@ def _check_motor_service(real_output: bool, speed: float, duration: float) -> Ch
         motor.close()
 
 
+
+def _check_testing_gui_static_files() -> CheckResult:
+    files = {
+        "template": WEB_TEMPLATE,
+        "css": WEB_CSS,
+        "js": WEB_JS,
+    }
+    missing = [name for name, path in files.items() if not path.exists() or path.stat().st_size <= 0]
+    ok = not missing
+    return CheckResult(
+        "gui.static_files",
+        ok,
+        PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_GUI_ASSET_FAILED,
+        "testing GUI template/CSS/JS files exist" if ok else f"missing or empty files: {', '.join(missing)}",
+        {name: str(path.relative_to(PROJECT_ROOT)) for name, path in files.items()},
+    )
+
+
+def _check_testing_gui_source_contract() -> CheckResult:
+    try:
+        template = WEB_TEMPLATE.read_text(encoding="utf-8")
+        css = WEB_CSS.read_text(encoding="utf-8")
+        js = WEB_JS.read_text(encoding="utf-8")
+    except Exception as exc:
+        return CheckResult(
+            "gui.source_contract",
+            False,
+            PiSDErrorCodes.TEST_GUI_ASSET_FAILED,
+            f"failed to read testing GUI files: {exc}",
+            {"exception_type": type(exc).__name__},
+        )
+    required_template_tokens = [
+        "PiSD Testing Server GUI",
+        "initialStatusJson",
+        "manifestJson",
+        "globalCode",
+        "cameraPreview",
+        "cameraSettingsForm",
+        "motorSettingsForm",
+        "motorChannelForm",
+        "smokeTestPanel",
+        "runSmokeTestBtn",
+        "runSmokeTestBtn2",
+    ]
+    required_js_tokens = [
+        "runSafeSmokeTest",
+        "/api/status",
+        "/api/test-gui/manifest",
+        "/api/camera/start",
+        "/api/camera/frame.jpg",
+        "/api/camera/apply",
+        "/api/motor/apply",
+        "/api/motor/test-channel",
+        "/api/control/stop",
+        "enable_motor_output: false",
+        "PISD-MOT-008",
+        "PISD-TEST-011",
+    ]
+    required_css_tokens = [".code-pill", ".console", ".console.compact"]
+    missing = {
+        "template": [token for token in required_template_tokens if token not in template],
+        "js": [token for token in required_js_tokens if token not in js],
+        "css": [token for token in required_css_tokens if token not in css],
+    }
+    ok = not any(missing.values())
+    return CheckResult(
+        "gui.source_contract",
+        ok,
+        PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_GUI_ASSET_FAILED,
+        "testing GUI source contains required IDs, API calls, safety checks, and code display" if ok else "testing GUI source contract is missing required tokens",
+        {key: value for key, value in missing.items() if value},
+    )
+
 def _check_api_status(client) -> CheckResult:
     response = client.get("/api/status")
     payload = response.get_json(silent=True) or {}
@@ -422,28 +500,95 @@ def _check_api_stop_and_errors(client) -> list[CheckResult]:
 def _check_api_testing_gui(client) -> list[CheckResult]:
     results: list[CheckResult] = []
 
-    response = client.get("/testing")
-    page_ok = response.status_code == 200 and b"PiSD Testing Server GUI" in response.data
-    results.append(
-        CheckResult(
-            "api.testing_gui.page",
-            page_ok,
-            PiSDErrorCodes.OK if page_ok else PiSDErrorCodes.TEST_GUI_ROUTE_FAILED,
-            "testing GUI page loaded" if page_ok else f"testing GUI page returned HTTP {response.status_code}",
-            {"http_status": response.status_code, "bytes": len(response.data)},
+    for path, label in (("/", "api.testing_gui.root_page"), ("/testing", "api.testing_gui.page")):
+        response = client.get(path)
+        page_ok = response.status_code == 200 and b"PiSD Testing Server GUI" in response.data and b"Run safe smoke test" in response.data
+        results.append(
+            CheckResult(
+                label,
+                page_ok,
+                PiSDErrorCodes.OK if page_ok else PiSDErrorCodes.TEST_GUI_ROUTE_FAILED,
+                f"{path} testing GUI page loaded" if page_ok else f"{path} returned HTTP {response.status_code} or missing expected content",
+                {"http_status": response.status_code, "bytes": len(response.data)},
+            )
         )
-    )
+
+    static_checks = [
+        ("/testing/static/css/testing_server.css", "api.testing_gui.static_css", b".code-pill"),
+        ("/testing/static/js/testing_server.js", "api.testing_gui.static_js", b"runSafeSmokeTest"),
+    ]
+    for path, label, marker in static_checks:
+        response = client.get(path)
+        asset_ok = response.status_code == 200 and marker in response.data
+        results.append(
+            CheckResult(
+                label,
+                asset_ok,
+                PiSDErrorCodes.OK if asset_ok else PiSDErrorCodes.TEST_GUI_ASSET_FAILED,
+                f"{path} asset loaded" if asset_ok else f"{path} returned HTTP {response.status_code} or missing marker",
+                {"http_status": response.status_code, "bytes": len(response.data)},
+            )
+        )
 
     response = client.get("/api/test-gui/manifest")
     payload = response.get_json(silent=True) or {}
-    manifest_ok = response.status_code == 200 and payload.get("code") == PiSDErrorCodes.OK and bool(payload.get("endpoints"))
+    required_paths = {
+        "/api/status",
+        "/api/errors",
+        "/api/camera/start",
+        "/api/camera/stop",
+        "/api/camera/config",
+        "/api/camera/capabilities",
+        "/api/camera/apply",
+        "/api/camera/frame.jpg",
+        "/api/motor/config",
+        "/api/motor/apply",
+        "/api/motor/test-channel",
+        "/api/control/manual",
+        "/api/control/stop",
+    }
+    manifest_paths = {str(item.get("path")) for item in payload.get("endpoints") or [] if isinstance(item, dict)}
+    known_good = payload.get("known_good_camera") or {}
+    manifest_ok = (
+        response.status_code == 200
+        and payload.get("code") == PiSDErrorCodes.OK
+        and required_paths.issubset(manifest_paths)
+        and known_good.get("capture_source") == "request"
+        and known_good.get("array_color_order") == "rgb"
+    )
     results.append(
         CheckResult(
-            "api.testing_gui.manifest",
+            "api.testing_gui.manifest_contract",
             manifest_ok,
-            _json_code(payload, PiSDErrorCodes.TEST_GUI_ROUTE_FAILED),
-            "testing GUI manifest loaded" if manifest_ok else f"testing GUI manifest returned HTTP {response.status_code}",
-            {"http_status": response.status_code, "endpoint_count": len(payload.get("endpoints") or [])},
+            _json_code(payload, PiSDErrorCodes.TEST_GUI_API_CONTRACT_FAILED),
+            "testing GUI manifest includes required endpoints and known-good camera references" if manifest_ok else "testing GUI manifest contract failed",
+            {"http_status": response.status_code, "missing_paths": sorted(required_paths - manifest_paths), "known_good_camera": known_good},
+        )
+    )
+
+    response = client.post("/api/motor/test-channel", json={"side": "wrong", "direction": 1, "speed": 0.1, "duration": 0.05})
+    payload = response.get_json(silent=True) or {}
+    invalid_motor_ok = response.status_code == 400 and payload.get("code") == PiSDErrorCodes.MOTOR_TEST_INVALID
+    results.append(
+        CheckResult(
+            "api.motor.test_channel_invalid_side",
+            invalid_motor_ok,
+            _json_code(payload, PiSDErrorCodes.MOTOR_TEST_INVALID),
+            "invalid motor side returned PISD-MOT-007" if invalid_motor_ok else f"invalid motor side returned HTTP {response.status_code}",
+            {"http_status": response.status_code},
+        )
+    )
+
+    response = client.get("/api/does-not-exist")
+    payload = response.get_json(silent=True) or {}
+    not_found_ok = response.status_code == 404 and payload.get("code") == PiSDErrorCodes.API_NOT_FOUND
+    results.append(
+        CheckResult(
+            "api.not_found_error_code",
+            not_found_ok,
+            _json_code(payload, PiSDErrorCodes.API_NOT_FOUND),
+            "unknown route returned PISD-API-003" if not_found_ok else f"unknown route returned HTTP {response.status_code}",
+            {"http_status": response.status_code},
         )
     )
     return results
@@ -463,7 +608,8 @@ def _run_api_checks(args: argparse.Namespace) -> list[CheckResult]:
 
     client = app.test_client()
     results: list[CheckResult] = []
-    results.extend(_check_api_testing_gui(client))
+    if not args.skip_gui:
+        results.extend(_check_api_testing_gui(client))
     results.append(_check_api_status(client))
     if not args.skip_camera:
         results.extend(_check_api_camera(client))
@@ -487,6 +633,10 @@ def main() -> int:
     checks.append(_safe_check("config.load_defaults", _check_config_load))
     checks.append(_safe_check("core.error_reporting_schema", _check_error_schema))
     checks.append(_safe_check("services.import_and_status", _check_imports))
+
+    if not args.skip_gui:
+        checks.append(_safe_check("gui.static_files", _check_testing_gui_static_files))
+        checks.append(_safe_check("gui.source_contract", _check_testing_gui_source_contract))
 
     if not args.skip_camera:
         checks.append(_safe_check("camera.service_frame", lambda: _check_camera_service(bool(args.hardware))))

@@ -53,15 +53,25 @@ def main() -> int:
     results.append({"endpoint": "GET /api/status", "status": res.status_code, "json": res.get_json()})
 
 
-    res = _expect(client.get("/testing"))
-    if b"PiSD Testing Server GUI" not in res.data:
-        raise AssertionError("GET /testing did not return the testing GUI page")
-    results.append({"endpoint": "GET /testing", "status": res.status_code, "bytes": len(res.data)})
+    for path in ("/", "/testing"):
+        res = _expect(client.get(path))
+        if b"PiSD Testing Server GUI" not in res.data or b"Run safe smoke test" not in res.data:
+            raise AssertionError(f"GET {path} did not return the testing GUI page with smoke test controls")
+        results.append({"endpoint": f"GET {path}", "status": res.status_code, "bytes": len(res.data)})
+
+    for path, marker in (("/testing/static/css/testing_server.css", b".code-pill"), ("/testing/static/js/testing_server.js", b"runSafeSmokeTest")):
+        res = _expect(client.get(path))
+        if marker not in res.data:
+            raise AssertionError(f"GET {path} did not contain expected testing GUI asset marker")
+        results.append({"endpoint": f"GET {path}", "status": res.status_code, "bytes": len(res.data)})
 
     res = _expect(client.get("/api/test-gui/manifest"))
     manifest_json = res.get_json() or {}
-    if manifest_json.get("code") != PiSDErrorCodes.OK or not manifest_json.get("endpoints"):
-        raise AssertionError("GET /api/test-gui/manifest did not return endpoint manifest")
+    manifest_paths = {str(item.get("path")) for item in manifest_json.get("endpoints") or [] if isinstance(item, dict)}
+    required_paths = {"/api/status", "/api/camera/start", "/api/camera/frame.jpg", "/api/camera/apply", "/api/motor/test-channel", "/api/control/stop"}
+    known_good = manifest_json.get("known_good_camera") or {}
+    if manifest_json.get("code") != PiSDErrorCodes.OK or not required_paths.issubset(manifest_paths) or known_good.get("array_color_order") != "rgb":
+        raise AssertionError("GET /api/test-gui/manifest did not return required endpoint/camera contract")
     results.append({"endpoint": "GET /api/test-gui/manifest", "status": res.status_code, "json": manifest_json})
 
     res = _expect(client.post("/api/camera/start"))
@@ -84,6 +94,18 @@ def main() -> int:
     if invalid_json.get("code") != PiSDErrorCodes.API_INVALID_JSON:
         raise AssertionError("Invalid JSON response did not use PISD-API-001")
     results.append({"endpoint": "POST /api/motor/apply invalid JSON", "status": res.status_code, "json": invalid_json})
+
+    res = _expect(client.post("/api/motor/test-channel", json={"side": "wrong", "direction": 1, "speed": 0.1, "duration": 0.05}), expected_status=400)
+    invalid_channel = res.get_json() or {}
+    if invalid_channel.get("code") != PiSDErrorCodes.MOTOR_TEST_INVALID:
+        raise AssertionError("Invalid motor channel response did not use PISD-MOT-007")
+    results.append({"endpoint": "POST /api/motor/test-channel invalid side", "status": res.status_code, "json": invalid_channel})
+
+    res = _expect(client.get("/api/does-not-exist"), expected_status=404)
+    not_found = res.get_json() or {}
+    if not_found.get("code") != PiSDErrorCodes.API_NOT_FOUND:
+        raise AssertionError("Missing route did not use PISD-API-003")
+    results.append({"endpoint": "GET /api/does-not-exist", "status": res.status_code, "json": not_found})
 
     res = _expect(client.post("/api/motor/test-channel", json={"side": "left", "direction": 1, "speed": 0.05, "duration": 0.05}))
     channel_json = res.get_json() or {}

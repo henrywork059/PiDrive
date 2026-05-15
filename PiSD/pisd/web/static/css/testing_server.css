@@ -60,3 +60,4 @@ input, select, textarea { width: 100%; border: 1px solid var(--border); border-r
   .form-grid { grid-template-columns: 1fr; }
   .api-caller { grid-template-columns: 1fr; }
 }
+.console.compact { min-height: 150px; max-height: 300px; }

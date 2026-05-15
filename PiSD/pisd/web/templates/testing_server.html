@@ -16,6 +16,7 @@
     <div class="top-actions">
       <span id="globalCode" class="code-pill">{{ initial_status.code }}</span>
       <button id="refreshStatusBtn" class="button secondary">Refresh status</button>
+      <button id="runSmokeTestBtn" class="button primary">Run safe smoke test</button>
       <button id="stopAllBtn" class="button danger">STOP</button>
     </div>
   </header>
@@ -160,6 +161,17 @@
         <button id="testMotorBtn" class="button primary">Run channel test</button>
         <button class="button danger" data-call='{"method":"POST","path":"/api/control/stop"}'>STOP</button>
       </div>
+    </section>
+
+    <section class="card wide">
+      <div class="card-header">
+        <div>
+          <h2>Safe browser smoke test</h2>
+          <p>This runs a short API checklist from the browser. It starts the camera, fetches a JPEG frame, checks config/settings routes, tests motor safety without arming real output, and calls STOP.</p>
+        </div>
+        <button id="runSmokeTestBtn2" class="button primary">Run safe smoke test</button>
+      </div>
+      <pre id="smokeTestPanel" class="console compact">Smoke test not run yet.</pre>
     </section>
 
     <section class="card wide">

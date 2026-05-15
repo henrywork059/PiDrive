@@ -80,6 +80,67 @@ function buildManifest() {
   }
 }
 
+
+
+function smokeLine(ok, code, label, message) {
+  const state = ok ? 'OK  ' : 'FAIL';
+  return `${state} ${String(code || 'PISD-API-002').padEnd(13)} ${label} - ${message}`;
+}
+
+async function runSafeSmokeTest() {
+  const panel = document.getElementById('smokeTestPanel');
+  const lines = [];
+  panel.textContent = 'Running safe browser smoke test...';
+
+  async function step(label, method, path, body, accept) {
+    try {
+      const { response, payload } = await apiCall(method, path, body);
+      const code = payload && payload.code ? payload.code : (response.ok ? 'PISD-OK-000' : 'PISD-API-002');
+      const accepted = accept ? accept(response, payload, code) : response.ok;
+      lines.push(smokeLine(accepted, code, label, accepted ? 'passed' : `unexpected HTTP ${response.status}`));
+      panel.textContent = lines.join('\n');
+      return { ok: accepted, response, payload, code };
+    } catch (error) {
+      lines.push(smokeLine(false, 'PISD-API-002', label, String(error)));
+      panel.textContent = lines.join('\n');
+      return { ok: false, error };
+    }
+  }
+
+  await step('api.status', 'GET', '/api/status', undefined, (_r, payload) => payload.code === 'PISD-OK-000');
+  await step('api.test_gui.manifest', 'GET', '/api/test-gui/manifest', undefined, (_r, payload) => payload.code === 'PISD-OK-000' && Array.isArray(payload.endpoints));
+  await step('api.camera.start', 'POST', '/api/camera/start', {}, (_r, payload) => payload.ok === true && payload.code === 'PISD-OK-000');
+  await step('api.camera.config', 'GET', '/api/camera/config', undefined, (_r, payload) => payload.code === 'PISD-OK-000' && payload.config);
+  await step('api.camera.frame', 'GET', '/api/camera/frame.jpg', undefined, (_r, payload) => payload.code === 'PISD-OK-000' && payload.bytes > 0);
+  await step('api.camera.apply_safe', 'POST', '/api/camera/apply', {
+    width: 426,
+    height: 240,
+    fps: 12,
+    preview_quality: 65,
+    capture_source: 'request',
+    array_color_order: 'rgb',
+    buffer_count: 3,
+    queue: false
+  }, (_r, payload) => payload.ok === true && payload.code === 'PISD-OK-000');
+  await step('api.motor.config', 'GET', '/api/motor/config', undefined, (_r, payload) => payload.code === 'PISD-OK-000' && payload.config);
+  await step('api.motor.apply_safe', 'POST', '/api/motor/apply', formToJson(document.getElementById('motorSettingsForm')), (_r, payload) => payload.code === 'PISD-OK-000');
+  await step('api.motor.test_channel_unarmed', 'POST', '/api/motor/test-channel', {
+    side: 'left',
+    direction: 1,
+    speed: 0.02,
+    duration: 0.05,
+    enable_motor_output: false
+  }, (response, payload) => (response.status === 200 && payload.code === 'PISD-OK-000') || (response.status === 403 && payload.code === 'PISD-MOT-008'));
+  await step('api.control.stop', 'POST', '/api/control/stop', {}, (_r, payload) => payload.code === 'PISD-OK-000');
+  await refreshStatus();
+  refreshFrame();
+
+  const failed = lines.filter((line) => line.startsWith('FAIL')).length;
+  lines.push('------------------------------------------------------------------------');
+  lines.push(smokeLine(failed === 0, failed === 0 ? 'PISD-OK-000' : 'PISD-TEST-011', 'browser.smoke_summary', `failed=${failed}`));
+  panel.textContent = lines.join('\n');
+}
+
 document.addEventListener('click', async (event) => {
   const target = event.target.closest('[data-call]');
   if (!target) return;
@@ -92,6 +153,8 @@ document.addEventListener('click', async (event) => {
 
 document.getElementById('refreshStatusBtn').addEventListener('click', refreshStatus);
 document.getElementById('refreshFrameBtn').addEventListener('click', refreshFrame);
+document.getElementById('runSmokeTestBtn').addEventListener('click', runSafeSmokeTest);
+document.getElementById('runSmokeTestBtn2').addEventListener('click', runSafeSmokeTest);
 document.getElementById('stopAllBtn').addEventListener('click', async () => {
   await apiCall('POST', '/api/control/stop', {});
   await refreshStatus();
