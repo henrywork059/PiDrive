@@ -147,3 +147,18 @@ Colour-control warnings are normally non-fatal. They should appear in `recent_er
 - `PISD-TEST-007` — `scripts/test_motor_channels.py` detected one or more failed channel-test steps.
 
 The one-by-one motor calibration path must always stop after every step and include a PiSD code in its JSON summary.
+
+---
+
+## PiSD 0.1.2 added standard validation code
+
+- `PISD-TEST-008` — `scripts/run_standard_validation.py` detected one or more failed standard validation checks, or the validation script itself hit an unexpected exception.
+
+The standard validation script prints one simple line per function, for example:
+
+```text
+OK   PISD-OK-000   camera.service_frame - frame captured (12345 bytes)
+FAIL PISD-TEST-002 camera.service_frame - camera frame failed: ...
+```
+
+Use this script as the preferred quick checklist before building or changing the main PiSD server GUI.

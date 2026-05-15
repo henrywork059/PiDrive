@@ -1,5 +1,70 @@
 # PiSD Test Plan
 
+
+## Standard validation script
+
+Preferred quick test before building or changing the main server/GUI:
+
+```bash
+python3 scripts/run_standard_validation.py
+```
+
+Expected successful output uses one line per function:
+
+```text
+OK   PISD-OK-000   config.load_defaults - defaults loaded
+OK   PISD-OK-000   core.error_reporting_schema - error payloads include PiSD codes
+OK   PISD-OK-000   services.import_and_status - camera and motor services imported
+OK   PISD-OK-000   camera.service_frame - frame captured (12345 bytes)
+OK   PISD-OK-000   camera.apply_settings - camera settings applied and frame captured
+OK   PISD-OK-000   motor.service_channels - left/right direction tests completed and stopped
+OK   PISD-OK-000   api.status - status endpoint returned OK
+OK   PISD-OK-000   api.camera.start - camera start endpoint OK
+OK   PISD-OK-000   api.camera.frame - camera frame endpoint returned JPEG (12345 bytes)
+OK   PISD-OK-000   api.motor.config - motor config endpoint OK
+OK   PISD-OK-000   api.motor.test_channel - motor channel API tests completed
+OK   PISD-OK-000   api.control.stop - stop endpoint reset outputs
+OK   PISD-API-001  api.invalid_json_error_code - invalid JSON returned PISD-API-001
+OK   PISD-OK-000   summary - passed=13 failed=0 output=.../summary.json
+```
+
+The invalid-JSON line is marked `OK` because the correct behaviour is to reject bad input with `PISD-API-001` instead of crashing.
+
+Real camera/GPIO adapter check, without moving motors:
+
+```bash
+python3 scripts/run_standard_validation.py --hardware
+```
+
+When `--hardware` is used without motor arming, the motor channel API should refuse live movement safely:
+
+```text
+OK   PISD-MOT-008  api.motor.test_channel_safety_refusal - unarmed real motor test refused safely
+```
+
+Real camera and real one-by-one motor-output check. Use only with wheels lifted:
+
+```bash
+python3 scripts/run_standard_validation.py --hardware --enable-motor-output
+```
+
+The script writes a full machine-readable report to:
+
+```text
+test_outputs/standard_validation/summary.json
+```
+
+Useful options:
+
+```bash
+python3 scripts/run_standard_validation.py --skip-api
+python3 scripts/run_standard_validation.py --skip-camera
+python3 scripts/run_standard_validation.py --skip-motor
+python3 scripts/run_standard_validation.py --hardware --enable-motor-output --motor-speed 0.10 --motor-duration 0.20
+```
+
+`PISD-TEST-008` means at least one standard validation item failed. Read the failed line and `summary.json` for the exact function and code.
+
 ## Local checks
 
 From inside `PiSD/`:

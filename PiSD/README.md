@@ -6,7 +6,7 @@ It is intentionally separate from the existing `PiServer/` folder. PiSD may refe
 
 ## Current version
 
-`PiSD_0_1_1` — patch on top of stable `PiSD_0_1_0` with one-by-one motor calibration tests
+`PiSD_0_1_2` — patch on top of stable `PiSD_0_1_0` with one-by-one motor calibration tests and a standard OK/FAIL validation script
 
 This stable baseline keeps only one dependency file:
 
@@ -58,6 +58,7 @@ PiSD/
 │   ├── test_camera_service.py    # camera frame capture test
 │   ├── diagnose_camera_color.py   # real camera colour/AWB diagnostic captures
 │   ├── test_live_http_api.py     # HTTP test against running server
+│   ├── run_standard_validation.py # standard OK/FAIL validation checklist
 │   ├── test_motor_channels.py    # one-by-one motor calibration test
 │   └── test_motor_service.py     # motor mapping and optional GPIO test
 ├── test_outputs/                 # generated test captures/log-friendly outputs
@@ -81,7 +82,8 @@ PiSD/
     ├── PATCH_NOTES_PiSD_0_0_5.md
     ├── PATCH_NOTES_PiSD_0_0_6.md
     ├── PATCH_NOTES_PiSD_0_1_0.md
-    └── PATCH_NOTES_PiSD_0_1_1.md
+    ├── PATCH_NOTES_PiSD_0_1_1.md
+    └── PATCH_NOTES_PiSD_0_1_2.md
 ```
 
 ## Install
@@ -139,6 +141,25 @@ This is intentional. It prevents accidental motor activation while developing th
 ## Service testing scripts
 
 All scripts are run from inside `PiSD/`.
+
+
+Standard all-in-one validation checklist. This prints simple `OK` / `FAIL` lines with PiSD codes and writes `test_outputs/standard_validation/summary.json`:
+
+```bash
+python scripts/run_standard_validation.py
+```
+
+Real camera/GPIO adapter check without moving motors:
+
+```bash
+python scripts/run_standard_validation.py --hardware
+```
+
+Real camera plus real one-by-one motor output check. Lift the wheels first:
+
+```bash
+python scripts/run_standard_validation.py --hardware --enable-motor-output
+```
 
 Error-code/reporting schema check:
 
