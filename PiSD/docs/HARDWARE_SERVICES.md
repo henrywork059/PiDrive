@@ -239,3 +239,30 @@ The camera service now exposes and reports these major categories:
 - capture path selection: request/PIL visual path or raw array diagnostic path
 
 Use `GET /api/camera/capabilities` or `python3 scripts/dump_camera_capabilities.py --hardware` to see what the connected camera exposes. Not every libcamera control is guaranteed on every camera module; unsupported values should report a PiSD warning/error code rather than crash.
+
+
+---
+
+## PiSD 0.1.1 motor channel calibration
+
+Motor wiring differs between cars, so use the one-by-one channel test before assuming a car's direction settings are correct.
+
+```bash
+python3 scripts/test_motor_channels.py --hardware --enable-motor-output
+```
+
+The script tests one side at a time and stops after every step. `direction_1` means the first pin in that side's pin pair is active; `direction_2` means the second pin is active.
+
+The API equivalent is:
+
+```text
+POST /api/motor/test-channel
+```
+
+Hardware-enabled API calls must include:
+
+```json
+{ "enable_motor_output": true }
+```
+
+Without that field, PiSD refuses the channel test with `PISD-MOT-008`.

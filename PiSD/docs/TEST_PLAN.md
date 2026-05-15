@@ -236,3 +236,44 @@ Optional raw array diagnostics:
 python3 scripts/test_camera_settings_matrix.py --hardware --include-array-diagnostics
 python3 scripts/diagnose_camera_color.py --hardware --include-array-diagnostics
 ```
+
+
+---
+
+## PiSD 0.1.1 one-by-one motor channel tests
+
+Simulation-only check:
+
+```bash
+python3 scripts/test_motor_channels.py
+```
+
+Real GPIO check with wheels lifted:
+
+```bash
+python3 scripts/test_motor_channels.py --hardware --enable-motor-output
+```
+
+Recommended low-speed first run:
+
+```bash
+python3 scripts/test_motor_channels.py --hardware --enable-motor-output --speeds 0.10,0.15,0.20 --duration 0.30
+```
+
+Expected:
+
+- left motor is tested by itself
+- right motor is tested by itself
+- each side tests raw `direction_1` and `direction_2`
+- each direction tests the requested speed list
+- every step automatically stops
+- summary file is written to `test_outputs/motor_channels/summary.json`
+- final code is `PISD-OK-000` unless a step failed
+
+Live HTTP API single-channel check with server already running:
+
+```bash
+python3 scripts/test_live_http_api.py --base-url http://127.0.0.1:5050 --enable-motor-output
+```
+
+This now also calls `POST /api/motor/test-channel` before the existing manual control check.

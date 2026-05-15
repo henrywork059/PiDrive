@@ -85,6 +85,14 @@ def main() -> int:
     results.append({"endpoint": "POST /api/motor/apply invalid JSON", "status": invalid.status_code, "json": invalid_payload})
 
     if args.enable_motor_output:
+        channel = requests.post(
+            _url(base, "/api/motor/test-channel"),
+            json={"side": "left", "direction": 1, "speed": 0.12, "duration": 0.15, "enable_motor_output": True},
+            timeout=args.timeout,
+        )
+        channel.raise_for_status()
+        results.append({"endpoint": "POST /api/motor/test-channel", "status": channel.status_code, "json": _json_with_code(channel, "/api/motor/test-channel")})
+
         manual = requests.post(
             _url(base, "/api/control/manual"),
             json={"steering": 0.0, "throttle": 0.15},
@@ -94,6 +102,7 @@ def main() -> int:
         results.append({"endpoint": "POST /api/control/manual", "status": manual.status_code, "json": _json_with_code(manual, "/api/control/manual")})
         time.sleep(0.2)
     else:
+        results.append({"endpoint": "POST /api/motor/test-channel", "skipped": "add --enable-motor-output to test a single motor channel"})
         results.append({"endpoint": "POST /api/control/manual", "skipped": "add --enable-motor-output to send movement command"})
 
     stop = requests.post(_url(base, "/api/control/stop"), timeout=args.timeout)

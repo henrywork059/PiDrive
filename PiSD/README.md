@@ -6,15 +6,32 @@ It is intentionally separate from the existing `PiServer/` folder. PiSD may refe
 
 ## Current version
 
-`PiSD_0_0_6`
+`PiSD_0_1_1` — patch on top of stable `PiSD_0_1_0` with one-by-one motor calibration tests
 
-This version keeps only one dependency file:
+This stable baseline keeps only one dependency file:
 
 ```text
 PiSD/requirements.txt
 ```
 
 `requirement.txt` must not be restored.
+
+
+## Stable baseline notes
+
+`PiSD_0_1_0` is the first stable PiSD baseline after the hardware-service validation cycle.
+
+Confirmed by Raspberry Pi test logs supplied by the user:
+
+- status/error reporting returns `PISD-OK-000`
+- Picamera2 OV5647 hardware capture works
+- trusted visual colour reference is `01_request_awb_auto`
+- confirmed raw array/CV colour reference is `91_array_rgb_confirmed_correct`
+- GPIO motor adapter starts as `rpigpio`
+- safe invalid-JSON API handling returns `PISD-API-001` instead of crashing
+- live API camera start/frame/status/stop endpoints work
+
+Real wheel direction still depends on physical observation. Use the lifted-wheel motor tests before driving on the floor.
 
 ## Folder layout
 
@@ -41,6 +58,7 @@ PiSD/
 │   ├── test_camera_service.py    # camera frame capture test
 │   ├── diagnose_camera_color.py   # real camera colour/AWB diagnostic captures
 │   ├── test_live_http_api.py     # HTTP test against running server
+│   ├── test_motor_channels.py    # one-by-one motor calibration test
 │   └── test_motor_service.py     # motor mapping and optional GPIO test
 ├── test_outputs/                 # generated test captures/log-friendly outputs
 ├── docs/
@@ -51,6 +69,8 @@ PiSD/
 │   ├── DIRECTORY_GUIDE.md
 │   ├── GUI_FUNCTION_SPEC.md
 │   ├── HARDWARE_SERVICES.md
+│   ├── MOTOR_CALIBRATION.md
+│   ├── STABLE_BASELINE.md
 │   └── TEST_PLAN.md
 └── PATCH_NOTES/
     ├── PATCH_NOTES_PiSD_0_0_0.md
@@ -59,7 +79,9 @@ PiSD/
     ├── PATCH_NOTES_PiSD_0_0_3.md
     ├── PATCH_NOTES_PiSD_0_0_4.md
     ├── PATCH_NOTES_PiSD_0_0_5.md
-    └── PATCH_NOTES_PiSD_0_0_6.md
+    ├── PATCH_NOTES_PiSD_0_0_6.md
+    ├── PATCH_NOTES_PiSD_0_1_0.md
+    └── PATCH_NOTES_PiSD_0_1_1.md
 ```
 
 ## Install
@@ -175,6 +197,13 @@ Optional real motor GPIO output check on the Pi. Use only when the wheels are li
 python scripts/test_motor_service.py --hardware --enable-motor-output
 ```
 
+One-by-one motor channel calibration. This tests left/right motors separately, raw `direction_1`/`direction_2`, multiple speeds, and stop-after-each-step:
+
+```bash
+python scripts/test_motor_channels.py
+python scripts/test_motor_channels.py --hardware --enable-motor-output
+```
+
 Live HTTP check against a running PiSD server:
 
 ```bash
@@ -202,6 +231,7 @@ GET  /api/camera/frame.jpg
 GET  /video_feed
 GET  /api/motor/config
 POST /api/motor/apply
+POST /api/motor/test-channel
 POST /api/control/manual
 POST /api/control/stop
 ```
@@ -323,3 +353,8 @@ curl -X POST http://127.0.0.1:5050/api/camera/apply \
 ```
 
 All setting failures, ignored values, or unsupported libcamera controls should be reported through PiSD error codes, especially `PISD-CAM-009` and `PISD-CAM-010`.
+
+
+## Motor calibration
+
+See `docs/MOTOR_CALIBRATION.md`.

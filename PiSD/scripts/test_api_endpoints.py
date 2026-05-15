@@ -73,6 +73,12 @@ def main() -> int:
         raise AssertionError("Invalid JSON response did not use PISD-API-001")
     results.append({"endpoint": "POST /api/motor/apply invalid JSON", "status": res.status_code, "json": invalid_json})
 
+    res = _expect(client.post("/api/motor/test-channel", json={"side": "left", "direction": 1, "speed": 0.05, "duration": 0.05}))
+    channel_json = res.get_json() or {}
+    results.append({"endpoint": "POST /api/motor/test-channel", "status": res.status_code, "json": channel_json})
+    if channel_json.get("code") != PiSDErrorCodes.OK or channel_json.get("side") != "left":
+        raise AssertionError("Motor channel test endpoint did not return a valid PiSD response")
+
     res = _expect(client.post("/api/control/manual", json={"steering": 0.25, "throttle": 0.2}))
     manual_json = res.get_json()
     results.append({"endpoint": "POST /api/control/manual", "status": res.status_code, "json": manual_json})

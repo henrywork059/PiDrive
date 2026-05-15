@@ -214,6 +214,32 @@ def create_app(hardware_enabled: bool = False):
             report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"Motor apply API failed: {exc}", exc=exc)
             return jsonify(report_payload(False, report)), 500
 
+    @app.post("/api/motor/test-channel")
+    def api_motor_test_channel():
+        data, json_error = get_json_payload()
+        if json_error is not None:
+            return jsonify(report_payload(False, json_error)), 400
+        try:
+            if motor_service.hardware_enabled and not bool(data.get("enable_motor_output", False)):
+                report = motor_service.errors.report(
+                    PiSDErrorCodes.MOTOR_TEST_UNARMED,
+                    "Motor channel test refused because enable_motor_output was not true.",
+                    context={"path": request.path},
+                )
+                return jsonify(report_payload(False, report, motor=motor_service.status())), 403
+            result = motor_service.test_motor_channel(
+                side=data.get("side", ""),
+                direction=data.get("direction", 1),
+                speed=data.get("speed", 0.2),
+                duration=data.get("duration", 0.35),
+                apply_config_direction=bool(data.get("apply_config_direction", False)),
+            )
+            status_code = 200 if result.get("ok") else 400
+            return jsonify(result), status_code
+        except Exception as exc:
+            report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"Motor channel test API failed: {exc}", exc=exc)
+            return jsonify(report_payload(False, report)), 500
+
     @app.post("/api/control/manual")
     def api_control_manual():
         data, json_error = get_json_payload()

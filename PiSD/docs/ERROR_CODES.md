@@ -135,3 +135,15 @@ Colour-control warnings are normally non-fatal. They should appear in `recent_er
 - `PISD-CAM-009` — camera setting was invalid, unknown, ignored, or only partly applicable.
 - `PISD-CAM-010` — camera capability query failed.
 - `PISD-TEST-006` — camera settings matrix test failed.
+
+
+---
+
+## PiSD 0.1.1 added motor calibration codes
+
+- `PISD-MOT-007` — motor channel test input was invalid, such as an unknown side or too-low speed.
+- `PISD-MOT-008` — live API motor channel test was not armed with `enable_motor_output: true`.
+- `PISD-MOT-009` — motor channel test output command failed.
+- `PISD-TEST-007` — `scripts/test_motor_channels.py` detected one or more failed channel-test steps.
+
+The one-by-one motor calibration path must always stop after every step and include a PiSD code in its JSON summary.

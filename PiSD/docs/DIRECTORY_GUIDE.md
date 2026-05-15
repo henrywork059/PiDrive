@@ -84,6 +84,7 @@ Current scripts:
 - `check_service_imports.py` — imports services, loads defaults, and creates the Flask app factory
 - `test_camera_service.py` — starts camera service and saves a JPEG frame
 - `test_motor_service.py` — checks motor mapping and optional real GPIO output
+- `test_motor_channels.py` — tests left/right motors one by one, raw direction 1/2, multiple speeds, and automatic stop
 - `test_api_endpoints.py` — checks API route calls with Flask's test client
 - `test_live_http_api.py` — checks HTTP calls against a running PiSD server
 - `check_error_reporting.py` — verifies shared error-code/reporting schema without Flask or hardware
@@ -133,7 +134,7 @@ Patch notes must include:
 For PiSD patch zips:
 
 - preserve exact folder structure beginning with `PiSD/`
-- include the full PiSD starter component unless the user requests patch-only delivery
+- after stable `PiSD_0_1_0`, use patch-only delivery unless the user explicitly asks for a full package
 - do not add extra nesting such as `PiSD_0_0_3/PiSD/`
 - do not include unrelated PiDrive folders
 
@@ -151,10 +152,11 @@ Before packaging:
 
 ## Patch 0.0.4 colour diagnostic files
 
-Additional test script:
+Additional test scripts:
 
 ```text
 PiSD/scripts/diagnose_camera_color.py
+PiSD/scripts/test_motor_channels.py
 ```
 
 Generated output directory:
@@ -174,3 +176,26 @@ These generated files are for local Pi testing only and should not be committed 
 - `scripts/test_camera_settings_matrix.py` runs a repeatable set of size, quality, buffer, exposure, white balance, colour, flip, and noise-reduction checks.
 - `scripts/test_camera_service.py` accepts command-line overrides for the main camera settings, so individual controls can be tested without editing code.
 - `scripts/diagnose_camera_color.py` now keeps array colour tests optional because the array path is diagnostic/CV-only, not the visual reference.
+
+
+## Patch 0.1.1 motor calibration files
+
+New test script:
+
+```text
+PiSD/scripts/test_motor_channels.py
+```
+
+New documentation:
+
+```text
+PiSD/docs/MOTOR_CALIBRATION.md
+```
+
+Generated output directory:
+
+```text
+PiSD/test_outputs/motor_channels/
+```
+
+The motor channel test must remain safe by default. Real movement requires explicit hardware flags and the script must stop after every channel step.

@@ -18,6 +18,32 @@ except Exception:  # pragma: no cover
     GPIO_AVAILABLE = False
 
 
+def normalize_test_direction(value: Any, default: int = 1) -> int:
+    """Accept user-facing motor test directions and convert to +1/-1.
+
+    Direction 1 means the driver's first/forward pin is active. Direction 2
+    means the driver's second/reverse pin is active. These are deliberately
+    raw channel directions so each physical car can be calibrated.
+    """
+    if isinstance(value, str):
+        text = value.strip().lower().replace("-", "_").replace(" ", "_")
+        if text in {"1", "+1", "direction_1", "direction1", "dir_1", "dir1", "forward", "fwd", "pin1", "a"}:
+            return 1
+        if text in {"2", "_1", "-1", "direction_2", "direction2", "dir_2", "dir2", "reverse", "rev", "backward", "pin2", "b"}:
+            return -1
+    return normalize_direction(value, default)
+
+
+def motor_side_name(value: Any) -> str:
+    """Normalize a motor-side name for calibration commands."""
+    side = str(value or "").strip().lower()
+    if side in {"l", "left"}:
+        return "left"
+    if side in {"r", "right"}:
+        return "right"
+    return side
+
+
 @dataclass
 class MotorConfig:
     left_pins: tuple[int, int] = (17, 27)
@@ -231,6 +257,105 @@ class MotorService:
 
     def status(self) -> dict[str, Any]:
         return self.get_config()
+
+    def test_motor_channel(
+        self,
+        side: str,
+        *,
+        direction: int | str = 1,
+        speed: float = 0.2,
+        duration: float = 0.35,
+        apply_config_direction: bool = False,
+    ) -> dict[str, Any]:
+        """Run one motor, one direction, one speed, then stop.
+
+        This is for hardware calibration. It bypasses differential steering mix
+        so the user can identify each physical motor direction independently.
+        Direction 1 drives the driver's first/forward pin. Direction 2 drives
+        the driver's second/reverse pin. When ``apply_config_direction`` is
+        true, the saved left/right direction multiplier is also applied.
+        """
+        side_name = motor_side_name(side)
+        if side_name not in {"left", "right"}:
+            report = self._record(
+                PiSDErrorCodes.MOTOR_TEST_INVALID,
+                "Motor channel test side must be 'left' or 'right'.",
+                context={"side": side},
+            )
+            return {"ok": False, "code": report.code, "message": report.message, "error": report.as_dict(), "motor": self.status()}
+
+        direction_value = normalize_test_direction(direction, 1)
+        requested_speed = clamp_float(speed, 0.0, 1.0, 0.2)
+        if requested_speed < 0.01:
+            report = self._record(
+                PiSDErrorCodes.MOTOR_TEST_INVALID,
+                "Motor channel test speed must be at least 0.01.",
+                context={"side": side_name, "speed": speed},
+            )
+            return {"ok": False, "code": report.code, "message": report.message, "error": report.as_dict(), "motor": self.status()}
+
+        duration_s = clamp_float(duration, 0.05, 2.0, 0.35)
+        config_direction = self.config.left_direction if side_name == "left" else self.config.right_direction
+        effective_direction = direction_value * (config_direction if apply_config_direction else 1)
+        effective_speed = clamp_float(requested_speed * effective_direction, -1.0, 1.0, 0.0)
+
+        with self._lock:
+            self._stop_locked()
+            driver = self.left if side_name == "left" else self.right
+            other = self.right if side_name == "left" else self.left
+            other.stop()
+            ok = driver.set_speed(effective_speed)
+            if side_name == "left":
+                self.last_left = effective_speed
+                self.last_right = 0.0
+            else:
+                self.last_left = 0.0
+                self.last_right = effective_speed
+            self.last_command = {
+                "mode": "motor_channel_test",
+                "side": side_name,
+                "direction": direction_value,
+                "direction_label": "direction_1" if direction_value > 0 else "direction_2",
+                "speed": requested_speed,
+                "effective_speed": effective_speed,
+                "duration": duration_s,
+                "apply_config_direction": bool(apply_config_direction),
+                "timestamp": time.time(),
+            }
+            if not ok:
+                self._record(
+                    PiSDErrorCodes.MOTOR_TEST_OUTPUT_FAILED,
+                    "Motor channel test output command failed.",
+                    context=dict(self.last_command),
+                )
+
+        if not self.hardware_enabled:
+            print(
+                f"[PiSD MOTOR TEST SIM] side={side_name} direction={'direction_1' if direction_value > 0 else 'direction_2'} "
+                f"speed={requested_speed:.2f} effective={effective_speed:+.2f} duration={duration_s:.2f}s"
+            )
+
+        try:
+            time.sleep(duration_s)
+        finally:
+            with self._lock:
+                self._stop_locked()
+
+        status = self.status()
+        return {
+            "ok": bool(ok),
+            "code": PiSDErrorCodes.OK if ok else PiSDErrorCodes.MOTOR_TEST_OUTPUT_FAILED,
+            "message": "Motor channel test completed and stopped." if ok else "Motor channel test failed and stop was requested.",
+            "side": side_name,
+            "direction": direction_value,
+            "direction_label": "direction_1" if direction_value > 0 else "direction_2",
+            "speed": requested_speed,
+            "effective_speed": effective_speed,
+            "duration": duration_s,
+            "apply_config_direction": bool(apply_config_direction),
+            "hardware_output_enabled": bool(self.hardware_enabled),
+            "motor": status,
+        }
 
     def apply_settings(self, data: dict[str, Any] | None) -> dict[str, Any]:
         with self._lock:
