@@ -763,3 +763,18 @@ Expected Manual Drive layout:
 - The action log remains hidden until opened.
 
 This is a presentation-only check. The patch does not change motor output, camera settings, API endpoints, or saved settings format.
+
+## Presentation/layout regression checks added in 0.3.4
+
+Before building any new GUI page or panel style patch, run:
+
+```bash
+python3 scripts/test_ui_presentation_consistency.py --static-only
+python3 scripts/test_manual_drive_page.py --static-only
+python3 scripts/test_panel_presentation_page.py --static-only
+python3 scripts/test_front_page_tabs.py --static-only
+python3 scripts/test_settings_persistence.py
+python3 scripts/run_standard_validation.py --skip-api --skip-camera --skip-motor
+```
+
+These checks confirm that all templates use versioned static assets, the final shared design-system CSS is loaded last, the presentation registry exists, and Manual Drive keeps the required status -> camera preview -> controls layout contract.

@@ -758,3 +758,14 @@ python3 scripts/test_settings_persistence.py --base-url http://127.0.0.1:5050
 ```
 
 Manual Drive now uses a drag pad. It remains locked until the user confirms the wheels/area are safe. Releasing the drag pad sends STOP.
+
+## GUI presentation source of truth
+
+From `PiSD_0_3_4`, GUI presentation is controlled through a shared design system instead of remaking styles on each page:
+
+- `pisd/core/presentation_registry.py` defines defaults and page layout contracts.
+- `pisd/web/static/css/pisd_design_system.css` is loaded last on all GUI pages.
+- `pisd/web/static/js/panel_presentation_global.js` applies saved settings from `/api/settings`.
+- `config/runtime_settings.json` stores user presentation settings.
+
+See `docs/PRESENTATION_DEVELOPMENT.md` before changing page or panel layout.

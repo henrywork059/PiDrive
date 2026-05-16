@@ -4,10 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>PiSD Testing Server GUI</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/testing_server.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/panel_presentation_global.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/unified_layout.css') }}">
-  <script src="{{ url_for('static', filename='js/panel_presentation_global.js') }}" defer></script>
+  <link rel="stylesheet" href="{{ static_asset('css/panel_presentation_global.css') }}">
+  <link rel="stylesheet" href="{{ static_asset('css/testing_server.css') }}">
+  <link rel="stylesheet" href="{{ static_asset('css/unified_layout.css') }}">
+  <link rel="stylesheet" href="{{ static_asset('css/pisd_design_system.css') }}">
+  <script src="{{ static_asset('js/panel_presentation_global.js') }}" defer></script>
 </head>
 <body>
   <header class="topbar">
@@ -233,6 +234,6 @@
 
   <script id="initialStatusJson" type="application/json">{{ initial_status | tojson }}</script>
   <script id="manifestJson" type="application/json">{{ manifest | tojson }}</script>
-  <script src="{{ url_for('static', filename='js/testing_server.js') }}"></script>
+  <script src="{{ static_asset('js/testing_server.js') }}"></script>
 </body>
 </html>

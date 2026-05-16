@@ -8,6 +8,7 @@ from typing import Any
 from pisd import __version__
 from pisd.core.errors import ErrorReporter, PiSDErrorCodes, ok_payload, report_payload
 from pisd.core.panel_contracts import build_panel_testing_manifest, get_panel_contracts
+from pisd.core.presentation_registry import build_presentation_manifest
 from pisd.core.settings_manager import SettingsManager
 from pisd.services.camera_service import CameraService
 from pisd.services.motor_service import MotorService
@@ -47,7 +48,7 @@ def load_defaults() -> dict[str, Any]:
 
 def create_app(hardware_enabled: bool = False):
     try:
-        from flask import Flask, Response, jsonify, render_template, request
+        from flask import Flask, Response, jsonify, render_template, request, url_for
     except ImportError as exc:  # pragma: no cover
         APP_ERRORS.report(
             PiSDErrorCodes.APP_DEPENDENCY_MISSING,
@@ -73,6 +74,19 @@ def create_app(hardware_enabled: bool = False):
     )
     app.config["pisd_services"] = {"camera": camera_service, "motor": motor_service, "settings": settings_manager}
     app.config["pisd_errors"] = APP_ERRORS
+
+    @app.context_processor
+    def inject_pisd_asset_helpers():
+        def static_asset(filename: str) -> str:
+            return url_for("static", filename=filename, v=__version__)
+
+        return {"static_asset": static_asset, "pisd_version": __version__}
+
+    @app.after_request
+    def add_static_cache_headers(response):
+        if request.path.startswith("/testing/static/"):
+            response.headers["Cache-Control"] = "no-store, max-age=0"
+        return response
 
     def all_errors(limit: int = 10) -> dict[str, Any]:
         return {
@@ -140,6 +154,7 @@ def create_app(hardware_enabled: bool = False):
                 {"method": "GET", "path": "/api/camera/frame.jpg", "purpose": "Fetch one cached JPEG frame/snapshot."},
                 {"method": "GET", "path": "/video_feed", "purpose": "Multipart MJPEG live preview feed using frame notifications."},
                 {"method": "GET", "path": "/api/camera/fps-stats", "purpose": "Read measured camera capture, encode, and frame-byte statistics."},
+                {"method": "GET", "path": "/api/presentation/manifest", "purpose": "Read shared style/presentation source-of-truth and page layout contracts."},
                 {"method": "GET", "path": "/api/motor/config", "purpose": "Read current motor settings."},
                 {"method": "POST", "path": "/api/motor/apply", "purpose": "Apply motor settings without moving the car."},
                 {"method": "POST", "path": "/api/motor/test-channel", "purpose": "Test one motor side/direction/speed/duration."},
@@ -241,42 +256,22 @@ def create_app(hardware_enabled: bool = False):
 
     @app.get("/api/panel-presentation/manifest")
     def api_panel_presentation_manifest():
+        presentation = build_presentation_manifest(__version__)
         return jsonify(ok_payload(
             "Panel presentation settings manifest loaded.",
             storage_key="pisd.panelPresentation.v1",
             path="/panel-presentation",
             applies_to=["/", "/manual-drive", "/settings", "/testing", "/dashboard", "/panel-testing", "/panel-presentation"],
-            controls=[
-                "theme",
-                "layoutMode",
-                "density",
-                "fontScale",
-                "panelGap",
-                "panelRadius",
-                "borderStrength",
-                "shadowStrength",
-                "minPanelWidth",
-                "previewAspect",
-                "previewFit",
-                "panelPadding",
-                "panelHeaderMode",
-                "buttonScale",
-                "consoleHeight",
-                "cardAccent",
-                "adaptivePanels",
-                "statusPanelHWeight",
-                "statusPanelVWeight",
-                "previewPanelHWeight",
-                "previewPanelVWeight",
-                "controlPanelHWeight",
-                "controlPanelVWeight",
-                "settingsPanelHWeight",
-                "settingsPanelVWeight",
-                "logPanelHWeight",
-                "logPanelVWeight",
-                "autoSave",
-            ],
+            controls=presentation["controls"],
+            source_of_truth="pisd/core/presentation_registry.py",
+            design_system_css="css/pisd_design_system.css",
+            page_layout_contracts=presentation["page_layout_contracts"],
         ))
+
+
+    @app.get("/api/presentation/manifest")
+    def api_presentation_manifest():
+        return jsonify(ok_payload("Presentation design-system manifest loaded.", presentation=build_presentation_manifest(__version__)))
 
     @app.get("/api/panel-testing/manifest")
     def api_panel_testing_manifest():

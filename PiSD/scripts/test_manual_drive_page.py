@@ -27,6 +27,7 @@ TEMPLATE = WEB_ROOT / "templates" / "manual_drive.html"
 CSS = WEB_ROOT / "static" / "css" / "manual_drive.css"
 JS = WEB_ROOT / "static" / "js" / "manual_drive.js"
 GLOBAL_CSS = WEB_ROOT / "static" / "css" / "panel_presentation_global.css"
+DESIGN_SYSTEM_CSS = WEB_ROOT / "static" / "css" / "pisd_design_system.css"
 GLOBAL_JS = WEB_ROOT / "static" / "js" / "panel_presentation_global.js"
 OUTPUT_DIR = PROJECT_ROOT / "test_outputs" / "manual_drive_page"
 SUMMARY_PATH = OUTPUT_DIR / "summary.json"
@@ -64,7 +65,7 @@ def emit(result: Result) -> None:
 
 def check_files() -> list[Result]:
     results: list[Result] = []
-    for name, path in {"template": TEMPLATE, "css": CSS, "js": JS, "global_css": GLOBAL_CSS, "global_js": GLOBAL_JS}.items():
+    for name, path in {"template": TEMPLATE, "css": CSS, "js": JS, "global_css": GLOBAL_CSS, "design_system_css": DESIGN_SYSTEM_CSS, "global_js": GLOBAL_JS}.items():
         ok = path.exists() and path.stat().st_size > 0
         results.append(Result(
             f"manual_drive.file.{name}",
@@ -81,6 +82,7 @@ def check_source_contract() -> list[Result]:
         template = TEMPLATE.read_text(encoding="utf-8")
         css = CSS.read_text(encoding="utf-8")
         global_css = (WEB_ROOT / "static" / "css" / "unified_layout.css").read_text(encoding="utf-8")
+        design_css = DESIGN_SYSTEM_CSS.read_text(encoding="utf-8")
         js = JS.read_text(encoding="utf-8")
     except Exception as exc:
         return [Result("manual_drive.source_contract", False, PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED, f"failed to read files: {exc}")]
@@ -98,6 +100,7 @@ def check_source_contract() -> list[Result]:
         "mdrvStopBig",
         "manualDriveInitialStatus",
         "panel_presentation_global.css",
+        "pisd_design_system.css",
         "panel_presentation_global.js",
         'data-panel-role="status"',
         'data-panel-role="preview"',
@@ -107,13 +110,19 @@ def check_source_contract() -> list[Result]:
     required_unified_css = [
         "PiSD 0.3.3 manual-drive semantic layout recovery",
         "body.manual-drive-page .mdrv-shell",
-        "\"status drive\"",
+    ]
+    required_design_css = [
+        "PiSD Design System 0.3.4",
+        "body.manual-drive-page .mdrv-shell",
+        "\"status status\"",
         "\"preview drive\"",
-        "body.manual-drive-page .mdrv-preview-panel",
-        "grid-column: 1 / 2",
-        "body.manual-drive-page .mdrv-drive-panel",
-        "grid-column: 2 / 3",
-        "body.manual-drive-page .mdrv-preview-frame",
+        "#manualDriveStatusPanel",
+        "#manualDriveCameraPanel",
+        "#manualDrivePadPanel",
+        "grid-area: status",
+        "grid-area: preview",
+        "grid-area: drive",
+        "semantic panel placement",
     ]
     required_js = [
         "manualDriveInitialStatus",
@@ -133,6 +142,7 @@ def check_source_contract() -> list[Result]:
         "template": [token for token in required_template if token not in template],
         "css": [token for token in required_css if token not in css],
         "unified_css": [token for token in required_unified_css if token not in global_css],
+        "design_system_css": [token for token in required_design_css if token not in design_css],
         "js": [token for token in required_js if token not in js],
     }
     missing = {key: value for key, value in missing.items() if value}
@@ -156,10 +166,12 @@ def check_source_contract() -> list[Result]:
     ))
 
     css_ok = (
-        'body.manual-drive-page .mdrv-preview-panel' in global_css
-        and 'grid-column: 1 / 2' in global_css
-        and 'body.manual-drive-page .mdrv-drive-panel' in global_css
-        and 'grid-column: 2 / 3' in global_css
+        '"status status"' in design_css
+        and '"preview drive"' in design_css
+        and '#manualDriveCameraPanel' in design_css
+        and '#manualDrivePadPanel' in design_css
+        and 'grid-area: preview' in design_css
+        and 'grid-area: drive' in design_css
     )
     results.append(Result(
         "manual_drive.semantic_grid_layout",
@@ -182,6 +194,7 @@ def check_routes(hardware: bool) -> list[Result]:
         ("/manual-drive", "manual_drive.route.page", b"PiSD Manual Drive"),
         ("/testing/static/css/manual_drive.css", "manual_drive.static.css", b".mdrv-shell"),
         ("/testing/static/js/manual_drive.js", "manual_drive.static.js", b"manualDriveInitialStatus"),
+        ("/testing/static/css/pisd_design_system.css", "manual_drive.static.design_system", b"PiSD Design System 0.3.4"),
     ):
         response = client.get(path)
         ok = response.status_code == 200 and marker in response.data

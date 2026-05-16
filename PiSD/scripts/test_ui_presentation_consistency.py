@@ -25,6 +25,8 @@ from pisd.core.errors import PiSDErrorCodes  # noqa: E402
 WEB_ROOT = PROJECT_ROOT / "pisd" / "web"
 TEMPLATE_DIR = WEB_ROOT / "templates"
 UNIFIED_CSS = WEB_ROOT / "static" / "css" / "unified_layout.css"
+DESIGN_SYSTEM_CSS = WEB_ROOT / "static" / "css" / "pisd_design_system.css"
+PRESENTATION_REGISTRY = PROJECT_ROOT / "pisd" / "core" / "presentation_registry.py"
 OUTPUT_DIR = PROJECT_ROOT / "test_outputs" / "ui_presentation_consistency"
 SUMMARY_PATH = OUTPUT_DIR / "summary.json"
 
@@ -48,7 +50,6 @@ REQUIRED_CSS_TOKENS = [
     ".pt-hero",
     ".mdrv-shell",
     "grid-template-areas",
-    "\"status drive\"",
     "#settingsPanelPresentationPanel",
     ".layout > .card:nth-of-type(1)",
     ".md-panel-preview",
@@ -57,8 +58,27 @@ REQUIRED_CSS_TOKENS = [
     "@media (max-width: 900px)",
     "PiSD 0.3.3 manual-drive semantic layout recovery",
     "body.manual-drive-page .mdrv-shell",
-    "\"status drive\"",
+]
+
+REQUIRED_DESIGN_TOKENS = [
+    "PiSD Design System 0.3.4",
+    "grid-template-areas",
+    "\"status status\"",
     "\"preview drive\"",
+    "#manualDriveCameraPanel",
+    "#manualDrivePadPanel",
+    "semantic panel placement",
+    "body.manual-drive-page .mdrv-shell",
+    "css/pisd_design_system.css",
+]
+
+REQUIRED_REGISTRY_TOKENS = [
+    "PRESENTATION_DEFAULTS",
+    "PAGE_LAYOUT_CONTRACTS",
+    "manual_drive",
+    "status status",
+    "preview drive",
+    "STYLE_DEVELOPMENT_RULES",
 ]
 
 
@@ -94,7 +114,7 @@ def emit(result: Result) -> None:
 
 def check_files() -> list[Result]:
     results: list[Result] = []
-    files = {"unified_css": UNIFIED_CSS, **TEMPLATES}
+    files = {"unified_css": UNIFIED_CSS, "design_system_css": DESIGN_SYSTEM_CSS, "presentation_registry": PRESENTATION_REGISTRY, **TEMPLATES}
     for label, path in files.items():
         ok = path.exists() and path.stat().st_size > 0
         results.append(
@@ -112,6 +132,8 @@ def check_files() -> list[Result]:
 def check_source_contract() -> Result:
     try:
         css = UNIFIED_CSS.read_text(encoding="utf-8")
+        design_css = DESIGN_SYSTEM_CSS.read_text(encoding="utf-8")
+        registry = PRESENTATION_REGISTRY.read_text(encoding="utf-8")
         template_sources = {name: path.read_text(encoding="utf-8") for name, path in TEMPLATES.items()}
     except Exception as exc:
         return Result(
@@ -123,14 +145,32 @@ def check_source_contract() -> Result:
         )
 
     missing_css = [token for token in REQUIRED_CSS_TOKENS if token not in css]
-    missing_links = [name for name, source in template_sources.items() if "css/unified_layout.css" not in source]
-    ok = not missing_css and not missing_links
+    missing_design = [token for token in REQUIRED_DESIGN_TOKENS if token not in design_css]
+    missing_registry = [token for token in REQUIRED_REGISTRY_TOKENS if token not in registry]
+    missing_links = []
+    wrong_order = []
+    unversioned_static = []
+    for name, source in template_sources.items():
+        if "css/unified_layout.css" not in source or "css/pisd_design_system.css" not in source:
+            missing_links.append(name)
+        elif source.find("css/unified_layout.css") > source.find("css/pisd_design_system.css"):
+            wrong_order.append(name)
+        if "url_for('static'" in source or 'url_for("static"' in source:
+            unversioned_static.append(name)
+    ok = not missing_css and not missing_design and not missing_registry and not missing_links and not wrong_order and not unversioned_static
     return Result(
         "ui_presentation.source_contract",
         ok,
         PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_UI_PRESENTATION_CONSISTENCY_FAILED,
-        "all GUI pages include the unified layout layer and required layout decisions, including the 0.3.3 manual-drive semantic placement" if ok else "unified presentation contract failed",
-        {"missing_css": missing_css, "missing_links": missing_links},
+        "all GUI pages load the design system last, use versioned assets, and share one presentation registry" if ok else "unified presentation/design-system contract failed",
+        {
+            "missing_css": missing_css,
+            "missing_design": missing_design,
+            "missing_registry": missing_registry,
+            "missing_links": missing_links,
+            "wrong_order": wrong_order,
+            "unversioned_static": unversioned_static,
+        },
     )
 
 
@@ -143,7 +183,7 @@ def check_routes(hardware: bool) -> list[Result]:
     client = app.test_client()
     results: list[Result] = []
     for path, label, marker in (
-        ("/", "route.front", b"css/unified_layout.css"),
+        ("/", "route.front", b"css/pisd_design_system.css"),
         ("/manual-drive", "route.manual_drive", b"manualDriveStatusPanel"),
         ("/settings", "route.settings", b"settingsPanelPresentationPanel"),
         ("/testing", "route.testing", b"Settings and API call tester"),
@@ -151,6 +191,8 @@ def check_routes(hardware: bool) -> list[Result]:
         ("/panel-presentation", "route.panel_presentation", b"panelPresentationControls"),
         ("/panel-testing", "route.panel_testing", b"ptPanelGrid"),
         ("/testing/static/css/unified_layout.css", "static.unified_css", b"PiSD 0.3.2 unified visual recovery layer"),
+        ("/testing/static/css/pisd_design_system.css", "static.design_system_css", b"PiSD Design System 0.3.4"),
+        ("/api/presentation/manifest", "api.presentation_manifest", b"Presentation design-system manifest loaded"),
     ):
         response = client.get(path)
         ok = response.status_code == 200 and marker in response.data

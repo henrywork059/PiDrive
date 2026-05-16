@@ -7,6 +7,7 @@ from threading import RLock
 from typing import Any
 
 from pisd.core.errors import ErrorReporter, PiSDErrorCodes, ok_payload, report_payload
+from pisd.core.presentation_registry import PRESENTATION_DEFAULTS
 
 DEFAULT_RUNTIME_SETTINGS: dict[str, Any] = {
     "camera": {},
@@ -17,36 +18,7 @@ DEFAULT_RUNTIME_SETTINGS: dict[str, Any] = {
         "drag_send_interval_ms": 90,
         "preview_mode": "live",
     },
-    "panel_presentation": {
-        "theme": "dark",
-        "layoutMode": "auto",
-        "density": "compact",
-        "fontScale": 1.0,
-        "panelGap": 10,
-        "panelRadius": 14,
-        "borderStrength": 1.0,
-        "shadowStrength": 0.20,
-        "minPanelWidth": 280,
-        "previewAspect": "16 / 9",
-        "previewFit": "contain",
-        "panelPadding": 0.86,
-        "panelHeaderMode": "compact",
-        "buttonScale": 0.92,
-        "consoleHeight": 180,
-        "cardAccent": "subtle",
-        "adaptivePanels": True,
-        "statusPanelHWeight": 1,
-        "statusPanelVWeight": 1,
-        "previewPanelHWeight": 2,
-        "previewPanelVWeight": 2,
-        "controlPanelHWeight": 1,
-        "controlPanelVWeight": 1,
-        "settingsPanelHWeight": 1,
-        "settingsPanelVWeight": 1,
-        "logPanelHWeight": 2,
-        "logPanelVWeight": 1,
-        "autoSave": True,
-    },
+    "panel_presentation": copy.deepcopy(PRESENTATION_DEFAULTS),
     "safety": {
         "motor_output_locked_by_default": True,
         "require_wheels_lifted_ack": True,

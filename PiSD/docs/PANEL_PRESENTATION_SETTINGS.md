@@ -136,3 +136,14 @@ Current layout decisions:
 - Panel Testing: the environment controls stay in a side rail on wide screens and become a normal top section on smaller screens.
 
 Panel presentation settings still control density, radius, gap, font scale, preview fit/aspect, console height, and button scale. The unified layer uses those variables but prevents saved panel weights from breaking page structure.
+
+## 0.3.4 presentation source-of-truth update
+
+From `PiSD_0_3_4`, shared presentation decisions should be defined through:
+
+- `pisd/core/presentation_registry.py`
+- `pisd/web/static/css/pisd_design_system.css`
+- `pisd/web/static/js/panel_presentation_global.js`
+- `config/runtime_settings.json` through the settings manager
+
+The Panel Presentation page is for changing saved settings. It should not become a second layout engine. The design-system CSS is loaded last on every GUI page and keeps core page layout contracts stable while still allowing saved density, radius, gap, font, preview-fit, and weight tuning.

@@ -4,10 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>PiSD Main Dashboard</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/main_dashboard.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/panel_presentation_global.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/unified_layout.css') }}">
-  <script src="{{ url_for('static', filename='js/panel_presentation_global.js') }}" defer></script>
+  <link rel="stylesheet" href="{{ static_asset('css/panel_presentation_global.css') }}">
+  <link rel="stylesheet" href="{{ static_asset('css/main_dashboard.css') }}">
+  <link rel="stylesheet" href="{{ static_asset('css/unified_layout.css') }}">
+  <link rel="stylesheet" href="{{ static_asset('css/pisd_design_system.css') }}">
+  <script src="{{ static_asset('js/panel_presentation_global.js') }}" defer></script>
 </head>
 <body>
   <header class="md-topbar">
@@ -159,6 +160,6 @@
   </main>
 
   <script id="mainDashboardInitialStatus" type="application/json">{{ initial_status | tojson }}</script>
-  <script src="{{ url_for('static', filename='js/main_dashboard.js') }}"></script>
+  <script src="{{ static_asset('js/main_dashboard.js') }}"></script>
 </body>
 </html>
