@@ -144,18 +144,29 @@ def check_routes(hardware: bool) -> list[Result]:
         return [Result("api.create_app", False, PiSDErrorCodes.APP_DEPENDENCY_MISSING, f"Flask app could not be created: {exc}")]
 
     client = app.test_client()
-    for path, label in (("/", "api.testing_gui.root"), ("/testing", "api.testing_gui.testing")):
-        response = client.get(path)
-        ok = response.status_code == 200 and b"PiSD Testing Server GUI" in response.data and b"Run safe smoke test" in response.data
-        results.append(
-            Result(
-                label,
-                ok,
-                PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_GUI_ROUTE_FAILED,
-                f"{path} loaded" if ok else f"{path} returned HTTP {response.status_code} or missing content",
-                {"http_status": response.status_code, "bytes": len(response.data)},
-            )
+    response = client.get("/testing")
+    ok = response.status_code == 200 and b"PiSD Testing Server GUI" in response.data and b"Run safe smoke test" in response.data
+    results.append(
+        Result(
+            "api.testing_gui.testing",
+            ok,
+            PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_GUI_ROUTE_FAILED,
+            "/testing loaded" if ok else f"/testing returned HTTP {response.status_code} or missing content",
+            {"http_status": response.status_code, "bytes": len(response.data)},
         )
+    )
+
+    response = client.get("/")
+    root_ok = response.status_code == 200 and b"PiSD Main Dashboard" in response.data
+    results.append(
+        Result(
+            "api.testing_gui.root_separated",
+            root_ok,
+            PiSDErrorCodes.OK if root_ok else PiSDErrorCodes.TEST_GUI_ROUTE_FAILED,
+            "/ now loads the main dashboard while /testing remains the API tester" if root_ok else f"/ returned HTTP {response.status_code} or missing main dashboard marker",
+            {"http_status": response.status_code, "bytes": len(response.data)},
+        )
+    )
 
     for path, label, marker in (
         ("/testing/static/css/testing_server.css", "api.static.css", b".code-pill"),

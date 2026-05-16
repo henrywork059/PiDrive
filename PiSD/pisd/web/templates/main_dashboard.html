@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PiSD Main Dashboard</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main_dashboard.css') }}">
+</head>
+<body>
+  <header class="md-topbar">
+    <div class="md-title-block">
+      <p class="md-kicker">PiSD actual GUI shell</p>
+      <h1>Main Dashboard</h1>
+      <p class="md-subtitle">First real control dashboard shell built from the tested API contracts. Testing pages remain available separately.</p>
+    </div>
+    <nav class="md-top-actions" aria-label="Dashboard navigation and global actions">
+      <a class="md-link-button" href="/testing">API testing</a>
+      <a class="md-link-button" href="/panel-testing">Panel testing</a>
+      <span id="mdGlobalCode" class="md-code-pill">{{ initial_status.code }}</span>
+      <button id="mdRefreshStatus" class="md-button md-button-secondary">Refresh</button>
+      <button id="mdStopAllTop" class="md-button md-button-danger">STOP</button>
+    </nav>
+  </header>
+
+  <main class="md-shell" id="mdShell">
+    <section class="md-panel md-panel-status" id="panel-system-status" data-panel="system-status">
+      <div class="md-panel-head">
+        <div>
+          <p class="md-panel-label">System Status</p>
+          <h2>Runtime health</h2>
+        </div>
+        <span class="md-panel-code" data-code-for="system-status">{{ initial_status.code }}</span>
+      </div>
+      <div class="md-status-grid">
+        <div><span>Version</span><strong id="mdVersion">{{ initial_status.version }}</strong></div>
+        <div><span>Hardware</span><strong id="mdHardware">{{ 'enabled' if initial_status.hardware_requested else 'simulation' }}</strong></div>
+        <div><span>Camera</span><strong id="mdCameraState">{{ initial_status.camera.backend }}</strong></div>
+        <div><span>Motor</span><strong id="mdMotorState">{{ initial_status.motor.adapter }}</strong></div>
+      </div>
+      <pre id="mdStatusJson" class="md-console md-console-small">{{ initial_status | tojson(indent=2) }}</pre>
+    </section>
+
+    <section class="md-panel md-panel-preview" id="panel-camera-preview" data-panel="camera-preview">
+      <div class="md-panel-head">
+        <div>
+          <p class="md-panel-label">Camera Preview</p>
+          <h2>Live frame</h2>
+        </div>
+        <span class="md-panel-code" data-code-for="camera-preview">PISD-OK-000</span>
+      </div>
+      <div class="md-preview-frame">
+        <img id="mdCameraPreview" src="/api/camera/frame.jpg" alt="PiSD camera preview">
+      </div>
+      <div class="md-button-row">
+        <button id="mdCameraStart" class="md-button md-button-primary">Start camera</button>
+        <button id="mdCameraStop" class="md-button md-button-secondary">Stop camera</button>
+        <button id="mdCameraRefresh" class="md-button md-button-secondary">Refresh frame</button>
+      </div>
+      <p class="md-help">Visual path uses <code>capture_source=request</code>. Confirmed CV array path uses <code>array_color_order=rgb</code>.</p>
+    </section>
+
+    <section class="md-panel md-panel-manual" id="panel-manual-drive" data-panel="manual-drive">
+      <div class="md-panel-head">
+        <div>
+          <p class="md-panel-label">Manual Drive</p>
+          <h2>Bench movement controls</h2>
+        </div>
+        <span class="md-panel-code" data-code-for="manual-drive">PISD-OK-000</span>
+      </div>
+      <label class="md-arm-row">
+        <input id="mdMotorArm" type="checkbox">
+        <span>I confirm the wheels are lifted and motor output is safe to test.</span>
+      </label>
+      <div class="md-control-grid" aria-label="Manual drive controls">
+        <button class="md-drive-button" data-steering="0" data-throttle="0.18" disabled>Forward</button>
+        <button class="md-drive-button" data-steering="-0.35" data-throttle="0.18" disabled>Left</button>
+        <button id="mdStopAllCenter" class="md-drive-button md-drive-stop">STOP</button>
+        <button class="md-drive-button" data-steering="0.35" data-throttle="0.18" disabled>Right</button>
+        <button class="md-drive-button" data-steering="0" data-throttle="-0.18" disabled>Reverse</button>
+      </div>
+      <label class="md-inline-control">Speed
+        <input id="mdManualSpeed" type="range" min="0.08" max="0.45" step="0.01" value="0.18">
+        <output id="mdManualSpeedValue">0.18</output>
+      </label>
+      <p id="mdManualSafetyText" class="md-warning-text">Movement buttons are locked until the safety checkbox is enabled. STOP remains active.</p>
+    </section>
+
+    <section class="md-panel md-panel-channel" id="panel-motor-channel-calibration" data-panel="motor-channel-calibration">
+      <div class="md-panel-head">
+        <div>
+          <p class="md-panel-label">Motor Channel Calibration</p>
+          <h2>One motor at a time</h2>
+        </div>
+        <span class="md-panel-code" data-code-for="motor-channel-calibration">PISD-OK-000</span>
+      </div>
+      <form id="mdMotorChannelForm" class="md-form-grid">
+        <label>Side
+          <select name="side">
+            <option value="left">left</option>
+            <option value="right">right</option>
+          </select>
+        </label>
+        <label>Direction
+          <select name="direction">
+            <option value="1">direction 1</option>
+            <option value="-1">direction 2</option>
+          </select>
+        </label>
+        <label>Speed
+          <input name="speed" type="number" min="0.05" max="0.6" step="0.01" value="0.18">
+        </label>
+        <label>Duration seconds
+          <input name="duration" type="number" min="0.1" max="2" step="0.1" value="0.4">
+        </label>
+        <button class="md-button md-button-primary md-form-span" type="submit" disabled>Run channel test</button>
+      </form>
+      <p class="md-help">Direction is intentionally not fixed here. Final direction mapping will be set later in GUI settings.</p>
+    </section>
+
+    <section class="md-panel md-panel-stop" id="panel-safety-stop" data-panel="safety-stop">
+      <div class="md-panel-head">
+        <div>
+          <p class="md-panel-label">Safety Stop</p>
+          <h2>Always available</h2>
+        </div>
+        <span class="md-panel-code" data-code-for="safety-stop">PISD-OK-000</span>
+      </div>
+      <button id="mdStopAllPanel" class="md-big-stop">STOP ALL MOTOR OUTPUT</button>
+      <p class="md-help">This calls <code>/api/control/stop</code> and should work whether the movement lock is armed or not.</p>
+    </section>
+
+    <section class="md-panel md-panel-errors" id="panel-error-monitor" data-panel="error-monitor">
+      <div class="md-panel-head">
+        <div>
+          <p class="md-panel-label">Error Monitor</p>
+          <h2>PiSD code log</h2>
+        </div>
+        <span class="md-panel-code" data-code-for="error-monitor">PISD-OK-000</span>
+      </div>
+      <div class="md-button-row">
+        <button id="mdReadErrors" class="md-button md-button-secondary">Read errors</button>
+        <button id="mdClearErrors" class="md-button md-button-secondary">Clear errors</button>
+      </div>
+      <pre id="mdErrorJson" class="md-console md-console-small">No error check run yet.</pre>
+    </section>
+
+    <section class="md-panel md-panel-log" id="panel-action-log" data-panel="action-log">
+      <div class="md-panel-head">
+        <div>
+          <p class="md-panel-label">Action Log</p>
+          <h2>Last API response</h2>
+        </div>
+        <span class="md-panel-code" data-code-for="action-log">PISD-OK-000</span>
+      </div>
+      <pre id="mdActionLog" class="md-console">Dashboard loaded. No action yet.</pre>
+    </section>
+  </main>
+
+  <script id="mainDashboardInitialStatus" type="application/json">{{ initial_status | tojson }}</script>
+  <script src="{{ url_for('static', filename='js/main_dashboard.js') }}"></script>
+</body>
+</html>

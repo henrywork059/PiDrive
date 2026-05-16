@@ -53,13 +53,17 @@ def main() -> int:
     results.append({"endpoint": "GET /api/status", "status": res.status_code, "json": res.get_json()})
 
 
-    for path in ("/", "/testing"):
-        res = _expect(client.get(path))
-        if b"PiSD Testing Server GUI" not in res.data or b"Run safe smoke test" not in res.data:
-            raise AssertionError(f"GET {path} did not return the testing GUI page with smoke test controls")
-        results.append({"endpoint": f"GET {path}", "status": res.status_code, "bytes": len(res.data)})
+    res = _expect(client.get("/"))
+    if b"PiSD Main Dashboard" not in res.data or b"panel-system-status" not in res.data:
+        raise AssertionError("GET / did not return the main dashboard page")
+    results.append({"endpoint": "GET /", "status": res.status_code, "bytes": len(res.data)})
 
-    for path, marker in (("/testing/static/css/testing_server.css", b".code-pill"), ("/testing/static/js/testing_server.js", b"runSafeSmokeTest")):
+    res = _expect(client.get("/testing"))
+    if b"PiSD Testing Server GUI" not in res.data or b"Run safe smoke test" not in res.data:
+        raise AssertionError("GET /testing did not return the testing GUI page with smoke test controls")
+    results.append({"endpoint": "GET /testing", "status": res.status_code, "bytes": len(res.data)})
+
+    for path, marker in (("/testing/static/css/main_dashboard.css", b".md-shell"), ("/testing/static/js/main_dashboard.js", b"updateMotorLock"), ("/testing/static/css/testing_server.css", b".code-pill"), ("/testing/static/js/testing_server.js", b"runSafeSmokeTest")):
         res = _expect(client.get(path))
         if marker not in res.data:
             raise AssertionError(f"GET {path} did not contain expected testing GUI asset marker")

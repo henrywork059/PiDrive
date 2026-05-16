@@ -39,6 +39,9 @@ WEB_JS = WEB_ROOT / "static" / "js" / "testing_server.js"
 PANEL_TEMPLATE = WEB_ROOT / "templates" / "panel_testing.html"
 PANEL_CSS = WEB_ROOT / "static" / "css" / "panel_testing.css"
 PANEL_JS = WEB_ROOT / "static" / "js" / "panel_testing.js"
+MAIN_TEMPLATE = WEB_ROOT / "templates" / "main_dashboard.html"
+MAIN_CSS = WEB_ROOT / "static" / "css" / "main_dashboard.css"
+MAIN_JS = WEB_ROOT / "static" / "js" / "main_dashboard.js"
 
 
 @dataclass
@@ -266,6 +269,83 @@ def _check_motor_service(real_output: bool, speed: float, duration: float) -> Ch
     finally:
         motor.close()
 
+
+
+
+def _check_main_dashboard_static_files() -> CheckResult:
+    files = {
+        "template": MAIN_TEMPLATE,
+        "css": MAIN_CSS,
+        "js": MAIN_JS,
+    }
+    missing = [name for name, path in files.items() if not path.exists() or path.stat().st_size <= 0]
+    ok = not missing
+    return CheckResult(
+        "main_dashboard.static_files",
+        ok,
+        PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_MAIN_DASHBOARD_CONTRACT_FAILED,
+        "main dashboard template/CSS/JS files exist" if ok else f"missing or empty files: {', '.join(missing)}",
+        {name: str(path.relative_to(PROJECT_ROOT)) for name, path in files.items()},
+    )
+
+
+def _check_main_dashboard_source_contract() -> CheckResult:
+    try:
+        template = MAIN_TEMPLATE.read_text(encoding="utf-8")
+        css = MAIN_CSS.read_text(encoding="utf-8")
+        js = MAIN_JS.read_text(encoding="utf-8")
+    except Exception as exc:
+        return CheckResult(
+            "main_dashboard.source_contract",
+            False,
+            PiSDErrorCodes.TEST_MAIN_DASHBOARD_CONTRACT_FAILED,
+            f"failed to read main dashboard files: {exc}",
+            {"exception_type": type(exc).__name__},
+        )
+    required_template_tokens = [
+        "PiSD Main Dashboard",
+        "mainDashboardInitialStatus",
+        "panel-system-status",
+        "panel-camera-preview",
+        "panel-manual-drive",
+        "panel-motor-channel-calibration",
+        "panel-safety-stop",
+        "panel-error-monitor",
+        "panel-action-log",
+        "mdMotorArm",
+        "mdStopAllTop",
+        "mdStopAllCenter",
+        "mdStopAllPanel",
+    ]
+    required_js_tokens = [
+        "apiCall",
+        "refreshStatus",
+        "stopAll",
+        "updateMotorLock",
+        "sendManual",
+        "sendChannelTest",
+        "/api/status",
+        "/api/camera/start",
+        "/api/camera/frame.jpg",
+        "/api/control/manual",
+        "/api/motor/test-channel",
+        "/api/control/stop",
+        "PISD-MOT-008",
+    ]
+    required_css_tokens = [".md-shell", ".md-panel", ".md-big-stop", "container-type: inline-size", "@media (max-width: 1100px)"]
+    missing = {
+        "template": [token for token in required_template_tokens if token not in template],
+        "js": [token for token in required_js_tokens if token not in js],
+        "css": [token for token in required_css_tokens if token not in css],
+    }
+    ok = not any(missing.values())
+    return CheckResult(
+        "main_dashboard.source_contract",
+        ok,
+        PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_MAIN_DASHBOARD_CONTRACT_FAILED,
+        "main dashboard source contains required panels, safety lock, STOP actions, and API calls" if ok else "main dashboard source contract is missing required tokens",
+        {key: value for key, value in missing.items() if value},
+    )
 
 
 def _check_testing_gui_static_files() -> CheckResult:
@@ -594,21 +674,64 @@ def _check_api_stop_and_errors(client) -> list[CheckResult]:
 
 
 
-def _check_api_testing_gui(client) -> list[CheckResult]:
-    results: list[CheckResult] = []
 
-    for path, label in (("/", "api.testing_gui.root_page"), ("/testing", "api.testing_gui.page")):
+def _check_api_main_dashboard_gui(client) -> list[CheckResult]:
+    results: list[CheckResult] = []
+    response = client.get("/")
+    page_ok = response.status_code == 200 and b"PiSD Main Dashboard" in response.data and b"panel-system-status" in response.data
+    results.append(
+        CheckResult(
+            "api.main_dashboard.root_page",
+            page_ok,
+            PiSDErrorCodes.OK if page_ok else PiSDErrorCodes.TEST_MAIN_DASHBOARD_CONTRACT_FAILED,
+            "/ main dashboard page loaded" if page_ok else f"/ returned HTTP {response.status_code} or missing expected content",
+            {"http_status": response.status_code, "bytes": len(response.data)},
+        )
+    )
+    for path, label, marker in (
+        ("/testing/static/css/main_dashboard.css", "api.main_dashboard.static_css", b".md-shell"),
+        ("/testing/static/js/main_dashboard.js", "api.main_dashboard.static_js", b"updateMotorLock"),
+    ):
         response = client.get(path)
-        page_ok = response.status_code == 200 and b"PiSD Testing Server GUI" in response.data and b"Run safe smoke test" in response.data
+        asset_ok = response.status_code == 200 and marker in response.data
         results.append(
             CheckResult(
                 label,
-                page_ok,
-                PiSDErrorCodes.OK if page_ok else PiSDErrorCodes.TEST_GUI_ROUTE_FAILED,
-                f"{path} testing GUI page loaded" if page_ok else f"{path} returned HTTP {response.status_code} or missing expected content",
+                asset_ok,
+                PiSDErrorCodes.OK if asset_ok else PiSDErrorCodes.TEST_MAIN_DASHBOARD_CONTRACT_FAILED,
+                f"{path} asset loaded" if asset_ok else f"{path} returned HTTP {response.status_code} or missing marker",
                 {"http_status": response.status_code, "bytes": len(response.data)},
             )
         )
+    response = client.post("/api/control/stop", json={})
+    payload = response.get_json(silent=True) or {}
+    stop_ok = response.status_code == 200 and payload.get("code") == PiSDErrorCodes.OK
+    results.append(
+        CheckResult(
+            "api.main_dashboard.stop_safe",
+            stop_ok,
+            _json_code(payload, PiSDErrorCodes.TEST_MAIN_DASHBOARD_CONTRACT_FAILED),
+            "dashboard STOP API call returned OK" if stop_ok else f"dashboard STOP API returned HTTP {response.status_code}",
+            {"http_status": response.status_code},
+        )
+    )
+    return results
+
+
+def _check_api_testing_gui(client) -> list[CheckResult]:
+    results: list[CheckResult] = []
+
+    response = client.get("/testing")
+    page_ok = response.status_code == 200 and b"PiSD Testing Server GUI" in response.data and b"Run safe smoke test" in response.data
+    results.append(
+        CheckResult(
+            "api.testing_gui.page",
+            page_ok,
+            PiSDErrorCodes.OK if page_ok else PiSDErrorCodes.TEST_GUI_ROUTE_FAILED,
+            "/testing GUI page loaded" if page_ok else f"/testing returned HTTP {response.status_code} or missing expected content",
+            {"http_status": response.status_code, "bytes": len(response.data)},
+        )
+    )
 
     static_checks = [
         ("/testing/static/css/testing_server.css", "api.testing_gui.static_css", b".code-pill"),
@@ -815,6 +938,7 @@ def _run_api_checks(args: argparse.Namespace) -> list[CheckResult]:
     client = app.test_client()
     results: list[CheckResult] = []
     if not args.skip_gui:
+        results.extend(_check_api_main_dashboard_gui(client))
         results.extend(_check_api_testing_gui(client))
         results.extend(_check_api_panel_testing_gui(client))
     results.append(_check_api_status(client))
@@ -842,6 +966,8 @@ def main() -> int:
     checks.append(_safe_check("services.import_and_status", _check_imports))
 
     if not args.skip_gui:
+        checks.append(_safe_check("main_dashboard.static_files", _check_main_dashboard_static_files))
+        checks.append(_safe_check("main_dashboard.source_contract", _check_main_dashboard_source_contract))
         checks.append(_safe_check("gui.static_files", _check_testing_gui_static_files))
         checks.append(_safe_check("gui.source_contract", _check_testing_gui_source_contract))
         checks.append(_safe_check("panel_gui.static_files", _check_panel_testing_static_files))

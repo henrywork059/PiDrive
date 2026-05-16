@@ -2,7 +2,7 @@
 
 ## Purpose
 
-`PiSD_0_2_1` added a temporary testing server GUI before the final PiDrive/PiServer-style GUI is built. `PiSD_0_2_2` adds stronger tests for that testing GUI before the final control GUI is designed.
+`PiSD_0_2_1` added a temporary testing server GUI before the final PiDrive/PiServer-style GUI is built. `PiSD_0_2_2` adds stronger tests for that testing GUI. Since `PiSD_0_2_5`, this testing GUI lives at `/testing`; the root route `/` is the first actual main dashboard shell.
 
 This page is not intended to be the final driving interface. Its job is to make every important service and API call easy to test from a browser:
 
@@ -26,11 +26,15 @@ python3 PiSD.py --host 0.0.0.0 --port 5050 --hardware
 Open:
 
 ```text
-http://<pi-ip>:5050/
 http://<pi-ip>:5050/testing
 ```
 
-Both routes show the same testing GUI.
+The root route is now separate:
+
+```text
+http://<pi-ip>:5050/          # actual main dashboard shell
+http://<pi-ip>:5050/testing    # temporary API/settings tester
+```
 
 ## Safety behaviour
 
@@ -166,7 +170,7 @@ Expected lines include:
 ```text
 OK   PISD-OK-000   gui.static_files - testing GUI template/CSS/JS files exist
 OK   PISD-OK-000   gui.source_contract - testing GUI source contains required IDs, API calls, safety checks, and code display
-OK   PISD-OK-000   api.testing_gui.root_page - / testing GUI page loaded
+OK   PISD-OK-000   api.testing_gui.page - /testing GUI page loaded
 OK   PISD-OK-000   api.testing_gui.manifest_contract - testing GUI manifest includes required endpoints and known-good camera references
 ```
 

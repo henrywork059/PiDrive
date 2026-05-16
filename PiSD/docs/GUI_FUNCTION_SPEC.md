@@ -1,10 +1,38 @@
 # PiSD GUI and Function Specification Draft
 
-## Current GUI shell
+## Current main dashboard shell
 
-`PiSD_0_2_1` provides a temporary testing server GUI at `/` and `/testing`; `PiSD_0_2_2` adds stronger GUI/API validation and a safe browser smoke-test button.
+`PiSD_0_2_5` starts the actual GUI server shell. The root route `/` now renders the first real dashboard page, while the development/testing pages remain separate:
 
-This page is intentionally not the final driving UI. It is a browser-based API and settings tester for checking backend service behaviour before the actual PiServer-style GUI is designed.
+```text
+/               actual main dashboard shell
+/testing        API and settings testing server page
+/panel-testing  panel layout and API-contract testing lab
+```
+
+The first dashboard shell includes:
+
+- System Status
+- Camera Preview
+- Manual Drive
+- Motor Channel Calibration
+- Safety Stop
+- Error Monitor
+- Action Log
+
+Safety rule: manual drive and motor channel calibration are locked by default and only enable after the page safety checkbox is ticked. STOP controls remain available at all times.
+
+Focused validation:
+
+```bash
+python3 scripts/test_main_dashboard.py
+```
+
+## Testing server GUI
+
+`PiSD_0_2_1` provided a temporary testing server GUI. Since `PiSD_0_2_5`, the temporary tester lives at `/testing` only.
+
+This page is intentionally not the final driving UI. It is a browser-based API and settings tester for checking backend service behaviour before the actual PiServer-style GUI is extended.
 
 It includes:
 
@@ -22,9 +50,12 @@ It includes:
 ```text
 GET  /api/test-gui/manifest
 GET  /api/status
+GET  /api/errors
+POST /api/errors/clear
 POST /api/camera/start
 POST /api/camera/stop
 GET  /api/camera/config
+GET  /api/camera/capabilities
 POST /api/camera/apply
 GET  /api/camera/frame.jpg
 GET  /video_feed
@@ -33,6 +64,8 @@ POST /api/motor/apply
 POST /api/motor/test-channel
 POST /api/control/manual
 POST /api/control/stop
+GET  /api/panel-testing/manifest
+GET  /api/panel-testing/contracts
 ```
 
 ## Design goals
@@ -43,57 +76,42 @@ POST /api/control/stop
 - obvious emergency stop
 - no hidden backend failures
 - all controls call real APIs
+- every panel action shows a `PISD-*` code
+- testing pages remain available while the actual dashboard evolves
 
-## Suggested future tabs
+## Main dashboard v1 panels
 
-### Manual
+### System Status
 
-- steering slider
-- throttle slider
-- steer mix
-- reverse option
-- trim controls
-- speed limit
-- stop button
+Displays PiSD version, hardware/simulation state, camera backend, motor adapter, and raw status JSON.
 
-### Camera
+### Camera Preview
 
-- preview start/stop
-- resolution
-- preview quality
-- snapshot
-- exposure/AWB controls
-- camera restart
+Starts/stops the camera and refreshes `/api/camera/frame.jpg`. The trusted visual path remains `capture_source=request`; the confirmed array/CV path remains `array_color_order=rgb`.
 
-### Settings
+### Manual Drive
 
-- save settings
-- reload settings
-- reset defaults
-- export/import later
+Provides simple bench controls for forward, reverse, left, right, and STOP. Movement buttons are disabled until the safety checkbox is selected.
 
-### Diagnostics
+### Motor Channel Calibration
 
-- backend mode
-- camera state
-- motor state
-- last error
-- event log
+Tests one side at a time using `/api/motor/test-channel`. Direction is not fixed here because final direction mapping will be controlled by future GUI settings.
 
-### Full Auto / Lane Detection
+### Safety Stop
 
-Add later after the manual, camera, and motor layers are stable.
+Always available. Calls `/api/control/stop`.
 
+### Error Monitor
 
-## Testing GUI behaviour
+Reads and clears error history through `/api/errors` and `/api/errors/clear`.
 
-The testing GUI should only prove API and settings behaviour. Do not add final layout/docking/recording/model features here yet. The final GUI should be built later after these calls are confirmed stable.
+### Action Log
 
-Motor movement remains locked by default. `/api/motor/test-channel` must continue to refuse real output with `PISD-MOT-008` unless `enable_motor_output` is true. The safe smoke-test button must never arm real motor output; it should accept either a safe simulation run or the expected `PISD-MOT-008` refusal in hardware mode.
+Shows the most recent API action, HTTP status, response JSON, and `PISD-*` code.
 
 ## Panel testing page added in PiSD 0.2.3
 
-`/panel-testing` is a new panel layout lab before the actual GUI server is built. It does not copy the old testing-server cards. It rebuilds the planned final-GUI panels as flexible, responsive test components.
+`/panel-testing` is a panel layout lab before the actual GUI server is fully built. It does not copy the old testing-server cards. It rebuilds the planned final-GUI panels as flexible, responsive test components.
 
 Panels currently listed for final GUI planning:
 
@@ -124,9 +142,7 @@ The panel lab includes environment and style controls for:
 - minimum panel width
 - preview aspect ratio
 
-Use this page to decide which panel sizes, densities, and layout behaviour are safe before building the final server GUI.
-
----
+Use this page to decide which panel sizes, densities, and layout behaviour are safe before expanding the final dashboard.
 
 ## PiSD 0.2.4 panel API contract rule
 
@@ -160,3 +176,14 @@ python3 scripts/test_panel_testing_page.py
 ```
 
 Motor or drive panels must treat real movement as dangerous. Safe API tests may only use zero-output commands or unarmed checks that return `PISD-MOT-008` on hardware.
+
+## Later GUI work
+
+Do not add these until the dashboard shell is proven:
+
+- draggable/resizable panels
+- layout persistence
+- dataset recording
+- model/lane runtime integration
+- theme editor beyond panel-testing presets
+- training integration

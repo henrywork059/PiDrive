@@ -15,13 +15,18 @@ Expected successful output uses one line per function:
 OK   PISD-OK-000   config.load_defaults - defaults loaded
 OK   PISD-OK-000   core.error_reporting_schema - error payloads include PiSD codes
 OK   PISD-OK-000   services.import_and_status - camera and motor services imported
+OK   PISD-OK-000   main_dashboard.static_files - main dashboard template/CSS/JS files exist
+OK   PISD-OK-000   main_dashboard.source_contract - main dashboard source contains required panels, safety lock, STOP actions, and API calls
 OK   PISD-OK-000   gui.static_files - testing GUI template/CSS/JS files exist
 OK   PISD-OK-000   gui.source_contract - testing GUI source contains required IDs, API calls, safety checks, and code display
 OK   PISD-OK-000   camera.service_frame - frame captured (12345 bytes)
 OK   PISD-OK-000   camera.apply_settings - camera settings applied and frame captured
 OK   PISD-OK-000   motor.service_channels - left/right direction tests completed and stopped
-OK   PISD-OK-000   api.testing_gui.root_page - / testing GUI page loaded
-OK   PISD-OK-000   api.testing_gui.page - /testing testing GUI page loaded
+OK   PISD-OK-000   api.main_dashboard.root_page - / main dashboard page loaded
+OK   PISD-OK-000   api.main_dashboard.static_css - /testing/static/css/main_dashboard.css asset loaded
+OK   PISD-OK-000   api.main_dashboard.static_js - /testing/static/js/main_dashboard.js asset loaded
+OK   PISD-OK-000   api.main_dashboard.stop_safe - dashboard STOP API call returned OK
+OK   PISD-OK-000   api.testing_gui.page - /testing GUI page loaded
 OK   PISD-OK-000   api.testing_gui.static_css - /testing/static/css/testing_server.css asset loaded
 OK   PISD-OK-000   api.testing_gui.static_js - /testing/static/js/testing_server.js asset loaded
 OK   PISD-OK-000   api.testing_gui.manifest_contract - testing GUI manifest includes required endpoints and known-good camera references
@@ -76,6 +81,29 @@ python3 scripts/run_standard_validation.py --hardware --enable-motor-output --mo
 
 
 
+## Main dashboard GUI shell check
+
+`PiSD_0_2_5` makes `/` the actual dashboard shell. The temporary testing page remains at `/testing`.
+
+Focused validation:
+
+```bash
+python3 scripts/test_main_dashboard.py
+```
+
+Expected OK examples:
+
+```text
+OK   PISD-OK-000   main_dashboard.file.template - pisd/web/templates/main_dashboard.html exists
+OK   PISD-OK-000   main_dashboard.source_contract - main dashboard source includes required panels, safety lock, STOP actions, and API calls
+OK   PISD-OK-000   main_dashboard.route.root - / loads the actual main dashboard
+OK   PISD-OK-000   main_dashboard.route.testing_still_available - /testing remains available
+OK   PISD-OK-000   main_dashboard.route.panel_testing_still_available - /panel-testing remains available
+OK   PISD-OK-000   main_dashboard.api.stop_safe - STOP API remains safe from dashboard test
+```
+
+The script does not arm or move motors. The dashboard itself keeps movement controls disabled until the safety checkbox is selected.
+
 Focused testing-GUI validation:
 
 ```bash
@@ -110,11 +138,11 @@ python3 PiSD.py --host 0.0.0.0 --port 5050 --hardware
 Open:
 
 ```text
-http://<pi-ip>:5050/
-http://<pi-ip>:5050/testing
+http://<pi-ip>:5050/          # actual main dashboard shell
+http://<pi-ip>:5050/testing    # temporary API/settings tester
 ```
 
-Expected:
+Expected for `/testing`:
 
 - page title says `PiSD Testing Server GUI`
 - global code starts as `PISD-OK-000`
@@ -136,8 +164,11 @@ python3 scripts/run_standard_validation.py --skip-camera --skip-motor
 Expected OK lines:
 
 ```text
-OK   PISD-OK-000   api.testing_gui.root_page - / testing GUI page loaded
-OK   PISD-OK-000   api.testing_gui.page - /testing testing GUI page loaded
+OK   PISD-OK-000   api.main_dashboard.root_page - / main dashboard page loaded
+OK   PISD-OK-000   api.main_dashboard.static_css - /testing/static/css/main_dashboard.css asset loaded
+OK   PISD-OK-000   api.main_dashboard.static_js - /testing/static/js/main_dashboard.js asset loaded
+OK   PISD-OK-000   api.main_dashboard.stop_safe - dashboard STOP API call returned OK
+OK   PISD-OK-000   api.testing_gui.page - /testing GUI page loaded
 OK   PISD-OK-000   api.testing_gui.static_css - /testing/static/css/testing_server.css asset loaded
 OK   PISD-OK-000   api.testing_gui.static_js - /testing/static/js/testing_server.js asset loaded
 OK   PISD-OK-000   api.testing_gui.manifest_contract - testing GUI manifest includes required endpoints and known-good camera references

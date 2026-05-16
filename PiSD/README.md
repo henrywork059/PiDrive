@@ -6,7 +6,7 @@ It is intentionally separate from the existing `PiServer/` folder. PiSD may refe
 
 ## Current version
 
-`PiSD_0_2_3` — GUI panel testing patch, adding a separate flexible panel lab for testing planned final-GUI panels, panel sizes, panel style settings, and responsive behaviour before the actual GUI server is built.
+`PiSD_0_2_5` — first actual main dashboard GUI shell. The root route `/` is now the real dashboard shell, while `/testing` and `/panel-testing` remain separate validation pages.
 
 This package is built from stable `PiSD_0_1_0` plus the accepted `PiSD_0_1_1` motor-channel calibration patch and `PiSD_0_1_2` standard validation patch.
 
@@ -21,7 +21,7 @@ PiSD/requirements.txt
 
 ## Stable baseline notes
 
-`PiSD_0_2_0` is the current stable rollback baseline before GUI development. `PiSD_0_2_1` added the testing GUI, `PiSD_0_2_2` strengthens the GUI/API testing layer, and `PiSD_0_2_3` adds a separate flexible panel testing lab on top of that baseline.
+`PiSD_0_2_0` is the stable rollback baseline before GUI development. `PiSD_0_2_1` added the testing GUI, `PiSD_0_2_2` strengthens the GUI/API testing layer, `PiSD_0_2_3` adds the flexible panel testing lab, `PiSD_0_2_4` adds panel API contracts, and `PiSD_0_2_5` adds the first actual main dashboard shell.
 
 It keeps the tested camera/motor/error-reporting foundation from `PiSD_0_1_0`, then adds one-by-one motor channel calibration and the standard OK/FAIL validation script.
 
@@ -52,9 +52,10 @@ PiSD/
 │   ├── __init__.py               # PiSD package version
 │   ├── app.py                    # Flask GUI/API wiring
 │   ├── web/
+│   │   ├── templates/main_dashboard.html
 │   │   ├── templates/testing_server.html
 │   │   ├── templates/panel_testing.html
-│   │   └── static/               # testing GUI and panel-lab CSS/JS
+│   │   └── static/               # main dashboard, testing GUI, and panel-lab CSS/JS
 │   ├── core/
 │   │   ├── errors.py             # shared error codes/reporting helpers
 │   │   └── value_utils.py        # clamp/parse helpers
@@ -69,6 +70,10 @@ PiSD/
 │   ├── diagnose_camera_color.py   # real camera colour/AWB diagnostic captures
 │   ├── test_live_http_api.py     # HTTP test against running server
 │   ├── run_standard_validation.py # standard OK/FAIL validation checklist
+│   ├── test_main_dashboard.py    # actual dashboard shell validation
+│   ├── test_testing_server_gui.py # temporary API/settings GUI validation
+│   ├── test_panel_testing_page.py # panel lab validation
+│   ├── test_panel_api_contracts.py # panel API contract validation
 │   ├── test_motor_channels.py    # one-by-one motor calibration test
 │   └── test_motor_service.py     # motor mapping and optional GPIO test
 ├── test_outputs/                 # generated test captures/log-friendly outputs
@@ -99,7 +104,9 @@ PiSD/
     ├── PATCH_NOTES_PiSD_0_2_0.md
     ├── PATCH_NOTES_PiSD_0_2_1.md
     ├── PATCH_NOTES_PiSD_0_2_2.md
-    └── PATCH_NOTES_PiSD_0_2_3.md
+    ├── PATCH_NOTES_PiSD_0_2_3.md
+    ├── PATCH_NOTES_PiSD_0_2_4.md
+    └── PATCH_NOTES_PiSD_0_2_5.md
 ```
 
 ## Install
@@ -117,6 +124,46 @@ sudo apt update
 sudo apt install -y python3-picamera2 python3-libcamera python3-opencv
 ```
 
+
+## Main dashboard GUI shell
+
+Run the PiSD server:
+
+```bash
+python3 PiSD.py --host 0.0.0.0 --port 5050 --hardware
+```
+
+Open the actual dashboard shell:
+
+```text
+http://<pi-ip>:5050/
+```
+
+`PiSD_0_2_5` makes `/` the first real dashboard shell. It includes these initial panels:
+
+```text
+System Status
+Camera Preview
+Manual Drive
+Motor Channel Calibration
+Safety Stop
+Error Monitor
+Action Log
+```
+
+Motor movement controls are locked by default. The dashboard requires the user to tick the lifted-wheels safety checkbox before manual drive or channel-test controls become active. STOP buttons remain active at all times.
+
+Focused dashboard validation:
+
+```bash
+python3 scripts/test_main_dashboard.py
+```
+
+Static-only version for packaging machines without Flask:
+
+```bash
+python3 scripts/test_main_dashboard.py --static-only
+```
 
 ## Testing server GUI
 

@@ -200,3 +200,14 @@ FAIL PISD-TEST-014 panel.camera_settings.api - expected code mismatch
 ```
 
 A skipped future placeholder is acceptable before the final GUI stage. A failed contract means the panel cannot be safely wired into the actual GUI yet.
+
+
+## Main dashboard validation error code
+
+- `PISD-TEST-015` — main dashboard template, CSS, JS, Flask route, static asset, or safe STOP route contract failed validation.
+
+Example:
+
+```text
+FAIL PISD-TEST-015 main_dashboard.source_contract - main dashboard source contract failed
+```

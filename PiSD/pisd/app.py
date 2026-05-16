@@ -116,6 +116,7 @@ def create_app(hardware_enabled: bool = False):
             "code": PiSDErrorCodes.OK,
             "message": "Testing server GUI endpoint manifest loaded.",
             "pages": ["/", "/testing", "/panel-testing"],
+            "main_dashboard": {"path": "/", "purpose": "Actual GUI dashboard shell v1."},
             "static_base": "/testing/static/",
             "endpoints": [
                 {"method": "GET", "path": "/api/status", "purpose": "Read full PiSD camera/motor/error status."},
@@ -160,6 +161,12 @@ def create_app(hardware_enabled: bool = False):
         )
 
     @app.get("/")
+    def main_dashboard():
+        return render_template(
+            "main_dashboard.html",
+            initial_status=build_status(),
+        )
+
     @app.get("/testing")
     def index():
         return render_template(
