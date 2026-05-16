@@ -223,3 +223,11 @@ PISD-TEST-018
 ```
 
 Used by panel presentation settings validation and import/error reporting for the browser-local panel presentation page.
+
+## Added in 0.2.9
+
+```text
+PISD-TEST-019
+```
+
+Used by manual drive page validation when the `/manual-drive` page, its static files, or its required safety/API contracts are missing or invalid.

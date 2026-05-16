@@ -30,6 +30,9 @@ SETTINGS_JS = WEB_ROOT / "static" / "js" / "settings_tab.js"
 MAIN_TEMPLATE = WEB_ROOT / "templates" / "main_dashboard.html"
 TESTING_TEMPLATE = WEB_ROOT / "templates" / "testing_server.html"
 PANEL_TEMPLATE = WEB_ROOT / "templates" / "panel_testing.html"
+MANUAL_TEMPLATE = WEB_ROOT / "templates" / "manual_drive.html"
+MANUAL_CSS = WEB_ROOT / "static" / "css" / "manual_drive.css"
+MANUAL_JS = WEB_ROOT / "static" / "js" / "manual_drive.js"
 PRESENTATION_TEMPLATE = WEB_ROOT / "templates" / "panel_presentation.html"
 PRESENTATION_CSS = WEB_ROOT / "static" / "css" / "panel_presentation.css"
 PRESENTATION_JS = WEB_ROOT / "static" / "js" / "panel_presentation.js"
@@ -77,6 +80,9 @@ def check_files() -> list[Result]:
         "settings_template": SETTINGS_TEMPLATE,
         "settings_css": SETTINGS_CSS,
         "settings_js": SETTINGS_JS,
+        "manual_template": MANUAL_TEMPLATE,
+        "manual_css": MANUAL_CSS,
+        "manual_js": MANUAL_JS,
     }
     results: list[Result] = []
     for name, path in files.items():
@@ -111,6 +117,8 @@ def check_source_contract() -> list[Result]:
             "frontPageShell",
             "frontModeSettings",
             "frontModeTesting",
+            "frontModeManualDrive",
+            "href=\"/manual-drive\"",
             "href=\"/settings\"",
             "href=\"/testing\"",
             "href=\"/dashboard\"",
@@ -130,7 +138,7 @@ def check_source_contract() -> list[Result]:
             "settingsInitialStatus",
         ],
         "settings_css": [".st-grid", ".st-card", ".st-form-grid", "@media (max-width: 900px)"],
-        "settings_js": ["settingsApi", "/api/camera/apply", "/api/motor/apply", "/api/control/stop"],
+        "settings_js": ["settingsApi", "/api/camera/apply", "/api/motor/apply", "/api/control/stop", "pisd.runtimeSettings.v1"],
     }
     sources = {
         "front_template": front,
@@ -156,6 +164,7 @@ def check_source_contract() -> list[Result]:
     back_link_sources = {
         "settings": settings,
         "dashboard": MAIN_TEMPLATE.read_text(encoding="utf-8"),
+        "manual_drive": MANUAL_TEMPLATE.read_text(encoding="utf-8"),
         "testing": TESTING_TEMPLATE.read_text(encoding="utf-8"),
         "panel_testing": PANEL_TEMPLATE.read_text(encoding="utf-8"),
         "panel_presentation": PRESENTATION_TEMPLATE.read_text(encoding="utf-8"),
@@ -183,6 +192,7 @@ def check_routes(hardware: bool) -> list[Result]:
     route_checks = [
         ("/", "front_page.route.root", b"PiSD Front Page", b"frontModeSettings"),
         ("/settings", "front_page.route.settings", b"PiSD Settings Tab", b"Back to Front Page"),
+        ("/manual-drive", "front_page.route.manual_drive", b"PiSD Manual Drive", b"Back to Front Page"),
         ("/testing", "front_page.route.testing", b"PiSD Testing Server GUI", b"Back to Front Page"),
         ("/dashboard", "front_page.route.dashboard", b"PiSD Main Dashboard", b"Back to Front Page"),
         ("/panel-presentation", "front_page.route.panel_presentation", b"PiSD Panel Presentation Settings", b"Back to Front Page"),
@@ -206,6 +216,8 @@ def check_routes(hardware: bool) -> list[Result]:
         ("/testing/static/js/front_page.js", "front_page.static.front_js", b"frontApi"),
         ("/testing/static/css/settings_tab.css", "front_page.static.settings_css", b".st-grid"),
         ("/testing/static/js/settings_tab.js", "front_page.static.settings_js", b"settingsApi"),
+        ("/testing/static/css/manual_drive.css", "front_page.static.manual_css", b".mdrv-shell"),
+        ("/testing/static/js/manual_drive.js", "front_page.static.manual_js", b"manualDriveInitialStatus"),
         ("/testing/static/css/panel_presentation_global.css", "front_page.static.presentation_global_css", b"--pisd-ui-gap"),
         ("/testing/static/js/panel_presentation_global.js", "front_page.static.presentation_global_js", b"PiSDPanelPresentation"),
         ("/testing/static/css/panel_presentation.css", "front_page.static.presentation_css", b".pp-shell"),

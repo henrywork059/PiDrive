@@ -237,3 +237,32 @@ A new `/panel-presentation` page controls shared presentation settings for panel
 - preview aspect ratio
 
 The shared presentation CSS/JS is loaded by the front page, settings tab, testing tab, dashboard, and panel testing page.
+
+## 0.2.9 Manual Drive tab and shared settings behaviour
+
+The front page now exposes a dedicated `/manual-drive` page for easy user control.
+This is different from `/dashboard`, which remains the broader dashboard shell.
+
+Manual Drive page panels:
+
+- Camera Preview: simple live view using `/video_feed`.
+- Running Status: important hardware/camera/motor status only.
+- Manual Pad: forward, reverse, left, right, and STOP controls.
+- Safety Stop: large STOP button that remains active even when motor movement is locked.
+- Response: last API response and PISD code.
+
+Safety requirements:
+
+- Movement buttons are disabled by default.
+- User must enable the safety checkbox before drive commands can be sent.
+- STOP must always remain active.
+- Any lock/refusal should show `PISD-MOT-008` or another relevant `PISD-*` code.
+
+Settings behaviour:
+
+- `/settings` saves camera/motor form values in browser localStorage.
+- `/settings` applies runtime changes through `/api/camera/apply` and `/api/motor/apply`.
+- Applied runtime settings affect all pages because all tabs share the same backend services.
+- `/panel-presentation` saves browser-local panel presentation settings and applies them across all GUI pages, including `/manual-drive`.
+
+Panel presentation controls now include panel padding, panel header mode, button size, console height, preview fit, and card accent strength in addition to the original density/layout/theme controls.

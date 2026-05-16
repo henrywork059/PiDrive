@@ -32,6 +32,7 @@ FRONT_TEMPLATE = WEB_ROOT / "templates" / "front_page.html"
 SETTINGS_TEMPLATE = WEB_ROOT / "templates" / "settings_tab.html"
 TESTING_TEMPLATE = WEB_ROOT / "templates" / "testing_server.html"
 DASHBOARD_TEMPLATE = WEB_ROOT / "templates" / "main_dashboard.html"
+MANUAL_TEMPLATE = WEB_ROOT / "templates" / "manual_drive.html"
 PANEL_TESTING_TEMPLATE = WEB_ROOT / "templates" / "panel_testing.html"
 OUTPUT_DIR = PROJECT_ROOT / "test_outputs" / "panel_presentation"
 SUMMARY_PATH = OUTPUT_DIR / "summary.json"
@@ -47,6 +48,13 @@ REQUIRED_CONTROLS = [
     "ppShadowStrength",
     "ppMinPanelWidth",
     "ppPreviewAspect",
+    "ppPreviewFit",
+    "ppPanelPadding",
+    "ppPanelHeaderMode",
+    "ppButtonScale",
+    "ppConsoleHeight",
+    "ppCardAccent",
+    "ppAutoSave",
     "ppApply",
     "ppSave",
     "ppReset",
@@ -127,8 +135,8 @@ def check_source_contract() -> list[Result]:
         *REQUIRED_CONTROLS,
     ]
     required_css = [".pp-shell", ".pp-control-grid", ".pp-panel-grid", ".pp-preview-surface", "@media (max-width: 980px)"]
-    required_js = ["PiSDPanelPresentation", "localStorage", "ppSave", "ppApply", "ppReset", "ppExport", "PISD-TEST-018"]
-    required_global_css = ["--pisd-ui-gap", "--pisd-ui-radius", "--pisd-ui-panel-min-width", "body[data-pisd-density", ".fp-mode-grid"]
+    required_js = ["PiSDPanelPresentation", "localStorage", "ppSave", "ppApply", "ppReset", "ppExport", "autoSaveEnabled", "PISD-TEST-018"]
+    required_global_css = ["--pisd-ui-gap", "--pisd-ui-radius", "--pisd-ui-panel-min-width", "--pisd-ui-button-scale", "--pisd-ui-console-height", "body[data-pisd-density", ".fp-mode-grid", ".mdrv-shell"]
     required_global_js = ["STORAGE_KEY", "pisd.panelPresentation.v1", "PiSDPanelPresentation", "apply(read())"]
 
     missing = {
@@ -155,6 +163,7 @@ def check_source_contract() -> list[Result]:
         "settings_tab": SETTINGS_TEMPLATE,
         "testing_tab": TESTING_TEMPLATE,
         "dashboard": DASHBOARD_TEMPLATE,
+        "manual_drive": MANUAL_TEMPLATE,
         "panel_testing": PANEL_TESTING_TEMPLATE,
     }
     missing_includes = []

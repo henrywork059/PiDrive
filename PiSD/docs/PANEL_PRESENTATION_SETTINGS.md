@@ -78,3 +78,29 @@ OK   PISD-OK-000   panel_presentation.source_contract - panel presentation page 
 - Server-side persistence can be added later if needed.
 - The page does not change hardware configuration.
 - It should not be used as the panel functionality/API test page; use `/panel-testing` for that.
+
+## 0.2.9 expanded style controls
+
+Additional controls were added so this page better fits its purpose as the panel presentation/settings tab:
+
+- preview fit: `contain`, `cover`, or `fill`
+- panel padding scale
+- panel header mode: `standard`, `compact`, or `minimal`
+- button size scale
+- console/log maximum height
+- card accent strength: `subtle`, `strong`, or `none`
+- auto-save changes globally
+
+Auto-save is enabled by default. When it is enabled, changing a control saves the setting immediately to browser localStorage and applies it to all PiSD GUI tabs when they open.
+
+The shared presentation settings now apply to:
+
+```text
+/
+/manual-drive
+/settings
+/testing
+/dashboard
+/panel-testing
+/panel-presentation
+```

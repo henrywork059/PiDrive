@@ -13,7 +13,7 @@
     <div>
       <p class="st-kicker">PiSD setting tab</p>
       <h1>Settings and safe apply checks</h1>
-      <p class="st-subtitle">Use this page to test camera and motor setting API calls separately from the testing tab and actual dashboard.</p>
+      <p class="st-subtitle">Use this page to save and apply camera/motor settings. Applied runtime settings affect all tabs that call the same backend services.</p>
     </div>
     <nav class="st-actions" aria-label="Settings navigation">
       <a class="st-button st-secondary" href="/">Back to Front Page</a>
@@ -59,7 +59,7 @@
         <label>Right bias <input name="right_bias" type="number" min="-1" max="1" step="0.01" value="0.0"></label>
         <div class="st-form-actions"><button class="st-button st-primary" type="submit">Apply motor settings</button><button id="stReadMotor" class="st-button" type="button">Read motor config</button></div>
       </form>
-      <p class="st-help">This applies configuration only; it does not move the car. Motor direction can be decided later in GUI settings.</p>
+      <p class="st-help">This applies configuration only; it does not move the car. Values are also saved in this browser and restored into the settings form across tabs/sessions.</p>
     </section>
 
     <section class="st-card st-wide" id="settingsActionPanel">

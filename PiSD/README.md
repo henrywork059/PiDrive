@@ -654,3 +654,43 @@ Validation:
 python3 scripts/test_panel_presentation_page.py --static-only
 python3 scripts/run_standard_validation.py --skip-api --skip-camera --skip-motor
 ```
+
+## PiSD 0.2.9 manual drive and shared settings update
+
+PiSD 0.2.9 adds a simple user-facing manual drive page:
+
+```text
+/manual-drive
+```
+
+The front page now includes a **Manual Drive** option. This page is intended for easy car control and includes:
+
+- live camera preview using `/video_feed`
+- important runtime status
+- manual drive pad
+- speed and steer-strength sliders
+- always-available STOP buttons
+- motor output lock that must be enabled before movement buttons work
+
+The settings tab also saves camera/motor form values in browser storage:
+
+```text
+pisd.runtimeSettings.v1
+```
+
+Submitting camera or motor settings still applies them through the backend API, so the updated runtime configuration is shared by all tabs that use the same PiSD services.
+
+Panel presentation settings now include more style controls for panel padding, header mode, button size, console height, preview fit, and card accent. They continue to save under:
+
+```text
+pisd.panelPresentation.v1
+```
+
+Validation:
+
+```bash
+python3 scripts/test_manual_drive_page.py --static-only
+python3 scripts/test_front_page_tabs.py --static-only
+python3 scripts/test_panel_presentation_page.py --static-only
+python3 scripts/run_standard_validation.py --skip-api --skip-camera --skip-motor
+```

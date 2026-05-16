@@ -115,8 +115,9 @@ def create_app(hardware_enabled: bool = False):
             "version": __version__,
             "code": PiSDErrorCodes.OK,
             "message": "Testing server GUI endpoint manifest loaded.",
-            "pages": ["/", "/settings", "/dashboard", "/testing", "/panel-presentation", "/panel-testing"],
+            "pages": ["/", "/manual-drive", "/settings", "/dashboard", "/testing", "/panel-presentation", "/panel-testing"],
             "front_page": {"path": "/", "purpose": "Mode selection landing page."},
+            "manual_drive": {"path": "/manual-drive", "purpose": "Simple user driving page with camera preview, status, STOP, and manual pad."},
             "settings_tab": {"path": "/settings", "purpose": "Settings tab for camera/motor/system API checks."},
             "main_dashboard": {"path": "/dashboard", "purpose": "Actual GUI dashboard shell v1."},
             "panel_presentation": {"path": "/panel-presentation", "purpose": "Browser-local panel presentation settings that apply across pages."},
@@ -184,6 +185,13 @@ def create_app(hardware_enabled: bool = False):
             manifest=test_gui_manifest(),
         )
 
+    @app.get("/manual-drive")
+    def manual_drive():
+        return render_template(
+            "manual_drive.html",
+            initial_status=build_status(),
+        )
+
     @app.get("/settings")
     def settings_tab():
         return render_template(
@@ -231,7 +239,7 @@ def create_app(hardware_enabled: bool = False):
             "Panel presentation settings manifest loaded.",
             storage_key="pisd.panelPresentation.v1",
             path="/panel-presentation",
-            applies_to=["/", "/settings", "/testing", "/dashboard", "/panel-testing"],
+            applies_to=["/", "/manual-drive", "/settings", "/testing", "/dashboard", "/panel-testing", "/panel-presentation"],
             controls=[
                 "theme",
                 "layoutMode",
@@ -243,6 +251,13 @@ def create_app(hardware_enabled: bool = False):
                 "shadowStrength",
                 "minPanelWidth",
                 "previewAspect",
+                "previewFit",
+                "panelPadding",
+                "panelHeaderMode",
+                "buttonScale",
+                "consoleHeight",
+                "cardAccent",
+                "autoSave",
             ],
         ))
 

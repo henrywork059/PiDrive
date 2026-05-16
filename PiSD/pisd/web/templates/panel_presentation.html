@@ -13,7 +13,7 @@
     <div>
       <p class="pp-kicker">PiSD panel presentation</p>
       <h1>Panel style and size settings</h1>
-      <p class="pp-subtitle">Set how panels should look across the front page, settings, testing, dashboard, and panel testing pages.</p>
+      <p class="pp-subtitle">Tune the presentation of panels across all PiSD pages, including Manual Drive. Changes can be saved globally in this browser and are applied when each tab opens.</p>
     </div>
     <nav class="pp-actions" aria-label="Panel presentation actions">
       <a class="pisd-front-link" href="/">Back to Front Page</a>
@@ -67,13 +67,38 @@
             <option value="21/9">21:9</option>
           </select>
         </label>
+        <label>Preview fit
+          <select name="previewFit" id="ppPreviewFit">
+            <option value="contain">contain</option>
+            <option value="cover">cover</option>
+            <option value="fill">fill</option>
+          </select>
+        </label>
+        <label>Panel padding <input name="panelPadding" id="ppPanelPadding" type="range" min="0.5" max="1.3" step="0.05"></label>
+        <label>Panel header
+          <select name="panelHeaderMode" id="ppPanelHeaderMode">
+            <option value="standard">standard</option>
+            <option value="compact">compact</option>
+            <option value="minimal">minimal</option>
+          </select>
+        </label>
+        <label>Button size <input name="buttonScale" id="ppButtonScale" type="range" min="0.85" max="1.2" step="0.05"></label>
+        <label>Console height <input name="consoleHeight" id="ppConsoleHeight" type="range" min="120" max="420" step="10"></label>
+        <label>Card accent
+          <select name="cardAccent" id="ppCardAccent">
+            <option value="subtle">subtle</option>
+            <option value="strong">strong</option>
+            <option value="none">none</option>
+          </select>
+        </label>
+        <label class="pp-checkbox-label"><input name="autoSave" id="ppAutoSave" type="checkbox" value="true"> Auto-save changes globally</label>
       </form>
       <div class="pp-button-row">
         <button id="ppExport" class="pp-button">Export JSON</button>
         <button id="ppImportButton" class="pp-button">Import JSON</button>
         <input id="ppImport" type="file" accept="application/json,.json" hidden>
       </div>
-      <p class="pp-help">Saved settings are browser-local and apply automatically to pages that include the shared panel presentation stylesheet.</p>
+      <p class="pp-help">Saved settings are browser-local and apply automatically to all PiSD GUI pages that include the shared presentation stylesheet. Auto-save is enabled by default for quick tuning.</p>
     </section>
 
     <section class="pp-preview-panel" id="panelPresentationPreview">
@@ -91,7 +116,7 @@
         <article class="pp-card pp-sample-panel">
           <p class="pp-panel-label">Camera Preview</p>
           <h3>Live frame panel</h3>
-          <div class="pp-preview-surface">preview aspect</div>
+          <div class="pp-preview-surface">preview aspect / fit</div>
         </article>
         <article class="pp-card pp-sample-panel">
           <p class="pp-panel-label">Motor Controls</p>
@@ -101,7 +126,7 @@
         <article class="pp-card pp-sample-panel">
           <p class="pp-panel-label">Error Monitor</p>
           <h3>Response area</h3>
-          <pre class="pp-console">OK   PISD-OK-000   panel.presentation - settings applied</pre>
+          <pre class="pp-console">OK   PISD-OK-000   panel.presentation - settings saved and applied</pre>
         </article>
       </div>
     </section>

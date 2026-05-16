@@ -40,3 +40,10 @@ a { color: inherit; text-decoration: none; }
 .pp-help { color: var(--pp-muted); line-height: 1.4; }
 @media (max-width: 980px) { .pp-shell { grid-template-columns: 1fr; } .pp-topbar { align-items: flex-start; flex-direction: column; } }
 @media (max-width: 640px) { .pp-control-grid { grid-template-columns: 1fr; } }
+
+/* 0.2.9 presentation page tuning refinements */
+.pp-checkbox-label { align-items: center; grid-template-columns: auto 1fr !important; gap: .55rem !important; }
+.pp-checkbox-label input { width: 1.1rem; height: 1.1rem; }
+.pp-control-grid { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+.pp-preview-surface { object-fit: var(--pisd-ui-preview-fit, contain); }
+body[data-pisd-panel-header="minimal"] .pp-panel-label { display: none; }

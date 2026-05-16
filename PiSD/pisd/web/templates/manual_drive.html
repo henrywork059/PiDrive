@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PiSD Manual Drive</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/panel_presentation_global.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/manual_drive.css') }}">
+  <script src="{{ url_for('static', filename='js/panel_presentation_global.js') }}" defer></script>
+</head>
+<body>
+  <header class="mdrv-topbar">
+    <div class="mdrv-title-block">
+      <p class="mdrv-kicker">PiSD user control</p>
+      <h1>Manual Drive</h1>
+    </div>
+    <nav class="mdrv-actions" aria-label="Manual drive actions">
+      <a class="pisd-front-link" href="/">Back to Front Page</a>
+      <span id="mdrvGlobalCode" class="mdrv-code">{{ initial_status.code }}</span>
+      <button id="mdrvRefresh" class="mdrv-button">Refresh</button>
+      <button id="mdrvStopTop" class="mdrv-button mdrv-danger">STOP</button>
+    </nav>
+  </header>
+
+  <main class="mdrv-shell" id="manualDriveShell">
+    <section class="mdrv-panel mdrv-preview-panel" id="manualDriveCameraPanel">
+      <div class="mdrv-panel-head">
+        <div>
+          <p class="mdrv-label">Camera Preview</p>
+          <h2>Live view</h2>
+        </div>
+        <span class="mdrv-code" data-code-for="camera">PISD-OK-000</span>
+      </div>
+      <div class="mdrv-preview-frame">
+        <img id="mdrvPreview" src="/api/camera/frame.jpg" alt="PiSD live camera preview">
+      </div>
+      <div class="mdrv-row">
+        <button id="mdrvStartCamera" class="mdrv-button mdrv-primary">Start camera</button>
+        <button id="mdrvLiveCamera" class="mdrv-button">Live preview</button>
+        <button id="mdrvSnapshot" class="mdrv-button">Snapshot</button>
+      </div>
+    </section>
+
+    <section class="mdrv-panel mdrv-status-panel" id="manualDriveStatusPanel">
+      <div class="mdrv-panel-head">
+        <div>
+          <p class="mdrv-label">Running Status</p>
+          <h2>Important signals</h2>
+        </div>
+        <span class="mdrv-code" data-code-for="status">{{ initial_status.code }}</span>
+      </div>
+      <div class="mdrv-status-grid">
+        <div><span>Hardware</span><strong id="mdrvHardware">{{ 'enabled' if initial_status.hardware_requested else 'simulation' }}</strong></div>
+        <div><span>Camera</span><strong id="mdrvCameraState">{{ initial_status.camera.backend }}</strong></div>
+        <div><span>Motor</span><strong id="mdrvMotorState">{{ initial_status.motor.adapter }}</strong></div>
+        <div><span>FPS</span><strong id="mdrvCameraFps">{{ initial_status.camera.measured_capture_fps if initial_status.camera.measured_capture_fps is defined else 'n/a' }}</strong></div>
+      </div>
+      <pre id="mdrvStatusText" class="mdrv-console">{{ initial_status | tojson(indent=2) }}</pre>
+    </section>
+
+    <section class="mdrv-panel mdrv-drive-panel" id="manualDrivePadPanel">
+      <div class="mdrv-panel-head">
+        <div>
+          <p class="mdrv-label">Manual Pad</p>
+          <h2>Drive controls</h2>
+        </div>
+        <span class="mdrv-code" data-code-for="drive">PISD-OK-000</span>
+      </div>
+      <label class="mdrv-arm">
+        <input id="mdrvArm" type="checkbox">
+        <span>Enable motor output. Wheels are lifted / area is safe.</span>
+      </label>
+      <div class="mdrv-pad" aria-label="Manual driving pad">
+        <button class="mdrv-drive" data-steering="0" data-throttle="1" disabled>Forward</button>
+        <button class="mdrv-drive" data-steering="-1" data-throttle="0.65" disabled>Left</button>
+        <button id="mdrvStopPad" class="mdrv-drive mdrv-stop">STOP</button>
+        <button class="mdrv-drive" data-steering="1" data-throttle="0.65" disabled>Right</button>
+        <button class="mdrv-drive" data-steering="0" data-throttle="-1" disabled>Reverse</button>
+      </div>
+      <div class="mdrv-slider-grid">
+        <label>Speed <input id="mdrvSpeed" type="range" min="0.08" max="0.55" step="0.01" value="0.18"><output id="mdrvSpeedOut">0.18</output></label>
+        <label>Steer strength <input id="mdrvSteer" type="range" min="0.15" max="0.8" step="0.01" value="0.35"><output id="mdrvSteerOut">0.35</output></label>
+      </div>
+      <p id="mdrvSafetyText" class="mdrv-warning">Drive buttons are locked until motor output is enabled. STOP is always active.</p>
+    </section>
+
+    <section class="mdrv-panel mdrv-stop-panel" id="manualDriveStopPanel">
+      <div class="mdrv-panel-head">
+        <div>
+          <p class="mdrv-label">Safety</p>
+          <h2>Emergency stop</h2>
+        </div>
+        <span class="mdrv-code" data-code-for="stop">PISD-OK-000</span>
+      </div>
+      <button id="mdrvStopBig" class="mdrv-big-stop">STOP ALL MOTORS</button>
+      <p class="mdrv-help">This calls <code>/api/control/stop</code>. It remains available even when manual drive is locked.</p>
+    </section>
+
+    <section class="mdrv-panel mdrv-log-panel" id="manualDriveLogPanel">
+      <div class="mdrv-panel-head">
+        <div>
+          <p class="mdrv-label">Response</p>
+          <h2>Last action</h2>
+        </div>
+        <span class="mdrv-code" data-code-for="log">PISD-OK-000</span>
+      </div>
+      <pre id="mdrvLog" class="mdrv-console">Manual Drive loaded. No command sent yet.</pre>
+    </section>
+  </main>
+
+  <script id="manualDriveInitialStatus" type="application/json">{{ initial_status | tojson }}</script>
+  <script src="{{ url_for('static', filename='js/manual_drive.js') }}"></script>
+</body>
+</html>

@@ -172,3 +172,61 @@ body[data-pisd-layout="wide"] .pp-panel-grid {
   .pt-hero,
   .pp-topbar { padding: 0.55rem 0.65rem !important; }
 }
+
+/* 0.2.9 shared presentation settings expanded to manual drive and deeper style tuning */
+:root {
+  --pisd-ui-button-scale: 1;
+  --pisd-ui-console-height: 220px;
+  --pisd-ui-preview-fit: contain;
+}
+
+.mdrv-shell,
+.mdrv-status-grid,
+.mdrv-slider-grid,
+.mdrv-pad { gap: var(--pisd-ui-gap, 12px) !important; }
+
+.mdrv-panel {
+  border-radius: var(--pisd-ui-radius, 14px) !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, var(--pisd-ui-shadow-alpha, 0.20)) !important;
+  padding: calc(1rem * var(--pisd-ui-density-pad, 0.88)) !important;
+}
+
+.mdrv-preview-frame { aspect-ratio: var(--pisd-ui-preview-aspect, 16 / 9) !important; }
+.mdrv-preview-frame img { object-fit: var(--pisd-ui-preview-fit, contain) !important; }
+.mdrv-console { max-height: var(--pisd-ui-console-height, 220px) !important; }
+.mdrv-button, .mdrv-drive, .mdrv-big-stop { transform: scale(var(--pisd-ui-button-scale, 1)); transform-origin: center; }
+
+body[data-pisd-layout="single"] .mdrv-shell { grid-template-columns: 1fr !important; }
+body[data-pisd-layout="dense"] .mdrv-shell { grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)) !important; }
+body[data-pisd-layout="wide"] .mdrv-shell { grid-template-columns: minmax(420px, 1.6fr) minmax(320px, .9fr) !important; }
+body[data-pisd-panel-header="minimal"] .fp-card-label,
+body[data-pisd-panel-header="minimal"] .st-kicker,
+body[data-pisd-panel-header="minimal"] .eyebrow,
+body[data-pisd-panel-header="minimal"] .md-kicker,
+body[data-pisd-panel-header="minimal"] .pt-kicker,
+body[data-pisd-panel-header="minimal"] .pp-kicker,
+body[data-pisd-panel-header="minimal"] .mdrv-kicker,
+body[data-pisd-panel-header="minimal"] .mdrv-label { display: none !important; }
+body[data-pisd-panel-header="compact"] .fp-card-label,
+body[data-pisd-panel-header="compact"] .st-kicker,
+body[data-pisd-panel-header="compact"] .eyebrow,
+body[data-pisd-panel-header="compact"] .md-kicker,
+body[data-pisd-panel-header="compact"] .pt-kicker,
+body[data-pisd-panel-header="compact"] .pp-kicker,
+body[data-pisd-panel-header="compact"] .mdrv-kicker,
+body[data-pisd-panel-header="compact"] .mdrv-label { font-size: .55rem !important; margin-bottom: .04rem !important; }
+
+body[data-pisd-card-accent="strong"] .fp-mode-card,
+body[data-pisd-card-accent="strong"] .st-card,
+body[data-pisd-card-accent="strong"] .card,
+body[data-pisd-card-accent="strong"] .md-panel,
+body[data-pisd-card-accent="strong"] .pt-panel,
+body[data-pisd-card-accent="strong"] .pp-card,
+body[data-pisd-card-accent="strong"] .mdrv-panel { border-top: 3px solid rgba(56, 189, 248, .78) !important; }
+body[data-pisd-card-accent="none"] .fp-mode-card,
+body[data-pisd-card-accent="none"] .st-card,
+body[data-pisd-card-accent="none"] .card,
+body[data-pisd-card-accent="none"] .md-panel,
+body[data-pisd-card-accent="none"] .pt-panel,
+body[data-pisd-card-accent="none"] .pp-card,
+body[data-pisd-card-accent="none"] .mdrv-panel { border-top-width: 1px !important; }

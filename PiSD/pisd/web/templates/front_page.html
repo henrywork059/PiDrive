@@ -13,7 +13,7 @@
     <section class="fp-hero">
       <p class="fp-kicker">PiSD mode selection</p>
       <h1>Choose a workspace</h1>
-      <p class="fp-summary">Select one workspace from here. Pages stay compact and avoid extra tab-switch buttons.</p>
+      <p class="fp-summary">Select a compact workspace. Settings and panel presentation choices are saved in this browser and applied across tabs.</p>
       <div class="fp-status-strip" aria-label="Current PiSD status">
         <span id="fpGlobalCode" class="fp-code">{{ initial_status.code }}</span>
         <span>Version <strong>{{ initial_status.version }}</strong></span>
@@ -33,6 +33,12 @@
         <h2>Testing</h2>
         <p>Use the API testing server page to verify endpoints, responses, and PISD error codes.</p>
         <span class="fp-card-action">Open testing tab →</span>
+      </a>
+      <a class="fp-mode-card fp-mode-primary" id="frontModeManualDrive" href="/manual-drive">
+        <span class="fp-card-label">Drive tab</span>
+        <h2>Manual Drive</h2>
+        <p>Simple driving page with live camera, important running status, STOP, and an easy manual pad.</p>
+        <span class="fp-card-action">Open manual drive →</span>
       </a>
       <a class="fp-mode-card" id="frontModeDashboard" href="/dashboard">
         <span class="fp-card-label">Control shell</span>

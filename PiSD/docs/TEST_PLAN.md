@@ -620,3 +620,36 @@ OK   PISD-OK-000   panel_presentation.global_includes - shared panel presentatio
 ```
 
 The `/panel-testing` page should remain available and separate.
+
+## 0.2.9 manual drive and settings validation
+
+After applying `PiSD_0_2_9_patch`, run:
+
+```bash
+cd ~/PiDrive/PiSD
+python3 scripts/test_manual_drive_page.py --static-only
+python3 scripts/test_front_page_tabs.py --static-only
+python3 scripts/test_panel_presentation_page.py --static-only
+python3 scripts/run_standard_validation.py --skip-api --skip-camera --skip-motor
+```
+
+On the Pi with Flask installed, start the server:
+
+```bash
+python3 PiSD.py --host 0.0.0.0 --port 5050 --hardware
+```
+
+Open:
+
+```text
+http://<pi-ip>:5050/
+```
+
+Checks:
+
+- front page includes Manual Drive, Settings, Testing, Dashboard, Panel presentation, and Panel testing.
+- `/manual-drive` loads and shows camera preview, running status, manual pad, speed/steer sliders, and STOP.
+- manual movement buttons are locked until the safety checkbox is enabled.
+- STOP is always available.
+- `/settings` restores saved form values and applies runtime settings through the API.
+- `/panel-presentation` auto-saves panel style choices and applies them across all tabs.

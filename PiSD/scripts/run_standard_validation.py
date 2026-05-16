@@ -48,6 +48,9 @@ FRONT_JS = WEB_ROOT / "static" / "js" / "front_page.js"
 SETTINGS_TEMPLATE = WEB_ROOT / "templates" / "settings_tab.html"
 SETTINGS_CSS = WEB_ROOT / "static" / "css" / "settings_tab.css"
 SETTINGS_JS = WEB_ROOT / "static" / "js" / "settings_tab.js"
+MANUAL_TEMPLATE = WEB_ROOT / "templates" / "manual_drive.html"
+MANUAL_CSS = WEB_ROOT / "static" / "css" / "manual_drive.css"
+MANUAL_JS = WEB_ROOT / "static" / "js" / "manual_drive.js"
 PRESENTATION_TEMPLATE = WEB_ROOT / "templates" / "panel_presentation.html"
 PRESENTATION_CSS = WEB_ROOT / "static" / "css" / "panel_presentation.css"
 PRESENTATION_JS = WEB_ROOT / "static" / "js" / "panel_presentation.js"
@@ -290,6 +293,9 @@ def _check_front_page_static_files() -> CheckResult:
         "settings_template": SETTINGS_TEMPLATE,
         "settings_css": SETTINGS_CSS,
         "settings_js": SETTINGS_JS,
+        "manual_template": MANUAL_TEMPLATE,
+        "manual_css": MANUAL_CSS,
+        "manual_js": MANUAL_JS,
         "presentation_template": PRESENTATION_TEMPLATE,
         "presentation_css": PRESENTATION_CSS,
         "presentation_js": PRESENTATION_JS,
@@ -327,7 +333,7 @@ def _check_front_page_source_contract() -> CheckResult:
         "front_css": [".fp-mode-grid", ".fp-mode-card"],
         "front_js": ["frontApi", "/api/status", "/api/control/stop"],
         "settings": ["PiSD Settings Tab", "Back to Front Page", "stCameraForm", "stMotorForm", "settingsInitialStatus"],
-        "settings_js": ["settingsApi", "/api/camera/apply", "/api/motor/apply", "/api/control/stop"],
+        "settings_js": ["settingsApi", "/api/camera/apply", "/api/motor/apply", "/api/control/stop", "pisd.runtimeSettings.v1"],
     }
     sources = {"front": front, "front_css": front_css, "front_js": front_js, "settings": settings, "settings_js": settings_js}
     missing = {name: [token for token in tokens if token not in sources[name]] for name, tokens in required.items()}
@@ -418,6 +424,54 @@ def _check_main_dashboard_source_contract() -> CheckResult:
         PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_MAIN_DASHBOARD_CONTRACT_FAILED,
         "main dashboard source contains required panels, safety lock, STOP actions, and API calls" if ok else "main dashboard source contract is missing required tokens",
         {key: value for key, value in missing.items() if value},
+    )
+
+
+def _check_manual_drive_static_files() -> CheckResult:
+    files = {
+        "template": MANUAL_TEMPLATE,
+        "css": MANUAL_CSS,
+        "js": MANUAL_JS,
+    }
+    missing = [name for name, path in files.items() if not path.exists() or path.stat().st_size <= 0]
+    ok = not missing
+    return CheckResult(
+        "manual_drive.static_files",
+        ok,
+        PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
+        "manual drive template/CSS/JS files exist" if ok else f"missing or empty files: {', '.join(missing)}",
+        {name: str(path.relative_to(PROJECT_ROOT)) for name, path in files.items()},
+    )
+
+
+def _check_manual_drive_source_contract() -> CheckResult:
+    try:
+        template = MANUAL_TEMPLATE.read_text(encoding="utf-8")
+        css = MANUAL_CSS.read_text(encoding="utf-8")
+        js = MANUAL_JS.read_text(encoding="utf-8")
+    except Exception as exc:
+        return CheckResult(
+            "manual_drive.source_contract",
+            False,
+            PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
+            f"failed to read manual drive files: {exc}",
+            {"exception_type": type(exc).__name__},
+        )
+    required = {
+        "template": ["PiSD Manual Drive", "Back to Front Page", "manualDriveCameraPanel", "manualDriveStatusPanel", "manualDrivePadPanel", "manualDriveStopPanel", "manualDriveInitialStatus"],
+        "css": [".mdrv-shell", ".mdrv-panel", ".mdrv-pad", ".mdrv-big-stop"],
+        "js": ["manualDriveInitialStatus", "pisd.manualDrive.v1", "/api/camera/start", "/video_feed", "/api/control/manual", "/api/control/stop", "PISD-MOT-008"],
+    }
+    sources = {"template": template, "css": css, "js": js}
+    missing = {name: [token for token in tokens if token not in sources[name]] for name, tokens in required.items()}
+    missing = {name: tokens for name, tokens in missing.items() if tokens}
+    ok = not missing
+    return CheckResult(
+        "manual_drive.source_contract",
+        ok,
+        PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
+        "manual drive page source contract passed" if ok else "manual drive page source contract missing tokens",
+        {"missing": missing},
     )
 
 
@@ -628,10 +682,10 @@ def _check_panel_presentation_source_contract() -> CheckResult:
             {"exception_type": type(exc).__name__},
         )
     required = {
-        "template": ["PiSD Panel Presentation Settings", "ppTheme", "ppLayoutMode", "ppDensity", "ppSave", "ppExport", "Back to Front Page"],
+        "template": ["PiSD Panel Presentation Settings", "ppTheme", "ppLayoutMode", "ppDensity", "ppPreviewFit", "ppPanelPadding", "ppPanelHeaderMode", "ppButtonScale", "ppConsoleHeight", "ppCardAccent", "ppAutoSave", "ppSave", "ppExport", "Back to Front Page"],
         "css": [".pp-shell", ".pp-control-grid", ".pp-panel-grid"],
-        "js": ["PiSDPanelPresentation", "ppSave", "ppReset", "PISD-TEST-018"],
-        "global_css": ["--pisd-ui-gap", "--pisd-ui-radius", ".fp-mode-grid", ".md-shell"],
+        "js": ["PiSDPanelPresentation", "ppSave", "ppReset", "autoSaveEnabled", "PISD-TEST-018"],
+        "global_css": ["--pisd-ui-gap", "--pisd-ui-radius", "--pisd-ui-button-scale", "--pisd-ui-console-height", ".fp-mode-grid", ".md-shell", ".mdrv-shell"],
         "global_js": ["pisd.panelPresentation.v1", "PiSDPanelPresentation", "localStorage"],
     }
     sources = {"template": template, "css": css, "js": js, "global_css": global_css, "global_js": global_js}
@@ -811,7 +865,7 @@ def _check_api_stop_and_errors(client) -> list[CheckResult]:
 def _check_api_main_dashboard_gui(client) -> list[CheckResult]:
     results: list[CheckResult] = []
     response = client.get("/")
-    front_ok = response.status_code == 200 and b"PiSD Front Page" in response.data and b"frontModeSettings" in response.data and b"frontModeTesting" in response.data
+    front_ok = response.status_code == 200 and b"PiSD Front Page" in response.data and b"frontModeSettings" in response.data and b"frontModeTesting" in response.data and b"frontModeManualDrive" in response.data
     results.append(
         CheckResult(
             "api.front_page.root_page",
@@ -830,6 +884,18 @@ def _check_api_main_dashboard_gui(client) -> list[CheckResult]:
             settings_ok,
             PiSDErrorCodes.OK if settings_ok else PiSDErrorCodes.TEST_FRONT_PAGE_CONTRACT_FAILED,
             "/settings tab loaded" if settings_ok else f"/settings returned HTTP {response.status_code} or missing content",
+            {"http_status": response.status_code, "bytes": len(response.data)},
+        )
+    )
+
+    response = client.get("/manual-drive")
+    manual_ok = response.status_code == 200 and b"PiSD Manual Drive" in response.data and b"manualDrivePadPanel" in response.data and b"Back to Front Page" in response.data
+    results.append(
+        CheckResult(
+            "api.manual_drive.page",
+            manual_ok,
+            PiSDErrorCodes.OK if manual_ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
+            "/manual-drive page loaded" if manual_ok else f"/manual-drive returned HTTP {response.status_code} or missing expected content",
             {"http_status": response.status_code, "bytes": len(response.data)},
         )
     )
@@ -862,6 +928,8 @@ def _check_api_main_dashboard_gui(client) -> list[CheckResult]:
         ("/testing/static/js/front_page.js", "api.front_page.static_js", b"frontApi"),
         ("/testing/static/css/settings_tab.css", "api.settings_tab.static_css", b".st-grid"),
         ("/testing/static/js/settings_tab.js", "api.settings_tab.static_js", b"settingsApi"),
+        ("/testing/static/css/manual_drive.css", "api.manual_drive.static_css", b".mdrv-shell"),
+        ("/testing/static/js/manual_drive.js", "api.manual_drive.static_js", b"manualDriveInitialStatus"),
         ("/testing/static/css/main_dashboard.css", "api.main_dashboard.static_css", b".md-shell"),
         ("/testing/static/js/main_dashboard.js", "api.main_dashboard.static_js", b"updateMotorLock"),
         ("/testing/static/css/panel_presentation_global.css", "api.panel_presentation.global_css", b"--pisd-ui-gap"),
@@ -1149,6 +1217,8 @@ def main() -> int:
         checks.append(_safe_check("front_page.source_contract", _check_front_page_source_contract))
         checks.append(_safe_check("main_dashboard.static_files", _check_main_dashboard_static_files))
         checks.append(_safe_check("main_dashboard.source_contract", _check_main_dashboard_source_contract))
+        checks.append(_safe_check("manual_drive.static_files", _check_manual_drive_static_files))
+        checks.append(_safe_check("manual_drive.source_contract", _check_manual_drive_source_contract))
         checks.append(_safe_check("gui.static_files", _check_testing_gui_static_files))
         checks.append(_safe_check("gui.source_contract", _check_testing_gui_source_contract))
         checks.append(_safe_check("panel_gui.static_files", _check_panel_testing_static_files))
