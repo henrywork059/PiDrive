@@ -728,3 +728,38 @@ Expected panel-presentation/settings behaviour:
 - Horizontal/vertical role weight controls are visible.
 - Saving presentation settings applies across all pages through the backend settings API.
 - Phone layouts still collapse panels to one column.
+
+
+## PiSD 0.3.3 Manual Drive layout recovery checks
+
+After applying `PiSD_0_3_3_patch`, run the static/source checks first:
+
+```bash
+cd ~/PiDrive/PiSD
+python3 scripts/test_manual_drive_page.py --static-only
+python3 scripts/test_ui_presentation_consistency.py --static-only
+python3 scripts/run_standard_validation.py --skip-api --skip-camera --skip-motor
+```
+
+Then start the server and visually check Manual Drive on a PC or iPad-sized screen:
+
+```bash
+python3 PiSD.py --host 0.0.0.0 --port 5050 --hardware
+```
+
+Open:
+
+```text
+http://<pi-ip>:5050/manual-drive
+```
+
+Expected Manual Drive layout:
+
+- Status panel appears at the top of the main page area.
+- Camera Preview panel appears directly under the Status panel.
+- Manual Control drag pad appears in the right-side control column where the misplaced camera panel previously appeared.
+- Emergency Stop appears under Manual Control.
+- The preview should use the left/main content width and should not force the user to scroll past large empty space before seeing the control pad.
+- The action log remains hidden until opened.
+
+This is a presentation-only check. The patch does not change motor output, camera settings, API endpoints, or saved settings format.

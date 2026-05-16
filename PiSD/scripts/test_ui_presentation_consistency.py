@@ -55,6 +55,10 @@ REQUIRED_CSS_TOKENS = [
     ".pp-shell",
     ".pt-shell",
     "@media (max-width: 900px)",
+    "PiSD 0.3.3 manual-drive semantic layout recovery",
+    "body.manual-drive-page .mdrv-shell",
+    "\"status drive\"",
+    "\"preview drive\"",
 ]
 
 
@@ -125,7 +129,7 @@ def check_source_contract() -> Result:
         "ui_presentation.source_contract",
         ok,
         PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_UI_PRESENTATION_CONSISTENCY_FAILED,
-        "all GUI pages include the unified layout layer and required layout decisions" if ok else "unified presentation contract failed",
+        "all GUI pages include the unified layout layer and required layout decisions, including the 0.3.3 manual-drive semantic placement" if ok else "unified presentation contract failed",
         {"missing_css": missing_css, "missing_links": missing_links},
     )
 

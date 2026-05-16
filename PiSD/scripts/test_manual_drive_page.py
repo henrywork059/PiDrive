@@ -80,12 +80,14 @@ def check_source_contract() -> list[Result]:
     try:
         template = TEMPLATE.read_text(encoding="utf-8")
         css = CSS.read_text(encoding="utf-8")
+        global_css = (WEB_ROOT / "static" / "css" / "unified_layout.css").read_text(encoding="utf-8")
         js = JS.read_text(encoding="utf-8")
     except Exception as exc:
         return [Result("manual_drive.source_contract", False, PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED, f"failed to read files: {exc}")]
 
     required_template = [
         "PiSD Manual Drive",
+        "manual-drive-page",
         "Back to Front Page",
         "manualDriveCameraPanel",
         "manualDriveStatusPanel",
@@ -102,6 +104,17 @@ def check_source_contract() -> list[Result]:
         "data-panel-h-weight",
     ]
     required_css = [".mdrv-shell", ".mdrv-panel", ".mdrv-status-panel", ".mdrv-preview-frame", ".mdrv-drag-pad", ".mdrv-big-stop", "grid-template-columns: repeat(12", "@media (max-width: 1100px)"]
+    required_unified_css = [
+        "PiSD 0.3.3 manual-drive semantic layout recovery",
+        "body.manual-drive-page .mdrv-shell",
+        "\"status drive\"",
+        "\"preview drive\"",
+        "body.manual-drive-page .mdrv-preview-panel",
+        "grid-column: 1 / 2",
+        "body.manual-drive-page .mdrv-drive-panel",
+        "grid-column: 2 / 3",
+        "body.manual-drive-page .mdrv-preview-frame",
+    ]
     required_js = [
         "manualDriveInitialStatus",
         "pisd.manualDrive.v1",
@@ -119,6 +132,7 @@ def check_source_contract() -> list[Result]:
     missing = {
         "template": [token for token in required_template if token not in template],
         "css": [token for token in required_css if token not in css],
+        "unified_css": [token for token in required_unified_css if token not in global_css],
         "js": [token for token in required_js if token not in js],
     }
     missing = {key: value for key, value in missing.items() if value}
@@ -127,7 +141,7 @@ def check_source_contract() -> list[Result]:
         "manual_drive.source_contract",
         ok,
         PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
-        "manual drive page contains camera preview, compact status, locked drag pad, STOP, persistence, and API calls" if ok else "manual drive source contract failed",
+        "manual drive page contains camera preview, compact status, locked drag pad, STOP, persistence, API calls, and the recovered semantic layout" if ok else "manual drive source contract failed",
         {"missing": missing},
     )]
     status_index = template.find("manualDriveStatusPanel")
@@ -139,6 +153,20 @@ def check_source_contract() -> list[Result]:
         PiSDErrorCodes.OK if order_ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
         "status panel is before the preview panel for PC/iPad layouts" if order_ok else "status panel did not appear before preview panel",
         {"status_index": status_index, "preview_index": preview_index},
+    ))
+
+    css_ok = (
+        'body.manual-drive-page .mdrv-preview-panel' in global_css
+        and 'grid-column: 1 / 2' in global_css
+        and 'body.manual-drive-page .mdrv-drive-panel' in global_css
+        and 'grid-column: 2 / 3' in global_css
+    )
+    results.append(Result(
+        "manual_drive.semantic_grid_layout",
+        css_ok,
+        PiSDErrorCodes.OK if css_ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
+        "camera preview is locked under status and manual controls are locked to the right control column" if css_ok else "manual drive semantic grid CSS is missing or weak",
+        {},
     ))
     return results
 

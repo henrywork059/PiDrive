@@ -6,11 +6,11 @@ It is intentionally separate from the existing `PiServer/` folder. PiSD may refe
 
 ## Current version
 
-`PiSD_0_3_2_patch` — current patch on top of stable v3 baseline (`PiSD_0_3_0`).
+`PiSD_0_3_3_patch` — current patch on top of stable v3 baseline (`PiSD_0_3_0`).
 
-Stable v3 is `PiSD_0_3_0`. Patch `0.3.2` recovers and unifies the GUI presentation after the `0.3.1` weighted-panel layout caused inconsistent page layouts.
+Stable v3 is `PiSD_0_3_0`. Patch `0.3.3` recovers the Manual Drive semantic layout after user browser testing showed the camera and manual-control panels could still appear in the wrong columns when presentation settings were applied.
 
-It includes the tested camera/motor/error-reporting foundation, the testing GUI, panel testing and API contract pages, the front page mode selector, settings tab, manual drive tab, panel presentation settings, live-frame FPS improvements, persistent backend settings, and the unified page/panel presentation layer.
+It includes the tested camera/motor/error-reporting foundation, the testing GUI, panel testing and API contract pages, the front page mode selector, settings tab, manual drive tab, panel presentation settings, live-frame FPS improvements, persistent backend settings, the unified page/panel presentation layer, and the 0.3.3 Manual Drive semantic layout lock.
 
 This stable baseline keeps only one dependency file:
 
@@ -71,6 +71,18 @@ Real wheel direction is intentionally configurable through settings because diff
 - phone/tablet widths stack cleanly
 
 Camera service, motor service, API endpoints, settings persistence, and drag-pad logic are unchanged.
+
+## 0.3.3 Manual Drive semantic layout recovery patch
+
+`PiSD_0_3_3_patch` keeps the 0.3.2 unified style layer but locks the Manual Drive page into the intended semantic panel placement:
+
+- compact Status panel remains at the top of the main/manual page area
+- Camera Preview panel is placed directly under the Status panel
+- Manual Control drag-pad panel takes the right-side control-column position on PC/iPad layouts
+- Emergency Stop remains below the Manual Control panel
+- Action Log remains hidden by default and spans the page only when expanded
+
+The presentation settings may still tune density, radius, preview fit, panel gap, button scale, and panel role weights, but they must not move the core Manual Drive panels into confusing positions. No camera, motor, API, or settings-manager logic is changed by this patch.
 
 ## Folder layout
 

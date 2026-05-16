@@ -564,3 +564,149 @@ body[data-pisd-adaptive-panels="true"] .pp-panel-grid > [data-panel-role] { grid
   .pp-actions,
   .pt-hero-actions { justify-content: flex-start !important; }
 }
+
+
+/* PiSD 0.3.3 manual-drive semantic layout recovery ------------------------
+   The presentation system may tune size, density, and weights, but it must not
+   move the main Manual Drive panels into confusing positions. The settled
+   desktop/tablet layout is:
+   - compact status strip at the top of the main column
+   - camera preview directly under the status strip
+   - drag/manual control panel in the right control column
+   - emergency stop below the manual control panel
+   - action log hidden until opened and spanning the page
+*/
+body.manual-drive-page .mdrv-shell {
+  width: min(1520px, calc(100% - 14px)) !important;
+  margin: 0 auto !important;
+  padding: var(--pisd-page-pad) 0 !important;
+  display: grid !important;
+  grid-template-columns: minmax(520px, calc(var(--pisd-preview-h-span, 2) * 1fr)) minmax(300px, min(27vw, 390px)) !important;
+  grid-template-areas:
+    "status drive"
+    "preview drive"
+    "preview stop"
+    "log log" !important;
+  grid-auto-flow: row !important;
+  grid-auto-rows: min-content !important;
+  gap: var(--pisd-panel-gap) !important;
+  align-items: start !important;
+}
+
+body.manual-drive-page .mdrv-status-panel {
+  grid-area: status !important;
+  grid-column: 1 / 2 !important;
+  grid-row: 1 !important;
+  min-height: auto !important;
+  align-self: start !important;
+}
+
+body.manual-drive-page .mdrv-preview-panel {
+  grid-area: preview !important;
+  grid-column: 1 / 2 !important;
+  grid-row: 2 / span 2 !important;
+  min-height: 0 !important;
+  align-self: stretch !important;
+}
+
+body.manual-drive-page .mdrv-drive-panel {
+  grid-area: drive !important;
+  grid-column: 2 / 3 !important;
+  grid-row: 1 / span 2 !important;
+  min-height: auto !important;
+  align-self: start !important;
+}
+
+body.manual-drive-page .mdrv-stop-panel {
+  grid-area: stop !important;
+  grid-column: 2 / 3 !important;
+  grid-row: 3 !important;
+  align-self: start !important;
+}
+
+body.manual-drive-page .mdrv-log-panel {
+  grid-area: log !important;
+  grid-column: 1 / -1 !important;
+  grid-row: auto !important;
+}
+
+body.manual-drive-page .mdrv-status-strip {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 0.42rem !important;
+}
+
+body.manual-drive-page .mdrv-preview-frame {
+  width: 100% !important;
+  height: clamp(360px, calc(100vh - var(--pisd-topbar-height) - 175px), 760px) !important;
+  max-height: none !important;
+  aspect-ratio: auto !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+body.manual-drive-page .mdrv-preview-frame img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: var(--pisd-ui-preview-fit, contain) !important;
+}
+
+body.manual-drive-page .mdrv-drive-panel .mdrv-drag-pad {
+  width: min(100%, 340px) !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+body.manual-drive-page .mdrv-full-stop,
+body.manual-drive-page .mdrv-big-stop {
+  width: 100% !important;
+}
+
+@media (max-width: 1180px) {
+  body.manual-drive-page .mdrv-shell {
+    grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.72fr) !important;
+    grid-template-areas:
+      "status drive"
+      "preview drive"
+      "preview stop"
+      "log log" !important;
+  }
+  body.manual-drive-page .mdrv-preview-frame {
+    height: clamp(320px, calc(100vh - var(--pisd-topbar-height) - 190px), 620px) !important;
+  }
+}
+
+@media (max-width: 860px) {
+  body.manual-drive-page .mdrv-shell {
+    grid-template-columns: 1fr !important;
+    grid-template-areas:
+      "status"
+      "preview"
+      "drive"
+      "stop"
+      "log" !important;
+  }
+  body.manual-drive-page .mdrv-status-panel,
+  body.manual-drive-page .mdrv-preview-panel,
+  body.manual-drive-page .mdrv-drive-panel,
+  body.manual-drive-page .mdrv-stop-panel,
+  body.manual-drive-page .mdrv-log-panel {
+    grid-column: 1 / -1 !important;
+    grid-row: auto !important;
+  }
+  body.manual-drive-page .mdrv-preview-frame {
+    height: auto !important;
+    aspect-ratio: var(--pisd-ui-preview-aspect, 16 / 9) !important;
+    max-height: 52vh !important;
+  }
+}
+
+@media (max-width: 560px) {
+  body.manual-drive-page .mdrv-status-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  body.manual-drive-page .mdrv-drag-pad {
+    width: min(100%, 310px) !important;
+  }
+}
