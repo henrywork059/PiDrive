@@ -158,14 +158,14 @@ def check_routes(hardware: bool) -> list[Result]:
     client = app.test_client()
     results: list[Result] = []
 
-    response = client.get("/")
-    root_ok = response.status_code == 200 and b"PiSD Main Dashboard" in response.data and b"panel-system-status" in response.data
+    response = client.get("/dashboard")
+    root_ok = response.status_code == 200 and b"PiSD Main Dashboard" in response.data and b"panel-system-status" in response.data and b"Back to Front Page" in response.data
     results.append(
         Result(
-            "main_dashboard.route.root",
+            "main_dashboard.route.dashboard",
             root_ok,
             PiSDErrorCodes.OK if root_ok else PiSDErrorCodes.TEST_MAIN_DASHBOARD_CONTRACT_FAILED,
-            "/ loads the actual main dashboard" if root_ok else f"/ returned HTTP {response.status_code} or missing dashboard markers",
+            "/dashboard loads the actual main dashboard" if root_ok else f"/dashboard returned HTTP {response.status_code} or missing dashboard markers",
             {"http_status": response.status_code, "bytes": len(response.data)},
         )
     )

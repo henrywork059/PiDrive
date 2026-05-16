@@ -2,7 +2,7 @@
 
 ## Current main dashboard shell
 
-`PiSD_0_2_5` starts the actual GUI server shell. The root route `/` now renders the first real dashboard page, while the development/testing pages remain separate:
+`PiSD_0_2_5` starts the actual GUI server shell. The root route `/` now renders a front page mode selector, while the development/testing pages remain separate:
 
 ```text
 /               actual main dashboard shell
@@ -187,3 +187,16 @@ Do not add these until the dashboard shell is proven:
 - model/lane runtime integration
 - theme editor beyond panel-testing presets
 - training integration
+
+
+## PiSD 0.2.6 route model
+
+The GUI is now split by mode before the final server UI is built:
+
+- `/` is the front page and mode selector.
+- `/settings` is the settings tab for camera/motor configuration API calls.
+- `/testing` is the testing tab for broader API and settings checks.
+- `/dashboard` preserves the actual dashboard shell from 0.2.5.
+- `/panel-testing` preserves the panel layout/API contract lab.
+
+All tabs/pages include a **Back to Front Page** link.

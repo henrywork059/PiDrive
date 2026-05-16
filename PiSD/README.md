@@ -6,7 +6,7 @@ It is intentionally separate from the existing `PiServer/` folder. PiSD may refe
 
 ## Current version
 
-`PiSD_0_2_5` — first actual main dashboard GUI shell. The root route `/` is now the real dashboard shell, while `/testing` and `/panel-testing` remain separate validation pages.
+`PiSD_0_2_6` — front page mode selector. The root route `/` is now the front page; `/settings` opens the settings tab, `/testing` opens the testing tab, `/dashboard` keeps the dashboard shell, and `/panel-testing` keeps the panel lab.
 
 This package is built from stable `PiSD_0_1_0` plus the accepted `PiSD_0_1_1` motor-channel calibration patch and `PiSD_0_1_2` standard validation patch.
 
@@ -21,7 +21,7 @@ PiSD/requirements.txt
 
 ## Stable baseline notes
 
-`PiSD_0_2_0` is the stable rollback baseline before GUI development. `PiSD_0_2_1` added the testing GUI, `PiSD_0_2_2` strengthens the GUI/API testing layer, `PiSD_0_2_3` adds the flexible panel testing lab, `PiSD_0_2_4` adds panel API contracts, and `PiSD_0_2_5` adds the first actual main dashboard shell.
+`PiSD_0_2_0` is the stable rollback baseline before GUI development. `PiSD_0_2_1` added the testing GUI, `PiSD_0_2_2` strengthens the GUI/API testing layer, `PiSD_0_2_3` adds the flexible panel testing lab, `PiSD_0_2_4` adds panel API contracts, and `PiSD_0_2_5` adds the first actual main dashboard shell, and `PiSD_0_2_6` adds the front page plus settings/testing tab navigation.
 
 It keeps the tested camera/motor/error-reporting foundation from `PiSD_0_1_0`, then adds one-by-one motor channel calibration and the standard OK/FAIL validation script.
 
@@ -597,3 +597,16 @@ GET /api/panel-testing/contracts
 ```
 
 Expected safe panel API checks should return `PISD-OK-000`, `PISD-MOT-008` for unarmed hardware motor-channel safety refusal, or `PISD-TEST-013` for intentional future placeholders.
+
+
+## PiSD 0.2.6 front page routing
+
+`PiSD_0_2_6` changes the root route into a mode-selection front page:
+
+- `/` — front page / mode selector
+- `/settings` — settings tab for camera and motor setting API checks
+- `/testing` — testing tab for API and settings validation
+- `/dashboard` — actual dashboard shell from 0.2.5
+- `/panel-testing` — panel layout/API contract lab
+
+Every tab/page includes a **Back to Front Page** link so testers can return to the mode selector.

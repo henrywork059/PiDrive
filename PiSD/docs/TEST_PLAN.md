@@ -536,3 +536,28 @@ The standard validation script also checks panel API contract data and the contr
 ```bash
 python3 scripts/run_standard_validation.py --hardware --skip-camera --skip-motor
 ```
+
+
+## Front page and tab navigation test (0.2.6)
+
+Run:
+
+```bash
+python3 scripts/test_front_page_tabs.py
+```
+
+Expected examples:
+
+```text
+OK   PISD-OK-000   front_page.route.root - / front page loaded
+OK   PISD-OK-000   front_page.route.settings - /settings tab loaded
+OK   PISD-OK-000   front_page.back_links - all tabs include Back to Front Page
+```
+
+Manual browser check:
+
+1. Open `http://<pi-ip>:5050/`.
+2. Click **Settings** and confirm `/settings` loads.
+3. Click **Back to Front Page**.
+4. Click **Testing** and confirm `/testing` loads.
+5. Confirm `/dashboard` and `/panel-testing` also include **Back to Front Page**.

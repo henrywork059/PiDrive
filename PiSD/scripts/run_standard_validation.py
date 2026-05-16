@@ -42,6 +42,12 @@ PANEL_JS = WEB_ROOT / "static" / "js" / "panel_testing.js"
 MAIN_TEMPLATE = WEB_ROOT / "templates" / "main_dashboard.html"
 MAIN_CSS = WEB_ROOT / "static" / "css" / "main_dashboard.css"
 MAIN_JS = WEB_ROOT / "static" / "js" / "main_dashboard.js"
+FRONT_TEMPLATE = WEB_ROOT / "templates" / "front_page.html"
+FRONT_CSS = WEB_ROOT / "static" / "css" / "front_page.css"
+FRONT_JS = WEB_ROOT / "static" / "js" / "front_page.js"
+SETTINGS_TEMPLATE = WEB_ROOT / "templates" / "settings_tab.html"
+SETTINGS_CSS = WEB_ROOT / "static" / "css" / "settings_tab.css"
+SETTINGS_JS = WEB_ROOT / "static" / "js" / "settings_tab.js"
 
 
 @dataclass
@@ -271,6 +277,60 @@ def _check_motor_service(real_output: bool, speed: float, duration: float) -> Ch
 
 
 
+def _check_front_page_static_files() -> CheckResult:
+    files = {
+        "front_template": FRONT_TEMPLATE,
+        "front_css": FRONT_CSS,
+        "front_js": FRONT_JS,
+        "settings_template": SETTINGS_TEMPLATE,
+        "settings_css": SETTINGS_CSS,
+        "settings_js": SETTINGS_JS,
+    }
+    missing = [name for name, path in files.items() if not path.exists() or path.stat().st_size <= 0]
+    ok = not missing
+    return CheckResult(
+        "front_page.static_files",
+        ok,
+        PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_FRONT_PAGE_CONTRACT_FAILED,
+        "front page/settings tab template/CSS/JS files exist" if ok else f"missing or empty files: {', '.join(missing)}",
+        {name: str(path.relative_to(PROJECT_ROOT)) for name, path in files.items()},
+    )
+
+
+def _check_front_page_source_contract() -> CheckResult:
+    try:
+        front = FRONT_TEMPLATE.read_text(encoding="utf-8")
+        front_css = FRONT_CSS.read_text(encoding="utf-8")
+        front_js = FRONT_JS.read_text(encoding="utf-8")
+        settings = SETTINGS_TEMPLATE.read_text(encoding="utf-8")
+        settings_js = SETTINGS_JS.read_text(encoding="utf-8")
+    except Exception as exc:
+        return CheckResult(
+            "front_page.source_contract",
+            False,
+            PiSDErrorCodes.TEST_FRONT_PAGE_CONTRACT_FAILED,
+            f"failed to read front page/settings files: {exc}",
+            {"exception_type": type(exc).__name__},
+        )
+    required = {
+        "front": ["PiSD Front Page", "frontModeSettings", "frontModeTesting", "href=\"/settings\"", "href=\"/testing\"", "frontPageInitialStatus"],
+        "front_css": [".fp-mode-grid", ".fp-mode-card"],
+        "front_js": ["frontApi", "/api/status", "/api/control/stop"],
+        "settings": ["PiSD Settings Tab", "Back to Front Page", "stCameraForm", "stMotorForm", "settingsInitialStatus"],
+        "settings_js": ["settingsApi", "/api/camera/apply", "/api/motor/apply", "/api/control/stop"],
+    }
+    sources = {"front": front, "front_css": front_css, "front_js": front_js, "settings": settings, "settings_js": settings_js}
+    missing = {name: [token for token in tokens if token not in sources[name]] for name, tokens in required.items()}
+    missing = {name: tokens for name, tokens in missing.items() if tokens}
+    ok = not missing
+    return CheckResult(
+        "front_page.source_contract",
+        ok,
+        PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_FRONT_PAGE_CONTRACT_FAILED,
+        "front page and settings tab source contract passed" if ok else "front page/settings source contract missing tokens",
+        {"missing": missing},
+    )
+
 
 def _check_main_dashboard_static_files() -> CheckResult:
     files = {
@@ -304,6 +364,9 @@ def _check_main_dashboard_source_contract() -> CheckResult:
         )
     required_template_tokens = [
         "PiSD Main Dashboard",
+        "Back to Front Page",
+        'href="/"',
+        'href="/settings"',
         "mainDashboardInitialStatus",
         "panel-system-status",
         "panel-camera-preview",
@@ -678,17 +741,45 @@ def _check_api_stop_and_errors(client) -> list[CheckResult]:
 def _check_api_main_dashboard_gui(client) -> list[CheckResult]:
     results: list[CheckResult] = []
     response = client.get("/")
-    page_ok = response.status_code == 200 and b"PiSD Main Dashboard" in response.data and b"panel-system-status" in response.data
+    front_ok = response.status_code == 200 and b"PiSD Front Page" in response.data and b"frontModeSettings" in response.data and b"frontModeTesting" in response.data
     results.append(
         CheckResult(
-            "api.main_dashboard.root_page",
+            "api.front_page.root_page",
+            front_ok,
+            PiSDErrorCodes.OK if front_ok else PiSDErrorCodes.TEST_FRONT_PAGE_CONTRACT_FAILED,
+            "/ front page loaded" if front_ok else f"/ returned HTTP {response.status_code} or missing front page content",
+            {"http_status": response.status_code, "bytes": len(response.data)},
+        )
+    )
+
+    response = client.get("/settings")
+    settings_ok = response.status_code == 200 and b"PiSD Settings Tab" in response.data and b"Back to Front Page" in response.data
+    results.append(
+        CheckResult(
+            "api.front_page.settings_tab",
+            settings_ok,
+            PiSDErrorCodes.OK if settings_ok else PiSDErrorCodes.TEST_FRONT_PAGE_CONTRACT_FAILED,
+            "/settings tab loaded" if settings_ok else f"/settings returned HTTP {response.status_code} or missing content",
+            {"http_status": response.status_code, "bytes": len(response.data)},
+        )
+    )
+
+    response = client.get("/dashboard")
+    page_ok = response.status_code == 200 and b"PiSD Main Dashboard" in response.data and b"panel-system-status" in response.data and b"Back to Front Page" in response.data
+    results.append(
+        CheckResult(
+            "api.main_dashboard.dashboard_page",
             page_ok,
             PiSDErrorCodes.OK if page_ok else PiSDErrorCodes.TEST_MAIN_DASHBOARD_CONTRACT_FAILED,
-            "/ main dashboard page loaded" if page_ok else f"/ returned HTTP {response.status_code} or missing expected content",
+            "/dashboard main dashboard page loaded" if page_ok else f"/dashboard returned HTTP {response.status_code} or missing expected content",
             {"http_status": response.status_code, "bytes": len(response.data)},
         )
     )
     for path, label, marker in (
+        ("/testing/static/css/front_page.css", "api.front_page.static_css", b".fp-mode-grid"),
+        ("/testing/static/js/front_page.js", "api.front_page.static_js", b"frontApi"),
+        ("/testing/static/css/settings_tab.css", "api.settings_tab.static_css", b".st-grid"),
+        ("/testing/static/js/settings_tab.js", "api.settings_tab.static_js", b"settingsApi"),
         ("/testing/static/css/main_dashboard.css", "api.main_dashboard.static_css", b".md-shell"),
         ("/testing/static/js/main_dashboard.js", "api.main_dashboard.static_js", b"updateMotorLock"),
     ):
@@ -966,6 +1057,8 @@ def main() -> int:
     checks.append(_safe_check("services.import_and_status", _check_imports))
 
     if not args.skip_gui:
+        checks.append(_safe_check("front_page.static_files", _check_front_page_static_files))
+        checks.append(_safe_check("front_page.source_contract", _check_front_page_source_contract))
         checks.append(_safe_check("main_dashboard.static_files", _check_main_dashboard_static_files))
         checks.append(_safe_check("main_dashboard.source_contract", _check_main_dashboard_source_contract))
         checks.append(_safe_check("gui.static_files", _check_testing_gui_static_files))

@@ -90,6 +90,7 @@ def check_source_contract() -> Result:
     expected = {
         "template": [
             "PiSD Testing Server GUI",
+            "Back to Front Page",
             "globalCode",
             "cameraPreview",
             "cameraSettingsForm",
@@ -157,13 +158,13 @@ def check_routes(hardware: bool) -> list[Result]:
     )
 
     response = client.get("/")
-    root_ok = response.status_code == 200 and b"PiSD Main Dashboard" in response.data
+    root_ok = response.status_code == 200 and b"PiSD Front Page" in response.data and b"frontModeTesting" in response.data
     results.append(
         Result(
-            "api.testing_gui.root_separated",
+            "api.testing_gui.root_front_page",
             root_ok,
             PiSDErrorCodes.OK if root_ok else PiSDErrorCodes.TEST_GUI_ROUTE_FAILED,
-            "/ now loads the main dashboard while /testing remains the API tester" if root_ok else f"/ returned HTTP {response.status_code} or missing main dashboard marker",
+            "/ now loads the front page while /testing remains the API tester" if root_ok else f"/ returned HTTP {response.status_code} or missing front page marker",
             {"http_status": response.status_code, "bytes": len(response.data)},
         )
     )

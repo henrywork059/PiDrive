@@ -54,16 +54,26 @@ def main() -> int:
 
 
     res = _expect(client.get("/"))
-    if b"PiSD Main Dashboard" not in res.data or b"panel-system-status" not in res.data:
-        raise AssertionError("GET / did not return the main dashboard page")
+    if b"PiSD Front Page" not in res.data or b"frontModeSettings" not in res.data or b"frontModeTesting" not in res.data:
+        raise AssertionError("GET / did not return the front page mode selector")
     results.append({"endpoint": "GET /", "status": res.status_code, "bytes": len(res.data)})
+
+    res = _expect(client.get("/settings"))
+    if b"PiSD Settings Tab" not in res.data or b"Back to Front Page" not in res.data:
+        raise AssertionError("GET /settings did not return the settings tab page")
+    results.append({"endpoint": "GET /settings", "status": res.status_code, "bytes": len(res.data)})
+
+    res = _expect(client.get("/dashboard"))
+    if b"PiSD Main Dashboard" not in res.data or b"panel-system-status" not in res.data or b"Back to Front Page" not in res.data:
+        raise AssertionError("GET /dashboard did not return the main dashboard page")
+    results.append({"endpoint": "GET /dashboard", "status": res.status_code, "bytes": len(res.data)})
 
     res = _expect(client.get("/testing"))
     if b"PiSD Testing Server GUI" not in res.data or b"Run safe smoke test" not in res.data:
         raise AssertionError("GET /testing did not return the testing GUI page with smoke test controls")
     results.append({"endpoint": "GET /testing", "status": res.status_code, "bytes": len(res.data)})
 
-    for path, marker in (("/testing/static/css/main_dashboard.css", b".md-shell"), ("/testing/static/js/main_dashboard.js", b"updateMotorLock"), ("/testing/static/css/testing_server.css", b".code-pill"), ("/testing/static/js/testing_server.js", b"runSafeSmokeTest")):
+    for path, marker in (("/testing/static/css/front_page.css", b".fp-mode-grid"), ("/testing/static/js/front_page.js", b"frontApi"), ("/testing/static/css/settings_tab.css", b".st-grid"), ("/testing/static/js/settings_tab.js", b"settingsApi"), ("/testing/static/css/main_dashboard.css", b".md-shell"), ("/testing/static/js/main_dashboard.js", b"updateMotorLock"), ("/testing/static/css/testing_server.css", b".code-pill"), ("/testing/static/js/testing_server.js", b"runSafeSmokeTest")):
         res = _expect(client.get(path))
         if marker not in res.data:
             raise AssertionError(f"GET {path} did not contain expected testing GUI asset marker")

@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PiSD Settings Tab</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/settings_tab.css') }}">
+</head>
+<body>
+  <header class="st-topbar">
+    <div>
+      <p class="st-kicker">PiSD setting tab</p>
+      <h1>Settings and safe apply checks</h1>
+      <p class="st-subtitle">Use this page to test camera and motor setting API calls separately from the testing tab and actual dashboard.</p>
+    </div>
+    <nav class="st-actions" aria-label="Settings navigation">
+      <a class="st-button st-secondary" href="/">Back to Front Page</a>
+      <a class="st-button st-secondary" href="/testing">Testing tab</a>
+      <a class="st-button st-secondary" href="/dashboard">Dashboard</a>
+      <span id="stGlobalCode" class="st-code-pill">{{ initial_status.code }}</span>
+      <button id="stStopAll" class="st-button st-danger">STOP</button>
+    </nav>
+  </header>
+
+  <main class="st-grid">
+    <section class="st-card" id="settingsSystemPanel">
+      <div class="st-card-head"><h2>System status</h2><span class="st-code-pill" data-code-for="system">{{ initial_status.code }}</span></div>
+      <button id="stRefreshStatus" class="st-button">Refresh status</button>
+      <pre id="stStatusJson" class="st-console">{{ initial_status | tojson(indent=2) }}</pre>
+    </section>
+
+    <section class="st-card" id="settingsCameraPanel">
+      <div class="st-card-head"><h2>Camera settings</h2><span class="st-code-pill" data-code-for="camera">PISD-OK-000</span></div>
+      <form id="stCameraForm" class="st-form-grid">
+        <label>Width <input name="width" type="number" min="160" max="1920" value="426"></label>
+        <label>Height <input name="height" type="number" min="120" max="1080" value="240"></label>
+        <label>FPS <input name="fps" type="number" min="1" max="60" value="12"></label>
+        <label>JPEG quality <input name="preview_quality" type="number" min="10" max="95" value="65"></label>
+        <label>Capture source <select name="capture_source"><option value="request" selected>request</option><option value="array">array</option></select></label>
+        <label>Array colour order <select name="array_color_order"><option value="rgb" selected>rgb</option><option value="bgr">bgr</option><option value="auto">auto</option></select></label>
+        <label>Auto exposure <select name="auto_exposure" data-type="boolean"><option value="true" selected>true</option><option value="false">false</option></select></label>
+        <label>Exposure us <input name="exposure_us" type="number" min="100" max="200000" value="12000"></label>
+        <label>Auto WB <select name="auto_white_balance" data-type="boolean"><option value="true" selected>true</option><option value="false">false</option></select></label>
+        <label>AWB mode <select name="awb_mode"><option value="auto" selected>auto</option><option value="daylight">daylight</option><option value="cloudy">cloudy</option><option value="tungsten">tungsten</option><option value="fluorescent">fluorescent</option></select></label>
+        <div class="st-form-actions"><button class="st-button st-primary" type="submit">Apply camera settings</button><button id="stReadCamera" class="st-button" type="button">Read camera config</button></div>
+      </form>
+    </section>
+
+    <section class="st-card" id="settingsMotorPanel">
+      <div class="st-card-head"><h2>Motor settings</h2><span class="st-code-pill" data-code-for="motor">PISD-OK-000</span></div>
+      <form id="stMotorForm" class="st-form-grid">
+        <label>Left direction <select name="left_direction"><option value="1">1</option><option value="-1">-1</option></select></label>
+        <label>Right direction <select name="right_direction"><option value="1">1</option><option value="-1">-1</option></select></label>
+        <label>Steering direction <select name="steering_direction"><option value="1">1</option><option value="-1">-1</option></select></label>
+        <label>Steer mix <input name="steer_mix" type="number" min="0" max="2" step="0.05" value="1.0"></label>
+        <label>Left max speed <input name="left_max_speed" type="number" min="0" max="1" step="0.05" value="1.0"></label>
+        <label>Right max speed <input name="right_max_speed" type="number" min="0" max="1" step="0.05" value="1.0"></label>
+        <label>Left bias <input name="left_bias" type="number" min="-1" max="1" step="0.01" value="0.0"></label>
+        <label>Right bias <input name="right_bias" type="number" min="-1" max="1" step="0.01" value="0.0"></label>
+        <div class="st-form-actions"><button class="st-button st-primary" type="submit">Apply motor settings</button><button id="stReadMotor" class="st-button" type="button">Read motor config</button></div>
+      </form>
+      <p class="st-help">This applies configuration only; it does not move the car. Motor direction can be decided later in GUI settings.</p>
+    </section>
+
+    <section class="st-card st-wide" id="settingsActionPanel">
+      <div class="st-card-head"><h2>Last response</h2><span class="st-code-pill" data-code-for="action">PISD-OK-000</span></div>
+      <pre id="stActionLog" class="st-console">No settings API call yet.</pre>
+    </section>
+  </main>
+
+  <script id="settingsInitialStatus" type="application/json">{{ initial_status | tojson }}</script>
+  <script src="{{ url_for('static', filename='js/settings_tab.js') }}"></script>
+</body>
+</html>

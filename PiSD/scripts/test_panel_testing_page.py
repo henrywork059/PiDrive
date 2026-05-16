@@ -116,6 +116,7 @@ def check_source_contract() -> Result:
 
     required_template = [
         "PiSD Panel Testing Lab",
+        "Back to Front Page",
         "Flexible GUI panel stress page",
         "ptPanelGrid",
         "ptPanelReport",
