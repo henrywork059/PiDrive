@@ -637,3 +637,20 @@ Useful commands:
 python3 scripts/test_camera_fps.py --hardware --seconds 5 --fps 30 --capture-source array
 python3 scripts/test_live_frame_fps.py --base-url http://127.0.0.1:5050 --seconds 5 --mode mjpeg --apply-fast-preview
 ```
+
+## Panel presentation settings page
+
+PiSD 0.2.8 adds a separate page for tuning panel presentation without changing `/panel-testing`:
+
+```text
+http://<pi-ip>:5050/panel-presentation
+```
+
+Use it to save compact panel spacing, size, density, and preview aspect settings. These settings apply in the browser across the front page, settings tab, testing tab, dashboard, and panel testing page.
+
+Validation:
+
+```bash
+python3 scripts/test_panel_presentation_page.py --static-only
+python3 scripts/run_standard_validation.py --skip-api --skip-camera --skip-motor
+```

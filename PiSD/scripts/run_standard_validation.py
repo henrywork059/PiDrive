@@ -48,6 +48,11 @@ FRONT_JS = WEB_ROOT / "static" / "js" / "front_page.js"
 SETTINGS_TEMPLATE = WEB_ROOT / "templates" / "settings_tab.html"
 SETTINGS_CSS = WEB_ROOT / "static" / "css" / "settings_tab.css"
 SETTINGS_JS = WEB_ROOT / "static" / "js" / "settings_tab.js"
+PRESENTATION_TEMPLATE = WEB_ROOT / "templates" / "panel_presentation.html"
+PRESENTATION_CSS = WEB_ROOT / "static" / "css" / "panel_presentation.css"
+PRESENTATION_JS = WEB_ROOT / "static" / "js" / "panel_presentation.js"
+PRESENTATION_GLOBAL_CSS = WEB_ROOT / "static" / "css" / "panel_presentation_global.css"
+PRESENTATION_GLOBAL_JS = WEB_ROOT / "static" / "js" / "panel_presentation_global.js"
 
 
 @dataclass
@@ -285,6 +290,11 @@ def _check_front_page_static_files() -> CheckResult:
         "settings_template": SETTINGS_TEMPLATE,
         "settings_css": SETTINGS_CSS,
         "settings_js": SETTINGS_JS,
+        "presentation_template": PRESENTATION_TEMPLATE,
+        "presentation_css": PRESENTATION_CSS,
+        "presentation_js": PRESENTATION_JS,
+        "presentation_global_css": PRESENTATION_GLOBAL_CSS,
+        "presentation_global_js": PRESENTATION_GLOBAL_JS,
     }
     missing = [name for name, path in files.items() if not path.exists() or path.stat().st_size <= 0]
     ok = not missing
@@ -366,7 +376,6 @@ def _check_main_dashboard_source_contract() -> CheckResult:
         "PiSD Main Dashboard",
         "Back to Front Page",
         'href="/"',
-        'href="/settings"',
         "mainDashboardInitialStatus",
         "panel-system-status",
         "panel-camera-preview",
@@ -583,6 +592,60 @@ def _check_panel_testing_source_contract() -> CheckResult:
         {key: value for key, value in missing.items() if value},
     )
 
+
+def _check_panel_presentation_static_files() -> CheckResult:
+    files = {
+        "template": PRESENTATION_TEMPLATE,
+        "css": PRESENTATION_CSS,
+        "js": PRESENTATION_JS,
+        "global_css": PRESENTATION_GLOBAL_CSS,
+        "global_js": PRESENTATION_GLOBAL_JS,
+    }
+    missing = [name for name, path in files.items() if not path.exists() or path.stat().st_size <= 0]
+    ok = not missing
+    return CheckResult(
+        "panel_presentation.static_files",
+        ok,
+        PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_PANEL_PRESENTATION_FAILED,
+        "panel presentation template/CSS/JS files exist" if ok else f"missing or empty files: {', '.join(missing)}",
+        {name: str(path.relative_to(PROJECT_ROOT)) for name, path in files.items()},
+    )
+
+
+def _check_panel_presentation_source_contract() -> CheckResult:
+    try:
+        template = PRESENTATION_TEMPLATE.read_text(encoding="utf-8")
+        css = PRESENTATION_CSS.read_text(encoding="utf-8")
+        js = PRESENTATION_JS.read_text(encoding="utf-8")
+        global_css = PRESENTATION_GLOBAL_CSS.read_text(encoding="utf-8")
+        global_js = PRESENTATION_GLOBAL_JS.read_text(encoding="utf-8")
+    except Exception as exc:
+        return CheckResult(
+            "panel_presentation.source_contract",
+            False,
+            PiSDErrorCodes.TEST_PANEL_PRESENTATION_FAILED,
+            f"failed to read panel presentation files: {exc}",
+            {"exception_type": type(exc).__name__},
+        )
+    required = {
+        "template": ["PiSD Panel Presentation Settings", "ppTheme", "ppLayoutMode", "ppDensity", "ppSave", "ppExport", "Back to Front Page"],
+        "css": [".pp-shell", ".pp-control-grid", ".pp-panel-grid"],
+        "js": ["PiSDPanelPresentation", "ppSave", "ppReset", "PISD-TEST-018"],
+        "global_css": ["--pisd-ui-gap", "--pisd-ui-radius", ".fp-mode-grid", ".md-shell"],
+        "global_js": ["pisd.panelPresentation.v1", "PiSDPanelPresentation", "localStorage"],
+    }
+    sources = {"template": template, "css": css, "js": js, "global_css": global_css, "global_js": global_js}
+    missing = {name: [token for token in tokens if token not in sources[name]] for name, tokens in required.items()}
+    missing = {name: tokens for name, tokens in missing.items() if tokens}
+    ok = not missing
+    return CheckResult(
+        "panel_presentation.source_contract",
+        ok,
+        PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_PANEL_PRESENTATION_FAILED,
+        "panel presentation source contract passed" if ok else "panel presentation source contract missing tokens",
+        {"missing": missing},
+    )
+
 def _check_api_status(client) -> CheckResult:
     response = client.get("/api/status")
     payload = response.get_json(silent=True) or {}
@@ -782,6 +845,18 @@ def _check_api_main_dashboard_gui(client) -> list[CheckResult]:
             {"http_status": response.status_code, "bytes": len(response.data)},
         )
     )
+
+    response = client.get("/panel-presentation")
+    presentation_ok = response.status_code == 200 and b"PiSD Panel Presentation Settings" in response.data and b"Back to Front Page" in response.data
+    results.append(
+        CheckResult(
+            "api.panel_presentation.page",
+            presentation_ok,
+            PiSDErrorCodes.OK if presentation_ok else PiSDErrorCodes.TEST_PANEL_PRESENTATION_FAILED,
+            "/panel-presentation loaded" if presentation_ok else f"/panel-presentation returned HTTP {response.status_code} or missing expected content",
+            {"http_status": response.status_code, "bytes": len(response.data)},
+        )
+    )
     for path, label, marker in (
         ("/testing/static/css/front_page.css", "api.front_page.static_css", b".fp-mode-grid"),
         ("/testing/static/js/front_page.js", "api.front_page.static_js", b"frontApi"),
@@ -789,6 +864,10 @@ def _check_api_main_dashboard_gui(client) -> list[CheckResult]:
         ("/testing/static/js/settings_tab.js", "api.settings_tab.static_js", b"settingsApi"),
         ("/testing/static/css/main_dashboard.css", "api.main_dashboard.static_css", b".md-shell"),
         ("/testing/static/js/main_dashboard.js", "api.main_dashboard.static_js", b"updateMotorLock"),
+        ("/testing/static/css/panel_presentation_global.css", "api.panel_presentation.global_css", b"--pisd-ui-gap"),
+        ("/testing/static/js/panel_presentation_global.js", "api.panel_presentation.global_js", b"PiSDPanelPresentation"),
+        ("/testing/static/css/panel_presentation.css", "api.panel_presentation.static_css", b".pp-shell"),
+        ("/testing/static/js/panel_presentation.js", "api.panel_presentation.static_js", b"ppSave"),
     ):
         response = client.get(path)
         asset_ok = response.status_code == 200 and marker in response.data
@@ -1075,6 +1154,8 @@ def main() -> int:
         checks.append(_safe_check("panel_gui.static_files", _check_panel_testing_static_files))
         checks.append(_safe_check("panel_gui.source_contract", _check_panel_testing_source_contract))
         checks.append(_safe_check("panel_api.contract_data", _check_panel_api_contract_data))
+        checks.append(_safe_check("panel_presentation.static_files", _check_panel_presentation_static_files))
+        checks.append(_safe_check("panel_presentation.source_contract", _check_panel_presentation_source_contract))
 
     if not args.skip_camera:
         checks.append(_safe_check("camera.service_frame", lambda: _check_camera_service(bool(args.hardware))))

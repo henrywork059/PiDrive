@@ -593,3 +593,30 @@ Testing GUI browser test:
 4. Click **Run max FPS test**.
 
 Expected OK lines use `PISD-OK-000`. FPS test failures use `PISD-TEST-017`.
+
+## Panel presentation settings validation added in 0.2.8
+
+Use this test after applying the 0.2.8 patch:
+
+```bash
+cd ~/PiDrive/PiSD
+python3 scripts/test_panel_presentation_page.py --static-only
+python3 scripts/test_front_page_tabs.py --static-only
+python3 scripts/run_standard_validation.py --skip-api --skip-camera --skip-motor
+```
+
+With Flask available, run:
+
+```bash
+python3 scripts/test_panel_presentation_page.py
+```
+
+Expected OK lines include:
+
+```text
+OK   PISD-OK-000   panel_presentation.file.template - pisd/web/templates/panel_presentation.html exists
+OK   PISD-OK-000   panel_presentation.source_contract - panel presentation page includes controls, save/apply/export/import, and global style application
+OK   PISD-OK-000   panel_presentation.global_includes - shared panel presentation CSS/JS is included on all GUI pages
+```
+
+The `/panel-testing` page should remain available and separate.

@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Validate PiSD front page and tab navigation.
 
-This checks the new mode-selection front page, settings tab, testing tab, and
-Back to Front Page links. It never starts camera output or moves motors.
+This checks the compact mode-selection front page, settings/testing/dashboard tabs, panel presentation settings page, and Back to Front Page links. It never starts camera output or moves motors.
 """
 
 from __future__ import annotations
@@ -31,6 +30,11 @@ SETTINGS_JS = WEB_ROOT / "static" / "js" / "settings_tab.js"
 MAIN_TEMPLATE = WEB_ROOT / "templates" / "main_dashboard.html"
 TESTING_TEMPLATE = WEB_ROOT / "templates" / "testing_server.html"
 PANEL_TEMPLATE = WEB_ROOT / "templates" / "panel_testing.html"
+PRESENTATION_TEMPLATE = WEB_ROOT / "templates" / "panel_presentation.html"
+PRESENTATION_CSS = WEB_ROOT / "static" / "css" / "panel_presentation.css"
+PRESENTATION_JS = WEB_ROOT / "static" / "js" / "panel_presentation.js"
+PRESENTATION_GLOBAL_CSS = WEB_ROOT / "static" / "css" / "panel_presentation_global.css"
+PRESENTATION_GLOBAL_JS = WEB_ROOT / "static" / "js" / "panel_presentation_global.js"
 OUTPUT_DIR = PROJECT_ROOT / "test_outputs" / "front_page_tabs"
 SUMMARY_PATH = OUTPUT_DIR / "summary.json"
 
@@ -154,6 +158,7 @@ def check_source_contract() -> list[Result]:
         "dashboard": MAIN_TEMPLATE.read_text(encoding="utf-8"),
         "testing": TESTING_TEMPLATE.read_text(encoding="utf-8"),
         "panel_testing": PANEL_TEMPLATE.read_text(encoding="utf-8"),
+        "panel_presentation": PRESENTATION_TEMPLATE.read_text(encoding="utf-8"),
     }
     missing_back = [name for name, text in back_link_sources.items() if "Back to Front Page" not in text or 'href="/"' not in text]
     ok = not missing_back
@@ -180,6 +185,7 @@ def check_routes(hardware: bool) -> list[Result]:
         ("/settings", "front_page.route.settings", b"PiSD Settings Tab", b"Back to Front Page"),
         ("/testing", "front_page.route.testing", b"PiSD Testing Server GUI", b"Back to Front Page"),
         ("/dashboard", "front_page.route.dashboard", b"PiSD Main Dashboard", b"Back to Front Page"),
+        ("/panel-presentation", "front_page.route.panel_presentation", b"PiSD Panel Presentation Settings", b"Back to Front Page"),
         ("/panel-testing", "front_page.route.panel_testing", b"PiSD Panel Testing Lab", b"Back to Front Page"),
     ]
     results: list[Result] = []
@@ -200,6 +206,10 @@ def check_routes(hardware: bool) -> list[Result]:
         ("/testing/static/js/front_page.js", "front_page.static.front_js", b"frontApi"),
         ("/testing/static/css/settings_tab.css", "front_page.static.settings_css", b".st-grid"),
         ("/testing/static/js/settings_tab.js", "front_page.static.settings_js", b"settingsApi"),
+        ("/testing/static/css/panel_presentation_global.css", "front_page.static.presentation_global_css", b"--pisd-ui-gap"),
+        ("/testing/static/js/panel_presentation_global.js", "front_page.static.presentation_global_js", b"PiSDPanelPresentation"),
+        ("/testing/static/css/panel_presentation.css", "front_page.static.presentation_css", b".pp-shell"),
+        ("/testing/static/js/panel_presentation.js", "front_page.static.presentation_js", b"ppSave"),
     ):
         response = client.get(path)
         ok = response.status_code == 200 and marker in response.data

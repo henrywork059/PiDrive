@@ -44,3 +44,18 @@ a { color: inherit; text-decoration: none; }
 .fp-danger { border-color: rgba(251,113,133,.48); background: rgba(127,29,29,.5); }
 .fp-console { max-height: 240px; overflow: auto; margin: .4rem 0 0; padding: 1rem; border: 1px solid var(--fp-border); border-radius: 16px; background: rgba(0,0,0,.28); color: #dbeafe; }
 @media (max-width: 760px) { .fp-mode-grid { grid-template-columns: 1fr; } .fp-mode-card { min-height: 190px; } }
+
+/* 0.2.8 compact front-page refinements */
+.fp-shell { width: min(1180px, calc(100% - 18px)); padding: clamp(10px, 2vw, 20px) 0; }
+.fp-hero { padding: clamp(12px, 2.6vw, 20px); }
+.fp-hero h1 { font-size: clamp(1.2rem, 3vw, 2rem); }
+.fp-status-strip { margin-top: .75rem; gap: .42rem; }
+.fp-status-strip span { padding: .34rem .55rem; font-size: .82rem; }
+.fp-mode-grid { gap: .8rem; margin-top: .8rem; }
+.fp-mode-card { min-height: 150px; padding: clamp(12px, 2vw, 18px); }
+.fp-mode-card h2 { font-size: clamp(1.05rem, 2.5vw, 1.45rem); }
+.fp-mode-card p { margin: .45rem 0 .7rem; font-size: .9rem; }
+.fp-card-action { font-size: .88rem; }
+.fp-quick-actions { margin-top: .8rem; padding: .75rem; }
+.fp-console { max-height: 160px; }
+@media (max-width: 760px) { .fp-mode-card { min-height: 126px; } }

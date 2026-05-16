@@ -115,10 +115,11 @@ def create_app(hardware_enabled: bool = False):
             "version": __version__,
             "code": PiSDErrorCodes.OK,
             "message": "Testing server GUI endpoint manifest loaded.",
-            "pages": ["/", "/settings", "/dashboard", "/testing", "/panel-testing"],
+            "pages": ["/", "/settings", "/dashboard", "/testing", "/panel-presentation", "/panel-testing"],
             "front_page": {"path": "/", "purpose": "Mode selection landing page."},
             "settings_tab": {"path": "/settings", "purpose": "Settings tab for camera/motor/system API checks."},
             "main_dashboard": {"path": "/dashboard", "purpose": "Actual GUI dashboard shell v1."},
+            "panel_presentation": {"path": "/panel-presentation", "purpose": "Browser-local panel presentation settings that apply across pages."},
             "static_base": "/testing/static/",
             "endpoints": [
                 {"method": "GET", "path": "/api/status", "purpose": "Read full PiSD camera/motor/error status."},
@@ -209,6 +210,13 @@ def create_app(hardware_enabled: bool = False):
     def api_test_gui_manifest():
         return jsonify(test_gui_manifest())
 
+    @app.get("/panel-presentation")
+    def panel_presentation():
+        return render_template(
+            "panel_presentation.html",
+            initial_status=build_status(),
+        )
+
     @app.get("/panel-testing")
     def panel_testing():
         return render_template(
@@ -216,6 +224,27 @@ def create_app(hardware_enabled: bool = False):
             initial_status=build_status(),
             panel_manifest=panel_testing_manifest(),
         )
+
+    @app.get("/api/panel-presentation/manifest")
+    def api_panel_presentation_manifest():
+        return jsonify(ok_payload(
+            "Panel presentation settings manifest loaded.",
+            storage_key="pisd.panelPresentation.v1",
+            path="/panel-presentation",
+            applies_to=["/", "/settings", "/testing", "/dashboard", "/panel-testing"],
+            controls=[
+                "theme",
+                "layoutMode",
+                "density",
+                "fontScale",
+                "panelGap",
+                "panelRadius",
+                "borderStrength",
+                "shadowStrength",
+                "minPanelWidth",
+                "previewAspect",
+            ],
+        ))
 
     @app.get("/api/panel-testing/manifest")
     def api_panel_testing_manifest():

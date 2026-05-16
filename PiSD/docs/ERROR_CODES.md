@@ -215,3 +215,11 @@ FAIL PISD-TEST-015 main_dashboard.source_contract - main dashboard source contra
 ## Camera FPS test code
 
 - `PISD-TEST-017` — live-frame FPS or camera FPS validation failed. Check `/api/camera/fps-stats`, camera settings, encode time, frame size, and browser/server route availability.
+
+## Added in 0.2.8
+
+```text
+PISD-TEST-018
+```
+
+Used by panel presentation settings validation and import/error reporting for the browser-local panel presentation page.

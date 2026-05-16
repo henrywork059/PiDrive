@@ -217,3 +217,23 @@ The camera status now reports these live-frame metrics:
 - `frames_dropped_or_empty`
 
 The testing GUI exposes these through `/api/camera/fps-stats` and the **Live FPS pipeline test** panel.
+
+## 0.2.8 compact front page and panel presentation settings
+
+The root route `/` remains the compact front page/mode selector. Pages should not include cross-tab switching buttons; users choose pages from the front page. Individual pages may keep only a `Back to Front Page` link plus local actions such as refresh or STOP.
+
+A new `/panel-presentation` page controls shared presentation settings for panels. It is separate from `/panel-testing`.
+
+`/panel-presentation` saves browser-local settings for:
+
+- theme
+- layout mode
+- density
+- font scale
+- panel gap
+- panel radius
+- border and shadow strength
+- minimum panel width
+- preview aspect ratio
+
+The shared presentation CSS/JS is loaded by the front page, settings tab, testing tab, dashboard, and panel testing page.

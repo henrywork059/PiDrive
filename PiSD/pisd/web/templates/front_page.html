@@ -5,13 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>PiSD Front Page</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/front_page.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/panel_presentation_global.css') }}">
+  <script src="{{ url_for('static', filename='js/panel_presentation_global.js') }}" defer></script>
 </head>
 <body>
   <main class="fp-shell" id="frontPageShell">
     <section class="fp-hero">
       <p class="fp-kicker">PiSD mode selection</p>
       <h1>Choose a workspace</h1>
-      <p class="fp-summary">Use this front page to select the workspace/tab you want to load. Settings and testing stay separate so the actual GUI can grow safely.</p>
+      <p class="fp-summary">Select one workspace from here. Pages stay compact and avoid extra tab-switch buttons.</p>
       <div class="fp-status-strip" aria-label="Current PiSD status">
         <span id="fpGlobalCode" class="fp-code">{{ initial_status.code }}</span>
         <span>Version <strong>{{ initial_status.version }}</strong></span>
@@ -37,6 +39,12 @@
         <h2>Dashboard</h2>
         <p>Open the first actual control dashboard shell for camera preview and safe bench controls.</p>
         <span class="fp-card-action">Open dashboard →</span>
+      </a>
+      <a class="fp-mode-card" id="frontModePanelPresentation" href="/panel-presentation">
+        <span class="fp-card-label">Presentation</span>
+        <h2>Panel presentation</h2>
+        <p>Set panel spacing, size, density, and preview style for all pages.</p>
+        <span class="fp-card-action">Open presentation settings →</span>
       </a>
       <a class="fp-mode-card" id="frontModePanelTesting" href="/panel-testing">
         <span class="fp-card-label">Layout lab</span>

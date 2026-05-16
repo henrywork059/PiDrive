@@ -43,8 +43,6 @@ REQUIRED_TEMPLATE_TOKENS = [
     "mdStopAllTop",
     "mdStopAllCenter",
     "mdStopAllPanel",
-    "href=\"/testing\"",
-    "href=\"/panel-testing\"",
 ]
 
 REQUIRED_CSS_TOKENS = [

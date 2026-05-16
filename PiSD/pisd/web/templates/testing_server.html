@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>PiSD Testing Server GUI</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/testing_server.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/panel_presentation_global.css') }}">
+  <script src="{{ url_for('static', filename='js/panel_presentation_global.js') }}" defer></script>
 </head>
 <body>
   <header class="topbar">
@@ -15,8 +17,6 @@
     </div>
     <div class="top-actions">
       <a class="button secondary" href="/">Back to Front Page</a>
-      <a class="button secondary" href="/settings">Settings tab</a>
-
       <span id="globalCode" class="code-pill">{{ initial_status.code }}</span>
       <button id="refreshStatusBtn" class="button secondary">Refresh status</button>
       <button id="runSmokeTestBtn" class="button primary">Run safe smoke test</button>

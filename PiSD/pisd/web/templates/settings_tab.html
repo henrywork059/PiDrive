@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>PiSD Settings Tab</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/settings_tab.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/panel_presentation_global.css') }}">
+  <script src="{{ url_for('static', filename='js/panel_presentation_global.js') }}" defer></script>
 </head>
 <body>
   <header class="st-topbar">
@@ -15,8 +17,6 @@
     </div>
     <nav class="st-actions" aria-label="Settings navigation">
       <a class="st-button st-secondary" href="/">Back to Front Page</a>
-      <a class="st-button st-secondary" href="/testing">Testing tab</a>
-      <a class="st-button st-secondary" href="/dashboard">Dashboard</a>
       <span id="stGlobalCode" class="st-code-pill">{{ initial_status.code }}</span>
       <button id="stStopAll" class="st-button st-danger">STOP</button>
     </nav>

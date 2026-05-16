@@ -1,0 +1,174 @@
+:root {
+  --pisd-ui-font-scale: 1;
+  --pisd-ui-gap: 12px;
+  --pisd-ui-radius: 14px;
+  --pisd-ui-border-alpha: 0.34;
+  --pisd-ui-shadow-alpha: 0.20;
+  --pisd-ui-panel-min-width: 280px;
+  --pisd-ui-preview-aspect: 16 / 9;
+  --pisd-ui-density-pad: 0.88;
+  --pisd-ui-header-pad-y: 0.62rem;
+  --pisd-ui-header-pad-x: 0.9rem;
+}
+
+html { font-size: calc(16px * var(--pisd-ui-font-scale, 1)); }
+
+body[data-pisd-density="compact"] { --pisd-ui-density-pad: 0.68; --pisd-ui-header-pad-y: 0.48rem; }
+body[data-pisd-density="comfortable"] { --pisd-ui-density-pad: 0.88; --pisd-ui-header-pad-y: 0.62rem; }
+body[data-pisd-density="spacious"] { --pisd-ui-density-pad: 1.08; --pisd-ui-header-pad-y: 0.8rem; }
+
+body[data-pisd-theme="light"] {
+  color-scheme: light;
+  background: #edf3fb !important;
+  color: #102033 !important;
+}
+
+body[data-pisd-theme="contrast"] {
+  --pisd-ui-border-alpha: 0.78;
+  --pisd-ui-shadow-alpha: 0.08;
+  filter: contrast(1.04);
+}
+
+.fp-shell,
+.st-grid,
+.layout,
+.md-shell,
+.pt-shell,
+.pp-shell { gap: var(--pisd-ui-gap, 12px) !important; }
+
+.fp-mode-grid,
+.md-shell,
+.pt-panel-grid,
+.st-grid,
+.layout,
+.pp-panel-grid,
+.pp-control-grid { gap: var(--pisd-ui-gap, 12px) !important; }
+
+.fp-mode-card,
+.fp-quick-actions,
+.st-card,
+.card,
+.md-panel,
+.pt-panel,
+.pt-control-panel,
+.pt-control-section,
+.pp-card,
+.pp-preview-panel {
+  border-radius: var(--pisd-ui-radius, 14px) !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, var(--pisd-ui-shadow-alpha, 0.20)) !important;
+}
+
+.fp-mode-card,
+.fp-quick-actions,
+.st-card,
+.card,
+.md-panel,
+.pt-panel,
+.pt-control-panel,
+.pt-control-section,
+.pp-card,
+.pp-preview-panel {
+  padding: calc(1rem * var(--pisd-ui-density-pad, 0.88)) !important;
+}
+
+.md-preview-frame,
+.preview-box,
+.pt-preview-surface,
+.pp-preview-surface {
+  aspect-ratio: var(--pisd-ui-preview-aspect, 16 / 9) !important;
+}
+
+.fp-mode-grid,
+.pt-panel-grid,
+.md-shell,
+.st-grid,
+.layout,
+.pp-panel-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--pisd-ui-panel-min-width, 280px)), 1fr)) !important;
+}
+
+body[data-pisd-layout="single"] .fp-mode-grid,
+body[data-pisd-layout="single"] .pt-panel-grid,
+body[data-pisd-layout="single"] .md-shell,
+body[data-pisd-layout="single"] .layout,
+body[data-pisd-layout="single"] .st-grid,
+body[data-pisd-layout="single"] .pp-panel-grid { grid-template-columns: 1fr !important; }
+
+body[data-pisd-layout="dense"] .fp-mode-grid,
+body[data-pisd-layout="dense"] .pt-panel-grid,
+body[data-pisd-layout="dense"] .md-shell,
+body[data-pisd-layout="dense"] .layout,
+body[data-pisd-layout="dense"] .st-grid,
+body[data-pisd-layout="dense"] .pp-panel-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)) !important;
+}
+
+body[data-pisd-layout="wide"] .fp-mode-grid,
+body[data-pisd-layout="wide"] .pt-panel-grid,
+body[data-pisd-layout="wide"] .md-shell,
+body[data-pisd-layout="wide"] .layout,
+body[data-pisd-layout="wide"] .st-grid,
+body[data-pisd-layout="wide"] .pp-panel-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)) !important;
+}
+
+.fp-hero,
+.st-topbar,
+.topbar,
+.md-topbar,
+.pt-hero,
+.pp-topbar {
+  padding: var(--pisd-ui-header-pad-y, 0.62rem) var(--pisd-ui-header-pad-x, 0.9rem) !important;
+  margin-bottom: 0.55rem !important;
+}
+
+.fp-hero h1,
+.st-topbar h1,
+.topbar h1,
+.md-topbar h1,
+.pt-hero h1,
+.pp-topbar h1 {
+  margin: 0 !important;
+  font-size: clamp(1rem, 2.1vw, 1.55rem) !important;
+  letter-spacing: -0.025em !important;
+}
+
+.fp-summary,
+.st-subtitle,
+.subtitle,
+.md-subtitle,
+.pt-summary,
+.pp-subtitle { display: none !important; }
+
+.st-kicker,
+.eyebrow,
+.md-kicker,
+.pt-kicker,
+.fp-kicker,
+.pp-kicker {
+  margin-bottom: 0.12rem !important;
+  font-size: 0.62rem !important;
+}
+
+.pisd-front-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 999px;
+  padding: 0.44rem 0.72rem;
+  background: rgba(15, 23, 42, 0.76);
+  color: inherit;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+@media (max-width: 760px) {
+  .fp-hero,
+  .st-topbar,
+  .topbar,
+  .md-topbar,
+  .pt-hero,
+  .pp-topbar { padding: 0.55rem 0.65rem !important; }
+}

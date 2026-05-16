@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PiSD Panel Presentation Settings</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/panel_presentation_global.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/panel_presentation.css') }}">
+  <script src="{{ url_for('static', filename='js/panel_presentation_global.js') }}" defer></script>
+</head>
+<body>
+  <header class="pp-topbar">
+    <div>
+      <p class="pp-kicker">PiSD panel presentation</p>
+      <h1>Panel style and size settings</h1>
+      <p class="pp-subtitle">Set how panels should look across the front page, settings, testing, dashboard, and panel testing pages.</p>
+    </div>
+    <nav class="pp-actions" aria-label="Panel presentation actions">
+      <a class="pisd-front-link" href="/">Back to Front Page</a>
+      <span id="ppGlobalCode" class="pp-code-pill">{{ initial_status.code }}</span>
+      <button id="ppReset" class="pp-button">Reset</button>
+      <button id="ppApply" class="pp-button pp-primary">Apply now</button>
+      <button id="ppSave" class="pp-button pp-primary">Save for all pages</button>
+    </nav>
+  </header>
+
+  <main class="pp-shell">
+    <section class="pp-card" id="panelPresentationControls">
+      <div class="pp-card-head">
+        <h2>Presentation controls</h2>
+        <span class="pp-code-pill">localStorage</span>
+      </div>
+      <form id="ppForm" class="pp-control-grid">
+        <label>Theme
+          <select name="theme" id="ppTheme">
+            <option value="dark">dark</option>
+            <option value="light">light</option>
+            <option value="contrast">high contrast</option>
+          </select>
+        </label>
+        <label>Layout mode
+          <select name="layoutMode" id="ppLayoutMode">
+            <option value="adaptive">adaptive</option>
+            <option value="single">single column</option>
+            <option value="dense">dense</option>
+            <option value="wide">wide</option>
+          </select>
+        </label>
+        <label>Density
+          <select name="density" id="ppDensity">
+            <option value="compact">compact</option>
+            <option value="comfortable">comfortable</option>
+            <option value="spacious">spacious</option>
+          </select>
+        </label>
+        <label>Font scale <input name="fontScale" id="ppFontScale" type="range" min="0.8" max="1.25" step="0.05"></label>
+        <label>Panel gap <input name="panelGap" id="ppPanelGap" type="range" min="4" max="26" step="1"></label>
+        <label>Corner radius <input name="panelRadius" id="ppPanelRadius" type="range" min="0" max="28" step="1"></label>
+        <label>Border strength <input name="borderStrength" id="ppBorderStrength" type="range" min="0" max="1" step="0.05"></label>
+        <label>Shadow strength <input name="shadowStrength" id="ppShadowStrength" type="range" min="0" max="1" step="0.05"></label>
+        <label>Minimum panel width <input name="minPanelWidth" id="ppMinPanelWidth" type="range" min="210" max="520" step="10"></label>
+        <label>Preview aspect
+          <select name="previewAspect" id="ppPreviewAspect">
+            <option value="16/9">16:9</option>
+            <option value="4/3">4:3</option>
+            <option value="1/1">1:1</option>
+            <option value="21/9">21:9</option>
+          </select>
+        </label>
+      </form>
+      <div class="pp-button-row">
+        <button id="ppExport" class="pp-button">Export JSON</button>
+        <button id="ppImportButton" class="pp-button">Import JSON</button>
+        <input id="ppImport" type="file" accept="application/json,.json" hidden>
+      </div>
+      <p class="pp-help">Saved settings are browser-local and apply automatically to pages that include the shared panel presentation stylesheet.</p>
+    </section>
+
+    <section class="pp-preview-panel" id="panelPresentationPreview">
+      <div class="pp-card-head">
+        <h2>Live preview</h2>
+        <span id="ppSavedState" class="pp-code-pill">not saved</span>
+      </div>
+      <div class="pp-panel-grid" id="ppPreviewGrid">
+        <article class="pp-card pp-sample-panel">
+          <p class="pp-panel-label">System Status</p>
+          <h3>Runtime health</h3>
+          <p>Compact panel header and code display.</p>
+          <span class="pp-code-pill">PISD-OK-000</span>
+        </article>
+        <article class="pp-card pp-sample-panel">
+          <p class="pp-panel-label">Camera Preview</p>
+          <h3>Live frame panel</h3>
+          <div class="pp-preview-surface">preview aspect</div>
+        </article>
+        <article class="pp-card pp-sample-panel">
+          <p class="pp-panel-label">Motor Controls</p>
+          <h3>Button layout</h3>
+          <div class="pp-button-row"><button class="pp-button pp-primary">Run</button><button class="pp-button pp-danger">STOP</button></div>
+        </article>
+        <article class="pp-card pp-sample-panel">
+          <p class="pp-panel-label">Error Monitor</p>
+          <h3>Response area</h3>
+          <pre class="pp-console">OK   PISD-OK-000   panel.presentation - settings applied</pre>
+        </article>
+      </div>
+    </section>
+
+    <section class="pp-card pp-wide" id="panelPresentationOutput">
+      <div class="pp-card-head"><h2>Current preset JSON</h2><span id="ppOutputCode" class="pp-code-pill">PISD-OK-000</span></div>
+      <pre id="ppOutput" class="pp-console">Loading...</pre>
+    </section>
+  </main>
+
+  <script id="panelPresentationInitialStatus" type="application/json">{{ initial_status | tojson }}</script>
+  <script src="{{ url_for('static', filename='js/panel_presentation.js') }}"></script>
+</body>
+</html>

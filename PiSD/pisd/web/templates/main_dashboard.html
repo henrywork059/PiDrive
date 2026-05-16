@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>PiSD Main Dashboard</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/main_dashboard.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/panel_presentation_global.css') }}">
+  <script src="{{ url_for('static', filename='js/panel_presentation_global.js') }}" defer></script>
 </head>
 <body>
   <header class="md-topbar">
@@ -15,10 +17,6 @@
     </div>
     <nav class="md-top-actions" aria-label="Dashboard navigation and global actions">
       <a class="md-link-button" href="/">Back to Front Page</a>
-      <a class="md-link-button" href="/settings">Settings tab</a>
-
-      <a class="md-link-button" href="/testing">API testing</a>
-      <a class="md-link-button" href="/panel-testing">Panel testing</a>
       <span id="mdGlobalCode" class="md-code-pill">{{ initial_status.code }}</span>
       <button id="mdRefreshStatus" class="md-button md-button-secondary">Refresh</button>
       <button id="mdStopAllTop" class="md-button md-button-danger">STOP</button>
