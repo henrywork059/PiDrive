@@ -56,6 +56,7 @@ PRESENTATION_CSS = WEB_ROOT / "static" / "css" / "panel_presentation.css"
 PRESENTATION_JS = WEB_ROOT / "static" / "js" / "panel_presentation.js"
 PRESENTATION_GLOBAL_CSS = WEB_ROOT / "static" / "css" / "panel_presentation_global.css"
 PRESENTATION_GLOBAL_JS = WEB_ROOT / "static" / "js" / "panel_presentation_global.js"
+UNIFIED_CSS = WEB_ROOT / "static" / "css" / "unified_layout.css"
 
 
 @dataclass
@@ -301,6 +302,7 @@ def _check_front_page_static_files() -> CheckResult:
         "presentation_js": PRESENTATION_JS,
         "presentation_global_css": PRESENTATION_GLOBAL_CSS,
         "presentation_global_js": PRESENTATION_GLOBAL_JS,
+        "unified_css": UNIFIED_CSS,
     }
     missing = [name for name, path in files.items() if not path.exists() or path.stat().st_size <= 0]
     ok = not missing
@@ -320,6 +322,7 @@ def _check_front_page_source_contract() -> CheckResult:
         front_js = FRONT_JS.read_text(encoding="utf-8")
         settings = SETTINGS_TEMPLATE.read_text(encoding="utf-8")
         settings_js = SETTINGS_JS.read_text(encoding="utf-8")
+        unified_css = UNIFIED_CSS.read_text(encoding="utf-8")
     except Exception as exc:
         return CheckResult(
             "front_page.source_contract",
@@ -334,8 +337,9 @@ def _check_front_page_source_contract() -> CheckResult:
         "front_js": ["frontApi", "/api/status", "/api/control/stop"],
         "settings": ["PiSD Settings", "Back to Front Page", "settingsMainPanel", "stCameraForm", "stMotorForm", "settingsInitialStatus"],
         "settings_js": ["settingsApi", "/api/settings/apply", "/api/settings", "/api/control/stop", "pisd.runtimeSettings.v2"],
+        "unified_css": ["PiSD 0.3.2 unified visual recovery layer", ".mdrv-shell", "#settingsPanelPresentationPanel"],
     }
-    sources = {"front": front, "front_css": front_css, "front_js": front_js, "settings": settings, "settings_js": settings_js}
+    sources = {"front": front, "front_css": front_css, "front_js": front_js, "settings": settings, "settings_js": settings_js, "unified_css": unified_css}
     missing = {name: [token for token in tokens if token not in sources[name]] for name, tokens in required.items()}
     missing = {name: tokens for name, tokens in missing.items() if tokens}
     ok = not missing
@@ -934,6 +938,7 @@ def _check_api_main_dashboard_gui(client) -> list[CheckResult]:
         ("/testing/static/js/main_dashboard.js", "api.main_dashboard.static_js", b"updateMotorLock"),
         ("/testing/static/css/panel_presentation_global.css", "api.panel_presentation.global_css", b"--pisd-ui-gap"),
         ("/testing/static/js/panel_presentation_global.js", "api.panel_presentation.global_js", b"PiSDPanelPresentation"),
+        ("/testing/static/css/unified_layout.css", "api.panel_presentation.unified_css", b"PiSD 0.3.2 unified visual recovery layer"),
         ("/testing/static/css/panel_presentation.css", "api.panel_presentation.static_css", b".pp-shell"),
         ("/testing/static/js/panel_presentation.js", "api.panel_presentation.static_js", b"ppSave"),
     ):

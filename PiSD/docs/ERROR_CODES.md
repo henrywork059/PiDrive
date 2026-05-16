@@ -240,3 +240,7 @@ Used by manual drive page validation when the `/manual-drive` page, its static f
 - `PISD-SET-004` — saved settings could not be applied to live services.
 - `PISD-SET-005` — reset-to-default settings flow failed.
 - `PISD-TEST-020` — persistent settings validation or UI contract check failed.
+
+## PiSD 0.3.2 UI presentation consistency code
+
+- `PISD-TEST-021` — unified page/panel presentation validation failed. This is used by `scripts/test_ui_presentation_consistency.py` when a GUI page is missing the shared final stylesheet, or when the shared stylesheet no longer contains the layout fixes for Manual Drive, Settings, Testing, Dashboard, Panel Presentation, and Panel Testing pages.

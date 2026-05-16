@@ -6,11 +6,11 @@ It is intentionally separate from the existing `PiServer/` folder. PiSD may refe
 
 ## Current version
 
-`PiSD_0_3_1_patch` — current patch on top of stable v3 baseline (`PiSD_0_3_0`).
+`PiSD_0_3_2_patch` — current patch on top of stable v3 baseline (`PiSD_0_3_0`).
 
-Stable v3 is `PiSD_0_3_0`. Patch `0.3.1` adds adaptive panel layout and presentation refinements without replacing the stable baseline.
+Stable v3 is `PiSD_0_3_0`. Patch `0.3.2` recovers and unifies the GUI presentation after the `0.3.1` weighted-panel layout caused inconsistent page layouts.
 
-It includes the tested camera/motor/error-reporting foundation, the testing GUI, panel testing and API contract pages, the front page mode selector, settings tab, manual drive tab, panel presentation settings, live-frame FPS improvements, persistent backend settings, and adaptive role-based panel sizing.
+It includes the tested camera/motor/error-reporting foundation, the testing GUI, panel testing and API contract pages, the front page mode selector, settings tab, manual drive tab, panel presentation settings, live-frame FPS improvements, persistent backend settings, and the unified page/panel presentation layer.
 
 This stable baseline keeps only one dependency file:
 
@@ -58,6 +58,19 @@ Real wheel direction is intentionally configurable through settings because diff
 - Panel Presentation and Settings pages now include horizontal/vertical role weights.
 - Shared style settings continue to apply across all tabs through `/api/settings`.
 - The change is presentation/layout-only and does not change camera or motor hardware behaviour.
+
+## 0.3.2 unified page presentation patch
+
+`PiSD_0_3_2_patch` adds a final shared `unified_layout.css` layer loaded after every page-specific stylesheet. It keeps existing page functions but standardises the visible presentation across pages:
+
+- compact and consistent topbars on all GUI pages
+- consistent card/panel surfaces, buttons, forms, consoles, and `PISD-*` status pills
+- Manual Drive status above preview with drag/STOP controls in a side column on PC/iPad layouts
+- Settings page uses a deliberate desktop grid instead of uncontrolled weighted auto-placement
+- Testing, Dashboard, Panel Presentation, and Panel Testing pages use more predictable responsive layouts
+- phone/tablet widths stack cleanly
+
+Camera service, motor service, API endpoints, settings persistence, and drag-pad logic are unchanged.
 
 ## Folder layout
 

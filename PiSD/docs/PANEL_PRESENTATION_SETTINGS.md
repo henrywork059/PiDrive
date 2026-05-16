@@ -121,3 +121,18 @@ log
 ```
 
 The Manual Drive page now places the compact status panel above the camera preview on PC/iPad layouts. The preview uses available screen height so the full frame is visible on most PC and iPad screens without extra page scrolling.
+
+## PiSD 0.3.2 layout recovery notes
+
+The shared page style now has a final `unified_layout.css` layer loaded after each page's original stylesheet. This keeps older per-page styles available while making the final visible layout consistent across pages.
+
+Current layout decisions:
+
+- Manual Drive: status is above the preview, preview uses the main horizontal space, drag pad and STOP controls sit in the side column on PC/iPad layouts, and all panels stack cleanly on small screens.
+- Settings: the save/apply panel, style controls, camera settings, motor settings, manual defaults, and response panel are placed in a deliberate desktop grid instead of being left to dense auto-placement.
+- Testing: camera preview/FPS/API cards are arranged in a compact multi-column lab view on wide screens and stack on tablets/phones.
+- Dashboard: status, preview, bench controls, channel calibration, safety stop, and logs use fixed responsive regions rather than uncontrolled panel weights.
+- Panel Presentation: the control form stays beside the live preview on PC/iPad screens and stacks on smaller screens.
+- Panel Testing: the environment controls stay in a side rail on wide screens and become a normal top section on smaller screens.
+
+Panel presentation settings still control density, radius, gap, font scale, preview fit/aspect, console height, and button scale. The unified layer uses those variables but prevents saved panel weights from breaking page structure.

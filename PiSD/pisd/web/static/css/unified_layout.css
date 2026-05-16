@@ -1,0 +1,566 @@
+/* PiSD 0.3.2 unified visual recovery layer.
+   Loaded last on every GUI page so page-specific CSS cannot accidentally
+   create different spacing, panel shapes, or broken grid spans. */
+:root {
+  color-scheme: dark;
+  --pisd-page-bg: #07101d;
+  --pisd-page-bg-2: #0b1220;
+  --pisd-panel-bg: rgba(15, 23, 42, 0.93);
+  --pisd-panel-bg-strong: rgba(20, 30, 48, 0.96);
+  --pisd-panel-border: rgba(148, 163, 184, 0.22);
+  --pisd-panel-border-strong: rgba(148, 163, 184, 0.34);
+  --pisd-text: #e5eefc;
+  --pisd-muted: #93a8c3;
+  --pisd-accent: #38bdf8;
+  --pisd-ok: #bbf7d0;
+  --pisd-danger: #fb7185;
+  --pisd-shell-max: 1560px;
+  --pisd-topbar-height: 48px;
+  --pisd-page-pad: clamp(8px, 1.1vw, 14px);
+  --pisd-panel-pad: calc(0.72rem * var(--pisd-ui-density-pad, 0.88));
+  --pisd-panel-gap: var(--pisd-ui-gap, 10px);
+  --pisd-control-width: clamp(280px, 26vw, 380px);
+}
+
+* { box-sizing: border-box; }
+html { scrollbar-gutter: stable; }
+body {
+  margin: 0 !important;
+  min-height: 100vh;
+  overflow-x: hidden;
+  color: var(--pisd-text) !important;
+  background:
+    radial-gradient(circle at top left, rgba(56, 189, 248, 0.10), transparent 30rem),
+    linear-gradient(180deg, var(--pisd-page-bg), var(--pisd-page-bg-2)) !important;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+}
+
+button,
+input,
+select,
+textarea { font: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: 0.50; }
+a { color: inherit; }
+
+/* Shared compact topbar --------------------------------------------------- */
+.st-topbar,
+.mdrv-topbar,
+.topbar,
+.md-topbar,
+.pp-topbar,
+.pt-hero {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 40 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 0.55rem !important;
+  min-height: var(--pisd-topbar-height) !important;
+  padding: 0.38rem 0.65rem !important;
+  border-bottom: 1px solid var(--pisd-panel-border) !important;
+  background: rgba(7, 16, 29, 0.94) !important;
+  backdrop-filter: blur(14px) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.20) !important;
+  margin: 0 !important;
+}
+
+.st-topbar > div,
+.mdrv-title-block,
+.topbar > div:first-child,
+.md-title-block,
+.pp-topbar > div:first-child,
+.pt-hero-copy {
+  min-width: 0 !important;
+  display: block !important;
+}
+
+.st-topbar h1,
+.mdrv-topbar h1,
+.topbar h1,
+.md-topbar h1,
+.pp-topbar h1,
+.pt-hero h1 {
+  margin: 0 !important;
+  font-size: clamp(1rem, 1.8vw, 1.32rem) !important;
+  line-height: 1.05 !important;
+  letter-spacing: -0.025em !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.st-kicker,
+.mdrv-kicker,
+.mdrv-label,
+.eyebrow,
+.md-kicker,
+.md-panel-label,
+.pp-kicker,
+.pp-panel-label,
+.pt-kicker,
+.fp-kicker,
+.fp-card-label {
+  margin: 0 0 0.08rem !important;
+  color: var(--pisd-accent) !important;
+  font-size: 0.58rem !important;
+  line-height: 1.1 !important;
+  letter-spacing: 0.13em !important;
+  text-transform: uppercase !important;
+  font-weight: 800 !important;
+}
+
+.st-subtitle,
+.subtitle,
+.md-subtitle,
+.pp-subtitle,
+.pt-summary,
+.fp-summary { display: none !important; }
+
+.st-actions,
+.mdrv-actions,
+.top-actions,
+.md-top-actions,
+.pp-actions,
+.pt-hero-actions,
+.fp-status-strip,
+.st-toolbar,
+.button-row,
+.md-button-row,
+.pp-button-row,
+.mdrv-row,
+.mdrv-compact-actions {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end;
+  flex-wrap: wrap !important;
+  gap: 0.38rem !important;
+}
+
+.pisd-front-link,
+.st-button,
+.mdrv-button,
+.button,
+.md-button,
+.md-link-button,
+.pp-button,
+.pt-button,
+.pt-link-button,
+.fp-button {
+  min-height: 32px !important;
+  border: 1px solid var(--pisd-panel-border-strong) !important;
+  border-radius: 999px !important;
+  padding: calc(0.40rem * var(--pisd-ui-button-scale, 0.92)) calc(0.62rem * var(--pisd-ui-button-scale, 0.92)) !important;
+  background: rgba(30, 41, 59, 0.82) !important;
+  color: var(--pisd-text) !important;
+  text-decoration: none !important;
+  font-size: 0.82rem !important;
+  font-weight: 750 !important;
+  line-height: 1.05 !important;
+}
+
+.st-primary,
+.mdrv-primary,
+.button.primary,
+.md-button-primary,
+.pp-primary,
+.pt-button-primary {
+  border-color: rgba(56, 189, 248, 0.44) !important;
+  background: rgba(14, 116, 144, 0.52) !important;
+}
+
+.st-danger,
+.mdrv-danger,
+.mdrv-big-stop,
+.button.danger,
+.md-button-danger,
+.md-drive-stop,
+.pp-danger,
+.pt-button-danger,
+.fp-danger {
+  border-color: rgba(251, 113, 133, 0.52) !important;
+  background: rgba(127, 29, 29, 0.70) !important;
+  color: #ffe4e6 !important;
+}
+
+.st-code-pill,
+.mdrv-code,
+.code-pill,
+.md-code-pill,
+.md-panel-code,
+.pp-code-pill,
+.pt-code-pill,
+.fp-code {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 28px !important;
+  border: 1px solid rgba(34, 197, 94, 0.38) !important;
+  border-radius: 999px !important;
+  padding: 0.22rem 0.58rem !important;
+  background: rgba(20, 83, 45, 0.24) !important;
+  color: var(--pisd-ok) !important;
+  font-size: 0.72rem !important;
+  font-weight: 800 !important;
+  white-space: nowrap !important;
+}
+
+/* Shared card/panel surface ----------------------------------------------- */
+.st-card,
+.mdrv-panel,
+.card,
+.md-panel,
+.pp-card,
+.pp-preview-panel,
+.pt-control-panel,
+.pt-control-section,
+.pt-panel,
+.fp-hero,
+.fp-mode-card,
+.fp-quick-actions {
+  min-width: 0 !important;
+  border: 1px solid var(--pisd-panel-border) !important;
+  border-radius: var(--pisd-ui-radius, 14px) !important;
+  background: var(--pisd-panel-bg) !important;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, var(--pisd-ui-shadow-alpha, 0.18)) !important;
+  padding: var(--pisd-panel-pad) !important;
+}
+
+.st-card-head,
+.mdrv-panel-head,
+.card-header,
+.md-panel-head,
+.pp-card-head,
+.pt-panel-head {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 0.5rem !important;
+  margin-bottom: 0.48rem !important;
+}
+
+.st-card h2,
+.mdrv-panel h2,
+.card h2,
+.md-panel h2,
+.pp-card h2,
+.pp-preview-panel h2,
+.pt-panel h2,
+.pt-control-section h2 {
+  margin: 0 !important;
+  font-size: clamp(0.92rem, 1.25vw, 1.08rem) !important;
+  line-height: 1.16 !important;
+  letter-spacing: -0.015em !important;
+}
+
+p,
+.st-help,
+.mdrv-warning,
+.mdrv-help,
+.md-warning-text,
+.pp-help,
+.pt-muted,
+.small,
+.warning,
+.hint {
+  color: var(--pisd-muted) !important;
+  line-height: 1.32 !important;
+  font-size: 0.82rem !important;
+}
+
+pre,
+.st-console,
+.mdrv-console,
+.console,
+.md-console,
+.pp-console,
+.pt-console,
+.fp-console,
+.json-input {
+  max-height: var(--pisd-ui-console-height, 180px) !important;
+  min-height: 0 !important;
+  overflow: auto !important;
+  border: 1px solid rgba(148, 163, 184, 0.18) !important;
+  border-radius: calc(var(--pisd-ui-radius, 14px) * 0.7) !important;
+  background: rgba(2, 6, 23, 0.64) !important;
+  color: #dbeafe !important;
+  font-size: 0.74rem !important;
+  line-height: 1.35 !important;
+  padding: 0.6rem !important;
+}
+
+input,
+select,
+textarea {
+  min-height: 34px !important;
+  border: 1px solid var(--pisd-panel-border) !important;
+  border-radius: calc(var(--pisd-ui-radius, 14px) * 0.66) !important;
+  padding: 0.42rem 0.52rem !important;
+  background: rgba(2, 6, 23, 0.58) !important;
+  color: var(--pisd-text) !important;
+}
+
+label { color: var(--pisd-muted) !important; font-size: 0.82rem !important; }
+
+/* Front page --------------------------------------------------------------- */
+.fp-shell {
+  width: min(1120px, calc(100% - 16px)) !important;
+  padding: var(--pisd-page-pad) 0 !important;
+}
+.fp-hero { display: grid !important; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0.75rem; }
+.fp-hero h1 { font-size: clamp(1.15rem, 2.6vw, 1.9rem) !important; }
+.fp-status-strip { margin: 0 !important; justify-content: flex-start !important; }
+.fp-status-strip span { padding: 0.28rem 0.52rem !important; }
+.fp-mode-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)) !important;
+  gap: var(--pisd-panel-gap) !important;
+  margin-top: var(--pisd-panel-gap) !important;
+}
+.fp-mode-card { min-height: 118px !important; justify-content: space-between !important; }
+.fp-mode-card h2 { font-size: 1.08rem !important; margin: 0 !important; }
+.fp-mode-card p { margin: 0.32rem 0 0.45rem !important; }
+.fp-card-action { font-size: 0.82rem !important; }
+.fp-quick-actions { margin-top: var(--pisd-panel-gap) !important; }
+.fp-console { display: none !important; }
+
+/* Settings page ------------------------------------------------------------ */
+.st-grid {
+  width: min(var(--pisd-shell-max), calc(100% - 12px)) !important;
+  margin: 0 auto !important;
+  padding: var(--pisd-page-pad) 0 !important;
+  display: grid !important;
+  grid-template-columns: minmax(250px, 0.85fr) minmax(420px, 1.45fr) minmax(280px, 0.9fr) !important;
+  gap: var(--pisd-panel-gap) !important;
+  align-items: start !important;
+  grid-auto-flow: row dense !important;
+}
+body[data-pisd-adaptive-panels="true"] .st-grid > [data-panel-role] { grid-column: auto !important; grid-row: auto !important; }
+#settingsMainPanel { grid-column: 1 !important; }
+#settingsPanelPresentationPanel { grid-column: 2 !important; grid-row: 1 / span 3 !important; }
+#settingsManualDrivePanel { grid-column: 3 !important; grid-row: 1 !important; }
+#settingsCameraPanel { grid-column: 3 !important; grid-row: 2 !important; }
+#settingsMotorPanel { grid-column: 1 !important; grid-row: 2 !important; }
+#settingsActionPanel { grid-column: 1 / span 2 !important; grid-row: auto !important; }
+.st-form-grid,
+.form-grid,
+.md-form-grid,
+.pp-control-grid {
+  gap: 0.52rem !important;
+}
+.st-form-grid label,
+.form-grid label,
+.md-form-grid label,
+.pp-control-grid label,
+.pt-control-section label {
+  display: grid !important;
+  gap: 0.24rem !important;
+}
+.st-form-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)) !important; }
+#settingsPanelPresentationPanel .st-form-grid { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)) !important; }
+.st-toolbar { justify-content: flex-start !important; }
+
+/* Manual Drive page -------------------------------------------------------- */
+.mdrv-shell {
+  width: min(1460px, calc(100% - 12px)) !important;
+  margin: 0 auto !important;
+  padding: var(--pisd-page-pad) 0 !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) var(--pisd-control-width) !important;
+  grid-template-areas:
+    "status drive"
+    "preview drive"
+    "preview stop"
+    "log log" !important;
+  grid-auto-rows: auto !important;
+  gap: var(--pisd-panel-gap) !important;
+  align-items: start !important;
+}
+body[data-pisd-adaptive-panels="true"] .mdrv-shell > [data-panel-role] { grid-column: auto !important; grid-row: auto !important; }
+.mdrv-status-panel { grid-area: status !important; min-height: auto !important; }
+.mdrv-preview-panel { grid-area: preview !important; }
+.mdrv-drive-panel { grid-area: drive !important; min-height: auto !important; }
+.mdrv-stop-panel { grid-area: stop !important; }
+.mdrv-log-panel { grid-area: log !important; }
+.mdrv-preview-frame {
+  width: 100% !important;
+  height: clamp(300px, calc(100vh - 205px), 68vh) !important;
+  max-height: none !important;
+  aspect-ratio: auto !important;
+  border-radius: calc(var(--pisd-ui-radius, 14px) * 0.75) !important;
+}
+.mdrv-preview-frame img { object-fit: var(--pisd-ui-preview-fit, contain) !important; }
+.mdrv-status-strip { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 0.32rem !important; }
+.mdrv-status-strip span { padding: 0.32rem 0.38rem !important; }
+.mdrv-drive-panel .mdrv-panel-head,
+.mdrv-stop-panel .mdrv-panel-head { margin-bottom: 0.38rem !important; }
+.mdrv-arm { margin-bottom: 0.48rem !important; padding: 0.46rem !important; }
+.mdrv-drag-pad { width: min(100%, 330px) !important; max-width: 100% !important; }
+.mdrv-big-stop { min-height: 56px !important; font-size: 1rem !important; }
+
+/* Testing page ------------------------------------------------------------- */
+.layout {
+  width: min(var(--pisd-shell-max), calc(100% - 12px)) !important;
+  margin: 0 auto !important;
+  padding: var(--pisd-page-pad) 0 !important;
+  display: grid !important;
+  grid-template-columns: repeat(12, minmax(0, 1fr)) !important;
+  gap: var(--pisd-panel-gap) !important;
+  align-items: start !important;
+}
+body[data-pisd-adaptive-panels="true"] .layout > [data-panel-role] { grid-column: auto !important; grid-row: auto !important; }
+.layout > .card { grid-column: span 4 !important; }
+.layout > .card.wide { grid-column: span 6 !important; }
+.layout > .card:nth-of-type(1) { grid-column: span 5 !important; }
+.layout > .card:nth-of-type(2) { grid-column: span 4 !important; }
+.layout > .card:nth-of-type(3) { grid-column: span 3 !important; }
+.layout > .card:nth-last-of-type(-n+2) { grid-column: span 6 !important; }
+.preview-grid { grid-template-columns: minmax(0, 1fr) minmax(145px, 180px) !important; gap: 0.55rem !important; }
+.preview-box { min-height: 180px !important; }
+.preview-box img { max-height: min(42vh, 330px) !important; }
+.button-stack { gap: 0.32rem !important; min-width: 0 !important; }
+.status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 0.55rem !important; }
+
+/* Main dashboard ----------------------------------------------------------- */
+.md-shell {
+  width: min(var(--pisd-shell-max), calc(100% - 12px)) !important;
+  margin: 0 auto !important;
+  padding: var(--pisd-page-pad) 0 !important;
+  display: grid !important;
+  grid-template-columns: minmax(245px, 0.72fr) minmax(420px, 1.45fr) minmax(300px, 0.9fr) !important;
+  gap: var(--pisd-panel-gap) !important;
+  align-items: start !important;
+  grid-auto-flow: row dense !important;
+}
+body[data-pisd-adaptive-panels="true"] .md-shell > [data-panel-role] { grid-column: auto !important; grid-row: auto !important; }
+.md-panel-status { grid-column: 1 !important; grid-row: 1 / span 3 !important; }
+.md-panel-preview { grid-column: 2 !important; grid-row: 1 / span 2 !important; }
+.md-panel-manual { grid-column: 3 !important; grid-row: 1 !important; }
+.md-panel-channel { grid-column: 3 !important; grid-row: 2 !important; }
+.md-panel-stop { grid-column: 3 !important; grid-row: 3 !important; }
+.md-panel-errors { grid-column: 1 / span 2 !important; grid-row: auto !important; }
+.md-panel-log { grid-column: 3 !important; grid-row: auto !important; }
+.md-preview-frame { max-height: min(54vh, 520px) !important; }
+.md-status-grid { grid-template-columns: 1fr !important; gap: 0.46rem !important; }
+.md-control-grid { gap: 0.42rem !important; }
+
+/* Panel presentation ------------------------------------------------------- */
+.pp-shell {
+  width: min(var(--pisd-shell-max), calc(100% - 12px)) !important;
+  margin: 0 auto !important;
+  padding: var(--pisd-page-pad) 0 !important;
+  display: grid !important;
+  grid-template-columns: minmax(310px, 430px) minmax(0, 1fr) !important;
+  gap: var(--pisd-panel-gap) !important;
+  align-items: start !important;
+}
+body[data-pisd-adaptive-panels="true"] .pp-shell > [data-panel-role],
+body[data-pisd-adaptive-panels="true"] .pp-panel-grid > [data-panel-role] { grid-column: auto !important; grid-row: auto !important; }
+#panelPresentationControls { grid-column: 1 !important; }
+#panelPresentationPreview { grid-column: 2 !important; min-height: auto !important; }
+#panelPresentationOutput { grid-column: 1 / -1 !important; }
+.pp-control-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)) !important; }
+.pp-panel-grid { grid-template-columns: minmax(190px, 0.9fr) minmax(340px, 1.6fr) minmax(210px, 0.9fr) !important; }
+.pp-card[data-panel-role="preview"] { grid-column: 2 !important; grid-row: 1 / span 2 !important; }
+.pp-preview-surface { min-height: clamp(180px, 34vh, 360px) !important; }
+
+/* Panel testing lab -------------------------------------------------------- */
+.pt-shell {
+  width: min(var(--pisd-shell-max), calc(100% - 12px)) !important;
+  margin: 0 auto !important;
+  padding: var(--pisd-page-pad) 0 !important;
+  display: grid !important;
+  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr) !important;
+  gap: var(--pisd-panel-gap) !important;
+  align-items: start !important;
+}
+.pt-control-panel { position: sticky !important; top: calc(var(--pisd-topbar-height) + 8px) !important; max-height: calc(100vh - var(--pisd-topbar-height) - 18px) !important; overflow: auto !important; }
+.pt-control-section { margin-bottom: var(--pisd-panel-gap) !important; }
+.pt-panel-grid { gap: var(--pisd-panel-gap) !important; }
+.pt-panel { min-height: 190px !important; }
+
+/* Responsive decisions ----------------------------------------------------- */
+@media (max-width: 1180px) {
+  :root { --pisd-control-width: clamp(260px, 32vw, 340px); }
+  .st-grid,
+  .md-shell,
+  .layout { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  #settingsMainPanel,
+  #settingsPanelPresentationPanel,
+  #settingsManualDrivePanel,
+  #settingsCameraPanel,
+  #settingsMotorPanel,
+  #settingsActionPanel,
+  .md-panel-status,
+  .md-panel-preview,
+  .md-panel-manual,
+  .md-panel-channel,
+  .md-panel-stop,
+  .md-panel-errors,
+  .md-panel-log,
+  .layout > .card,
+  .layout > .card.wide,
+  .layout > .card:nth-of-type(1),
+  .layout > .card:nth-of-type(2),
+  .layout > .card:nth-of-type(3),
+  .layout > .card:nth-last-of-type(-n+2) { grid-column: auto !important; grid-row: auto !important; }
+  .mdrv-shell { grid-template-columns: minmax(0, 1fr) minmax(250px, 330px) !important; }
+  .mdrv-preview-frame { height: clamp(300px, calc(100vh - 220px), 62vh) !important; }
+}
+
+@media (max-width: 900px) {
+  .st-topbar,
+  .mdrv-topbar,
+  .topbar,
+  .md-topbar,
+  .pp-topbar,
+  .pt-hero {
+    align-items: flex-start !important;
+    flex-direction: column !important;
+  }
+  .fp-hero,
+  .st-grid,
+  .mdrv-shell,
+  .layout,
+  .md-shell,
+  .pp-shell,
+  .pt-shell {
+    grid-template-columns: 1fr !important;
+    grid-template-areas: none !important;
+  }
+  .mdrv-status-panel,
+  .mdrv-preview-panel,
+  .mdrv-drive-panel,
+  .mdrv-stop-panel,
+  .mdrv-log-panel,
+  #panelPresentationControls,
+  #panelPresentationPreview,
+  #panelPresentationOutput,
+  .pp-card[data-panel-role="preview"] {
+    grid-column: 1 / -1 !important;
+    grid-row: auto !important;
+    grid-area: auto !important;
+  }
+  .mdrv-preview-frame { height: auto !important; aspect-ratio: var(--pisd-ui-preview-aspect, 16 / 9) !important; max-height: 48vh !important; }
+  .mdrv-drag-pad { width: min(100%, 320px) !important; }
+  .preview-grid,
+  .status-grid,
+  .pp-panel-grid { grid-template-columns: 1fr !important; }
+  .pt-control-panel { position: static !important; max-height: none !important; }
+}
+
+@media (max-width: 560px) {
+  :root { --pisd-page-pad: 6px; --pisd-panel-gap: 7px; }
+  .fp-mode-grid { grid-template-columns: 1fr !important; }
+  .st-form-grid,
+  .form-grid,
+  .md-form-grid,
+  .pp-control-grid { grid-template-columns: 1fr !important; }
+  .st-actions,
+  .mdrv-actions,
+  .top-actions,
+  .md-top-actions,
+  .pp-actions,
+  .pt-hero-actions { justify-content: flex-start !important; }
+}
