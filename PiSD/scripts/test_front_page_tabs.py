@@ -128,9 +128,9 @@ def check_source_contract() -> list[Result]:
         "front_css": [".fp-shell", ".fp-mode-grid", ".fp-mode-card", "@media (max-width: 760px)"],
         "front_js": ["frontApi", "/api/status", "/api/control/stop"],
         "settings_template": [
-            "PiSD Settings Tab",
+            "PiSD Settings",
             "Back to Front Page",
-            "settingsSystemPanel",
+            "settingsMainPanel",
             "settingsCameraPanel",
             "settingsMotorPanel",
             "stCameraForm",
@@ -138,7 +138,7 @@ def check_source_contract() -> list[Result]:
             "settingsInitialStatus",
         ],
         "settings_css": [".st-grid", ".st-card", ".st-form-grid", "@media (max-width: 900px)"],
-        "settings_js": ["settingsApi", "/api/camera/apply", "/api/motor/apply", "/api/control/stop", "pisd.runtimeSettings.v1"],
+        "settings_js": ["settingsApi", "/api/settings/apply", "/api/settings", "/api/control/stop", "pisd.runtimeSettings.v2"],
     }
     sources = {
         "front_template": front,
@@ -191,7 +191,7 @@ def check_routes(hardware: bool) -> list[Result]:
     client = app.test_client()
     route_checks = [
         ("/", "front_page.route.root", b"PiSD Front Page", b"frontModeSettings"),
-        ("/settings", "front_page.route.settings", b"PiSD Settings Tab", b"Back to Front Page"),
+        ("/settings", "front_page.route.settings", b"PiSD Settings", b"Back to Front Page"),
         ("/manual-drive", "front_page.route.manual_drive", b"PiSD Manual Drive", b"Back to Front Page"),
         ("/testing", "front_page.route.testing", b"PiSD Testing Server GUI", b"Back to Front Page"),
         ("/dashboard", "front_page.route.dashboard", b"PiSD Main Dashboard", b"Back to Front Page"),

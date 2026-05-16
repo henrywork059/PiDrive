@@ -28,7 +28,7 @@
     <section class="pp-card" id="panelPresentationControls">
       <div class="pp-card-head">
         <h2>Presentation controls</h2>
-        <span class="pp-code-pill">localStorage</span>
+        <span class="pp-code-pill">runtime settings</span>
       </div>
       <form id="ppForm" class="pp-control-grid">
         <label>Theme
@@ -40,7 +40,7 @@
         </label>
         <label>Layout mode
           <select name="layoutMode" id="ppLayoutMode">
-            <option value="adaptive">adaptive</option>
+            <option value="auto">auto</option>
             <option value="single">single column</option>
             <option value="dense">dense</option>
             <option value="wide">wide</option>
@@ -61,10 +61,10 @@
         <label>Minimum panel width <input name="minPanelWidth" id="ppMinPanelWidth" type="range" min="210" max="520" step="10"></label>
         <label>Preview aspect
           <select name="previewAspect" id="ppPreviewAspect">
-            <option value="16/9">16:9</option>
-            <option value="4/3">4:3</option>
-            <option value="1/1">1:1</option>
-            <option value="21/9">21:9</option>
+            <option value="16 / 9">16:9</option>
+            <option value="4 / 3">4:3</option>
+            <option value="1 / 1">1:1</option>
+            <option value="21 / 9">21:9</option>
           </select>
         </label>
         <label>Preview fit
@@ -98,7 +98,7 @@
         <button id="ppImportButton" class="pp-button">Import JSON</button>
         <input id="ppImport" type="file" accept="application/json,.json" hidden>
       </div>
-      <p class="pp-help">Saved settings are browser-local and apply automatically to all PiSD GUI pages that include the shared presentation stylesheet. Auto-save is enabled by default for quick tuning.</p>
+      <p class="pp-help">Saved settings are stored through the backend settings manager and apply across PiSD pages. Browser storage is kept only as a fallback/cache.</p>
     </section>
 
     <section class="pp-preview-panel" id="panelPresentationPreview">

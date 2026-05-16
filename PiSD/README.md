@@ -694,3 +694,22 @@ python3 scripts/test_front_page_tabs.py --static-only
 python3 scripts/test_panel_presentation_page.py --static-only
 python3 scripts/run_standard_validation.py --skip-api --skip-camera --skip-motor
 ```
+
+## PiSD 0.2.10 settings and manual-drive notes
+
+The Settings page now saves shared runtime settings through `/api/settings`. These settings are stored in `config/runtime_settings.json` and loaded by all pages where possible. Browser localStorage is used only as a fallback/cache for immediate styling.
+
+Useful checks:
+
+```bash
+python3 scripts/test_settings_persistence.py
+python3 scripts/run_standard_validation.py --skip-api --skip-camera --skip-motor
+```
+
+With the server running:
+
+```bash
+python3 scripts/test_settings_persistence.py --base-url http://127.0.0.1:5050
+```
+
+Manual Drive now uses a drag pad. It remains locked until the user confirms the wheels/area are safe. Releasing the drag pad sends STOP.

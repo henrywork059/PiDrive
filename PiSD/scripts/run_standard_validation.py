@@ -332,8 +332,8 @@ def _check_front_page_source_contract() -> CheckResult:
         "front": ["PiSD Front Page", "frontModeSettings", "frontModeTesting", "href=\"/settings\"", "href=\"/testing\"", "frontPageInitialStatus"],
         "front_css": [".fp-mode-grid", ".fp-mode-card"],
         "front_js": ["frontApi", "/api/status", "/api/control/stop"],
-        "settings": ["PiSD Settings Tab", "Back to Front Page", "stCameraForm", "stMotorForm", "settingsInitialStatus"],
-        "settings_js": ["settingsApi", "/api/camera/apply", "/api/motor/apply", "/api/control/stop", "pisd.runtimeSettings.v1"],
+        "settings": ["PiSD Settings", "Back to Front Page", "settingsMainPanel", "stCameraForm", "stMotorForm", "settingsInitialStatus"],
+        "settings_js": ["settingsApi", "/api/settings/apply", "/api/settings", "/api/control/stop", "pisd.runtimeSettings.v2"],
     }
     sources = {"front": front, "front_css": front_css, "front_js": front_js, "settings": settings, "settings_js": settings_js}
     missing = {name: [token for token in tokens if token not in sources[name]] for name, tokens in required.items()}

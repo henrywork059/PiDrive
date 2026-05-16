@@ -231,3 +231,12 @@ PISD-TEST-019
 ```
 
 Used by manual drive page validation when the `/manual-drive` page, its static files, or its required safety/API contracts are missing or invalid.
+
+## PiSD 0.2.10 settings persistence codes
+
+- `PISD-SET-001` — runtime settings file load failed; PiSD falls back to defaults.
+- `PISD-SET-002` — runtime settings file save failed.
+- `PISD-SET-003` — invalid settings payload, such as an unknown top-level settings group.
+- `PISD-SET-004` — saved settings could not be applied to live services.
+- `PISD-SET-005` — reset-to-default settings flow failed.
+- `PISD-TEST-020` — persistent settings validation or UI contract check failed.

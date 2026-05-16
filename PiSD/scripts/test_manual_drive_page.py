@@ -98,10 +98,11 @@ def check_source_contract() -> list[Result]:
         "panel_presentation_global.css",
         "panel_presentation_global.js",
     ]
-    required_css = [".mdrv-shell", ".mdrv-panel", ".mdrv-preview-frame", ".mdrv-pad", ".mdrv-big-stop", "@media (max-width: 980px)"]
+    required_css = [".mdrv-shell", ".mdrv-panel", ".mdrv-preview-frame", ".mdrv-drag-pad", ".mdrv-big-stop", "@media (max-width: 1100px)"]
     required_js = [
         "manualDriveInitialStatus",
         "pisd.manualDrive.v1",
+        "pisd.runtimeSettings.v2",
         "/api/status",
         "/api/camera/start",
         "/video_feed",
@@ -109,6 +110,8 @@ def check_source_contract() -> list[Result]:
         "/api/control/stop",
         "PISD-MOT-008",
         "updateLock",
+        "pointerdown",
+        "pointermove",
     ]
     missing = {
         "template": [token for token in required_template if token not in template],
@@ -121,7 +124,7 @@ def check_source_contract() -> list[Result]:
         "manual_drive.source_contract",
         ok,
         PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
-        "manual drive page contains camera preview, status, locked drive pad, STOP, persistence, and API calls" if ok else "manual drive source contract failed",
+        "manual drive page contains camera preview, compact status, locked drag pad, STOP, persistence, and API calls" if ok else "manual drive source contract failed",
         {"missing": missing},
     )]
 

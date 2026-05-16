@@ -653,3 +653,39 @@ Checks:
 - STOP is always available.
 - `/settings` restores saved form values and applies runtime settings through the API.
 - `/panel-presentation` auto-saves panel style choices and applies them across all tabs.
+
+## PiSD 0.2.10 persistent settings and manual-drive UI checks
+
+Run static and local settings checks:
+
+```bash
+cd ~/PiDrive/PiSD
+python3 scripts/test_settings_persistence.py
+python3 scripts/test_manual_drive_page.py --static-only
+python3 scripts/test_front_page_tabs.py --static-only
+python3 scripts/test_panel_presentation_page.py --static-only
+python3 scripts/run_standard_validation.py --skip-api --skip-camera --skip-motor
+```
+
+With the server running, check settings API persistence:
+
+```bash
+python3 PiSD.py --host 0.0.0.0 --port 5050 --hardware
+python3 scripts/test_settings_persistence.py --base-url http://127.0.0.1:5050
+```
+
+Expected lines include:
+
+```text
+OK   PISD-OK-000   api.settings.get - settings endpoint loaded
+OK   PISD-OK-000   api.settings.apply - settings saved and applied
+OK   PISD-SET-003  api.settings.bad_payload - bad settings rejected
+```
+
+Manual drive visual checks:
+
+1. Open `/settings`, change panel style values, click **Save and apply**.
+2. Open `/manual-drive`, `/testing`, `/dashboard`, `/panel-testing`, and `/panel-presentation`.
+3. Confirm panel density, radius, preview fit/aspect, button scale, and console height follow the saved settings.
+4. In `/manual-drive`, confirm the status strip is short, the log is hidden until **Show action log** is clicked, and the drag pad sends no motor command unless armed.
+5. With wheels lifted, arm the drag pad, drag gently, release, and confirm release sends STOP.

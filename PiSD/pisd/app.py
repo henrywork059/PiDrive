@@ -8,11 +8,13 @@ from typing import Any
 from pisd import __version__
 from pisd.core.errors import ErrorReporter, PiSDErrorCodes, ok_payload, report_payload
 from pisd.core.panel_contracts import build_panel_testing_manifest, get_panel_contracts
+from pisd.core.settings_manager import SettingsManager
 from pisd.services.camera_service import CameraService
 from pisd.services.motor_service import MotorService
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULTS_PATH = PROJECT_ROOT / "config" / "defaults.json"
+RUNTIME_SETTINGS_PATH = PROJECT_ROOT / "config" / "runtime_settings.json"
 APP_ERRORS = ErrorReporter("app")
 WEB_ROOT = Path(__file__).resolve().parent / "web"
 WEB_TEMPLATE_DIR = WEB_ROOT / "templates"
@@ -58,8 +60,10 @@ def create_app(hardware_enabled: bool = False):
         ) from exc
 
     defaults = load_defaults()
-    camera_service = CameraService(defaults.get("camera"), hardware_enabled=hardware_enabled)
-    motor_service = MotorService(defaults.get("motor"), hardware_enabled=hardware_enabled)
+    settings_manager = SettingsManager(RUNTIME_SETTINGS_PATH, defaults)
+    runtime_settings = settings_manager.get()
+    camera_service = CameraService(runtime_settings.get("camera") or defaults.get("camera"), hardware_enabled=hardware_enabled)
+    motor_service = MotorService(runtime_settings.get("motor") or defaults.get("motor"), hardware_enabled=hardware_enabled)
 
     app = Flask(
         __name__,
@@ -67,7 +71,7 @@ def create_app(hardware_enabled: bool = False):
         static_folder=str(WEB_STATIC_DIR),
         static_url_path="/testing/static",
     )
-    app.config["pisd_services"] = {"camera": camera_service, "motor": motor_service}
+    app.config["pisd_services"] = {"camera": camera_service, "motor": motor_service, "settings": settings_manager}
     app.config["pisd_errors"] = APP_ERRORS
 
     def all_errors(limit: int = 10) -> dict[str, Any]:
@@ -75,6 +79,7 @@ def create_app(hardware_enabled: bool = False):
             "app": APP_ERRORS.history(limit=limit),
             "camera": camera_service.errors.history(limit=limit),
             "motor": motor_service.errors.history(limit=limit),
+            "settings": settings_manager.errors.history(limit=limit),
         }
 
     def build_status() -> dict[str, Any]:
@@ -87,6 +92,7 @@ def create_app(hardware_enabled: bool = False):
             "camera": camera_service.status(),
             "motor": motor_service.status(),
             "errors": all_errors(limit=5),
+            "settings": settings_manager.get(),
         }
 
     def get_json_payload() -> tuple[dict[str, Any], Any | None]:
@@ -269,6 +275,62 @@ def create_app(hardware_enabled: bool = False):
     def api_panel_testing_contracts():
         return jsonify(panel_contracts_payload())
 
+    def apply_runtime_settings(settings: dict[str, Any]) -> tuple[bool, str]:
+        try:
+            if isinstance(settings.get("camera"), dict):
+                camera_service.apply_settings(settings.get("camera"), restart=True)
+            if isinstance(settings.get("motor"), dict):
+                motor_service.apply_settings(settings.get("motor"))
+            return True, "Runtime settings applied to camera and motor services."
+        except Exception as exc:
+            report = settings_manager.errors.report(
+                PiSDErrorCodes.SETTINGS_APPLY_FAILED,
+                f"Failed to apply runtime settings: {exc}",
+                exc=exc,
+            )
+            return False, report.message
+
+    @app.get("/api/settings")
+    def api_settings_get():
+        return jsonify(ok_payload("Runtime settings loaded.", settings=settings_manager.get(), schema=settings_manager.schema()))
+
+    @app.get("/api/settings/schema")
+    def api_settings_schema():
+        return jsonify(ok_payload("Runtime settings schema loaded.", schema=settings_manager.schema()))
+
+    @app.post("/api/settings")
+    def api_settings_save():
+        data, json_error = get_json_payload()
+        if json_error is not None:
+            return jsonify(report_payload(False, json_error)), 400
+        ok, settings, report = settings_manager.save(data)
+        return jsonify(report_payload(ok, report, "Runtime settings saved.", settings=settings)), 200 if ok else 400
+
+    @app.post("/api/settings/apply")
+    def api_settings_apply():
+        data, json_error = get_json_payload()
+        if json_error is not None:
+            return jsonify(report_payload(False, json_error)), 400
+        ok, settings, report = settings_manager.save(data) if data else (True, settings_manager.get(), None)
+        if not ok:
+            return jsonify(report_payload(False, report, "Runtime settings were not saved.", settings=settings)), 400
+        applied, message = apply_runtime_settings(settings)
+        if not applied:
+            latest = settings_manager.errors.latest()
+            return jsonify(report_payload(False, latest, message, settings=settings)), 500
+        return jsonify(ok_payload(message, settings=settings, camera=camera_service.get_config(), motor=motor_service.get_config()))
+
+    @app.post("/api/settings/reset")
+    def api_settings_reset():
+        ok, settings, report = settings_manager.reset()
+        if not ok:
+            return jsonify(report_payload(False, report, "Runtime settings reset failed.", settings=settings)), 500
+        applied, message = apply_runtime_settings(settings)
+        if not applied:
+            latest = settings_manager.errors.latest()
+            return jsonify(report_payload(False, latest, message, settings=settings)), 500
+        return jsonify(ok_payload("Runtime settings reset to defaults.", settings=settings, camera=camera_service.get_config(), motor=motor_service.get_config()))
+
     @app.get("/api/status")
     def api_status():
         return jsonify(build_status())
@@ -282,6 +344,7 @@ def create_app(hardware_enabled: bool = False):
         APP_ERRORS.clear()
         camera_service.errors.clear()
         motor_service.errors.clear()
+        settings_manager.errors.clear()
         return jsonify(ok_payload("Error history cleared."))
 
     @app.post("/api/camera/start")
@@ -323,8 +386,9 @@ def create_app(hardware_enabled: bool = False):
             return jsonify(report_payload(False, json_error)), 400
         try:
             ok, message, config = camera_service.apply_settings(data, restart=True)
+            settings_manager.save({"camera": camera_service.config.as_dict()})
             report = camera_service.errors.latest() if not ok else None
-            return jsonify(report_payload(ok, report, message, config=config))
+            return jsonify(report_payload(ok, report, message, config=config, settings=settings_manager.get()))
         except Exception as exc:
             report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"Camera apply API failed: {exc}", exc=exc)
             return jsonify(report_payload(False, report)), 500
@@ -403,8 +467,9 @@ def create_app(hardware_enabled: bool = False):
             return jsonify(report_payload(False, json_error)), 400
         try:
             config = motor_service.apply_settings(data)
+            settings_manager.save({"motor": motor_service.config.as_dict()})
             report = motor_service.errors.latest() if motor_service.last_error else None
-            return jsonify(report_payload(True, report, "Motor settings applied.", config=config))
+            return jsonify(report_payload(True, report, "Motor settings applied.", config=config, settings=settings_manager.get()))
         except Exception as exc:
             report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"Motor apply API failed: {exc}", exc=exc)
             return jsonify(report_payload(False, report)), 500

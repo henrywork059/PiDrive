@@ -230,3 +230,9 @@ body[data-pisd-card-accent="none"] .md-panel,
 body[data-pisd-card-accent="none"] .pt-panel,
 body[data-pisd-card-accent="none"] .pp-card,
 body[data-pisd-card-accent="none"] .mdrv-panel { border-top-width: 1px !important; }
+/* 0.2.10 unified style helpers */
+.mdrv-drag-pad { border-radius: var(--pisd-ui-radius, 14px) !important; }
+body[data-pisd-panel-header="minimal"] .mdrv-label,
+body[data-pisd-panel-header="minimal"] .st-subtitle { display: none !important; }
+body[data-pisd-panel-header="compact"] .mdrv-panel-head,
+body[data-pisd-panel-header="compact"] .st-card-head { margin-bottom: .35rem !important; }

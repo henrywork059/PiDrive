@@ -135,9 +135,9 @@ def check_source_contract() -> list[Result]:
         *REQUIRED_CONTROLS,
     ]
     required_css = [".pp-shell", ".pp-control-grid", ".pp-panel-grid", ".pp-preview-surface", "@media (max-width: 980px)"]
-    required_js = ["PiSDPanelPresentation", "localStorage", "ppSave", "ppApply", "ppReset", "ppExport", "autoSaveEnabled", "PISD-TEST-018"]
+    required_js = ["PiSDPanelPresentation", "/api/settings", "ppSave", "ppApply", "ppReset", "ppExport", "autoSaveEnabled", "PISD-TEST-018"]
     required_global_css = ["--pisd-ui-gap", "--pisd-ui-radius", "--pisd-ui-panel-min-width", "--pisd-ui-button-scale", "--pisd-ui-console-height", "body[data-pisd-density", ".fp-mode-grid", ".mdrv-shell"]
-    required_global_js = ["STORAGE_KEY", "pisd.panelPresentation.v1", "PiSDPanelPresentation", "apply(read())"]
+    required_global_js = ["STORAGE_KEY", "pisd.panelPresentation.v1", "PiSDPanelPresentation", "loadFromBackend"]
 
     missing = {
         "template": [token for token in required_template if token not in template],

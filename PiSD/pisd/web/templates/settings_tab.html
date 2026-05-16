@@ -3,69 +3,82 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>PiSD Settings Tab</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/settings_tab.css') }}">
+  <title>PiSD Settings</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/panel_presentation_global.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/settings_tab.css') }}">
   <script src="{{ url_for('static', filename='js/panel_presentation_global.js') }}" defer></script>
 </head>
 <body>
   <header class="st-topbar">
-    <div>
-      <p class="st-kicker">PiSD setting tab</p>
-      <h1>Settings and safe apply checks</h1>
-      <p class="st-subtitle">Use this page to save and apply camera/motor settings. Applied runtime settings affect all tabs that call the same backend services.</p>
-    </div>
-    <nav class="st-actions" aria-label="Settings navigation">
-      <a class="st-button st-secondary" href="/">Back to Front Page</a>
-      <span id="stGlobalCode" class="st-code-pill">{{ initial_status.code }}</span>
-      <button id="stStopAll" class="st-button st-danger">STOP</button>
-    </nav>
+    <div><p class="st-kicker">PiSD settings</p><h1>Settings</h1><p class="st-subtitle">Saved here, applied to all tabs through the shared backend settings manager.</p></div>
+    <nav class="st-actions" aria-label="Settings navigation"><a class="pisd-front-link" href="/">Back to Front Page</a><span id="stGlobalCode" class="st-code-pill">{{ initial_status.code }}</span><button id="stStopAll" class="st-button st-danger">STOP</button></nav>
   </header>
 
   <main class="st-grid">
-    <section class="st-card" id="settingsSystemPanel">
-      <div class="st-card-head"><h2>System status</h2><span class="st-code-pill" data-code-for="system">{{ initial_status.code }}</span></div>
-      <button id="stRefreshStatus" class="st-button">Refresh status</button>
-      <pre id="stStatusJson" class="st-console">{{ initial_status | tojson(indent=2) }}</pre>
+    <section class="st-card st-wide" id="settingsMainPanel">
+      <div class="st-card-head"><h2>Save / apply all settings</h2><span class="st-code-pill" data-code-for="settings">PISD-OK-000</span></div>
+      <div class="st-toolbar">
+        <button id="stLoadSettings" class="st-button">Load saved</button>
+        <button id="stSaveSettings" class="st-button st-primary">Save only</button>
+        <button id="stApplySettings" class="st-button st-primary">Save and apply</button>
+        <button id="stResetSettings" class="st-button st-danger">Reset defaults</button>
+        <button id="stExportSettings" class="st-button">Export</button>
+        <label class="st-import">Import <input id="stImportSettings" type="file" accept="application/json"></label>
+      </div>
+      <p class="st-help">Panel presentation, manual drive defaults, camera, and motor settings are kept in <code>config/runtime_settings.json</code>. Browser localStorage is only a fallback/cache.</p>
+    </section>
+
+    <section class="st-card" id="settingsPanelPresentationPanel">
+      <div class="st-card-head"><h2>Page and panel style</h2><span class="st-code-pill" data-code-for="presentation">PISD-OK-000</span></div>
+      <form id="stPresentationForm" class="st-form-grid">
+        <label>Theme <select name="theme"><option value="dark">dark</option><option value="light">light</option><option value="contrast">contrast</option></select></label>
+        <label>Layout <select name="layoutMode"><option value="auto">auto</option><option value="single">single</option><option value="dense">dense</option><option value="wide">wide</option></select></label>
+        <label>Density <select name="density"><option value="compact">compact</option><option value="comfortable">comfortable</option><option value="spacious">spacious</option></select></label>
+        <label>Header <select name="panelHeaderMode"><option value="compact">compact</option><option value="standard">standard</option><option value="minimal">minimal</option></select></label>
+        <label>Preview fit <select name="previewFit"><option value="contain">contain</option><option value="cover">cover</option></select></label>
+        <label>Preview aspect <select name="previewAspect"><option value="16 / 9">16:9</option><option value="4 / 3">4:3</option><option value="1 / 1">1:1</option></select></label>
+        <label>Font scale <input name="fontScale" type="range" min="0.85" max="1.2" step="0.01" value="1.0"><output></output></label>
+        <label>Panel gap <input name="panelGap" type="range" min="4" max="24" step="1" value="10"><output></output></label>
+        <label>Radius <input name="panelRadius" type="range" min="4" max="28" step="1" value="14"><output></output></label>
+        <label>Panel padding <input name="panelPadding" type="range" min="0.55" max="1.2" step="0.01" value="0.86"><output></output></label>
+        <label>Button scale <input name="buttonScale" type="range" min="0.75" max="1.25" step="0.01" value="0.92"><output></output></label>
+        <label>Console height <input name="consoleHeight" type="range" min="100" max="420" step="10" value="180"><output></output></label>
+        <label>Min panel width <input name="minPanelWidth" type="range" min="220" max="420" step="10" value="280"><output></output></label>
+        <label>Shadow <input name="shadowStrength" type="range" min="0" max="0.45" step="0.01" value="0.2"><output></output></label>
+        <label>Card accent <select name="cardAccent"><option value="subtle">subtle</option><option value="strong">strong</option></select></label>
+      </form>
+    </section>
+
+    <section class="st-card" id="settingsManualDrivePanel">
+      <div class="st-card-head"><h2>Manual drive defaults</h2><span class="st-code-pill" data-code-for="manual_drive">PISD-OK-000</span></div>
+      <form id="stManualDriveForm" class="st-form-grid">
+        <label>Speed <input name="speed" type="range" min="0.08" max="0.65" step="0.01" value="0.18"><output></output></label>
+        <label>Steer strength <input name="steer_strength" type="range" min="0.15" max="0.9" step="0.01" value="0.35"><output></output></label>
+        <label>Drag send interval ms <input name="drag_send_interval_ms" type="number" min="40" max="500" step="10" value="90"></label>
+        <label>Preview mode <select name="preview_mode"><option value="live">live</option><option value="snapshot">snapshot</option></select></label>
+      </form>
     </section>
 
     <section class="st-card" id="settingsCameraPanel">
       <div class="st-card-head"><h2>Camera settings</h2><span class="st-code-pill" data-code-for="camera">PISD-OK-000</span></div>
       <form id="stCameraForm" class="st-form-grid">
-        <label>Width <input name="width" type="number" min="160" max="1920" value="426"></label>
-        <label>Height <input name="height" type="number" min="120" max="1080" value="240"></label>
-        <label>FPS <input name="fps" type="number" min="1" max="60" value="12"></label>
-        <label>JPEG quality <input name="preview_quality" type="number" min="10" max="95" value="65"></label>
-        <label>Capture source <select name="capture_source"><option value="request" selected>request</option><option value="array">array</option></select></label>
-        <label>Array colour order <select name="array_color_order"><option value="rgb" selected>rgb</option><option value="bgr">bgr</option><option value="auto">auto</option></select></label>
-        <label>Auto exposure <select name="auto_exposure" data-type="boolean"><option value="true" selected>true</option><option value="false">false</option></select></label>
-        <label>Exposure us <input name="exposure_us" type="number" min="100" max="200000" value="12000"></label>
-        <label>Auto WB <select name="auto_white_balance" data-type="boolean"><option value="true" selected>true</option><option value="false">false</option></select></label>
-        <label>AWB mode <select name="awb_mode"><option value="auto" selected>auto</option><option value="daylight">daylight</option><option value="cloudy">cloudy</option><option value="tungsten">tungsten</option><option value="fluorescent">fluorescent</option></select></label>
-        <div class="st-form-actions"><button class="st-button st-primary" type="submit">Apply camera settings</button><button id="stReadCamera" class="st-button" type="button">Read camera config</button></div>
+        <label>Width <input name="width" type="number" min="160" max="1920" value="426"></label><label>Height <input name="height" type="number" min="120" max="1080" value="240"></label><label>FPS <input name="fps" type="number" min="1" max="60" value="12"></label><label>JPEG quality <input name="preview_quality" type="number" min="10" max="95" value="65"></label>
+        <label>Capture source <select name="capture_source"><option value="request">request</option><option value="array">array</option></select></label><label>Array colour order <select name="array_color_order"><option value="rgb">rgb</option><option value="bgr">bgr</option><option value="auto">auto</option></select></label>
+        <label>Auto exposure <select name="auto_exposure" data-type="boolean"><option value="true">true</option><option value="false">false</option></select></label><label>Exposure us <input name="exposure_us" type="number" min="100" max="200000" value="12000"></label>
+        <label>Auto WB <select name="auto_white_balance" data-type="boolean"><option value="true">true</option><option value="false">false</option></select></label><label>AWB mode <select name="awb_mode"><option value="auto">auto</option><option value="daylight">daylight</option><option value="cloudy">cloudy</option><option value="tungsten">tungsten</option><option value="fluorescent">fluorescent</option></select></label>
       </form>
     </section>
 
     <section class="st-card" id="settingsMotorPanel">
       <div class="st-card-head"><h2>Motor settings</h2><span class="st-code-pill" data-code-for="motor">PISD-OK-000</span></div>
       <form id="stMotorForm" class="st-form-grid">
-        <label>Left direction <select name="left_direction"><option value="1">1</option><option value="-1">-1</option></select></label>
-        <label>Right direction <select name="right_direction"><option value="1">1</option><option value="-1">-1</option></select></label>
-        <label>Steering direction <select name="steering_direction"><option value="1">1</option><option value="-1">-1</option></select></label>
-        <label>Steer mix <input name="steer_mix" type="number" min="0" max="2" step="0.05" value="1.0"></label>
-        <label>Left max speed <input name="left_max_speed" type="number" min="0" max="1" step="0.05" value="1.0"></label>
-        <label>Right max speed <input name="right_max_speed" type="number" min="0" max="1" step="0.05" value="1.0"></label>
-        <label>Left bias <input name="left_bias" type="number" min="-1" max="1" step="0.01" value="0.0"></label>
-        <label>Right bias <input name="right_bias" type="number" min="-1" max="1" step="0.01" value="0.0"></label>
-        <div class="st-form-actions"><button class="st-button st-primary" type="submit">Apply motor settings</button><button id="stReadMotor" class="st-button" type="button">Read motor config</button></div>
+        <label>Left direction <select name="left_direction"><option value="1">1</option><option value="-1">-1</option></select></label><label>Right direction <select name="right_direction"><option value="1">1</option><option value="-1">-1</option></select></label><label>Steering direction <select name="steering_direction"><option value="1">1</option><option value="-1">-1</option></select></label>
+        <label>Steer mix <input name="steer_mix" type="number" min="0" max="2" step="0.05" value="1.0"></label><label>Left max speed <input name="left_max_speed" type="number" min="0" max="1" step="0.05" value="1.0"></label><label>Right max speed <input name="right_max_speed" type="number" min="0" max="1" step="0.05" value="1.0"></label>
+        <label>Left bias <input name="left_bias" type="number" min="-1" max="1" step="0.01" value="0.0"></label><label>Right bias <input name="right_bias" type="number" min="-1" max="1" step="0.01" value="0.0"></label>
       </form>
-      <p class="st-help">This applies configuration only; it does not move the car. Values are also saved in this browser and restored into the settings form across tabs/sessions.</p>
     </section>
 
-    <section class="st-card st-wide" id="settingsActionPanel">
-      <div class="st-card-head"><h2>Last response</h2><span class="st-code-pill" data-code-for="action">PISD-OK-000</span></div>
-      <pre id="stActionLog" class="st-console">No settings API call yet.</pre>
-    </section>
+    <section class="st-card st-wide" id="settingsActionPanel"><div class="st-card-head"><h2>Last response</h2><span class="st-code-pill" data-code-for="action">PISD-OK-000</span></div><pre id="stActionLog" class="st-console">No settings API call yet.</pre></section>
   </main>
 
   <script id="settingsInitialStatus" type="application/json">{{ initial_status | tojson }}</script>

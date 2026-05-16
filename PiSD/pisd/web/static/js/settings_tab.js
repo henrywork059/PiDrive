@@ -1,110 +1,34 @@
 const stGlobalCode = document.getElementById('stGlobalCode');
-const stStatusJson = document.getElementById('stStatusJson');
 const stActionLog = document.getElementById('stActionLog');
-const SETTINGS_STORAGE_KEY = 'pisd.runtimeSettings.v1';
-
-function readStoredSettings() {
-  try { return JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) || '{}') || {}; }
-  catch (_err) { return {}; }
-}
-
-function saveStoredSettings(partial) {
-  const next = { ...readStoredSettings(), ...partial, saved_at: new Date().toISOString() };
-  localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(next));
-  return next;
-}
+const SETTINGS_STORAGE_KEY = 'pisd.runtimeSettings.v2';
 
 function setSettingsCode(name, code) {
   const value = code || 'PISD-OK-000';
   const target = document.querySelector(`[data-code-for="${name}"]`);
-  if (target) target.textContent = value;
-  if (stGlobalCode) stGlobalCode.textContent = value;
+  if (target) { target.textContent = value; target.dataset.state = String(value).startsWith('PISD-OK') ? 'ok' : 'error'; }
+  if (stGlobalCode) { stGlobalCode.textContent = value; stGlobalCode.dataset.state = String(value).startsWith('PISD-OK') ? 'ok' : 'error'; }
 }
-
-function formPayload(form) {
-  const payload = {};
-  for (const element of form.elements) {
-    if (!element.name) continue;
-    if (element.dataset.type === 'boolean') payload[element.name] = element.value === 'true';
-    else if (element.type === 'number' || element.tagName === 'SELECT' && /^-?\d+(\.\d+)?$/.test(element.value)) payload[element.name] = Number(element.value);
-    else payload[element.name] = element.value;
-  }
-  return payload;
-}
-
-function fillForm(form, values = {}) {
-  if (!form || !values || typeof values !== 'object') return;
-  for (const element of form.elements) {
-    if (!element.name || values[element.name] === undefined) continue;
-    element.value = String(values[element.name]);
-  }
-}
-
-async function settingsApi(method, path, body, codeTarget = 'action') {
-  const options = { method, headers: {} };
-  if (body !== undefined && method !== 'GET') {
-    options.headers['Content-Type'] = 'application/json';
-    options.body = JSON.stringify(body);
-  }
-  const response = await fetch(path, options);
-  const payload = await response.json();
-  setSettingsCode(codeTarget, payload.code);
-  setSettingsCode('action', payload.code);
-  if (stActionLog) stActionLog.textContent = JSON.stringify({ method, path, http_status: response.status, response: payload }, null, 2);
-  return payload;
-}
-
-async function refreshSettingsStatus() {
-  const payload = await settingsApi('GET', '/api/status', undefined, 'system');
-  if (stStatusJson) stStatusJson.textContent = JSON.stringify(payload, null, 2);
-}
-
-async function readCameraConfig() {
-  const payload = await settingsApi('GET', '/api/camera/config', undefined, 'camera');
-  if (payload.config) {
-    fillForm(document.getElementById('stCameraForm'), payload.config);
-    saveStoredSettings({ camera: payload.config });
-  }
-}
-
-async function readMotorConfig() {
-  const payload = await settingsApi('GET', '/api/motor/config', undefined, 'motor');
-  if (payload.config) {
-    fillForm(document.getElementById('stMotorForm'), payload.config);
-    saveStoredSettings({ motor: payload.config });
-  }
-}
-
-function restoreSavedForms() {
-  const saved = readStoredSettings();
-  fillForm(document.getElementById('stCameraForm'), saved.camera);
-  fillForm(document.getElementById('stMotorForm'), saved.motor);
-  if (stActionLog && (saved.camera || saved.motor)) {
-    stActionLog.textContent = JSON.stringify({
-      message: 'Saved settings restored into the form. Submit Apply to update the backend runtime for all tabs.',
-      code: 'PISD-OK-000',
-      saved_at: saved.saved_at || '',
-      camera: saved.camera || {},
-      motor: saved.motor || {},
-    }, null, 2);
-  }
-}
-
-document.getElementById('stRefreshStatus')?.addEventListener('click', refreshSettingsStatus);
-document.getElementById('stStopAll')?.addEventListener('click', () => settingsApi('POST', '/api/control/stop', {}, 'motor').then(refreshSettingsStatus));
-document.getElementById('stReadCamera')?.addEventListener('click', readCameraConfig);
-document.getElementById('stReadMotor')?.addEventListener('click', readMotorConfig);
-document.getElementById('stCameraForm')?.addEventListener('submit', (event) => {
-  event.preventDefault();
-  const payload = formPayload(event.currentTarget);
-  saveStoredSettings({ camera: payload });
-  settingsApi('POST', '/api/camera/apply', payload, 'camera').then(refreshSettingsStatus);
-});
-document.getElementById('stMotorForm')?.addEventListener('submit', (event) => {
-  event.preventDefault();
-  const payload = formPayload(event.currentTarget);
-  saveStoredSettings({ motor: payload });
-  settingsApi('POST', '/api/motor/apply', payload, 'motor').then(refreshSettingsStatus);
-});
-
-restoreSavedForms();
+function logResponse(action, payload, status='') { if (stActionLog) stActionLog.textContent = JSON.stringify({ action, http_status: status, response: payload }, null, 2); setSettingsCode('action', payload?.code); }
+function numberMaybe(value) { return /^-?\d+(\.\d+)?$/.test(String(value)) ? Number(value) : value; }
+function formPayload(form) { const payload = {}; for (const el of form.elements) { if (!el.name) continue; if (el.dataset.type === 'boolean') payload[el.name] = el.value === 'true'; else if (el.type === 'number' || el.type === 'range' || el.tagName === 'SELECT') payload[el.name] = numberMaybe(el.value); else payload[el.name] = el.value; } return payload; }
+function fillForm(form, values = {}) { if (!form || !values) return; for (const el of form.elements) { if (!el.name || values[el.name] === undefined) continue; el.value = String(values[el.name]); } updateOutputs(form); }
+function updateOutputs(root=document) { root.querySelectorAll('input[type="range"]').forEach(input => { const out = input.parentElement?.querySelector('output'); if (out) out.textContent = input.value; }); }
+function gatherSettings() { return { camera: formPayload(document.getElementById('stCameraForm')), motor: formPayload(document.getElementById('stMotorForm')), manual_drive: formPayload(document.getElementById('stManualDriveForm')), panel_presentation: formPayload(document.getElementById('stPresentationForm')) }; }
+function fillAll(settings={}) { fillForm(document.getElementById('stCameraForm'), settings.camera); fillForm(document.getElementById('stMotorForm'), settings.motor); fillForm(document.getElementById('stManualDriveForm'), settings.manual_drive); fillForm(document.getElementById('stPresentationForm'), settings.panel_presentation); if (settings.panel_presentation && window.PiSDPanelPresentation) window.PiSDPanelPresentation.apply(settings.panel_presentation); }
+function storeLocal(settings) { localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({ ...settings, saved_at: new Date().toISOString() })); if (settings.panel_presentation && window.PiSDPanelPresentation) window.PiSDPanelPresentation.save(settings.panel_presentation); }
+async function settingsApi(method, path, body) { const options={method,headers:{}}; if(body!==undefined&&method!=='GET'){options.headers['Content-Type']='application/json';options.body=JSON.stringify(body);} const res=await fetch(path,options); const payload=await res.json(); logResponse(`${method} ${path}`, payload, res.status); return payload; }
+async function loadSettings() { const payload = await settingsApi('GET','/api/settings'); if (payload.settings) { fillAll(payload.settings); storeLocal(payload.settings); } setSettingsCode('settings', payload.code); }
+async function saveSettings(apply=false) { const settings = gatherSettings(); storeLocal(settings); if (settings.panel_presentation && window.PiSDPanelPresentation) window.PiSDPanelPresentation.apply(settings.panel_presentation); const payload = await settingsApi('POST', apply ? '/api/settings/apply' : '/api/settings', settings); if (payload.settings) { fillAll(payload.settings); storeLocal(payload.settings); } setSettingsCode('settings', payload.code); }
+async function resetSettings() { const payload = await settingsApi('POST','/api/settings/reset',{}); if (payload.settings) { fillAll(payload.settings); storeLocal(payload.settings); } setSettingsCode('settings', payload.code); }
+function exportSettings() { const blob = new Blob([JSON.stringify(gatherSettings(), null, 2)], {type:'application/json'}); const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='pisd_runtime_settings.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(url),500); }
+function importSettings(file) { const reader = new FileReader(); reader.onload = () => { try { const settings = JSON.parse(reader.result); fillAll(settings); storeLocal(settings); logResponse('import settings file', {ok:true, code:'PISD-OK-000', message:'Settings imported into form. Click Save and apply.'}); } catch(err) { logResponse('import settings file', {ok:false, code:'PISD-SET-003', message:String(err)}); } }; reader.readAsText(file); }
+document.getElementById('stLoadSettings')?.addEventListener('click', loadSettings);
+document.getElementById('stSaveSettings')?.addEventListener('click', () => saveSettings(false));
+document.getElementById('stApplySettings')?.addEventListener('click', () => saveSettings(true));
+document.getElementById('stResetSettings')?.addEventListener('click', resetSettings);
+document.getElementById('stExportSettings')?.addEventListener('click', exportSettings);
+document.getElementById('stImportSettings')?.addEventListener('change', e => { if(e.target.files?.[0]) importSettings(e.target.files[0]); });
+document.getElementById('stStopAll')?.addEventListener('click', () => settingsApi('POST','/api/control/stop',{}));
+document.querySelectorAll('input, select').forEach(el => el.addEventListener('input', () => { updateOutputs(document); const s=gatherSettings(); storeLocal(s); if (s.panel_presentation && window.PiSDPanelPresentation) window.PiSDPanelPresentation.apply(s.panel_presentation); }));
+updateOutputs(document);
+loadSettings().catch(err => logResponse('load settings failed', {ok:false, code:'PISD-API-002', message:String(err)}));
