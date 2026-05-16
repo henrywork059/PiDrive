@@ -236,3 +236,42 @@ body[data-pisd-panel-header="minimal"] .mdrv-label,
 body[data-pisd-panel-header="minimal"] .st-subtitle { display: none !important; }
 body[data-pisd-panel-header="compact"] .mdrv-panel-head,
 body[data-pisd-panel-header="compact"] .st-card-head { margin-bottom: .35rem !important; }
+
+/* 0.3.1 adaptive weighted panel layout system */
+:root {
+  --pisd-status-h-span: 1;
+  --pisd-status-v-span: 1;
+  --pisd-preview-h-span: 2;
+  --pisd-preview-v-span: 2;
+  --pisd-control-h-span: 1;
+  --pisd-control-v-span: 1;
+  --pisd-settings-h-span: 1;
+  --pisd-settings-v-span: 1;
+  --pisd-log-h-span: 2;
+  --pisd-log-v-span: 1;
+}
+
+body[data-pisd-adaptive-panels="true"] .md-shell,
+body[data-pisd-adaptive-panels="true"] .st-grid,
+body[data-pisd-adaptive-panels="true"] .layout,
+body[data-pisd-adaptive-panels="true"] .pt-panel-grid,
+body[data-pisd-adaptive-panels="true"] .pp-panel-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--pisd-ui-panel-min-width, 280px)), 1fr)) !important;
+  grid-auto-flow: dense;
+  align-items: start;
+}
+
+body[data-pisd-adaptive-panels="true"] [data-panel-role="status"] { grid-column: span var(--pisd-panel-h-span, var(--pisd-status-h-span, 1)); grid-row: span var(--pisd-panel-v-span, var(--pisd-status-v-span, 1)); }
+body[data-pisd-adaptive-panels="true"] [data-panel-role="preview"],
+body[data-pisd-adaptive-panels="true"] [data-panel-role="camera"] { grid-column: span var(--pisd-panel-h-span, var(--pisd-preview-h-span, 2)); grid-row: span var(--pisd-panel-v-span, var(--pisd-preview-v-span, 2)); }
+body[data-pisd-adaptive-panels="true"] [data-panel-role="control"],
+body[data-pisd-adaptive-panels="true"] [data-panel-role="drive"] { grid-column: span var(--pisd-panel-h-span, var(--pisd-control-h-span, 1)); grid-row: span var(--pisd-panel-v-span, var(--pisd-control-v-span, 1)); }
+body[data-pisd-adaptive-panels="true"] [data-panel-role="settings"] { grid-column: span var(--pisd-panel-h-span, var(--pisd-settings-h-span, 1)); grid-row: span var(--pisd-panel-v-span, var(--pisd-settings-v-span, 1)); }
+body[data-pisd-adaptive-panels="true"] [data-panel-role="log"] { grid-column: span var(--pisd-panel-h-span, var(--pisd-log-h-span, 2)); grid-row: span var(--pisd-panel-v-span, var(--pisd-log-v-span, 1)); }
+
+@media (max-width: 760px) {
+  body[data-pisd-adaptive-panels="true"] [data-panel-role] {
+    grid-column: 1 / -1 !important;
+    grid-row: auto !important;
+  }
+}

@@ -23,7 +23,19 @@
   </header>
 
   <main class="mdrv-shell" id="manualDriveShell">
-    <section class="mdrv-panel mdrv-preview-panel" id="manualDriveCameraPanel">
+    <section class="mdrv-panel mdrv-status-panel" id="manualDriveStatusPanel" data-panel-role="status" data-panel-h-weight="2" data-panel-v-weight="1">
+      <div class="mdrv-panel-head compact"><div><p class="mdrv-label">Status</p><h2>Run signals</h2></div><span class="mdrv-code" data-code-for="status">{{ initial_status.code }}</span></div>
+      <div class="mdrv-status-strip">
+        <span>HW <strong id="mdrvHardware">{{ 'on' if initial_status.hardware_requested else 'sim' }}</strong></span>
+        <span>Cam <strong id="mdrvCameraState">{{ initial_status.camera.backend }}</strong></span>
+        <span>Motor <strong id="mdrvMotorState">{{ initial_status.motor.adapter }}</strong></span>
+        <span>FPS <strong id="mdrvCameraFps">{{ initial_status.camera.measured_capture_fps if initial_status.camera.measured_capture_fps is defined else 'n/a' }}</strong></span>
+      </div>
+      <p id="mdrvShortStatus" class="mdrv-help">Ready. The action log is hidden to keep this page compact.</p>
+    </section>
+
+
+    <section class="mdrv-panel mdrv-preview-panel" id="manualDriveCameraPanel" data-panel-role="preview" data-panel-h-weight="2" data-panel-v-weight="2">
       <div class="mdrv-panel-head">
         <div><p class="mdrv-label">Camera</p><h2>Live view</h2></div>
         <span class="mdrv-code" data-code-for="camera">PISD-OK-000</span>
@@ -38,18 +50,7 @@
       </div>
     </section>
 
-    <section class="mdrv-panel mdrv-status-panel" id="manualDriveStatusPanel">
-      <div class="mdrv-panel-head compact"><div><p class="mdrv-label">Status</p><h2>Run signals</h2></div><span class="mdrv-code" data-code-for="status">{{ initial_status.code }}</span></div>
-      <div class="mdrv-status-strip">
-        <span>HW <strong id="mdrvHardware">{{ 'on' if initial_status.hardware_requested else 'sim' }}</strong></span>
-        <span>Cam <strong id="mdrvCameraState">{{ initial_status.camera.backend }}</strong></span>
-        <span>Motor <strong id="mdrvMotorState">{{ initial_status.motor.adapter }}</strong></span>
-        <span>FPS <strong id="mdrvCameraFps">{{ initial_status.camera.measured_capture_fps if initial_status.camera.measured_capture_fps is defined else 'n/a' }}</strong></span>
-      </div>
-      <p id="mdrvShortStatus" class="mdrv-help">Ready. The action log is hidden to keep this page compact.</p>
-    </section>
-
-    <section class="mdrv-panel mdrv-drive-panel" id="manualDrivePadPanel">
+    <section class="mdrv-panel mdrv-drive-panel" id="manualDrivePadPanel" data-panel-role="drive" data-panel-h-weight="1" data-panel-v-weight="2">
       <div class="mdrv-panel-head compact"><div><p class="mdrv-label">Drag Pad</p><h2>Manual control</h2></div><span class="mdrv-code" data-code-for="drive">PISD-OK-000</span></div>
       <label class="mdrv-arm"><input id="mdrvArm" type="checkbox"><span>Enable motor output. Wheels are lifted / area is safe.</span></label>
       <div id="mdrvDragPad" class="mdrv-drag-pad" role="application" aria-label="Manual drag driving pad" tabindex="0">
@@ -69,13 +70,13 @@
       <button id="mdrvStopPad" class="mdrv-button mdrv-danger mdrv-full-stop">STOP</button>
     </section>
 
-    <section class="mdrv-panel mdrv-stop-panel" id="manualDriveStopPanel">
+    <section class="mdrv-panel mdrv-stop-panel" id="manualDriveStopPanel" data-panel-role="control" data-panel-h-weight="1" data-panel-v-weight="1">
       <div class="mdrv-panel-head compact"><div><p class="mdrv-label">Safety</p><h2>Emergency stop</h2></div><span class="mdrv-code" data-code-for="stop">PISD-OK-000</span></div>
       <button id="mdrvStopBig" class="mdrv-big-stop">STOP ALL MOTORS</button>
       <button id="mdrvToggleLog" class="mdrv-button">Show action log</button>
     </section>
 
-    <section class="mdrv-panel mdrv-log-panel" id="manualDriveLogPanel" hidden>
+    <section class="mdrv-panel mdrv-log-panel" id="manualDriveLogPanel" data-panel-role="log" data-panel-h-weight="3" data-panel-v-weight="1" hidden>
       <div class="mdrv-panel-head"><div><p class="mdrv-label">Log</p><h2>Action log</h2></div><span class="mdrv-code" data-code-for="log">PISD-OK-000</span></div>
       <pre id="mdrvLog" class="mdrv-console">Manual Drive loaded. No command sent yet.</pre>
     </section>

@@ -52,3 +52,15 @@ a { color: inherit; text-decoration: none; }
 .st-import input { display: none; }
 .st-code-pill[data-state="error"] { color: #fecdd3; border-color: rgba(251,113,133,.55); background: rgba(127,29,29,.35); }
 .st-form-grid output { font-weight: 800; color: var(--st-text); }
+
+/* 0.3.1 settings-driven panel presentation controls */
+.st-form-grid label:has(input[name$="Weight"]) {
+  border: 1px solid rgba(148, 163, 184, .14);
+  border-radius: calc(var(--pisd-ui-radius, 14px) * .65);
+  padding: .45rem;
+  background: rgba(2, 6, 23, .14);
+}
+.st-grid { grid-auto-flow: dense; align-items: start; }
+@media (min-width: 1000px) {
+  #settingsPanelPresentationPanel { grid-column: span 2; }
+}

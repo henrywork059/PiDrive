@@ -6,9 +6,11 @@ It is intentionally separate from the existing `PiServer/` folder. PiSD may refe
 
 ## Current version
 
-`PiSD_0_2_6` — front page mode selector. The root route `/` is now the front page; `/settings` opens the settings tab, `/testing` opens the testing tab, `/dashboard` keeps the dashboard shell, and `/panel-testing` keeps the panel lab.
+`PiSD_0_3_1_patch` — current patch on top of stable v3 baseline (`PiSD_0_3_0`).
 
-This package is built from stable `PiSD_0_1_0` plus the accepted `PiSD_0_1_1` motor-channel calibration patch and `PiSD_0_1_2` standard validation patch.
+Stable v3 is `PiSD_0_3_0`. Patch `0.3.1` adds adaptive panel layout and presentation refinements without replacing the stable baseline.
+
+It includes the tested camera/motor/error-reporting foundation, the testing GUI, panel testing and API contract pages, the front page mode selector, settings tab, manual drive tab, panel presentation settings, live-frame FPS improvements, persistent backend settings, and adaptive role-based panel sizing.
 
 This stable baseline keeps only one dependency file:
 
@@ -18,14 +20,21 @@ PiSD/requirements.txt
 
 `requirement.txt` must not be restored.
 
-
 ## Stable baseline notes
 
-`PiSD_0_2_0` is the stable rollback baseline before GUI development. `PiSD_0_2_1` added the testing GUI, `PiSD_0_2_2` strengthens the GUI/API testing layer, `PiSD_0_2_3` adds the flexible panel testing lab, `PiSD_0_2_4` adds panel API contracts, and `PiSD_0_2_5` adds the first actual main dashboard shell, and `PiSD_0_2_6` adds the front page plus settings/testing tab navigation.
+`PiSD_0_3_0` is the stable rollback baseline before future `0_3_x` patches.
 
-It keeps the tested camera/motor/error-reporting foundation from `PiSD_0_1_0`, then adds one-by-one motor channel calibration and the standard OK/FAIL validation script.
+It includes the accepted `0.2.x` GUI/testing/settings work:
 
-Confirmed by Raspberry Pi test logs supplied by the user:
+- `/` compact front page / mode selector
+- `/manual-drive` user-facing manual drive page
+- `/settings` shared settings tab
+- `/testing` API/settings/FPS testing tab
+- `/dashboard` dashboard shell
+- `/panel-testing` panel/layout/API testing lab
+- `/panel-presentation` shared panel presentation settings page
+
+Confirmed by earlier Raspberry Pi test logs supplied by the user:
 
 - status/error reporting returns `PISD-OK-000`
 - Picamera2 OV5647 hardware capture works
@@ -37,7 +46,18 @@ Confirmed by Raspberry Pi test logs supplied by the user:
 - one-by-one motor calibration testing is available for cars with different motor wiring
 - standard validation prints simple `OK` / `FAIL` lines with `PISD-*` codes
 
-Real wheel direction is intentionally left configurable for the later GUI settings page. Use the lifted-wheel motor channel tests to confirm each car's wiring before driving on the floor.
+Real wheel direction is intentionally configurable through settings because different cars may be wired differently. Use lifted-wheel motor channel tests before driving on the floor.
+
+
+## 0.3.1 adaptive panel presentation patch
+
+`PiSD_0_3_1_patch` reviews the current GUI presentation and adds a shared weighted-panel layout system:
+
+- Manual Drive status panel appears above the preview on PC/iPad layouts.
+- Preview panel uses available screen height more efficiently to reduce scrolling on common PC/iPad displays.
+- Panel Presentation and Settings pages now include horizontal/vertical role weights.
+- Shared style settings continue to apply across all tabs through `/api/settings`.
+- The change is presentation/layout-only and does not change camera or motor hardware behaviour.
 
 ## Folder layout
 

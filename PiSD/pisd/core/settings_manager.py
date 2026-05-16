@@ -34,6 +34,17 @@ DEFAULT_RUNTIME_SETTINGS: dict[str, Any] = {
         "buttonScale": 0.92,
         "consoleHeight": 180,
         "cardAccent": "subtle",
+        "adaptivePanels": True,
+        "statusPanelHWeight": 1,
+        "statusPanelVWeight": 1,
+        "previewPanelHWeight": 2,
+        "previewPanelVWeight": 2,
+        "controlPanelHWeight": 1,
+        "controlPanelVWeight": 1,
+        "settingsPanelHWeight": 1,
+        "settingsPanelVWeight": 1,
+        "logPanelHWeight": 2,
+        "logPanelVWeight": 1,
         "autoSave": True,
     },
     "safety": {
@@ -51,7 +62,7 @@ SETTINGS_SCHEMA: dict[str, Any] = {
         "camera": "Camera runtime settings passed to CameraService.apply_settings.",
         "motor": "Motor runtime settings passed to MotorService.apply_settings.",
         "manual_drive": "Manual drive page defaults and drag-pad behaviour.",
-        "panel_presentation": "Shared visual style used by all browser pages.",
+        "panel_presentation": "Shared visual style, adaptive panel sizing, and role-based horizontal/vertical panel weights used by all browser pages.",
         "safety": "Safety defaults used by GUI pages.",
         "ui": "Global UI density/header behaviour.",
     },
@@ -157,6 +168,18 @@ class SettingsManager:
                     panel[key] = int(float(panel[key]))
                 except Exception:
                     panel[key] = self.defaults["panel_presentation"].get(key)
+        for key in (
+            "statusPanelHWeight", "statusPanelVWeight", "previewPanelHWeight", "previewPanelVWeight",
+            "controlPanelHWeight", "controlPanelVWeight", "settingsPanelHWeight", "settingsPanelVWeight",
+            "logPanelHWeight", "logPanelVWeight",
+        ):
+            if key in panel:
+                try:
+                    panel[key] = max(1, min(4, int(round(float(panel[key])))))
+                except Exception:
+                    panel[key] = self.defaults["panel_presentation"].get(key)
+        if "adaptivePanels" in panel:
+            panel["adaptivePanels"] = str(panel["adaptivePanels"]).lower() not in {"false", "0", "no", "off"}
         manual = merged.setdefault("manual_drive", {})
         for key in ("speed", "steer_strength"):
             try:

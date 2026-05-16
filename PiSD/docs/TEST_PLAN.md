@@ -689,3 +689,42 @@ Manual drive visual checks:
 3. Confirm panel density, radius, preview fit/aspect, button scale, and console height follow the saved settings.
 4. In `/manual-drive`, confirm the status strip is short, the log is hidden until **Show action log** is clicked, and the drag pad sends no motor command unless armed.
 5. With wheels lifted, arm the drag pad, drag gently, release, and confirm release sends STOP.
+
+## PiSD 0.3.1 adaptive layout checks
+
+After applying `PiSD_0_3_1_patch`, run the static/source checks first:
+
+```bash
+cd ~/PiDrive/PiSD
+python3 scripts/test_manual_drive_page.py --static-only
+python3 scripts/test_panel_presentation_page.py --static-only
+python3 scripts/test_front_page_tabs.py --static-only
+python3 scripts/run_standard_validation.py --skip-api --skip-camera --skip-motor
+```
+
+Then start the server and visually check the pages on the Pi browser:
+
+```bash
+python3 PiSD.py --host 0.0.0.0 --port 5050 --hardware
+```
+
+Open:
+
+```text
+http://<pi-ip>:5050/manual-drive
+http://<pi-ip>:5050/panel-presentation
+http://<pi-ip>:5050/settings
+```
+
+Expected manual-drive presentation:
+
+- On PC/iPad width, the compact Status panel appears above the Preview panel.
+- The Preview panel uses available screen height and should show the full frame without unnecessary scrolling on most PC/iPad screens.
+- The drag pad remains beside the preview on wide/iPad landscape layouts and stacks below on small phone screens.
+- The log stays hidden until expanded.
+
+Expected panel-presentation/settings behaviour:
+
+- Horizontal/vertical role weight controls are visible.
+- Saving presentation settings applies across all pages through the backend settings API.
+- Phone layouts still collapse panels to one column.

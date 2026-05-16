@@ -25,7 +25,7 @@
   </header>
 
   <main class="layout">
-    <section class="card wide">
+    <section class="card wide" data-panel-role="preview">
       <div class="card-header">
         <div>
           <h2>Camera preview and service calls</h2>
@@ -50,7 +50,7 @@
 
 
 
-    <section class="card wide">
+    <section class="card wide" data-panel-role="preview">
       <div class="card-header">
         <div>
           <h2>Live FPS pipeline test</h2>
@@ -74,7 +74,7 @@
       <pre id="fpsTestPanel" class="console compact">FPS test not run yet.</pre>
     </section>
 
-    <section class="card">
+    <section class="card" data-panel-role="settings">
       <h2>Camera settings apply test</h2>
       <form id="cameraSettingsForm" class="form-grid">
         <label>Width <input name="width" type="number" value="426" min="160" max="1920"></label>
@@ -136,7 +136,7 @@
       <button id="applyCameraBtn" class="button primary">Apply camera settings</button>
     </section>
 
-    <section class="card">
+    <section class="card" data-panel-role="settings">
       <h2>Motor settings apply test</h2>
       <p class="small">These settings should not move the wheels. Movement is only in the channel test below.</p>
       <form id="motorSettingsForm" class="form-grid">

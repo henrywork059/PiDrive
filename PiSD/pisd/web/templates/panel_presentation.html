@@ -25,7 +25,7 @@
   </header>
 
   <main class="pp-shell">
-    <section class="pp-card" id="panelPresentationControls">
+    <section class="pp-card" id="panelPresentationControls" data-panel-role="settings">
       <div class="pp-card-head">
         <h2>Presentation controls</h2>
         <span class="pp-code-pill">runtime settings</span>
@@ -91,6 +91,22 @@
             <option value="none">none</option>
           </select>
         </label>
+        <label>Adaptive panel sizing
+          <select name="adaptivePanels" id="ppAdaptivePanels">
+            <option value="true">on</option>
+            <option value="false">off</option>
+          </select>
+        </label>
+        <label>Status H weight <input name="statusPanelHWeight" id="ppStatusPanelHWeight" type="range" min="1" max="4" step="1"></label>
+        <label>Status V weight <input name="statusPanelVWeight" id="ppStatusPanelVWeight" type="range" min="1" max="4" step="1"></label>
+        <label>Preview H weight <input name="previewPanelHWeight" id="ppPreviewPanelHWeight" type="range" min="1" max="4" step="1"></label>
+        <label>Preview V weight <input name="previewPanelVWeight" id="ppPreviewPanelVWeight" type="range" min="1" max="4" step="1"></label>
+        <label>Controls H weight <input name="controlPanelHWeight" id="ppControlPanelHWeight" type="range" min="1" max="4" step="1"></label>
+        <label>Controls V weight <input name="controlPanelVWeight" id="ppControlPanelVWeight" type="range" min="1" max="4" step="1"></label>
+        <label>Settings H weight <input name="settingsPanelHWeight" id="ppSettingsPanelHWeight" type="range" min="1" max="4" step="1"></label>
+        <label>Settings V weight <input name="settingsPanelVWeight" id="ppSettingsPanelVWeight" type="range" min="1" max="4" step="1"></label>
+        <label>Log H weight <input name="logPanelHWeight" id="ppLogPanelHWeight" type="range" min="1" max="4" step="1"></label>
+        <label>Log V weight <input name="logPanelVWeight" id="ppLogPanelVWeight" type="range" min="1" max="4" step="1"></label>
         <label class="pp-checkbox-label"><input name="autoSave" id="ppAutoSave" type="checkbox" value="true"> Auto-save changes globally</label>
       </form>
       <div class="pp-button-row">
@@ -98,32 +114,32 @@
         <button id="ppImportButton" class="pp-button">Import JSON</button>
         <input id="ppImport" type="file" accept="application/json,.json" hidden>
       </div>
-      <p class="pp-help">Saved settings are stored through the backend settings manager and apply across PiSD pages. Browser storage is kept only as a fallback/cache.</p>
+      <p class="pp-help"><strong>Panel weights:</strong> H weight controls how much horizontal grid space a role should use. V weight controls how tall/important that role is in dense responsive grids. Saved settings are stored through the backend settings manager and apply across PiSD pages. Browser storage is kept only as a fallback/cache.</p>
     </section>
 
-    <section class="pp-preview-panel" id="panelPresentationPreview">
+    <section class="pp-preview-panel" id="panelPresentationPreview" data-panel-role="preview">
       <div class="pp-card-head">
         <h2>Live preview</h2>
         <span id="ppSavedState" class="pp-code-pill">not saved</span>
       </div>
       <div class="pp-panel-grid" id="ppPreviewGrid">
-        <article class="pp-card pp-sample-panel">
+        <article class="pp-card pp-sample-panel" data-panel-role="status">
           <p class="pp-panel-label">System Status</p>
           <h3>Runtime health</h3>
           <p>Compact panel header and code display.</p>
           <span class="pp-code-pill">PISD-OK-000</span>
         </article>
-        <article class="pp-card pp-sample-panel">
+        <article class="pp-card pp-sample-panel" data-panel-role="preview">
           <p class="pp-panel-label">Camera Preview</p>
           <h3>Live frame panel</h3>
           <div class="pp-preview-surface">preview aspect / fit</div>
         </article>
-        <article class="pp-card pp-sample-panel">
+        <article class="pp-card pp-sample-panel" data-panel-role="control">
           <p class="pp-panel-label">Motor Controls</p>
           <h3>Button layout</h3>
           <div class="pp-button-row"><button class="pp-button pp-primary">Run</button><button class="pp-button pp-danger">STOP</button></div>
         </article>
-        <article class="pp-card pp-sample-panel">
+        <article class="pp-card pp-sample-panel" data-panel-role="log">
           <p class="pp-panel-label">Error Monitor</p>
           <h3>Response area</h3>
           <pre class="pp-console">OK   PISD-OK-000   panel.presentation - settings saved and applied</pre>
@@ -131,7 +147,7 @@
       </div>
     </section>
 
-    <section class="pp-card pp-wide" id="panelPresentationOutput">
+    <section class="pp-card pp-wide" id="panelPresentationOutput" data-panel-role="log">
       <div class="pp-card-head"><h2>Current preset JSON</h2><span id="ppOutputCode" class="pp-code-pill">PISD-OK-000</span></div>
       <pre id="ppOutput" class="pp-console">Loading...</pre>
     </section>

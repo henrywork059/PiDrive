@@ -47,3 +47,19 @@ a { color: inherit; text-decoration: none; }
 .pp-control-grid { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
 .pp-preview-surface { object-fit: var(--pisd-ui-preview-fit, contain); }
 body[data-pisd-panel-header="minimal"] .pp-panel-label { display: none; }
+
+/* 0.3.1 panel weight controls and presentation review */
+.pp-control-grid label:has(input[name$="Weight"]) {
+  border: 1px solid rgba(148, 163, 184, .16);
+  border-radius: calc(var(--pisd-ui-radius, 14px) * .65);
+  padding: .5rem;
+  background: rgba(2, 6, 23, .16);
+}
+.pp-preview-panel { min-height: min(72vh, 760px); }
+.pp-panel-grid { align-items: stretch; grid-auto-flow: dense; }
+.pp-sample-panel { min-height: 150px; }
+.pp-card[data-panel-role="preview"] .pp-preview-surface { min-height: clamp(150px, 24vh, 320px); }
+.pp-help strong { color: var(--pp-text); }
+@media (min-width: 900px) {
+  .pp-shell { grid-template-columns: minmax(300px, 430px) minmax(0, 1fr); }
+}

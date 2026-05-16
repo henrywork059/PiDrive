@@ -17,8 +17,10 @@ Use this page to tune how panels look before the final GUI grows larger:
 - shadow strength
 - minimum panel width
 - camera preview aspect ratio
+- adaptive panel sizing on/off
+- role-based horizontal and vertical panel weights for status, preview, controls, settings, and logs
 
-The page writes settings to browser `localStorage` under:
+The page saves settings through the backend settings manager (`config/runtime_settings.json`) and also keeps a browser fallback/cache under:
 
 ```text
 pisd.panelPresentation.v1
@@ -74,10 +76,9 @@ OK   PISD-OK-000   panel_presentation.source_contract - panel presentation page 
 
 ## Known limits
 
-- Settings are browser-local only for now.
-- Server-side persistence can be added later if needed.
 - The page does not change hardware configuration.
 - It should not be used as the panel functionality/API test page; use `/panel-testing` for that.
+- The browser cache is only a fallback. The backend settings manager is the source of truth when available.
 
 ## 0.2.9 expanded style controls
 
@@ -104,3 +105,19 @@ The shared presentation settings now apply to:
 /panel-testing
 /panel-presentation
 ```
+
+## 0.3.1 adaptive panel weights
+
+`PiSD_0_3_1_patch` adds role-based horizontal and vertical panel weights. These make it easier to manage how panels use space on PC, iPad, and phone screens without editing each page separately.
+
+Roles currently supported by the shared presentation system:
+
+```text
+status
+preview
+control / drive
+settings
+log
+```
+
+The Manual Drive page now places the compact status panel above the camera preview on PC/iPad layouts. The preview uses available screen height so the full frame is visible on most PC and iPad screens without extra page scrolling.

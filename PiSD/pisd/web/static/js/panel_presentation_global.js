@@ -20,6 +20,17 @@
     buttonScale: '0.92',
     consoleHeight: '180',
     cardAccent: 'subtle',
+    adaptivePanels: 'true',
+    statusPanelHWeight: '1',
+    statusPanelVWeight: '1',
+    previewPanelHWeight: '2',
+    previewPanelVWeight: '2',
+    controlPanelHWeight: '1',
+    controlPanelVWeight: '1',
+    settingsPanelHWeight: '1',
+    settingsPanelVWeight: '1',
+    logPanelHWeight: '2',
+    logPanelVWeight: '1',
     autoSave: 'true',
   };
 
@@ -56,6 +67,30 @@
     return String(value || DEFAULTS.previewAspect).replace('/', ' / ');
   }
 
+  function spanValue(value, fallback = 1) {
+    const number = Math.round(Number(value || fallback));
+    if (!Number.isFinite(number)) return fallback;
+    return Math.max(1, Math.min(4, number));
+  }
+
+  function applyPanelWeights(settings) {
+    const roleMap = {
+      status: ['statusPanelHWeight', 'statusPanelVWeight'],
+      preview: ['previewPanelHWeight', 'previewPanelVWeight'],
+      camera: ['previewPanelHWeight', 'previewPanelVWeight'],
+      control: ['controlPanelHWeight', 'controlPanelVWeight'],
+      drive: ['controlPanelHWeight', 'controlPanelVWeight'],
+      settings: ['settingsPanelHWeight', 'settingsPanelVWeight'],
+      log: ['logPanelHWeight', 'logPanelVWeight'],
+    };
+    document.querySelectorAll('[data-panel-role], .mdrv-panel, .md-panel, .st-card, .card, .pt-panel, .pp-card, .pp-preview-panel').forEach(panel => {
+      const role = panel.dataset.panelRole || panel.dataset.panel || (panel.classList.contains('mdrv-preview-panel') ? 'preview' : panel.classList.contains('mdrv-status-panel') ? 'status' : panel.classList.contains('mdrv-log-panel') ? 'log' : panel.classList.contains('mdrv-drive-panel') || panel.classList.contains('mdrv-stop-panel') ? 'control' : panel.classList.contains('st-card') ? 'settings' : 'control');
+      const keys = roleMap[role] || roleMap.control;
+      panel.style.setProperty('--pisd-panel-h-span', spanValue(panel.dataset.panelHWeight || settings[keys[0]], 1));
+      panel.style.setProperty('--pisd-panel-v-span', spanValue(panel.dataset.panelVWeight || settings[keys[1]], 1));
+    });
+  }
+
   function apply(input) {
     const settings = normalize(input || readLocal());
     const body = document.body;
@@ -65,6 +100,7 @@
       body.dataset.pisdDensity = settings.density;
       body.dataset.pisdPanelHeader = settings.panelHeaderMode;
       body.dataset.pisdCardAccent = settings.cardAccent;
+      body.dataset.pisdAdaptivePanels = String(settings.adaptivePanels) === 'false' ? 'false' : 'true';
     }
     const root = document.documentElement;
     root.style.setProperty('--pisd-ui-font-scale', settings.fontScale);
@@ -78,6 +114,17 @@
     root.style.setProperty('--pisd-ui-density-pad', String(settings.panelPadding || DEFAULTS.panelPadding));
     root.style.setProperty('--pisd-ui-button-scale', String(settings.buttonScale || DEFAULTS.buttonScale));
     root.style.setProperty('--pisd-ui-console-height', `${Number(settings.consoleHeight || DEFAULTS.consoleHeight)}px`);
+    root.style.setProperty('--pisd-status-h-span', spanValue(settings.statusPanelHWeight, 1));
+    root.style.setProperty('--pisd-status-v-span', spanValue(settings.statusPanelVWeight, 1));
+    root.style.setProperty('--pisd-preview-h-span', spanValue(settings.previewPanelHWeight, 2));
+    root.style.setProperty('--pisd-preview-v-span', spanValue(settings.previewPanelVWeight, 2));
+    root.style.setProperty('--pisd-control-h-span', spanValue(settings.controlPanelHWeight, 1));
+    root.style.setProperty('--pisd-control-v-span', spanValue(settings.controlPanelVWeight, 1));
+    root.style.setProperty('--pisd-settings-h-span', spanValue(settings.settingsPanelHWeight, 1));
+    root.style.setProperty('--pisd-settings-v-span', spanValue(settings.settingsPanelVWeight, 1));
+    root.style.setProperty('--pisd-log-h-span', spanValue(settings.logPanelHWeight, 2));
+    root.style.setProperty('--pisd-log-v-span', spanValue(settings.logPanelVWeight, 1));
+    applyPanelWeights(settings);
     window.dispatchEvent(new CustomEvent('pisd:presentation-applied', { detail: settings }));
     return settings;
   }

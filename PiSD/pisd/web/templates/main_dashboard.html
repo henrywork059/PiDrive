@@ -24,7 +24,7 @@
   </header>
 
   <main class="md-shell" id="mdShell">
-    <section class="md-panel md-panel-status" id="panel-system-status" data-panel="system-status">
+    <section class="md-panel md-panel-status" id="panel-system-status" data-panel="system-status" data-panel-role="status">
       <div class="md-panel-head">
         <div>
           <p class="md-panel-label">System Status</p>
@@ -41,7 +41,7 @@
       <pre id="mdStatusJson" class="md-console md-console-small">{{ initial_status | tojson(indent=2) }}</pre>
     </section>
 
-    <section class="md-panel md-panel-preview" id="panel-camera-preview" data-panel="camera-preview">
+    <section class="md-panel md-panel-preview" id="panel-camera-preview" data-panel="camera-preview" data-panel-role="preview">
       <div class="md-panel-head">
         <div>
           <p class="md-panel-label">Camera Preview</p>
@@ -60,7 +60,7 @@
       <p class="md-help">Visual path uses <code>capture_source=request</code>. Confirmed CV array path uses <code>array_color_order=rgb</code>.</p>
     </section>
 
-    <section class="md-panel md-panel-manual" id="panel-manual-drive" data-panel="manual-drive">
+    <section class="md-panel md-panel-manual" id="panel-manual-drive" data-panel="manual-drive" data-panel-role="drive">
       <div class="md-panel-head">
         <div>
           <p class="md-panel-label">Manual Drive</p>
@@ -86,7 +86,7 @@
       <p id="mdManualSafetyText" class="md-warning-text">Movement buttons are locked until the safety checkbox is enabled. STOP remains active.</p>
     </section>
 
-    <section class="md-panel md-panel-channel" id="panel-motor-channel-calibration" data-panel="motor-channel-calibration">
+    <section class="md-panel md-panel-channel" id="panel-motor-channel-calibration" data-panel="motor-channel-calibration" data-panel-role="control">
       <div class="md-panel-head">
         <div>
           <p class="md-panel-label">Motor Channel Calibration</p>
@@ -118,7 +118,7 @@
       <p class="md-help">Direction is intentionally not fixed here. Final direction mapping will be set later in GUI settings.</p>
     </section>
 
-    <section class="md-panel md-panel-stop" id="panel-safety-stop" data-panel="safety-stop">
+    <section class="md-panel md-panel-stop" id="panel-safety-stop" data-panel="safety-stop" data-panel-role="control">
       <div class="md-panel-head">
         <div>
           <p class="md-panel-label">Safety Stop</p>
@@ -130,7 +130,7 @@
       <p class="md-help">This calls <code>/api/control/stop</code> and should work whether the movement lock is armed or not.</p>
     </section>
 
-    <section class="md-panel md-panel-errors" id="panel-error-monitor" data-panel="error-monitor">
+    <section class="md-panel md-panel-errors" id="panel-error-monitor" data-panel="error-monitor" data-panel-role="log">
       <div class="md-panel-head">
         <div>
           <p class="md-panel-label">Error Monitor</p>
@@ -145,7 +145,7 @@
       <pre id="mdErrorJson" class="md-console md-console-small">No error check run yet.</pre>
     </section>
 
-    <section class="md-panel md-panel-log" id="panel-action-log" data-panel="action-log">
+    <section class="md-panel md-panel-log" id="panel-action-log" data-panel="action-log" data-panel-role="log">
       <div class="md-panel-head">
         <div>
           <p class="md-panel-label">Action Log</p>

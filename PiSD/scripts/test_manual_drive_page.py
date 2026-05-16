@@ -97,8 +97,11 @@ def check_source_contract() -> list[Result]:
         "manualDriveInitialStatus",
         "panel_presentation_global.css",
         "panel_presentation_global.js",
+        'data-panel-role="status"',
+        'data-panel-role="preview"',
+        "data-panel-h-weight",
     ]
-    required_css = [".mdrv-shell", ".mdrv-panel", ".mdrv-preview-frame", ".mdrv-drag-pad", ".mdrv-big-stop", "@media (max-width: 1100px)"]
+    required_css = [".mdrv-shell", ".mdrv-panel", ".mdrv-status-panel", ".mdrv-preview-frame", ".mdrv-drag-pad", ".mdrv-big-stop", "grid-template-columns: repeat(12", "@media (max-width: 1100px)"]
     required_js = [
         "manualDriveInitialStatus",
         "pisd.manualDrive.v1",
@@ -120,13 +123,24 @@ def check_source_contract() -> list[Result]:
     }
     missing = {key: value for key, value in missing.items() if value}
     ok = not missing
-    return [Result(
+    results = [Result(
         "manual_drive.source_contract",
         ok,
         PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
         "manual drive page contains camera preview, compact status, locked drag pad, STOP, persistence, and API calls" if ok else "manual drive source contract failed",
         {"missing": missing},
     )]
+    status_index = template.find("manualDriveStatusPanel")
+    preview_index = template.find("manualDriveCameraPanel")
+    order_ok = status_index >= 0 and preview_index >= 0 and status_index < preview_index
+    results.append(Result(
+        "manual_drive.status_above_preview",
+        order_ok,
+        PiSDErrorCodes.OK if order_ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
+        "status panel is before the preview panel for PC/iPad layouts" if order_ok else "status panel did not appear before preview panel",
+        {"status_index": status_index, "preview_index": preview_index},
+    ))
+    return results
 
 
 def check_routes(hardware: bool) -> list[Result]:

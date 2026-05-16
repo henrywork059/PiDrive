@@ -15,7 +15,7 @@
   </header>
 
   <main class="st-grid">
-    <section class="st-card st-wide" id="settingsMainPanel">
+    <section class="st-card st-wide" id="settingsMainPanel" data-panel-role="settings" data-panel-h-weight="2">
       <div class="st-card-head"><h2>Save / apply all settings</h2><span class="st-code-pill" data-code-for="settings">PISD-OK-000</span></div>
       <div class="st-toolbar">
         <button id="stLoadSettings" class="st-button">Load saved</button>
@@ -28,7 +28,7 @@
       <p class="st-help">Panel presentation, manual drive defaults, camera, and motor settings are kept in <code>config/runtime_settings.json</code>. Browser localStorage is only a fallback/cache.</p>
     </section>
 
-    <section class="st-card" id="settingsPanelPresentationPanel">
+    <section class="st-card" id="settingsPanelPresentationPanel" data-panel-role="settings">
       <div class="st-card-head"><h2>Page and panel style</h2><span class="st-code-pill" data-code-for="presentation">PISD-OK-000</span></div>
       <form id="stPresentationForm" class="st-form-grid">
         <label>Theme <select name="theme"><option value="dark">dark</option><option value="light">light</option><option value="contrast">contrast</option></select></label>
@@ -46,10 +46,21 @@
         <label>Min panel width <input name="minPanelWidth" type="range" min="220" max="420" step="10" value="280"><output></output></label>
         <label>Shadow <input name="shadowStrength" type="range" min="0" max="0.45" step="0.01" value="0.2"><output></output></label>
         <label>Card accent <select name="cardAccent"><option value="subtle">subtle</option><option value="strong">strong</option></select></label>
+        <label>Adaptive sizing <select name="adaptivePanels"><option value="true">on</option><option value="false">off</option></select></label>
+        <label>Status H weight <input name="statusPanelHWeight" type="range" min="1" max="4" step="1" value="1"><output></output></label>
+        <label>Status V weight <input name="statusPanelVWeight" type="range" min="1" max="4" step="1" value="1"><output></output></label>
+        <label>Preview H weight <input name="previewPanelHWeight" type="range" min="1" max="4" step="1" value="2"><output></output></label>
+        <label>Preview V weight <input name="previewPanelVWeight" type="range" min="1" max="4" step="1" value="2"><output></output></label>
+        <label>Control H weight <input name="controlPanelHWeight" type="range" min="1" max="4" step="1" value="1"><output></output></label>
+        <label>Control V weight <input name="controlPanelVWeight" type="range" min="1" max="4" step="1" value="1"><output></output></label>
+        <label>Settings H weight <input name="settingsPanelHWeight" type="range" min="1" max="4" step="1" value="1"><output></output></label>
+        <label>Settings V weight <input name="settingsPanelVWeight" type="range" min="1" max="4" step="1" value="1"><output></output></label>
+        <label>Log H weight <input name="logPanelHWeight" type="range" min="1" max="4" step="1" value="2"><output></output></label>
+        <label>Log V weight <input name="logPanelVWeight" type="range" min="1" max="4" step="1" value="1"><output></output></label>
       </form>
     </section>
 
-    <section class="st-card" id="settingsManualDrivePanel">
+    <section class="st-card" id="settingsManualDrivePanel" data-panel-role="settings">
       <div class="st-card-head"><h2>Manual drive defaults</h2><span class="st-code-pill" data-code-for="manual_drive">PISD-OK-000</span></div>
       <form id="stManualDriveForm" class="st-form-grid">
         <label>Speed <input name="speed" type="range" min="0.08" max="0.65" step="0.01" value="0.18"><output></output></label>
@@ -59,7 +70,7 @@
       </form>
     </section>
 
-    <section class="st-card" id="settingsCameraPanel">
+    <section class="st-card" id="settingsCameraPanel" data-panel-role="settings">
       <div class="st-card-head"><h2>Camera settings</h2><span class="st-code-pill" data-code-for="camera">PISD-OK-000</span></div>
       <form id="stCameraForm" class="st-form-grid">
         <label>Width <input name="width" type="number" min="160" max="1920" value="426"></label><label>Height <input name="height" type="number" min="120" max="1080" value="240"></label><label>FPS <input name="fps" type="number" min="1" max="60" value="12"></label><label>JPEG quality <input name="preview_quality" type="number" min="10" max="95" value="65"></label>
@@ -69,7 +80,7 @@
       </form>
     </section>
 
-    <section class="st-card" id="settingsMotorPanel">
+    <section class="st-card" id="settingsMotorPanel" data-panel-role="settings">
       <div class="st-card-head"><h2>Motor settings</h2><span class="st-code-pill" data-code-for="motor">PISD-OK-000</span></div>
       <form id="stMotorForm" class="st-form-grid">
         <label>Left direction <select name="left_direction"><option value="1">1</option><option value="-1">-1</option></select></label><label>Right direction <select name="right_direction"><option value="1">1</option><option value="-1">-1</option></select></label><label>Steering direction <select name="steering_direction"><option value="1">1</option><option value="-1">-1</option></select></label>
@@ -78,7 +89,7 @@
       </form>
     </section>
 
-    <section class="st-card st-wide" id="settingsActionPanel"><div class="st-card-head"><h2>Last response</h2><span class="st-code-pill" data-code-for="action">PISD-OK-000</span></div><pre id="stActionLog" class="st-console">No settings API call yet.</pre></section>
+    <section class="st-card st-wide" id="settingsActionPanel" data-panel-role="log" data-panel-h-weight="2"><div class="st-card-head"><h2>Last response</h2><span class="st-code-pill" data-code-for="action">PISD-OK-000</span></div><pre id="stActionLog" class="st-console">No settings API call yet.</pre></section>
   </main>
 
   <script id="settingsInitialStatus" type="application/json">{{ initial_status | tojson }}</script>
