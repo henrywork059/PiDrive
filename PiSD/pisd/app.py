@@ -129,8 +129,9 @@ def create_app(hardware_enabled: bool = False):
                 {"method": "GET", "path": "/api/camera/config", "purpose": "Read current camera settings."},
                 {"method": "GET", "path": "/api/camera/capabilities", "purpose": "Read Picamera2 capabilities when available."},
                 {"method": "POST", "path": "/api/camera/apply", "purpose": "Apply camera settings and restart camera."},
-                {"method": "GET", "path": "/api/camera/frame.jpg", "purpose": "Fetch one JPEG frame."},
-                {"method": "GET", "path": "/video_feed", "purpose": "Multipart MJPEG preview feed."},
+                {"method": "GET", "path": "/api/camera/frame.jpg", "purpose": "Fetch one cached JPEG frame/snapshot."},
+                {"method": "GET", "path": "/video_feed", "purpose": "Multipart MJPEG live preview feed using frame notifications."},
+                {"method": "GET", "path": "/api/camera/fps-stats", "purpose": "Read measured camera capture, encode, and frame-byte statistics."},
                 {"method": "GET", "path": "/api/motor/config", "purpose": "Read current motor settings."},
                 {"method": "POST", "path": "/api/motor/apply", "purpose": "Apply motor settings without moving the car."},
                 {"method": "POST", "path": "/api/motor/test-channel", "purpose": "Test one motor side/direction/speed/duration."},
@@ -142,6 +143,18 @@ def create_app(hardware_enabled: bool = False):
                 "array_reference": "91_array_rgb_confirmed_correct",
                 "capture_source": "request",
                 "array_color_order": "rgb",
+                "live_preview_endpoint": "/video_feed",
+                "fps_stats_endpoint": "/api/camera/fps-stats",
+                "fast_preview_preset": {
+                    "capture_source": "array",
+                    "array_color_order": "rgb",
+                    "width": 426,
+                    "height": 240,
+                    "fps": 30,
+                    "preview_quality": 50,
+                    "buffer_count": 4,
+                    "queue": True,
+                },
             },
             "safety": {
                 "motor_output_default": "locked",
@@ -275,10 +288,10 @@ def create_app(hardware_enabled: bool = False):
     @app.get("/api/camera/frame.jpg")
     def api_camera_frame():
         try:
-            frame = camera_service.get_jpeg_frame()
+            frame, _seq, _timestamp, _bytes = camera_service.get_jpeg_frame_info()
             if frame is None:
                 camera_service.start()
-                frame = camera_service.get_jpeg_frame()
+                frame, _seq, _timestamp, _bytes = camera_service.wait_for_jpeg_frame(timeout=1.0)
             if frame is None:
                 report = camera_service._record(  # internal service helper used to keep status and API code aligned
                     PiSDErrorCodes.CAMERA_NO_FRAME,
@@ -286,24 +299,54 @@ def create_app(hardware_enabled: bool = False):
                     context={"path": request.path},
                 )
                 return jsonify(report_payload(False, report)), 503
-            return Response(frame, mimetype="image/jpeg", headers={"Cache-Control": "no-store, max-age=0"})
+            return Response(
+                frame,
+                mimetype="image/jpeg",
+                headers={
+                    "Cache-Control": "no-store, max-age=0",
+                    "X-PiSD-Frame-Seq": str(_seq),
+                    "X-PiSD-Frame-At": str(_timestamp),
+                    "X-PiSD-Frame-Bytes": str(_bytes),
+                },
+            )
         except Exception as exc:
             report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"Camera frame API failed: {exc}", exc=exc)
+            return jsonify(report_payload(False, report)), 500
+
+    @app.get("/api/camera/fps-stats")
+    def api_camera_fps_stats():
+        try:
+            return jsonify(ok_payload("Camera FPS statistics loaded.", stats=camera_service.get_fps_stats(), camera=camera_service.get_config()))
+        except Exception as exc:
+            report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"Camera FPS stats API failed: {exc}", exc=exc)
             return jsonify(report_payload(False, report)), 500
 
     @app.get("/video_feed")
     def video_feed():
         def generate():
             camera_service.start()
-            last = None
+            last_seq = None
             while True:
-                frame = camera_service.get_jpeg_frame()
-                seq = camera_service.status().get("frame_seq")
-                if frame is not None and seq != last:
-                    last = seq
-                    yield b"--frame\r\nContent-Type: image/jpeg\r\n\r\n" + frame + b"\r\n"
+                frame, seq, _timestamp, _bytes = camera_service.wait_for_jpeg_frame(last_seq=last_seq, timeout=2.0)
+                if frame is None:
+                    continue
+                if last_seq is not None and seq == last_seq:
+                    continue
+                last_seq = seq
+                yield (
+                    b"--frame\r\n"
+                    b"Content-Type: image/jpeg\r\n"
+                    + f"X-PiSD-Frame-Seq: {seq}\r\n".encode("ascii")
+                    + f"X-PiSD-Frame-Bytes: {_bytes}\r\n\r\n".encode("ascii")
+                    + frame
+                    + b"\r\n"
+                )
 
-        return Response(generate(), mimetype="multipart/x-mixed-replace; boundary=frame")
+        return Response(
+            generate(),
+            mimetype="multipart/x-mixed-replace; boundary=frame",
+            headers={"Cache-Control": "no-store, max-age=0"},
+        )
 
     @app.get("/api/motor/config")
     def api_motor_config():

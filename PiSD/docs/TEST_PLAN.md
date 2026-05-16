@@ -561,3 +561,35 @@ Manual browser check:
 3. Click **Back to Front Page**.
 4. Click **Testing** and confirm `/testing` loads.
 5. Confirm `/dashboard` and `/panel-testing` also include **Back to Front Page**.
+
+## Live frame FPS validation
+
+Patch `0.2.7` adds FPS-specific checks for the camera preview pipeline.
+
+Direct service test:
+
+```bash
+cd ~/PiDrive/PiSD
+python3 scripts/test_camera_fps.py --hardware --seconds 5 --fps 30 --capture-source array
+```
+
+Local HTTP/MJPEG test, with server already running:
+
+```bash
+python3 PiSD.py --host 0.0.0.0 --port 5050 --hardware
+```
+
+Then in another terminal:
+
+```bash
+python3 scripts/test_live_frame_fps.py --base-url http://127.0.0.1:5050 --seconds 5 --mode mjpeg --apply-fast-preview
+```
+
+Testing GUI browser test:
+
+1. Open `/testing`.
+2. Use **Apply fast preview preset**.
+3. Click **Live MJPEG preview**.
+4. Click **Run max FPS test**.
+
+Expected OK lines use `PISD-OK-000`. FPS test failures use `PISD-TEST-017`.

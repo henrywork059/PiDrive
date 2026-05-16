@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import threading
 import time
+from collections import deque
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Optional
@@ -321,6 +322,7 @@ class CameraService:
         self._stop_event = threading.Event()
         self._lock = threading.RLock()
         self._frame_lock = threading.Lock()
+        self._frame_condition = threading.Condition(self._frame_lock)
         self._latest_jpeg: Optional[bytes] = None
         self._latest_raw: Any = None
         self._last_metadata: dict[str, Any] = {}
@@ -328,6 +330,13 @@ class CameraService:
         self._last_array_color_order = ""
         self._last_applied_controls: dict[str, Any] = {}
         self._last_video_config: dict[str, Any] = {}
+        self._frame_times: deque[float] = deque(maxlen=180)
+        self._last_loop_ms = 0.0
+        self._avg_loop_ms = 0.0
+        self._last_encode_ms = 0.0
+        self._avg_encode_ms = 0.0
+        self._last_frame_bytes = 0
+        self._frames_dropped_or_empty = 0
 
     def _record(
         self,
@@ -371,8 +380,9 @@ class CameraService:
                     "last_error_code": self.last_error_code,
                 }
             )
-            data.update(self.errors.status_fields(limit=5))
-            return data
+        data.update(self.get_fps_stats())
+        data.update(self.errors.status_fields(limit=5))
+        return data
 
     def status(self) -> dict[str, Any]:
         return self.get_config()
@@ -391,6 +401,21 @@ class CameraService:
             "verified_colour_reference": "01_request_awb_auto",
             "verified_array_reference": "91_array_rgb",
             "note": "Use capture_source=request for visual colour reference. For raw array/CV paths, this OV5647 test setup matched array_color_order=rgb.",
+            "fps_pipeline": {
+                "recommended_display_endpoint": "/video_feed",
+                "snapshot_endpoint": "/api/camera/frame.jpg",
+                "stats_endpoint": "/api/camera/fps-stats",
+                "fast_preview_preset": {
+                    "capture_source": "array",
+                    "array_color_order": "rgb",
+                    "width": 426,
+                    "height": 240,
+                    "fps": 30,
+                    "preview_quality": 50,
+                    "buffer_count": 4,
+                    "queue": True,
+                },
+            },
         }
         if not self.hardware_enabled or Picamera2 is None:
             base.update({"camera_controls": {}, "camera_properties": {}, "sensor_modes": [], "warning": "Hardware not requested or Picamera2 missing."})
@@ -508,6 +533,7 @@ class CameraService:
             if self.running:
                 return True, f"Camera already running via {self.backend}."
             self._stop_event.clear()
+            self._reset_fps_metrics()
 
             if self.hardware_enabled and Picamera2 is not None:
                 ok, message = self._open_picamera2_locked()
@@ -550,11 +576,92 @@ class CameraService:
             self._thread = None
             self._close_picamera2_locked()
             self.backend = "not_started"
+        with self._frame_condition:
+            self._frame_condition.notify_all()
         return True, "Camera stopped."
 
     def get_jpeg_frame(self) -> bytes | None:
         with self._frame_lock:
             return self._latest_jpeg
+
+    def get_jpeg_frame_info(self) -> tuple[bytes | None, int, str, int]:
+        """Return the cached JPEG plus lightweight metadata without building full status()."""
+        with self._frame_lock:
+            return self._latest_jpeg, int(self.frame_seq), str(self.last_frame_at), int(self._last_frame_bytes)
+
+    def wait_for_jpeg_frame(self, last_seq: int | None = None, timeout: float = 1.0) -> tuple[bytes | None, int, str, int]:
+        """Wait until a new JPEG frame is available, then return frame, seq, timestamp, and byte count."""
+        deadline = time.monotonic() + max(0.0, float(timeout))
+        with self._frame_condition:
+            while True:
+                has_frame = self._latest_jpeg is not None
+                is_new = last_seq is None or int(self.frame_seq) != int(last_seq)
+                if has_frame and is_new:
+                    return self._latest_jpeg, int(self.frame_seq), str(self.last_frame_at), int(self._last_frame_bytes)
+                if not self.running and has_frame:
+                    return self._latest_jpeg, int(self.frame_seq), str(self.last_frame_at), int(self._last_frame_bytes)
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    return self._latest_jpeg, int(self.frame_seq), str(self.last_frame_at), int(self._last_frame_bytes)
+                self._frame_condition.wait(timeout=min(remaining, 0.5))
+
+    def get_fps_stats(self) -> dict[str, Any]:
+        with self._frame_lock:
+            times = list(self._frame_times)
+            measured = 0.0
+            if len(times) >= 2:
+                elapsed = max(0.000001, times[-1] - times[0])
+                measured = (len(times) - 1) / elapsed
+            return {
+                "target_fps": int(self.config.fps),
+                "measured_capture_fps": round(measured, 2),
+                "last_capture_loop_ms": round(float(self._last_loop_ms), 3),
+                "average_capture_loop_ms": round(float(self._avg_loop_ms), 3),
+                "last_encode_ms": round(float(self._last_encode_ms), 3),
+                "average_encode_ms": round(float(self._avg_encode_ms), 3),
+                "last_frame_bytes": int(self._last_frame_bytes),
+                "frames_dropped_or_empty": int(self._frames_dropped_or_empty),
+                "frame_seq": int(self.frame_seq),
+                "last_frame_at": str(self.last_frame_at),
+                "stream_endpoint": "/video_feed",
+                "snapshot_endpoint": "/api/camera/frame.jpg",
+            }
+
+    def _reset_fps_metrics(self) -> None:
+        with self._frame_condition:
+            self._frame_times.clear()
+            self._last_loop_ms = 0.0
+            self._avg_loop_ms = 0.0
+            self._last_encode_ms = 0.0
+            self._avg_encode_ms = 0.0
+            self._last_frame_bytes = 0
+            self._frames_dropped_or_empty = 0
+            self._frame_condition.notify_all()
+
+    def _note_encode_time(self, encode_ms: float) -> None:
+        with self._frame_lock:
+            self._last_encode_ms = float(encode_ms)
+            if self._avg_encode_ms <= 0:
+                self._avg_encode_ms = float(encode_ms)
+            else:
+                self._avg_encode_ms = (self._avg_encode_ms * 0.85) + (float(encode_ms) * 0.15)
+
+    def _publish_frame(self, frame: Any, jpeg: bytes, loop_ms: float) -> None:
+        now_monotonic = time.monotonic()
+        now_iso = datetime.now(timezone.utc).isoformat()
+        with self._frame_condition:
+            self._latest_raw = frame
+            self._latest_jpeg = jpeg
+            self.frame_seq += 1
+            self.last_frame_at = now_iso
+            self._last_frame_bytes = len(jpeg)
+            self._last_loop_ms = float(loop_ms)
+            if self._avg_loop_ms <= 0:
+                self._avg_loop_ms = float(loop_ms)
+            else:
+                self._avg_loop_ms = (self._avg_loop_ms * 0.85) + (float(loop_ms) * 0.15)
+            self._frame_times.append(now_monotonic)
+            self._frame_condition.notify_all()
 
     def get_latest_frame(self, copy: bool = True) -> Any:
         with self._frame_lock:
@@ -772,13 +879,10 @@ class CameraService:
                         self._last_capture_source = "simulation"
                         self._last_array_color_order = "bgr"
                 if jpeg:
-                    with self._frame_lock:
-                        self._latest_raw = frame
-                        self._latest_jpeg = jpeg
-                    with self._lock:
-                        self.frame_seq += 1
-                        self.last_frame_at = datetime.now(timezone.utc).isoformat()
+                    self._publish_frame(frame, jpeg, (time.time() - start) * 1000.0)
                 else:
+                    with self._frame_lock:
+                        self._frames_dropped_or_empty += 1
                     self._record(
                         PiSDErrorCodes.CAMERA_ENCODE_FAILED,
                         "Camera frame could not be JPEG encoded.",
@@ -879,6 +983,7 @@ class CameraService:
     def _jpeg_from_pil(self, pil_image: Any) -> bytes | None:
         if pil_image is None:
             return None
+        start = time.monotonic()
         try:
             img = pil_image
             target_size = (int(self.config.width), int(self.config.height))
@@ -886,7 +991,9 @@ class CameraService:
                 img = img.resize(target_size)
             buf = io.BytesIO()
             img.save(buf, format="JPEG", quality=int(self.config.preview_quality), optimize=False)
-            return buf.getvalue()
+            data = buf.getvalue()
+            self._note_encode_time((time.monotonic() - start) * 1000.0)
+            return data
         except Exception as exc:
             self._record(
                 PiSDErrorCodes.CAMERA_ENCODE_FAILED,
@@ -976,11 +1083,14 @@ class CameraService:
         if frame is None:
             return self._encode_pillow_placeholder()
         quality = int(self.config.preview_quality)
+        encode_start = time.monotonic()
         if cv2 is not None:
             try:
                 ok, encoded = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), quality])
                 if ok:
-                    return encoded.tobytes()
+                    data = encoded.tobytes()
+                    self._note_encode_time((time.monotonic() - encode_start) * 1000.0)
+                    return data
             except Exception as exc:
                 self._record(
                     PiSDErrorCodes.CAMERA_ENCODE_FAILED,
@@ -996,7 +1106,9 @@ class CameraService:
                     return self._encode_pillow_placeholder()
                 buf = io.BytesIO()
                 img.save(buf, format="JPEG", quality=quality)
-                return buf.getvalue()
+                data = buf.getvalue()
+                self._note_encode_time((time.monotonic() - encode_start) * 1000.0)
+                return data
             except Exception as exc:
                 self._record(
                     PiSDErrorCodes.CAMERA_ENCODE_FAILED,
@@ -1019,4 +1131,6 @@ class CameraService:
             draw.text((12, 12), f"PiSD SIM {self.frame_seq}", fill=(255, 255, 255))
         buf = io.BytesIO()
         img.save(buf, format="JPEG", quality=int(self.config.preview_quality))
-        return buf.getvalue()
+        data = buf.getvalue()
+        self._note_encode_time(0.0)
+        return data

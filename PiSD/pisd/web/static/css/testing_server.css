@@ -61,3 +61,12 @@ input, select, textarea { width: 100%; border: 1px solid var(--border); border-r
   .api-caller { grid-template-columns: 1fr; }
 }
 .console.compact { min-height: 150px; max-height: 300px; }
+
+.fps-grid {
+  align-items: end;
+}
+
+#cameraPreview[data-mode="mjpeg"] {
+  outline: 2px solid rgba(59, 130, 246, 0.45);
+  outline-offset: 2px;
+}

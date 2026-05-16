@@ -390,6 +390,7 @@ def _check_main_dashboard_source_contract() -> CheckResult:
         "/api/status",
         "/api/camera/start",
         "/api/camera/frame.jpg",
+        "/video_feed",
         "/api/control/manual",
         "/api/motor/test-channel",
         "/api/control/stop",
@@ -447,6 +448,9 @@ def _check_testing_gui_source_contract() -> CheckResult:
         "manifestJson",
         "globalCode",
         "cameraPreview",
+        "startLivePreviewBtn",
+        "fpsTestPanel",
+        "runMaxFpsBtn",
         "cameraSettingsForm",
         "motorSettingsForm",
         "motorChannelForm",
@@ -460,6 +464,8 @@ def _check_testing_gui_source_contract() -> CheckResult:
         "/api/test-gui/manifest",
         "/api/camera/start",
         "/api/camera/frame.jpg",
+        "/video_feed",
+        "/api/camera/fps-stats",
         "/api/camera/apply",
         "/api/motor/apply",
         "/api/motor/test-channel",
@@ -467,6 +473,7 @@ def _check_testing_gui_source_contract() -> CheckResult:
         "enable_motor_output: false",
         "PISD-MOT-008",
         "PISD-TEST-011",
+        "PISD-TEST-017",
     ]
     required_css_tokens = [".code-pill", ".console", ".console.compact"]
     missing = {
@@ -852,6 +859,8 @@ def _check_api_testing_gui(client) -> list[CheckResult]:
         "/api/camera/capabilities",
         "/api/camera/apply",
         "/api/camera/frame.jpg",
+        "/video_feed",
+        "/api/camera/fps-stats",
         "/api/motor/config",
         "/api/motor/apply",
         "/api/motor/test-channel",

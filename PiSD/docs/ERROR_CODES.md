@@ -211,3 +211,7 @@ Example:
 ```text
 FAIL PISD-TEST-015 main_dashboard.source_contract - main dashboard source contract failed
 ```
+
+## Camera FPS test code
+
+- `PISD-TEST-017` — live-frame FPS or camera FPS validation failed. Check `/api/camera/fps-stats`, camera settings, encode time, frame size, and browser/server route availability.

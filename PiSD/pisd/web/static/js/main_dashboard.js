@@ -74,7 +74,13 @@ async function refreshStatus() {
 }
 
 function refreshFrame() {
+  cameraPreview.dataset.mode = 'snapshot';
   cameraPreview.src = `/api/camera/frame.jpg?t=${Date.now()}`;
+}
+
+function startLivePreview() {
+  cameraPreview.dataset.mode = 'mjpeg';
+  cameraPreview.src = `/video_feed?t=${Date.now()}`;
 }
 
 async function stopAll(panelName = 'safety-stop') {
@@ -167,14 +173,14 @@ function bindEvents() {
   document.getElementById('mdRefreshStatus').addEventListener('click', refreshStatus);
   document.getElementById('mdCameraStart').addEventListener('click', async () => {
     await apiCall('POST', '/api/camera/start', {}, 'camera-preview');
-    refreshFrame();
+    startLivePreview();
     await refreshStatus();
   });
   document.getElementById('mdCameraStop').addEventListener('click', async () => {
     await apiCall('POST', '/api/camera/stop', {}, 'camera-preview');
     await refreshStatus();
   });
-  document.getElementById('mdCameraRefresh').addEventListener('click', refreshFrame);
+  document.getElementById('mdCameraRefresh').addEventListener('click', startLivePreview);
   document.getElementById('mdStopAllTop').addEventListener('click', () => stopAll('safety-stop'));
   document.getElementById('mdStopAllCenter').addEventListener('click', () => stopAll('manual-drive'));
   document.getElementById('mdStopAllPanel').addEventListener('click', () => stopAll('safety-stop'));

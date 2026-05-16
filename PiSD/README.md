@@ -610,3 +610,30 @@ Expected safe panel API checks should return `PISD-OK-000`, `PISD-MOT-008` for u
 - `/panel-testing` — panel layout/API contract lab
 
 Every tab/page includes a **Back to Front Page** link so testers can return to the mode selector.
+
+## Live preview FPS testing
+
+For higher live-preview FPS, use the MJPEG stream endpoint:
+
+```text
+/video_feed
+```
+
+Single-frame snapshots remain available at:
+
+```text
+/api/camera/frame.jpg
+```
+
+The testing page includes a **Live FPS pipeline test** card:
+
+```text
+http://<pi-ip>:5050/testing
+```
+
+Useful commands:
+
+```bash
+python3 scripts/test_camera_fps.py --hardware --seconds 5 --fps 30 --capture-source array
+python3 scripts/test_live_frame_fps.py --base-url http://127.0.0.1:5050 --seconds 5 --mode mjpeg --apply-fast-preview
+```

@@ -200,3 +200,20 @@ The GUI is now split by mode before the final server UI is built:
 - `/panel-testing` preserves the panel layout/API contract lab.
 
 All tabs/pages include a **Back to Front Page** link.
+
+## Live preview FPS direction
+
+The GUI should use `/video_feed` for live preview. `/api/camera/frame.jpg` remains available for snapshots, smoke tests, and single-frame API checks.
+
+The camera status now reports these live-frame metrics:
+
+- `target_fps`
+- `measured_capture_fps`
+- `last_capture_loop_ms`
+- `average_capture_loop_ms`
+- `last_encode_ms`
+- `average_encode_ms`
+- `last_frame_bytes`
+- `frames_dropped_or_empty`
+
+The testing GUI exposes these through `/api/camera/fps-stats` and the **Live FPS pipeline test** panel.

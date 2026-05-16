@@ -197,3 +197,31 @@ Validation command:
 ```bash
 python3 scripts/test_panel_testing_page.py
 ```
+
+## 0.2.7 live FPS pipeline tests
+
+The testing tab now includes a **Live FPS pipeline test** card. It is for checking the preview pipeline before the final GUI server is built.
+
+Use these controls:
+
+1. **Live MJPEG preview** — switches the preview image to `/video_feed` instead of repeatedly polling `/api/camera/frame.jpg`.
+2. **Apply fast preview preset** — applies the confirmed fast array path:
+   - `capture_source: array`
+   - `array_color_order: rgb`
+   - `width: 426`
+   - `height: 240`
+   - `fps: 30`
+   - `preview_quality: 50`
+   - `buffer_count: 4`
+   - `queue: true`
+3. **Read FPS stats** — calls `/api/camera/fps-stats` and shows target FPS, measured capture FPS, encode time, frame size, and frame sequence.
+4. **Run max FPS test** — fetches frames for the selected duration and reports browser/client fetch FPS plus backend capture FPS.
+
+Example OK browser output:
+
+```text
+OK   PISD-OK-000   fps.client_snapshot_fetch - frames=90 fps=18.00 bytes=1234567 failed=0
+OK   PISD-OK-000   fps.backend_capture - measured=29.4 target=30 encode_ms=3.2 frame_bytes=14500
+```
+
+If the test fails, it should report `PISD-TEST-017` rather than failing silently.

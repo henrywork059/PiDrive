@@ -54,7 +54,9 @@ PANEL_API_CONTRACTS: list[dict[str, Any]] = [
         "dangerous_action": False,
         "endpoints": [
             {"method": "POST", "path": "/api/camera/start", "required": True, "purpose": "Start camera service."},
-            {"method": "GET", "path": "/api/camera/frame.jpg", "required": True, "purpose": "Fetch one JPEG frame."},
+            {"method": "GET", "path": "/api/camera/frame.jpg", "required": True, "purpose": "Fetch one cached JPEG frame."},
+            {"method": "GET", "path": "/video_feed", "required": True, "purpose": "Display the max-FPS MJPEG live stream."},
+            {"method": "GET", "path": "/api/camera/fps-stats", "required": True, "purpose": "Read measured capture/encode FPS statistics."},
         ],
         "safe_test": {
             "method": "POST",
@@ -77,6 +79,7 @@ PANEL_API_CONTRACTS: list[dict[str, Any]] = [
         "endpoints": [
             {"method": "GET", "path": "/api/camera/config", "required": True, "purpose": "Read camera settings."},
             {"method": "GET", "path": "/api/camera/capabilities", "required": False, "purpose": "Read Picamera2 capabilities when available."},
+            {"method": "GET", "path": "/api/camera/fps-stats", "required": False, "purpose": "Read live frame FPS and encode metrics."},
             {"method": "POST", "path": "/api/camera/apply", "required": True, "purpose": "Apply camera settings."},
         ],
         "safe_test": {

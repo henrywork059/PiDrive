@@ -35,16 +35,43 @@
       </div>
       <div class="preview-grid">
         <div class="preview-box">
-          <img id="cameraPreview" src="/api/camera/frame.jpg" alt="Camera preview">
+          <img id="cameraPreview" src="/api/camera/frame.jpg" alt="Camera preview" data-mode="snapshot">
         </div>
         <div class="button-stack">
           <button class="button primary" data-call='{"method":"POST","path":"/api/camera/start"}'>Start camera</button>
           <button class="button secondary" data-call='{"method":"POST","path":"/api/camera/stop"}'>Stop camera</button>
-          <button id="refreshFrameBtn" class="button secondary">Refresh frame</button>
+          <button id="startLivePreviewBtn" class="button secondary">Live MJPEG preview</button>
+          <button id="refreshFrameBtn" class="button secondary">Snapshot frame</button>
           <button class="button secondary" data-call='{"method":"GET","path":"/api/camera/config"}'>Read camera config</button>
           <button class="button secondary" data-call='{"method":"GET","path":"/api/camera/capabilities"}'>Read capabilities</button>
         </div>
       </div>
+    </section>
+
+
+
+    <section class="card wide">
+      <div class="card-header">
+        <div>
+          <h2>Live FPS pipeline test</h2>
+          <p>Tests the live preview path before the actual GUI server. MJPEG uses <code>/video_feed</code>; snapshots use <code>/api/camera/frame.jpg</code>. The fast preview preset uses the confirmed RGB array path.</p>
+        </div>
+        <span id="fpsCode" class="code-pill">PISD-OK-000</span>
+      </div>
+      <div class="form-grid fps-grid">
+        <label>Test seconds <input id="fpsTestSeconds" type="number" value="5" min="2" max="30" step="1"></label>
+        <label>Fast preset width <input id="fpsPresetWidth" type="number" value="426" min="160" max="1280" step="1"></label>
+        <label>Fast preset height <input id="fpsPresetHeight" type="number" value="240" min="120" max="720" step="1"></label>
+        <label>Fast preset FPS <input id="fpsPresetFps" type="number" value="30" min="1" max="60" step="1"></label>
+        <label>Fast preset JPEG quality <input id="fpsPresetQuality" type="number" value="50" min="20" max="95" step="1"></label>
+        <label class="checkbox-line"><input id="fpsApplyFastPreset" type="checkbox" checked> Apply fast preview preset before FPS test</label>
+      </div>
+      <div class="button-row">
+        <button id="applyFastPreviewBtn" class="button secondary">Apply fast preview preset</button>
+        <button id="readFpsStatsBtn" class="button secondary">Read FPS stats</button>
+        <button id="runMaxFpsBtn" class="button primary">Run max FPS test</button>
+      </div>
+      <pre id="fpsTestPanel" class="console compact">FPS test not run yet.</pre>
     </section>
 
     <section class="card">
