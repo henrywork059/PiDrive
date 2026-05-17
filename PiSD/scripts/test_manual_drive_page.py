@@ -131,6 +131,13 @@ def check_source_contract() -> list[Result]:
         "mdrvOverlayDebugThrottle",
         "mdrvOverlayDebugLeft",
         "mdrvOverlayDebugRight",
+        "mdrvPreviewModeDebug",
+        "mdrvPreviewCameraDebug",
+        "mdrvPreviewAgeDebug",
+        "mdrvPreviewFpsDebug",
+        "mdrvPreviewLoopDebug",
+        "Preview is idle",
+        "Live stream",
         "manualDriveFilesPanel",
         "mdrvFileKind",
         "mdrvFileSelect",
@@ -144,10 +151,10 @@ def check_source_contract() -> list[Result]:
         'data-panel-role="preview"',
         "data-panel-h-weight",
         "Refresh status",
-        "does not start the camera or send motor commands",
+        "does not start the camera, restart preview, or send motor commands",
         "STOP motors",
     ]
-    required_css = [".mdrv-shell", ".mdrv-panel", ".mdrv-status-panel", ".mdrv-preview-frame", ".mdrv-drag-pad", ".mdrv-big-stop", ".mdrv-drag-knob", "width: 28px", ".mdrv-recording-indicator", ".mdrv-capture-notice", ".mdrv-overlay-toggle", ".mdrv-drive-overlay", ".mdrv-overlay-path", ".mdrv-overlay-path-wide", ".mdrv-overlay-endpoint", "constant-curvature", "marker-end: url(#mdrvOverlayArrow)", ".mdrv-drive-debug-panel", ".mdrv-overlay-calibration", "data-overlay-source", "@media (max-width: 1100px)"]
+    required_css = [".mdrv-shell", ".mdrv-panel", ".mdrv-status-panel", ".mdrv-preview-frame", ".mdrv-drag-pad", ".mdrv-big-stop", ".mdrv-drag-knob", "width: 28px", ".mdrv-recording-indicator", ".mdrv-capture-notice", ".mdrv-overlay-toggle", ".mdrv-drive-overlay", ".mdrv-overlay-path", ".mdrv-overlay-path-wide", ".mdrv-overlay-endpoint", "constant-curvature", "marker-end: url(#mdrvOverlayArrow)", ".mdrv-drive-debug-panel", ".mdrv-overlay-calibration", "data-overlay-source", "data-preview-state", "Preview stale", "@media (max-width: 1100px)"]
     required_unified_css = [
         "PiSD 0.3.3 manual-drive semantic layout recovery",
         "body.manual-drive-page .mdrv-shell",
@@ -200,6 +207,16 @@ def check_source_contract() -> list[Result]:
         "startCameraOnly",
         "startLiveCamera",
         "currentPreviewMode",
+        "PREVIEW_STALE_MS",
+        "PREVIEW_METRICS_MS",
+        "/api/camera/fps-stats",
+        "startPreviewMetricsLoop",
+        "stopPreviewMetricsLoop",
+        "refreshPreviewMetrics",
+        "renderPreviewFromStatus",
+        "updatePreviewDebug",
+        "mdrvPreviewModeDebug",
+        "mdrvPreviewFpsDebug",
         "refreshStatus(true)",
         "setShortStatus",
         "renderMotorSignals",
@@ -247,7 +264,7 @@ def check_source_contract() -> list[Result]:
         "manual_drive.source_contract",
         ok,
         PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
-        "manual drive page contains camera preview, manual-page overlay toggle/sampled predicted-arc visualisation, overlay calibration, live source debugging, compact status, current intent/output signals, smaller drag knob, locked drag pad, STOP, capture/recording indicators, persistence, API calls, and the recovered semantic layout" if ok else "manual drive source contract failed",
+        "manual drive page contains camera preview, manual-page overlay toggle/sampled predicted-arc visualisation, overlay calibration, live source debugging, preview FPS/stale-state debugging, compact status, current intent/output signals, smaller drag knob, locked drag pad, STOP, capture/recording indicators, persistence, API calls, and the recovered semantic layout" if ok else "manual drive source contract failed",
         {"missing": missing},
     )]
     status_index = template.find("manualDriveStatusPanel")
@@ -285,6 +302,21 @@ def check_source_contract() -> list[Result]:
         overlay_ok,
         PiSDErrorCodes.OK if overlay_ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
         "manual drive preview has visible Overlay: On/Off button, calibration controls, live source debug, and intended path overlay tied to throttle/steering" if overlay_ok else "manual drive overlay toggle/calibration/source/path logic is missing",
+        {},
+    ))
+
+    preview_reliability_ok = (
+        'data-preview-mode="idle"' in template
+        and 'Preview is idle' in template
+        and all(token in template for token in ("mdrvPreviewModeDebug", "mdrvPreviewCameraDebug", "mdrvPreviewAgeDebug", "mdrvPreviewFpsDebug", "mdrvPreviewLoopDebug"))
+        and all(token in js for token in ("/api/camera/fps-stats", "startPreviewMetricsLoop", "stopPreviewMetricsLoop", "refreshPreviewMetrics", "previewStateFromCamera", "PREVIEW_STALE_MS", "previewState"))
+        and all(token in css for token in ('data-preview-state="stale"', 'Preview stale / no fresh frame', 'data-preview-mode="live"'))
+    )
+    results.append(Result(
+        "manual_drive.preview_reliability_debug",
+        preview_reliability_ok,
+        PiSDErrorCodes.OK if preview_reliability_ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
+        "Manual Drive preview starts idle, has one guarded FPS/stale metrics loop, and shows camera/frame-age/live-loop debug values" if preview_reliability_ok else "Manual Drive preview reliability/stale debug contract is missing",
         {},
     ))
 

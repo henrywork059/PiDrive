@@ -473,3 +473,58 @@ body[data-pisd-theme="light"] .mdrv-file-controls select { color: #0f172a; backg
   .mdrv-overlay-calibration-grid label { grid-template-columns: 1fr; }
   .mdrv-overlay-calibration-grid output { text-align: left; }
 }
+
+/* 0.4.9 Manual Drive preview truth/debugging.
+   Preview starts idle; Start camera and Live stream now explicitly choose the
+   browser preview path. These styles make active/stale/error states visible
+   without touching motor/overlay command logic. */
+.mdrv-drive-debug-panel {
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+}
+
+.mdrv-preview-frame[data-preview-state="idle"] img,
+.mdrv-preview-frame[data-preview-state="camera-off"] img {
+  opacity: .72;
+}
+
+.mdrv-preview-frame[data-preview-state="loading"]::before,
+.mdrv-preview-frame[data-preview-state="stale"]::before,
+.mdrv-preview-frame[data-preview-state="error"]::before {
+  position: absolute;
+  left: .8rem;
+  bottom: .8rem;
+  z-index: 4;
+  border: 1px solid rgba(226, 232, 240, .32);
+  border-radius: 999px;
+  padding: .32rem .58rem;
+  background: rgba(2, 6, 23, .76);
+  color: #e0f2fe;
+  font-size: .72rem;
+  font-weight: 850;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .30);
+  backdrop-filter: blur(8px);
+}
+
+.mdrv-preview-frame[data-preview-state="loading"]::before { content: "Preview loading"; }
+.mdrv-preview-frame[data-preview-state="stale"]::before {
+  content: "Preview stale / no fresh frame";
+  border-color: rgba(251, 191, 36, .58);
+  color: #fde68a;
+  background: rgba(120, 53, 15, .72);
+}
+.mdrv-preview-frame[data-preview-state="error"]::before {
+  content: "Preview error";
+  border-color: rgba(251, 113, 133, .62);
+  color: #fecdd3;
+  background: rgba(127, 29, 29, .72);
+}
+
+.mdrv-preview-frame[data-preview-mode="live"] {
+  outline: 1px solid rgba(34, 197, 94, .36);
+  outline-offset: -2px;
+}
+
+.mdrv-preview-frame[data-preview-mode="snapshot"] {
+  outline: 1px solid rgba(56, 189, 248, .32);
+  outline-offset: -2px;
+}

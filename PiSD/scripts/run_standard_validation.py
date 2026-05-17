@@ -466,9 +466,9 @@ def _check_manual_drive_source_contract() -> CheckResult:
             {"exception_type": type(exc).__name__},
         )
     required = {
-        "template": ["PiSD Manual Drive", "Back to Front Page", "manualDriveCameraPanel", "manualDriveStatusPanel", "manualDrivePadPanel", "manualDriveStopPanel", "manualDriveInitialStatus", "mdrvOverlayLengthScale", "mdrvOverlayDebugSource"],
-        "css": [".mdrv-shell", ".mdrv-panel", ".mdrv-pad", ".mdrv-big-stop", ".mdrv-overlay-calibration", ".mdrv-drive-debug-panel"],
-        "js": ["manualDriveInitialStatus", "pisd.manualDrive.v1", "/api/camera/start", "/video_feed", "/api/control/manual", "/api/control/stop", "PISD-MOT-008", "applyOverlayCalibration", "persistOverlaySettingsSoon", "overlaySourceText"],
+        "template": ["PiSD Manual Drive", "Back to Front Page", "manualDriveCameraPanel", "manualDriveStatusPanel", "manualDrivePadPanel", "manualDriveStopPanel", "manualDriveInitialStatus", "mdrvOverlayLengthScale", "mdrvOverlayDebugSource", "mdrvPreviewModeDebug", "mdrvPreviewFpsDebug", "Preview is idle"],
+        "css": [".mdrv-shell", ".mdrv-panel", ".mdrv-pad", ".mdrv-big-stop", ".mdrv-overlay-calibration", ".mdrv-drive-debug-panel", "data-preview-state", "Preview stale"],
+        "js": ["manualDriveInitialStatus", "pisd.manualDrive.v1", "/api/camera/start", "/video_feed", "/api/camera/fps-stats", "/api/control/manual", "/api/control/stop", "PISD-MOT-008", "applyOverlayCalibration", "persistOverlaySettingsSoon", "overlaySourceText", "startPreviewMetricsLoop", "stopPreviewMetricsLoop", "refreshPreviewMetrics", "renderPreviewFromStatus"],
     }
     sources = {"template": template, "css": css, "js": js}
     missing = {name: [token for token in tokens if token not in sources[name]] for name, tokens in required.items()}

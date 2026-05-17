@@ -63,6 +63,11 @@
   const overlayDebugThrottle = $('mdrvOverlayDebugThrottle');
   const overlayDebugLeft = $('mdrvOverlayDebugLeft');
   const overlayDebugRight = $('mdrvOverlayDebugRight');
+  const previewModeDebug = $('mdrvPreviewModeDebug');
+  const previewCameraDebug = $('mdrvPreviewCameraDebug');
+  const previewAgeDebug = $('mdrvPreviewAgeDebug');
+  const previewFpsDebug = $('mdrvPreviewFpsDebug');
+  const previewLoopDebug = $('mdrvPreviewLoopDebug');
   const overlayLengthScale = $('mdrvOverlayLengthScale');
   const overlayCurveScale = $('mdrvOverlayCurveScale');
   const overlayOpacity = $('mdrvOverlayOpacity');
@@ -79,12 +84,22 @@
   let lastMotorOutput = { ...STOP_OUTPUT };
   let recordingRunning = Boolean(initialStatus.recording?.running);
   let recordingCollections = { recordings: [], snapshots: [] };
-  let currentPreviewMode = "snapshot";
+  const PREVIEW_STALE_MS = 2500;
+  const PREVIEW_METRICS_MS = 850;
+  const PREVIEW_IDLE_SRC = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720'%3E%3Crect width='1280' height='720' fill='%23020617'/%3E%3Ctext x='640' y='340' fill='%2394a3b8' font-family='Arial,sans-serif' font-size='42' text-anchor='middle'%3EPreview idle%3C/text%3E%3Ctext x='640' y='398' fill='%2364748b' font-family='Arial,sans-serif' font-size='26' text-anchor='middle'%3EPress Start camera or Live stream%3C/text%3E%3C/svg%3E";
+  let currentPreviewMode = "idle";
   let overlaySettings = { ...DEFAULTS.overlay };
   let overlayPersistTimer = 0;
   let lastOverlaySource = 'stopped';
   let manualDriveActive = false;
   let failSafeStopSent = false;
+  let previewMetricsTimer = 0;
+  let previewMetricsInFlight = false;
+  let lastPreviewSeq = null;
+  let lastPreviewSeqAt = 0;
+  let lastPreviewFps = null;
+  let lastPreviewStats = null;
+  let lastPreviewImageLoadAt = 0;
 
   function isOk(code) { return String(code || '').startsWith('PISD-OK'); }
   function clamp(value, min, max, fallback = 0) {
@@ -129,6 +144,130 @@
   function showFilesNotice(message, code = 'PISD-OK-000') {
     if (filesNotice) filesNotice.textContent = message;
     setCode('files', code);
+  }
+
+  function parseFrameAgeMs(lastFrameAt) {
+    const parsed = Date.parse(String(lastFrameAt || ''));
+    if (!Number.isFinite(parsed)) return null;
+    return Math.max(0, Date.now() - parsed);
+  }
+
+  function formatFrameAge(ageMs) {
+    if (!Number.isFinite(ageMs)) return 'n/a';
+    if (ageMs < 1000) return `${Math.round(ageMs)} ms`;
+    return `${(ageMs / 1000).toFixed(1)} s`;
+  }
+
+  function formatPreviewFps(value) {
+    const n = Number(value);
+    return Number.isFinite(n) && n > 0 ? n.toFixed(1) : 'n/a';
+  }
+
+  // 0.4.9: data-preview-state / data-preview-mode are the browser-side truth markers for preview health.
+  function updatePreviewDebug({ mode = currentPreviewMode, cameraRunning = null, frameAgeMs = null, fps = null, loopActive = false, state = 'idle', frameSeq = null } = {}) {
+    currentPreviewMode = mode;
+    if (previewFrame) {
+      previewFrame.dataset.previewMode = mode;
+      previewFrame.dataset.previewState = state;
+      if (frameSeq !== null && frameSeq !== undefined) previewFrame.dataset.previewSeq = String(frameSeq);
+    }
+    if (preview) preview.dataset.previewMode = mode;
+    if (previewModeDebug) previewModeDebug.textContent = mode;
+    if (previewCameraDebug) previewCameraDebug.textContent = cameraRunning === null ? 'unknown' : (cameraRunning ? 'yes' : 'no');
+    if (previewAgeDebug) previewAgeDebug.textContent = formatFrameAge(frameAgeMs);
+    if (previewFpsDebug) previewFpsDebug.textContent = formatPreviewFps(fps);
+    if (previewLoopDebug) previewLoopDebug.textContent = loopActive ? 'on' : 'off';
+  }
+
+  function estimatePreviewFps(stats, nowMs = performance.now()) {
+    const seq = Number(stats?.frame_seq);
+    const serverMeasured = Number(stats?.measured_capture_fps);
+    if (!Number.isFinite(seq)) return Number.isFinite(serverMeasured) ? serverMeasured : null;
+    if (lastPreviewSeq === null) {
+      lastPreviewSeq = seq;
+      lastPreviewSeqAt = nowMs;
+      return Number.isFinite(serverMeasured) ? serverMeasured : null;
+    }
+    const elapsed = Math.max(0.001, (nowMs - lastPreviewSeqAt) / 1000);
+    const delta = seq - lastPreviewSeq;
+    if (delta > 0) {
+      lastPreviewFps = delta / elapsed;
+      lastPreviewSeq = seq;
+      lastPreviewSeqAt = nowMs;
+    } else if (Number.isFinite(serverMeasured) && serverMeasured > 0 && lastPreviewFps === null) {
+      lastPreviewFps = serverMeasured;
+    }
+    return lastPreviewFps;
+  }
+
+  function previewStateFromCamera(camera = {}, stats = camera) {
+    const running = Boolean(camera.running ?? stats.running);
+    const frameAgeMs = parseFrameAgeMs(stats.last_frame_at ?? camera.last_frame_at);
+    if (currentPreviewMode === 'idle') return 'idle';
+    if (!running) return 'camera-off';
+    if (Number.isFinite(frameAgeMs) && frameAgeMs > PREVIEW_STALE_MS) return 'stale';
+    return 'active';
+  }
+
+  function renderPreviewFromStatus(status) {
+    const camera = status?.camera || {};
+    const frameAgeMs = parseFrameAgeMs(camera.last_frame_at);
+    const fps = Number(camera.measured_capture_fps ?? camera.fps);
+    const state = previewStateFromCamera(camera);
+    updatePreviewDebug({
+      mode: currentPreviewMode,
+      cameraRunning: Boolean(camera.running),
+      frameAgeMs,
+      fps: Number.isFinite(fps) ? fps : null,
+      loopActive: Boolean(previewMetricsTimer),
+      state,
+      frameSeq: camera.frame_seq,
+    });
+  }
+
+  function setPreviewIdle(message = 'Preview idle. Press Start camera or Live stream.') {
+    currentPreviewMode = 'idle';
+    if (preview) preview.src = PREVIEW_IDLE_SRC;
+    stopPreviewMetricsLoop();
+    updatePreviewDebug({ mode: 'idle', cameraRunning: null, frameAgeMs: null, fps: null, loopActive: false, state: 'idle' });
+    setShortStatus(message, 'PISD-OK-000');
+  }
+
+  async function refreshPreviewMetrics() {
+    if (previewMetricsInFlight) return;
+    previewMetricsInFlight = true;
+    try {
+      const response = await fetch(`/api/camera/fps-stats?t=${Date.now()}`, { cache: 'no-store' });
+      const payload = await response.json();
+      const stats = payload.stats || {};
+      lastPreviewStats = stats;
+      const now = performance.now();
+      const fps = estimatePreviewFps(stats, now);
+      const frameAgeMs = parseFrameAgeMs(stats.last_frame_at);
+      const cameraRunning = Boolean(payload.camera?.running ?? true);
+      const state = previewStateFromCamera({ running: cameraRunning, last_frame_at: stats.last_frame_at }, stats);
+      updatePreviewDebug({ mode: currentPreviewMode, cameraRunning, frameAgeMs, fps, loopActive: Boolean(previewMetricsTimer), state, frameSeq: stats.frame_seq });
+      if (state === 'stale' && currentPreviewMode === 'live') {
+        setShortStatus('Preview stale: camera is running but no fresh frame has arrived recently.', 'PISD-CAM-006');
+      }
+    } catch (_err) {
+      updatePreviewDebug({ mode: currentPreviewMode, cameraRunning: null, frameAgeMs: null, fps: null, loopActive: Boolean(previewMetricsTimer), state: 'error' });
+    } finally {
+      previewMetricsInFlight = false;
+    }
+  }
+
+  function startPreviewMetricsLoop() {
+    if (previewMetricsTimer) return;
+    refreshPreviewMetrics();
+    previewMetricsTimer = window.setInterval(refreshPreviewMetrics, PREVIEW_METRICS_MS);
+    updatePreviewDebug({ mode: currentPreviewMode, loopActive: true, state: previewFrame?.dataset.previewState || 'active' });
+  }
+
+  function stopPreviewMetricsLoop() {
+    if (!previewMetricsTimer) return;
+    window.clearInterval(previewMetricsTimer);
+    previewMetricsTimer = 0;
   }
 
   function formatSigned(value) {
@@ -619,6 +758,7 @@
       recordButton.classList.toggle('mdrv-recording-on', rec);
     }
     updateRecordingIndicator(rec);
+    renderPreviewFromStatus(status);
     renderMotorSignalsFromStatus(status);
     setCode('status', status.code || 'PISD-OK-000');
     setGlobalCode(status.code || 'PISD-OK-000');
@@ -713,21 +853,28 @@
 
   function livePreview() {
     currentPreviewMode = 'live';
+    lastPreviewSeq = null;
+    lastPreviewSeqAt = 0;
+    lastPreviewFps = null;
     if (preview) preview.src = `/video_feed?t=${Date.now()}`;
-    setShortStatus('Live MJPEG preview selected.', 'PISD-OK-000');
+    updatePreviewDebug({ mode: 'live', cameraRunning: true, frameAgeMs: null, fps: null, loopActive: Boolean(previewMetricsTimer), state: 'active' });
+    startPreviewMetricsLoop();
+    setShortStatus('Live MJPEG preview selected. Metrics loop is guarded so only one status/FPS poller runs.', 'PISD-OK-000');
   }
 
   function snapshotView() {
     currentPreviewMode = 'snapshot';
     if (preview) preview.src = `/api/camera/frame.jpg?t=${Date.now()}`;
-    setShortStatus('Snapshot preview refreshed.', 'PISD-OK-000');
+    updatePreviewDebug({ mode: 'snapshot', cameraRunning: true, frameAgeMs: null, fps: lastPreviewFps, loopActive: Boolean(previewMetricsTimer), state: 'loading' });
+    startPreviewMetricsLoop();
+    setShortStatus('Snapshot preview refreshed from the running camera service.', 'PISD-OK-000');
   }
 
   async function startCameraOnly() {
     try {
       const { payload } = await api('POST', '/api/camera/start', {}, 'camera');
       setShortStatus(`Camera start: ${payload?.code || 'PISD-OK-000'} ${payload?.message || ''}`.trim(), payload?.code || 'PISD-OK-000');
-      if (currentPreviewMode === 'snapshot') snapshotView();
+      snapshotView();
       await refreshStatus();
     } catch (err) {
       writeLog('start camera failed', { ok: false, code: 'PISD-API-002', message: String(err) });
@@ -850,14 +997,22 @@
       toggleLog.textContent = hidden ? 'Hide action log' : 'Show action log';
     });
     arm?.addEventListener('change', () => { updateLock(); if (!arm?.checked) stopAll('drive'); });
-    window.addEventListener('pagehide', () => sendFailSafeStop('pagehide'));
+    preview?.addEventListener('load', () => {
+      lastPreviewImageLoadAt = Date.now();
+      if (currentPreviewMode !== 'idle') updatePreviewDebug({ mode: currentPreviewMode, cameraRunning: true, frameAgeMs: 0, fps: lastPreviewFps, loopActive: Boolean(previewMetricsTimer), state: 'active' });
+    });
+    preview?.addEventListener('error', () => {
+      if (currentPreviewMode !== 'idle') updatePreviewDebug({ mode: currentPreviewMode, cameraRunning: null, frameAgeMs: null, fps: null, loopActive: Boolean(previewMetricsTimer), state: 'error' });
+    });
+    window.addEventListener('pagehide', () => { stopPreviewMetricsLoop(); sendFailSafeStop('pagehide'); });
     window.addEventListener('beforeunload', () => sendFailSafeStop('beforeunload'));
-    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') sendFailSafeStop('visibility-hidden'); });
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') { stopPreviewMetricsLoop(); sendFailSafeStop('visibility-hidden'); } else if (currentPreviewMode === 'live' || currentPreviewMode === 'snapshot') { startPreviewMetricsLoop(); } });
     speed?.addEventListener('input', () => { updateSliderLabels(); persistManualSettings(); setKnob(lastPayload.steering / Math.max(0.001, currentSteer()), -lastPayload.throttle / Math.max(0.001, currentSpeed())); });
     steer?.addEventListener('input', () => { updateSliderLabels(); persistManualSettings(); setKnob(lastPayload.steering / Math.max(0.001, currentSteer()), -lastPayload.throttle / Math.max(0.001, currentSpeed())); });
     bindPad();
   }
 
+  setPreviewIdle('Preview idle. Press Start camera or Live stream.');
   setKnob(0, 0);
   setDriveState(STOP_COMMAND, STOP_OUTPUT, 'stopped');
   renderStatus(initialStatus);
