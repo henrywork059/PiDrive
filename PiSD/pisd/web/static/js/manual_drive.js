@@ -40,6 +40,15 @@
   const fileKind = $('mdrvFileKind');
   const fileSelect = $('mdrvFileSelect');
   const filesNotice = $('mdrvFilesNotice');
+  const fileSummary = $('mdrvFileSummary');
+  const fileSummaryName = $('mdrvFileSummaryName');
+  const fileSummaryFrames = $('mdrvFileSummaryFrames');
+  const fileSummarySize = $('mdrvFileSummarySize');
+  const fileSummaryModified = $('mdrvFileSummaryModified');
+  const fileSummaryId = $('mdrvFileSummaryId');
+  const fileSummaryZip = $('mdrvFileSummaryZip');
+  const downloadZipButton = $('mdrvDownloadZip');
+  const deleteFolderButton = $('mdrvDeleteFolder');
   const intentOut = $('mdrvIntentOut');
   const motorOut = $('mdrvMotorOut');
   const previewFrame = $('mdrvPreviewFrame');
@@ -142,8 +151,62 @@
   }
 
   function showFilesNotice(message, code = 'PISD-OK-000') {
-    if (filesNotice) filesNotice.textContent = message;
+    if (filesNotice) {
+      filesNotice.textContent = message;
+      filesNotice.dataset.state = isOk(code) ? 'ok' : 'error';
+    }
     setCode('files', code);
+  }
+
+  function formatBytes(bytes) {
+    const value = Number(bytes || 0);
+    if (!Number.isFinite(value) || value <= 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    let scaled = value;
+    let unit = 0;
+    while (scaled >= 1024 && unit < units.length - 1) {
+      scaled /= 1024;
+      unit += 1;
+    }
+    return `${scaled >= 10 || unit === 0 ? scaled.toFixed(0) : scaled.toFixed(1)} ${units[unit]}`;
+  }
+
+  function formatDateTime(value) {
+    const parsed = Date.parse(String(value || ''));
+    if (!Number.isFinite(parsed)) return 'n/a';
+    return new Date(parsed).toLocaleString(undefined, { hour12: false });
+  }
+
+  function folderDisplayName(item, kind) {
+    if (!item) return 'No folder selected';
+    const prefix = kind === 'snapshot' ? 'Snapshot' : 'Recording';
+    return `${prefix}: ${item.label || item.date || item.id || 'folder'}`;
+  }
+
+  function setFileActionButtons(item) {
+    const hasItem = Boolean(item && item.id);
+    const running = Boolean(item?.running);
+    if (downloadZipButton) downloadZipButton.disabled = !hasItem;
+    if (deleteFolderButton) {
+      deleteFolderButton.disabled = !hasItem || running;
+      deleteFolderButton.title = running
+        ? 'Stop the active recording before deleting this folder.'
+        : 'Delete the selected folder inside the PiSD recordings root.';
+    }
+  }
+
+  function updateSelectedFileDetails() {
+    const { kind, id, item } = selectedFileItem();
+    const state = !item ? 'empty' : (item.running ? 'running' : 'ready');
+    if (fileSummary) fileSummary.dataset.state = state;
+    if (fileSummaryName) fileSummaryName.textContent = folderDisplayName(item, kind);
+    if (fileSummaryFrames) fileSummaryFrames.textContent = item ? String(Number(item.frame_count || 0)) : '0';
+    if (fileSummarySize) fileSummarySize.textContent = item ? formatBytes(item.bytes) : '0 B';
+    if (fileSummaryModified) fileSummaryModified.textContent = item ? formatDateTime(item.modified_at_utc || item.started_at_utc) : 'n/a';
+    if (fileSummaryId) fileSummaryId.textContent = item ? shortPath(id || item.id) : 'n/a';
+    if (fileSummaryZip) fileSummaryZip.textContent = item ? shortPath(item.download_name || `PiSD_${kind}_${String(id || item.id).replaceAll('/', '_')}.zip`) : 'n/a';
+    setFileActionButtons(item);
+    return { kind, id, item };
   }
 
   function parseFrameAgeMs(lastFrameAt) {
@@ -556,12 +619,14 @@
     if (!fileSelect) return;
     const kind = fileKind?.value || 'recording';
     const list = kind === 'snapshot' ? recordingCollections.snapshots : recordingCollections.recordings;
+    const previous = fileSelect.value;
     fileSelect.innerHTML = '';
     if (!list.length) {
       const option = document.createElement('option');
       option.value = '';
       option.textContent = kind === 'snapshot' ? 'No snapshot folders' : 'No recording folders';
       fileSelect.appendChild(option);
+      updateSelectedFileDetails();
       showFilesNotice(kind === 'snapshot' ? 'No snapshot folders found.' : 'No recording folders found.');
       return;
     }
@@ -569,12 +634,13 @@
       const option = document.createElement('option');
       option.value = item.id;
       const count = Number(item.frame_count || 0);
-      const sizeKb = Math.round(Number(item.bytes || 0) / 1024);
-      option.textContent = `${item.date || ''}  ${item.label || item.id}  (${count} frames, ${sizeKb} KB)`;
+      const running = item.running ? ' ACTIVE' : '';
+      option.textContent = `${item.date || ''}  ${item.label || item.id}  (${count} frames, ${formatBytes(item.bytes)})${running}`;
       fileSelect.appendChild(option);
     }
-    const selected = selectedFileItem().item || list[0];
-    showFilesNotice(`Selected ${kind}: ${selected.id || selected.label || 'folder'}`);
+    if (previous && list.some(item => item.id === previous)) fileSelect.value = previous;
+    const selected = updateSelectedFileDetails();
+    showFilesNotice(`Selected ${kind}: ${selected.item?.id || selected.item?.label || 'folder'}`);
   }
 
   async function refreshRecordingItems() {
@@ -594,32 +660,42 @@
   }
 
   function downloadSelectedZip() {
-    const { kind, id } = selectedFileItem();
-    if (!id) {
+    const { kind, id, item } = updateSelectedFileDetails();
+    if (!id || !item) {
       showFilesNotice('Select a folder before downloading.', 'PISD-REC-008');
       return;
     }
     const url = `/api/recording/download.zip?kind=${encodeURIComponent(kind)}&id=${encodeURIComponent(id)}`;
-    showFilesNotice(`Preparing ${kind} zip: ${id}`, 'PISD-OK-000');
-    window.location.href = url;
+    const size = formatBytes(item.bytes);
+    showFilesNotice(`Preparing ${kind} zip: ${id} (${size}). Browser download should start shortly.`, 'PISD-OK-000');
+    window.location.assign(url);
   }
 
   async function deleteSelectedFolder() {
-    const { kind, id, item } = selectedFileItem();
-    if (!id) {
+    const { kind, id, item } = updateSelectedFileDetails();
+    if (!id || !item) {
       showFilesNotice('Select a folder before deleting.', 'PISD-REC-008');
       return;
     }
+    if (item.running) {
+      showFilesNotice('Stop the active recording before deleting its folder.', 'PISD-REC-009');
+      return;
+    }
     const label = item?.label || id;
-    const ok = window.confirm(`Delete ${kind} folder?\n\n${label}\n${id}\n\nThis cannot be undone.`);
+    const details = `${Number(item.frame_count || 0)} frames, ${formatBytes(item.bytes)}, modified ${formatDateTime(item.modified_at_utc)}`;
+    const ok = window.confirm(`Delete ${kind} folder?\n\n${label}\n${id}\n${details}\n\nOnly this selected PiSD recordings folder will be removed. This cannot be undone.`);
     if (!ok) return;
     try {
+      if (deleteFolderButton) deleteFolderButton.disabled = true;
+      showFilesNotice(`Deleting ${kind}: ${id}`, 'PISD-OK-000');
       const { payload } = await api('POST', '/api/recording/delete', { kind, id }, 'files');
-      showFilesNotice(payload.ok ? `Deleted ${kind}: ${id}` : `Delete failed: ${payload.code}`, payload.code);
+      showFilesNotice(payload.ok ? `Deleted ${kind}: ${id}` : `Delete failed: ${payload.code} ${payload.message || ''}`.trim(), payload.code);
       await refreshRecordingItems();
     } catch (err) {
       showFilesNotice(`Delete failed: ${String(err)}`, 'PISD-REC-009');
       writeLog('recording delete failed', { ok: false, code: 'PISD-REC-009', message: String(err) });
+    } finally {
+      updateSelectedFileDetails();
     }
   }
 
@@ -991,6 +1067,10 @@
     $('mdrvDownloadZip')?.addEventListener('click', downloadSelectedZip);
     $('mdrvDeleteFolder')?.addEventListener('click', deleteSelectedFolder);
     fileKind?.addEventListener('change', renderFileOptions);
+    fileSelect?.addEventListener('change', () => {
+      const selected = updateSelectedFileDetails();
+      if (selected.item) showFilesNotice(`Selected ${selected.kind}: ${selected.id}`);
+    });
     toggleLog?.addEventListener('click', () => {
       const hidden = logPanel?.hasAttribute('hidden');
       if (hidden) logPanel.removeAttribute('hidden'); else logPanel?.setAttribute('hidden', '');

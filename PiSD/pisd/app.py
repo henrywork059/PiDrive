@@ -552,7 +552,11 @@ def create_app(hardware_enabled: bool = False):
             return jsonify(report_payload(False, json_error)), 400
         try:
             result = recording_service.delete_collection(data.get("kind", ""), data.get("id", ""))
-            return jsonify(result), 200 if result.get("ok") else 404
+            if result.get("ok"):
+                return jsonify(result), 200
+            code = result.get("code")
+            status = 409 if code == PiSDErrorCodes.RECORDING_DELETE_FAILED else 404
+            return jsonify(result), status
         except Exception as exc:
             report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"Recording delete API failed: {exc}", exc=exc)
             return jsonify(report_payload(False, report)), 500

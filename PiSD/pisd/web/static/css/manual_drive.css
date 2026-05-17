@@ -122,6 +122,49 @@ body[data-pisd-card-accent="strong"] .mdrv-panel { border-top: 3px solid var(--m
 body[data-pisd-theme="light"] .mdrv-file-controls select { color: #0f172a; background: rgba(255,255,255,.88); }
 @media (max-width: 759px) { .mdrv-file-controls { grid-template-columns: 1fr; } }
 
+/* 0.4.10 recording/snapshot library summary and safer file actions. */
+.mdrv-file-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .36rem;
+  margin: .48rem 0 .12rem;
+}
+.mdrv-file-summary div {
+  min-width: 0;
+  border: 1px solid rgba(148, 163, 184, .20);
+  border-radius: 10px;
+  padding: .34rem .42rem;
+  background: rgba(15, 23, 42, .42);
+}
+.mdrv-file-summary .wide { grid-column: 1 / -1; }
+.mdrv-file-summary span {
+  display: block;
+  color: var(--mdrv-muted);
+  font-size: .66rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.mdrv-file-summary strong {
+  display: block;
+  margin-top: .12rem;
+  color: var(--mdrv-text);
+  font-size: .74rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mdrv-file-summary[data-state="running"] {
+  outline: 1px solid rgba(248, 113, 113, .52);
+  border-radius: 12px;
+}
+.mdrv-file-summary[data-state="empty"] strong { color: var(--mdrv-muted); }
+.mdrv-file-summary + .mdrv-row .mdrv-button:disabled {
+  cursor: not-allowed;
+  opacity: .45;
+}
+@media (max-width: 759px) { .mdrv-file-summary { grid-template-columns: 1fr; } }
+
 /* 0.4.6 Manual Drive preview predicted-arc overlay.
    The overlay now uses a sampled constant-curvature path: throttle changes the
    visible horizon length; steering changes curvature. It remains visual only and

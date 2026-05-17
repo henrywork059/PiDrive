@@ -172,6 +172,27 @@ def main() -> int:
         delete_details,
     ))
 
+    unsafe_delete = service.delete_collection("recording", ".")
+    root_still_exists = service.root_dir.exists()
+    unsafe_ok = unsafe_delete.get("code") == PiSDErrorCodes.RECORDING_ITEM_NOT_FOUND and root_still_exists
+    results.append(Result(
+        "recording.library_reject_root_delete",
+        bool(unsafe_ok),
+        PiSDErrorCodes.OK if unsafe_ok else PiSDErrorCodes.TEST_RECORDING_LIBRARY_FAILED,
+        "unsafe root-folder delete id was rejected" if unsafe_ok else "unsafe root-folder delete id was not safely rejected",
+        {"delete": unsafe_delete, "root_dir_exists": root_still_exists},
+    ))
+
+    mismatched_kind = service.build_collection_zip("recording", "single_captures")
+    mismatch_ok = mismatched_kind[0] is not None and mismatched_kind[0].get("code") == PiSDErrorCodes.RECORDING_ITEM_NOT_FOUND
+    results.append(Result(
+        "recording.library_reject_kind_mismatch",
+        bool(mismatch_ok),
+        PiSDErrorCodes.OK if mismatch_ok else PiSDErrorCodes.TEST_RECORDING_LIBRARY_FAILED,
+        "snapshot root cannot be requested through the recording kind" if mismatch_ok else "recording/snapshot kind mismatch was not rejected",
+        {"error": mismatched_kind[0]},
+    ))
+
     for result in results:
         emit(result)
     output = Path(args.output)

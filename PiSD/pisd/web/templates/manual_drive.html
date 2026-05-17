@@ -163,12 +163,20 @@
           <select id="mdrvFileSelect"><option value="">No folders loaded</option></select>
         </label>
       </div>
+      <div id="mdrvFileSummary" class="mdrv-file-summary" data-state="empty" aria-live="polite">
+        <div><span>Name</span><strong id="mdrvFileSummaryName">No folder selected</strong></div>
+        <div><span>Frames</span><strong id="mdrvFileSummaryFrames">0</strong></div>
+        <div><span>Size</span><strong id="mdrvFileSummarySize">0 B</strong></div>
+        <div><span>Modified</span><strong id="mdrvFileSummaryModified">n/a</strong></div>
+        <div class="wide"><span>Folder id</span><strong id="mdrvFileSummaryId">n/a</strong></div>
+        <div class="wide"><span>Zip name</span><strong id="mdrvFileSummaryZip">n/a</strong></div>
+      </div>
       <div class="mdrv-row mdrv-compact-actions">
         <button id="mdrvRefreshFiles" class="mdrv-button">Refresh list</button>
         <button id="mdrvDownloadZip" class="mdrv-button mdrv-primary">Download zip</button>
         <button id="mdrvDeleteFolder" class="mdrv-button mdrv-danger">Delete selected</button>
       </div>
-      <p id="mdrvFilesNotice" class="mdrv-help">Select a recording session or a snapshot day folder to download or delete.</p>
+      <p id="mdrvFilesNotice" class="mdrv-help">Select a recording session or snapshot day folder. The summary shows the exact folder id that will be zipped or deleted.</p>
     </section>
 
     <section class="mdrv-panel mdrv-log-panel" id="manualDriveLogPanel" data-panel-role="log" data-panel-h-weight="3" data-panel-v-weight="1" hidden>

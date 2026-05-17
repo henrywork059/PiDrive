@@ -141,6 +141,12 @@ def check_source_contract() -> list[Result]:
         "manualDriveFilesPanel",
         "mdrvFileKind",
         "mdrvFileSelect",
+        "mdrvFileSummary",
+        "mdrvFileSummaryName",
+        "mdrvFileSummaryFrames",
+        "mdrvFileSummarySize",
+        "mdrvFileSummaryModified",
+        "mdrvFileSummaryZip",
         "mdrvDownloadZip",
         "mdrvDeleteFolder",
         "manualDriveInitialStatus",
@@ -201,6 +207,10 @@ def check_source_contract() -> list[Result]:
         "PISD-MOT-008",
         "showCaptureNotice",
         "updateRecordingIndicator",
+        "formatBytes",
+        "updateSelectedFileDetails",
+        "setFileActionButtons",
+        "window.location.assign",
         "updateLock",
         "pointerdown",
         "pointermove",
@@ -317,6 +327,19 @@ def check_source_contract() -> list[Result]:
         preview_reliability_ok,
         PiSDErrorCodes.OK if preview_reliability_ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
         "Manual Drive preview starts idle, has one guarded FPS/stale metrics loop, and shows camera/frame-age/live-loop debug values" if preview_reliability_ok else "Manual Drive preview reliability/stale debug contract is missing",
+        {},
+    ))
+
+    file_library_ok = (
+        all(token in template for token in ("mdrvFileSummary", "mdrvFileSummaryName", "mdrvFileSummaryFrames", "mdrvFileSummarySize", "mdrvFileSummaryModified", "mdrvFileSummaryZip"))
+        and all(token in css for token in (".mdrv-file-summary", 'data-state="running"', "mdrv-file-summary + .mdrv-row .mdrv-button:disabled"))
+        and all(token in js for token in ("formatBytes", "updateSelectedFileDetails", "setFileActionButtons", "window.location.assign", "Stop the active recording before deleting"))
+    )
+    results.append(Result(
+        "manual_drive.recording_file_management",
+        file_library_ok,
+        PiSDErrorCodes.OK if file_library_ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
+        "recording/snapshot file panel shows selected-folder details and safe download/delete button states" if file_library_ok else "recording/snapshot file-management UI contract is missing",
         {},
     ))
 

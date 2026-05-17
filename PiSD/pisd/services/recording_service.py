@@ -362,7 +362,8 @@ class RecordingService:
                 context={"kind": str(kind), "id": str(collection_id)},
             )
             return self.root_dir, raw_id, safe_kind, report
-        if raw_id.startswith("/") or ".." in Path(raw_id).parts:
+        raw_parts = Path(raw_id).parts
+        if raw_id in {".", "./"} or raw_id.startswith("/") or ".." in raw_parts:
             report = self._record_error(
                 PiSDErrorCodes.RECORDING_ITEM_NOT_FOUND,
                 "Recording item id was not a safe relative folder path.",
@@ -370,16 +371,33 @@ class RecordingService:
                 context={"kind": safe_kind, "id": raw_id},
             )
             return self.root_dir, raw_id, safe_kind, report
-        if safe_kind == "snapshot" and not raw_id.startswith("single_captures/"):
-            raw_id = f"single_captures/{raw_id}"
+        if safe_kind == "snapshot":
+            if not raw_id.startswith("single_captures/"):
+                raw_id = f"single_captures/{raw_id}"
+        elif raw_id == "single_captures" or raw_id.startswith("single_captures/"):
+            report = self._record_error(
+                PiSDErrorCodes.RECORDING_ITEM_NOT_FOUND,
+                "Snapshot folders must be requested with kind=snapshot, not kind=recording.",
+                severity="warning",
+                context={"kind": safe_kind, "id": raw_id},
+            )
+            return self.root_dir, raw_id, safe_kind, report
         path = (self.root_dir / raw_id).resolve()
         root = self.root_dir.resolve()
         try:
-            path.relative_to(root)
+            relative_path = path.relative_to(root)
         except ValueError:
             report = self._record_error(
                 PiSDErrorCodes.RECORDING_ITEM_NOT_FOUND,
                 "Recording item path escaped the recordings folder.",
+                severity="warning",
+                context={"kind": safe_kind, "id": raw_id},
+            )
+            return path, raw_id, safe_kind, report
+        if path == root or str(relative_path) in {".", ""}:
+            report = self._record_error(
+                PiSDErrorCodes.RECORDING_ITEM_NOT_FOUND,
+                "Recording item id resolved to the recordings root and was blocked.",
                 severity="warning",
                 context={"kind": safe_kind, "id": raw_id},
             )
@@ -422,6 +440,7 @@ class RecordingService:
                 running = bool(manifest.get("running", False))
             except Exception:
                 pass
+        safe_name = f"PiSD_{kind}_{relative_id.replace('/', '_')}.zip"
         return {
             "kind": kind,
             "id": relative_id,
@@ -436,6 +455,8 @@ class RecordingService:
             "modified_at_utc": datetime.fromtimestamp(latest_mtime, timezone.utc).isoformat(),
             "started_at_utc": started_at,
             "running": running,
+            "download_name": safe_name,
+            "can_delete": not running,
         }
 
     def close(self) -> None:
