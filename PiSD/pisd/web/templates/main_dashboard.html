@@ -50,7 +50,10 @@
           <p class="md-panel-label">Camera Preview</p>
           <h2>Live frame</h2>
         </div>
-        <span class="md-panel-code" data-code-for="camera-preview">PISD-OK-000</span>
+        <div class="md-panel-head-actions">
+          <button id="mdOverlayToggle" class="md-button md-button-secondary md-overlay-toggle-button" aria-pressed="true" title="Toggle the throttle/steering intended-path overlay on the preview frame.">Overlay: On</button>
+          <span class="md-panel-code" data-code-for="camera-preview">PISD-OK-000</span>
+        </div>
       </div>
       <div id="mdPreviewFrame" class="md-preview-frame md-overlay-enabled">
         <img id="mdCameraPreview" src="/api/camera/frame.jpg" data-mode="snapshot" alt="PiSD camera preview">
@@ -93,9 +96,8 @@
         <button id="mdCameraStart" class="md-button md-button-primary" title="Starts the camera service, then switches the preview image to the live stream.">Start camera + live</button>
         <button id="mdCameraStop" class="md-button md-button-secondary" title="Stops the camera service only. It does not stop motor output; use the red STOP buttons for motors.">Stop camera only</button>
         <button id="mdCameraRefresh" class="md-button md-button-secondary" title="Switches/reloads the preview image to the live MJPEG stream. It does not start motors.">Show live stream</button>
-        <button id="mdOverlayToggle" class="md-button md-button-secondary" aria-pressed="true">Overlay on</button>
       </div>
-      <p class="md-help">Preview controls are separated: <strong>Start camera + live</strong> starts the camera service and shows the stream, <strong>Show live stream</strong> only reloads the live preview, <strong>Stop camera only</strong> stops the camera service, and the red <strong>STOP</strong> buttons stop motor output. The overlay draws the intended path from the current throttle and steering values.</p>
+      <p class="md-help">Preview controls are separated: <strong>Start camera + live</strong> starts the camera service and shows the stream, <strong>Show live stream</strong> only reloads the live preview, <strong>Stop camera only</strong> stops the camera service, and the red <strong>STOP</strong> buttons stop motor output. Use <strong>Overlay: On/Off</strong> in the Camera Preview header to show or hide the intended path drawn from the current throttle and steering values.</p>
     </section>
 
     <section class="md-panel md-panel-manual" id="panel-manual-drive" data-panel="manual-drive" data-panel-role="drive">

@@ -113,8 +113,9 @@ function updateDriveOverlay(source = {}) {
 function setOverlayEnabled(enabled) {
   if (!previewFrame || !overlayToggle) return;
   previewFrame.classList.toggle('md-overlay-enabled', enabled);
-  overlayToggle.textContent = enabled ? 'Overlay on' : 'Overlay off';
+  overlayToggle.textContent = enabled ? 'Overlay: On' : 'Overlay: Off';
   overlayToggle.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+  overlayToggle.dataset.state = enabled ? 'on' : 'off';
 }
 
 function logAction(label, payload, httpStatus = '') {

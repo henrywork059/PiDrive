@@ -157,6 +157,27 @@ code { color: #bae6fd; }
   letter-spacing: -0.02em;
 }
 
+.md-panel-head-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.md-overlay-toggle-button {
+  border-color: rgba(56, 189, 248, 0.75);
+  background: rgba(14, 165, 233, 0.22);
+  color: #e0f2fe;
+  font-weight: 800;
+}
+
+.md-overlay-toggle-button[data-state="off"] {
+  border-color: rgba(148, 163, 184, 0.42);
+  background: rgba(30, 41, 59, 0.82);
+  color: #cbd5e1;
+}
+
 .md-panel-status { grid-column: span 5; }
 .md-panel-preview { grid-column: span 7; }
 .md-panel-manual { grid-column: span 4; }
