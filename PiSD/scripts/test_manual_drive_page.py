@@ -106,6 +106,11 @@ def check_source_contract() -> list[Result]:
         "mdrvOverlayThrottleValue",
         "mdrvOverlaySteeringValue",
         "mdrvOverlayPathSvg",
+        "mdrvOverlayPathWide",
+        "mdrvOverlayEndpoint",
+        "mdrvOverlayCurveLabel",
+        "Predicted arc",
+        "sampled predicted arc",
         "mdrvArm",
         "mdrvStopBig",
         "mdrvCaptureFrame",
@@ -128,7 +133,7 @@ def check_source_contract() -> list[Result]:
         'data-panel-role="preview"',
         "data-panel-h-weight",
     ]
-    required_css = [".mdrv-shell", ".mdrv-panel", ".mdrv-status-panel", ".mdrv-preview-frame", ".mdrv-drag-pad", ".mdrv-big-stop", ".mdrv-drag-knob", "width: 28px", ".mdrv-recording-indicator", ".mdrv-capture-notice", ".mdrv-overlay-toggle", ".mdrv-drive-overlay", ".mdrv-overlay-path", "marker-end: url(#mdrvOverlayArrow)", "@media (max-width: 1100px)"]
+    required_css = [".mdrv-shell", ".mdrv-panel", ".mdrv-status-panel", ".mdrv-preview-frame", ".mdrv-drag-pad", ".mdrv-big-stop", ".mdrv-drag-knob", "width: 28px", ".mdrv-recording-indicator", ".mdrv-capture-notice", ".mdrv-overlay-toggle", ".mdrv-drive-overlay", ".mdrv-overlay-path", ".mdrv-overlay-path-wide", ".mdrv-overlay-endpoint", "constant-curvature", "marker-end: url(#mdrvOverlayArrow)", "@media (max-width: 1100px)"]
     required_unified_css = [
         "PiSD 0.3.3 manual-drive semantic layout recovery",
         "body.manual-drive-page .mdrv-shell",
@@ -187,6 +192,9 @@ def check_source_contract() -> list[Result]:
         "renderMotorSignalsFromApiResponse",
         "updateDriveOverlay",
         "drawIntendedPath",
+        "sampledIntendedPath",
+        "pointsToPath",
+        "curveLabelText",
         "setOverlayEnabled",
         "mdrvOverlayToggle",
         "mdrvIntentOut",
@@ -206,7 +214,7 @@ def check_source_contract() -> list[Result]:
         "manual_drive.source_contract",
         ok,
         PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
-        "manual drive page contains camera preview, manual-page overlay toggle/path visualisation, compact status, current intent/output signals, smaller drag knob, locked drag pad, STOP, capture/recording indicators, persistence, API calls, and the recovered semantic layout" if ok else "manual drive source contract failed",
+        "manual drive page contains camera preview, manual-page overlay toggle/sampled predicted-arc visualisation, compact status, current intent/output signals, smaller drag knob, locked drag pad, STOP, capture/recording indicators, persistence, API calls, and the recovered semantic layout" if ok else "manual drive source contract failed",
         {"missing": missing},
     )]
     status_index = template.find("manualDriveStatusPanel")

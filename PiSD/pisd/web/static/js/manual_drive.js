@@ -34,6 +34,10 @@
   const overlayMode = $('mdrvOverlayMode');
   const overlayCar = $('mdrvOverlayCar');
   const overlayPath = $('mdrvOverlayPath');
+  const overlayPathWide = $('mdrvOverlayPathWide');
+  const overlayPathGuide = $('mdrvOverlayPathGuide');
+  const overlayEndpoint = $('mdrvOverlayEndpoint');
+  const overlayCurveLabel = $('mdrvOverlayCurveLabel');
   const overlayThrottleFill = $('mdrvOverlayThrottleFill');
   const overlaySteeringFill = $('mdrvOverlaySteeringFill');
   const overlayThrottleValue = $('mdrvOverlayThrottleValue');
@@ -126,26 +130,84 @@
     return `${direction} ${steering < 0 ? 'LEFT' : 'RIGHT'}`;
   }
 
+  function curveLabelText(throttle, steering) {
+    const throttleAbs = Math.abs(throttle);
+    const steeringAbs = Math.abs(steering);
+    if (throttleAbs < 0.02 && steeringAbs < 0.02) return 'hold';
+    if (steeringAbs < 0.06) return 'straight';
+    const tightness = steeringAbs > 0.72 ? 'tight' : steeringAbs > 0.38 ? 'medium' : 'gentle';
+    const turn = steering < 0 ? 'left' : 'right';
+    return `${tightness} ${turn}`;
+  }
+
+  function pointsToPath(points) {
+    if (!Array.isArray(points) || !points.length) return '';
+    return points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join(' ');
+  }
+
+  function sampledIntendedPath(throttle, steering) {
+    const safeThrottle = clamp(throttle, -1, 1, 0);
+    const safeSteering = clamp(steering, -1, 1, 0);
+    const speed = Math.abs(safeThrottle);
+    const movingReverse = safeThrottle < -0.02;
+    const startX = 50;
+    const startY = movingReverse ? 68 : 88;
+    const samples = 34;
+    const horizon = movingReverse ? (14 + speed * 30) : (22 + speed * 62);
+
+    // 0.4.6: draw a sampled constant-curvature path rather than a single
+    // quadratic curve. This is a screen-space bicycle/Ackermann approximation:
+    // throttle controls horizon length; steering controls curvature. Reverse is
+    // mirrored so the driver sees where the car will back toward.
+    const visualWheelbase = 34;
+    const maxSteerRad = 0.72;
+    const visualSteering = movingReverse ? -safeSteering : safeSteering;
+    const curvature = Math.tan(visualSteering * maxSteerRad) / visualWheelbase;
+    const signedDistance = movingReverse ? -horizon : horizon;
+    const points = [];
+    for (let i = 0; i <= samples; i += 1) {
+      const s = signedDistance * (i / samples);
+      let lateral = 0;
+      let longitudinal = s;
+      if (Math.abs(curvature) > 0.0008) {
+        lateral = (1 - Math.cos(curvature * s)) / curvature;
+        longitudinal = Math.sin(curvature * s) / curvature;
+      }
+      points.push({ x: startX + lateral, y: startY - longitudinal });
+    }
+    return { points, curvature, movingReverse, speed };
+  }
+
   function drawIntendedPath(throttle, steering) {
     if (!overlayPath) return;
     const safeThrottle = clamp(throttle, -1, 1, 0);
     const safeSteering = clamp(steering, -1, 1, 0);
-    const speed = Math.abs(safeThrottle);
     const steeringAbs = Math.abs(safeSteering);
-    const moving = speed >= 0.02;
-    const isReverse = safeThrottle < -0.02;
-    const travel = 28 + (speed * 48);
-    const startX = 50;
-    const startY = isReverse ? 73 : 86;
-    const endY = isReverse ? Math.min(98, startY + travel * 0.42) : Math.max(10, startY - travel);
-    const reverseSteerFactor = isReverse ? -1 : 1;
-    const controlX = 50 + (safeSteering * reverseSteerFactor * (22 + steeringAbs * 34));
-    const endX = 50 + (safeSteering * reverseSteerFactor * (12 + steeringAbs * 30));
-    const controlY = isReverse ? (startY + endY) / 2 + 8 : (startY + endY) / 2 - 10;
-    overlayPath.setAttribute('d', `M ${startX.toFixed(1)} ${startY.toFixed(1)} Q ${controlX.toFixed(1)} ${controlY.toFixed(1)} ${endX.toFixed(1)} ${endY.toFixed(1)}`);
-    overlayPath.style.opacity = moving || steeringAbs >= 0.02 ? '0.86' : '0.28';
-    overlayPath.style.strokeWidth = String(2.2 + speed * 3.8);
-    overlayPath.style.strokeDasharray = isReverse ? '5 4' : 'none';
+    const moving = Math.abs(safeThrottle) >= 0.02;
+    const { points, curvature, movingReverse, speed } = sampledIntendedPath(safeThrottle, safeSteering);
+    const pathD = pointsToPath(points);
+    const end = points[points.length - 1] || { x: 50, y: 88 };
+    const opacity = moving || steeringAbs >= 0.02 ? '0.92' : '0.28';
+    const strokeWidth = String(2.4 + speed * 3.2);
+    for (const pathElement of [overlayPathWide, overlayPathGuide, overlayPath]) {
+      if (!pathElement) continue;
+      pathElement.setAttribute('d', pathD);
+      pathElement.style.opacity = opacity;
+      pathElement.style.strokeDasharray = movingReverse ? '7 5' : 'none';
+    }
+    overlayPath.style.strokeWidth = strokeWidth;
+    if (overlayEndpoint) {
+      overlayEndpoint.setAttribute('cx', end.x.toFixed(2));
+      overlayEndpoint.setAttribute('cy', end.y.toFixed(2));
+      overlayEndpoint.style.opacity = opacity;
+    }
+    if (overlayCurveLabel) {
+      const curve = Math.abs(curvature) < 0.001 ? 'straight' : `curve ${Math.abs(curvature).toFixed(3)}`;
+      overlayCurveLabel.textContent = `${curveLabelText(safeThrottle, safeSteering)} · ${curve}`;
+    }
+    if (previewFrame) {
+      previewFrame.dataset.overlayMotion = moving ? (movingReverse ? 'reverse' : 'forward') : 'stopped';
+    }
   }
 
   function updateDriveOverlay(command = lastPayload, output = lastMotorOutput) {

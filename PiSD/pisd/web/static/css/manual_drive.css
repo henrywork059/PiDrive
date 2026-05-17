@@ -122,24 +122,27 @@ body[data-pisd-card-accent="strong"] .mdrv-panel { border-top: 3px solid var(--m
 body[data-pisd-theme="light"] .mdrv-file-controls select { color: #0f172a; background: rgba(255,255,255,.88); }
 @media (max-width: 759px) { .mdrv-file-controls { grid-template-columns: 1fr; } }
 
-/* 0.4.5 Manual Drive preview intended-path overlay.
-   This is deliberately on the Manual Drive page, not only the main dashboard,
-   because /manual-drive is the page used during real driving tests. */
+/* 0.4.6 Manual Drive preview predicted-arc overlay.
+   The overlay now uses a sampled constant-curvature path: throttle changes the
+   visible horizon length; steering changes curvature. It remains visual only and
+   does not change motor output. */
 .mdrv-preview-frame {
   position: relative;
 }
 
 .mdrv-overlay-toggle {
-  border-color: rgba(56, 189, 248, .64);
-  background: rgba(14, 116, 144, .52);
+  border-color: rgba(56, 189, 248, .70);
+  background: rgba(14, 116, 144, .58);
   color: #e0f2fe;
   min-height: 30px;
+  box-shadow: 0 0 0 1px rgba(56, 189, 248, .16), 0 8px 20px rgba(14, 116, 144, .22);
 }
 
 .mdrv-overlay-toggle[data-state="off"] {
   border-color: rgba(148, 163, 184, .38);
   background: rgba(15, 23, 42, .62);
   color: var(--mdrv-muted);
+  box-shadow: none;
 }
 
 .mdrv-drive-overlay {
@@ -160,7 +163,7 @@ body[data-pisd-theme="light"] .mdrv-file-controls select { color: #0f172a; backg
   position: absolute;
   border: 1px solid rgba(226, 232, 240, .28);
   border-radius: 999px;
-  background: rgba(2, 6, 23, .66);
+  background: rgba(2, 6, 23, .68);
   color: #e0f2fe;
   box-shadow: 0 10px 28px rgba(0, 0, 0, .28);
   backdrop-filter: blur(8px);
@@ -173,6 +176,7 @@ body[data-pisd-theme="light"] .mdrv-file-controls select { color: #0f172a; backg
   align-items: center;
   gap: .5rem;
   padding: .34rem .6rem;
+  max-width: min(72%, 520px);
 }
 
 .mdrv-overlay-hud span,
@@ -185,23 +189,47 @@ body[data-pisd-theme="light"] .mdrv-file-controls select { color: #0f172a; backg
   color: #ffffff;
 }
 
+.mdrv-overlay-hud em {
+  font-style: normal;
+  color: rgba(226, 232, 240, .84);
+  font-size: .72em;
+  white-space: nowrap;
+}
+
 .mdrv-overlay-road {
   position: absolute;
   left: 50%;
-  top: 17%;
-  width: min(52%, 420px);
-  height: 68%;
+  top: 13%;
+  width: min(60%, 500px);
+  height: 73%;
   transform: translateX(-50%);
-  border-left: 1px dashed rgba(226, 232, 240, .24);
-  border-right: 1px dashed rgba(226, 232, 240, .24);
+  border-left: 1px dashed rgba(226, 232, 240, .22);
+  border-right: 1px dashed rgba(226, 232, 240, .22);
+  background:
+    linear-gradient(90deg, transparent 0 18%, rgba(148, 163, 184, .08) 18% 19%, transparent 19% 81%, rgba(148, 163, 184, .08) 81% 82%, transparent 82% 100%),
+    repeating-linear-gradient(180deg, transparent 0 14px, rgba(226, 232, 240, .07) 15px 16px, transparent 17px 31px);
+  border-radius: 30% 30% 12% 12% / 8% 8% 12% 12%;
 }
+
+.mdrv-overlay-road::before,
+.mdrv-overlay-road::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: linear-gradient(180deg, rgba(226,232,240,.06), rgba(226,232,240,.34), rgba(226,232,240,.08));
+}
+
+.mdrv-overlay-road::before { left: 32%; }
+.mdrv-overlay-road::after { right: 32%; }
 
 .mdrv-overlay-center-line {
   position: absolute;
   left: 50%;
   top: 0;
   bottom: 0;
-  border-left: 2px dashed rgba(251, 191, 36, .46);
+  border-left: 2px dashed rgba(251, 191, 36, .48);
   transform: translateX(-50%);
 }
 
@@ -213,18 +241,65 @@ body[data-pisd-theme="light"] .mdrv-file-controls select { color: #0f172a; backg
   overflow: visible;
 }
 
-.mdrv-overlay-path-svg marker path { fill: rgba(56, 189, 248, .92); }
+.mdrv-overlay-path-svg marker path { fill: rgba(56, 189, 248, .95); }
 
+.mdrv-overlay-path-wide,
+.mdrv-overlay-path-guide,
 .mdrv-overlay-path {
   fill: none;
-  stroke: rgba(56, 189, 248, .84);
-  stroke-width: 3.5;
   stroke-linecap: round;
-  stroke-dasharray: none;
+  stroke-linejoin: round;
+  transition: opacity 120ms ease, stroke-width 120ms ease, stroke-dasharray 120ms ease;
+}
+
+.mdrv-overlay-path-wide {
+  stroke: rgba(15, 23, 42, .68);
+  stroke-width: 10;
+  opacity: .34;
+}
+
+.mdrv-overlay-path-guide {
+  stroke: rgba(255, 255, 255, .66);
+  stroke-width: 6.2;
+  opacity: .38;
+}
+
+.mdrv-overlay-path {
+  stroke: rgba(56, 189, 248, .94);
+  stroke-width: 4.2;
   marker-end: url(#mdrvOverlayArrow);
-  filter: drop-shadow(0 0 7px rgba(56, 189, 248, .62));
-  opacity: .82;
-  transition: opacity 120ms ease, stroke-width 120ms ease;
+  filter: drop-shadow(0 0 8px rgba(56, 189, 248, .68));
+  opacity: .92;
+}
+
+.mdrv-overlay-start-point,
+.mdrv-overlay-endpoint {
+  fill: rgba(255, 255, 255, .92);
+  stroke: rgba(14, 165, 233, .96);
+  stroke-width: 1.2;
+  filter: drop-shadow(0 0 6px rgba(56, 189, 248, .65));
+}
+
+.mdrv-overlay-endpoint {
+  fill: rgba(34, 197, 94, .95);
+  r: 2.9;
+}
+
+.mdrv-preview-frame[data-overlay-motion="reverse"] .mdrv-overlay-path,
+.mdrv-preview-frame[data-overlay-motion="reverse"] .mdrv-overlay-path-svg marker path {
+  stroke: rgba(251, 191, 36, .95);
+  fill: rgba(251, 191, 36, .95);
+}
+
+.mdrv-preview-frame[data-overlay-motion="reverse"] .mdrv-overlay-endpoint {
+  fill: rgba(251, 191, 36, .95);
+  stroke: rgba(255, 255, 255, .9);
+}
+
+.mdrv-preview-frame[data-overlay-motion="stopped"] .mdrv-overlay-path,
+.mdrv-preview-frame[data-overlay-motion="stopped"] .mdrv-overlay-path-guide,
+.mdrv-preview-frame[data-overlay-motion="stopped"] .mdrv-overlay-path-wide {
+  opacity: .24 !important;
 }
 
 .mdrv-overlay-car {
@@ -301,7 +376,9 @@ body[data-pisd-theme="light"] .mdrv-file-controls select { color: #0f172a; backg
 }
 
 @media (max-width: 759px) {
+  .mdrv-overlay-road { top: 12%; width: min(70%, 430px); height: 70%; }
   .mdrv-overlay-meter { grid-template-columns: 64px 1fr 48px; left: .45rem; right: .45rem; }
-  .mdrv-overlay-hud { left: .45rem; top: .45rem; }
-  .mdrv-overlay-wheel-row { right: .45rem; top: .45rem; }
+  .mdrv-overlay-hud { left: .45rem; top: .45rem; max-width: calc(100% - .9rem); }
+  .mdrv-overlay-hud em { display: none; }
+  .mdrv-overlay-wheel-row { right: .45rem; top: 2.95rem; }
 }
