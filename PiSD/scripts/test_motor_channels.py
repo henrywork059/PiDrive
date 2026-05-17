@@ -16,7 +16,8 @@ import json
 import sys
 import time
 from pathlib import Path
-from typing import Iterable
+# PiSD_0_4_1 cleanup: Iterable was left over from an earlier CLI batching draft and is not used.
+# from typing import Iterable
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:

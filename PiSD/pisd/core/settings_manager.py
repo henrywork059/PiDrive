@@ -6,7 +6,11 @@ from pathlib import Path
 from threading import RLock
 from typing import Any
 
-from pisd.core.errors import ErrorReporter, PiSDErrorCodes, ok_payload, report_payload
+from pisd.core.errors import ErrorReporter, PiSDErrorCodes
+# PiSD_0_4_1 cleanup: ok_payload/report_payload were imported here by an older settings API draft,
+# but SettingsManager does not build HTTP payloads directly. Keep them unused/commented out rather
+# than deleting the history of that planned path.
+# from pisd.core.errors import ok_payload, report_payload
 from pisd.core.presentation_registry import PRESENTATION_DEFAULTS
 
 DEFAULT_RUNTIME_SETTINGS: dict[str, Any] = {

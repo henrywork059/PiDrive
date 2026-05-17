@@ -7,7 +7,9 @@ import sys
 import tempfile
 from pathlib import Path
 from urllib import request as urlrequest
-from urllib.error import HTTPError, URLError
+from urllib.error import HTTPError
+# PiSD_0_4_1 cleanup: URLError was imported by an earlier network-check draft but is not referenced.
+# from urllib.error import URLError
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:

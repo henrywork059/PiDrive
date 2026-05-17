@@ -73,10 +73,14 @@ async function refreshStatus() {
   }
 }
 
-function refreshFrame() {
-  cameraPreview.dataset.mode = 'snapshot';
-  cameraPreview.src = `/api/camera/frame.jpg?t=${Date.now()}`;
-}
+// PiSD_0_4_1 cleanup:
+// The old dashboard snapshot-refresh helper is intentionally kept commented out
+// because the current dashboard preview uses the MJPEG live stream path only.
+// Re-enable this only if a future dashboard snapshot-mode button is restored.
+// function refreshFrame() {
+//   cameraPreview.dataset.mode = 'snapshot';
+//   cameraPreview.src = `/api/camera/frame.jpg?t=${Date.now()}`;
+// }
 
 function startLivePreview() {
   cameraPreview.dataset.mode = 'mjpeg';

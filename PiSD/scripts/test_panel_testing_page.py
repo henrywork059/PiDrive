@@ -20,7 +20,8 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from pisd.app import create_app  # noqa: E402
 from pisd.core.errors import PiSDErrorCodes  # noqa: E402
-from pisd.core.panel_contracts import get_panel_contracts  # noqa: E402
+# PiSD_0_4_1 cleanup: direct get_panel_contracts import is not used by this static page test.
+# from pisd.core.panel_contracts import get_panel_contracts  # noqa: E402
 
 WEB_ROOT = PROJECT_ROOT / "pisd" / "web"
 WEB_TEMPLATE = WEB_ROOT / "templates" / "panel_testing.html"
