@@ -5,7 +5,7 @@
   const initialStatus = JSON.parse($('manualDriveInitialStatus')?.textContent || '{}');
   const LEGACY_STORAGE_KEY = 'pisd.manualDrive.v1';
   const SETTINGS_STORAGE_KEY = 'pisd.runtimeSettings.v2';
-  const DEFAULTS = { speed: 0.18, max_speed_limit: 1.0, steer_strength: 0.35, drag_send_interval_ms: 90, recording_fps: 6 };
+  const DEFAULTS = { speed: 0.18, max_speed_limit: 1.0, steer_strength: 1.0, drag_send_interval_ms: 90, recording_fps: 6 };
   const globalCode = $('mdrvGlobalCode');
   const preview = $('mdrvPreview');
   const log = $('mdrvLog');
@@ -32,6 +32,7 @@
   let lastPayload = { steering: 0, throttle: 0, steer_mix: 1.0 };
   let recordingRunning = Boolean(initialStatus.recording?.running);
   let recordingCollections = { recordings: [], snapshots: [] };
+  let currentPreviewMode = "snapshot";
 
   function isOk(code) { return String(code || '').startsWith('PISD-OK'); }
   function clamp(value, min, max, fallback = 0) {
@@ -56,11 +57,21 @@
     return `...${text.slice(-69)}`;
   }
 
+  function setShortStatus(message, code = 'PISD-OK-000') {
+    const short = $('mdrvShortStatus');
+    if (short) {
+      short.textContent = message;
+      short.dataset.state = isOk(code) ? 'ok' : 'error';
+    }
+    setGlobalCode(code);
+  }
+
   function showCaptureNotice(message, code = 'PISD-OK-000') {
     if (!captureNotice) return;
     captureNotice.textContent = message;
     captureNotice.dataset.state = isOk(code) ? 'ok' : 'error';
     captureNotice.classList.add('is-visible');
+    setShortStatus(message, code);
   }
 
   function showFilesNotice(message, code = 'PISD-OK-000') {
@@ -185,12 +196,16 @@
     const legacy = readLegacyPrefs();
     const serverManual = settings.manual_drive || {};
     const limit = clamp(serverManual.max_speed_limit || DEFAULTS.max_speed_limit, 0.1, 1.0, DEFAULTS.max_speed_limit);
+    const legacySteer = Number(legacy.steer);
+    const steerCandidate = (Number.isFinite(legacySteer) && legacySteer !== 0.9)
+      ? legacySteer
+      : (serverManual.steer_strength ?? DEFAULTS.steer_strength);
     const manual = {
       ...DEFAULTS,
       ...serverManual,
       max_speed_limit: limit,
       speed: clamp(legacy.speed || serverManual.speed || DEFAULTS.speed, 0.0, limit, DEFAULTS.speed),
-      steer_strength: clamp(legacy.steer || serverManual.steer_strength || DEFAULTS.steer_strength, 0.0, 1.0, DEFAULTS.steer_strength),
+      steer_strength: clamp(steerCandidate, 0.0, 1.0, DEFAULTS.steer_strength),
     };
     if (speed) { speed.max = String(manual.max_speed_limit); speed.value = manual.speed; }
     if (steer) steer.value = manual.steer_strength;
@@ -219,8 +234,7 @@
     setGlobalCode(code);
     setCode('log', code);
     if (log) log.textContent = JSON.stringify({ action, http_status: httpStatus, response: payload }, null, 2);
-    const short = $('mdrvShortStatus');
-    if (short) short.textContent = `${action}: ${code} ${payload?.message || ''}`.trim();
+    setShortStatus(`${action}: ${code} ${payload?.message || ''}`.trim(), code);
   }
 
   async function api(method, path, body, codeTarget = 'log') {
@@ -255,10 +269,15 @@
     setGlobalCode(status.code || 'PISD-OK-000');
   }
 
-  async function refreshStatus() {
+  async function refreshStatus(userVisible = false) {
     try {
       const { payload } = await api('GET', '/api/status', undefined, 'status');
       renderStatus(payload);
+      if (userVisible) {
+        if (currentPreviewMode === 'snapshot') snapshotView();
+        setShortStatus(`Status refreshed: ${payload?.code || 'PISD-OK-000'}`, payload?.code || 'PISD-OK-000');
+        await refreshRecordingItems();
+      }
     } catch (err) {
       writeLog('refresh status failed', { ok: false, code: 'PISD-API-002', message: String(err) });
     }
@@ -267,6 +286,7 @@
   function updateSliderLabels() {
     const limit = maxSpeedLimit();
     if (speed) { speed.max = String(limit); if (Number(speed.value) > limit) speed.value = String(limit); }
+    if (steer) { steer.max = '1.0'; if (Number(steer.value) > 1) steer.value = '1.0'; }
     if (speedOut) speedOut.textContent = currentSpeed().toFixed(2);
     if (steerOut) steerOut.textContent = currentSteer().toFixed(2);
   }
@@ -324,16 +344,49 @@
 
   async function stopAll(target = 'stop') {
     setKnob(0, 0);
+    lastPayload = { steering: 0, throttle: 0, steer_mix: 1.0 };
     try {
-      await api('POST', '/api/control/stop', {}, target);
+      const { payload } = await api('POST', '/api/control/stop', {}, target);
+      setShortStatus(`STOP sent: ${payload?.code || 'PISD-OK-000'} ${payload?.message || ''}`.trim(), payload?.code || 'PISD-OK-000');
       await refreshStatus();
     } catch (err) {
       writeLog('STOP failed', { ok: false, code: 'PISD-API-002', message: String(err) });
     }
   }
 
-  function livePreview() { if (preview) preview.src = `/video_feed?t=${Date.now()}`; }
-  function snapshotView() { if (preview) preview.src = `/api/camera/frame.jpg?t=${Date.now()}`; }
+  function livePreview() {
+    currentPreviewMode = 'live';
+    if (preview) preview.src = `/video_feed?t=${Date.now()}`;
+    setShortStatus('Live MJPEG preview selected.', 'PISD-OK-000');
+  }
+
+  function snapshotView() {
+    currentPreviewMode = 'snapshot';
+    if (preview) preview.src = `/api/camera/frame.jpg?t=${Date.now()}`;
+    setShortStatus('Snapshot preview refreshed.', 'PISD-OK-000');
+  }
+
+  async function startCameraOnly() {
+    try {
+      const { payload } = await api('POST', '/api/camera/start', {}, 'camera');
+      setShortStatus(`Camera start: ${payload?.code || 'PISD-OK-000'} ${payload?.message || ''}`.trim(), payload?.code || 'PISD-OK-000');
+      if (currentPreviewMode === 'snapshot') snapshotView();
+      await refreshStatus();
+    } catch (err) {
+      writeLog('start camera failed', { ok: false, code: 'PISD-API-002', message: String(err) });
+    }
+  }
+
+  async function startLiveCamera() {
+    try {
+      const { payload } = await api('POST', '/api/camera/start', {}, 'camera');
+      livePreview();
+      setShortStatus(`Live stream: ${payload?.code || 'PISD-OK-000'} ${payload?.message || ''}`.trim(), payload?.code || 'PISD-OK-000');
+      await refreshStatus();
+    } catch (err) {
+      writeLog('live camera failed', { ok: false, code: 'PISD-API-002', message: String(err) });
+    }
+  }
 
   async function captureFrame() {
     try {
@@ -393,9 +446,9 @@
   }
 
   function bind() {
-    $('mdrvRefresh')?.addEventListener('click', refreshStatus);
-    $('mdrvStartCamera')?.addEventListener('click', async () => { await api('POST', '/api/camera/start', {}, 'camera'); livePreview(); await refreshStatus(); });
-    $('mdrvLiveCamera')?.addEventListener('click', livePreview);
+    $('mdrvRefresh')?.addEventListener('click', () => refreshStatus(true));
+    $('mdrvStartCamera')?.addEventListener('click', startCameraOnly);
+    $('mdrvLiveCamera')?.addEventListener('click', startLiveCamera);
     $('mdrvSnapshot')?.addEventListener('click', snapshotView);
     $('mdrvCaptureFrame')?.addEventListener('click', captureFrame);
     recordButton?.addEventListener('click', toggleRecording);

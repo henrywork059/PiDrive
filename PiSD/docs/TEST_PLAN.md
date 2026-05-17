@@ -923,3 +923,32 @@ On the Pi browser:
 7. Select a snapshot folder and click `Download zip`.
 8. Select an old/unneeded folder and click `Delete selected`.
 9. Confirm active recording folders cannot be deleted until recording is stopped.
+
+## PiSD 0.3.9 manual controls and top-bar button checks
+
+After applying `PiSD_0_3_9_patch`, run:
+
+```bash
+cd ~/PiDrive/PiSD
+python3 scripts/test_manual_drive_page.py --static-only
+python3 scripts/test_settings_persistence.py
+python3 scripts/run_standard_validation.py --skip-api --skip-camera --skip-motor
+```
+
+On the Pi browser, hard refresh `/manual-drive` and check:
+
+1. `Steer strength` slider can reach `1.0` on Manual Drive.
+2. `Steer strength` in `/settings` can reach `1.0` and reset defaults uses `1.0`.
+3. `Start camera` starts the camera service without pretending to be the live-stream button.
+4. `Live stream` starts/switches the preview to `/video_feed`.
+5. `Snapshot view` refreshes one still frame from `/api/camera/frame.jpg`.
+6. Top-bar `Refresh status` visibly updates the compact status line and refreshes snapshot mode.
+7. Top-bar `STOP` sends `/api/control/stop`, recentres the drag pad, and updates the compact status line with the returned `PISD-*` code.
+
+If Flask is installed in the environment, also run the non-static check:
+
+```bash
+python3 scripts/test_manual_drive_page.py
+```
+
+That test validates the Manual Drive page route plus the local API endpoints used by the key buttons.

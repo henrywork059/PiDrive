@@ -15,7 +15,7 @@ DEFAULT_RUNTIME_SETTINGS: dict[str, Any] = {
     "manual_drive": {
         "speed": 0.18,
         "max_speed_limit": 1.0,
-        "steer_strength": 0.35,
+        "steer_strength": 1.0,
         "drag_send_interval_ms": 90,
         "preview_mode": "live",
         "recording_fps": 6.0,

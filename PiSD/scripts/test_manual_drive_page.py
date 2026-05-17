@@ -167,6 +167,11 @@ def check_source_contract() -> list[Result]:
         "updateLock",
         "pointerdown",
         "pointermove",
+        "startCameraOnly",
+        "startLiveCamera",
+        "currentPreviewMode",
+        "refreshStatus(true)",
+        "setShortStatus",
     ]
     missing = {
         "template": [token for token in required_template if token not in template],
@@ -238,16 +243,28 @@ def check_routes(hardware: bool) -> list[Result]:
             f"{path} loaded" if ok else f"{path} returned HTTP {response.status_code} or missing marker",
             {"http_status": response.status_code, "bytes": len(response.data)},
         ))
-    stop = client.post("/api/control/stop", json={})
-    payload = stop.get_json(silent=True) or {}
-    ok = stop.status_code == 200 and payload.get("code") == PiSDErrorCodes.OK
-    results.append(Result(
-        "manual_drive.stop_safe",
-        ok,
-        payload.get("code", PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED),
-        "STOP API returned OK" if ok else f"STOP API returned HTTP {stop.status_code}",
-        {"http_status": stop.status_code},
-    ))
+    api_checks = [
+        ("GET", "/api/status", None, "manual_drive.api.status", 200),
+        ("POST", "/api/camera/start", {}, "manual_drive.api.camera_start", 200),
+        ("GET", "/api/camera/frame.jpg", None, "manual_drive.api.camera_frame", 200),
+        ("POST", "/api/control/manual", {"steering": 1.0, "throttle": 0.18, "steer_mix": 1.0}, "manual_drive.api.manual_command", 200),
+        ("POST", "/api/control/stop", {}, "manual_drive.api.stop", 200),
+        ("GET", "/api/recording/status", None, "manual_drive.api.recording_status", 200),
+        ("GET", "/api/recording/items", None, "manual_drive.api.recording_items", 200),
+        ("POST", "/api/camera/stop", {}, "manual_drive.api.camera_stop", 200),
+    ]
+    for method, path, body, label, expected_status in api_checks:
+        response = client.get(path) if method == "GET" else client.post(path, json=body)
+        payload = response.get_json(silent=True) or {}
+        if path.endswith("frame.jpg"):
+            ok = response.status_code == expected_status and response.mimetype == "image/jpeg" and len(response.data) > 0
+            code = PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED
+            message = "camera frame endpoint returned JPEG" if ok else f"camera frame returned HTTP {response.status_code} {response.mimetype}"
+        else:
+            ok = response.status_code == expected_status and payload.get("code") == PiSDErrorCodes.OK
+            code = payload.get("code", PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED)
+            message = f"{method} {path} returned OK" if ok else f"{method} {path} returned HTTP {response.status_code} code={code}"
+        results.append(Result(label, ok, code, message, {"method": method, "path": path, "http_status": response.status_code}))
     return results
 
 
