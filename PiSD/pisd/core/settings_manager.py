@@ -31,16 +31,18 @@ DEFAULT_RUNTIME_SETTINGS: dict[str, Any] = {
             "path_width_scale": 1.0,
         },
     },
-
-    "autopilot": {
-        "mode": "hold",
-        "max_throttle": 0.16,
-        "steer_limit": 0.35,
-        "steering_bias": 0.0,
-        "steer_mix": 1.0,
-        "max_run_seconds": 12.0,
-        "tick_hz": 8.0,
-        "s_curve_period_s": 4.0,
+    "ai_mode": {
+        "model_id": "",
+        "max_throttle": 0.22,
+        "max_steering": 0.70,
+        "fixed_throttle": 0.16,
+        "steering_smoothing": 0.35,
+        "throttle_smoothing": 0.25,
+        "update_hz": 8.0,
+        "command_timeout_s": 0.75,
+        "output_mode": "steering_and_throttle",
+        "preview_only_by_default": True,
+        "motor_output_enabled": False,
     },
     "panel_presentation": copy.deepcopy(PRESENTATION_DEFAULTS),
     "safety": {
@@ -58,7 +60,7 @@ SETTINGS_SCHEMA: dict[str, Any] = {
         "camera": "Camera runtime settings passed to CameraService.apply_settings.",
         "motor": "Motor runtime settings passed to MotorService.apply_settings.",
         "manual_drive": "Manual drive page defaults and drag-pad behaviour.",
-        "autopilot": "Autopilot page defaults for bounded scripted bench-test profiles.",
+        "ai_mode": "AI drive page defaults, model selection, prediction rate, and motor safety limits.",
         "panel_presentation": "Shared visual style, adaptive panel sizing, and role-based horizontal/vertical panel weights used by all browser pages.",
         "safety": "Safety defaults used by GUI pages.",
         "ui": "Global UI density/header behaviour.",
@@ -246,22 +248,26 @@ class SettingsManager:
             except Exception:
                 overlay[key] = overlay_defaults.get(key, 1.0)
 
-        autopilot = merged.setdefault("autopilot", {})
-        allowed_autopilot_modes = {"hold", "straight_slow", "gentle_s_curve", "test_arc_left", "test_arc_right"}
-        if autopilot.get("mode") not in allowed_autopilot_modes:
-            autopilot["mode"] = self.defaults["autopilot"].get("mode", "hold")
-        for key, lower, upper in (
-            ("max_throttle", 0.0, 0.35),
-            ("steer_limit", 0.0, 0.75),
-            ("steering_bias", -0.35, 0.35),
-            ("steer_mix", 0.0, 1.0),
-            ("max_run_seconds", 1.0, 60.0),
-            ("tick_hz", 2.0, 20.0),
-            ("s_curve_period_s", 1.5, 12.0),
+        ai = merged.setdefault("ai_mode", {})
+        ai_defaults = self.defaults.get("ai_mode", {})
+        ai["model_id"] = str(ai.get("model_id", ai_defaults.get("model_id", "")) or "").strip().replace("\\", "/")
+        if ai["model_id"].startswith("/") or ".." in ai["model_id"].split("/"):
+            ai["model_id"] = ""
+        for key, lower, upper, default in (
+            ("max_throttle", 0.0, 0.45, ai_defaults.get("max_throttle", 0.22)),
+            ("max_steering", 0.0, 1.0, ai_defaults.get("max_steering", 0.70)),
+            ("fixed_throttle", 0.0, 0.35, ai_defaults.get("fixed_throttle", 0.16)),
+            ("steering_smoothing", 0.0, 1.0, ai_defaults.get("steering_smoothing", 0.35)),
+            ("throttle_smoothing", 0.0, 1.0, ai_defaults.get("throttle_smoothing", 0.25)),
+            ("update_hz", 1.0, 20.0, ai_defaults.get("update_hz", 8.0)),
+            ("command_timeout_s", 0.2, 3.0, ai_defaults.get("command_timeout_s", 0.75)),
         ):
             try:
-                autopilot[key] = max(lower, min(upper, float(autopilot.get(key, self.defaults["autopilot"].get(key)))))
+                ai[key] = max(lower, min(upper, float(ai.get(key, default))))
             except Exception:
-                autopilot[key] = self.defaults["autopilot"].get(key)
-
+                ai[key] = default
+        if ai.get("output_mode") not in {"steering_only", "steering_and_throttle"}:
+            ai["output_mode"] = ai_defaults.get("output_mode", "steering_and_throttle")
+        ai["preview_only_by_default"] = str(ai.get("preview_only_by_default", ai_defaults.get("preview_only_by_default", True))).lower() not in {"false", "0", "no", "off"}
+        ai["motor_output_enabled"] = str(ai.get("motor_output_enabled", ai_defaults.get("motor_output_enabled", False))).lower() in {"true", "1", "yes", "on"}
         return merged

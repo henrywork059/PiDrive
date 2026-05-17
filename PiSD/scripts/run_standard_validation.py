@@ -51,6 +51,9 @@ SETTINGS_JS = WEB_ROOT / "static" / "js" / "settings_tab.js"
 MANUAL_TEMPLATE = WEB_ROOT / "templates" / "manual_drive.html"
 MANUAL_CSS = WEB_ROOT / "static" / "css" / "manual_drive.css"
 MANUAL_JS = WEB_ROOT / "static" / "js" / "manual_drive.js"
+AI_TEMPLATE = WEB_ROOT / "templates" / "ai_mode.html"
+AI_CSS = WEB_ROOT / "static" / "css" / "ai_mode.css"
+AI_JS = WEB_ROOT / "static" / "js" / "ai_mode.js"
 PRESENTATION_TEMPLATE = WEB_ROOT / "templates" / "panel_presentation.html"
 PRESENTATION_CSS = WEB_ROOT / "static" / "css" / "panel_presentation.css"
 PRESENTATION_JS = WEB_ROOT / "static" / "js" / "panel_presentation.js"
@@ -482,6 +485,44 @@ def _check_manual_drive_source_contract() -> CheckResult:
         {"missing": missing},
     )
 
+
+
+def _check_ai_mode_static_files() -> CheckResult:
+    files = {"template": AI_TEMPLATE, "css": AI_CSS, "js": AI_JS}
+    missing = [name for name, path in files.items() if not path.exists() or path.stat().st_size <= 0]
+    ok = not missing
+    return CheckResult(
+        "ai_mode.static_files",
+        ok,
+        PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_AI_MODE_FAILED,
+        "AI Mode template/CSS/JS files exist" if ok else f"missing or empty files: {', '.join(missing)}",
+        {name: str(path.relative_to(PROJECT_ROOT)) for name, path in files.items()},
+    )
+
+
+def _check_ai_mode_source_contract() -> CheckResult:
+    try:
+        template = AI_TEMPLATE.read_text(encoding="utf-8")
+        css = AI_CSS.read_text(encoding="utf-8")
+        js = AI_JS.read_text(encoding="utf-8")
+    except Exception as exc:
+        return CheckResult("ai_mode.source_contract", False, PiSDErrorCodes.TEST_AI_MODE_FAILED, f"failed to read AI Mode files: {exc}")
+    required = {
+        "template": ["PiSD AI Mode", "Back to Front Page", "aiModeInitialStatus", "aiModelSelect", "aiSafetyAck", "aiEnableMotor", "aiStartPreview", "aiStartDrive", "labels.jsonl", "AI → safety limiter → motors"],
+        "css": [".ai-shell", ".ai-grid", ".ai-preview-box", ".ai-button-danger"],
+        "js": ["/api/ai/models", "/api/ai/load-model", "/api/ai/config", "/api/ai/start", "/api/ai/stop", "safety_ack", "enable_motor_output"],
+    }
+    sources = {"template": template, "css": css, "js": js}
+    missing = {name: [token for token in tokens if token not in sources[name]] for name, tokens in required.items()}
+    missing = {name: tokens for name, tokens in missing.items() if tokens}
+    ok = not missing
+    return CheckResult(
+        "ai_mode.source_contract",
+        ok,
+        PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_AI_MODE_FAILED,
+        "AI Mode source contains required model, safety, and API contracts" if ok else "AI Mode source contract missing tokens",
+        {"missing": missing},
+    )
 
 def _check_testing_gui_static_files() -> CheckResult:
     files = {
@@ -1262,6 +1303,8 @@ def main() -> int:
         checks.append(_safe_check("main_dashboard.source_contract", _check_main_dashboard_source_contract))
         checks.append(_safe_check("manual_drive.static_files", _check_manual_drive_static_files))
         checks.append(_safe_check("manual_drive.source_contract", _check_manual_drive_source_contract))
+        checks.append(_safe_check("ai_mode.static_files", _check_ai_mode_static_files))
+        checks.append(_safe_check("ai_mode.source_contract", _check_ai_mode_source_contract))
         checks.append(_safe_check("gui.static_files", _check_testing_gui_static_files))
         checks.append(_safe_check("gui.source_contract", _check_testing_gui_source_contract))
         checks.append(_safe_check("panel_gui.static_files", _check_panel_testing_static_files))

@@ -18,6 +18,7 @@ class PiSDErrorCodes:
     - PISD-CAM: camera dependency, setup, capture, and encode errors
     - PISD-MOT: GPIO/motor setup, update, and shutdown errors
     - PISD-REC: frame capture and recording errors
+    - PISD-AI: AI model loading, inference, and guarded AI drive errors
     - PISD-TEST: test-script validation errors
     """
 
@@ -70,9 +71,12 @@ class PiSDErrorCodes:
     RECORDING_DELETE_FAILED = "PISD-REC-009"
     RECORDING_ZIP_FAILED = "PISD-REC-010"
 
-    AUTOPILOT_NOT_ARMED = "PISD-AUTO-001"
-    AUTOPILOT_ALREADY_RUNNING = "PISD-AUTO-002"
-    AUTOPILOT_RUNTIME_FAILED = "PISD-AUTO-003"
+    AI_MODEL_NOT_FOUND = "PISD-AI-001"
+    AI_MODEL_LOAD_FAILED = "PISD-AI-002"
+    AI_MODEL_NOT_LOADED = "PISD-AI-003"
+    AI_INFERENCE_FAILED = "PISD-AI-004"
+    AI_UNARMED = "PISD-AI-005"
+    AI_RUNTIME_FAILED = "PISD-AI-006"
 
     TEST_IMPORT_FAILED = "PISD-TEST-001"
     TEST_CAMERA_FRAME_MISSING = "PISD-TEST-002"
@@ -98,7 +102,7 @@ class PiSDErrorCodes:
     TEST_RECORDING_SERVICE_FAILED = "PISD-TEST-022"
     TEST_RESPONSIVE_LAYOUT_CONTRACT_FAILED = "PISD-TEST-023"
     TEST_RECORDING_LIBRARY_FAILED = "PISD-TEST-024"
-    TEST_AUTOPILOT_CONTRACT_FAILED = "PISD-TEST-025"
+    TEST_AI_MODE_FAILED = "PISD-TEST-025"
 
 
 @dataclass(frozen=True)

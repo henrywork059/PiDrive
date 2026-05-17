@@ -33,9 +33,9 @@ PANEL_TEMPLATE = WEB_ROOT / "templates" / "panel_testing.html"
 MANUAL_TEMPLATE = WEB_ROOT / "templates" / "manual_drive.html"
 MANUAL_CSS = WEB_ROOT / "static" / "css" / "manual_drive.css"
 MANUAL_JS = WEB_ROOT / "static" / "js" / "manual_drive.js"
-AUTOPILOT_TEMPLATE = WEB_ROOT / "templates" / "autopilot.html"
-AUTOPILOT_CSS = WEB_ROOT / "static" / "css" / "autopilot.css"
-AUTOPILOT_JS = WEB_ROOT / "static" / "js" / "autopilot.js"
+AI_TEMPLATE = WEB_ROOT / "templates" / "ai_mode.html"
+AI_CSS = WEB_ROOT / "static" / "css" / "ai_mode.css"
+AI_JS = WEB_ROOT / "static" / "js" / "ai_mode.js"
 PRESENTATION_TEMPLATE = WEB_ROOT / "templates" / "panel_presentation.html"
 PRESENTATION_CSS = WEB_ROOT / "static" / "css" / "panel_presentation.css"
 PRESENTATION_JS = WEB_ROOT / "static" / "js" / "panel_presentation.js"
@@ -86,9 +86,9 @@ def check_files() -> list[Result]:
         "manual_template": MANUAL_TEMPLATE,
         "manual_css": MANUAL_CSS,
         "manual_js": MANUAL_JS,
-        "autopilot_template": AUTOPILOT_TEMPLATE,
-        "autopilot_css": AUTOPILOT_CSS,
-        "autopilot_js": AUTOPILOT_JS,
+        "ai_template": AI_TEMPLATE,
+        "ai_css": AI_CSS,
+        "ai_js": AI_JS,
     }
     results: list[Result] = []
     for name, path in files.items():
@@ -171,7 +171,7 @@ def check_source_contract() -> list[Result]:
         "settings": settings,
         "dashboard": MAIN_TEMPLATE.read_text(encoding="utf-8"),
         "manual_drive": MANUAL_TEMPLATE.read_text(encoding="utf-8"),
-        "autopilot": AUTOPILOT_TEMPLATE.read_text(encoding="utf-8"),
+        "ai_mode": AI_TEMPLATE.read_text(encoding="utf-8"),
         "testing": TESTING_TEMPLATE.read_text(encoding="utf-8"),
         "panel_testing": PANEL_TEMPLATE.read_text(encoding="utf-8"),
         "panel_presentation": PRESENTATION_TEMPLATE.read_text(encoding="utf-8"),
@@ -200,7 +200,7 @@ def check_routes(hardware: bool) -> list[Result]:
         ("/", "front_page.route.root", b"PiSD Front Page", b"frontModeSettings"),
         ("/settings", "front_page.route.settings", b"PiSD Settings", b"Back to Front Page"),
         ("/manual-drive", "front_page.route.manual_drive", b"PiSD Manual Drive", b"Back to Front Page"),
-        ("/autopilot", "front_page.route.autopilot", b"PiSD Autopilot", b"Back to Front Page"),
+        ("/ai-mode", "front_page.route.ai_mode", b"PiSD AI Mode", b"Back to Front Page"),
         ("/testing", "front_page.route.testing", b"PiSD Testing Server GUI", b"Back to Front Page"),
         ("/dashboard", "front_page.route.dashboard", b"PiSD Main Dashboard", b"Back to Front Page"),
         ("/panel-presentation", "front_page.route.panel_presentation", b"PiSD Panel Presentation Settings", b"Back to Front Page"),
@@ -226,8 +226,8 @@ def check_routes(hardware: bool) -> list[Result]:
         ("/testing/static/js/settings_tab.js", "front_page.static.settings_js", b"settingsApi"),
         ("/testing/static/css/manual_drive.css", "front_page.static.manual_css", b".mdrv-shell"),
         ("/testing/static/js/manual_drive.js", "front_page.static.manual_js", b"manualDriveInitialStatus"),
-        ("/testing/static/css/autopilot.css", "front_page.static.autopilot_css", b".ap-shell"),
-        ("/testing/static/js/autopilot.js", "front_page.static.autopilot_js", b"autopilotInitialStatus"),
+        ("/testing/static/css/ai_mode.css", "front_page.static.ai_css", b".ai-shell"),
+        ("/testing/static/js/ai_mode.js", "front_page.static.ai_js", b"aiModeInitialStatus"),
         ("/testing/static/css/panel_presentation_global.css", "front_page.static.presentation_global_css", b"--pisd-ui-gap"),
         ("/testing/static/js/panel_presentation_global.js", "front_page.static.presentation_global_js", b"PiSDPanelPresentation"),
         ("/testing/static/css/panel_presentation.css", "front_page.static.presentation_css", b".pp-shell"),

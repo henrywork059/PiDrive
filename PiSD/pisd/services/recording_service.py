@@ -122,6 +122,7 @@ class RecordingService:
                     "record_fps": record_fps,
                     "frames_dir": str(frames_dir.relative_to(self.project_root)),
                     "records_file": str((session_dir / "records.jsonl").relative_to(self.project_root)),
+                    "labels_file": str((session_dir / "labels.jsonl").relative_to(self.project_root)),
                     "manifest_file": str((session_dir / "manifest.json").relative_to(self.project_root)),
                     "frame_count": 0,
                     "schema": {
@@ -134,6 +135,12 @@ class RecordingService:
                         "steering": "last manual steering command if available",
                         "throttle": "last manual throttle command if available",
                         "motor_outputs": "left/right effective motor outputs",
+                    },
+                    "training_labels_schema": {
+                        "frame": "relative frame path used by trainers",
+                        "steering": "manual steering label in -1..1",
+                        "throttle": "manual throttle label in -1..1",
+                        "timestamp_utc": "save time for traceability",
                     },
                 }
                 self._write_json(session_dir / "manifest.json", manifest)
@@ -151,6 +158,7 @@ class RecordingService:
                 "session_dir": str(session_dir),
                 "frames_dir": str(frames_dir),
                 "records_file": str(session_dir / "records.jsonl"),
+                "labels_file": str(session_dir / "labels.jsonl"),
                 "manifest_file": str(session_dir / "manifest.json"),
                 "started_at_utc": now.isoformat(),
                 "record_fps": record_fps,
@@ -449,6 +457,7 @@ class RecordingService:
             "path": str(folder),
             "relative_path": str(folder.relative_to(self.project_root)).replace("\\", "/"),
             "records_file": str(records_file.relative_to(self.project_root)).replace("\\", "/") if records_file.exists() else "",
+            "labels_file": str((folder / "labels.jsonl").relative_to(self.project_root)).replace("\\", "/") if (folder / "labels.jsonl").exists() else "",
             "manifest_file": str(manifest_file.relative_to(self.project_root)).replace("\\", "/") if manifest_file.exists() else "",
             "frame_count": int(frame_count),
             "bytes": int(byte_count),
@@ -537,6 +546,7 @@ class RecordingService:
             "session_dir": str(session_dir),
             "frames_dir": str(frames_dir),
             "records_file": str(records_file),
+            "labels_file": str(session_dir / "labels.jsonl"),
             "manifest_file": str(manifest_file),
             "started_at_utc": now.isoformat(),
             "record_fps": 0,
@@ -611,9 +621,25 @@ class RecordingService:
                 "steering_direction": motor_status.get("steering_direction"),
             },
         }
+        # PiSD_0_5_2: write a compact trainer-friendly label beside the full
+        # trace record. The full records.jsonl remains the source for debugging,
+        # while labels.jsonl is intentionally easy for an AI trainer to stream.
+        labels_file = Path(session.get("labels_file") or Path(session["records_file"]).with_name("labels.jsonl"))
+        training_label = {
+            "frame": str(frame_path.relative_to(Path(session["session_dir"]))).replace("\\", "/"),
+            "relative_file": str(frame_path.relative_to(self.project_root)).replace("\\", "/"),
+            "steering": record["steering"],
+            "throttle": record["throttle"],
+            "timestamp_utc": record["saved_at_utc"],
+            "source_frame_seq": record["source_frame_seq"],
+            "session_id": record["session_id"],
+        }
+        record["training_label"] = training_label
         records_file = Path(session["records_file"])
         with records_file.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(record, sort_keys=True) + "\n")
+        with labels_file.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(training_label, sort_keys=True) + "\n")
         self._last_saved_record = record
         return record
 
@@ -627,11 +653,17 @@ class RecordingService:
             "session_dir": str(session_dir),
             "frames_dir": str(Path(self._active_session["frames_dir"])),
             "records_file": str(Path(self._active_session["records_file"])),
+            "labels_file": str(Path(self._active_session.get("labels_file") or manifest_file.with_name("labels.jsonl"))),
             "manifest_file": str(manifest_file),
             "frame_count": int(self._frame_count),
             "last_saved_record": self._last_saved_record,
             "ended_at_utc": "" if open_session else _utc_now().isoformat(),
             "running": bool(open_session),
+            "training_data": {
+                "format": "behavioural_cloning_jsonl",
+                "labels_file": str(Path(self._active_session.get("labels_file") or manifest_file.with_name("labels.jsonl"))),
+                "label_fields": ["frame", "steering", "throttle", "timestamp_utc"],
+            },
         }
         self._write_json(manifest_file, manifest)
 

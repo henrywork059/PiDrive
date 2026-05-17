@@ -125,10 +125,17 @@ def main() -> int:
     results.append(Result("recording.start_stop", ok, stop.get("code", PiSDErrorCodes.TEST_RECORDING_SERVICE_FAILED), "recording session saved ordered JSONL records" if ok else "recording session failed", {"records_file": str(records_file), "line_count": len(lines), "status": status}))
 
     schema_ok = False
+    labels_ok = False
     if lines:
         item = json.loads(lines[0])
-        schema_ok = all(key in item for key in ("frame_id", "frame_index", "saved_at_utc", "relative_file", "camera_settings", "motor_state", "steering", "throttle", "motor_outputs", "motor_tuning"))
-    results.append(Result("recording.metadata_schema", schema_ok, PiSDErrorCodes.OK if schema_ok else PiSDErrorCodes.TEST_RECORDING_SERVICE_FAILED, "metadata includes traceable order/time/camera/motor fields" if schema_ok else "metadata schema incomplete"))
+        schema_ok = all(key in item for key in ("frame_id", "frame_index", "saved_at_utc", "relative_file", "camera_settings", "motor_state", "steering", "throttle", "motor_outputs", "motor_tuning", "training_label"))
+        labels_file = records_file.with_name("labels.jsonl")
+        label_lines = labels_file.read_text().strip().splitlines() if labels_file.exists() else []
+        if label_lines:
+            label = json.loads(label_lines[0])
+            labels_ok = all(key in label for key in ("frame", "relative_file", "steering", "throttle", "timestamp_utc", "source_frame_seq", "session_id")) and label.get("steering") == item.get("steering") and label.get("throttle") == item.get("throttle")
+    results.append(Result("recording.metadata_schema", schema_ok, PiSDErrorCodes.OK if schema_ok else PiSDErrorCodes.TEST_RECORDING_SERVICE_FAILED, "metadata includes traceable order/time/camera/motor/training-label fields" if schema_ok else "metadata schema incomplete"))
+    results.append(Result("recording.training_labels_jsonl", labels_ok, PiSDErrorCodes.OK if labels_ok else PiSDErrorCodes.TEST_RECORDING_SERVICE_FAILED, "labels.jsonl stores trainer-friendly frame/steering/throttle labels" if labels_ok else "labels.jsonl training labels missing or incomplete"))
 
     listed = service.list_collections()
     collections = listed.get("collections") or {}

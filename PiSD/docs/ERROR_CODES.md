@@ -260,9 +260,14 @@ Used by manual drive page validation when the `/manual-drive` page, its static f
 
 - `PISD-TEST-023` — responsive layout contract validation failed. Used by `scripts/test_responsive_layout_contract.py` when a page does not load the shared layout system, the CSS order is wrong, or the Manual Drive semantic panel order is broken.
 
-## PiSD 0.5.1 autopilot page/service codes
+## PiSD 0.5.2 AI mode codes
 
-- `PISD-AUTO-001` — autopilot start was refused because the safety acknowledgement or motor-output enable flag was missing.
-- `PISD-AUTO-002` — autopilot start was refused because a profile is already running.
-- `PISD-AUTO-003` — autopilot runtime loop failed and requested a motor stop.
-- `PISD-TEST-025` — autopilot page/service validation failed.
+- `PISD-AI-001` — AI model id/path was missing, unsafe, unsupported, or not found under `PiSD/models/`.
+- `PISD-AI-002` — AI model file was found but could not be loaded by the available runtime backend.
+- `PISD-AI-003` — AI preview/drive was requested before a runnable model was loaded.
+- `PISD-AI-004` — AI inference failed while reading a camera frame, preprocessing, predicting, or parsing model output.
+- `PISD-AI-005` — guarded AI drive was refused because the safety acknowledgement or motor-output arm flag was missing.
+- `PISD-AI-006` — AI runtime loop failed or was already running.
+- `PISD-TEST-025` — AI Mode page/service validation failed.
+
+PiSD 0.5.2 replaces the earlier scripted Autopilot foundation with AI Mode. AI motor output must pass through the AI safety limiter before reaching `MotorService.update(...)`.

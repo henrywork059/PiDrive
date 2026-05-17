@@ -1,6 +1,6 @@
 # PiSD
 
-`PiSD_0_5_1_patch` — first patch after the PiSD v5 stable baseline.
+`PiSD_0_5_2_patch` — AI Mode patch built forward from the PiSD_0_5_0 stable baseline.
 
 Stable v5 is built from `PiSD_0_4_0` plus accepted patches `PiSD_0_4_1` through `PiSD_0_4_10`. It includes the v4 camera/motor/error-reporting foundation, responsive GUI, Manual Drive page, recording/snapshot workflow, and all accepted v4 patch-line improvements: code cleanup, Manual Drive preview overlay, predicted steering/throttle arc, overlay calibration/debugging, command-safety consistency, preview FPS/stale-state reliability, and safer recording/snapshot folder management.
 
@@ -12,14 +12,12 @@ It is intentionally separate from the existing `PiServer/` folder. PiSD may refe
 
 ## Current version
 
-`PiSD_0_5_1_patch` — current patch line built forward from stable `PiSD_0_5_0`.
+`PiSD_0_5_2` — current patched working version when this patch is applied over `PiSD_0_5_0`.
 
-`PiSD_0_5_0` remains the stable rollback baseline. This patch adds the new `/autopilot` page, bounded scripted autopilot service, and related API/status wiring without replacing the Manual Drive page.
+This package consolidates the accepted `0.4.x` work into a full installable `PiSD/` folder rather than a patch-only zip. It should be used as the clean rollback point before starting future `0_5_x` patches.
 
 Included accepted work:
 
-- Autopilot mode page at `/autopilot` with arm/start/stop/status controls.
-- Bounded scripted autopilot profiles with conservative throttle/duration caps and fail-safe stop behavior.
 - Manual Drive overlay toggle on the Manual Drive page.
 - Sampled predicted-arc overlay based on throttle and steering.
 - Overlay calibration controls for path length, curve strength, opacity, and path width.
@@ -29,6 +27,9 @@ Included accepted work:
 - Page-leave motor fail-safe stop.
 - Preview idle start, FPS estimate, frame-age display, stale-frame warning, and guarded preview metrics loop.
 - Recording/snapshot selected-folder details, safer download/delete button states, and hardened backend folder-id validation.
+- AI Mode page at `/ai-mode`, replacing the earlier scripted Autopilot foundation.
+- Manual Drive recordings now include trainer-friendly `labels.jsonl` beside full `records.jsonl` metadata.
+- AI Mode model listing/loading from `PiSD/models/` and a guarded safety layer between AI predictions and motor output.
 
 This stable baseline keeps only one dependency file:
 
@@ -37,6 +38,45 @@ PiSD/requirements.txt
 ```
 
 `requirement.txt` must not be restored.
+
+## AI Mode workflow
+
+PiSD AI Mode follows a DonkeyCar-style behavioural-cloning workflow while keeping PiSD's own lightweight web UI and motor service:
+
+```text
+Manual Drive recording
+  camera frame + steering + throttle
+        ↓
+recordings/.../frames + records.jsonl + labels.jsonl
+        ↓
+train/export model on PC or trainer tool
+        ↓
+copy model into PiSD/models/
+        ↓
+AI Mode loads model → predicts steering/throttle → safety limiter → motor service
+```
+
+Supported model file discovery currently includes:
+
+```text
+.tflite, .keras, .h5, .onnx, .pt
+```
+
+Runtime inference is implemented first for `.tflite` when `tflite_runtime` or TensorFlow Lite support is installed, and for `.keras`/`.h5` when TensorFlow is installed. `.onnx` and `.pt` files are listed so the UI can see them, but they are not runnable until a future backend is added.
+
+AI drive is blocked unless:
+
+- a runnable model is loaded;
+- the safety acknowledgement is checked;
+- motor output is enabled;
+- the AI safety limiter clamps the prediction to saved max steering/throttle limits.
+
+Focused validation:
+
+```bash
+python3 scripts/test_ai_mode_page.py --static-only
+python3 scripts/test_ai_drive_service.py
+```
 
 ## Stable baseline notes
 
@@ -140,10 +180,16 @@ Run the PiSD server:
 python3 PiSD.py --host 0.0.0.0 --port 5050 --hardware
 ```
 
-Open the actual dashboard shell:
+Open the front page:
 
 ```text
 http://<pi-ip>:5050/
+```
+
+Open AI Mode directly:
+
+```text
+http://<pi-ip>:5050/ai-mode
 ```
 
 `PiSD_0_2_5` made `/` the first real dashboard shell. It includes these initial panels:
