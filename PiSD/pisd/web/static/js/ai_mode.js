@@ -133,6 +133,16 @@
     }
   }
 
+
+  function enforceFullScaleThrottleRanges() {
+    ['aiMaxThrottle', 'aiFixedThrottle'].forEach((id) => {
+      if (!els[id]) return;
+      els[id].min = '0';
+      els[id].max = '1.0';
+      els[id].step = '0.01';
+    });
+  }
+
   function setPreview(mode, src = '') {
     const box = document.querySelector('.ai-preview-box');
     if (!box || !els.aiPreviewImage || !els.aiPreviewCaption) return;
@@ -243,6 +253,7 @@
     document.addEventListener('visibilitychange', () => { if (document.hidden && aiRunning) navigator.sendBeacon?.('/api/ai/stop', new Blob([JSON.stringify({})], { type: 'application/json' })); });
   }
 
+  enforceFullScaleThrottleRanges();
   renderAI((initial.ai_mode || {}));
   wireRanges();
   bind();

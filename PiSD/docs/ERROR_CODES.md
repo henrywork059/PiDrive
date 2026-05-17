@@ -271,3 +271,8 @@ Used by manual drive page validation when the `/manual-drive` page, its static f
 - `PISD-TEST-025` — AI Mode page/service validation failed.
 
 PiSD 0.5.2 replaces the earlier scripted Autopilot foundation with AI Mode. AI motor output must pass through the AI safety limiter before reaching `MotorService.update(...)`.
+
+
+## PiSD 0.5.3 AI mode UI/control note
+
+PiSD 0.5.3 keeps the 0.5.2 AI error-code set, but fixes AI Mode max throttle and fixed throttle limits so the UI, runtime settings, and safety limiter can use the full `0.00` to `1.00` motor-command range. It also aligns AI Mode page styling with Manual Drive panels/buttons.

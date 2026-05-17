@@ -254,9 +254,9 @@ class SettingsManager:
         if ai["model_id"].startswith("/") or ".." in ai["model_id"].split("/"):
             ai["model_id"] = ""
         for key, lower, upper, default in (
-            ("max_throttle", 0.0, 0.45, ai_defaults.get("max_throttle", 0.22)),
+            ("max_throttle", 0.0, 1.0, ai_defaults.get("max_throttle", 0.22)),
             ("max_steering", 0.0, 1.0, ai_defaults.get("max_steering", 0.70)),
-            ("fixed_throttle", 0.0, 0.35, ai_defaults.get("fixed_throttle", 0.16)),
+            ("fixed_throttle", 0.0, 1.0, ai_defaults.get("fixed_throttle", 0.16)),
             ("steering_smoothing", 0.0, 1.0, ai_defaults.get("steering_smoothing", 0.35)),
             ("throttle_smoothing", 0.0, 1.0, ai_defaults.get("throttle_smoothing", 0.25)),
             ("update_hz", 1.0, 20.0, ai_defaults.get("update_hz", 8.0)),

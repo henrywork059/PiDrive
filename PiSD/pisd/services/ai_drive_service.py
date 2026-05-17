@@ -80,9 +80,9 @@ class AIDriveService:
         with self._lock:
             self._settings = {
                 "model_id": str(data.get("model_id", self._settings.get("model_id", "")) or "").strip().replace("\\", "/"),
-                "max_throttle": clamp_float(data.get("max_throttle", self._settings.get("max_throttle", 0.22)), 0.0, 0.45, 0.22),
+                "max_throttle": clamp_float(data.get("max_throttle", self._settings.get("max_throttle", 0.22)), 0.0, 1.0, 0.22),
                 "max_steering": clamp_float(data.get("max_steering", self._settings.get("max_steering", 0.70)), 0.0, 1.0, 0.70),
-                "fixed_throttle": clamp_float(data.get("fixed_throttle", self._settings.get("fixed_throttle", 0.16)), 0.0, 0.35, 0.16),
+                "fixed_throttle": clamp_float(data.get("fixed_throttle", self._settings.get("fixed_throttle", 0.16)), 0.0, 1.0, 0.16),
                 "steering_smoothing": clamp_float(data.get("steering_smoothing", self._settings.get("steering_smoothing", 0.35)), 0.0, 1.0, 0.35),
                 "throttle_smoothing": clamp_float(data.get("throttle_smoothing", self._settings.get("throttle_smoothing", 0.25)), 0.0, 1.0, 0.25),
                 "update_hz": clamp_float(data.get("update_hz", self._settings.get("update_hz", 8.0)), 1.0, 20.0, 8.0),
@@ -287,8 +287,8 @@ class AIDriveService:
         steering = clamp_float(raw_steering, -1.0, 1.0, 0.0)
         throttle = clamp_float(raw_throttle, -1.0, 1.0, 0.0)
         max_steering = clamp_float(settings.get("max_steering", 0.70), 0.0, 1.0, 0.70)
-        max_throttle = clamp_float(settings.get("max_throttle", 0.22), 0.0, 0.45, 0.22)
-        fixed_throttle = clamp_float(settings.get("fixed_throttle", 0.16), 0.0, 0.35, 0.16)
+        max_throttle = clamp_float(settings.get("max_throttle", 0.22), 0.0, 1.0, 0.22)
+        fixed_throttle = clamp_float(settings.get("fixed_throttle", 0.16), 0.0, 1.0, 0.16)
         if settings.get("output_mode") == "steering_only":
             throttle = fixed_throttle if abs(steering) > 0.01 else 0.0
         steering = max(-max_steering, min(max_steering, steering))

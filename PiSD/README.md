@@ -1,6 +1,6 @@
 # PiSD
 
-`PiSD_0_5_2_patch` — AI Mode patch built forward from the PiSD_0_5_0 stable baseline.
+`PiSD_0_5_3_patch` — AI Mode throttle-range/style patch built forward from the PiSD_0_5_0 stable baseline plus the accepted AI Mode work.
 
 Stable v5 is built from `PiSD_0_4_0` plus accepted patches `PiSD_0_4_1` through `PiSD_0_4_10`. It includes the v4 camera/motor/error-reporting foundation, responsive GUI, Manual Drive page, recording/snapshot workflow, and all accepted v4 patch-line improvements: code cleanup, Manual Drive preview overlay, predicted steering/throttle arc, overlay calibration/debugging, command-safety consistency, preview FPS/stale-state reliability, and safer recording/snapshot folder management.
 
@@ -12,7 +12,7 @@ It is intentionally separate from the existing `PiServer/` folder. PiSD may refe
 
 ## Current version
 
-`PiSD_0_5_2` — current patched working version when this patch is applied over `PiSD_0_5_0`.
+`PiSD_0_5_3` — current patched working version when this patch is applied after the accepted AI Mode patch line.
 
 This package consolidates the accepted `0.4.x` work into a full installable `PiSD/` folder rather than a patch-only zip. It should be used as the clean rollback point before starting future `0_5_x` patches.
 
@@ -30,6 +30,8 @@ Included accepted work:
 - AI Mode page at `/ai-mode`, replacing the earlier scripted Autopilot foundation.
 - Manual Drive recordings now include trainer-friendly `labels.jsonl` beside full `records.jsonl` metadata.
 - AI Mode model listing/loading from `PiSD/models/` and a guarded safety layer between AI predictions and motor output.
+- AI Mode max throttle and fixed throttle controls now allow full-scale `1.00`, matching Manual Drive motor command range.
+- AI Mode reuses Manual Drive panel/topbar/button styling for a consistent interface.
 
 This stable baseline keeps only one dependency file:
 

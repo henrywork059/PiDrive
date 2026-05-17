@@ -59,6 +59,11 @@ def main() -> int:
     safety_ok = abs(safe["steering"] - 0.6) < 1e-6 and abs(safe["throttle"] - 0.2) < 1e-6
     results.append(Result("ai_service.safety_clamps", safety_ok, PiSDErrorCodes.OK if safety_ok else PiSDErrorCodes.TEST_AI_MODE_FAILED, "AI raw output is clamped before motor output" if safety_ok else "AI safety clamp failed", {"safe": safe}))
 
+    full_scale_service = AIDriveService(OUTPUT_ROOT, {"max_throttle": 1.0, "fixed_throttle": 1.0, "max_steering": 1.0, "steering_smoothing": 0.0, "throttle_smoothing": 0.0})
+    full_safe = full_scale_service.apply_safety(0.4, 1.2)
+    full_scale_ok = abs(full_safe["throttle"] - 1.0) < 1e-6 and abs((full_scale_service.status().get("settings") or {}).get("max_throttle", 0.0) - 1.0) < 1e-6
+    results.append(Result("ai_service.full_scale_throttle", full_scale_ok, PiSDErrorCodes.OK if full_scale_ok else PiSDErrorCodes.TEST_AI_MODE_FAILED, "AI max/fixed throttle settings allow full-scale 1.00" if full_scale_ok else "AI throttle settings were still clamped below 1.00", {"safe": full_safe, "settings": full_scale_service.status().get("settings")}))
+
     unloaded_status = service.status()
     layer_ok = bool((unloaded_status.get("safety_layer") or {}).get("between_ai_and_motors")) and not unloaded_status.get("model_ready")
     results.append(Result("ai_service.status_safety_layer", layer_ok, PiSDErrorCodes.OK if layer_ok else PiSDErrorCodes.TEST_AI_MODE_FAILED, "status exposes AI safety layer and model readiness" if layer_ok else "AI safety status failed", {"status": unloaded_status}))

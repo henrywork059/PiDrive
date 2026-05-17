@@ -84,8 +84,11 @@ def check_source_contract() -> Result:
             "STOP AI + motors",
             "labels.jsonl",
             "AI → safety limiter → motors",
+            "manual_drive.css",
+            "mdrv-panel",
+            'max="1.0"',
         ],
-        "css": [".ai-shell", ".ai-grid", ".ai-preview-box", ".ai-button-danger", "@media (max-width: 980px)"],
+        "css": [".ai-shell", ".ai-grid", ".ai-preview-box", ".ai-button-danger", "manual_drive.css", "@media (max-width: 980px)"],
         "js": [
             "aiModeInitialStatus",
             "/api/ai/models",
@@ -96,6 +99,7 @@ def check_source_contract() -> Result:
             "safety_ack",
             "enable_motor_output",
             "sendBeacon",
+            "enforceFullScaleThrottleRanges",
         ],
     }
     sources = {"template": template, "css": css, "js": js}
