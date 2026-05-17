@@ -382,3 +382,94 @@ body[data-pisd-theme="light"] .mdrv-file-controls select { color: #0f172a; backg
   .mdrv-overlay-hud em { display: none; }
   .mdrv-overlay-wheel-row { right: .45rem; top: 2.95rem; }
 }
+
+/* 0.4.7 Manual Drive overlay calibration and live-source debugging.
+   These controls tune only the on-screen predicted arc; motor output is unchanged. */
+.mdrv-drive-debug-panel {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: .32rem;
+  margin-top: .38rem;
+}
+
+.mdrv-drive-debug-panel span {
+  border: 1px solid rgba(56, 189, 248, .18);
+  border-radius: calc(var(--pisd-ui-radius, 14px) * .58);
+  padding: .35rem .42rem;
+  background: rgba(2, 132, 199, .12);
+  color: #bae6fd;
+  font-size: .68rem;
+}
+
+.mdrv-drive-debug-panel strong {
+  display: block;
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.mdrv-overlay-calibration {
+  margin-top: .5rem;
+  border: 1px solid rgba(56, 189, 248, .22);
+  border-radius: calc(var(--pisd-ui-radius, 14px) * .72);
+  background: rgba(2, 132, 199, .08);
+  padding: .45rem .52rem;
+}
+
+.mdrv-overlay-calibration summary {
+  cursor: pointer;
+  color: #bae6fd;
+  font-weight: 850;
+  font-size: .78rem;
+}
+
+.mdrv-overlay-calibration-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .45rem .55rem;
+  margin-top: .45rem;
+}
+
+.mdrv-overlay-calibration-grid label {
+  display: grid;
+  grid-template-columns: minmax(78px, .9fr) minmax(90px, 1.1fr) 42px;
+  align-items: center;
+  gap: .34rem;
+  color: var(--mdrv-muted);
+  font-size: .72rem;
+}
+
+.mdrv-overlay-calibration-grid output {
+  color: #ffffff;
+  font-weight: 850;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.mdrv-overlay-calibration-note {
+  margin: .35rem 0 0;
+  color: var(--mdrv-muted);
+  font-size: .7rem;
+}
+
+.mdrv-preview-frame[data-overlay-source="live-status"] .mdrv-overlay-hud {
+  border-color: rgba(34, 197, 94, .38);
+}
+
+.mdrv-preview-frame[data-overlay-source="manual-intent"] .mdrv-overlay-hud {
+  border-color: rgba(56, 189, 248, .44);
+}
+
+.mdrv-preview-frame[data-overlay-source="stopped"] .mdrv-overlay-hud {
+  border-color: rgba(148, 163, 184, .30);
+}
+
+@media (max-width: 900px) {
+  .mdrv-drive-debug-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mdrv-overlay-calibration-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 480px) {
+  .mdrv-overlay-calibration-grid label { grid-template-columns: 1fr; }
+  .mdrv-overlay-calibration-grid output { text-align: left; }
+}

@@ -23,6 +23,13 @@ DEFAULT_RUNTIME_SETTINGS: dict[str, Any] = {
         "drag_send_interval_ms": 90,
         "preview_mode": "live",
         "recording_fps": 6.0,
+        "overlay": {
+            "enabled": True,
+            "path_length_scale": 1.0,
+            "curve_strength": 1.0,
+            "opacity": 0.92,
+            "path_width_scale": 1.0,
+        },
     },
     "panel_presentation": copy.deepcopy(PRESENTATION_DEFAULTS),
     "safety": {
@@ -206,4 +213,24 @@ class SettingsManager:
             manual["recording_fps"] = max(0.2, min(30.0, float(manual.get("recording_fps", self.defaults["manual_drive"].get("recording_fps", 6.0)))))
         except Exception:
             manual["recording_fps"] = self.defaults["manual_drive"].get("recording_fps", 6.0)
+
+        # PiSD_0_4_7: preserve and safely clamp Manual Drive overlay calibration.
+        # These values tune the visual predicted path only; they do not change
+        # actual motor output. Keeping them under manual_drive makes older
+        # runtime_settings.json files backward compatible and avoids resetting
+        # user-local config on upgrade.
+        overlay_defaults = self.defaults["manual_drive"].get("overlay", {})
+        overlay = manual.get("overlay") if isinstance(manual.get("overlay"), dict) else {}
+        manual["overlay"] = overlay
+        overlay["enabled"] = str(overlay.get("enabled", overlay_defaults.get("enabled", True))).lower() not in {"false", "0", "no", "off"}
+        for key, lower, upper in (
+            ("path_length_scale", 0.5, 1.8),
+            ("curve_strength", 0.4, 1.8),
+            ("opacity", 0.2, 1.0),
+            ("path_width_scale", 0.6, 1.8),
+        ):
+            try:
+                overlay[key] = max(lower, min(upper, float(overlay.get(key, overlay_defaults.get(key, 1.0)))))
+            except Exception:
+                overlay[key] = overlay_defaults.get(key, 1.0)
         return merged

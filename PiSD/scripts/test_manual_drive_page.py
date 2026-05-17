@@ -112,6 +112,11 @@ def check_source_contract() -> list[Result]:
         "Predicted arc",
         "sampled predicted arc",
         "mdrvArm",
+        "Overlay calibration",
+        "mdrvOverlayLengthScale",
+        "mdrvOverlayCurveScale",
+        "mdrvOverlayOpacity",
+        "mdrvOverlayPathWidth",
         "mdrvStopBig",
         "mdrvCaptureFrame",
         "mdrvRecordToggle",
@@ -120,6 +125,12 @@ def check_source_contract() -> list[Result]:
         "mdrvCaptureNotice",
         "mdrvIntentOut",
         "mdrvMotorOut",
+        "mdrvDriveDebugPanel",
+        "mdrvOverlayDebugSource",
+        "mdrvOverlayDebugSteering",
+        "mdrvOverlayDebugThrottle",
+        "mdrvOverlayDebugLeft",
+        "mdrvOverlayDebugRight",
         "manualDriveFilesPanel",
         "mdrvFileKind",
         "mdrvFileSelect",
@@ -133,7 +144,7 @@ def check_source_contract() -> list[Result]:
         'data-panel-role="preview"',
         "data-panel-h-weight",
     ]
-    required_css = [".mdrv-shell", ".mdrv-panel", ".mdrv-status-panel", ".mdrv-preview-frame", ".mdrv-drag-pad", ".mdrv-big-stop", ".mdrv-drag-knob", "width: 28px", ".mdrv-recording-indicator", ".mdrv-capture-notice", ".mdrv-overlay-toggle", ".mdrv-drive-overlay", ".mdrv-overlay-path", ".mdrv-overlay-path-wide", ".mdrv-overlay-endpoint", "constant-curvature", "marker-end: url(#mdrvOverlayArrow)", "@media (max-width: 1100px)"]
+    required_css = [".mdrv-shell", ".mdrv-panel", ".mdrv-status-panel", ".mdrv-preview-frame", ".mdrv-drag-pad", ".mdrv-big-stop", ".mdrv-drag-knob", "width: 28px", ".mdrv-recording-indicator", ".mdrv-capture-notice", ".mdrv-overlay-toggle", ".mdrv-drive-overlay", ".mdrv-overlay-path", ".mdrv-overlay-path-wide", ".mdrv-overlay-endpoint", "constant-curvature", "marker-end: url(#mdrvOverlayArrow)", ".mdrv-drive-debug-panel", ".mdrv-overlay-calibration", "data-overlay-source", "@media (max-width: 1100px)"]
     required_unified_css = [
         "PiSD 0.3.3 manual-drive semantic layout recovery",
         "body.manual-drive-page .mdrv-shell",
@@ -196,9 +207,21 @@ def check_source_contract() -> list[Result]:
         "pointsToPath",
         "curveLabelText",
         "setOverlayEnabled",
+        "normaliseOverlaySettings",
+        "applyOverlayCalibration",
+        "persistOverlaySettingsSoon",
+        "overlaySourceText",
         "mdrvOverlayToggle",
+        "mdrvOverlayLengthScale",
+        "mdrvOverlayDebugSource",
         "mdrvIntentOut",
         "mdrvMotorOut",
+        "mdrvDriveDebugPanel",
+        "mdrvOverlayDebugSource",
+        "mdrvOverlayDebugSteering",
+        "mdrvOverlayDebugThrottle",
+        "mdrvOverlayDebugLeft",
+        "mdrvOverlayDebugRight",
     ]
     missing = {
         "template": [token for token in required_template if token not in template],
@@ -214,7 +237,7 @@ def check_source_contract() -> list[Result]:
         "manual_drive.source_contract",
         ok,
         PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
-        "manual drive page contains camera preview, manual-page overlay toggle/sampled predicted-arc visualisation, compact status, current intent/output signals, smaller drag knob, locked drag pad, STOP, capture/recording indicators, persistence, API calls, and the recovered semantic layout" if ok else "manual drive source contract failed",
+        "manual drive page contains camera preview, manual-page overlay toggle/sampled predicted-arc visualisation, overlay calibration, live source debugging, compact status, current intent/output signals, smaller drag knob, locked drag pad, STOP, capture/recording indicators, persistence, API calls, and the recovered semantic layout" if ok else "manual drive source contract failed",
         {"missing": missing},
     )]
     status_index = template.find("manualDriveStatusPanel")
@@ -246,12 +269,12 @@ def check_source_contract() -> list[Result]:
         {},
     ))
 
-    overlay_ok = all(token in template for token in ("mdrvOverlayToggle", "mdrvDriveOverlay", "mdrvOverlayPath", "mdrvOverlayThrottleValue", "mdrvOverlaySteeringValue")) and all(token in js for token in ("updateDriveOverlay", "drawIntendedPath", "setOverlayEnabled"))
+    overlay_ok = all(token in template for token in ("mdrvOverlayToggle", "mdrvDriveOverlay", "mdrvOverlayPath", "mdrvOverlayThrottleValue", "mdrvOverlaySteeringValue", "mdrvOverlayLengthScale", "mdrvOverlayDebugSource")) and all(token in js for token in ("updateDriveOverlay", "drawIntendedPath", "setOverlayEnabled", "applyOverlayCalibration", "persistOverlaySettingsSoon", "overlaySourceText"))
     results.append(Result(
         "manual_drive.preview_overlay",
         overlay_ok,
         PiSDErrorCodes.OK if overlay_ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
-        "manual drive preview has visible Overlay: On/Off button and intended path overlay tied to throttle/steering" if overlay_ok else "manual drive overlay toggle or intended path logic is missing",
+        "manual drive preview has visible Overlay: On/Off button, calibration controls, live source debug, and intended path overlay tied to throttle/steering" if overlay_ok else "manual drive overlay toggle/calibration/source/path logic is missing",
         {},
     ))
 

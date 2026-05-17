@@ -37,6 +37,13 @@
         <span>Cmd <strong id="mdrvIntentOut">S 0.00 / T 0.00</strong></span>
         <span>Out <strong id="mdrvMotorOut">L 0.00 / R 0.00</strong></span>
       </div>
+      <div class="mdrv-drive-debug-panel" id="mdrvDriveDebugPanel" aria-label="Live drive overlay debugging values">
+        <span>Overlay source <strong id="mdrvOverlayDebugSource">stopped</strong></span>
+        <span>Steering <strong id="mdrvOverlayDebugSteering">+0.00</strong></span>
+        <span>Throttle <strong id="mdrvOverlayDebugThrottle">+0.00</strong></span>
+        <span>Left motor <strong id="mdrvOverlayDebugLeft">+0.00</strong></span>
+        <span>Right motor <strong id="mdrvOverlayDebugRight">+0.00</strong></span>
+      </div>
       <p id="mdrvShortStatus" class="mdrv-help">Ready. The action log is hidden to keep this page compact.</p>
     </section>
 
@@ -98,7 +105,7 @@
         <button id="mdrvCaptureFrame" class="mdrv-button mdrv-primary">Capture frame</button>
         <button id="mdrvRecordToggle" class="mdrv-button">Record</button>
       </div>
-      <p id="mdrvCaptureNotice" class="mdrv-capture-notice" role="status" aria-live="polite">No frame captured yet. Use <strong>Overlay: On/Off</strong> in this Camera header to show the sampled predicted arc drawn from throttle and steering.</p>
+      <p id="mdrvCaptureNotice" class="mdrv-capture-notice" role="status" aria-live="polite">No frame captured yet. Use <strong>Overlay: On/Off</strong> in this Camera header to show the sampled predicted arc drawn from the live/manual control state. Use Overlay calibration in Manual control to tune the visual length, curve, opacity, and width.</p>
     </section>
 
     <section class="mdrv-panel mdrv-drive-panel" id="manualDrivePadPanel" data-panel-role="drive" data-panel-h-weight="1" data-panel-v-weight="2">
@@ -117,6 +124,16 @@
         <label>Speed <input id="mdrvSpeed" type="range" min="0.08" max="1.0" step="0.01" value="0.18"><output id="mdrvSpeedOut">0.18</output></label>
         <label>Steer strength <input id="mdrvSteer" type="range" min="0.15" max="1.0" step="0.01" value="1.0"><output id="mdrvSteerOut">1.00</output></label>
       </div>
+      <details class="mdrv-overlay-calibration" id="mdrvOverlayCalibration">
+        <summary>Overlay calibration</summary>
+        <div class="mdrv-overlay-calibration-grid">
+          <label>Path length <input id="mdrvOverlayLengthScale" type="range" min="0.5" max="1.8" step="0.05" value="1.0"><output id="mdrvOverlayLengthScaleOut">1.00</output></label>
+          <label>Curve strength <input id="mdrvOverlayCurveScale" type="range" min="0.4" max="1.8" step="0.05" value="1.0"><output id="mdrvOverlayCurveScaleOut">1.00</output></label>
+          <label>Opacity <input id="mdrvOverlayOpacity" type="range" min="0.2" max="1.0" step="0.05" value="0.92"><output id="mdrvOverlayOpacityOut">0.92</output></label>
+          <label>Path width <input id="mdrvOverlayPathWidth" type="range" min="0.6" max="1.8" step="0.05" value="1.0"><output id="mdrvOverlayPathWidthOut">1.00</output></label>
+        </div>
+        <p class="mdrv-overlay-calibration-note">These settings change only the preview overlay, not the motor output.</p>
+      </details>
       <p id="mdrvSafetyText" class="mdrv-warning">Drag pad is locked until motor output is enabled. Releasing the pad sends STOP.</p>
       <button id="mdrvStopPad" class="mdrv-button mdrv-danger mdrv-full-stop">STOP</button>
     </section>

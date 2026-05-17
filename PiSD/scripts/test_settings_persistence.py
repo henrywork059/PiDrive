@@ -54,6 +54,7 @@ def static_checks() -> bool:
     js = (ROOT / 'pisd/web/static/js/manual_drive.js').read_text(encoding='utf-8')
     ok &= line('mdrvDragPad' in html and 'mdrvDragKnob' in html, PiSDErrorCodes.OK if 'mdrvDragPad' in html else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED, 'manual_drive.drag_pad_markup', 'drag pad markup present')
     ok &= line('/api/settings' in js and 'pointerdown' in js and 'pointermove' in js, PiSDErrorCodes.OK if '/api/settings' in js else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED, 'manual_drive.drag_pad_logic', 'drag pad and settings logic present')
+    ok &= line('mdrvOverlayLengthScale' in html and 'persistOverlaySettingsSoon' in js and 'normaliseOverlaySettings' in js, PiSDErrorCodes.OK if 'mdrvOverlayLengthScale' in html else PiSDErrorCodes.TEST_SETTINGS_PERSISTENCE_FAILED, 'manual_drive.overlay_settings', 'overlay calibration settings are present and persisted')
     stjs = (ROOT / 'pisd/web/static/js/settings_tab.js').read_text(encoding='utf-8')
     ok &= line('/api/settings/apply' in stjs and 'panel_presentation' in stjs, PiSDErrorCodes.OK if '/api/settings/apply' in stjs else PiSDErrorCodes.TEST_SETTINGS_PERSISTENCE_FAILED, 'settings_tab.backend_apply', 'settings tab saves and applies backend settings')
     return ok
@@ -65,8 +66,10 @@ def manager_checks() -> bool:
         path = Path(tmp) / 'runtime_settings.json'
         mgr = SettingsManager(path, {'camera': {'width': 426}, 'motor': {'steer_mix': 1.0}})
         ok &= line(mgr.get()['camera']['width'] == 426, PiSDErrorCodes.OK, 'settings.manager.defaults', 'defaults loaded')
-        saved, settings, report = mgr.save({'manual_drive': {'speed': 0.22}, 'panel_presentation': {'theme': 'light'}})
+        saved, settings, report = mgr.save({'manual_drive': {'speed': 0.22, 'overlay': {'path_length_scale': 9, 'curve_strength': 0.1, 'opacity': 'bad', 'path_width_scale': 1.4}}, 'panel_presentation': {'theme': 'light'}})
         ok &= line(saved and settings['manual_drive']['speed'] == 0.22, PiSDErrorCodes.OK if saved else report.code, 'settings.manager.save', 'settings saved')
+        overlay = settings['manual_drive']['overlay']
+        ok &= line(overlay['path_length_scale'] == 1.8 and overlay['curve_strength'] == 0.4 and overlay['opacity'] == 0.92 and overlay['path_width_scale'] == 1.4, PiSDErrorCodes.OK, 'settings.manager.overlay_clamp', 'overlay calibration values clamped/preserved')
         mgr2 = SettingsManager(path, {'camera': {'width': 426}, 'motor': {'steer_mix': 1.0}})
         ok &= line(mgr2.get()['panel_presentation']['theme'] == 'light', PiSDErrorCodes.OK, 'settings.manager.reload', 'settings reloaded')
         bad, _settings, report = mgr2.save({'unknown_group': {}})
@@ -78,7 +81,7 @@ def api_checks(base_url: str) -> bool:
     ok = True
     status, payload = http_json('GET', f'{base_url}/api/settings')
     ok &= line(status == 200 and payload.get('code') == PiSDErrorCodes.OK, payload.get('code', 'PISD-API-002'), 'api.settings.get', 'settings endpoint loaded')
-    test_payload = {'manual_drive': {'speed': 0.21, 'steer_strength': 0.33}, 'panel_presentation': {'theme': 'dark', 'density': 'compact'}}
+    test_payload = {'manual_drive': {'speed': 0.21, 'steer_strength': 0.33, 'overlay': {'enabled': True, 'opacity': 0.75}}, 'panel_presentation': {'theme': 'dark', 'density': 'compact'}}
     status, payload = http_json('POST', f'{base_url}/api/settings/apply', test_payload)
     ok &= line(status == 200 and payload.get('code') == PiSDErrorCodes.OK, payload.get('code', 'PISD-API-002'), 'api.settings.apply', 'settings saved and applied')
     status, payload = http_json('POST', f'{base_url}/api/settings', {'bad_group': {}})

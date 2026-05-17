@@ -5,7 +5,20 @@
   const initialStatus = JSON.parse($('manualDriveInitialStatus')?.textContent || '{}');
   const LEGACY_STORAGE_KEY = 'pisd.manualDrive.v1';
   const SETTINGS_STORAGE_KEY = 'pisd.runtimeSettings.v2';
-  const DEFAULTS = { speed: 0.18, max_speed_limit: 1.0, steer_strength: 1.0, drag_send_interval_ms: 90, recording_fps: 6 };
+  const DEFAULTS = {
+    speed: 0.18,
+    max_speed_limit: 1.0,
+    steer_strength: 1.0,
+    drag_send_interval_ms: 90,
+    recording_fps: 6,
+    overlay: {
+      enabled: true,
+      path_length_scale: 1.0,
+      curve_strength: 1.0,
+      opacity: 0.92,
+      path_width_scale: 1.0,
+    },
+  };
   const globalCode = $('mdrvGlobalCode');
   const preview = $('mdrvPreview');
   const log = $('mdrvLog');
@@ -44,6 +57,20 @@
   const overlaySteeringValue = $('mdrvOverlaySteeringValue');
   const overlayLeftValue = $('mdrvOverlayLeftValue');
   const overlayRightValue = $('mdrvOverlayRightValue');
+  const driveDebugPanel = $('mdrvDriveDebugPanel');
+  const overlayDebugSource = $('mdrvOverlayDebugSource');
+  const overlayDebugSteering = $('mdrvOverlayDebugSteering');
+  const overlayDebugThrottle = $('mdrvOverlayDebugThrottle');
+  const overlayDebugLeft = $('mdrvOverlayDebugLeft');
+  const overlayDebugRight = $('mdrvOverlayDebugRight');
+  const overlayLengthScale = $('mdrvOverlayLengthScale');
+  const overlayCurveScale = $('mdrvOverlayCurveScale');
+  const overlayOpacity = $('mdrvOverlayOpacity');
+  const overlayPathWidth = $('mdrvOverlayPathWidth');
+  const overlayLengthScaleOut = $('mdrvOverlayLengthScaleOut');
+  const overlayCurveScaleOut = $('mdrvOverlayCurveScaleOut');
+  const overlayOpacityOut = $('mdrvOverlayOpacityOut');
+  const overlayPathWidthOut = $('mdrvOverlayPathWidthOut');
   let dragging = false;
   let lastSentAt = 0;
   let lastPayload = { steering: 0, throttle: 0, steer_mix: 1.0 };
@@ -51,6 +78,9 @@
   let recordingRunning = Boolean(initialStatus.recording?.running);
   let recordingCollections = { recordings: [], snapshots: [] };
   let currentPreviewMode = "snapshot";
+  let overlaySettings = { ...DEFAULTS.overlay };
+  let overlayPersistTimer = 0;
+  let lastOverlaySource = 'stopped';
 
   function isOk(code) { return String(code || '').startsWith('PISD-OK'); }
   function clamp(value, min, max, fallback = 0) {
@@ -103,16 +133,80 @@
     return `${safe >= 0 ? '+' : ''}${safe.toFixed(2)}`;
   }
 
-  function renderMotorSignals(command = lastPayload, output = lastMotorOutput) {
+  function overlaySourceText(command, output, sourceHint = 'manual intent') {
+    const steering = Math.abs(Number(command?.steering || 0));
+    const throttle = Math.abs(Number(command?.throttle || 0));
+    const left = Math.abs(Number(output?.left || 0));
+    const right = Math.abs(Number(output?.right || 0));
+    if (steering < 0.02 && throttle < 0.02 && left < 0.02 && right < 0.02) return 'stopped';
+    return sourceHint || 'manual intent';
+  }
+
+  function renderOverlayDebug(command, output, sourceHint = 'manual intent') {
+    const source = overlaySourceText(command, output, sourceHint);
+    lastOverlaySource = source;
+    if (driveDebugPanel) driveDebugPanel.dataset.overlaySource = source.replace(/\s+/g, '-');
+    if (overlayDebugSource) overlayDebugSource.textContent = source;
+    if (overlayDebugSteering) overlayDebugSteering.textContent = formatSigned(command?.steering || 0);
+    if (overlayDebugThrottle) overlayDebugThrottle.textContent = formatSigned(command?.throttle || 0);
+    if (overlayDebugLeft) overlayDebugLeft.textContent = formatSigned(output?.left || 0);
+    if (overlayDebugRight) overlayDebugRight.textContent = formatSigned(output?.right || 0);
+    if (previewFrame) previewFrame.dataset.overlaySource = source.replace(/\s+/g, '-');
+    return source;
+  }
+
+  function renderMotorSignals(command = lastPayload, output = lastMotorOutput, sourceHint = 'manual intent') {
     const steering = Number(command?.steering || 0);
     const throttle = Number(command?.throttle || 0);
     const left = Number(output?.left || 0);
     const right = Number(output?.right || 0);
+    const source = renderOverlayDebug({ steering, throttle }, { left, right }, sourceHint);
     if (intentOut) intentOut.textContent = `S ${formatSigned(steering)} / T ${formatSigned(throttle)}`;
     if (motorOut) motorOut.textContent = `L ${formatSigned(left)} / R ${formatSigned(right)}`;
-    updateDriveOverlay({ steering, throttle, steer_mix: command?.steer_mix ?? 1.0 }, { left, right });
+    updateDriveOverlay({ steering, throttle, steer_mix: command?.steer_mix ?? 1.0 }, { left, right }, source);
   }
 
+
+  function normaliseOverlaySettings(raw = {}) {
+    const source = raw && typeof raw === 'object' ? raw : {};
+    return {
+      enabled: String(source.enabled ?? DEFAULTS.overlay.enabled).toLowerCase() !== 'false' && !['0', 'no', 'off'].includes(String(source.enabled ?? DEFAULTS.overlay.enabled).toLowerCase()),
+      path_length_scale: clamp(source.path_length_scale ?? DEFAULTS.overlay.path_length_scale, 0.5, 1.8, DEFAULTS.overlay.path_length_scale),
+      curve_strength: clamp(source.curve_strength ?? DEFAULTS.overlay.curve_strength, 0.4, 1.8, DEFAULTS.overlay.curve_strength),
+      opacity: clamp(source.opacity ?? DEFAULTS.overlay.opacity, 0.2, 1.0, DEFAULTS.overlay.opacity),
+      path_width_scale: clamp(source.path_width_scale ?? DEFAULTS.overlay.path_width_scale, 0.6, 1.8, DEFAULTS.overlay.path_width_scale),
+    };
+  }
+
+  function updateOverlaySettingLabels() {
+    if (overlayLengthScaleOut) overlayLengthScaleOut.textContent = overlaySettings.path_length_scale.toFixed(2);
+    if (overlayCurveScaleOut) overlayCurveScaleOut.textContent = overlaySettings.curve_strength.toFixed(2);
+    if (overlayOpacityOut) overlayOpacityOut.textContent = overlaySettings.opacity.toFixed(2);
+    if (overlayPathWidthOut) overlayPathWidthOut.textContent = overlaySettings.path_width_scale.toFixed(2);
+  }
+
+  function applyOverlayCalibration(settings = overlaySettings, persist = false) {
+    overlaySettings = normaliseOverlaySettings(settings);
+    if (overlayLengthScale) overlayLengthScale.value = overlaySettings.path_length_scale;
+    if (overlayCurveScale) overlayCurveScale.value = overlaySettings.curve_strength;
+    if (overlayOpacity) overlayOpacity.value = overlaySettings.opacity;
+    if (overlayPathWidth) overlayPathWidth.value = overlaySettings.path_width_scale;
+    if (previewFrame) previewFrame.style.setProperty('--mdrv-overlay-calibrated-opacity', String(overlaySettings.opacity));
+    updateOverlaySettingLabels();
+    setOverlayEnabled(overlaySettings.enabled, false);
+    updateDriveOverlay(lastPayload, lastMotorOutput, lastOverlaySource);
+    if (persist) persistOverlaySettingsSoon();
+  }
+
+  function readOverlayCalibrationFromControls() {
+    return normaliseOverlaySettings({
+      ...overlaySettings,
+      path_length_scale: overlayLengthScale?.value,
+      curve_strength: overlayCurveScale?.value,
+      opacity: overlayOpacity?.value,
+      path_width_scale: overlayPathWidth?.value,
+    });
+  }
 
   function setSignedFill(element, value) {
     if (!element) return;
@@ -153,14 +247,15 @@
     const startX = 50;
     const startY = movingReverse ? 68 : 88;
     const samples = 34;
-    const horizon = movingReverse ? (14 + speed * 30) : (22 + speed * 62);
+    const horizonScale = overlaySettings.path_length_scale || 1.0;
+    const horizon = (movingReverse ? (14 + speed * 30) : (22 + speed * 62)) * horizonScale;
 
     // 0.4.6: draw a sampled constant-curvature path rather than a single
     // quadratic curve. This is a screen-space bicycle/Ackermann approximation:
     // throttle controls horizon length; steering controls curvature. Reverse is
     // mirrored so the driver sees where the car will back toward.
     const visualWheelbase = 34;
-    const maxSteerRad = 0.72;
+    const maxSteerRad = 0.72 * (overlaySettings.curve_strength || 1.0);
     const visualSteering = movingReverse ? -safeSteering : safeSteering;
     const curvature = Math.tan(visualSteering * maxSteerRad) / visualWheelbase;
     const signedDistance = movingReverse ? -horizon : horizon;
@@ -187,14 +282,18 @@
     const { points, curvature, movingReverse, speed } = sampledIntendedPath(safeThrottle, safeSteering);
     const pathD = pointsToPath(points);
     const end = points[points.length - 1] || { x: 50, y: 88 };
-    const opacity = moving || steeringAbs >= 0.02 ? '0.92' : '0.28';
-    const strokeWidth = String(2.4 + speed * 3.2);
+    const calibratedOpacity = overlaySettings.opacity || DEFAULTS.overlay.opacity;
+    const opacity = moving || steeringAbs >= 0.02 ? String(calibratedOpacity) : String(Math.max(0.18, calibratedOpacity * 0.32));
+    const widthScale = overlaySettings.path_width_scale || 1.0;
+    const strokeWidth = String((2.4 + speed * 3.2) * widthScale);
     for (const pathElement of [overlayPathWide, overlayPathGuide, overlayPath]) {
       if (!pathElement) continue;
       pathElement.setAttribute('d', pathD);
       pathElement.style.opacity = opacity;
       pathElement.style.strokeDasharray = movingReverse ? '7 5' : 'none';
     }
+    if (overlayPathWide) overlayPathWide.style.strokeWidth = String(10 * widthScale);
+    if (overlayPathGuide) overlayPathGuide.style.strokeWidth = String(6.2 * widthScale);
     overlayPath.style.strokeWidth = strokeWidth;
     if (overlayEndpoint) {
       overlayEndpoint.setAttribute('cx', end.x.toFixed(2));
@@ -210,13 +309,14 @@
     }
   }
 
-  function updateDriveOverlay(command = lastPayload, output = lastMotorOutput) {
+  function updateDriveOverlay(command = lastPayload, output = lastMotorOutput, sourceHint = 'manual intent') {
     const steering = clamp(command?.steering ?? 0, -1, 1, 0);
     const throttle = clamp(command?.throttle ?? 0, -1, 1, 0);
     const left = clamp(output?.left ?? 0, -1, 1, 0);
     const right = clamp(output?.right ?? 0, -1, 1, 0);
     const moving = Math.abs(throttle) >= 0.02;
-    if (overlayMode) overlayMode.textContent = driveModeText(throttle, steering);
+    const source = renderOverlayDebug({ steering, throttle }, { left, right }, sourceHint);
+    if (overlayMode) overlayMode.textContent = source === 'stopped' ? 'STOPPED' : driveModeText(throttle, steering);
     if (overlayThrottleValue) overlayThrottleValue.textContent = formatSigned(throttle);
     if (overlaySteeringValue) overlaySteeringValue.textContent = formatSigned(steering);
     if (overlayLeftValue) overlayLeftValue.textContent = formatSigned(left);
@@ -230,25 +330,31 @@
     drawIntendedPath(throttle, steering);
   }
 
-  function setOverlayEnabled(enabled) {
+  function setOverlayEnabled(enabled, persist = true) {
+    overlaySettings.enabled = Boolean(enabled);
     if (!previewFrame || !overlayToggle) return;
-    previewFrame.classList.toggle('mdrv-overlay-enabled', enabled);
-    overlayToggle.textContent = enabled ? 'Overlay: On' : 'Overlay: Off';
-    overlayToggle.setAttribute('aria-pressed', enabled ? 'true' : 'false');
-    overlayToggle.dataset.state = enabled ? 'on' : 'off';
+    previewFrame.classList.toggle('mdrv-overlay-enabled', overlaySettings.enabled);
+    overlayToggle.textContent = overlaySettings.enabled ? 'Overlay: On' : 'Overlay: Off';
+    overlayToggle.setAttribute('aria-pressed', overlaySettings.enabled ? 'true' : 'false');
+    overlayToggle.dataset.state = overlaySettings.enabled ? 'on' : 'off';
+    if (persist) persistOverlaySettingsSoon();
   }
 
   function renderMotorSignalsFromStatus(status) {
     const motor = status?.motor || {};
-    const command = motor.last_command || lastPayload;
+    const hasServerCommand = motor.last_command && typeof motor.last_command === 'object';
+    let command = hasServerCommand ? motor.last_command : lastPayload;
     const output = { left: motor.last_left ?? lastMotorOutput.left, right: motor.last_right ?? lastMotorOutput.right };
+    if (!hasServerCommand && Math.abs(Number(output.left || 0)) < 0.02 && Math.abs(Number(output.right || 0)) < 0.02) {
+      command = { steering: 0, throttle: 0, steer_mix: lastPayload.steer_mix || 1.0 };
+    }
     lastPayload = {
       steering: Number(command.steering || 0),
       throttle: Number(command.throttle || 0),
       steer_mix: Number(command.steer_mix || lastPayload.steer_mix || 1.0),
     };
     lastMotorOutput = { left: Number(output.left || 0), right: Number(output.right || 0) };
-    renderMotorSignals(lastPayload, lastMotorOutput);
+    renderMotorSignals(lastPayload, lastMotorOutput, 'live status');
   }
 
   function renderMotorSignalsFromApiResponse(payload, fallbackCommand = lastPayload) {
@@ -264,7 +370,7 @@
       steer_mix: Number(command.steer_mix ?? fallbackCommand?.steer_mix ?? 1.0),
     };
     lastMotorOutput = { left: Number(output.left || 0), right: Number(output.right || 0) };
-    renderMotorSignals(lastPayload, lastMotorOutput);
+    renderMotorSignals(lastPayload, lastMotorOutput, 'live status');
   }
 
   function selectedFileItem() {
@@ -357,9 +463,21 @@
     catch (_err) { return {}; }
   }
 
+  function mergeSettingsObjects(base, partial) {
+    const result = { ...(base || {}) };
+    for (const [key, value] of Object.entries(partial || {})) {
+      if (value && typeof value === 'object' && !Array.isArray(value) && result[key] && typeof result[key] === 'object' && !Array.isArray(result[key])) {
+        result[key] = mergeSettingsObjects(result[key], value);
+      } else {
+        result[key] = value;
+      }
+    }
+    return result;
+  }
+
   function writeRuntimeLocal(partial) {
     const current = readRuntimeLocal();
-    const next = { ...current, ...partial, saved_at: new Date().toISOString() };
+    const next = mergeSettingsObjects(current, { ...partial, saved_at: new Date().toISOString() });
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(next));
     return next;
   }
@@ -394,9 +512,11 @@
       max_speed_limit: limit,
       speed: clamp(legacy.speed || serverManual.speed || DEFAULTS.speed, 0.0, limit, DEFAULTS.speed),
       steer_strength: clamp(steerCandidate, 0.0, 1.0, DEFAULTS.steer_strength),
+      overlay: normaliseOverlaySettings(serverManual.overlay || DEFAULTS.overlay),
     };
     if (speed) { speed.max = String(manual.max_speed_limit); speed.value = manual.speed; }
     if (steer) steer.value = manual.steer_strength;
+    applyOverlayCalibration(manual.overlay, false);
     updateSliderLabels();
     if (window.PiSDPanelPresentation && settings.panel_presentation) window.PiSDPanelPresentation.apply(settings.panel_presentation);
   }
@@ -409,12 +529,26 @@
       steer_strength: clamp(steer?.value || DEFAULTS.steer_strength, 0, 1, DEFAULTS.steer_strength),
       drag_send_interval_ms: DEFAULTS.drag_send_interval_ms,
       recording_fps: clamp(readRuntimeLocal().manual_drive?.recording_fps || DEFAULTS.recording_fps, 0.2, 30, DEFAULTS.recording_fps),
+      overlay: normaliseOverlaySettings(overlaySettings),
     };
     writeRuntimeLocal({ manual_drive });
     localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify({ speed: String(manual_drive.speed), steer: String(manual_drive.steer_strength) }));
     try {
       await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ manual_drive }) });
     } catch (_err) {}
+  }
+
+  function persistOverlaySettingsSoon() {
+    overlaySettings = normaliseOverlaySettings(overlaySettings);
+    writeRuntimeLocal({ manual_drive: { overlay: overlaySettings } });
+    window.clearTimeout(overlayPersistTimer);
+    overlayPersistTimer = window.setTimeout(() => {
+      fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ manual_drive: { overlay: overlaySettings } }),
+      }).catch(() => {});
+    }, 250);
   }
 
   function writeLog(action, payload, httpStatus = '') {
@@ -527,7 +661,7 @@
     if (!force && now - lastSentAt < interval) return;
     lastSentAt = now;
     lastPayload = payload;
-    renderMotorSignals(payload, lastMotorOutput);
+    renderMotorSignals(payload, lastMotorOutput, 'manual intent');
     try {
       const result = await api('POST', '/api/control/manual', payload, 'drive');
       renderMotorSignalsFromApiResponse(result.payload, payload);
@@ -539,7 +673,7 @@
     setKnob(0, 0);
     lastPayload = { steering: 0, throttle: 0, steer_mix: 1.0 };
     lastMotorOutput = { left: 0, right: 0 };
-    renderMotorSignals(lastPayload, lastMotorOutput);
+    renderMotorSignals(lastPayload, lastMotorOutput, 'stopped');
     try {
       const { payload } = await api('POST', '/api/control/stop', {}, target);
       renderMotorSignalsFromApiResponse(payload, lastPayload);
@@ -650,7 +784,10 @@
     $('mdrvStopTop')?.addEventListener('click', () => stopAll('stop'));
     $('mdrvStopPad')?.addEventListener('click', () => stopAll('drive'));
     $('mdrvStopBig')?.addEventListener('click', () => stopAll('stop'));
-    overlayToggle?.addEventListener('click', () => setOverlayEnabled(!previewFrame?.classList.contains('mdrv-overlay-enabled')));
+    overlayToggle?.addEventListener('click', () => setOverlayEnabled(!previewFrame?.classList.contains('mdrv-overlay-enabled'), true));
+    for (const control of [overlayLengthScale, overlayCurveScale, overlayOpacity, overlayPathWidth]) {
+      control?.addEventListener('input', () => applyOverlayCalibration(readOverlayCalibrationFromControls(), true));
+    }
     $('mdrvRefreshFiles')?.addEventListener('click', refreshRecordingItems);
     $('mdrvDownloadZip')?.addEventListener('click', downloadSelectedZip);
     $('mdrvDeleteFolder')?.addEventListener('click', deleteSelectedFolder);
@@ -667,11 +804,11 @@
   }
 
   setKnob(0, 0);
-  renderMotorSignals(lastPayload, lastMotorOutput);
+  renderMotorSignals(lastPayload, lastMotorOutput, 'stopped');
   renderStatus(initialStatus);
   bind();
-  setOverlayEnabled(true);
-  updateDriveOverlay(lastPayload, lastMotorOutput);
+  applyOverlayCalibration(overlaySettings, false);
+  updateDriveOverlay(lastPayload, lastMotorOutput, 'stopped');
   updateLock();
   loadSettings();
   refreshRecordingItems();
