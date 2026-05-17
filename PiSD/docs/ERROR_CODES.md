@@ -276,3 +276,8 @@ PiSD 0.5.2 replaces the earlier scripted Autopilot foundation with AI Mode. AI m
 ## PiSD 0.5.3 AI mode UI/control note
 
 PiSD 0.5.3 keeps the 0.5.2 AI error-code set, but fixes AI Mode max throttle and fixed throttle limits so the UI, runtime settings, and safety limiter can use the full `0.00` to `1.00` motor-command range. It also aligns AI Mode page styling with Manual Drive panels/buttons.
+
+
+## PiSD 0.5.4 AI preview overlay note
+
+PiSD 0.5.4 keeps the 0.5.2 AI error-code set and the 0.5.3 full-throttle range fix, but replaces the separate AI preview box with the same preview-frame/overlay design pattern used by Manual Drive. The AI overlay draws its path from the latest safe AI command after the safety limiter, while also showing raw model steering/throttle for comparison.

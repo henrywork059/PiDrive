@@ -318,3 +318,62 @@ body[data-pisd-card-accent="strong"] .ai-intro-panel {
     min-height: 220px;
   }
 }
+
+/* PiSD_0_5_4: AI Mode now reuses the Manual Drive preview frame and
+   predicted-path overlay, but the values come from the AI model safety output. */
+.ai-preview-frame {
+  min-height: clamp(260px, calc(100vh - 290px), 66vh);
+  height: clamp(260px, calc(100vh - 290px), 66vh);
+}
+
+.ai-preview-frame img {
+  min-height: 100%;
+}
+
+.ai-preview-frame .mdrv-drive-overlay {
+  font-size: clamp(.66rem, 1.25vw, .86rem);
+}
+
+.ai-camera-head-actions {
+  justify-content: flex-end;
+}
+
+.ai-preview-caption {
+  margin-top: .55rem;
+}
+
+.ai-drive-overlay .mdrv-overlay-path {
+  stroke: rgba(34, 211, 238, .96);
+}
+
+.ai-drive-overlay .mdrv-overlay-path-guide {
+  stroke: rgba(226, 232, 240, .70);
+}
+
+.ai-overlay-wheel-row {
+  flex-wrap: wrap;
+  max-width: min(58%, 520px);
+  justify-content: flex-end;
+}
+
+.ai-preview-frame[data-overlay-source="ai-drive"] .mdrv-overlay-hud {
+  border-color: rgba(34, 197, 94, .65);
+  background: rgba(20, 83, 45, .62);
+}
+
+.ai-preview-frame[data-overlay-source="ai-preview"] .mdrv-overlay-hud,
+.ai-preview-frame[data-overlay-source="ai-ready"] .mdrv-overlay-hud {
+  border-color: rgba(56, 189, 248, .60);
+  background: rgba(7, 89, 133, .62);
+}
+
+.ai-preview-frame[data-overlay-source="ai-stopped"] .mdrv-overlay-hud {
+  border-color: rgba(148, 163, 184, .28);
+  background: rgba(15, 23, 42, .64);
+}
+
+@media (max-width: 759px) {
+  .ai-preview-frame { height: auto; min-height: 220px; }
+  .ai-overlay-wheel-row { max-width: calc(100% - .9rem); top: 2.95rem; }
+  .ai-camera-head-actions { justify-content: flex-start; }
+}

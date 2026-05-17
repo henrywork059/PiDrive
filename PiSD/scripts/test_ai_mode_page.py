@@ -82,13 +82,17 @@ def check_source_contract() -> Result:
             "aiStartPreview",
             "aiStartDrive",
             "STOP AI + motors",
+            "aiPreviewFrame",
+            "aiDriveOverlay",
+            "AI safe arc",
+            "Overlay: On",
             "labels.jsonl",
             "AI → safety limiter → motors",
             "manual_drive.css",
             "mdrv-panel",
             'max="1.0"',
         ],
-        "css": [".ai-shell", ".ai-grid", ".ai-preview-box", ".ai-button-danger", "manual_drive.css", "@media (max-width: 980px)"],
+        "css": [".ai-shell", ".ai-grid", ".ai-preview-frame", ".ai-button-danger", "mdrv-drive-overlay", "@media (max-width: 980px)"],
         "js": [
             "aiModeInitialStatus",
             "/api/ai/models",
@@ -100,6 +104,9 @@ def check_source_contract() -> Result:
             "enable_motor_output",
             "sendBeacon",
             "enforceFullScaleThrottleRanges",
+            "updateAIOverlay",
+            "sampledIntendedPath",
+            "aiOverlayToggle",
         ],
     }
     sources = {"template": template, "css": css, "js": js}
@@ -110,7 +117,7 @@ def check_source_contract() -> Result:
         "ai_mode.source_contract",
         ok,
         PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_AI_MODE_FAILED,
-        "AI Mode source contains model-loading, preview, safety, and drive contracts" if ok else "AI Mode source contract failed",
+        "AI Mode source contains model-loading, Manual Drive-style preview overlay, safety, and drive contracts" if ok else "AI Mode source contract failed",
         {"missing": missing},
     )
 

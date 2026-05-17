@@ -2,7 +2,10 @@
   const initial = JSON.parse(document.getElementById('aiModeInitialStatus')?.textContent || '{}');
   const els = {};
   const ids = [
-    'aiGlobalCode', 'aiRunMode', 'aiModelReady', 'aiPreviewImage', 'aiPreviewCaption', 'aiStartCamera', 'aiSnapshot', 'aiLive', 'aiStopCamera',
+    'aiGlobalCode', 'aiRunMode', 'aiModelReady', 'aiPreviewFrame', 'aiPreviewImage', 'aiPreviewCaption', 'aiStartCamera', 'aiSnapshot', 'aiLive', 'aiStopCamera',
+    'aiOverlayToggle', 'aiOverlayMode', 'aiOverlayCurveLabel', 'aiOverlayCar', 'aiOverlayPathWide', 'aiOverlayPathGuide', 'aiOverlayPath',
+    'aiOverlayEndpoint', 'aiOverlayThrottleFill', 'aiOverlaySteeringFill', 'aiOverlayThrottleValue', 'aiOverlaySteeringValue',
+    'aiOverlayRawSteering', 'aiOverlayRawThrottle', 'aiOverlayLeftValue', 'aiOverlayRightValue',
     'aiRefreshModels', 'aiModelSelect', 'aiLoadModel', 'aiPredictOnce', 'aiSelectedModel', 'aiBackend', 'aiInputShape', 'aiModelsDir',
     'aiSafetyAck', 'aiEnableMotor', 'aiOutputMode', 'aiMaxThrottle', 'aiMaxThrottleOut', 'aiMaxSteering', 'aiMaxSteeringOut',
     'aiFixedThrottle', 'aiFixedThrottleOut', 'aiUpdateHz', 'aiUpdateHzOut', 'aiSteerSmooth', 'aiSteerSmoothOut', 'aiThrottleSmooth',
@@ -11,12 +14,33 @@
   ];
   ids.forEach((id) => { els[id] = document.getElementById(id); });
 
+  const IDLE_PREVIEW_SRC = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720'%3E%3Crect width='1280' height='720' fill='%23020617'/%3E%3Ctext x='640' y='340' fill='%2394a3b8' font-family='Arial,sans-serif' font-size='42' text-anchor='middle'%3EAI preview idle%3C/text%3E%3Ctext x='640' y='398' fill='%2364748b' font-family='Arial,sans-serif' font-size='26' text-anchor='middle'%3EStart camera / live, then run AI preview%3C/text%3E%3C/svg%3E";
+  const AI_OVERLAY_SETTINGS = {
+    path_length_scale: 1.0,
+    curve_strength: 1.0,
+    opacity: 0.92,
+    path_width_scale: 1.0,
+  };
+
   let statusTimer = null;
   let aiRunning = false;
+  let overlayEnabled = true;
+  let lastAIStatus = initial.ai_mode || {};
+
+  function clamp(value, min = -1, max = 1, fallback = 0) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return fallback;
+    return Math.min(max, Math.max(min, n));
+  }
 
   function fmt(value, digits = 2) {
     const n = Number(value);
     return Number.isFinite(n) ? n.toFixed(digits) : '-';
+  }
+
+  function formatSigned(value, digits = 2) {
+    const n = clamp(value, -999, 999, 0);
+    return `${n >= 0 ? '+' : ''}${n.toFixed(digits)}`;
   }
 
   function log(message, payload) {
@@ -70,7 +94,140 @@
     setRange('aiThrottleSmooth', 'aiThrottleSmoothOut', config.throttle_smoothing ?? 0.25);
   }
 
+  function setSignedFill(element, value) {
+    if (!element) return;
+    const number = clamp(value, -1, 1, 0);
+    element.style.left = number < 0 ? `${50 + (number * 50)}%` : '50%';
+    element.style.width = `${Math.abs(number) * 50}%`;
+  }
+
+  function driveModeText(throttle, steering) {
+    const throttleAbs = Math.abs(throttle);
+    const steeringAbs = Math.abs(steering);
+    if (throttleAbs < 0.02 && steeringAbs < 0.02) return 'STOPPED';
+    const direction = throttle < -0.02 ? 'AI REV' : throttle > 0.02 ? 'AI FWD' : 'AI TURN';
+    if (steeringAbs < 0.08) return direction;
+    return `${direction} ${steering < 0 ? 'LEFT' : 'RIGHT'}`;
+  }
+
+  function curveLabelText(throttle, steering, ai = lastAIStatus) {
+    const throttleAbs = Math.abs(throttle);
+    const steeringAbs = Math.abs(steering);
+    const source = ai.running ? (ai.mode === 'drive' ? 'drive' : 'preview') : ai.model_ready ? 'ready' : 'model not loaded';
+    if (throttleAbs < 0.02 && steeringAbs < 0.02) return `${source} · hold`;
+    if (steeringAbs < 0.06) return `${source} · straight`;
+    const tightness = steeringAbs > 0.72 ? 'tight' : steeringAbs > 0.38 ? 'medium' : 'gentle';
+    const turn = steering < 0 ? 'left' : 'right';
+    return `${source} · ${tightness} ${turn}`;
+  }
+
+  function pointsToPath(points) {
+    if (!Array.isArray(points) || !points.length) return '';
+    return points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join(' ');
+  }
+
+  function sampledIntendedPath(throttle, steering) {
+    const safeThrottle = clamp(throttle, -1, 1, 0);
+    const safeSteering = clamp(steering, -1, 1, 0);
+    const speed = Math.abs(safeThrottle);
+    const movingReverse = safeThrottle < -0.02;
+    const startX = 50;
+    const startY = movingReverse ? 68 : 88;
+    const samples = 34;
+    const horizon = (movingReverse ? (14 + speed * 30) : (22 + speed * 62)) * AI_OVERLAY_SETTINGS.path_length_scale;
+    const visualWheelbase = 34;
+    const maxSteerRad = 0.72 * AI_OVERLAY_SETTINGS.curve_strength;
+    const visualSteering = movingReverse ? -safeSteering : safeSteering;
+    const curvature = Math.tan(visualSteering * maxSteerRad) / visualWheelbase;
+    const signedDistance = movingReverse ? -horizon : horizon;
+    const points = [];
+    for (let i = 0; i <= samples; i += 1) {
+      const s = signedDistance * (i / samples);
+      let lateral = 0;
+      let longitudinal = s;
+      if (Math.abs(curvature) > 0.0008) {
+        lateral = (1 - Math.cos(curvature * s)) / curvature;
+        longitudinal = Math.sin(curvature * s) / curvature;
+      }
+      points.push({ x: startX + lateral, y: startY - longitudinal });
+    }
+    return { points, curvature, movingReverse, speed };
+  }
+
+  function drawAIPath(throttle, steering) {
+    if (!els.aiOverlayPath) return;
+    const safeThrottle = clamp(throttle, -1, 1, 0);
+    const safeSteering = clamp(steering, -1, 1, 0);
+    const steeringAbs = Math.abs(safeSteering);
+    const moving = Math.abs(safeThrottle) >= 0.02;
+    const { points, curvature, movingReverse, speed } = sampledIntendedPath(safeThrottle, safeSteering);
+    const pathD = pointsToPath(points);
+    const end = points[points.length - 1] || { x: 50, y: 88 };
+    const opacity = moving || steeringAbs >= 0.02 ? String(AI_OVERLAY_SETTINGS.opacity) : String(Math.max(0.18, AI_OVERLAY_SETTINGS.opacity * 0.32));
+    const widthScale = AI_OVERLAY_SETTINGS.path_width_scale;
+    for (const pathElement of [els.aiOverlayPathWide, els.aiOverlayPathGuide, els.aiOverlayPath]) {
+      if (!pathElement) continue;
+      pathElement.setAttribute('d', pathD);
+      pathElement.style.opacity = opacity;
+      pathElement.style.strokeDasharray = movingReverse ? '7 5' : 'none';
+    }
+    if (els.aiOverlayPathWide) els.aiOverlayPathWide.style.strokeWidth = String(10 * widthScale);
+    if (els.aiOverlayPathGuide) els.aiOverlayPathGuide.style.strokeWidth = String(6.2 * widthScale);
+    if (els.aiOverlayPath) els.aiOverlayPath.style.strokeWidth = String((2.4 + speed * 3.2) * widthScale);
+    if (els.aiOverlayEndpoint) {
+      els.aiOverlayEndpoint.setAttribute('cx', end.x.toFixed(2));
+      els.aiOverlayEndpoint.setAttribute('cy', end.y.toFixed(2));
+      els.aiOverlayEndpoint.style.opacity = opacity;
+    }
+    if (els.aiOverlayCurveLabel) {
+      const curve = Math.abs(curvature) < 0.001 ? 'straight' : `curve ${Math.abs(curvature).toFixed(3)}`;
+      els.aiOverlayCurveLabel.textContent = `${curveLabelText(safeThrottle, safeSteering)} · ${curve}`;
+    }
+    if (els.aiPreviewFrame) {
+      els.aiPreviewFrame.dataset.overlayMotion = moving ? (movingReverse ? 'reverse' : 'forward') : 'stopped';
+    }
+  }
+
+  function setOverlayEnabled(enabled) {
+    overlayEnabled = Boolean(enabled);
+    if (els.aiPreviewFrame) els.aiPreviewFrame.classList.toggle('mdrv-overlay-enabled', overlayEnabled);
+    if (els.aiOverlayToggle) {
+      els.aiOverlayToggle.textContent = overlayEnabled ? 'Overlay: On' : 'Overlay: Off';
+      els.aiOverlayToggle.setAttribute('aria-pressed', overlayEnabled ? 'true' : 'false');
+      els.aiOverlayToggle.dataset.state = overlayEnabled ? 'on' : 'off';
+    }
+  }
+
+  function updateAIOverlay(ai = lastAIStatus) {
+    const raw = ai.last_raw_prediction || {};
+    const safe = ai.last_safe_command || {};
+    const motor = ai.last_motor_output || {};
+    const steering = clamp(safe.steering ?? 0, -1, 1, 0);
+    const throttle = clamp(safe.throttle ?? 0, -1, 1, 0);
+    const rawSteering = clamp(raw.steering ?? 0, -1, 1, 0);
+    const rawThrottle = clamp(raw.throttle ?? 0, -1, 1, 0);
+    const left = clamp(motor.left ?? 0, -1, 1, 0);
+    const right = clamp(motor.right ?? 0, -1, 1, 0);
+    const source = ai.running ? (ai.mode === 'drive' ? 'ai-drive' : 'ai-preview') : (ai.model_ready ? 'ai-ready' : 'ai-stopped');
+    if (els.aiPreviewFrame) els.aiPreviewFrame.dataset.overlaySource = source;
+    if (els.aiOverlayMode) els.aiOverlayMode.textContent = driveModeText(throttle, steering);
+    if (els.aiOverlayThrottleValue) els.aiOverlayThrottleValue.textContent = formatSigned(throttle);
+    if (els.aiOverlaySteeringValue) els.aiOverlaySteeringValue.textContent = formatSigned(steering);
+    if (els.aiOverlayRawSteering) els.aiOverlayRawSteering.textContent = formatSigned(rawSteering);
+    if (els.aiOverlayRawThrottle) els.aiOverlayRawThrottle.textContent = formatSigned(rawThrottle);
+    if (els.aiOverlayLeftValue) els.aiOverlayLeftValue.textContent = formatSigned(left);
+    if (els.aiOverlayRightValue) els.aiOverlayRightValue.textContent = formatSigned(right);
+    setSignedFill(els.aiOverlayThrottleFill, throttle);
+    setSignedFill(els.aiOverlaySteeringFill, steering);
+    if (els.aiOverlayCar) {
+      els.aiOverlayCar.style.transform = `translateX(-50%) rotate(${(steering * 28).toFixed(1)}deg)`;
+      els.aiOverlayCar.style.opacity = Math.abs(throttle) >= 0.02 || Math.abs(steering) >= 0.02 ? '1' : '0.78';
+    }
+    drawAIPath(throttle, steering);
+  }
+
   function renderAI(ai = {}) {
+    lastAIStatus = ai || {};
     aiRunning = Boolean(ai.running);
     const raw = ai.last_raw_prediction || {};
     const safe = ai.last_safe_command || {};
@@ -91,6 +248,7 @@
     if (els.aiInferenceMs) els.aiInferenceMs.textContent = `${fmt(ai.last_inference_ms, 1)} ms`;
     if (els.aiLoopHz) els.aiLoopHz.textContent = `${fmt(ai.loop_hz, 1)} Hz`;
     if (ai.settings) renderConfig(ai.settings);
+    updateAIOverlay(ai);
   }
 
   async function refreshStatus() {
@@ -133,7 +291,6 @@
     }
   }
 
-
   function enforceFullScaleThrottleRanges() {
     ['aiMaxThrottle', 'aiFixedThrottle'].forEach((id) => {
       if (!els[id]) return;
@@ -144,11 +301,18 @@
   }
 
   function setPreview(mode, src = '') {
-    const box = document.querySelector('.ai-preview-box');
-    if (!box || !els.aiPreviewImage || !els.aiPreviewCaption) return;
-    box.dataset.previewState = mode;
-    if (src) els.aiPreviewImage.src = src;
-    els.aiPreviewCaption.textContent = mode === 'live' ? 'Live stream running.' : mode === 'snapshot' ? 'Snapshot preview loaded.' : mode === 'error' ? 'Preview error.' : 'Preview is idle.';
+    if (!els.aiPreviewFrame || !els.aiPreviewImage || !els.aiPreviewCaption) return;
+    els.aiPreviewFrame.dataset.previewState = mode;
+    els.aiPreviewFrame.dataset.previewMode = mode;
+    els.aiPreviewImage.dataset.previewMode = mode;
+    els.aiPreviewImage.src = src || IDLE_PREVIEW_SRC;
+    els.aiPreviewCaption.textContent = mode === 'live'
+      ? 'Live stream running. The overlay is drawn from the latest AI safe command, not from manual control.'
+      : mode === 'snapshot'
+        ? 'Snapshot preview loaded. Run AI preview/predict once to update the AI model overlay.'
+        : mode === 'error'
+          ? 'Preview error.'
+          : 'Preview is idle. Start camera/live first, then use AI preview to see the model-predicted safe path overlay before enabling AI drive.';
   }
 
   async function saveConfig() {
@@ -236,6 +400,7 @@
   }
 
   function bind() {
+    els.aiOverlayToggle?.addEventListener('click', () => setOverlayEnabled(!overlayEnabled));
     els.aiRefreshModels?.addEventListener('click', refreshModels);
     els.aiLoadModel?.addEventListener('click', loadModel);
     els.aiPredictOnce?.addEventListener('click', predictOnce);
@@ -254,6 +419,8 @@
   }
 
   enforceFullScaleThrottleRanges();
+  setPreview('idle', '');
+  setOverlayEnabled(true);
   renderAI((initial.ai_mode || {}));
   wireRanges();
   bind();

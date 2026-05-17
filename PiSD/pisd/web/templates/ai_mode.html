@@ -48,20 +48,62 @@
       <section class="mdrv-panel ai-panel ai-preview-panel" id="aiPreviewPanel">
         <div class="mdrv-panel-head ai-panel-head">
           <div>
-            <p class="mdrv-label ai-panel-kicker">Camera / prediction preview</p>
-            <h2>Live input</h2>
+            <p class="mdrv-label ai-panel-kicker">Camera / AI prediction preview</p>
+            <h2>Live input + AI path overlay</h2>
           </div>
-          <div class="ai-button-row">
+          <div class="mdrv-camera-head-actions ai-camera-head-actions">
+            <button id="aiOverlayToggle" class="mdrv-button mdrv-overlay-toggle" type="button" aria-pressed="true" title="Show or hide the AI model path overlay drawn from the safe AI steering/throttle command.">Overlay: On</button>
             <button id="aiStartCamera" class="mdrv-button ai-button">Start camera</button>
             <button id="aiSnapshot" class="mdrv-button ai-button">Snapshot</button>
             <button id="aiLive" class="mdrv-button ai-button">Live stream</button>
             <button id="aiStopCamera" class="mdrv-button ai-button ai-button-secondary">Stop camera</button>
           </div>
         </div>
-        <figure class="ai-preview-box" data-preview-state="idle">
-          <img id="aiPreviewImage" alt="AI camera preview" data-idle-src="" src="" />
-          <figcaption id="aiPreviewCaption">Preview is idle. Start camera or live stream before AI preview.</figcaption>
-        </figure>
+        <div id="aiPreviewFrame" class="mdrv-preview-frame ai-preview-frame mdrv-overlay-enabled" data-preview-mode="idle" data-preview-state="idle" data-overlay-source="ai-stopped" data-overlay-motion="stopped">
+          <img id="aiPreviewImage" alt="AI camera preview" data-preview-mode="idle" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720'%3E%3Crect width='1280' height='720' fill='%23020617'/%3E%3Ctext x='640' y='340' fill='%2394a3b8' font-family='Arial,sans-serif' font-size='42' text-anchor='middle'%3EAI preview idle%3C/text%3E%3Ctext x='640' y='398' fill='%2364748b' font-family='Arial,sans-serif' font-size='26' text-anchor='middle'%3EStart camera / live, then run AI preview%3C/text%3E%3C/svg%3E" />
+          <div id="aiDriveOverlay" class="mdrv-drive-overlay ai-drive-overlay" aria-live="polite">
+            <div class="mdrv-overlay-hud mdrv-overlay-hud-top ai-overlay-hud">
+              <span>AI safe arc</span>
+              <strong id="aiOverlayMode">STOPPED</strong>
+              <em id="aiOverlayCurveLabel">model not running</em>
+            </div>
+            <div class="mdrv-overlay-road" aria-hidden="true">
+              <div class="mdrv-overlay-center-line"></div>
+              <svg id="aiOverlayPathSvg" class="mdrv-overlay-path-svg" viewBox="0 0 100 100" preserveAspectRatio="none" focusable="false">
+                <defs>
+                  <marker id="mdrvOverlayArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
+                    <path d="M 0 0 L 10 5 L 0 10 z"></path>
+                  </marker>
+                </defs>
+                <path id="aiOverlayPathWide" class="mdrv-overlay-path-wide" d="M 50 88 L 50 18"></path>
+                <path id="aiOverlayPathGuide" class="mdrv-overlay-path-guide" d="M 50 88 L 50 18"></path>
+                <path id="aiOverlayPath" class="mdrv-overlay-path" d="M 50 88 L 50 18"></path>
+                <circle id="aiOverlayStartPoint" class="mdrv-overlay-start-point" cx="50" cy="88" r="1.6"></circle>
+                <circle id="aiOverlayEndpoint" class="mdrv-overlay-endpoint" cx="50" cy="18" r="2.6"></circle>
+              </svg>
+              <div id="aiOverlayCar" class="mdrv-overlay-car">
+                <span class="mdrv-overlay-car-nose"></span>
+              </div>
+            </div>
+            <div class="mdrv-overlay-meter mdrv-overlay-meter-throttle">
+              <span>Safe T</span>
+              <div class="mdrv-overlay-meter-track"><div id="aiOverlayThrottleFill" class="mdrv-overlay-meter-fill"></div></div>
+              <strong id="aiOverlayThrottleValue">+0.00</strong>
+            </div>
+            <div class="mdrv-overlay-meter mdrv-overlay-meter-steering">
+              <span>Safe S</span>
+              <div class="mdrv-overlay-meter-track mdrv-overlay-meter-track-center"><div id="aiOverlaySteeringFill" class="mdrv-overlay-meter-fill"></div></div>
+              <strong id="aiOverlaySteeringValue">+0.00</strong>
+            </div>
+            <div class="mdrv-overlay-wheel-row ai-overlay-wheel-row">
+              <span>Raw S <strong id="aiOverlayRawSteering">+0.00</strong></span>
+              <span>Raw T <strong id="aiOverlayRawThrottle">+0.00</strong></span>
+              <span>L <strong id="aiOverlayLeftValue">+0.00</strong></span>
+              <span>R <strong id="aiOverlayRightValue">+0.00</strong></span>
+            </div>
+          </div>
+        </div>
+        <p id="aiPreviewCaption" class="mdrv-capture-notice ai-preview-caption" role="status" aria-live="polite">Preview is idle. Start camera/live first, then use AI preview to see the model-predicted safe path overlay before enabling AI drive.</p>
       </section>
 
       <section class="mdrv-panel ai-panel" id="aiModelPanel">
