@@ -143,3 +143,25 @@ Before finalizing a patch, check that you did not:
 - make page-specific CSS override saved global presentation variables
 - create a second set of presentation defaults outside `presentation_registry.py`
 - write recordings/test outputs into patch zips
+
+## PiSD 0.3.6 colour and layout rules
+
+The colour palette must be treated as a shared design source, not a per-page choice. Use `docs/COLOR_PALETTE.md`, `pisd/core/presentation_registry.py`, and `pisd/web/static/css/pisd_design_system.css` as the source of truth.
+
+Manual Drive layout rule:
+
+```text
+status drive
+preview drive
+preview stop
+log log
+```
+
+On PC/iPad screens, the Status panel and Camera Preview panel stay stacked in the main column. The Manual Control drag pad stays in the right column. Presentation settings may tune size, density, and spacing, but must not move semantic panels between these regions.
+
+Recording UI rule:
+
+- The active recording state must show a visible recording indicator.
+- A single-frame capture must show a user-facing confirmation message.
+- Single captures share one daily folder.
+- Continuous recordings each use their own session folder.

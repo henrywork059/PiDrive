@@ -101,6 +101,8 @@ def check_source_contract() -> list[Result]:
         "mdrvCaptureFrame",
         "mdrvRecordToggle",
         "mdrvRecordingState",
+        "mdrvRecordingIndicator",
+        "mdrvCaptureNotice",
         "manualDriveInitialStatus",
         "panel_presentation_global.css",
         "pisd_design_system.css",
@@ -109,13 +111,13 @@ def check_source_contract() -> list[Result]:
         'data-panel-role="preview"',
         "data-panel-h-weight",
     ]
-    required_css = [".mdrv-shell", ".mdrv-panel", ".mdrv-status-panel", ".mdrv-preview-frame", ".mdrv-drag-pad", ".mdrv-big-stop", ".mdrv-drag-knob", "@media (max-width: 1100px)"]
+    required_css = [".mdrv-shell", ".mdrv-panel", ".mdrv-status-panel", ".mdrv-preview-frame", ".mdrv-drag-pad", ".mdrv-big-stop", ".mdrv-drag-knob", ".mdrv-recording-indicator", ".mdrv-capture-notice", "@media (max-width: 1100px)"]
     required_unified_css = [
         "PiSD 0.3.3 manual-drive semantic layout recovery",
         "body.manual-drive-page .mdrv-shell",
     ]
     required_design_css = [
-        "PiSD Design System 0.3.4",
+        "PiSD Design System 0.3.6",
         "body.manual-drive-page .mdrv-shell",
         "\"status drive\"",
         "\"preview drive\"",
@@ -126,6 +128,9 @@ def check_source_contract() -> list[Result]:
         "grid-area: preview",
         "grid-area: drive",
         "presentation consolidation",
+        "--pisd-palette-recording",
+        "mdrv-recording-indicator",
+        "mdrv-capture-notice",
     ]
     required_js = [
         "manualDriveInitialStatus",
@@ -140,6 +145,8 @@ def check_source_contract() -> list[Result]:
         "/api/recording/start",
         "/api/recording/stop",
         "PISD-MOT-008",
+        "showCaptureNotice",
+        "updateRecordingIndicator",
         "updateLock",
         "pointerdown",
         "pointermove",
@@ -157,7 +164,7 @@ def check_source_contract() -> list[Result]:
         "manual_drive.source_contract",
         ok,
         PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
-        "manual drive page contains camera preview, compact status, locked drag pad, STOP, capture/recording, persistence, API calls, and the recovered semantic layout" if ok else "manual drive source contract failed",
+        "manual drive page contains camera preview, compact status, locked drag pad, STOP, capture/recording indicators, persistence, API calls, and the recovered semantic layout" if ok else "manual drive source contract failed",
         {"missing": missing},
     )]
     status_index = template.find("manualDriveStatusPanel")
@@ -200,7 +207,7 @@ def check_routes(hardware: bool) -> list[Result]:
         ("/manual-drive", "manual_drive.route.page", b"PiSD Manual Drive"),
         ("/testing/static/css/manual_drive.css", "manual_drive.static.css", b".mdrv-shell"),
         ("/testing/static/js/manual_drive.js", "manual_drive.static.js", b"manualDriveInitialStatus"),
-        ("/testing/static/css/pisd_design_system.css", "manual_drive.static.design_system", b"PiSD Design System 0.3.4"),
+        ("/testing/static/css/pisd_design_system.css", "manual_drive.static.design_system", b"PiSD Design System 0.3.6"),
     ):
         response = client.get(path)
         ok = response.status_code == 200 and marker in response.data

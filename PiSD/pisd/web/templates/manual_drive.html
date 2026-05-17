@@ -41,7 +41,10 @@
     <section class="mdrv-panel mdrv-preview-panel" id="manualDriveCameraPanel" data-panel-role="preview" data-panel-h-weight="2" data-panel-v-weight="2">
       <div class="mdrv-panel-head">
         <div><p class="mdrv-label">Camera</p><h2>Live view</h2></div>
-        <span class="mdrv-code" data-code-for="camera">PISD-OK-000</span>
+        <div class="mdrv-camera-head-actions">
+          <span id="mdrvRecordingIndicator" class="mdrv-recording-indicator" data-recording="off">REC off</span>
+          <span class="mdrv-code" data-code-for="camera">PISD-OK-000</span>
+        </div>
       </div>
       <div class="mdrv-preview-frame">
         <img id="mdrvPreview" src="/api/camera/frame.jpg" alt="PiSD live camera preview">
@@ -53,6 +56,7 @@
         <button id="mdrvCaptureFrame" class="mdrv-button mdrv-primary">Capture frame</button>
         <button id="mdrvRecordToggle" class="mdrv-button">Record</button>
       </div>
+      <p id="mdrvCaptureNotice" class="mdrv-capture-notice" role="status" aria-live="polite">No frame captured yet.</p>
     </section>
 
     <section class="mdrv-panel mdrv-drive-panel" id="manualDrivePadPanel" data-panel-role="drive" data-panel-h-weight="1" data-panel-v-weight="2">

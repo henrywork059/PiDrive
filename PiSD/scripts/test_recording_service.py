@@ -99,6 +99,19 @@ def main() -> int:
     ok = capture.get("code") == PiSDErrorCodes.OK and frame_file.exists() and record.get("steering") == 0.12 and "camera_settings" in record
     results.append(Result("recording.capture_once", ok, capture.get("code", PiSDErrorCodes.TEST_RECORDING_SERVICE_FAILED), "single capture saved frame and metadata" if ok else "single capture failed", {"record": record}))
 
+    capture2 = service.capture_once(camera, motor, label="unit_capture")
+    record2 = capture2.get("record") or {}
+    same_folder = (Path(record.get("file", "missing")).parent == Path(record2.get("file", "other")).parent) if record and record2 else False
+    ordered = record.get("frame_index") == 1 and record2.get("frame_index") == 2
+    single_folder_ok = capture2.get("code") == PiSDErrorCodes.OK and same_folder and ordered and "single_captures" in str(record2.get("relative_file", ""))
+    results.append(Result(
+        "recording.single_capture_daily_folder",
+        single_folder_ok,
+        capture2.get("code", PiSDErrorCodes.TEST_RECORDING_SERVICE_FAILED),
+        "single captures share the same daily folder and increment frame order" if single_folder_ok else "single capture folder/order policy failed",
+        {"first": record.get("relative_file"), "second": record2.get("relative_file"), "same_folder": same_folder, "ordered": ordered},
+    ))
+
     start = service.start(camera, motor, label="unit_record", fps=10)
     time.sleep(0.25)
     stop = service.stop()

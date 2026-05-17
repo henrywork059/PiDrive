@@ -812,3 +812,30 @@ Check:
 - `Capture frame` creates one saved frame and JSONL record
 - `Record` starts/stops a session in `recordings/YYYY-MM-DD/...`
 - `records.jsonl` contains camera settings, steering, throttle, motor output, bias, and tuning data for every saved frame
+
+## PiSD 0.3.6 recording/layout safety checks
+
+After applying `PiSD_0_3_6_patch`, run:
+
+```bash
+cd ~/PiDrive/PiSD
+python3 scripts/test_recording_service.py
+python3 scripts/test_settings_persistence.py
+python3 scripts/test_manual_drive_page.py --static-only
+python3 scripts/test_ui_presentation_consistency.py --static-only
+python3 scripts/run_standard_validation.py --skip-api --skip-camera --skip-motor
+```
+
+Manual browser checks:
+
+1. Open `/manual-drive`.
+2. Confirm the camera panel stays under the compact status panel and the drag pad stays in the control column.
+3. Confirm the speed slider max is not 1.0 and the Settings page shows motor left/right max speed no higher than `0.65`.
+4. Press `Capture frame` and confirm a visible capture notice appears.
+5. Start `Record` and confirm the red recording indicator appears.
+6. Stop recording and confirm the indicator returns to `REC off`.
+
+Folder expectations:
+
+- Continuous recordings: one folder per recording session under `recordings/YYYY-MM-DD/`.
+- Single manual captures: all same-day captures under `recordings/single_captures/YYYY-MM-DD/`.

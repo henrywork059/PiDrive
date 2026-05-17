@@ -18,6 +18,7 @@ DEFAULT_RUNTIME_SETTINGS: dict[str, Any] = {
         "steer_strength": 0.35,
         "drag_send_interval_ms": 90,
         "preview_mode": "live",
+        "recording_fps": 6.0,
     },
     "panel_presentation": copy.deepcopy(PRESENTATION_DEFAULTS),
     "safety": {
@@ -153,6 +154,27 @@ class SettingsManager:
                     panel[key] = self.defaults["panel_presentation"].get(key)
         if "adaptivePanels" in panel:
             panel["adaptivePanels"] = str(panel["adaptivePanels"]).lower() not in {"false", "0", "no", "off"}
+
+        # Clamp persisted motor limits as settings are loaded, not only when the
+        # MotorService receives them. Older runtime_settings.json files could
+        # still contain 1.0, which made the Settings page show an unsafe value
+        # even though the motor service later clamped it.
+        motor = merged.setdefault("motor", {})
+        for key in ("left_max_speed", "right_max_speed"):
+            try:
+                motor[key] = max(0.0, min(0.65, float(motor.get(key, self.defaults.get("motor", {}).get(key, 0.65)))))
+            except Exception:
+                motor[key] = self.defaults.get("motor", {}).get(key, 0.65)
+        for key in ("left_bias", "right_bias"):
+            try:
+                motor[key] = max(-0.35, min(0.35, float(motor.get(key, self.defaults.get("motor", {}).get(key, 0.0)))))
+            except Exception:
+                motor[key] = self.defaults.get("motor", {}).get(key, 0.0)
+        try:
+            motor["steer_mix"] = max(0.0, min(1.0, float(motor.get("steer_mix", self.defaults.get("motor", {}).get("steer_mix", 1.0)))))
+        except Exception:
+            motor["steer_mix"] = self.defaults.get("motor", {}).get("steer_mix", 1.0)
+
         manual = merged.setdefault("manual_drive", {})
         for key in ("speed", "steer_strength"):
             try:
@@ -168,4 +190,8 @@ class SettingsManager:
             manual["drag_send_interval_ms"] = max(40, min(500, int(float(manual.get("drag_send_interval_ms", 90)))))
         except Exception:
             manual["drag_send_interval_ms"] = 90
+        try:
+            manual["recording_fps"] = max(0.2, min(30.0, float(manual.get("recording_fps", self.defaults["manual_drive"].get("recording_fps", 6.0)))))
+        except Exception:
+            manual["recording_fps"] = self.defaults["manual_drive"].get("recording_fps", 6.0)
         return merged

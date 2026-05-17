@@ -79,3 +79,28 @@ curl -X POST http://127.0.0.1:5050/api/recording/stop
 - Use `RecordingService` and `/api/recording/*` so metadata stays consistent.
 - Do not write to `config/defaults.json` for user runtime data.
 - Do not include generated `recordings/` or `test_outputs/` folders in patch zips.
+
+
+## Folder policy updated in PiSD 0.3.6
+
+Continuous recording sessions each use their own folder:
+
+```text
+PiSD/recordings/YYYY-MM-DD/YYYYMMDD_HHMMSS_<label>_<id>/
+  frames/
+  manifest.json
+  records.jsonl
+```
+
+Manual single captures are different. They are all saved into the same folder for the current day:
+
+```text
+PiSD/recordings/single_captures/YYYY-MM-DD/
+  frames/
+  manifest.json
+  records.jsonl
+```
+
+This avoids creating one tiny folder for every quick screenshot while still keeping each frame traceable by `frame_id`, `frame_index`, date, time, source camera frame sequence, camera settings, motor settings, steering/throttle command, and motor output values.
+
+The Manual Drive page displays a visible confirmation message after a frame is captured. When recording is active, it also shows a red recording indicator in the camera panel.

@@ -3,6 +3,22 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any
 
+
+COLOR_PALETTE: dict[str, str] = {
+    "page_bg": "#07101d",
+    "surface": "#0f172a",
+    "surface_soft": "#1e293b",
+    "line": "#334155",
+    "text": "#e5eefc",
+    "muted": "#98adc9",
+    "primary": "#38bdf8",
+    "ok": "#22c55e",
+    "warning": "#f59e0b",
+    "danger": "#e11d48",
+    "recording": "#ef4444",
+    "capture": "#14b8a6",
+}
+
 PRESENTATION_DEFAULTS: dict[str, Any] = {
     "theme": "dark",
     "layoutMode": "auto",
@@ -67,7 +83,7 @@ PAGE_LAYOUT_CONTRACTS: dict[str, dict[str, Any]] = {
             "log log",
         ],
         "mobile_order": ["status", "preview", "drive", "stop", "log"],
-        "fixed_rule": "Camera preview must remain in the main column directly below the status panel; Manual Control stays in the right control column on PC/iPad layouts. Presentation settings may resize but must not reorder these regions.",
+        "fixed_rule": "Status and Camera Preview must remain stacked in the main column; Manual Control stays in the right control column on PC/iPad layouts. Presentation settings may resize but must not reorder these regions.",
     },
     "settings": {
         "path": "/settings",
@@ -97,8 +113,8 @@ STYLE_DEVELOPMENT_RULES: list[str] = [
     "Use pisd_design_system.css for final cross-page layout, panel, button, and form decisions.",
     "Use panel_presentation_global.js only to apply saved CSS variables and data attributes.",
     "Page CSS may add component-specific details, but it must not override semantic page order.",
-    "Manual Drive desktop grid is status/preview in the main column and drive/stop in the control column; mobile order is status -> preview -> controls -> stop -> log.",
-    "Recording outputs must use recordings/YYYY-MM-DD/session-or-snapshot folders with frames, manifest.json, and records.jsonl metadata.",
+    "Manual Drive desktop grid is status above preview in the main column and drive/stop in the control column; mobile order is status -> preview -> controls -> stop -> log.",
+    "Recording outputs must use one folder per continuous recording session. Manual single captures must share recordings/single_captures/YYYY-MM-DD with frames, manifest.json, and records.jsonl metadata.",
     "When adding a new page, load pisd_design_system.css last and use versioned static_asset links.",
 ]
 
@@ -115,5 +131,6 @@ def build_presentation_manifest(version: str) -> dict[str, Any]:
         "controls": list(PRESENTATION_CONTROLS),
         "assets": deepcopy(DESIGN_SYSTEM_ASSETS),
         "page_layout_contracts": deepcopy(PAGE_LAYOUT_CONTRACTS),
+        "color_palette": deepcopy(COLOR_PALETTE),
         "development_rules": list(STYLE_DEVELOPMENT_RULES),
     }

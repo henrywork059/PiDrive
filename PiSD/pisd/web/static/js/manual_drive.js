@@ -22,6 +22,8 @@
   const pad = $('mdrvDragPad');
   const knob = $('mdrvDragKnob');
   const recordButton = $('mdrvRecordToggle');
+  const recordingIndicator = $('mdrvRecordingIndicator');
+  const captureNotice = $('mdrvCaptureNotice');
   let dragging = false;
   let lastSentAt = 0;
   let lastPayload = { steering: 0, throttle: 0, steer_mix: 1.0 };
@@ -43,6 +45,25 @@
     element.dataset.state = isOk(value) ? 'ok' : 'error';
   }
   function setGlobalCode(code) { setCode(globalCode, code); }
+
+  function shortPath(value) {
+    const text = String(value || '');
+    if (text.length <= 72) return text;
+    return `...${text.slice(-69)}`;
+  }
+
+  function showCaptureNotice(message, code = 'PISD-OK-000') {
+    if (!captureNotice) return;
+    captureNotice.textContent = message;
+    captureNotice.dataset.state = isOk(code) ? 'ok' : 'error';
+    captureNotice.classList.add('is-visible');
+  }
+
+  function updateRecordingIndicator(running) {
+    if (!recordingIndicator) return;
+    recordingIndicator.dataset.recording = running ? 'on' : 'off';
+    recordingIndicator.textContent = running ? 'REC on' : 'REC off';
+  }
 
   function readRuntimeLocal() {
     try { return JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) || '{}') || {}; }
@@ -141,6 +162,7 @@
       recordButton.textContent = rec ? 'Stop record' : 'Record';
       recordButton.classList.toggle('mdrv-recording-on', rec);
     }
+    updateRecordingIndicator(rec);
     setCode('status', status.code || 'PISD-OK-000');
     setGlobalCode(status.code || 'PISD-OK-000');
   }
@@ -227,9 +249,17 @@
 
   async function captureFrame() {
     try {
-      await api('POST', '/api/recording/capture', { label: 'manual_capture' }, 'camera');
+      const { payload } = await api('POST', '/api/recording/capture', { label: 'manual_capture' }, 'camera');
+      const record = payload?.record || {};
+      if (payload?.ok) {
+        const file = record.relative_file || record.file || '';
+        showCaptureNotice(`Frame captured: ${record.frame_id || 'saved'} ${file ? '(' + shortPath(file) + ')' : ''}`, payload.code);
+      } else {
+        showCaptureNotice(`Capture failed: ${payload?.code || 'PISD-REC-002'}`, payload?.code || 'PISD-REC-002');
+      }
       await refreshStatus();
     } catch (err) {
+      showCaptureNotice(`Capture failed: ${String(err)}`, 'PISD-REC-002');
       writeLog('capture frame failed', { ok: false, code: 'PISD-REC-002', message: String(err) });
     }
   }
@@ -238,9 +268,12 @@
     const manual = readRuntimeLocal().manual_drive || {};
     try {
       if (recordingRunning) {
-        await api('POST', '/api/recording/stop', {}, 'camera');
+        const { payload } = await api('POST', '/api/recording/stop', {}, 'camera');
+        showCaptureNotice(`Recording stopped: ${payload?.code || 'PISD-OK-000'}`, payload?.code || 'PISD-OK-000');
       } else {
-        await api('POST', '/api/recording/start', { label: 'manual_drive', fps: manual.recording_fps || DEFAULTS.recording_fps }, 'camera');
+        const { payload } = await api('POST', '/api/recording/start', { label: 'manual_drive', fps: manual.recording_fps || DEFAULTS.recording_fps }, 'camera');
+        const session = payload?.recording?.active_session || {};
+        showCaptureNotice(`Recording started${session.session_id ? ': ' + session.session_id : ''}`, payload?.code || 'PISD-OK-000');
       }
       await refreshStatus();
     } catch (err) {

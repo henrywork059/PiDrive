@@ -790,3 +790,12 @@ Validation:
 ```bash
 python3 scripts/test_recording_service.py
 ```
+
+## PiSD 0.3.6 notes
+
+- Settings loading now clamps stale saved motor speed limits so `left_max_speed`, `right_max_speed`, and Manual Drive max speed should not return to `1.0`.
+- The Manual Drive camera panel shows a visible recording indicator.
+- A single-frame capture shows a visible confirmation notice.
+- Continuous recordings each use their own folder.
+- Single manual captures share one same-day folder: `recordings/single_captures/YYYY-MM-DD/`.
+- The shared UI colour palette is documented in `docs/COLOR_PALETTE.md` and defined in `pisd/core/presentation_registry.py` plus `pisd/web/static/css/pisd_design_system.css`.

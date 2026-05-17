@@ -105,3 +105,11 @@ body[data-pisd-card-accent="strong"] .mdrv-panel { border-top: 3px solid var(--m
   .mdrv-preview-frame { height: auto; aspect-ratio: var(--pisd-ui-preview-aspect, 16 / 9); max-height: 48vh; }
   .mdrv-status-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* 0.3.6 recording/capture visibility helpers. Final cross-page colours come
+   from pisd_design_system.css; these are local fallbacks for the manual page. */
+.mdrv-camera-head-actions { display: inline-flex; align-items: center; gap: .4rem; flex-wrap: wrap; justify-content: flex-end; }
+.mdrv-recording-indicator { border: 1px solid rgba(148,163,184,.28); border-radius: 999px; padding: .18rem .52rem; color: var(--mdrv-muted); background: rgba(15,23,42,.72); font-size: .68rem; font-weight: 850; }
+.mdrv-recording-indicator[data-recording="on"] { color: #fee2e2; background: rgba(185,28,28,.72); border-color: rgba(248,113,113,.72); }
+.mdrv-capture-notice { margin: .42rem 0 0; padding: .34rem .48rem; border: 1px solid rgba(20,184,166,.42); border-radius: 10px; background: rgba(19,78,74,.2); color: #ccfbf1; font-size: .76rem; }
+.mdrv-capture-notice[data-state="error"] { border-color: rgba(248,113,113,.55); background: rgba(127,29,29,.24); color: #fecdd3; }

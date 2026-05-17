@@ -61,7 +61,7 @@ REQUIRED_CSS_TOKENS = [
 ]
 
 REQUIRED_DESIGN_TOKENS = [
-    "PiSD Design System 0.3.4",
+    "PiSD Design System 0.3.6",
     "grid-template-areas",
     "\"status drive\"",
     "\"preview drive\"",
@@ -70,6 +70,9 @@ REQUIRED_DESIGN_TOKENS = [
     "presentation consolidation",
     "body.manual-drive-page .mdrv-shell",
     "css/pisd_design_system.css",
+    "--pisd-palette-recording",
+    "mdrv-recording-indicator",
+    "mdrv-capture-notice",
 ]
 
 REQUIRED_REGISTRY_TOKENS = [
@@ -79,6 +82,8 @@ REQUIRED_REGISTRY_TOKENS = [
     "status drive",
     "preview drive",
     "STYLE_DEVELOPMENT_RULES",
+    "COLOR_PALETTE",
+    "single_captures",
 ]
 
 
@@ -191,7 +196,7 @@ def check_routes(hardware: bool) -> list[Result]:
         ("/panel-presentation", "route.panel_presentation", b"panelPresentationControls"),
         ("/panel-testing", "route.panel_testing", b"ptPanelGrid"),
         ("/testing/static/css/unified_layout.css", "static.unified_css", b"PiSD 0.3.2 unified visual recovery layer"),
-        ("/testing/static/css/pisd_design_system.css", "static.design_system_css", b"PiSD Design System 0.3.4"),
+        ("/testing/static/css/pisd_design_system.css", "static.design_system_css", b"PiSD Design System 0.3.6"),
         ("/api/presentation/manifest", "api.presentation_manifest", b"Presentation design-system manifest loaded"),
     ):
         response = client.get(path)

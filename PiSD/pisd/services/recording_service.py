@@ -81,6 +81,8 @@ class RecordingService:
             session = dict(self._active_session or {})
             data = {
                 "root_dir": str(self.root_dir),
+                "single_capture_dir_today": str(self.root_dir / "single_captures" / _date_folder()),
+                "recording_sessions_dir_today": str(self.root_dir / _date_folder()),
                 "running": bool(self._thread and self._thread.is_alive() and self._active_session),
                 "active_session": session,
                 "frame_count": int(self._frame_count),
@@ -222,7 +224,7 @@ class RecordingService:
                     self._frame_count = frame_index
                     self._finalise_manifest_locked(open_session=True)
                     return ok_payload("Frame captured into active recording session.", record=record, recording=self.status())
-                session = self._snapshot_session(label_text)
+                session, frame_index = self._single_capture_session(label_text)
                 record = self._save_frame_record_locked(
                     frame,
                     seq,
@@ -231,10 +233,19 @@ class RecordingService:
                     camera_service,
                     motor_service,
                     label=label_text,
-                    frame_index=1,
+                    frame_index=frame_index,
                     session=session,
                 )
-                self._write_json(Path(session["manifest_file"]), {**session, "frame_count": 1, "saved_at_utc": record["saved_at_utc"]})
+                self._write_json(
+                    Path(session["manifest_file"]),
+                    {
+                        **session,
+                        "frame_count": frame_index,
+                        "last_saved_record": record,
+                        "updated_at_utc": record["saved_at_utc"],
+                        "capture_folder_policy": "All manual single captures for the same day are saved in this one folder.",
+                    },
+                )
                 self._last_saved_record = record
                 return ok_payload("Frame captured.", record=record, recording=self.status())
         except Exception as exc:
@@ -302,22 +313,44 @@ class RecordingService:
         frame, seq, source_frame_at, byte_count = camera_service.wait_for_jpeg_frame(last_seq=last_seq, timeout=timeout)
         return frame, int(seq or 0), str(source_frame_at or ""), int(byte_count or 0)
 
-    def _snapshot_session(self, label: str) -> dict[str, Any]:
+    def _single_capture_session(self, label: str) -> tuple[dict[str, Any], int]:
+        """Return the shared single-capture folder for today and next frame index.
+
+        Continuous recordings still get their own session folders. Manual single
+        captures are intentionally collected into one day folder so the user can
+        find quick screenshots in one place instead of one tiny folder per frame.
+        """
         now = _utc_now()
-        capture_id = f"snapshot_{_stamp(now)}_{label}_{uuid.uuid4().hex[:8]}"
-        session_dir = self.root_dir / "snapshots" / _date_folder(now) / capture_id
+        date_name = _date_folder(now)
+        session_id = f"single_captures_{date_name}"
+        session_dir = self.root_dir / "single_captures" / date_name
         frames_dir = session_dir / "frames"
+        records_file = session_dir / "records.jsonl"
+        manifest_file = session_dir / "manifest.json"
         frames_dir.mkdir(parents=True, exist_ok=True)
-        return {
-            "session_id": capture_id,
+        frame_index = self._count_jsonl_records(records_file) + 1
+        session = {
+            "session_id": session_id,
             "label": label,
             "session_dir": str(session_dir),
             "frames_dir": str(frames_dir),
-            "records_file": str(session_dir / "records.jsonl"),
-            "manifest_file": str(session_dir / "manifest.json"),
+            "records_file": str(records_file),
+            "manifest_file": str(manifest_file),
             "started_at_utc": now.isoformat(),
             "record_fps": 0,
+            "capture_type": "single_capture_daily_folder",
+            "date": date_name,
         }
+        return session, frame_index
+
+    def _count_jsonl_records(self, path: Path) -> int:
+        try:
+            if not path.exists():
+                return 0
+            with path.open("r", encoding="utf-8") as handle:
+                return sum(1 for line in handle if line.strip())
+        except Exception:
+            return 0
 
     def _save_frame_record_locked(
         self,

@@ -1,4 +1,4 @@
-/* PiSD Design System 0.3.4
+/* PiSD Design System 0.3.6
    Final shared presentation layer. Load this file last on every GUI page.
 
    Development contract:
@@ -23,6 +23,18 @@
   --pisd-green: #bbf7d0;
   --pisd-yellow: #fde68a;
   --pisd-red: #fb7185;
+  --pisd-palette-bg: #07101d;
+  --pisd-palette-surface: #0f172a;
+  --pisd-palette-surface-soft: #1e293b;
+  --pisd-palette-line: #334155;
+  --pisd-palette-text: #e5eefc;
+  --pisd-palette-muted: #98adc9;
+  --pisd-palette-primary: #38bdf8;
+  --pisd-palette-ok: #22c55e;
+  --pisd-palette-warning: #f59e0b;
+  --pisd-palette-danger: #e11d48;
+  --pisd-palette-recording: #ef4444;
+  --pisd-palette-capture: #14b8a6;
   --pisd-page-max: 1500px;
   --pisd-page-pad: clamp(8px, 0.9vw, 13px);
   --pisd-panel-gap: clamp(7px, var(--pisd-ui-gap, 10px), 18px);
@@ -199,15 +211,15 @@ body {
 }
 
 /* Manual Drive locked semantic layout.
-   Wide/PC/iPad: status full top; camera directly below status on left;
-   drag pad/control on right; stop below controls. */
+   Wide/PC/iPad: status is directly above camera in the main column;
+   drag pad/control stays in the right column; stop is below controls. */
 body.manual-drive-page .mdrv-shell {
   --manual-preview-min: minmax(540px, 1fr);
   --manual-control-width: var(--pisd-control-column);
   display: grid !important;
   grid-template-columns: var(--manual-preview-min) var(--manual-control-width) !important;
   grid-template-areas:
-    "status status"
+    "status drive"
     "preview drive"
     "preview stop"
     "log log" !important;
@@ -275,6 +287,58 @@ body.manual-drive-page .mdrv-drag-pad {
 body.manual-drive-page .mdrv-full-stop,
 body.manual-drive-page .mdrv-big-stop { width: 100% !important; }
 body.manual-drive-page .mdrv-big-stop { min-height: 52px !important; font-size: 1rem !important; }
+
+body.manual-drive-page .mdrv-camera-head-actions {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 0.38rem !important;
+  flex-wrap: wrap !important;
+}
+body.manual-drive-page .mdrv-recording-indicator {
+  min-height: 24px !important;
+  border-radius: 999px !important;
+  padding: 0.16rem 0.54rem !important;
+  border: 1px solid rgba(148, 163, 184, 0.28) !important;
+  background: rgba(15, 23, 42, 0.72) !important;
+  color: var(--pisd-muted) !important;
+  font-size: 0.68rem !important;
+  font-weight: 850 !important;
+  letter-spacing: 0.03em !important;
+  white-space: nowrap !important;
+}
+body.manual-drive-page .mdrv-recording-indicator[data-recording="on"] {
+  color: #fee2e2 !important;
+  background: rgba(185, 28, 28, 0.72) !important;
+  border-color: rgba(248, 113, 113, 0.72) !important;
+  box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.12) !important;
+}
+body.manual-drive-page .mdrv-recording-indicator[data-recording="on"]::before {
+  content: "";
+  display: inline-block;
+  width: 0.46rem;
+  height: 0.46rem;
+  margin-right: 0.34rem;
+  border-radius: 999px;
+  background: #fee2e2;
+  vertical-align: -0.03rem;
+}
+body.manual-drive-page .mdrv-capture-notice {
+  min-height: 28px !important;
+  margin: 0.42rem 0 0 !important;
+  padding: 0.34rem 0.48rem !important;
+  border-radius: calc(var(--pisd-ui-radius, 14px) * 0.62) !important;
+  border: 1px solid rgba(20, 184, 166, 0.42) !important;
+  background: rgba(19, 78, 74, 0.20) !important;
+  color: #ccfbf1 !important;
+  font-size: 0.76rem !important;
+  line-height: 1.25 !important;
+}
+body.manual-drive-page .mdrv-capture-notice[data-state="error"] {
+  border-color: rgba(248, 113, 113, 0.55) !important;
+  background: rgba(127, 29, 29, 0.24) !important;
+  color: #fecdd3 !important;
+}
 
 /* Settings page: compact readable regions. */
 .st-grid {
@@ -348,7 +412,7 @@ body[data-pisd-adaptive-panels="true"] .pt-shell {
   body.manual-drive-page .mdrv-shell {
     grid-template-columns: minmax(0, 1fr) minmax(280px, 0.64fr) !important;
     grid-template-areas:
-      "status status"
+      "status drive"
       "preview drive"
       "preview stop"
       "log log" !important;
