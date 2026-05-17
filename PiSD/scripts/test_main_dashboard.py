@@ -43,6 +43,10 @@ REQUIRED_TEMPLATE_TOKENS = [
     "mdStopAllTop",
     "mdStopAllCenter",
     "mdStopAllPanel",
+    "mdOverlayToggle",
+    "mdDriveOverlay",
+    "mdOverlayThrottleValue",
+    "mdOverlaySteeringValue",
 ]
 
 REQUIRED_CSS_TOKENS = [
@@ -50,6 +54,8 @@ REQUIRED_CSS_TOKENS = [
     ".md-panel",
     ".md-panel-preview",
     ".md-big-stop",
+    ".md-drive-overlay",
+    ".md-overlay-car",
     "container-type: inline-size",
     "@media (max-width: 1100px)",
 ]
@@ -62,6 +68,9 @@ REQUIRED_JS_TOKENS = [
     "sendManual",
     "sendChannelTest",
     "startLivePreview",
+    "updateDriveOverlay",
+    "setOverlayEnabled",
+    "mdOverlayToggle",
     "/api/status",
     "/api/camera/start",
     "/api/camera/frame.jpg",
@@ -195,8 +204,8 @@ def check_routes(hardware: bool) -> list[Result]:
     )
 
     for path, label, marker in (
-        ("/testing/static/css/main_dashboard.css", "main_dashboard.static.css", b".md-shell"),
-        ("/testing/static/js/main_dashboard.js", "main_dashboard.static.js", b"updateMotorLock"),
+        ("/testing/static/css/main_dashboard.css", "main_dashboard.static.css", b".md-drive-overlay"),
+        ("/testing/static/js/main_dashboard.js", "main_dashboard.static.js", b"updateDriveOverlay"),
     ):
         response = client.get(path)
         ok = response.status_code == 200 and marker in response.data

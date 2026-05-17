@@ -4,6 +4,17 @@ const statusJson = document.getElementById('mdStatusJson');
 const errorJson = document.getElementById('mdErrorJson');
 const actionLog = document.getElementById('mdActionLog');
 const cameraPreview = document.getElementById('mdCameraPreview');
+const previewFrame = document.getElementById('mdPreviewFrame');
+const overlayToggle = document.getElementById('mdOverlayToggle');
+const overlayMode = document.getElementById('mdOverlayMode');
+const overlayCar = document.getElementById('mdOverlayCar');
+const overlayPath = document.getElementById('mdOverlayPath');
+const overlayThrottleFill = document.getElementById('mdOverlayThrottleFill');
+const overlaySteeringFill = document.getElementById('mdOverlaySteeringFill');
+const overlayThrottleValue = document.getElementById('mdOverlayThrottleValue');
+const overlaySteeringValue = document.getElementById('mdOverlaySteeringValue');
+const overlayLeftValue = document.getElementById('mdOverlayLeftValue');
+const overlayRightValue = document.getElementById('mdOverlayRightValue');
 const motorArm = document.getElementById('mdMotorArm');
 const manualSpeed = document.getElementById('mdManualSpeed');
 const manualSpeedValue = document.getElementById('mdManualSpeedValue');
@@ -24,6 +35,69 @@ function setCode(element, code) {
 
 function setPanelCode(panelName, code) {
   setCode(document.querySelector(`[data-code-for="${panelName}"]`), code);
+}
+
+
+
+function clampUnit(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return 0;
+  return Math.max(-1, Math.min(1, number));
+}
+
+function signedText(value) {
+  const number = clampUnit(value);
+  return `${number >= 0 ? '+' : ''}${number.toFixed(2)}`;
+}
+
+function setSignedFill(element, value) {
+  if (!element) return;
+  const number = clampUnit(value);
+  element.style.left = number < 0 ? `${50 + (number * 50)}%` : '50%';
+  element.style.width = `${Math.abs(number) * 50}%`;
+}
+
+function driveModeText(throttle, steering) {
+  const throttleAbs = Math.abs(throttle);
+  const steeringAbs = Math.abs(steering);
+  if (throttleAbs < 0.02 && steeringAbs < 0.02) return 'STOPPED';
+  const direction = throttle < -0.02 ? 'REV' : throttle > 0.02 ? 'FWD' : 'TURN';
+  if (steeringAbs < 0.08) return direction;
+  return `${direction} ${steering < 0 ? 'LEFT' : 'RIGHT'}`;
+}
+
+function updateDriveOverlay(source = {}) {
+  const command = source.last_command || source.command || source;
+  const throttle = clampUnit(command.throttle ?? source.throttle ?? 0);
+  const steering = clampUnit(command.steering ?? source.steering ?? 0);
+  const left = clampUnit(source.last_left ?? source.left ?? 0);
+  const right = clampUnit(source.last_right ?? source.right ?? 0);
+  const turnDeg = steering * 28;
+  const pathDeg = steering * 18;
+  const moving = Math.abs(throttle) >= 0.02;
+
+  if (overlayMode) overlayMode.textContent = driveModeText(throttle, steering);
+  if (overlayThrottleValue) overlayThrottleValue.textContent = signedText(throttle);
+  if (overlaySteeringValue) overlaySteeringValue.textContent = signedText(steering);
+  if (overlayLeftValue) overlayLeftValue.textContent = signedText(left);
+  if (overlayRightValue) overlayRightValue.textContent = signedText(right);
+  setSignedFill(overlayThrottleFill, throttle);
+  setSignedFill(overlaySteeringFill, steering);
+  if (overlayCar) {
+    overlayCar.style.transform = `translateX(-50%) rotate(${turnDeg}deg)`;
+    overlayCar.style.opacity = moving || Math.abs(steering) >= 0.02 ? '1' : '0.78';
+  }
+  if (overlayPath) {
+    overlayPath.style.transform = `translateX(-50%) rotate(${pathDeg}deg) scaleY(${moving ? 1 : 0.72})`;
+    overlayPath.style.opacity = moving || Math.abs(steering) >= 0.02 ? '0.82' : '0.32';
+  }
+}
+
+function setOverlayEnabled(enabled) {
+  if (!previewFrame || !overlayToggle) return;
+  previewFrame.classList.toggle('md-overlay-enabled', enabled);
+  overlayToggle.textContent = enabled ? 'Overlay on' : 'Overlay off';
+  overlayToggle.setAttribute('aria-pressed', enabled ? 'true' : 'false');
 }
 
 function logAction(label, payload, httpStatus = '') {
@@ -62,6 +136,7 @@ function renderStatus(status) {
   statusJson.textContent = JSON.stringify(status, null, 2);
   setPanelCode('system-status', status.code || 'PISD-OK-000');
   setCode(globalCode, status.code || 'PISD-OK-000');
+  updateDriveOverlay(status.motor || {});
 }
 
 async function refreshStatus() {
@@ -89,7 +164,8 @@ function startLivePreview() {
 
 async function stopAll(panelName = 'safety-stop') {
   try {
-    await apiCall('POST', '/api/control/stop', {}, panelName);
+    const { payload } = await apiCall('POST', '/api/control/stop', {}, panelName);
+    updateDriveOverlay(payload.motor || { steering: 0, throttle: 0, left: 0, right: 0 });
     await refreshStatus();
   } catch (error) {
     logAction('stopAll', { ok: false, code: 'PISD-API-002', message: String(error) });
@@ -121,7 +197,10 @@ async function sendManual(button) {
     return;
   }
   try {
-    await apiCall('POST', '/api/control/manual', manualPayloadFromButton(button), 'manual-drive');
+    const intent = manualPayloadFromButton(button);
+    updateDriveOverlay(intent);
+    const { payload } = await apiCall('POST', '/api/control/manual', intent, 'manual-drive');
+    updateDriveOverlay(payload.motor || payload || intent);
   } catch (error) {
     logAction('manual drive', { ok: false, code: 'PISD-API-002', message: String(error) });
   }
@@ -185,6 +264,7 @@ function bindEvents() {
     await refreshStatus();
   });
   document.getElementById('mdCameraRefresh').addEventListener('click', startLivePreview);
+  if (overlayToggle) overlayToggle.addEventListener('click', () => setOverlayEnabled(!previewFrame.classList.contains('md-overlay-enabled')));
   document.getElementById('mdStopAllTop').addEventListener('click', () => stopAll('safety-stop'));
   document.getElementById('mdStopAllCenter').addEventListener('click', () => stopAll('manual-drive'));
   document.getElementById('mdStopAllPanel').addEventListener('click', () => stopAll('safety-stop'));
@@ -199,3 +279,5 @@ function bindEvents() {
 renderStatus(initialStatus);
 bindEvents();
 updateMotorLock();
+setOverlayEnabled(true);
+updateDriveOverlay(initialStatus.motor || {});

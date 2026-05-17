@@ -52,15 +52,43 @@
         </div>
         <span class="md-panel-code" data-code-for="camera-preview">PISD-OK-000</span>
       </div>
-      <div class="md-preview-frame">
+      <div id="mdPreviewFrame" class="md-preview-frame md-overlay-enabled">
         <img id="mdCameraPreview" src="/api/camera/frame.jpg" data-mode="snapshot" alt="PiSD camera preview">
+        <div id="mdDriveOverlay" class="md-drive-overlay" aria-live="polite">
+          <div class="md-overlay-hud md-overlay-hud-top">
+            <span>Drive overlay</span>
+            <strong id="mdOverlayMode">STOPPED</strong>
+          </div>
+          <div class="md-overlay-road" aria-hidden="true">
+            <div class="md-overlay-center-line"></div>
+            <div id="mdOverlayPath" class="md-overlay-path"></div>
+            <div id="mdOverlayCar" class="md-overlay-car">
+              <span class="md-overlay-car-nose"></span>
+            </div>
+          </div>
+          <div class="md-overlay-meter md-overlay-meter-throttle">
+            <span>Throttle</span>
+            <div class="md-overlay-meter-track"><div id="mdOverlayThrottleFill" class="md-overlay-meter-fill"></div></div>
+            <strong id="mdOverlayThrottleValue">+0.00</strong>
+          </div>
+          <div class="md-overlay-meter md-overlay-meter-steering">
+            <span>Steering</span>
+            <div class="md-overlay-meter-track md-overlay-meter-track-center"><div id="mdOverlaySteeringFill" class="md-overlay-meter-fill"></div></div>
+            <strong id="mdOverlaySteeringValue">+0.00</strong>
+          </div>
+          <div class="md-overlay-wheel-row">
+            <span>L <strong id="mdOverlayLeftValue">+0.00</strong></span>
+            <span>R <strong id="mdOverlayRightValue">+0.00</strong></span>
+          </div>
+        </div>
       </div>
       <div class="md-button-row">
         <button id="mdCameraStart" class="md-button md-button-primary">Start camera</button>
         <button id="mdCameraStop" class="md-button md-button-secondary">Stop camera</button>
         <button id="mdCameraRefresh" class="md-button md-button-secondary">Live preview</button>
+        <button id="mdOverlayToggle" class="md-button md-button-secondary" aria-pressed="true">Overlay on</button>
       </div>
-      <p class="md-help">Visual path uses <code>capture_source=request</code>. Confirmed CV array path uses <code>array_color_order=rgb</code>.</p>
+      <p class="md-help">Visual path uses <code>capture_source=request</code>. The overlay shows current/last throttle, steering, and left/right motor intent so the user can see how the car is expected to move.</p>
     </section>
 
     <section class="md-panel md-panel-manual" id="panel-manual-drive" data-panel="manual-drive" data-panel-role="drive">

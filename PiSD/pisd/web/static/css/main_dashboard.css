@@ -206,6 +206,156 @@ code { color: #bae6fd; }
   image-rendering: auto;
 }
 
+
+.md-preview-frame {
+  position: relative;
+}
+
+.md-drive-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 140ms ease;
+  font-size: clamp(0.7rem, 1.4vw, 0.92rem);
+}
+
+.md-overlay-enabled .md-drive-overlay { opacity: 1; }
+
+.md-overlay-hud, .md-overlay-meter, .md-overlay-wheel-row {
+  position: absolute;
+  border: 1px solid rgba(226, 232, 240, 0.28);
+  border-radius: 999px;
+  background: rgba(2, 6, 23, 0.62);
+  color: #e0f2fe;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(8px);
+}
+
+.md-overlay-hud {
+  left: 0.8rem;
+  top: 0.8rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.38rem 0.65rem;
+}
+
+.md-overlay-hud span, .md-overlay-meter span { color: #bae6fd; }
+
+.md-overlay-hud strong, .md-overlay-meter strong, .md-overlay-wheel-row strong {
+  font-variant-numeric: tabular-nums;
+  color: #ffffff;
+}
+
+.md-overlay-road {
+  position: absolute;
+  left: 50%;
+  top: 17%;
+  width: min(52%, 420px);
+  height: 68%;
+  transform: translateX(-50%);
+  border-left: 1px dashed rgba(226, 232, 240, 0.24);
+  border-right: 1px dashed rgba(226, 232, 240, 0.24);
+}
+
+.md-overlay-center-line {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  border-left: 2px dashed rgba(251, 191, 36, 0.46);
+  transform: translateX(-50%);
+}
+
+.md-overlay-path {
+  position: absolute;
+  left: 50%;
+  bottom: 12%;
+  width: 36%;
+  height: 72%;
+  border: 4px solid rgba(56, 189, 248, 0.78);
+  border-bottom: 0;
+  border-left-color: transparent;
+  border-radius: 50% 50% 0 0;
+  transform: translateX(-50%) rotate(0deg);
+  transform-origin: 50% 100%;
+  opacity: 0.82;
+}
+
+.md-overlay-car {
+  position: absolute;
+  left: 50%;
+  bottom: 6%;
+  width: clamp(28px, 8vw, 54px);
+  height: clamp(40px, 10vw, 70px);
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  border-radius: 14px 14px 10px 10px;
+  background: rgba(14, 165, 233, 0.36);
+  transform: translateX(-50%) rotate(0deg);
+  transform-origin: 50% 78%;
+}
+
+.md-overlay-car-nose {
+  position: absolute;
+  left: 50%;
+  top: -10px;
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 12px solid rgba(255, 255, 255, 0.92);
+  transform: translateX(-50%);
+}
+
+.md-overlay-meter {
+  left: 0.8rem;
+  right: 0.8rem;
+  display: grid;
+  grid-template-columns: 74px 1fr 52px;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.42rem 0.65rem;
+}
+
+.md-overlay-meter-throttle { bottom: 3.15rem; }
+.md-overlay-meter-steering { bottom: 0.8rem; }
+
+.md-overlay-meter-track {
+  position: relative;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.34);
+  overflow: hidden;
+}
+
+.md-overlay-meter-track-center::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -5px;
+  bottom: -5px;
+  border-left: 1px solid rgba(255, 255, 255, 0.6);
+}
+
+.md-overlay-meter-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--md-accent), var(--md-ok));
+}
+
+.md-overlay-wheel-row {
+  right: 0.8rem;
+  top: 0.8rem;
+  display: inline-flex;
+  gap: 0.65rem;
+  padding: 0.38rem 0.65rem;
+}
+
 .md-arm-row {
   display: flex;
   align-items: flex-start;
