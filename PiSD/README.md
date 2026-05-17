@@ -1,16 +1,34 @@
 # PiSD
 
+`PiSD_0_5_1_patch` — first patch after the PiSD v5 stable baseline.
+
+Stable v5 is built from `PiSD_0_4_0` plus accepted patches `PiSD_0_4_1` through `PiSD_0_4_10`. It includes the v4 camera/motor/error-reporting foundation, responsive GUI, Manual Drive page, recording/snapshot workflow, and all accepted v4 patch-line improvements: code cleanup, Manual Drive preview overlay, predicted steering/throttle arc, overlay calibration/debugging, command-safety consistency, preview FPS/stale-state reliability, and safer recording/snapshot folder management.
+
+Future bug-fix patches after this stable package should use `PiSD_0_5_x_patch` naming unless a newer stable line is promoted.
+
 PiSD is a clean sandbox under `PiDrive/PiSD` for rebuilding and testing PiServer GUI and runtime functions from square one.
 
 It is intentionally separate from the existing `PiServer/` folder. PiSD may refer to PiServer code for behavior patterns, but PiServer files must not be overwritten by PiSD experiments.
 
 ## Current version
 
-`PiSD_0_3_3_patch` — current patch on top of stable v3 baseline (`PiSD_0_3_0`).
+`PiSD_0_5_1_patch` — current patch line built forward from stable `PiSD_0_5_0`.
 
-Stable v3 is `PiSD_0_3_0`. Patch `0.3.3` recovers the Manual Drive semantic layout after user browser testing showed the camera and manual-control panels could still appear in the wrong columns when presentation settings were applied.
+`PiSD_0_5_0` remains the stable rollback baseline. This patch adds the new `/autopilot` page, bounded scripted autopilot service, and related API/status wiring without replacing the Manual Drive page.
 
-It includes the tested camera/motor/error-reporting foundation, the testing GUI, panel testing and API contract pages, the front page mode selector, settings tab, manual drive tab, panel presentation settings, live-frame FPS improvements, persistent backend settings, the unified page/panel presentation layer, and the 0.3.3 Manual Drive semantic layout lock.
+Included accepted work:
+
+- Autopilot mode page at `/autopilot` with arm/start/stop/status controls.
+- Bounded scripted autopilot profiles with conservative throttle/duration caps and fail-safe stop behavior.
+- Manual Drive overlay toggle on the Manual Drive page.
+- Sampled predicted-arc overlay based on throttle and steering.
+- Overlay calibration controls for path length, curve strength, opacity, and path width.
+- Overlay/source debug values for steering, throttle, left/right output, and stopped/manual/live source.
+- Clearer Start camera / Live stream / Stop camera / STOP motors / Refresh status behavior.
+- Status-only refresh that does not start the camera or send motor commands.
+- Page-leave motor fail-safe stop.
+- Preview idle start, FPS estimate, frame-age display, stale-frame warning, and guarded preview metrics loop.
+- Recording/snapshot selected-folder details, safer download/delete button states, and hardened backend folder-id validation.
 
 This stable baseline keeps only one dependency file:
 
@@ -22,67 +40,11 @@ PiSD/requirements.txt
 
 ## Stable baseline notes
 
-`PiSD_0_3_0` is the stable rollback baseline before future `0_3_x` patches.
+`PiSD_0_5_0` is the stable rollback baseline before future `0_5_x` patches.
 
-It includes the accepted `0.2.x` GUI/testing/settings work:
-
-- `/` compact front page / mode selector
-- `/manual-drive` user-facing manual drive page
-- `/settings` shared settings tab
-- `/testing` API/settings/FPS testing tab
-- `/dashboard` dashboard shell
-- `/panel-testing` panel/layout/API testing lab
-- `/panel-presentation` shared panel presentation settings page
-
-Confirmed by earlier Raspberry Pi test logs supplied by the user:
-
-- status/error reporting returns `PISD-OK-000`
-- Picamera2 OV5647 hardware capture works
-- trusted visual colour reference is `01_request_awb_auto`
-- confirmed raw array/CV colour reference is `91_array_rgb_confirmed_correct`
-- GPIO motor adapter starts as `rpigpio`
-- safe invalid-JSON API handling returns `PISD-API-001` instead of crashing
-- live API camera start/frame/status/stop endpoints work
-- one-by-one motor calibration testing is available for cars with different motor wiring
-- standard validation prints simple `OK` / `FAIL` lines with `PISD-*` codes
+It includes the tested camera/motor/error-reporting foundation from earlier baselines plus the accepted v4 Manual Drive overlay, safety, preview-reliability, and file-management patch line.
 
 Real wheel direction is intentionally configurable through settings because different cars may be wired differently. Use lifted-wheel motor channel tests before driving on the floor.
-
-
-## 0.3.1 adaptive panel presentation patch
-
-`PiSD_0_3_1_patch` reviews the current GUI presentation and adds a shared weighted-panel layout system:
-
-- Manual Drive status panel appears above the preview on PC/iPad layouts.
-- Preview panel uses available screen height more efficiently to reduce scrolling on common PC/iPad displays.
-- Panel Presentation and Settings pages now include horizontal/vertical role weights.
-- Shared style settings continue to apply across all tabs through `/api/settings`.
-- The change is presentation/layout-only and does not change camera or motor hardware behaviour.
-
-## 0.3.2 unified page presentation patch
-
-`PiSD_0_3_2_patch` adds a final shared `unified_layout.css` layer loaded after every page-specific stylesheet. It keeps existing page functions but standardises the visible presentation across pages:
-
-- compact and consistent topbars on all GUI pages
-- consistent card/panel surfaces, buttons, forms, consoles, and `PISD-*` status pills
-- Manual Drive status above preview with drag/STOP controls in a side column on PC/iPad layouts
-- Settings page uses a deliberate desktop grid instead of uncontrolled weighted auto-placement
-- Testing, Dashboard, Panel Presentation, and Panel Testing pages use more predictable responsive layouts
-- phone/tablet widths stack cleanly
-
-Camera service, motor service, API endpoints, settings persistence, and drag-pad logic are unchanged.
-
-## 0.3.3 Manual Drive semantic layout recovery patch
-
-`PiSD_0_3_3_patch` keeps the 0.3.2 unified style layer but locks the Manual Drive page into the intended semantic panel placement:
-
-- compact Status panel remains at the top of the main/manual page area
-- Camera Preview panel is placed directly under the Status panel
-- Manual Control drag-pad panel takes the right-side control-column position on PC/iPad layouts
-- Emergency Stop remains below the Manual Control panel
-- Action Log remains hidden by default and spans the page only when expanded
-
-The presentation settings may still tune density, radius, preview fit, panel gap, button scale, and panel role weights, but they must not move the core Manual Drive panels into confusing positions. No camera, motor, API, or settings-manager logic is changed by this patch.
 
 ## Folder layout
 
@@ -184,7 +146,7 @@ Open the actual dashboard shell:
 http://<pi-ip>:5050/
 ```
 
-`PiSD_0_2_5` makes `/` the first real dashboard shell. It includes these initial panels:
+`PiSD_0_2_5` made `/` the first real dashboard shell. It includes these initial panels:
 
 ```text
 System Status
@@ -824,3 +786,17 @@ preview drive
 preview stop
 log     log
 ```
+
+## PiSD 0.4.0 stable v4 baseline
+
+`PiSD_0_4_0` is the rollback baseline after the accepted `0.3.x` manual-drive, layout, recording, and file-management patches. It should be used before starting future `0.4.x` patch-only work.
+
+Key v4 features include:
+
+- responsive shared GUI layout system
+- Manual Drive page with drag-pad control
+- run-signal display for intended command and reported motor output
+- camera capture and recording controls
+- recording/snapshot folder list, zip download, and delete APIs
+- persistent settings and shared presentation defaults
+

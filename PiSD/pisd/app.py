@@ -14,6 +14,7 @@ from pisd.core.settings_manager import SettingsManager
 from pisd.services.camera_service import CameraService
 from pisd.services.motor_service import MotorService
 from pisd.services.recording_service import RecordingService
+from pisd.services.autopilot_service import AutopilotService
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULTS_PATH = PROJECT_ROOT / "config" / "defaults.json"
@@ -68,6 +69,7 @@ def create_app(hardware_enabled: bool = False):
     camera_service = CameraService(runtime_settings.get("camera") or defaults.get("camera"), hardware_enabled=hardware_enabled)
     motor_service = MotorService(runtime_settings.get("motor") or defaults.get("motor"), hardware_enabled=hardware_enabled)
     recording_service = RecordingService(PROJECT_ROOT)
+    autopilot_service = AutopilotService(motor_service, runtime_settings.get("autopilot") or defaults.get("autopilot"), hardware_enabled=hardware_enabled)
 
     app = Flask(
         __name__,
@@ -75,7 +77,7 @@ def create_app(hardware_enabled: bool = False):
         static_folder=str(WEB_STATIC_DIR),
         static_url_path="/testing/static",
     )
-    app.config["pisd_services"] = {"camera": camera_service, "motor": motor_service, "settings": settings_manager, "recording": recording_service}
+    app.config["pisd_services"] = {"camera": camera_service, "motor": motor_service, "settings": settings_manager, "recording": recording_service, "autopilot": autopilot_service}
     app.config["pisd_errors"] = APP_ERRORS
 
     @app.context_processor
@@ -98,6 +100,7 @@ def create_app(hardware_enabled: bool = False):
             "motor": motor_service.errors.history(limit=limit),
             "settings": settings_manager.errors.history(limit=limit),
             "recording": recording_service.errors.history(limit=limit),
+            "autopilot": autopilot_service.errors.history(limit=limit),
         }
 
     def build_status() -> dict[str, Any]:
@@ -112,6 +115,7 @@ def create_app(hardware_enabled: bool = False):
             "errors": all_errors(limit=5),
             "settings": settings_manager.get(),
             "recording": recording_service.status(),
+            "autopilot": autopilot_service.status(),
         }
 
     def get_json_payload() -> tuple[dict[str, Any], Any | None]:
@@ -140,9 +144,10 @@ def create_app(hardware_enabled: bool = False):
             "version": __version__,
             "code": PiSDErrorCodes.OK,
             "message": "Testing server GUI endpoint manifest loaded.",
-            "pages": ["/", "/manual-drive", "/settings", "/dashboard", "/testing", "/panel-presentation", "/panel-testing"],
+            "pages": ["/", "/manual-drive", "/autopilot", "/settings", "/dashboard", "/testing", "/panel-presentation", "/panel-testing"],
             "front_page": {"path": "/", "purpose": "Mode selection landing page."},
             "manual_drive": {"path": "/manual-drive", "purpose": "Simple user driving page with camera preview, status, STOP, and manual pad."},
+            "autopilot": {"path": "/autopilot", "purpose": "Bounded scripted autopilot bench-test page with arm/start/stop/status controls."},
             "settings_tab": {"path": "/settings", "purpose": "Settings tab for camera/motor/system API checks."},
             "main_dashboard": {"path": "/dashboard", "purpose": "Actual GUI dashboard shell v1."},
             "panel_presentation": {"path": "/panel-presentation", "purpose": "Browser-local panel presentation settings that apply across pages."},
@@ -165,6 +170,10 @@ def create_app(hardware_enabled: bool = False):
                 {"method": "POST", "path": "/api/motor/test-channel", "purpose": "Test one motor side/direction/speed/duration."},
                 {"method": "POST", "path": "/api/control/manual", "purpose": "Send manual steering/throttle command."},
                 {"method": "POST", "path": "/api/control/stop", "purpose": "Emergency stop / set outputs to zero."},
+                {"method": "GET", "path": "/api/autopilot/status", "purpose": "Read bounded autopilot runner state."},
+                {"method": "POST", "path": "/api/autopilot/config", "purpose": "Apply and save autopilot profile settings without starting movement."},
+                {"method": "POST", "path": "/api/autopilot/start", "purpose": "Start a bounded scripted autopilot profile after safety acknowledgement."},
+                {"method": "POST", "path": "/api/autopilot/stop", "purpose": "Stop autopilot and motor output."},
                 {"method": "GET", "path": "/api/recording/status", "purpose": "Read capture/recording state and output folders."},
                 {"method": "POST", "path": "/api/recording/capture", "purpose": "Save one traceable frame and JSON record."},
                 {"method": "POST", "path": "/api/recording/start", "purpose": "Start frame recording to an ordered session folder."},
@@ -225,6 +234,13 @@ def create_app(hardware_enabled: bool = False):
             initial_status=build_status(),
         )
 
+    @app.get("/autopilot")
+    def autopilot_page():
+        return render_template(
+            "autopilot.html",
+            initial_status=build_status(),
+        )
+
     @app.get("/settings")
     def settings_tab():
         return render_template(
@@ -273,7 +289,7 @@ def create_app(hardware_enabled: bool = False):
             "Panel presentation settings manifest loaded.",
             storage_key="pisd.panelPresentation.v1",
             path="/panel-presentation",
-            applies_to=["/", "/manual-drive", "/settings", "/testing", "/dashboard", "/panel-testing", "/panel-presentation"],
+            applies_to=["/", "/manual-drive", "/autopilot", "/settings", "/testing", "/dashboard", "/panel-testing", "/panel-presentation"],
             controls=presentation["controls"],
             source_of_truth="pisd/core/presentation_registry.py",
             design_system_css="css/pisd_design_system.css",
@@ -364,6 +380,7 @@ def create_app(hardware_enabled: bool = False):
         motor_service.errors.clear()
         settings_manager.errors.clear()
         recording_service.errors.clear()
+        autopilot_service.errors.clear()
         return jsonify(ok_payload("Error history cleared."))
 
     @app.post("/api/camera/start")
@@ -561,6 +578,49 @@ def create_app(hardware_enabled: bool = False):
             report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"Recording delete API failed: {exc}", exc=exc)
             return jsonify(report_payload(False, report)), 500
 
+    @app.get("/api/autopilot/status")
+    def api_autopilot_status():
+        return jsonify(ok_payload("Autopilot status loaded.", autopilot=autopilot_service.status(), motor=motor_service.status()))
+
+    @app.post("/api/autopilot/config")
+    def api_autopilot_config():
+        data, json_error = get_json_payload()
+        if json_error is not None:
+            return jsonify(report_payload(False, json_error)), 400
+        try:
+            status = autopilot_service.apply_settings(data)
+            settings_manager.save({"autopilot": status.get("config", {})})
+            return jsonify(ok_payload("Autopilot settings saved.", autopilot=status, settings=settings_manager.get()))
+        except Exception as exc:
+            report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"Autopilot config API failed: {exc}", exc=exc)
+            return jsonify(report_payload(False, report)), 500
+
+    @app.post("/api/autopilot/start")
+    def api_autopilot_start():
+        data, json_error = get_json_payload()
+        if json_error is not None:
+            return jsonify(report_payload(False, json_error)), 400
+        try:
+            ok, message, status, report = autopilot_service.start(data)
+            if ok:
+                settings_manager.save({"autopilot": status.get("config", {})})
+                return jsonify(ok_payload(message, autopilot=status, motor=motor_service.status()))
+            status_code = 409 if report and report.code == PiSDErrorCodes.AUTOPILOT_ALREADY_RUNNING else 403
+            return jsonify(report_payload(False, report, message, autopilot=status, motor=motor_service.status())), status_code
+        except Exception as exc:
+            report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"Autopilot start API failed: {exc}", exc=exc)
+            return jsonify(report_payload(False, report)), 500
+
+    @app.post("/api/autopilot/stop")
+    def api_autopilot_stop():
+        try:
+            data, _json_error = get_json_payload()
+            status = autopilot_service.stop(reason=data.get("reason", "user_stop") if isinstance(data, dict) else "user_stop")
+            return jsonify(ok_payload("Autopilot stopped.", autopilot=status, motor=motor_service.status()))
+        except Exception as exc:
+            report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"Autopilot stop API failed: {exc}", exc=exc)
+            return jsonify(report_payload(False, report)), 500
+
     @app.get("/api/motor/config")
     def api_motor_config():
         return jsonify(ok_payload("Motor config loaded.", config=motor_service.get_config()))
@@ -611,6 +671,8 @@ def create_app(hardware_enabled: bool = False):
         if json_error is not None:
             return jsonify(report_payload(False, json_error)), 400
         try:
+            if autopilot_service.status().get("running"):
+                autopilot_service.stop(reason="manual_override")
             left, right = motor_service.update(
                 steering=data.get("steering", 0.0),
                 throttle=data.get("throttle", 0.0),
@@ -625,6 +687,8 @@ def create_app(hardware_enabled: bool = False):
     @app.post("/api/control/stop")
     def api_control_stop():
         try:
+            if autopilot_service.status().get("running"):
+                autopilot_service.stop(reason="global_stop")
             motor_service.stop()
             report = motor_service.errors.latest() if motor_service.last_error else None
             return jsonify(report_payload(True, report, "Motors stopped.", motor=motor_service.status()))

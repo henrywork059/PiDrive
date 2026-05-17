@@ -259,3 +259,10 @@ Used by manual drive page validation when the `/manual-drive` page, its static f
 ## PiSD 0.3.7 responsive layout test code
 
 - `PISD-TEST-023` — responsive layout contract validation failed. Used by `scripts/test_responsive_layout_contract.py` when a page does not load the shared layout system, the CSS order is wrong, or the Manual Drive semantic panel order is broken.
+
+## PiSD 0.5.1 autopilot page/service codes
+
+- `PISD-AUTO-001` — autopilot start was refused because the safety acknowledgement or motor-output enable flag was missing.
+- `PISD-AUTO-002` — autopilot start was refused because a profile is already running.
+- `PISD-AUTO-003` — autopilot runtime loop failed and requested a motor stop.
+- `PISD-TEST-025` — autopilot page/service validation failed.

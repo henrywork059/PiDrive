@@ -31,6 +31,17 @@ DEFAULT_RUNTIME_SETTINGS: dict[str, Any] = {
             "path_width_scale": 1.0,
         },
     },
+
+    "autopilot": {
+        "mode": "hold",
+        "max_throttle": 0.16,
+        "steer_limit": 0.35,
+        "steering_bias": 0.0,
+        "steer_mix": 1.0,
+        "max_run_seconds": 12.0,
+        "tick_hz": 8.0,
+        "s_curve_period_s": 4.0,
+    },
     "panel_presentation": copy.deepcopy(PRESENTATION_DEFAULTS),
     "safety": {
         "motor_output_locked_by_default": True,
@@ -47,6 +58,7 @@ SETTINGS_SCHEMA: dict[str, Any] = {
         "camera": "Camera runtime settings passed to CameraService.apply_settings.",
         "motor": "Motor runtime settings passed to MotorService.apply_settings.",
         "manual_drive": "Manual drive page defaults and drag-pad behaviour.",
+        "autopilot": "Autopilot page defaults for bounded scripted bench-test profiles.",
         "panel_presentation": "Shared visual style, adaptive panel sizing, and role-based horizontal/vertical panel weights used by all browser pages.",
         "safety": "Safety defaults used by GUI pages.",
         "ui": "Global UI density/header behaviour.",
@@ -233,4 +245,23 @@ class SettingsManager:
                 overlay[key] = max(lower, min(upper, float(overlay.get(key, overlay_defaults.get(key, 1.0)))))
             except Exception:
                 overlay[key] = overlay_defaults.get(key, 1.0)
+
+        autopilot = merged.setdefault("autopilot", {})
+        allowed_autopilot_modes = {"hold", "straight_slow", "gentle_s_curve", "test_arc_left", "test_arc_right"}
+        if autopilot.get("mode") not in allowed_autopilot_modes:
+            autopilot["mode"] = self.defaults["autopilot"].get("mode", "hold")
+        for key, lower, upper in (
+            ("max_throttle", 0.0, 0.35),
+            ("steer_limit", 0.0, 0.75),
+            ("steering_bias", -0.35, 0.35),
+            ("steer_mix", 0.0, 1.0),
+            ("max_run_seconds", 1.0, 60.0),
+            ("tick_hz", 2.0, 20.0),
+            ("s_curve_period_s", 1.5, 12.0),
+        ):
+            try:
+                autopilot[key] = max(lower, min(upper, float(autopilot.get(key, self.defaults["autopilot"].get(key)))))
+            except Exception:
+                autopilot[key] = self.defaults["autopilot"].get(key)
+
         return merged
