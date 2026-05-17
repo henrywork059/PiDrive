@@ -64,8 +64,8 @@ class FakeMotor:
             "last_right": 0.20,
             "left_bias": 0.01,
             "right_bias": 0.02,
-            "left_max_speed": 0.65,
-            "right_max_speed": 0.65,
+            "left_max_speed": 1.0,
+            "right_max_speed": 1.0,
             "left_direction": 1,
             "right_direction": -1,
             "steering_direction": 1,
@@ -129,6 +129,48 @@ def main() -> int:
         item = json.loads(lines[0])
         schema_ok = all(key in item for key in ("frame_id", "frame_index", "saved_at_utc", "relative_file", "camera_settings", "motor_state", "steering", "throttle", "motor_outputs", "motor_tuning"))
     results.append(Result("recording.metadata_schema", schema_ok, PiSDErrorCodes.OK if schema_ok else PiSDErrorCodes.TEST_RECORDING_SERVICE_FAILED, "metadata includes traceable order/time/camera/motor fields" if schema_ok else "metadata schema incomplete"))
+
+    listed = service.list_collections()
+    collections = listed.get("collections") or {}
+    recordings = collections.get("recordings") or []
+    snapshots = collections.get("snapshots") or []
+    list_ok = listed.get("code") == PiSDErrorCodes.OK and recordings and snapshots
+    results.append(Result(
+        "recording.library_list",
+        bool(list_ok),
+        listed.get("code", PiSDErrorCodes.TEST_RECORDING_LIBRARY_FAILED),
+        "recording and snapshot folders are listed for GUI selection" if list_ok else "recording library list did not include both folder types",
+        {"recordings": recordings, "snapshots": snapshots},
+    ))
+
+    zip_ok = False
+    zip_details: dict[str, Any] = {}
+    if recordings:
+        err, archive_bytes, download_name = service.build_collection_zip("recording", recordings[0]["id"])
+        zip_ok = err is None and bool(archive_bytes and archive_bytes.startswith(b"PK")) and download_name.endswith(".zip")
+        zip_details = {"error": err, "download_name": download_name, "bytes": len(archive_bytes or b"")}
+    results.append(Result(
+        "recording.library_zip",
+        bool(zip_ok),
+        PiSDErrorCodes.OK if zip_ok else PiSDErrorCodes.TEST_RECORDING_LIBRARY_FAILED,
+        "selected recording folder can be zipped for download" if zip_ok else "recording zip build failed",
+        zip_details,
+    ))
+
+    delete_ok = False
+    delete_details: dict[str, Any] = {}
+    if snapshots:
+        snapshot_id = snapshots[0]["id"]
+        delete = service.delete_collection("snapshot", snapshot_id)
+        delete_ok = delete.get("code") == PiSDErrorCodes.OK and not (service.root_dir / snapshot_id).exists()
+        delete_details = {"delete": delete, "snapshot_id": snapshot_id}
+    results.append(Result(
+        "recording.library_delete",
+        bool(delete_ok),
+        PiSDErrorCodes.OK if delete_ok else PiSDErrorCodes.TEST_RECORDING_LIBRARY_FAILED,
+        "selected snapshot folder can be deleted" if delete_ok else "snapshot folder delete failed",
+        delete_details,
+    ))
 
     for result in results:
         emit(result)

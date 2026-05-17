@@ -14,7 +14,7 @@ DEFAULT_RUNTIME_SETTINGS: dict[str, Any] = {
     "motor": {},
     "manual_drive": {
         "speed": 0.18,
-        "max_speed_limit": 0.65,
+        "max_speed_limit": 1.0,
         "steer_strength": 0.35,
         "drag_send_interval_ms": 90,
         "preview_mode": "live",
@@ -164,15 +164,15 @@ class SettingsManager:
             panel["topbarMode"] = "compact"
 
         # Clamp persisted motor limits as settings are loaded, not only when the
-        # MotorService receives them. Older runtime_settings.json files could
-        # still contain 1.0, which made the Settings page show an unsafe value
-        # even though the motor service later clamped it.
+        # MotorService receives them. Older runtime_settings.json files are normalised here before
+        # the UI/service uses them, so stale or invalid values cannot break
+        # runtime behaviour.
         motor = merged.setdefault("motor", {})
         for key in ("left_max_speed", "right_max_speed"):
             try:
-                motor[key] = max(0.0, min(0.65, float(motor.get(key, self.defaults.get("motor", {}).get(key, 0.65)))))
+                motor[key] = max(0.0, min(1.0, float(motor.get(key, self.defaults.get("motor", {}).get(key, 1.0)))))
             except Exception:
-                motor[key] = self.defaults.get("motor", {}).get(key, 0.65)
+                motor[key] = self.defaults.get("motor", {}).get(key, 1.0)
         for key in ("left_bias", "right_bias"):
             try:
                 motor[key] = max(-0.35, min(0.35, float(motor.get(key, self.defaults.get("motor", {}).get(key, 0.0)))))
@@ -186,14 +186,14 @@ class SettingsManager:
         manual = merged.setdefault("manual_drive", {})
         for key in ("speed", "steer_strength"):
             try:
-                upper = 0.65 if key == "speed" else 1.0
+                upper = 1.0
                 manual[key] = max(0.0, min(upper, float(manual.get(key, self.defaults["manual_drive"][key]))))
             except Exception:
                 manual[key] = self.defaults["manual_drive"][key]
         try:
-            manual["max_speed_limit"] = max(0.1, min(0.65, float(manual.get("max_speed_limit", 0.65))))
+            manual["max_speed_limit"] = max(0.1, min(1.0, float(manual.get("max_speed_limit", 1.0))))
         except Exception:
-            manual["max_speed_limit"] = 0.65
+            manual["max_speed_limit"] = 1.0
         try:
             manual["drag_send_interval_ms"] = max(40, min(500, int(float(manual.get("drag_send_interval_ms", 90)))))
         except Exception:

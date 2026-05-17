@@ -222,6 +222,7 @@ body.manual-drive-page .mdrv-shell {
     "status drive"
     "preview drive"
     "preview stop"
+    "preview files"
     "log log" !important;
   grid-auto-flow: row !important;
   grid-auto-rows: min-content !important;
@@ -526,6 +527,7 @@ body.manual-drive-page .mdrv-shell {
     "status drive"
     "preview drive"
     "preview stop"
+    "preview files"
     "log log" !important;
   grid-auto-rows: min-content !important;
   width: min(var(--pisd-page-max), calc(100vw - 14px)) !important;
@@ -613,3 +615,6 @@ body.manual-drive-page .mdrv-compact-actions {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 }
+
+/* 0.3.8 files panel semantic role */
+body.manual-drive-page #manualDriveFilesPanel { grid-area: files !important; }

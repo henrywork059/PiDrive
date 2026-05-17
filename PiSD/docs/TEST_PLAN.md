@@ -808,7 +808,7 @@ Check:
 - camera panel is directly under the status panel
 - manual drag pad is in the right control column
 - drag pad ball follows the pointer position
-- speed slider does not exceed `0.65`
+- speed slider can reach `1.0`
 - `Capture frame` creates one saved frame and JSONL record
 - `Record` starts/stops a session in `recordings/YYYY-MM-DD/...`
 - `records.jsonl` contains camera settings, steering, throttle, motor output, bias, and tuning data for every saved frame
@@ -830,7 +830,7 @@ Manual browser checks:
 
 1. Open `/manual-drive`.
 2. Confirm the camera panel stays under the compact status panel and the drag pad stays in the control column.
-3. Confirm the speed slider max is not 1.0 and the Settings page shows motor left/right max speed no higher than `0.65`.
+3. Confirm the speed slider max is not 1.0 and the Settings page shows motor left/right max speed up to `1.0`.
 4. Press `Capture frame` and confirm a visible capture notice appears.
 5. Start `Record` and confirm the red recording indicator appears.
 6. Stop recording and confirm the indicator returns to `REC off`.
@@ -893,3 +893,33 @@ drive
 stop
 log
 ```
+
+## PiSD 0.3.8 manual speed and recording-library checks
+
+After applying this patch, check that the Manual Drive page allows full normalized range:
+
+```text
+Manual speed slider max = 1.0
+Steer strength slider max = 1.0
+Motor left/right max speed settings can be set to 1.0
+```
+
+Run the safe local tests:
+
+```bash
+python3 scripts/test_recording_service.py
+python3 scripts/test_manual_drive_page.py --static-only
+python3 scripts/test_settings_persistence.py
+```
+
+On the Pi browser:
+
+1. Open `/manual-drive`.
+2. Capture a single frame.
+3. Confirm the `Recordings & snapshots` panel lists a snapshot folder.
+4. Start and stop a recording.
+5. Confirm a recording folder appears.
+6. Select a recording folder and click `Download zip`.
+7. Select a snapshot folder and click `Download zip`.
+8. Select an old/unneeded folder and click `Delete selected`.
+9. Confirm active recording folders cannot be deleted until recording is stopped.

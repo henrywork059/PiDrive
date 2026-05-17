@@ -16,12 +16,12 @@ function normaliseSettingsForUi(settings = {}) {
   const next = JSON.parse(JSON.stringify(settings || {}));
   next.motor = next.motor || {};
   next.manual_drive = next.manual_drive || {};
-  next.motor.left_max_speed = clampNumber(next.motor.left_max_speed ?? 0.65, 0, 0.65, 0.65);
-  next.motor.right_max_speed = clampNumber(next.motor.right_max_speed ?? 0.65, 0, 0.65, 0.65);
+  next.motor.left_max_speed = clampNumber(next.motor.left_max_speed ?? 1.0, 0, 1.0, 1.0);
+  next.motor.right_max_speed = clampNumber(next.motor.right_max_speed ?? 1.0, 0, 1.0, 1.0);
   next.motor.steer_mix = clampNumber(next.motor.steer_mix ?? 1.0, 0, 1.0, 1.0);
   next.motor.left_bias = clampNumber(next.motor.left_bias ?? 0.0, -0.35, 0.35, 0.0);
   next.motor.right_bias = clampNumber(next.motor.right_bias ?? 0.0, -0.35, 0.35, 0.0);
-  next.manual_drive.max_speed_limit = clampNumber(next.manual_drive.max_speed_limit ?? 0.65, 0.1, 0.65, 0.65);
+  next.manual_drive.max_speed_limit = clampNumber(next.manual_drive.max_speed_limit ?? 1.0, 0.1, 1.0, 1.0);
   next.manual_drive.speed = clampNumber(next.manual_drive.speed ?? 0.18, 0, next.manual_drive.max_speed_limit, 0.18);
   next.manual_drive.recording_fps = clampNumber(next.manual_drive.recording_fps ?? 6, 0.2, 30, 6);
   return next;

@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import atexit
 import json
+import shutil
 import threading
 import time
 import uuid
+import zipfile
+from io import BytesIO
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -256,6 +259,184 @@ class RecordingService:
                 exc=exc,
             )
             return report_payload(False, report, recording=self.status())
+
+    def list_collections(self) -> dict[str, Any]:
+        """List downloadable/deletable recording and single-capture folders."""
+        try:
+            recordings: list[dict[str, Any]] = []
+            snapshots: list[dict[str, Any]] = []
+            if self.root_dir.exists():
+                for date_dir in sorted(self.root_dir.iterdir(), reverse=True):
+                    if not date_dir.is_dir():
+                        continue
+                    if date_dir.name == "single_captures":
+                        continue
+                    for session_dir in sorted(date_dir.iterdir(), reverse=True):
+                        if session_dir.is_dir():
+                            recordings.append(self._collection_summary("recording", session_dir))
+                single_root = self.root_dir / "single_captures"
+                if single_root.exists():
+                    for date_dir in sorted(single_root.iterdir(), reverse=True):
+                        if date_dir.is_dir():
+                            snapshots.append(self._collection_summary("snapshot", date_dir))
+            return ok_payload(
+                "Recording folders loaded.",
+                collections={"recordings": recordings, "snapshots": snapshots},
+                root_dir=str(self.root_dir),
+            )
+        except Exception as exc:
+            report = self._record_error(
+                PiSDErrorCodes.RECORDING_INVALID_CONFIG,
+                f"Failed to list recording folders: {exc}",
+                exc=exc,
+            )
+            return report_payload(False, report, recording=self.status())
+
+    def delete_collection(self, kind: Any, collection_id: Any) -> dict[str, Any]:
+        """Delete a saved recording session folder or daily snapshot folder."""
+        try:
+            path, safe_id, safe_kind, report = self._resolve_collection(kind, collection_id)
+            if report is not None:
+                return report_payload(False, report, recording=self.status())
+            with self._lock:
+                active_dir = Path(self._active_session["session_dir"]).resolve() if self._active_session else None
+            if active_dir is not None and path.resolve() == active_dir:
+                report = self._record_error(
+                    PiSDErrorCodes.RECORDING_DELETE_FAILED,
+                    "Cannot delete the active recording session. Stop recording first.",
+                    context={"kind": safe_kind, "id": safe_id, "path": str(path)},
+                )
+                return report_payload(False, report, recording=self.status())
+            shutil.rmtree(path)
+            return ok_payload(
+                "Recording folder deleted.",
+                deleted={"kind": safe_kind, "id": safe_id, "path": str(path)},
+                collections=(self.list_collections().get("collections") or {}),
+            )
+        except Exception as exc:
+            report = self._record_error(
+                PiSDErrorCodes.RECORDING_DELETE_FAILED,
+                f"Failed to delete recording folder: {exc}",
+                context={"kind": str(kind), "id": str(collection_id)},
+                exc=exc,
+            )
+            return report_payload(False, report, recording=self.status())
+
+    def build_collection_zip(self, kind: Any, collection_id: Any) -> tuple[dict[str, Any] | None, bytes | None, str]:
+        """Build a zip archive for a recording/snapshot folder.
+
+        Returns (error_payload, bytes, download_name). The caller can stream the
+        zip bytes with Flask send_file. The archive keeps a folder prefix so the
+        downloaded data remains traceable on the user's PC.
+        """
+        try:
+            path, safe_id, safe_kind, report = self._resolve_collection(kind, collection_id)
+            if report is not None:
+                return report_payload(False, report, recording=self.status()), None, ""
+            buffer = BytesIO()
+            prefix = f"PiSD_{safe_kind}_{safe_id.replace('/', '_')}"
+            with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+                for file_path in sorted(path.rglob("*")):
+                    if file_path.is_file():
+                        arcname = Path(prefix) / file_path.relative_to(path)
+                        archive.write(file_path, arcname.as_posix())
+            buffer.seek(0)
+            return None, buffer.getvalue(), f"{prefix}.zip"
+        except Exception as exc:
+            report = self._record_error(
+                PiSDErrorCodes.RECORDING_ZIP_FAILED,
+                f"Failed to create recording zip: {exc}",
+                context={"kind": str(kind), "id": str(collection_id)},
+                exc=exc,
+            )
+            return report_payload(False, report, recording=self.status()), None, ""
+
+    def _resolve_collection(self, kind: Any, collection_id: Any) -> tuple[Path, str, str, ErrorReport | None]:
+        safe_kind = str(kind or "").strip().lower().replace("snapshots", "snapshot").replace("single_capture", "snapshot")
+        raw_id = str(collection_id or "").strip().replace("\\", "/")
+        if safe_kind not in {"recording", "snapshot"} or not raw_id:
+            report = self._record_error(
+                PiSDErrorCodes.RECORDING_ITEM_NOT_FOUND,
+                "Recording item kind/id was missing or invalid.",
+                severity="warning",
+                context={"kind": str(kind), "id": str(collection_id)},
+            )
+            return self.root_dir, raw_id, safe_kind, report
+        if raw_id.startswith("/") or ".." in Path(raw_id).parts:
+            report = self._record_error(
+                PiSDErrorCodes.RECORDING_ITEM_NOT_FOUND,
+                "Recording item id was not a safe relative folder path.",
+                severity="warning",
+                context={"kind": safe_kind, "id": raw_id},
+            )
+            return self.root_dir, raw_id, safe_kind, report
+        if safe_kind == "snapshot" and not raw_id.startswith("single_captures/"):
+            raw_id = f"single_captures/{raw_id}"
+        path = (self.root_dir / raw_id).resolve()
+        root = self.root_dir.resolve()
+        try:
+            path.relative_to(root)
+        except ValueError:
+            report = self._record_error(
+                PiSDErrorCodes.RECORDING_ITEM_NOT_FOUND,
+                "Recording item path escaped the recordings folder.",
+                severity="warning",
+                context={"kind": safe_kind, "id": raw_id},
+            )
+            return path, raw_id, safe_kind, report
+        if not path.exists() or not path.is_dir():
+            report = self._record_error(
+                PiSDErrorCodes.RECORDING_ITEM_NOT_FOUND,
+                "Recording folder was not found.",
+                severity="warning",
+                context={"kind": safe_kind, "id": raw_id, "path": str(path)},
+            )
+            return path, raw_id, safe_kind, report
+        return path, str(path.relative_to(root)).replace("\\", "/"), safe_kind, None
+
+    def _collection_summary(self, kind: str, folder: Path) -> dict[str, Any]:
+        relative_id = str(folder.relative_to(self.root_dir)).replace("\\", "/")
+        records_file = folder / "records.jsonl"
+        manifest_file = folder / "manifest.json"
+        frame_count = self._count_jsonl_records(records_file)
+        if frame_count <= 0:
+            frame_count = sum(1 for item in (folder / "frames").glob("*.jpg")) if (folder / "frames").exists() else 0
+        byte_count = 0
+        latest_mtime = folder.stat().st_mtime
+        for item in folder.rglob("*"):
+            if item.is_file():
+                try:
+                    stat = item.stat()
+                    byte_count += int(stat.st_size)
+                    latest_mtime = max(latest_mtime, stat.st_mtime)
+                except OSError:
+                    continue
+        label = folder.name
+        started_at = ""
+        running = False
+        if manifest_file.exists():
+            try:
+                manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
+                label = str(manifest.get("label") or label)
+                started_at = str(manifest.get("started_at_utc") or manifest.get("updated_at_utc") or "")
+                running = bool(manifest.get("running", False))
+            except Exception:
+                pass
+        return {
+            "kind": kind,
+            "id": relative_id,
+            "label": label,
+            "date": folder.parent.name if kind == "recording" else folder.name,
+            "path": str(folder),
+            "relative_path": str(folder.relative_to(self.project_root)).replace("\\", "/"),
+            "records_file": str(records_file.relative_to(self.project_root)).replace("\\", "/") if records_file.exists() else "",
+            "manifest_file": str(manifest_file.relative_to(self.project_root)).replace("\\", "/") if manifest_file.exists() else "",
+            "frame_count": int(frame_count),
+            "bytes": int(byte_count),
+            "modified_at_utc": datetime.fromtimestamp(latest_mtime, timezone.utc).isoformat(),
+            "started_at_utc": started_at,
+            "running": running,
+        }
 
     def close(self) -> None:
         try:

@@ -5,7 +5,7 @@
   const initialStatus = JSON.parse($('manualDriveInitialStatus')?.textContent || '{}');
   const LEGACY_STORAGE_KEY = 'pisd.manualDrive.v1';
   const SETTINGS_STORAGE_KEY = 'pisd.runtimeSettings.v2';
-  const DEFAULTS = { speed: 0.18, max_speed_limit: 0.65, steer_strength: 0.35, drag_send_interval_ms: 90, recording_fps: 6 };
+  const DEFAULTS = { speed: 0.18, max_speed_limit: 1.0, steer_strength: 0.35, drag_send_interval_ms: 90, recording_fps: 6 };
   const globalCode = $('mdrvGlobalCode');
   const preview = $('mdrvPreview');
   const log = $('mdrvLog');
@@ -24,10 +24,14 @@
   const recordButton = $('mdrvRecordToggle');
   const recordingIndicator = $('mdrvRecordingIndicator');
   const captureNotice = $('mdrvCaptureNotice');
+  const fileKind = $('mdrvFileKind');
+  const fileSelect = $('mdrvFileSelect');
+  const filesNotice = $('mdrvFilesNotice');
   let dragging = false;
   let lastSentAt = 0;
   let lastPayload = { steering: 0, throttle: 0, steer_mix: 1.0 };
   let recordingRunning = Boolean(initialStatus.recording?.running);
+  let recordingCollections = { recordings: [], snapshots: [] };
 
   function isOk(code) { return String(code || '').startsWith('PISD-OK'); }
   function clamp(value, min, max, fallback = 0) {
@@ -35,7 +39,7 @@
     return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : fallback;
   }
   function maxSpeedLimit() {
-    return clamp(readRuntimeLocal().manual_drive?.max_speed_limit || DEFAULTS.max_speed_limit, 0.1, 0.65, DEFAULTS.max_speed_limit);
+    return clamp(readRuntimeLocal().manual_drive?.max_speed_limit || DEFAULTS.max_speed_limit, 0.1, 1.0, DEFAULTS.max_speed_limit);
   }
   function setCode(target, code) {
     const value = code || 'PISD-OK-000';
@@ -57,6 +61,90 @@
     captureNotice.textContent = message;
     captureNotice.dataset.state = isOk(code) ? 'ok' : 'error';
     captureNotice.classList.add('is-visible');
+  }
+
+  function showFilesNotice(message, code = 'PISD-OK-000') {
+    if (filesNotice) filesNotice.textContent = message;
+    setCode('files', code);
+  }
+
+  function selectedFileItem() {
+    const kind = fileKind?.value || 'recording';
+    const id = fileSelect?.value || '';
+    const list = kind === 'snapshot' ? recordingCollections.snapshots : recordingCollections.recordings;
+    const item = list.find(entry => entry.id === id) || null;
+    return { kind, id, item };
+  }
+
+  function renderFileOptions() {
+    if (!fileSelect) return;
+    const kind = fileKind?.value || 'recording';
+    const list = kind === 'snapshot' ? recordingCollections.snapshots : recordingCollections.recordings;
+    fileSelect.innerHTML = '';
+    if (!list.length) {
+      const option = document.createElement('option');
+      option.value = '';
+      option.textContent = kind === 'snapshot' ? 'No snapshot folders' : 'No recording folders';
+      fileSelect.appendChild(option);
+      showFilesNotice(kind === 'snapshot' ? 'No snapshot folders found.' : 'No recording folders found.');
+      return;
+    }
+    for (const item of list) {
+      const option = document.createElement('option');
+      option.value = item.id;
+      const count = Number(item.frame_count || 0);
+      const sizeKb = Math.round(Number(item.bytes || 0) / 1024);
+      option.textContent = `${item.date || ''}  ${item.label || item.id}  (${count} frames, ${sizeKb} KB)`;
+      fileSelect.appendChild(option);
+    }
+    const selected = selectedFileItem().item || list[0];
+    showFilesNotice(`Selected ${kind}: ${selected.id || selected.label || 'folder'}`);
+  }
+
+  async function refreshRecordingItems() {
+    try {
+      const { payload } = await api('GET', '/api/recording/items', undefined, 'files');
+      const collections = payload.collections || {};
+      recordingCollections = {
+        recordings: collections.recordings || [],
+        snapshots: collections.snapshots || [],
+      };
+      renderFileOptions();
+      showFilesNotice(`Loaded ${recordingCollections.recordings.length} recordings and ${recordingCollections.snapshots.length} snapshot folders.`, payload.code);
+    } catch (err) {
+      showFilesNotice(`Folder list failed: ${String(err)}`, 'PISD-REC-007');
+      writeLog('recording items failed', { ok: false, code: 'PISD-REC-007', message: String(err) });
+    }
+  }
+
+  function downloadSelectedZip() {
+    const { kind, id } = selectedFileItem();
+    if (!id) {
+      showFilesNotice('Select a folder before downloading.', 'PISD-REC-008');
+      return;
+    }
+    const url = `/api/recording/download.zip?kind=${encodeURIComponent(kind)}&id=${encodeURIComponent(id)}`;
+    showFilesNotice(`Preparing ${kind} zip: ${id}`, 'PISD-OK-000');
+    window.location.href = url;
+  }
+
+  async function deleteSelectedFolder() {
+    const { kind, id, item } = selectedFileItem();
+    if (!id) {
+      showFilesNotice('Select a folder before deleting.', 'PISD-REC-008');
+      return;
+    }
+    const label = item?.label || id;
+    const ok = window.confirm(`Delete ${kind} folder?\n\n${label}\n${id}\n\nThis cannot be undone.`);
+    if (!ok) return;
+    try {
+      const { payload } = await api('POST', '/api/recording/delete', { kind, id }, 'files');
+      showFilesNotice(payload.ok ? `Deleted ${kind}: ${id}` : `Delete failed: ${payload.code}`, payload.code);
+      await refreshRecordingItems();
+    } catch (err) {
+      showFilesNotice(`Delete failed: ${String(err)}`, 'PISD-REC-009');
+      writeLog('recording delete failed', { ok: false, code: 'PISD-REC-009', message: String(err) });
+    }
   }
 
   function updateRecordingIndicator(running) {
@@ -96,7 +184,7 @@
     } catch (_err) {}
     const legacy = readLegacyPrefs();
     const serverManual = settings.manual_drive || {};
-    const limit = clamp(serverManual.max_speed_limit || DEFAULTS.max_speed_limit, 0.1, 0.65, DEFAULTS.max_speed_limit);
+    const limit = clamp(serverManual.max_speed_limit || DEFAULTS.max_speed_limit, 0.1, 1.0, DEFAULTS.max_speed_limit);
     const manual = {
       ...DEFAULTS,
       ...serverManual,
@@ -258,6 +346,7 @@
         showCaptureNotice(`Capture failed: ${payload?.code || 'PISD-REC-002'}`, payload?.code || 'PISD-REC-002');
       }
       await refreshStatus();
+      await refreshRecordingItems();
     } catch (err) {
       showCaptureNotice(`Capture failed: ${String(err)}`, 'PISD-REC-002');
       writeLog('capture frame failed', { ok: false, code: 'PISD-REC-002', message: String(err) });
@@ -276,6 +365,7 @@
         showCaptureNotice(`Recording started${session.session_id ? ': ' + session.session_id : ''}`, payload?.code || 'PISD-OK-000');
       }
       await refreshStatus();
+      await refreshRecordingItems();
     } catch (err) {
       writeLog('toggle recording failed', { ok: false, code: 'PISD-REC-002', message: String(err) });
     }
@@ -312,6 +402,10 @@
     $('mdrvStopTop')?.addEventListener('click', () => stopAll('stop'));
     $('mdrvStopPad')?.addEventListener('click', () => stopAll('drive'));
     $('mdrvStopBig')?.addEventListener('click', () => stopAll('stop'));
+    $('mdrvRefreshFiles')?.addEventListener('click', refreshRecordingItems);
+    $('mdrvDownloadZip')?.addEventListener('click', downloadSelectedZip);
+    $('mdrvDeleteFolder')?.addEventListener('click', deleteSelectedFolder);
+    fileKind?.addEventListener('change', renderFileOptions);
     toggleLog?.addEventListener('click', () => {
       const hidden = logPanel?.hasAttribute('hidden');
       if (hidden) logPanel.removeAttribute('hidden'); else logPanel?.setAttribute('hidden', '');
@@ -328,4 +422,5 @@
   bind();
   updateLock();
   loadSettings();
+  refreshRecordingItems();
 })();

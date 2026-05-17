@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from io import BytesIO
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -49,7 +50,7 @@ def load_defaults() -> dict[str, Any]:
 
 def create_app(hardware_enabled: bool = False):
     try:
-        from flask import Flask, Response, jsonify, render_template, request, url_for
+        from flask import Flask, Response, jsonify, render_template, request, send_file, url_for
     except ImportError as exc:  # pragma: no cover
         APP_ERRORS.report(
             PiSDErrorCodes.APP_DEPENDENCY_MISSING,
@@ -168,6 +169,9 @@ def create_app(hardware_enabled: bool = False):
                 {"method": "POST", "path": "/api/recording/capture", "purpose": "Save one traceable frame and JSON record."},
                 {"method": "POST", "path": "/api/recording/start", "purpose": "Start frame recording to an ordered session folder."},
                 {"method": "POST", "path": "/api/recording/stop", "purpose": "Stop recording and finalise the session manifest."},
+                {"method": "GET", "path": "/api/recording/items", "purpose": "List recording and snapshot folders available for download/delete."},
+                {"method": "GET", "path": "/api/recording/download.zip", "purpose": "Download a selected recording or snapshot folder as a zip."},
+                {"method": "POST", "path": "/api/recording/delete", "purpose": "Delete a selected recording or snapshot folder."},
             ],
             "known_good_camera": {
                 "visual_reference": "01_request_awb_auto",
@@ -511,6 +515,46 @@ def create_app(hardware_enabled: bool = False):
             return jsonify(result), 200 if result.get("ok") else 409
         except Exception as exc:
             report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"Recording stop API failed: {exc}", exc=exc)
+            return jsonify(report_payload(False, report)), 500
+
+    @app.get("/api/recording/items")
+    def api_recording_items():
+        try:
+            result = recording_service.list_collections()
+            return jsonify(result), 200 if result.get("ok") else 500
+        except Exception as exc:
+            report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"Recording items API failed: {exc}", exc=exc)
+            return jsonify(report_payload(False, report)), 500
+
+    @app.get("/api/recording/download.zip")
+    def api_recording_download_zip():
+        try:
+            kind = request.args.get("kind", "")
+            item_id = request.args.get("id", "")
+            error_payload, archive_bytes, download_name = recording_service.build_collection_zip(kind, item_id)
+            if error_payload is not None:
+                return jsonify(error_payload), 404
+            return send_file(
+                BytesIO(archive_bytes or b""),
+                mimetype="application/zip",
+                as_attachment=True,
+                download_name=download_name or "pisd_recording.zip",
+                max_age=0,
+            )
+        except Exception as exc:
+            report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"Recording zip API failed: {exc}", exc=exc)
+            return jsonify(report_payload(False, report)), 500
+
+    @app.post("/api/recording/delete")
+    def api_recording_delete():
+        data, json_error = get_json_payload()
+        if json_error is not None:
+            return jsonify(report_payload(False, json_error)), 400
+        try:
+            result = recording_service.delete_collection(data.get("kind", ""), data.get("id", ""))
+            return jsonify(result), 200 if result.get("ok") else 404
+        except Exception as exc:
+            report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"Recording delete API failed: {exc}", exc=exc)
             return jsonify(report_payload(False, report)), 500
 
     @app.get("/api/motor/config")

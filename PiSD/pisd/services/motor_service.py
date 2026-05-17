@@ -52,8 +52,8 @@ class MotorConfig:
     left_direction: int = 1
     right_direction: int = 1
     steering_direction: int = 1
-    left_max_speed: float = 0.65
-    right_max_speed: float = 0.65
+    left_max_speed: float = 1.0
+    right_max_speed: float = 1.0
     left_bias: float = 0.0
     right_bias: float = 0.0
     steer_mix: float = 1.0
@@ -75,8 +75,8 @@ class MotorConfig:
         self.left_direction = normalize_direction(data.get("left_direction", self.left_direction), self.left_direction)
         self.right_direction = normalize_direction(data.get("right_direction", self.right_direction), self.right_direction)
         self.steering_direction = normalize_direction(data.get("steering_direction", self.steering_direction), self.steering_direction)
-        self.left_max_speed = clamp_float(data.get("left_max_speed", self.left_max_speed), 0.0, 0.65, self.left_max_speed)
-        self.right_max_speed = clamp_float(data.get("right_max_speed", self.right_max_speed), 0.0, 0.65, self.right_max_speed)
+        self.left_max_speed = clamp_float(data.get("left_max_speed", self.left_max_speed), 0.0, 1.0, self.left_max_speed)
+        self.right_max_speed = clamp_float(data.get("right_max_speed", self.right_max_speed), 0.0, 1.0, self.right_max_speed)
         self.left_bias = clamp_float(data.get("left_bias", self.left_bias), -0.35, 0.35, self.left_bias)
         self.right_bias = clamp_float(data.get("right_bias", self.right_bias), -0.35, 0.35, self.right_bias)
         self.steer_mix = clamp_float(data.get("steer_mix", self.steer_mix), 0.0, 1.0, self.steer_mix)
@@ -134,7 +134,7 @@ class _MotorDriver:
                 )
 
     def set_speed(self, speed: float) -> bool:
-        speed = clamp_float(speed, -0.65, 0.65, 0.0)
+        speed = clamp_float(speed, -1.0, 1.0, 0.0)
         if not self.hardware_enabled:
             return True
         try:
@@ -285,7 +285,7 @@ class MotorService:
             return {"ok": False, "code": report.code, "message": report.message, "error": report.as_dict(), "motor": self.status()}
 
         direction_value = normalize_test_direction(direction, 1)
-        requested_speed = clamp_float(speed, 0.0, 0.65, 0.2)
+        requested_speed = clamp_float(speed, 0.0, 1.0, 0.2)
         if requested_speed < 0.01:
             report = self._record(
                 PiSDErrorCodes.MOTOR_TEST_INVALID,
@@ -433,7 +433,7 @@ class MotorService:
         if abs(value) > 1e-4 and abs(bias) > 1e-4:
             value += (1.0 if value > 0 else -1.0) * bias
         value = clamp_float(value, -1.0, 1.0, 0.0)
-        value *= clamp_float(max_speed, 0.0, 0.65, 0.65)
+        value *= clamp_float(max_speed, 0.0, 1.0, 1.0)
         value *= -1.0 if direction < 0 else 1.0
         return clamp_float(value, -1.0, 1.0, 0.0)
 

@@ -129,6 +129,7 @@ body.manual-drive-page .mdrv-shell {
     "status status"
     "preview drive"
     "preview stop"
+    "preview files"
     "log log" !important;
   grid-auto-flow: row !important;
   grid-auto-rows: min-content !important;
@@ -164,11 +165,18 @@ body.manual-drive-page .mdrv-stop-panel {
   grid-row: 3 !important;
   align-self: start !important;
 }
+body.manual-drive-page #manualDriveFilesPanel,
+body.manual-drive-page .mdrv-files-panel {
+  grid-area: files !important;
+  grid-column: 2 / 3 !important;
+  grid-row: 4 !important;
+  align-self: start !important;
+}
 body.manual-drive-page #manualDriveLogPanel,
 body.manual-drive-page .mdrv-log-panel {
   grid-area: log !important;
   grid-column: 1 / -1 !important;
-  grid-row: 4 !important;
+  grid-row: 5 !important;
 }
 body.manual-drive-page .mdrv-status-strip {
   display: grid !important;
@@ -306,6 +314,7 @@ body.panel-testing-page .pt-control-panel {
       "status status"
       "preview drive"
       "preview stop"
+      "preview files"
       "log log" !important;
   }
   body.manual-drive-page .mdrv-preview-frame {
@@ -379,12 +388,14 @@ body.panel-testing-page .pt-control-panel {
       "preview"
       "drive"
       "stop"
+      "files"
       "log" !important;
   }
   body.manual-drive-page #manualDriveStatusPanel,
   body.manual-drive-page #manualDriveCameraPanel,
   body.manual-drive-page #manualDrivePadPanel,
   body.manual-drive-page #manualDriveStopPanel,
+  body.manual-drive-page #manualDriveFilesPanel,
   body.manual-drive-page #manualDriveLogPanel,
   body.settings-page #settingsMainPanel,
   body.settings-page #settingsMotorPanel,

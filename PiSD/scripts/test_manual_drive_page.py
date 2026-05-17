@@ -82,6 +82,7 @@ def check_source_contract() -> list[Result]:
         template = TEMPLATE.read_text(encoding="utf-8")
         css = CSS.read_text(encoding="utf-8")
         global_css = (WEB_ROOT / "static" / "css" / "unified_layout.css").read_text(encoding="utf-8")
+        layout_css = (WEB_ROOT / "static" / "css" / "pisd_layout_system.css").read_text(encoding="utf-8")
         design_css = DESIGN_SYSTEM_CSS.read_text(encoding="utf-8")
         js = JS.read_text(encoding="utf-8")
     except Exception as exc:
@@ -103,6 +104,11 @@ def check_source_contract() -> list[Result]:
         "mdrvRecordingState",
         "mdrvRecordingIndicator",
         "mdrvCaptureNotice",
+        "manualDriveFilesPanel",
+        "mdrvFileKind",
+        "mdrvFileSelect",
+        "mdrvDownloadZip",
+        "mdrvDeleteFolder",
         "manualDriveInitialStatus",
         "panel_presentation_global.css",
         "pisd_design_system.css",
@@ -116,14 +122,22 @@ def check_source_contract() -> list[Result]:
         "PiSD 0.3.3 manual-drive semantic layout recovery",
         "body.manual-drive-page .mdrv-shell",
     ]
+    required_layout_css = [
+        "body.manual-drive-page .mdrv-shell",
+        "\"status status\"",
+        "\"preview drive\"",
+        "\"preview files\"",
+        "#manualDriveFilesPanel",
+    ]
     required_design_css = [
-        "PiSD Design System 0.3.6",
+        "PiSD Design System",
         "body.manual-drive-page .mdrv-shell",
         "\"status drive\"",
         "\"preview drive\"",
         "#manualDriveStatusPanel",
         "#manualDriveCameraPanel",
         "#manualDrivePadPanel",
+        "#manualDriveFilesPanel",
         "grid-area: status",
         "grid-area: preview",
         "grid-area: drive",
@@ -144,6 +158,9 @@ def check_source_contract() -> list[Result]:
         "/api/recording/capture",
         "/api/recording/start",
         "/api/recording/stop",
+        "/api/recording/items",
+        "/api/recording/download.zip",
+        "/api/recording/delete",
         "PISD-MOT-008",
         "showCaptureNotice",
         "updateRecordingIndicator",
@@ -155,6 +172,7 @@ def check_source_contract() -> list[Result]:
         "template": [token for token in required_template if token not in template],
         "css": [token for token in required_css if token not in css],
         "unified_css": [token for token in required_unified_css if token not in global_css],
+        "layout_system_css": [token for token in required_layout_css if token not in layout_css],
         "design_system_css": [token for token in required_design_css if token not in design_css],
         "js": [token for token in required_js if token not in js],
     }
@@ -179,12 +197,14 @@ def check_source_contract() -> list[Result]:
     ))
 
     css_ok = (
-        '"status drive"' in design_css
-        and '"preview drive"' in design_css
-        and '#manualDriveCameraPanel' in design_css
-        and '#manualDrivePadPanel' in design_css
-        and 'grid-area: preview' in design_css
-        and 'grid-area: drive' in design_css
+        '"status status"' in layout_css
+        and '"preview drive"' in layout_css
+        and '"preview files"' in layout_css
+        and '#manualDriveCameraPanel' in layout_css
+        and '#manualDrivePadPanel' in layout_css
+        and '#manualDriveFilesPanel' in layout_css
+        and 'grid-area: preview' in layout_css
+        and 'grid-area: drive' in layout_css
     )
     results.append(Result(
         "manual_drive.semantic_grid_layout",
@@ -207,7 +227,7 @@ def check_routes(hardware: bool) -> list[Result]:
         ("/manual-drive", "manual_drive.route.page", b"PiSD Manual Drive"),
         ("/testing/static/css/manual_drive.css", "manual_drive.static.css", b".mdrv-shell"),
         ("/testing/static/js/manual_drive.js", "manual_drive.static.js", b"manualDriveInitialStatus"),
-        ("/testing/static/css/pisd_design_system.css", "manual_drive.static.design_system", b"PiSD Design System 0.3.6"),
+        ("/testing/static/css/pisd_design_system.css", "manual_drive.static.design_system", b"PiSD Design System"),
     ):
         response = client.get(path)
         ok = response.status_code == 200 and marker in response.data

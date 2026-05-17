@@ -73,7 +73,7 @@
       </div>
       <div class="mdrv-pad-readout"><span>Steering <strong id="mdrvSteeringOut">0.00</strong></span><span>Throttle <strong id="mdrvThrottleOut">0.00</strong></span></div>
       <div class="mdrv-slider-grid">
-        <label>Speed <input id="mdrvSpeed" type="range" min="0.08" max="0.65" step="0.01" value="0.18"><output id="mdrvSpeedOut">0.18</output></label>
+        <label>Speed <input id="mdrvSpeed" type="range" min="0.08" max="1.0" step="0.01" value="0.18"><output id="mdrvSpeedOut">0.18</output></label>
         <label>Steer strength <input id="mdrvSteer" type="range" min="0.15" max="0.9" step="0.01" value="0.35"><output id="mdrvSteerOut">0.35</output></label>
       </div>
       <p id="mdrvSafetyText" class="mdrv-warning">Drag pad is locked until motor output is enabled. Releasing the pad sends STOP.</p>
@@ -84,6 +84,28 @@
       <div class="mdrv-panel-head compact"><div><p class="mdrv-label">Safety</p><h2>Emergency stop</h2></div><span class="mdrv-code" data-code-for="stop">PISD-OK-000</span></div>
       <button id="mdrvStopBig" class="mdrv-big-stop">STOP ALL MOTORS</button>
       <button id="mdrvToggleLog" class="mdrv-button">Show action log</button>
+    </section>
+
+
+    <section class="mdrv-panel mdrv-files-panel" id="manualDriveFilesPanel" data-panel-role="recording" data-panel-h-weight="1" data-panel-v-weight="1">
+      <div class="mdrv-panel-head compact"><div><p class="mdrv-label">Files</p><h2>Recordings & snapshots</h2></div><span class="mdrv-code" data-code-for="files">PISD-OK-000</span></div>
+      <div class="mdrv-file-controls">
+        <label>Type
+          <select id="mdrvFileKind">
+            <option value="recording">Recordings</option>
+            <option value="snapshot">Snapshots</option>
+          </select>
+        </label>
+        <label>Folder
+          <select id="mdrvFileSelect"><option value="">No folders loaded</option></select>
+        </label>
+      </div>
+      <div class="mdrv-row mdrv-compact-actions">
+        <button id="mdrvRefreshFiles" class="mdrv-button">Refresh list</button>
+        <button id="mdrvDownloadZip" class="mdrv-button mdrv-primary">Download zip</button>
+        <button id="mdrvDeleteFolder" class="mdrv-button mdrv-danger">Delete selected</button>
+      </div>
+      <p id="mdrvFilesNotice" class="mdrv-help">Select a recording session or a snapshot day folder to download or delete.</p>
     </section>
 
     <section class="mdrv-panel mdrv-log-panel" id="manualDriveLogPanel" data-panel-role="log" data-panel-h-weight="3" data-panel-v-weight="1" hidden>

@@ -104,3 +104,47 @@ PiSD/recordings/single_captures/YYYY-MM-DD/
 This avoids creating one tiny folder for every quick screenshot while still keeping each frame traceable by `frame_id`, `frame_index`, date, time, source camera frame sequence, camera settings, motor settings, steering/throttle command, and motor output values.
 
 The Manual Drive page displays a visible confirmation message after a frame is captured. When recording is active, it also shows a red recording indicator in the camera panel.
+
+## 0.3.8 recording library management
+
+PiSD now exposes the saved recording/snapshot folders to the browser GUI.
+
+### Folder list
+
+```text
+GET /api/recording/items
+```
+
+Returns two folder lists:
+
+- `recordings` — one folder per continuous recording session
+- `snapshots` — daily single-capture folders under `recordings/single_captures/YYYY-MM-DD/`
+
+### Download selected folder as zip
+
+```text
+GET /api/recording/download.zip?kind=recording&id=YYYY-MM-DD/session_id
+GET /api/recording/download.zip?kind=snapshot&id=single_captures/YYYY-MM-DD
+```
+
+The selected folder is zipped with a top-level folder prefix so the files remain traceable when downloaded to a PC.
+
+### Delete selected folder
+
+```text
+POST /api/recording/delete
+Content-Type: application/json
+
+{"kind":"recording","id":"YYYY-MM-DD/session_id"}
+{"kind":"snapshot","id":"single_captures/YYYY-MM-DD"}
+```
+
+Deleting the active recording session is refused. Stop recording first.
+
+### Safety rules
+
+- Folder IDs are relative to `PiSD/recordings/`.
+- Parent traversal such as `../` is rejected.
+- Missing folders return `PISD-REC-008`.
+- Delete failures return `PISD-REC-009`.
+- Zip failures return `PISD-REC-010`.
