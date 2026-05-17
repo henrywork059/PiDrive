@@ -143,6 +143,9 @@ def check_source_contract() -> list[Result]:
         'data-panel-role="status"',
         'data-panel-role="preview"',
         "data-panel-h-weight",
+        "Refresh status",
+        "does not start the camera or send motor commands",
+        "STOP motors",
     ]
     required_css = [".mdrv-shell", ".mdrv-panel", ".mdrv-status-panel", ".mdrv-preview-frame", ".mdrv-drag-pad", ".mdrv-big-stop", ".mdrv-drag-knob", "width: 28px", ".mdrv-recording-indicator", ".mdrv-capture-notice", ".mdrv-overlay-toggle", ".mdrv-drive-overlay", ".mdrv-overlay-path", ".mdrv-overlay-path-wide", ".mdrv-overlay-endpoint", "constant-curvature", "marker-end: url(#mdrvOverlayArrow)", ".mdrv-drive-debug-panel", ".mdrv-overlay-calibration", "data-overlay-source", "@media (max-width: 1100px)"]
     required_unified_css = [
@@ -222,6 +225,13 @@ def check_source_contract() -> list[Result]:
         "mdrvOverlayDebugThrottle",
         "mdrvOverlayDebugLeft",
         "mdrvOverlayDebugRight",
+        "STOP_COMMAND",
+        "setDriveState",
+        "setStoppedDriveState",
+        "sendFailSafeStop",
+        "sendBeacon",
+        "keepalive",
+        "Status refreshed without touching camera preview or motor command",
     ]
     missing = {
         "template": [token for token in required_template if token not in template],
@@ -275,6 +285,34 @@ def check_source_contract() -> list[Result]:
         overlay_ok,
         PiSDErrorCodes.OK if overlay_ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
         "manual drive preview has visible Overlay: On/Off button, calibration controls, live source debug, and intended path overlay tied to throttle/steering" if overlay_ok else "manual drive overlay toggle/calibration/source/path logic is missing",
+        {},
+    ))
+
+    refresh_start = js.find("async function refreshStatus")
+    refresh_end = js.find("function updateSliderLabels", refresh_start)
+    refresh_block = js[refresh_start:refresh_end if refresh_end > refresh_start else len(js)] if refresh_start >= 0 else ""
+    refresh_safe_ok = (
+        bool(refresh_block)
+        and "snapshotView()" not in refresh_block
+        and "/api/camera/start" not in refresh_block
+        and "/api/control/manual" not in refresh_block
+        and "/api/control/stop" not in refresh_block
+        and "refreshRecordingItems" in refresh_block
+    )
+    results.append(Result(
+        "manual_drive.refresh_is_status_only",
+        refresh_safe_ok,
+        PiSDErrorCodes.OK if refresh_safe_ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
+        "Refresh status updates status/files only and does not start camera, restart preview, or send motor commands" if refresh_safe_ok else "Refresh status may still touch camera preview or motor command paths",
+        {},
+    ))
+
+    failsafe_ok = all(token in js for token in ("sendFailSafeStop", "pagehide", "beforeunload", "visibility-hidden", "/api/control/stop", "keepalive"))
+    results.append(Result(
+        "manual_drive.page_unload_failsafe_stop",
+        failsafe_ok,
+        PiSDErrorCodes.OK if failsafe_ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
+        "Manual Drive registers page-unload fail-safe stop handling for active movement" if failsafe_ok else "Manual Drive page-unload fail-safe stop handling is missing",
         {},
     ))
 

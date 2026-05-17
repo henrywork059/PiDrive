@@ -20,8 +20,8 @@
     <nav class="mdrv-actions" aria-label="Manual drive actions">
       <a class="pisd-front-link" href="/">Back to Front Page</a>
       <span id="mdrvGlobalCode" class="mdrv-code">{{ initial_status.code }}</span>
-      <button id="mdrvRefresh" class="mdrv-button">Refresh status</button>
-      <button id="mdrvStopTop" class="mdrv-button mdrv-danger">STOP</button>
+      <button id="mdrvRefresh" class="mdrv-button" title="Refresh status and file lists only. Does not start camera or send motor commands.">Refresh status</button>
+      <button id="mdrvStopTop" class="mdrv-button mdrv-danger" title="Stop motor output only. Camera/live preview is not stopped.">STOP motors</button>
     </nav>
   </header>
 
@@ -100,12 +100,12 @@
         </div>
       </div>
       <div class="mdrv-row mdrv-compact-actions">
-        <button id="mdrvStartCamera" class="mdrv-button mdrv-primary">Start camera</button>
-        <button id="mdrvLiveCamera" class="mdrv-button">Live stream</button>
+        <button id="mdrvStartCamera" class="mdrv-button mdrv-primary" title="Start camera service and refresh the snapshot frame.">Start camera</button>
+        <button id="mdrvLiveCamera" class="mdrv-button" title="Start camera if needed and switch the preview image to MJPEG live stream.">Live stream</button>
         <button id="mdrvCaptureFrame" class="mdrv-button mdrv-primary">Capture frame</button>
         <button id="mdrvRecordToggle" class="mdrv-button">Record</button>
       </div>
-      <p id="mdrvCaptureNotice" class="mdrv-capture-notice" role="status" aria-live="polite">No frame captured yet. Use <strong>Overlay: On/Off</strong> in this Camera header to show the sampled predicted arc drawn from the live/manual control state. Use Overlay calibration in Manual control to tune the visual length, curve, opacity, and width.</p>
+      <p id="mdrvCaptureNotice" class="mdrv-capture-notice" role="status" aria-live="polite">No frame captured yet. Use <strong>Overlay: On/Off</strong> in this Camera header to show the sampled predicted arc drawn from the live/manual control state. Use Overlay calibration in Manual control to tune the visual length, curve, opacity, and width. Refresh status does not start the camera or send motor commands.</p>
     </section>
 
     <section class="mdrv-panel mdrv-drive-panel" id="manualDrivePadPanel" data-panel-role="drive" data-panel-h-weight="1" data-panel-v-weight="2">
@@ -135,12 +135,12 @@
         <p class="mdrv-overlay-calibration-note">These settings change only the preview overlay, not the motor output.</p>
       </details>
       <p id="mdrvSafetyText" class="mdrv-warning">Drag pad is locked until motor output is enabled. Releasing the pad sends STOP.</p>
-      <button id="mdrvStopPad" class="mdrv-button mdrv-danger mdrv-full-stop">STOP</button>
+      <button id="mdrvStopPad" class="mdrv-button mdrv-danger mdrv-full-stop" title="Stop motor output only. Camera/live preview is not stopped.">STOP motors</button>
     </section>
 
     <section class="mdrv-panel mdrv-stop-panel" id="manualDriveStopPanel" data-panel-role="control" data-panel-h-weight="1" data-panel-v-weight="1">
       <div class="mdrv-panel-head compact"><div><p class="mdrv-label">Safety</p><h2>Emergency stop</h2></div><span class="mdrv-code" data-code-for="stop">PISD-OK-000</span></div>
-      <button id="mdrvStopBig" class="mdrv-big-stop">STOP ALL MOTORS</button>
+      <button id="mdrvStopBig" class="mdrv-big-stop" title="Immediately send /api/control/stop and clear the intended-path overlay.">STOP ALL MOTORS</button>
       <button id="mdrvToggleLog" class="mdrv-button">Show action log</button>
     </section>
 

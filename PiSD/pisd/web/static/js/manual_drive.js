@@ -73,14 +73,18 @@
   const overlayPathWidthOut = $('mdrvOverlayPathWidthOut');
   let dragging = false;
   let lastSentAt = 0;
-  let lastPayload = { steering: 0, throttle: 0, steer_mix: 1.0 };
-  let lastMotorOutput = { left: 0, right: 0 };
+  const STOP_COMMAND = { steering: 0, throttle: 0, steer_mix: 1.0 };
+  const STOP_OUTPUT = { left: 0, right: 0 };
+  let lastPayload = { ...STOP_COMMAND };
+  let lastMotorOutput = { ...STOP_OUTPUT };
   let recordingRunning = Boolean(initialStatus.recording?.running);
   let recordingCollections = { recordings: [], snapshots: [] };
   let currentPreviewMode = "snapshot";
   let overlaySettings = { ...DEFAULTS.overlay };
   let overlayPersistTimer = 0;
   let lastOverlaySource = 'stopped';
+  let manualDriveActive = false;
+  let failSafeStopSent = false;
 
   function isOk(code) { return String(code || '').startsWith('PISD-OK'); }
   function clamp(value, min, max, fallback = 0) {
@@ -131,6 +135,46 @@
     const n = Number(value);
     const safe = Number.isFinite(n) ? Math.max(-1, Math.min(1, n)) : 0;
     return `${safe >= 0 ? '+' : ''}${safe.toFixed(2)}`;
+  }
+
+
+  function normaliseManualCommand(command = STOP_COMMAND) {
+    const source = command && typeof command === 'object' ? command : STOP_COMMAND;
+    return {
+      steering: clamp(source.steering ?? 0, -1, 1, 0),
+      throttle: clamp(source.throttle ?? 0, -1, 1, 0),
+      steer_mix: clamp(source.steer_mix ?? 1.0, 0, 1, 1.0),
+    };
+  }
+
+  function normaliseMotorOutput(output = STOP_OUTPUT) {
+    const source = output && typeof output === 'object' ? output : STOP_OUTPUT;
+    return {
+      left: clamp(source.left ?? 0, -1, 1, 0),
+      right: clamp(source.right ?? 0, -1, 1, 0),
+    };
+  }
+
+  function driveStateIsMoving(command = lastPayload, output = lastMotorOutput) {
+    const cmd = normaliseManualCommand(command);
+    const out = normaliseMotorOutput(output);
+    return Math.abs(cmd.steering) >= 0.02
+      || Math.abs(cmd.throttle) >= 0.02
+      || Math.abs(out.left) >= 0.02
+      || Math.abs(out.right) >= 0.02;
+  }
+
+  function setDriveState(command = STOP_COMMAND, output = STOP_OUTPUT, sourceHint = 'manual intent') {
+    lastPayload = normaliseManualCommand(command);
+    lastMotorOutput = normaliseMotorOutput(output);
+    manualDriveActive = driveStateIsMoving(lastPayload, lastMotorOutput);
+    if (manualDriveActive) failSafeStopSent = false;
+    renderMotorSignals(lastPayload, lastMotorOutput, sourceHint);
+  }
+
+  function setStoppedDriveState(sourceHint = 'stopped') {
+    setKnob(0, 0);
+    setDriveState(STOP_COMMAND, STOP_OUTPUT, sourceHint);
   }
 
   function overlaySourceText(command, output, sourceHint = 'manual intent') {
@@ -346,31 +390,19 @@
     let command = hasServerCommand ? motor.last_command : lastPayload;
     const output = { left: motor.last_left ?? lastMotorOutput.left, right: motor.last_right ?? lastMotorOutput.right };
     if (!hasServerCommand && Math.abs(Number(output.left || 0)) < 0.02 && Math.abs(Number(output.right || 0)) < 0.02) {
-      command = { steering: 0, throttle: 0, steer_mix: lastPayload.steer_mix || 1.0 };
+      command = STOP_COMMAND;
     }
-    lastPayload = {
-      steering: Number(command.steering || 0),
-      throttle: Number(command.throttle || 0),
-      steer_mix: Number(command.steer_mix || lastPayload.steer_mix || 1.0),
-    };
-    lastMotorOutput = { left: Number(output.left || 0), right: Number(output.right || 0) };
-    renderMotorSignals(lastPayload, lastMotorOutput, 'live status');
+    setDriveState(command, output, 'live status');
   }
 
-  function renderMotorSignalsFromApiResponse(payload, fallbackCommand = lastPayload) {
+  function renderMotorSignalsFromApiResponse(payload, fallbackCommand = lastPayload, sourceHint = 'live status') {
     const motor = payload?.motor || {};
     const command = motor.last_command || fallbackCommand || lastPayload;
     const output = {
       left: payload?.left ?? motor.last_left ?? lastMotorOutput.left,
       right: payload?.right ?? motor.last_right ?? lastMotorOutput.right,
     };
-    lastPayload = {
-      steering: Number(command.steering ?? fallbackCommand?.steering ?? 0),
-      throttle: Number(command.throttle ?? fallbackCommand?.throttle ?? 0),
-      steer_mix: Number(command.steer_mix ?? fallbackCommand?.steer_mix ?? 1.0),
-    };
-    lastMotorOutput = { left: Number(output.left || 0), right: Number(output.right || 0) };
-    renderMotorSignals(lastPayload, lastMotorOutput, 'live status');
+    setDriveState(command, output, sourceHint);
   }
 
   function selectedFileItem() {
@@ -597,8 +629,7 @@
       const { payload } = await api('GET', '/api/status', undefined, 'status');
       renderStatus(payload);
       if (userVisible) {
-        if (currentPreviewMode === 'snapshot') snapshotView();
-        setShortStatus(`Status refreshed: ${payload?.code || 'PISD-OK-000'}`, payload?.code || 'PISD-OK-000');
+        setShortStatus(`Status refreshed without touching camera preview or motor command: ${payload?.code || 'PISD-OK-000'}`, payload?.code || 'PISD-OK-000');
         await refreshRecordingItems();
       }
     } catch (err) {
@@ -660,24 +691,20 @@
     const interval = Number(readRuntimeLocal().manual_drive?.drag_send_interval_ms || DEFAULTS.drag_send_interval_ms);
     if (!force && now - lastSentAt < interval) return;
     lastSentAt = now;
-    lastPayload = payload;
-    renderMotorSignals(payload, lastMotorOutput, 'manual intent');
+    setDriveState(payload, lastMotorOutput, 'manual intent');
     try {
       const result = await api('POST', '/api/control/manual', payload, 'drive');
-      renderMotorSignalsFromApiResponse(result.payload, payload);
+      renderMotorSignalsFromApiResponse(result.payload, payload, 'live status');
     }
     catch (err) { writeLog('manual drag failed', { ok: false, code: 'PISD-API-002', message: String(err) }); }
   }
 
   async function stopAll(target = 'stop') {
-    setKnob(0, 0);
-    lastPayload = { steering: 0, throttle: 0, steer_mix: 1.0 };
-    lastMotorOutput = { left: 0, right: 0 };
-    renderMotorSignals(lastPayload, lastMotorOutput, 'stopped');
+    setStoppedDriveState('stopped');
     try {
       const { payload } = await api('POST', '/api/control/stop', {}, target);
-      renderMotorSignalsFromApiResponse(payload, lastPayload);
-      setShortStatus(`STOP sent: ${payload?.code || 'PISD-OK-000'} ${payload?.message || ''}`.trim(), payload?.code || 'PISD-OK-000');
+      renderMotorSignalsFromApiResponse(payload, STOP_COMMAND, 'stopped');
+      setShortStatus(`STOP motors sent: ${payload?.code || 'PISD-OK-000'} ${payload?.message || ''}`.trim(), payload?.code || 'PISD-OK-000');
       await refreshStatus();
     } catch (err) {
       writeLog('STOP failed', { ok: false, code: 'PISD-API-002', message: String(err) });
@@ -754,6 +781,31 @@
     }
   }
 
+
+  function sendFailSafeStop(reason = 'pagehide') {
+    if (!manualDriveActive && !dragging && !driveStateIsMoving(lastPayload, lastMotorOutput)) return;
+    if (failSafeStopSent) return;
+    failSafeStopSent = true;
+    dragging = false;
+    setStoppedDriveState('stopped');
+    const body = JSON.stringify({ reason, source: 'manual-drive-failsafe' });
+    try {
+      if (navigator.sendBeacon) {
+        const blob = new Blob([body], { type: 'application/json' });
+        navigator.sendBeacon('/api/control/stop', blob);
+        return;
+      }
+    } catch (_err) {}
+    try {
+      fetch('/api/control/stop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+        keepalive: true,
+      }).catch(() => {});
+    } catch (_err) {}
+  }
+
   function bindPad() {
     if (!pad) return;
     pad.addEventListener('pointerdown', event => {
@@ -797,14 +849,17 @@
       if (hidden) logPanel.removeAttribute('hidden'); else logPanel?.setAttribute('hidden', '');
       toggleLog.textContent = hidden ? 'Hide action log' : 'Show action log';
     });
-    arm?.addEventListener('change', updateLock);
+    arm?.addEventListener('change', () => { updateLock(); if (!arm?.checked) stopAll('drive'); });
+    window.addEventListener('pagehide', () => sendFailSafeStop('pagehide'));
+    window.addEventListener('beforeunload', () => sendFailSafeStop('beforeunload'));
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') sendFailSafeStop('visibility-hidden'); });
     speed?.addEventListener('input', () => { updateSliderLabels(); persistManualSettings(); setKnob(lastPayload.steering / Math.max(0.001, currentSteer()), -lastPayload.throttle / Math.max(0.001, currentSpeed())); });
     steer?.addEventListener('input', () => { updateSliderLabels(); persistManualSettings(); setKnob(lastPayload.steering / Math.max(0.001, currentSteer()), -lastPayload.throttle / Math.max(0.001, currentSpeed())); });
     bindPad();
   }
 
   setKnob(0, 0);
-  renderMotorSignals(lastPayload, lastMotorOutput, 'stopped');
+  setDriveState(STOP_COMMAND, STOP_OUTPUT, 'stopped');
   renderStatus(initialStatus);
   bind();
   applyOverlayCalibration(overlaySettings, false);
