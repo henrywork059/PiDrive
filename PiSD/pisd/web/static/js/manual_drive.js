@@ -27,9 +27,12 @@
   const fileKind = $('mdrvFileKind');
   const fileSelect = $('mdrvFileSelect');
   const filesNotice = $('mdrvFilesNotice');
+  const intentOut = $('mdrvIntentOut');
+  const motorOut = $('mdrvMotorOut');
   let dragging = false;
   let lastSentAt = 0;
   let lastPayload = { steering: 0, throttle: 0, steer_mix: 1.0 };
+  let lastMotorOutput = { left: 0, right: 0 };
   let recordingRunning = Boolean(initialStatus.recording?.running);
   let recordingCollections = { recordings: [], snapshots: [] };
   let currentPreviewMode = "snapshot";
@@ -77,6 +80,50 @@
   function showFilesNotice(message, code = 'PISD-OK-000') {
     if (filesNotice) filesNotice.textContent = message;
     setCode('files', code);
+  }
+
+  function formatSigned(value) {
+    const n = Number(value);
+    const safe = Number.isFinite(n) ? Math.max(-1, Math.min(1, n)) : 0;
+    return `${safe >= 0 ? '+' : ''}${safe.toFixed(2)}`;
+  }
+
+  function renderMotorSignals(command = lastPayload, output = lastMotorOutput) {
+    const steering = Number(command?.steering || 0);
+    const throttle = Number(command?.throttle || 0);
+    const left = Number(output?.left || 0);
+    const right = Number(output?.right || 0);
+    if (intentOut) intentOut.textContent = `S ${formatSigned(steering)} / T ${formatSigned(throttle)}`;
+    if (motorOut) motorOut.textContent = `L ${formatSigned(left)} / R ${formatSigned(right)}`;
+  }
+
+  function renderMotorSignalsFromStatus(status) {
+    const motor = status?.motor || {};
+    const command = motor.last_command || lastPayload;
+    const output = { left: motor.last_left ?? lastMotorOutput.left, right: motor.last_right ?? lastMotorOutput.right };
+    lastPayload = {
+      steering: Number(command.steering || 0),
+      throttle: Number(command.throttle || 0),
+      steer_mix: Number(command.steer_mix || lastPayload.steer_mix || 1.0),
+    };
+    lastMotorOutput = { left: Number(output.left || 0), right: Number(output.right || 0) };
+    renderMotorSignals(lastPayload, lastMotorOutput);
+  }
+
+  function renderMotorSignalsFromApiResponse(payload, fallbackCommand = lastPayload) {
+    const motor = payload?.motor || {};
+    const command = motor.last_command || fallbackCommand || lastPayload;
+    const output = {
+      left: payload?.left ?? motor.last_left ?? lastMotorOutput.left,
+      right: payload?.right ?? motor.last_right ?? lastMotorOutput.right,
+    };
+    lastPayload = {
+      steering: Number(command.steering ?? fallbackCommand?.steering ?? 0),
+      throttle: Number(command.throttle ?? fallbackCommand?.throttle ?? 0),
+      steer_mix: Number(command.steer_mix ?? fallbackCommand?.steer_mix ?? 1.0),
+    };
+    lastMotorOutput = { left: Number(output.left || 0), right: Number(output.right || 0) };
+    renderMotorSignals(lastPayload, lastMotorOutput);
   }
 
   function selectedFileItem() {
@@ -265,6 +312,7 @@
       recordButton.classList.toggle('mdrv-recording-on', rec);
     }
     updateRecordingIndicator(rec);
+    renderMotorSignalsFromStatus(status);
     setCode('status', status.code || 'PISD-OK-000');
     setGlobalCode(status.code || 'PISD-OK-000');
   }
@@ -338,15 +386,22 @@
     if (!force && now - lastSentAt < interval) return;
     lastSentAt = now;
     lastPayload = payload;
-    try { await api('POST', '/api/control/manual', payload, 'drive'); }
+    renderMotorSignals(payload, lastMotorOutput);
+    try {
+      const result = await api('POST', '/api/control/manual', payload, 'drive');
+      renderMotorSignalsFromApiResponse(result.payload, payload);
+    }
     catch (err) { writeLog('manual drag failed', { ok: false, code: 'PISD-API-002', message: String(err) }); }
   }
 
   async function stopAll(target = 'stop') {
     setKnob(0, 0);
     lastPayload = { steering: 0, throttle: 0, steer_mix: 1.0 };
+    lastMotorOutput = { left: 0, right: 0 };
+    renderMotorSignals(lastPayload, lastMotorOutput);
     try {
       const { payload } = await api('POST', '/api/control/stop', {}, target);
+      renderMotorSignalsFromApiResponse(payload, lastPayload);
       setShortStatus(`STOP sent: ${payload?.code || 'PISD-OK-000'} ${payload?.message || ''}`.trim(), payload?.code || 'PISD-OK-000');
       await refreshStatus();
     } catch (err) {
@@ -449,7 +504,6 @@
     $('mdrvRefresh')?.addEventListener('click', () => refreshStatus(true));
     $('mdrvStartCamera')?.addEventListener('click', startCameraOnly);
     $('mdrvLiveCamera')?.addEventListener('click', startLiveCamera);
-    $('mdrvSnapshot')?.addEventListener('click', snapshotView);
     $('mdrvCaptureFrame')?.addEventListener('click', captureFrame);
     recordButton?.addEventListener('click', toggleRecording);
     $('mdrvStopTop')?.addEventListener('click', () => stopAll('stop'));
@@ -471,6 +525,7 @@
   }
 
   setKnob(0, 0);
+  renderMotorSignals(lastPayload, lastMotorOutput);
   renderStatus(initialStatus);
   bind();
   updateLock();

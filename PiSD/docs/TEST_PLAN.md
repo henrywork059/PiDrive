@@ -941,9 +941,8 @@ On the Pi browser, hard refresh `/manual-drive` and check:
 2. `Steer strength` in `/settings` can reach `1.0` and reset defaults uses `1.0`.
 3. `Start camera` starts the camera service without pretending to be the live-stream button.
 4. `Live stream` starts/switches the preview to `/video_feed`.
-5. `Snapshot view` refreshes one still frame from `/api/camera/frame.jpg`.
-6. Top-bar `Refresh status` visibly updates the compact status line and refreshes snapshot mode.
-7. Top-bar `STOP` sends `/api/control/stop`, recentres the drag pad, and updates the compact status line with the returned `PISD-*` code.
+5. Top-bar `Refresh status` visibly updates the compact status line and refreshes snapshot mode if the preview is not in live-stream mode.
+6. Top-bar `STOP` sends `/api/control/stop`, recentres the drag pad, and updates the compact status line with the returned `PISD-*` code.
 
 If Flask is installed in the environment, also run the non-static check:
 
@@ -952,3 +951,30 @@ python3 scripts/test_manual_drive_page.py
 ```
 
 That test validates the Manual Drive page route plus the local API endpoints used by the key buttons.
+
+## PiSD 0.3.10 manual-drive compact control checks
+
+After applying `PiSD_0_3_10_patch`, run:
+
+```bash
+cd ~/PiDrive/PiSD
+python3 scripts/test_manual_drive_page.py --static-only
+python3 scripts/test_ui_presentation_consistency.py --static-only
+python3 scripts/run_standard_validation.py --skip-api --skip-camera --skip-motor
+```
+
+On the Pi browser, hard refresh `/manual-drive` and check:
+
+1. The drag-pad ball is noticeably smaller, about half the previous diameter.
+2. The Preview panel no longer shows a `Snapshot view` button.
+3. `Start camera` still starts/refreshes a still preview, and `Live stream` switches to `/video_feed`.
+4. The Status / Run signals panel shows compact current command values: intended steering/throttle.
+5. The same panel also shows current motor output values: left/right motor output.
+6. While dragging, `Cmd` updates immediately and `Out` updates after the `/api/control/manual` response.
+7. Pressing `STOP` returns both `Cmd` and `Out` to zero.
+
+Expected compact status fields include:
+
+```text
+HW | Cam | Motor | FPS | Rec | Cmd | Out
+```

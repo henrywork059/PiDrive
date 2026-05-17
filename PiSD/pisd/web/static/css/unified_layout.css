@@ -391,7 +391,7 @@ body[data-pisd-adaptive-panels="true"] .mdrv-shell > [data-panel-role] { grid-co
   border-radius: calc(var(--pisd-ui-radius, 14px) * 0.75) !important;
 }
 .mdrv-preview-frame img { object-fit: var(--pisd-ui-preview-fit, contain) !important; }
-.mdrv-status-strip { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 0.32rem !important; }
+.mdrv-status-strip { grid-template-columns: repeat(7, minmax(0, 1fr)) !important; gap: 0.32rem !important; }
 .mdrv-status-strip span { padding: 0.32rem 0.38rem !important; }
 .mdrv-drive-panel .mdrv-panel-head,
 .mdrv-stop-panel .mdrv-panel-head { margin-bottom: 0.38rem !important; }
@@ -632,7 +632,7 @@ body.manual-drive-page .mdrv-log-panel {
 
 body.manual-drive-page .mdrv-status-strip {
   display: grid !important;
-  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
   gap: 0.42rem !important;
 }
 
@@ -710,3 +710,6 @@ body.manual-drive-page .mdrv-big-stop {
     width: min(100%, 310px) !important;
   }
 }
+
+/* PiSD 0.3.10 manual-drive drag pad knob compactness fallback. */
+body.manual-drive-page .mdrv-drag-knob { width: 28px !important; height: 28px !important; border-width: 2px !important; }

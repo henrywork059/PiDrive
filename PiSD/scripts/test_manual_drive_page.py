@@ -104,6 +104,8 @@ def check_source_contract() -> list[Result]:
         "mdrvRecordingState",
         "mdrvRecordingIndicator",
         "mdrvCaptureNotice",
+        "mdrvIntentOut",
+        "mdrvMotorOut",
         "manualDriveFilesPanel",
         "mdrvFileKind",
         "mdrvFileSelect",
@@ -117,7 +119,7 @@ def check_source_contract() -> list[Result]:
         'data-panel-role="preview"',
         "data-panel-h-weight",
     ]
-    required_css = [".mdrv-shell", ".mdrv-panel", ".mdrv-status-panel", ".mdrv-preview-frame", ".mdrv-drag-pad", ".mdrv-big-stop", ".mdrv-drag-knob", ".mdrv-recording-indicator", ".mdrv-capture-notice", "@media (max-width: 1100px)"]
+    required_css = [".mdrv-shell", ".mdrv-panel", ".mdrv-status-panel", ".mdrv-preview-frame", ".mdrv-drag-pad", ".mdrv-big-stop", ".mdrv-drag-knob", "width: 28px", ".mdrv-recording-indicator", ".mdrv-capture-notice", "@media (max-width: 1100px)"]
     required_unified_css = [
         "PiSD 0.3.3 manual-drive semantic layout recovery",
         "body.manual-drive-page .mdrv-shell",
@@ -172,6 +174,10 @@ def check_source_contract() -> list[Result]:
         "currentPreviewMode",
         "refreshStatus(true)",
         "setShortStatus",
+        "renderMotorSignals",
+        "renderMotorSignalsFromApiResponse",
+        "mdrvIntentOut",
+        "mdrvMotorOut",
     ]
     missing = {
         "template": [token for token in required_template if token not in template],
@@ -187,7 +193,7 @@ def check_source_contract() -> list[Result]:
         "manual_drive.source_contract",
         ok,
         PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
-        "manual drive page contains camera preview, compact status, locked drag pad, STOP, capture/recording indicators, persistence, API calls, and the recovered semantic layout" if ok else "manual drive source contract failed",
+        "manual drive page contains camera preview, compact status, current intent/output signals, smaller drag knob, locked drag pad, STOP, capture/recording indicators, persistence, API calls, and the recovered semantic layout" if ok else "manual drive source contract failed",
         {"missing": missing},
     )]
     status_index = template.find("manualDriveStatusPanel")
@@ -199,6 +205,24 @@ def check_source_contract() -> list[Result]:
         PiSDErrorCodes.OK if order_ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
         "status panel is before the preview panel for PC/iPad layouts" if order_ok else "status panel did not appear before preview panel",
         {"status_index": status_index, "preview_index": preview_index},
+    ))
+
+    snapshot_removed_ok = "mdrvSnapshot" not in template
+    results.append(Result(
+        "manual_drive.snapshot_button_removed",
+        snapshot_removed_ok,
+        PiSDErrorCodes.OK if snapshot_removed_ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
+        "snapshot view button was removed from the preview panel" if snapshot_removed_ok else "snapshot view button is still present",
+        {},
+    ))
+
+    signals_ok = all(token in template for token in ("mdrvIntentOut", "mdrvMotorOut")) and "renderMotorSignalsFromApiResponse" in js
+    results.append(Result(
+        "manual_drive.status_motor_signals",
+        signals_ok,
+        PiSDErrorCodes.OK if signals_ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
+        "status strip shows intended steering/throttle and actual left/right motor output" if signals_ok else "manual drive motor signal readouts are missing",
+        {},
     ))
 
     css_ok = (

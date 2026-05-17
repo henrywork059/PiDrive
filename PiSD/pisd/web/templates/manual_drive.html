@@ -34,6 +34,8 @@
         <span>Motor <strong id="mdrvMotorState">{{ initial_status.motor.adapter }}</strong></span>
         <span>FPS <strong id="mdrvCameraFps">{{ initial_status.camera.measured_capture_fps if initial_status.camera.measured_capture_fps is defined else 'n/a' }}</strong></span>
         <span>Rec <strong id="mdrvRecordingState">{{ 'on' if initial_status.recording.running else 'off' }}</strong></span>
+        <span>Cmd <strong id="mdrvIntentOut">S 0.00 / T 0.00</strong></span>
+        <span>Out <strong id="mdrvMotorOut">L 0.00 / R 0.00</strong></span>
       </div>
       <p id="mdrvShortStatus" class="mdrv-help">Ready. The action log is hidden to keep this page compact.</p>
     </section>
@@ -53,7 +55,6 @@
       <div class="mdrv-row mdrv-compact-actions">
         <button id="mdrvStartCamera" class="mdrv-button mdrv-primary">Start camera</button>
         <button id="mdrvLiveCamera" class="mdrv-button">Live stream</button>
-        <button id="mdrvSnapshot" class="mdrv-button">Snapshot view</button>
         <button id="mdrvCaptureFrame" class="mdrv-button mdrv-primary">Capture frame</button>
         <button id="mdrvRecordToggle" class="mdrv-button">Record</button>
       </div>

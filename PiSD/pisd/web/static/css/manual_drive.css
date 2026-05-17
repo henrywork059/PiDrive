@@ -34,7 +34,7 @@ button { cursor: pointer; }
 .mdrv-preview-frame { aspect-ratio: var(--pisd-ui-preview-aspect, 16 / 9); max-height: min(68vh, 720px); border-radius: calc(var(--pisd-ui-radius, 14px) * .8); overflow: hidden; border: 1px solid rgba(148, 163, 184, .23); background: #020617; }
 .mdrv-preview-frame img { width: 100%; height: 100%; object-fit: var(--pisd-ui-preview-fit, contain); display: block; }
 .mdrv-compact-actions { margin-top: .45rem; }
-.mdrv-status-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .35rem; }
+.mdrv-status-strip { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: .32rem; }
 .mdrv-status-strip span { border: 1px solid rgba(148, 163, 184, .18); border-radius: calc(var(--pisd-ui-radius, 14px) * .58); padding: .42rem; background: rgba(2, 6, 23, .28); color: var(--mdrv-muted); font-size: .68rem; }
 .mdrv-status-strip strong { display: block; color: var(--mdrv-text); font-size: .82rem; overflow-wrap: anywhere; }
 .mdrv-console { width: 100%; max-height: var(--pisd-ui-console-height, 180px); overflow: auto; margin: .45rem 0 0; border: 1px solid rgba(148, 163, 184, .2); border-radius: calc(var(--pisd-ui-radius, 14px) * .65); padding: .55rem; background: rgba(0, 0, 0, .26); color: #dbeafe; font-size: .74rem; white-space: pre-wrap; }
@@ -45,7 +45,7 @@ button { cursor: pointer; }
 .mdrv-drag-cross::before, .mdrv-drag-cross::after { content: ""; position: absolute; background: rgba(148,163,184,.28); }
 .mdrv-drag-cross::before { left: 50%; top: 8%; width: 1px; height: 84%; }
 .mdrv-drag-cross::after { top: 50%; left: 8%; width: 84%; height: 1px; }
-.mdrv-drag-knob { --knob-left: 50%; --knob-top: 50%; position: absolute; left: var(--knob-left); top: var(--knob-top); width: 56px; height: 56px; border-radius: 999px; transform: translate(-50%, -50%); background: rgba(56,189,248,.82); border: 3px solid rgba(224,242,254,.88); box-shadow: 0 8px 24px rgba(56,189,248,.28); pointer-events: none; }
+.mdrv-drag-knob { --knob-left: 50%; --knob-top: 50%; position: absolute; left: var(--knob-left); top: var(--knob-top); width: 28px; height: 28px; border-radius: 999px; transform: translate(-50%, -50%); background: rgba(56,189,248,.82); border: 2px solid rgba(224,242,254,.88); box-shadow: 0 5px 16px rgba(56,189,248,.28); pointer-events: none; }
 .mdrv-drag-label { position: absolute; color: var(--mdrv-muted); font-size: .75rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
 .mdrv-drag-label.top { top: .55rem; left: 50%; transform: translateX(-50%); }
 .mdrv-drag-label.bottom { bottom: .55rem; left: 50%; transform: translateX(-50%); }
@@ -64,7 +64,7 @@ body[data-pisd-theme="light"] .mdrv-panel { background: rgba(255,255,255,.86); }
 body[data-pisd-theme="light"] .mdrv-console, body[data-pisd-theme="light"] .mdrv-preview-frame, body[data-pisd-theme="light"] .mdrv-drag-pad { background: rgba(15,23,42,.08); color: #0f172a; }
 body[data-pisd-card-accent="strong"] .mdrv-panel { border-top: 3px solid var(--mdrv-blue); }
 @media (max-width: 1100px) { .mdrv-shell { grid-template-columns: 1fr; } .mdrv-preview-panel, .mdrv-log-panel { grid-column: auto; grid-row: auto; } .mdrv-preview-frame { max-height: 58vh; } }
-@media (max-width: 680px) { .mdrv-topbar { align-items: flex-start; flex-direction: column; } .mdrv-status-strip, .mdrv-slider-grid { grid-template-columns: repeat(2, 1fr); } .mdrv-drag-pad { width: min(100%, 340px); } }
+@media (max-width: 680px) { .mdrv-topbar { align-items: flex-start; flex-direction: column; } .mdrv-status-strip { grid-template-columns: repeat(2, 1fr); } .mdrv-slider-grid { grid-template-columns: repeat(2, 1fr); } .mdrv-drag-pad { width: min(100%, 340px); } }
 
 /* 0.3.1 adaptive manual-drive presentation review */
 .mdrv-shell {
@@ -84,7 +84,7 @@ body[data-pisd-card-accent="strong"] .mdrv-panel { border-top: 3px solid var(--m
   max-height: none;
   aspect-ratio: auto;
 }
-.mdrv-status-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.mdrv-status-strip { grid-template-columns: repeat(7, minmax(0, 1fr)); }
 .mdrv-status-strip span { padding: .32rem .42rem; }
 .mdrv-status-strip strong { white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
 .mdrv-drive-panel { min-height: min(72vh, 650px); }

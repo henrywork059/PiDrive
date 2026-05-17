@@ -259,7 +259,7 @@ body.manual-drive-page .mdrv-log-panel {
 }
 body.manual-drive-page .mdrv-status-strip {
   display: grid !important;
-  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
   gap: 0.34rem !important;
 }
 body.manual-drive-page .mdrv-status-strip span {
@@ -554,7 +554,7 @@ body.manual-drive-page .mdrv-preview-frame {
   aspect-ratio: auto !important;
 }
 body.manual-drive-page .mdrv-status-strip {
-  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
 }
 body.manual-drive-page .mdrv-drive-panel {
   min-height: auto !important;
@@ -566,6 +566,9 @@ body.manual-drive-page .mdrv-drag-pad {
 body.manual-drive-page .mdrv-drag-knob {
   --knob-left: 50%;
   --knob-top: 50%;
+  width: 28px !important;
+  height: 28px !important;
+  border-width: 2px !important;
   left: var(--knob-left) !important;
   top: var(--knob-top) !important;
   transform: translate(-50%, -50%) !important;

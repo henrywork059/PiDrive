@@ -180,7 +180,7 @@ body.manual-drive-page .mdrv-log-panel {
 }
 body.manual-drive-page .mdrv-status-strip {
   display: grid !important;
-  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
   gap: 0.38rem !important;
 }
 body.manual-drive-page .mdrv-preview-frame {
@@ -207,6 +207,11 @@ body.manual-drive-page .mdrv-drive-panel .mdrv-drag-pad {
   width: min(100%, 340px) !important;
   max-width: 340px !important;
   margin-inline: auto !important;
+}
+body.manual-drive-page .mdrv-drag-knob {
+  width: 28px !important;
+  height: 28px !important;
+  border-width: 2px !important;
 }
 body.manual-drive-page .mdrv-drive-panel,
 body.manual-drive-page .mdrv-stop-panel {
