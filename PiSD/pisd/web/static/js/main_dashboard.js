@@ -66,6 +66,27 @@ function driveModeText(throttle, steering) {
   return `${direction} ${steering < 0 ? 'LEFT' : 'RIGHT'}`;
 }
 
+function drawIntendedPath(throttle, steering) {
+  if (!overlayPath) return;
+  const speed = Math.abs(throttle);
+  const steeringAbs = Math.abs(steering);
+  const moving = speed >= 0.02;
+  const isReverse = throttle < -0.02;
+  const travel = 28 + (speed * 48);
+  const startX = 50;
+  const startY = isReverse ? 73 : 86;
+  const endY = isReverse ? Math.min(98, startY + travel * 0.42) : Math.max(10, startY - travel);
+  const reverseSteerFactor = isReverse ? -1 : 1;
+  const controlX = 50 + (steering * reverseSteerFactor * (22 + steeringAbs * 34));
+  const endX = 50 + (steering * reverseSteerFactor * (12 + steeringAbs * 30));
+  const controlY = isReverse ? (startY + endY) / 2 + 8 : (startY + endY) / 2 - 10;
+
+  overlayPath.setAttribute('d', `M ${startX.toFixed(1)} ${startY.toFixed(1)} Q ${controlX.toFixed(1)} ${controlY.toFixed(1)} ${endX.toFixed(1)} ${endY.toFixed(1)}`);
+  overlayPath.style.opacity = moving || steeringAbs >= 0.02 ? '0.86' : '0.28';
+  overlayPath.style.strokeWidth = String(2.2 + speed * 3.8);
+  overlayPath.style.strokeDasharray = isReverse ? '5 4' : 'none';
+}
+
 function updateDriveOverlay(source = {}) {
   const command = source.last_command || source.command || source;
   const throttle = clampUnit(command.throttle ?? source.throttle ?? 0);
@@ -73,7 +94,6 @@ function updateDriveOverlay(source = {}) {
   const left = clampUnit(source.last_left ?? source.left ?? 0);
   const right = clampUnit(source.last_right ?? source.right ?? 0);
   const turnDeg = steering * 28;
-  const pathDeg = steering * 18;
   const moving = Math.abs(throttle) >= 0.02;
 
   if (overlayMode) overlayMode.textContent = driveModeText(throttle, steering);
@@ -87,10 +107,7 @@ function updateDriveOverlay(source = {}) {
     overlayCar.style.transform = `translateX(-50%) rotate(${turnDeg}deg)`;
     overlayCar.style.opacity = moving || Math.abs(steering) >= 0.02 ? '1' : '0.78';
   }
-  if (overlayPath) {
-    overlayPath.style.transform = `translateX(-50%) rotate(${pathDeg}deg) scaleY(${moving ? 1 : 0.72})`;
-    overlayPath.style.opacity = moving || Math.abs(steering) >= 0.02 ? '0.82' : '0.32';
-  }
+  drawIntendedPath(throttle, steering);
 }
 
 function setOverlayEnabled(enabled) {

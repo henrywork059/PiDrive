@@ -21,7 +21,7 @@
     <nav class="md-top-actions" aria-label="Dashboard navigation and global actions">
       <a class="md-link-button" href="/">Back to Front Page</a>
       <span id="mdGlobalCode" class="md-code-pill">{{ initial_status.code }}</span>
-      <button id="mdRefreshStatus" class="md-button md-button-secondary">Refresh</button>
+      <button id="mdRefreshStatus" class="md-button md-button-secondary" title="Refresh status values only; it does not start/stop camera or motors.">Refresh status</button>
       <button id="mdStopAllTop" class="md-button md-button-danger">STOP</button>
     </nav>
   </header>
@@ -61,7 +61,14 @@
           </div>
           <div class="md-overlay-road" aria-hidden="true">
             <div class="md-overlay-center-line"></div>
-            <div id="mdOverlayPath" class="md-overlay-path"></div>
+            <svg id="mdOverlayPathSvg" class="md-overlay-path-svg" viewBox="0 0 100 100" preserveAspectRatio="none" focusable="false">
+              <defs>
+                <marker id="mdOverlayArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z"></path>
+                </marker>
+              </defs>
+              <path id="mdOverlayPath" class="md-overlay-path" d="M 50 86 Q 50 50 50 14"></path>
+            </svg>
             <div id="mdOverlayCar" class="md-overlay-car">
               <span class="md-overlay-car-nose"></span>
             </div>
@@ -83,12 +90,12 @@
         </div>
       </div>
       <div class="md-button-row">
-        <button id="mdCameraStart" class="md-button md-button-primary">Start camera</button>
-        <button id="mdCameraStop" class="md-button md-button-secondary">Stop camera</button>
-        <button id="mdCameraRefresh" class="md-button md-button-secondary">Live preview</button>
+        <button id="mdCameraStart" class="md-button md-button-primary" title="Starts the camera service, then switches the preview image to the live stream.">Start camera + live</button>
+        <button id="mdCameraStop" class="md-button md-button-secondary" title="Stops the camera service only. It does not stop motor output; use the red STOP buttons for motors.">Stop camera only</button>
+        <button id="mdCameraRefresh" class="md-button md-button-secondary" title="Switches/reloads the preview image to the live MJPEG stream. It does not start motors.">Show live stream</button>
         <button id="mdOverlayToggle" class="md-button md-button-secondary" aria-pressed="true">Overlay on</button>
       </div>
-      <p class="md-help">Visual path uses <code>capture_source=request</code>. The overlay shows current/last throttle, steering, and left/right motor intent so the user can see how the car is expected to move.</p>
+      <p class="md-help">Preview controls are separated: <strong>Start camera + live</strong> starts the camera service and shows the stream, <strong>Show live stream</strong> only reloads the live preview, <strong>Stop camera only</strong> stops the camera service, and the red <strong>STOP</strong> buttons stop motor output. The overlay draws the intended path from the current throttle and steering values.</p>
     </section>
 
     <section class="md-panel md-panel-manual" id="panel-manual-drive" data-panel="manual-drive" data-panel-role="drive">

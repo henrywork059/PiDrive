@@ -268,19 +268,28 @@ code { color: #bae6fd; }
   transform: translateX(-50%);
 }
 
-.md-overlay-path {
+.md-overlay-path-svg {
   position: absolute;
-  left: 50%;
-  bottom: 12%;
-  width: 36%;
-  height: 72%;
-  border: 4px solid rgba(56, 189, 248, 0.78);
-  border-bottom: 0;
-  border-left-color: transparent;
-  border-radius: 50% 50% 0 0;
-  transform: translateX(-50%) rotate(0deg);
-  transform-origin: 50% 100%;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.md-overlay-path-svg marker path {
+  fill: rgba(56, 189, 248, 0.92);
+}
+
+.md-overlay-path {
+  fill: none;
+  stroke: rgba(56, 189, 248, 0.84);
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  stroke-dasharray: none;
+  marker-end: url(#mdOverlayArrow);
+  filter: drop-shadow(0 0 7px rgba(56, 189, 248, 0.62));
   opacity: 0.82;
+  transition: opacity 120ms ease, stroke-width 120ms ease;
 }
 
 .md-overlay-car {

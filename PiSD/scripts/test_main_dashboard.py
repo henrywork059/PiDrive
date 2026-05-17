@@ -47,6 +47,11 @@ REQUIRED_TEMPLATE_TOKENS = [
     "mdDriveOverlay",
     "mdOverlayThrottleValue",
     "mdOverlaySteeringValue",
+    "mdOverlayPathSvg",
+    "Start camera + live",
+    "Stop camera only",
+    "Show live stream",
+    "Refresh status",
 ]
 
 REQUIRED_CSS_TOKENS = [
@@ -56,6 +61,8 @@ REQUIRED_CSS_TOKENS = [
     ".md-big-stop",
     ".md-drive-overlay",
     ".md-overlay-car",
+    ".md-overlay-path-svg",
+    "marker-end: url(#mdOverlayArrow)",
     "container-type: inline-size",
     "@media (max-width: 1100px)",
 ]
@@ -69,10 +76,12 @@ REQUIRED_JS_TOKENS = [
     "sendChannelTest",
     "startLivePreview",
     "updateDriveOverlay",
+    "drawIntendedPath",
     "setOverlayEnabled",
     "mdOverlayToggle",
     "/api/status",
     "/api/camera/start",
+    "/api/camera/stop",
     "/api/camera/frame.jpg",
     "/video_feed",
     "/api/control/manual",
