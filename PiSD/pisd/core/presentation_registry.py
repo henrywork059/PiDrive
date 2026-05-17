@@ -59,15 +59,15 @@ PAGE_LAYOUT_CONTRACTS: dict[str, dict[str, Any]] = {
     },
     "manual_drive": {
         "path": "/manual-drive",
-        "purpose": "Simple user driving page with camera, compact status, drag pad, and STOP.",
+        "purpose": "Simple user driving page with camera, compact status, drag pad, capture, recording, and STOP.",
         "desktop_grid_areas": [
-            "status status",
+            "status drive",
             "preview drive",
             "preview stop",
             "log log",
         ],
         "mobile_order": ["status", "preview", "drive", "stop", "log"],
-        "fixed_rule": "Camera preview must remain directly below the status panel on PC/iPad layouts. Presentation settings may resize but must not reorder it.",
+        "fixed_rule": "Camera preview must remain in the main column directly below the status panel; Manual Control stays in the right control column on PC/iPad layouts. Presentation settings may resize but must not reorder these regions.",
     },
     "settings": {
         "path": "/settings",
@@ -97,7 +97,8 @@ STYLE_DEVELOPMENT_RULES: list[str] = [
     "Use pisd_design_system.css for final cross-page layout, panel, button, and form decisions.",
     "Use panel_presentation_global.js only to apply saved CSS variables and data attributes.",
     "Page CSS may add component-specific details, but it must not override semantic page order.",
-    "Manual Drive fixed semantic order is status -> preview -> controls -> stop -> log.",
+    "Manual Drive desktop grid is status/preview in the main column and drive/stop in the control column; mobile order is status -> preview -> controls -> stop -> log.",
+    "Recording outputs must use recordings/YYYY-MM-DD/session-or-snapshot folders with frames, manifest.json, and records.jsonl metadata.",
     "When adding a new page, load pisd_design_system.css last and use versioned static_asset links.",
 ]
 

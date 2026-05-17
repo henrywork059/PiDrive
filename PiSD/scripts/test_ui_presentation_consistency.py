@@ -63,11 +63,11 @@ REQUIRED_CSS_TOKENS = [
 REQUIRED_DESIGN_TOKENS = [
     "PiSD Design System 0.3.4",
     "grid-template-areas",
-    "\"status status\"",
+    "\"status drive\"",
     "\"preview drive\"",
     "#manualDriveCameraPanel",
     "#manualDrivePadPanel",
-    "semantic panel placement",
+    "presentation consolidation",
     "body.manual-drive-page .mdrv-shell",
     "css/pisd_design_system.css",
 ]
@@ -76,7 +76,7 @@ REQUIRED_REGISTRY_TOKENS = [
     "PRESENTATION_DEFAULTS",
     "PAGE_LAYOUT_CONTRACTS",
     "manual_drive",
-    "status status",
+    "status drive",
     "preview drive",
     "STYLE_DEVELOPMENT_RULES",
 ]

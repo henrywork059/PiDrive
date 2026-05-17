@@ -12,6 +12,7 @@ from pisd.core.presentation_registry import build_presentation_manifest
 from pisd.core.settings_manager import SettingsManager
 from pisd.services.camera_service import CameraService
 from pisd.services.motor_service import MotorService
+from pisd.services.recording_service import RecordingService
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULTS_PATH = PROJECT_ROOT / "config" / "defaults.json"
@@ -65,6 +66,7 @@ def create_app(hardware_enabled: bool = False):
     runtime_settings = settings_manager.get()
     camera_service = CameraService(runtime_settings.get("camera") or defaults.get("camera"), hardware_enabled=hardware_enabled)
     motor_service = MotorService(runtime_settings.get("motor") or defaults.get("motor"), hardware_enabled=hardware_enabled)
+    recording_service = RecordingService(PROJECT_ROOT)
 
     app = Flask(
         __name__,
@@ -72,7 +74,7 @@ def create_app(hardware_enabled: bool = False):
         static_folder=str(WEB_STATIC_DIR),
         static_url_path="/testing/static",
     )
-    app.config["pisd_services"] = {"camera": camera_service, "motor": motor_service, "settings": settings_manager}
+    app.config["pisd_services"] = {"camera": camera_service, "motor": motor_service, "settings": settings_manager, "recording": recording_service}
     app.config["pisd_errors"] = APP_ERRORS
 
     @app.context_processor
@@ -94,6 +96,7 @@ def create_app(hardware_enabled: bool = False):
             "camera": camera_service.errors.history(limit=limit),
             "motor": motor_service.errors.history(limit=limit),
             "settings": settings_manager.errors.history(limit=limit),
+            "recording": recording_service.errors.history(limit=limit),
         }
 
     def build_status() -> dict[str, Any]:
@@ -107,6 +110,7 @@ def create_app(hardware_enabled: bool = False):
             "motor": motor_service.status(),
             "errors": all_errors(limit=5),
             "settings": settings_manager.get(),
+            "recording": recording_service.status(),
         }
 
     def get_json_payload() -> tuple[dict[str, Any], Any | None]:
@@ -160,6 +164,10 @@ def create_app(hardware_enabled: bool = False):
                 {"method": "POST", "path": "/api/motor/test-channel", "purpose": "Test one motor side/direction/speed/duration."},
                 {"method": "POST", "path": "/api/control/manual", "purpose": "Send manual steering/throttle command."},
                 {"method": "POST", "path": "/api/control/stop", "purpose": "Emergency stop / set outputs to zero."},
+                {"method": "GET", "path": "/api/recording/status", "purpose": "Read capture/recording state and output folders."},
+                {"method": "POST", "path": "/api/recording/capture", "purpose": "Save one traceable frame and JSON record."},
+                {"method": "POST", "path": "/api/recording/start", "purpose": "Start frame recording to an ordered session folder."},
+                {"method": "POST", "path": "/api/recording/stop", "purpose": "Stop recording and finalise the session manifest."},
             ],
             "known_good_camera": {
                 "visual_reference": "01_request_awb_auto",
@@ -351,6 +359,7 @@ def create_app(hardware_enabled: bool = False):
         camera_service.errors.clear()
         motor_service.errors.clear()
         settings_manager.errors.clear()
+        recording_service.errors.clear()
         return jsonify(ok_payload("Error history cleared."))
 
     @app.post("/api/camera/start")
@@ -461,6 +470,48 @@ def create_app(hardware_enabled: bool = False):
             mimetype="multipart/x-mixed-replace; boundary=frame",
             headers={"Cache-Control": "no-store, max-age=0"},
         )
+
+    @app.get("/api/recording/status")
+    def api_recording_status():
+        return jsonify(ok_payload("Recording status loaded.", recording=recording_service.status()))
+
+    @app.post("/api/recording/capture")
+    def api_recording_capture():
+        data, json_error = get_json_payload()
+        if json_error is not None:
+            return jsonify(report_payload(False, json_error)), 400
+        try:
+            result = recording_service.capture_once(camera_service, motor_service, label=data.get("label", "manual_capture"))
+            return jsonify(result), 200 if result.get("ok") else 503
+        except Exception as exc:
+            report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"Recording capture API failed: {exc}", exc=exc)
+            return jsonify(report_payload(False, report)), 500
+
+    @app.post("/api/recording/start")
+    def api_recording_start():
+        data, json_error = get_json_payload()
+        if json_error is not None:
+            return jsonify(report_payload(False, json_error)), 400
+        try:
+            result = recording_service.start(
+                camera_service,
+                motor_service,
+                label=data.get("label", "manual_drive"),
+                fps=data.get("fps", 6),
+            )
+            return jsonify(result), 200 if result.get("ok") else 409
+        except Exception as exc:
+            report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"Recording start API failed: {exc}", exc=exc)
+            return jsonify(report_payload(False, report)), 500
+
+    @app.post("/api/recording/stop")
+    def api_recording_stop():
+        try:
+            result = recording_service.stop()
+            return jsonify(result), 200 if result.get("ok") else 409
+        except Exception as exc:
+            report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"Recording stop API failed: {exc}", exc=exc)
+            return jsonify(report_payload(False, report)), 500
 
     @app.get("/api/motor/config")
     def api_motor_config():

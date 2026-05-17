@@ -244,3 +244,14 @@ Used by manual drive page validation when the `/manual-drive` page, its static f
 ## PiSD 0.3.2 UI presentation consistency code
 
 - `PISD-TEST-021` — unified page/panel presentation validation failed. This is used by `scripts/test_ui_presentation_consistency.py` when a GUI page is missing the shared final stylesheet, or when the shared stylesheet no longer contains the layout fixes for Manual Drive, Settings, Testing, Dashboard, Panel Presentation, and Panel Testing pages.
+
+## PiSD 0.3.5 recording and metadata codes
+
+- `PISD-REC-001` — no camera frame was available for capture/recording.
+- `PISD-REC-002` — frame or JSONL metadata write failed.
+- `PISD-REC-003` — recording start was refused because a session is already running.
+- `PISD-REC-004` — recording stop was requested but no session is running.
+- `PISD-REC-005` — recording session folder/manifest creation failed.
+- `PISD-REC-006` — recording stop/final manifest write failed.
+- `PISD-REC-007` — invalid recording configuration.
+- `PISD-TEST-022` — recording service validation failed.

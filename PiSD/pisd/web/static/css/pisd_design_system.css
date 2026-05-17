@@ -443,3 +443,109 @@ body[data-pisd-adaptive-panels="true"] .pt-shell {
 }
 
 /* Loaded as css/pisd_design_system.css through static_asset on every GUI page. */
+
+/* PiSD 0.3.5 presentation consolidation and recording UI.
+   This file is the final style source loaded last on every page. Keep new page
+   presentation changes here unless a page needs very small component details. */
+:root {
+  --pisd-page-max: 1500px;
+  --pisd-topbar-h: 42px;
+  --pisd-panel-gap: clamp(7px, var(--pisd-ui-gap, 10px), 14px);
+  --pisd-panel-pad: calc(0.70rem * var(--pisd-ui-density-pad, 0.86));
+  --pisd-control-column: clamp(300px, 27vw, 390px);
+}
+
+body.manual-drive-page .mdrv-shell {
+  display: grid !important;
+  grid-template-columns: minmax(520px, 1fr) var(--pisd-control-column) !important;
+  grid-template-areas:
+    "status drive"
+    "preview drive"
+    "preview stop"
+    "log log" !important;
+  grid-auto-rows: min-content !important;
+  width: min(var(--pisd-page-max), calc(100vw - 14px)) !important;
+  max-width: min(var(--pisd-page-max), calc(100vw - 14px)) !important;
+  gap: var(--pisd-panel-gap) !important;
+  align-items: start !important;
+  grid-auto-flow: row !important;
+}
+body.manual-drive-page .mdrv-shell > [data-panel-role] {
+  grid-column: auto !important;
+  grid-row: auto !important;
+  order: initial !important;
+}
+body.manual-drive-page #manualDriveStatusPanel { grid-area: status !important; }
+body.manual-drive-page #manualDriveCameraPanel { grid-area: preview !important; }
+body.manual-drive-page #manualDrivePadPanel { grid-area: drive !important; }
+body.manual-drive-page #manualDriveStopPanel { grid-area: stop !important; }
+body.manual-drive-page #manualDriveLogPanel { grid-area: log !important; }
+body.manual-drive-page .mdrv-preview-frame {
+  width: 100% !important;
+  height: clamp(330px, calc(100vh - var(--pisd-topbar-h) - 205px), 70vh) !important;
+  max-height: none !important;
+  min-height: 280px !important;
+  aspect-ratio: auto !important;
+}
+body.manual-drive-page .mdrv-status-strip {
+  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+}
+body.manual-drive-page .mdrv-drive-panel {
+  min-height: auto !important;
+}
+body.manual-drive-page .mdrv-drag-pad {
+  width: min(100%, 360px) !important;
+  max-width: 360px !important;
+}
+body.manual-drive-page .mdrv-drag-knob {
+  --knob-left: 50%;
+  --knob-top: 50%;
+  left: var(--knob-left) !important;
+  top: var(--knob-top) !important;
+  transform: translate(-50%, -50%) !important;
+}
+body.manual-drive-page .mdrv-recording-on {
+  border-color: rgba(34, 197, 94, .44) !important;
+  background: rgba(20, 83, 45, .32) !important;
+  color: #dcfce7 !important;
+}
+body.manual-drive-page .mdrv-compact-actions {
+  justify-content: flex-start !important;
+}
+
+@media (max-width: 1180px) {
+  body.manual-drive-page .mdrv-shell {
+    grid-template-columns: minmax(0, 1fr) clamp(280px, 34vw, 350px) !important;
+    grid-template-areas:
+      "status drive"
+      "preview drive"
+      "preview stop"
+      "log log" !important;
+  }
+  body.manual-drive-page .mdrv-preview-frame {
+    height: clamp(300px, calc(100vh - var(--pisd-topbar-h) - 220px), 62vh) !important;
+  }
+}
+
+@media (max-width: 900px) {
+  body.manual-drive-page .mdrv-shell {
+    grid-template-columns: 1fr !important;
+    grid-template-areas:
+      "status"
+      "preview"
+      "drive"
+      "stop"
+      "log" !important;
+  }
+  body.manual-drive-page .mdrv-preview-frame {
+    height: auto !important;
+    aspect-ratio: var(--pisd-ui-preview-aspect, 16 / 9) !important;
+    max-height: 52vh !important;
+  }
+}
+
+@media (max-width: 560px) {
+  body.manual-drive-page .mdrv-status-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}

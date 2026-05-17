@@ -769,3 +769,24 @@ From `PiSD_0_3_4`, GUI presentation is controlled through a shared design system
 - `config/runtime_settings.json` stores user presentation settings.
 
 See `docs/PRESENTATION_DEVELOPMENT.md` before changing page or panel layout.
+
+## Manual Drive capture and recording
+
+The Manual Drive page includes:
+
+- `Capture frame` — saves one camera frame plus metadata.
+- `Record` — starts/stops frame recording to an ordered session folder.
+
+Saved data is written under:
+
+```text
+PiSD/recordings/
+```
+
+Each saved frame has a matching JSONL metadata record containing camera settings, steering, throttle, motor outputs, bias, directions, and max-speed tuning. See `docs/RECORDING_DATA.md`.
+
+Validation:
+
+```bash
+python3 scripts/test_recording_service.py
+```

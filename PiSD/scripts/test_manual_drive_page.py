@@ -98,6 +98,9 @@ def check_source_contract() -> list[Result]:
         "mdrvPreview",
         "mdrvArm",
         "mdrvStopBig",
+        "mdrvCaptureFrame",
+        "mdrvRecordToggle",
+        "mdrvRecordingState",
         "manualDriveInitialStatus",
         "panel_presentation_global.css",
         "pisd_design_system.css",
@@ -106,7 +109,7 @@ def check_source_contract() -> list[Result]:
         'data-panel-role="preview"',
         "data-panel-h-weight",
     ]
-    required_css = [".mdrv-shell", ".mdrv-panel", ".mdrv-status-panel", ".mdrv-preview-frame", ".mdrv-drag-pad", ".mdrv-big-stop", "grid-template-columns: repeat(12", "@media (max-width: 1100px)"]
+    required_css = [".mdrv-shell", ".mdrv-panel", ".mdrv-status-panel", ".mdrv-preview-frame", ".mdrv-drag-pad", ".mdrv-big-stop", ".mdrv-drag-knob", "@media (max-width: 1100px)"]
     required_unified_css = [
         "PiSD 0.3.3 manual-drive semantic layout recovery",
         "body.manual-drive-page .mdrv-shell",
@@ -114,7 +117,7 @@ def check_source_contract() -> list[Result]:
     required_design_css = [
         "PiSD Design System 0.3.4",
         "body.manual-drive-page .mdrv-shell",
-        "\"status status\"",
+        "\"status drive\"",
         "\"preview drive\"",
         "#manualDriveStatusPanel",
         "#manualDriveCameraPanel",
@@ -122,7 +125,7 @@ def check_source_contract() -> list[Result]:
         "grid-area: status",
         "grid-area: preview",
         "grid-area: drive",
-        "semantic panel placement",
+        "presentation consolidation",
     ]
     required_js = [
         "manualDriveInitialStatus",
@@ -133,6 +136,9 @@ def check_source_contract() -> list[Result]:
         "/video_feed",
         "/api/control/manual",
         "/api/control/stop",
+        "/api/recording/capture",
+        "/api/recording/start",
+        "/api/recording/stop",
         "PISD-MOT-008",
         "updateLock",
         "pointerdown",
@@ -151,7 +157,7 @@ def check_source_contract() -> list[Result]:
         "manual_drive.source_contract",
         ok,
         PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
-        "manual drive page contains camera preview, compact status, locked drag pad, STOP, persistence, API calls, and the recovered semantic layout" if ok else "manual drive source contract failed",
+        "manual drive page contains camera preview, compact status, locked drag pad, STOP, capture/recording, persistence, API calls, and the recovered semantic layout" if ok else "manual drive source contract failed",
         {"missing": missing},
     )]
     status_index = template.find("manualDriveStatusPanel")
@@ -166,7 +172,7 @@ def check_source_contract() -> list[Result]:
     ))
 
     css_ok = (
-        '"status status"' in design_css
+        '"status drive"' in design_css
         and '"preview drive"' in design_css
         and '#manualDriveCameraPanel' in design_css
         and '#manualDrivePadPanel' in design_css
@@ -177,7 +183,7 @@ def check_source_contract() -> list[Result]:
         "manual_drive.semantic_grid_layout",
         css_ok,
         PiSDErrorCodes.OK if css_ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
-        "camera preview is locked under status and manual controls are locked to the right control column" if css_ok else "manual drive semantic grid CSS is missing or weak",
+        "camera preview is locked under status in the main column and manual controls are locked to the right control column" if css_ok else "manual drive semantic grid CSS is missing or weak",
         {},
     ))
     return results

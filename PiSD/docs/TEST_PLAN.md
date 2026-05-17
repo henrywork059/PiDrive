@@ -778,3 +778,37 @@ python3 scripts/run_standard_validation.py --skip-api --skip-camera --skip-motor
 ```
 
 These checks confirm that all templates use versioned static assets, the final shared design-system CSS is loaded last, the presentation registry exists, and Manual Drive keeps the required status -> camera preview -> controls layout contract.
+
+## PiSD 0.3.5 recording and manual-drive layout checks
+
+Run these after applying the 0.3.5 patch:
+
+```bash
+python3 scripts/test_manual_drive_page.py --static-only
+python3 scripts/test_ui_presentation_consistency.py --static-only
+python3 scripts/test_recording_service.py
+python3 scripts/run_standard_validation.py --skip-api --skip-camera --skip-motor
+```
+
+On the Pi, start the server and test the Manual Drive page:
+
+```bash
+python3 PiSD.py --host 0.0.0.0 --port 5050 --hardware
+```
+
+Open:
+
+```text
+http://<pi-ip>:5050/manual-drive
+```
+
+Check:
+
+- status panel is top-left
+- camera panel is directly under the status panel
+- manual drag pad is in the right control column
+- drag pad ball follows the pointer position
+- speed slider does not exceed `0.65`
+- `Capture frame` creates one saved frame and JSONL record
+- `Record` starts/stops a session in `recordings/YYYY-MM-DD/...`
+- `records.jsonl` contains camera settings, steering, throttle, motor output, bias, and tuning data for every saved frame

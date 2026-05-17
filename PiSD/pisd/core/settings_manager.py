@@ -14,6 +14,7 @@ DEFAULT_RUNTIME_SETTINGS: dict[str, Any] = {
     "motor": {},
     "manual_drive": {
         "speed": 0.18,
+        "max_speed_limit": 0.65,
         "steer_strength": 0.35,
         "drag_send_interval_ms": 90,
         "preview_mode": "live",
@@ -155,9 +156,14 @@ class SettingsManager:
         manual = merged.setdefault("manual_drive", {})
         for key in ("speed", "steer_strength"):
             try:
-                manual[key] = max(0.0, min(1.0, float(manual.get(key, self.defaults["manual_drive"][key]))))
+                upper = 0.65 if key == "speed" else 1.0
+                manual[key] = max(0.0, min(upper, float(manual.get(key, self.defaults["manual_drive"][key]))))
             except Exception:
                 manual[key] = self.defaults["manual_drive"][key]
+        try:
+            manual["max_speed_limit"] = max(0.1, min(0.65, float(manual.get("max_speed_limit", 0.65))))
+        except Exception:
+            manual["max_speed_limit"] = 0.65
         try:
             manual["drag_send_interval_ms"] = max(40, min(500, int(float(manual.get("drag_send_interval_ms", 90)))))
         except Exception:

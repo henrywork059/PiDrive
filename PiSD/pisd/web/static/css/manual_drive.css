@@ -45,7 +45,7 @@ button { cursor: pointer; }
 .mdrv-drag-cross::before, .mdrv-drag-cross::after { content: ""; position: absolute; background: rgba(148,163,184,.28); }
 .mdrv-drag-cross::before { left: 50%; top: 8%; width: 1px; height: 84%; }
 .mdrv-drag-cross::after { top: 50%; left: 8%; width: 84%; height: 1px; }
-.mdrv-drag-knob { --x: 0%; --y: 0%; position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; border-radius: 999px; transform: translate(calc(-50% + var(--x)), calc(-50% + var(--y))); background: rgba(56,189,248,.82); border: 3px solid rgba(224,242,254,.88); box-shadow: 0 8px 24px rgba(56,189,248,.28); pointer-events: none; }
+.mdrv-drag-knob { --knob-left: 50%; --knob-top: 50%; position: absolute; left: var(--knob-left); top: var(--knob-top); width: 56px; height: 56px; border-radius: 999px; transform: translate(-50%, -50%); background: rgba(56,189,248,.82); border: 3px solid rgba(224,242,254,.88); box-shadow: 0 8px 24px rgba(56,189,248,.28); pointer-events: none; }
 .mdrv-drag-label { position: absolute; color: var(--mdrv-muted); font-size: .75rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
 .mdrv-drag-label.top { top: .55rem; left: 50%; transform: translateX(-50%); }
 .mdrv-drag-label.bottom { bottom: .55rem; left: 50%; transform: translateX(-50%); }

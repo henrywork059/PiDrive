@@ -17,6 +17,7 @@ class PiSDErrorCodes:
     - PISD-API: HTTP/API request or response errors
     - PISD-CAM: camera dependency, setup, capture, and encode errors
     - PISD-MOT: GPIO/motor setup, update, and shutdown errors
+    - PISD-REC: frame capture and recording errors
     - PISD-TEST: test-script validation errors
     """
 
@@ -58,6 +59,14 @@ class PiSDErrorCodes:
     MOTOR_TEST_UNARMED = "PISD-MOT-008"
     MOTOR_TEST_OUTPUT_FAILED = "PISD-MOT-009"
 
+    RECORDING_NO_FRAME = "PISD-REC-001"
+    RECORDING_WRITE_FAILED = "PISD-REC-002"
+    RECORDING_ALREADY_RUNNING = "PISD-REC-003"
+    RECORDING_NOT_RUNNING = "PISD-REC-004"
+    RECORDING_START_FAILED = "PISD-REC-005"
+    RECORDING_STOP_FAILED = "PISD-REC-006"
+    RECORDING_INVALID_CONFIG = "PISD-REC-007"
+
     TEST_IMPORT_FAILED = "PISD-TEST-001"
     TEST_CAMERA_FRAME_MISSING = "PISD-TEST-002"
     TEST_MOTOR_STOP_FAILED = "PISD-TEST-003"
@@ -79,6 +88,7 @@ class PiSDErrorCodes:
     TEST_MANUAL_DRIVE_CONTRACT_FAILED = "PISD-TEST-019"
     TEST_SETTINGS_PERSISTENCE_FAILED = "PISD-TEST-020"
     TEST_UI_PRESENTATION_CONSISTENCY_FAILED = "PISD-TEST-021"
+    TEST_RECORDING_SERVICE_FAILED = "PISD-TEST-022"
 
 
 @dataclass(frozen=True)

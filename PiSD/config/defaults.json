@@ -43,8 +43,8 @@
     "left_direction": 1,
     "right_direction": 1,
     "steering_direction": 1,
-    "left_max_speed": 1.0,
-    "right_max_speed": 1.0,
+    "left_max_speed": 0.65,
+    "right_max_speed": 0.65,
     "left_bias": 0.0,
     "right_bias": 0.0,
     "steer_mix": 1.0

@@ -35,7 +35,7 @@ Page-specific CSS should only style the inside of its own controls. It should no
 
 Good page-specific CSS examples:
 
-- drag-pad knob details
+- drag-pad inner labels and crosshair details
 - one panel's internal form grid
 - camera preview inner media behaviour
 
@@ -48,16 +48,18 @@ Avoid page-specific CSS for:
 
 ## Manual Drive fixed layout contract
 
-Manual Drive is the user-facing driving page. Its layout must stay predictable:
+Manual Drive is the user-facing driving page. Its layout must stay predictable.
 
 Desktop / PC / iPad style:
 
 ```text
-status status
+status  drive
 preview drive
 preview stop
-log log
+log     log
 ```
+
+This places the camera panel directly under the status panel, while the manual drag pad stays in the right-side control column.
 
 Small screen order:
 
@@ -69,7 +71,18 @@ stop
 log
 ```
 
-The camera panel must remain directly below the status panel. Saved presentation settings may resize panels and adjust density/spacing, but they must not move the camera panel into the control column or move manual controls below the camera unless the screen is narrow.
+Saved presentation settings may resize panels and adjust density/spacing, but they must not move the camera panel into the control column or move manual controls below the camera unless the screen is narrow.
+
+## Drag pad rule
+
+The drag knob must track the pointer position. Use parent-relative `left/top` variables:
+
+```text
+--knob-left
+--knob-top
+```
+
+Do not use `translate(calc(-50% + 100%))` style offsets for the knob because percentage translations are relative to the knob size, not the pad size.
 
 ## Settings rule
 
@@ -81,6 +94,18 @@ POST /api/settings/apply
 
 Do not add a new independent browser-only setting store unless it is only a temporary fallback cache. The backend settings manager is the source of truth.
 
+## Recording rule
+
+Frame capture and recording must go through the recording API/service:
+
+```text
+POST /api/recording/capture
+POST /api/recording/start
+POST /api/recording/stop
+```
+
+Do not save image files directly from a page. See `docs/RECORDING_DATA.md` for the folder and metadata contract.
+
 ## Test before packaging
 
 Run these checks after presentation changes:
@@ -91,6 +116,7 @@ python3 scripts/test_manual_drive_page.py --static-only
 python3 scripts/test_panel_presentation_page.py --static-only
 python3 scripts/test_front_page_tabs.py --static-only
 python3 scripts/test_settings_persistence.py
+python3 scripts/test_recording_service.py
 python3 scripts/run_standard_validation.py --skip-api --skip-camera --skip-motor
 ```
 
@@ -113,5 +139,7 @@ Before finalizing a patch, check that you did not:
 - load `pisd_design_system.css` before `unified_layout.css`
 - reintroduce unversioned `url_for('static', ...)` asset links
 - move Manual Drive camera preview away from the status panel
+- break the drag pad pointer/knob alignment
 - make page-specific CSS override saved global presentation variables
 - create a second set of presentation defaults outside `presentation_registry.py`
+- write recordings/test outputs into patch zips
