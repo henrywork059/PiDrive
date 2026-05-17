@@ -45,12 +45,47 @@
       <div class="mdrv-panel-head">
         <div><p class="mdrv-label">Camera</p><h2>Live view</h2></div>
         <div class="mdrv-camera-head-actions">
+          <button id="mdrvOverlayToggle" class="mdrv-button mdrv-overlay-toggle" type="button" aria-pressed="true" title="Show or hide the intended-path overlay drawn from current steering and throttle.">Overlay: On</button>
           <span id="mdrvRecordingIndicator" class="mdrv-recording-indicator" data-recording="off">REC off</span>
           <span class="mdrv-code" data-code-for="camera">PISD-OK-000</span>
         </div>
       </div>
-      <div class="mdrv-preview-frame">
+      <div id="mdrvPreviewFrame" class="mdrv-preview-frame mdrv-overlay-enabled">
         <img id="mdrvPreview" src="/api/camera/frame.jpg" alt="PiSD live camera preview">
+        <div id="mdrvDriveOverlay" class="mdrv-drive-overlay" aria-live="polite">
+          <div class="mdrv-overlay-hud mdrv-overlay-hud-top">
+            <span>Intended path</span>
+            <strong id="mdrvOverlayMode">STOPPED</strong>
+          </div>
+          <div class="mdrv-overlay-road" aria-hidden="true">
+            <div class="mdrv-overlay-center-line"></div>
+            <svg id="mdrvOverlayPathSvg" class="mdrv-overlay-path-svg" viewBox="0 0 100 100" preserveAspectRatio="none" focusable="false">
+              <defs>
+                <marker id="mdrvOverlayArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z"></path>
+                </marker>
+              </defs>
+              <path id="mdrvOverlayPath" class="mdrv-overlay-path" d="M 50 86 Q 50 50 50 14"></path>
+            </svg>
+            <div id="mdrvOverlayCar" class="mdrv-overlay-car">
+              <span class="mdrv-overlay-car-nose"></span>
+            </div>
+          </div>
+          <div class="mdrv-overlay-meter mdrv-overlay-meter-throttle">
+            <span>Throttle</span>
+            <div class="mdrv-overlay-meter-track"><div id="mdrvOverlayThrottleFill" class="mdrv-overlay-meter-fill"></div></div>
+            <strong id="mdrvOverlayThrottleValue">+0.00</strong>
+          </div>
+          <div class="mdrv-overlay-meter mdrv-overlay-meter-steering">
+            <span>Steering</span>
+            <div class="mdrv-overlay-meter-track mdrv-overlay-meter-track-center"><div id="mdrvOverlaySteeringFill" class="mdrv-overlay-meter-fill"></div></div>
+            <strong id="mdrvOverlaySteeringValue">+0.00</strong>
+          </div>
+          <div class="mdrv-overlay-wheel-row">
+            <span>L <strong id="mdrvOverlayLeftValue">+0.00</strong></span>
+            <span>R <strong id="mdrvOverlayRightValue">+0.00</strong></span>
+          </div>
+        </div>
       </div>
       <div class="mdrv-row mdrv-compact-actions">
         <button id="mdrvStartCamera" class="mdrv-button mdrv-primary">Start camera</button>
@@ -58,7 +93,7 @@
         <button id="mdrvCaptureFrame" class="mdrv-button mdrv-primary">Capture frame</button>
         <button id="mdrvRecordToggle" class="mdrv-button">Record</button>
       </div>
-      <p id="mdrvCaptureNotice" class="mdrv-capture-notice" role="status" aria-live="polite">No frame captured yet.</p>
+      <p id="mdrvCaptureNotice" class="mdrv-capture-notice" role="status" aria-live="polite">No frame captured yet. Use <strong>Overlay: On/Off</strong> in this Camera header to show the intended path drawn from throttle and steering.</p>
     </section>
 
     <section class="mdrv-panel mdrv-drive-panel" id="manualDrivePadPanel" data-panel-role="drive" data-panel-h-weight="1" data-panel-v-weight="2">

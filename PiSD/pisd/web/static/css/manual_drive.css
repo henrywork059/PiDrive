@@ -121,3 +121,187 @@ body[data-pisd-card-accent="strong"] .mdrv-panel { border-top: 3px solid var(--m
 .mdrv-file-controls select { width: 100%; min-width: 0; border: 1px solid var(--mdrv-border); border-radius: 10px; padding: .38rem .44rem; color: var(--mdrv-text); background: rgba(15,23,42,.88); }
 body[data-pisd-theme="light"] .mdrv-file-controls select { color: #0f172a; background: rgba(255,255,255,.88); }
 @media (max-width: 759px) { .mdrv-file-controls { grid-template-columns: 1fr; } }
+
+/* 0.4.5 Manual Drive preview intended-path overlay.
+   This is deliberately on the Manual Drive page, not only the main dashboard,
+   because /manual-drive is the page used during real driving tests. */
+.mdrv-preview-frame {
+  position: relative;
+}
+
+.mdrv-overlay-toggle {
+  border-color: rgba(56, 189, 248, .64);
+  background: rgba(14, 116, 144, .52);
+  color: #e0f2fe;
+  min-height: 30px;
+}
+
+.mdrv-overlay-toggle[data-state="off"] {
+  border-color: rgba(148, 163, 184, .38);
+  background: rgba(15, 23, 42, .62);
+  color: var(--mdrv-muted);
+}
+
+.mdrv-drive-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 140ms ease;
+  font-size: clamp(.68rem, 1.35vw, .9rem);
+  z-index: 2;
+}
+
+.mdrv-overlay-enabled .mdrv-drive-overlay { opacity: 1; }
+
+.mdrv-overlay-hud,
+.mdrv-overlay-meter,
+.mdrv-overlay-wheel-row {
+  position: absolute;
+  border: 1px solid rgba(226, 232, 240, .28);
+  border-radius: 999px;
+  background: rgba(2, 6, 23, .66);
+  color: #e0f2fe;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .28);
+  backdrop-filter: blur(8px);
+}
+
+.mdrv-overlay-hud {
+  left: .8rem;
+  top: .8rem;
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .34rem .6rem;
+}
+
+.mdrv-overlay-hud span,
+.mdrv-overlay-meter span { color: #bae6fd; }
+
+.mdrv-overlay-hud strong,
+.mdrv-overlay-meter strong,
+.mdrv-overlay-wheel-row strong {
+  font-variant-numeric: tabular-nums;
+  color: #ffffff;
+}
+
+.mdrv-overlay-road {
+  position: absolute;
+  left: 50%;
+  top: 17%;
+  width: min(52%, 420px);
+  height: 68%;
+  transform: translateX(-50%);
+  border-left: 1px dashed rgba(226, 232, 240, .24);
+  border-right: 1px dashed rgba(226, 232, 240, .24);
+}
+
+.mdrv-overlay-center-line {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  border-left: 2px dashed rgba(251, 191, 36, .46);
+  transform: translateX(-50%);
+}
+
+.mdrv-overlay-path-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.mdrv-overlay-path-svg marker path { fill: rgba(56, 189, 248, .92); }
+
+.mdrv-overlay-path {
+  fill: none;
+  stroke: rgba(56, 189, 248, .84);
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  stroke-dasharray: none;
+  marker-end: url(#mdrvOverlayArrow);
+  filter: drop-shadow(0 0 7px rgba(56, 189, 248, .62));
+  opacity: .82;
+  transition: opacity 120ms ease, stroke-width 120ms ease;
+}
+
+.mdrv-overlay-car {
+  position: absolute;
+  left: 50%;
+  bottom: 6%;
+  width: clamp(28px, 8vw, 54px);
+  height: clamp(40px, 10vw, 70px);
+  border: 2px solid rgba(255, 255, 255, .9);
+  border-radius: 14px 14px 10px 10px;
+  background: rgba(14, 165, 233, .36);
+  transform: translateX(-50%) rotate(0deg);
+  transform-origin: 50% 78%;
+}
+
+.mdrv-overlay-car-nose {
+  position: absolute;
+  left: 50%;
+  top: -10px;
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 12px solid rgba(255, 255, 255, .92);
+  transform: translateX(-50%);
+}
+
+.mdrv-overlay-meter {
+  left: .8rem;
+  right: .8rem;
+  display: grid;
+  grid-template-columns: 74px 1fr 52px;
+  align-items: center;
+  gap: .55rem;
+  padding: .38rem .6rem;
+}
+
+.mdrv-overlay-meter-throttle { bottom: 3.05rem; }
+.mdrv-overlay-meter-steering { bottom: .75rem; }
+
+.mdrv-overlay-meter-track {
+  position: relative;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, .34);
+  overflow: hidden;
+}
+
+.mdrv-overlay-meter-track-center::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -5px;
+  bottom: -5px;
+  border-left: 1px solid rgba(255, 255, 255, .6);
+}
+
+.mdrv-overlay-meter-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #38bdf8, #22c55e);
+}
+
+.mdrv-overlay-wheel-row {
+  right: .8rem;
+  top: .8rem;
+  display: inline-flex;
+  gap: .65rem;
+  padding: .34rem .6rem;
+}
+
+@media (max-width: 759px) {
+  .mdrv-overlay-meter { grid-template-columns: 64px 1fr 48px; left: .45rem; right: .45rem; }
+  .mdrv-overlay-hud { left: .45rem; top: .45rem; }
+  .mdrv-overlay-wheel-row { right: .45rem; top: .45rem; }
+}

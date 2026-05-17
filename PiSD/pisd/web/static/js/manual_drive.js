@@ -29,6 +29,17 @@
   const filesNotice = $('mdrvFilesNotice');
   const intentOut = $('mdrvIntentOut');
   const motorOut = $('mdrvMotorOut');
+  const previewFrame = $('mdrvPreviewFrame');
+  const overlayToggle = $('mdrvOverlayToggle');
+  const overlayMode = $('mdrvOverlayMode');
+  const overlayCar = $('mdrvOverlayCar');
+  const overlayPath = $('mdrvOverlayPath');
+  const overlayThrottleFill = $('mdrvOverlayThrottleFill');
+  const overlaySteeringFill = $('mdrvOverlaySteeringFill');
+  const overlayThrottleValue = $('mdrvOverlayThrottleValue');
+  const overlaySteeringValue = $('mdrvOverlaySteeringValue');
+  const overlayLeftValue = $('mdrvOverlayLeftValue');
+  const overlayRightValue = $('mdrvOverlayRightValue');
   let dragging = false;
   let lastSentAt = 0;
   let lastPayload = { steering: 0, throttle: 0, steer_mix: 1.0 };
@@ -95,6 +106,74 @@
     const right = Number(output?.right || 0);
     if (intentOut) intentOut.textContent = `S ${formatSigned(steering)} / T ${formatSigned(throttle)}`;
     if (motorOut) motorOut.textContent = `L ${formatSigned(left)} / R ${formatSigned(right)}`;
+    updateDriveOverlay({ steering, throttle, steer_mix: command?.steer_mix ?? 1.0 }, { left, right });
+  }
+
+
+  function setSignedFill(element, value) {
+    if (!element) return;
+    const number = clamp(value, -1, 1, 0);
+    element.style.left = number < 0 ? `${50 + (number * 50)}%` : '50%';
+    element.style.width = `${Math.abs(number) * 50}%`;
+  }
+
+  function driveModeText(throttle, steering) {
+    const throttleAbs = Math.abs(throttle);
+    const steeringAbs = Math.abs(steering);
+    if (throttleAbs < 0.02 && steeringAbs < 0.02) return 'STOPPED';
+    const direction = throttle < -0.02 ? 'REV' : throttle > 0.02 ? 'FWD' : 'TURN';
+    if (steeringAbs < 0.08) return direction;
+    return `${direction} ${steering < 0 ? 'LEFT' : 'RIGHT'}`;
+  }
+
+  function drawIntendedPath(throttle, steering) {
+    if (!overlayPath) return;
+    const safeThrottle = clamp(throttle, -1, 1, 0);
+    const safeSteering = clamp(steering, -1, 1, 0);
+    const speed = Math.abs(safeThrottle);
+    const steeringAbs = Math.abs(safeSteering);
+    const moving = speed >= 0.02;
+    const isReverse = safeThrottle < -0.02;
+    const travel = 28 + (speed * 48);
+    const startX = 50;
+    const startY = isReverse ? 73 : 86;
+    const endY = isReverse ? Math.min(98, startY + travel * 0.42) : Math.max(10, startY - travel);
+    const reverseSteerFactor = isReverse ? -1 : 1;
+    const controlX = 50 + (safeSteering * reverseSteerFactor * (22 + steeringAbs * 34));
+    const endX = 50 + (safeSteering * reverseSteerFactor * (12 + steeringAbs * 30));
+    const controlY = isReverse ? (startY + endY) / 2 + 8 : (startY + endY) / 2 - 10;
+    overlayPath.setAttribute('d', `M ${startX.toFixed(1)} ${startY.toFixed(1)} Q ${controlX.toFixed(1)} ${controlY.toFixed(1)} ${endX.toFixed(1)} ${endY.toFixed(1)}`);
+    overlayPath.style.opacity = moving || steeringAbs >= 0.02 ? '0.86' : '0.28';
+    overlayPath.style.strokeWidth = String(2.2 + speed * 3.8);
+    overlayPath.style.strokeDasharray = isReverse ? '5 4' : 'none';
+  }
+
+  function updateDriveOverlay(command = lastPayload, output = lastMotorOutput) {
+    const steering = clamp(command?.steering ?? 0, -1, 1, 0);
+    const throttle = clamp(command?.throttle ?? 0, -1, 1, 0);
+    const left = clamp(output?.left ?? 0, -1, 1, 0);
+    const right = clamp(output?.right ?? 0, -1, 1, 0);
+    const moving = Math.abs(throttle) >= 0.02;
+    if (overlayMode) overlayMode.textContent = driveModeText(throttle, steering);
+    if (overlayThrottleValue) overlayThrottleValue.textContent = formatSigned(throttle);
+    if (overlaySteeringValue) overlaySteeringValue.textContent = formatSigned(steering);
+    if (overlayLeftValue) overlayLeftValue.textContent = formatSigned(left);
+    if (overlayRightValue) overlayRightValue.textContent = formatSigned(right);
+    setSignedFill(overlayThrottleFill, throttle);
+    setSignedFill(overlaySteeringFill, steering);
+    if (overlayCar) {
+      overlayCar.style.transform = `translateX(-50%) rotate(${(steering * 28).toFixed(1)}deg)`;
+      overlayCar.style.opacity = moving || Math.abs(steering) >= 0.02 ? '1' : '0.78';
+    }
+    drawIntendedPath(throttle, steering);
+  }
+
+  function setOverlayEnabled(enabled) {
+    if (!previewFrame || !overlayToggle) return;
+    previewFrame.classList.toggle('mdrv-overlay-enabled', enabled);
+    overlayToggle.textContent = enabled ? 'Overlay: On' : 'Overlay: Off';
+    overlayToggle.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+    overlayToggle.dataset.state = enabled ? 'on' : 'off';
   }
 
   function renderMotorSignalsFromStatus(status) {
@@ -509,6 +588,7 @@
     $('mdrvStopTop')?.addEventListener('click', () => stopAll('stop'));
     $('mdrvStopPad')?.addEventListener('click', () => stopAll('drive'));
     $('mdrvStopBig')?.addEventListener('click', () => stopAll('stop'));
+    overlayToggle?.addEventListener('click', () => setOverlayEnabled(!previewFrame?.classList.contains('mdrv-overlay-enabled')));
     $('mdrvRefreshFiles')?.addEventListener('click', refreshRecordingItems);
     $('mdrvDownloadZip')?.addEventListener('click', downloadSelectedZip);
     $('mdrvDeleteFolder')?.addEventListener('click', deleteSelectedFolder);
@@ -528,6 +608,8 @@
   renderMotorSignals(lastPayload, lastMotorOutput);
   renderStatus(initialStatus);
   bind();
+  setOverlayEnabled(true);
+  updateDriveOverlay(lastPayload, lastMotorOutput);
   updateLock();
   loadSettings();
   refreshRecordingItems();

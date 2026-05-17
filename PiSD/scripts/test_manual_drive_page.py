@@ -97,6 +97,15 @@ def check_source_contract() -> list[Result]:
         "manualDrivePadPanel",
         "manualDriveStopPanel",
         "mdrvPreview",
+        "mdrvPreviewFrame",
+        "mdrvOverlayToggle",
+        "Overlay: On",
+        "Overlay: On/Off",
+        "mdrvDriveOverlay",
+        "mdrvOverlayMode",
+        "mdrvOverlayThrottleValue",
+        "mdrvOverlaySteeringValue",
+        "mdrvOverlayPathSvg",
         "mdrvArm",
         "mdrvStopBig",
         "mdrvCaptureFrame",
@@ -119,7 +128,7 @@ def check_source_contract() -> list[Result]:
         'data-panel-role="preview"',
         "data-panel-h-weight",
     ]
-    required_css = [".mdrv-shell", ".mdrv-panel", ".mdrv-status-panel", ".mdrv-preview-frame", ".mdrv-drag-pad", ".mdrv-big-stop", ".mdrv-drag-knob", "width: 28px", ".mdrv-recording-indicator", ".mdrv-capture-notice", "@media (max-width: 1100px)"]
+    required_css = [".mdrv-shell", ".mdrv-panel", ".mdrv-status-panel", ".mdrv-preview-frame", ".mdrv-drag-pad", ".mdrv-big-stop", ".mdrv-drag-knob", "width: 28px", ".mdrv-recording-indicator", ".mdrv-capture-notice", ".mdrv-overlay-toggle", ".mdrv-drive-overlay", ".mdrv-overlay-path", "marker-end: url(#mdrvOverlayArrow)", "@media (max-width: 1100px)"]
     required_unified_css = [
         "PiSD 0.3.3 manual-drive semantic layout recovery",
         "body.manual-drive-page .mdrv-shell",
@@ -176,6 +185,10 @@ def check_source_contract() -> list[Result]:
         "setShortStatus",
         "renderMotorSignals",
         "renderMotorSignalsFromApiResponse",
+        "updateDriveOverlay",
+        "drawIntendedPath",
+        "setOverlayEnabled",
+        "mdrvOverlayToggle",
         "mdrvIntentOut",
         "mdrvMotorOut",
     ]
@@ -193,7 +206,7 @@ def check_source_contract() -> list[Result]:
         "manual_drive.source_contract",
         ok,
         PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
-        "manual drive page contains camera preview, compact status, current intent/output signals, smaller drag knob, locked drag pad, STOP, capture/recording indicators, persistence, API calls, and the recovered semantic layout" if ok else "manual drive source contract failed",
+        "manual drive page contains camera preview, manual-page overlay toggle/path visualisation, compact status, current intent/output signals, smaller drag knob, locked drag pad, STOP, capture/recording indicators, persistence, API calls, and the recovered semantic layout" if ok else "manual drive source contract failed",
         {"missing": missing},
     )]
     status_index = template.find("manualDriveStatusPanel")
@@ -222,6 +235,15 @@ def check_source_contract() -> list[Result]:
         signals_ok,
         PiSDErrorCodes.OK if signals_ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
         "status strip shows intended steering/throttle and actual left/right motor output" if signals_ok else "manual drive motor signal readouts are missing",
+        {},
+    ))
+
+    overlay_ok = all(token in template for token in ("mdrvOverlayToggle", "mdrvDriveOverlay", "mdrvOverlayPath", "mdrvOverlayThrottleValue", "mdrvOverlaySteeringValue")) and all(token in js for token in ("updateDriveOverlay", "drawIntendedPath", "setOverlayEnabled"))
+    results.append(Result(
+        "manual_drive.preview_overlay",
+        overlay_ok,
+        PiSDErrorCodes.OK if overlay_ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
+        "manual drive preview has visible Overlay: On/Off button and intended path overlay tied to throttle/steering" if overlay_ok else "manual drive overlay toggle or intended path logic is missing",
         {},
     ))
 
@@ -255,7 +277,7 @@ def check_routes(hardware: bool) -> list[Result]:
     for path, label, marker in (
         ("/manual-drive", "manual_drive.route.page", b"PiSD Manual Drive"),
         ("/testing/static/css/manual_drive.css", "manual_drive.static.css", b".mdrv-shell"),
-        ("/testing/static/js/manual_drive.js", "manual_drive.static.js", b"manualDriveInitialStatus"),
+        ("/testing/static/js/manual_drive.js", "manual_drive.static.js", b"updateDriveOverlay"),
         ("/testing/static/css/pisd_design_system.css", "manual_drive.static.design_system", b"PiSD Design System"),
     ):
         response = client.get(path)
