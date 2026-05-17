@@ -799,3 +799,28 @@ python3 scripts/test_recording_service.py
 - Continuous recordings each use their own folder.
 - Single manual captures share one same-day folder: `recordings/single_captures/YYYY-MM-DD/`.
 - The shared UI colour palette is documented in `docs/COLOR_PALETTE.md` and defined in `pisd/core/presentation_registry.py` plus `pisd/web/static/css/pisd_design_system.css`.
+
+## PiSD 0.3.7 responsive layout system
+
+PiSD now has a final responsive layout authority:
+
+```text
+pisd/web/static/css/pisd_layout_system.css
+```
+
+Every GUI page loads this file last, after `pisd_design_system.css`. The saved presentation settings still tune spacing, density, radius, font scale, preview fit, button size, and role weights, but they no longer control safety-critical panel order.
+
+Run the layout contract check with:
+
+```bash
+python3 scripts/test_responsive_layout_contract.py --static-only
+```
+
+Manual Drive wide layout is fixed as:
+
+```text
+status  status
+preview drive
+preview stop
+log     log
+```

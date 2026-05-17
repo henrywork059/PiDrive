@@ -6,6 +6,10 @@
   const DEFAULTS = {
     theme: 'dark',
     layoutMode: 'auto',
+    layoutSystem: 'strict-responsive',
+    semanticLayoutLock: 'true',
+    previewPriority: 'fit-view',
+    topbarMode: 'compact',
     density: 'compact',
     fontScale: '1.0',
     panelGap: '10',
@@ -97,6 +101,10 @@
     if (body) {
       body.dataset.pisdTheme = settings.theme;
       body.dataset.pisdLayout = settings.layoutMode;
+      body.dataset.pisdLayoutSystem = settings.layoutSystem || 'strict-responsive';
+      body.dataset.pisdSemanticLayoutLock = String(settings.semanticLayoutLock) === 'false' ? 'false' : 'true';
+      body.dataset.pisdPreviewPriority = settings.previewPriority || 'fit-view';
+      body.dataset.pisdTopbarMode = settings.topbarMode || 'compact';
       body.dataset.pisdDensity = settings.density;
       body.dataset.pisdPanelHeader = settings.panelHeaderMode;
       body.dataset.pisdCardAccent = settings.cardAccent;

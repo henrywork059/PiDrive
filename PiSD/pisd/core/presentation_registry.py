@@ -22,6 +22,10 @@ COLOR_PALETTE: dict[str, str] = {
 PRESENTATION_DEFAULTS: dict[str, Any] = {
     "theme": "dark",
     "layoutMode": "auto",
+    "layoutSystem": "strict-responsive",
+    "semanticLayoutLock": True,
+    "previewPriority": "fit-view",
+    "topbarMode": "compact",
     "density": "compact",
     "fontScale": 1.0,
     "panelGap": 10,
@@ -60,6 +64,7 @@ DESIGN_SYSTEM_ASSETS: dict[str, list[str]] = {
         "page-specific css",
         "css/unified_layout.css",
         "css/pisd_design_system.css",
+        "css/pisd_layout_system.css",
     ],
     "js_order": [
         "js/panel_presentation_global.js",
@@ -77,13 +82,13 @@ PAGE_LAYOUT_CONTRACTS: dict[str, dict[str, Any]] = {
         "path": "/manual-drive",
         "purpose": "Simple user driving page with camera, compact status, drag pad, capture, recording, and STOP.",
         "desktop_grid_areas": [
-            "status drive",
+            "status status",
             "preview drive",
             "preview stop",
             "log log",
         ],
         "mobile_order": ["status", "preview", "drive", "stop", "log"],
-        "fixed_rule": "Status and Camera Preview must remain stacked in the main column; Manual Control stays in the right control column on PC/iPad layouts. Presentation settings may resize but must not reorder these regions.",
+        "fixed_rule": "Status is the full-width top strip. Camera Preview must be directly below it in the main column. Manual Control stays in the right control column on PC/iPad layouts. Presentation settings may resize but must not reorder these regions.",
     },
     "settings": {
         "path": "/settings",
@@ -110,12 +115,13 @@ PAGE_LAYOUT_CONTRACTS: dict[str, dict[str, Any]] = {
 
 STYLE_DEVELOPMENT_RULES: list[str] = [
     "Do not create new one-off panel shapes on individual pages.",
-    "Use pisd_design_system.css for final cross-page layout, panel, button, and form decisions.",
+    "Use pisd_layout_system.css as the final cross-page responsive layout authority.",
+    "Use pisd_design_system.css for shared panel, button, colour, and form decisions before the layout layer.",
     "Use panel_presentation_global.js only to apply saved CSS variables and data attributes.",
-    "Page CSS may add component-specific details, but it must not override semantic page order.",
-    "Manual Drive desktop grid is status above preview in the main column and drive/stop in the control column; mobile order is status -> preview -> controls -> stop -> log.",
+    "Page CSS may add component-specific details, but it must not override semantic page order or page grid areas.",
+    "Manual Drive desktop grid is full-width status on top, camera preview directly below it in the main column, and drive/stop in the control column; mobile order is status -> preview -> controls -> stop -> log.",
     "Recording outputs must use one folder per continuous recording session. Manual single captures must share recordings/single_captures/YYYY-MM-DD with frames, manifest.json, and records.jsonl metadata.",
-    "When adding a new page, load pisd_design_system.css last and use versioned static_asset links.",
+    "When adding a new page, load pisd_design_system.css and then pisd_layout_system.css last using versioned static_asset links.",
 ]
 
 

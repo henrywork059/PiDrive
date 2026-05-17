@@ -154,6 +154,14 @@ class SettingsManager:
                     panel[key] = self.defaults["panel_presentation"].get(key)
         if "adaptivePanels" in panel:
             panel["adaptivePanels"] = str(panel["adaptivePanels"]).lower() not in {"false", "0", "no", "off"}
+        if "semanticLayoutLock" in panel:
+            panel["semanticLayoutLock"] = str(panel["semanticLayoutLock"]).lower() not in {"false", "0", "no", "off"}
+        if panel.get("layoutSystem") not in {"strict-responsive"}:
+            panel["layoutSystem"] = "strict-responsive"
+        if panel.get("previewPriority") not in {"fit-view", "balanced", "compact"}:
+            panel["previewPriority"] = "fit-view"
+        if panel.get("topbarMode") not in {"compact", "standard"}:
+            panel["topbarMode"] = "compact"
 
         # Clamp persisted motor limits as settings are loaded, not only when the
         # MotorService receives them. Older runtime_settings.json files could

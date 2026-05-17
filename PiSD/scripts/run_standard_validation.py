@@ -57,6 +57,7 @@ PRESENTATION_JS = WEB_ROOT / "static" / "js" / "panel_presentation.js"
 PRESENTATION_GLOBAL_CSS = WEB_ROOT / "static" / "css" / "panel_presentation_global.css"
 PRESENTATION_GLOBAL_JS = WEB_ROOT / "static" / "js" / "panel_presentation_global.js"
 UNIFIED_CSS = WEB_ROOT / "static" / "css" / "unified_layout.css"
+LAYOUT_CSS = WEB_ROOT / "static" / "css" / "pisd_layout_system.css"
 
 
 @dataclass
@@ -303,6 +304,7 @@ def _check_front_page_static_files() -> CheckResult:
         "presentation_global_css": PRESENTATION_GLOBAL_CSS,
         "presentation_global_js": PRESENTATION_GLOBAL_JS,
         "unified_css": UNIFIED_CSS,
+        "layout_css": LAYOUT_CSS,
     }
     missing = [name for name, path in files.items() if not path.exists() or path.stat().st_size <= 0]
     ok = not missing
@@ -323,6 +325,7 @@ def _check_front_page_source_contract() -> CheckResult:
         settings = SETTINGS_TEMPLATE.read_text(encoding="utf-8")
         settings_js = SETTINGS_JS.read_text(encoding="utf-8")
         unified_css = UNIFIED_CSS.read_text(encoding="utf-8")
+        layout_css = LAYOUT_CSS.read_text(encoding="utf-8")
     except Exception as exc:
         return CheckResult(
             "front_page.source_contract",
@@ -338,8 +341,9 @@ def _check_front_page_source_contract() -> CheckResult:
         "settings": ["PiSD Settings", "Back to Front Page", "settingsMainPanel", "stCameraForm", "stMotorForm", "settingsInitialStatus"],
         "settings_js": ["settingsApi", "/api/settings/apply", "/api/settings", "/api/control/stop", "pisd.runtimeSettings.v2"],
         "unified_css": ["PiSD 0.3.2 unified visual recovery layer", ".mdrv-shell", "#settingsPanelPresentationPanel"],
+        "layout_css": ["PiSD Responsive Layout System 0.3.7", "body.manual-drive-page .mdrv-shell", "status status", "preview drive", "body.settings-page .st-grid"],
     }
-    sources = {"front": front, "front_css": front_css, "front_js": front_js, "settings": settings, "settings_js": settings_js, "unified_css": unified_css}
+    sources = {"front": front, "front_css": front_css, "front_js": front_js, "settings": settings, "settings_js": settings_js, "unified_css": unified_css, "layout_css": layout_css}
     missing = {name: [token for token in tokens if token not in sources[name]] for name, tokens in required.items()}
     missing = {name: tokens for name, tokens in missing.items() if tokens}
     ok = not missing
@@ -704,6 +708,39 @@ def _check_panel_presentation_source_contract() -> CheckResult:
         {"missing": missing},
     )
 
+
+def _check_responsive_layout_source_contract() -> CheckResult:
+    try:
+        layout_css = LAYOUT_CSS.read_text(encoding="utf-8")
+        manual = MANUAL_TEMPLATE.read_text(encoding="utf-8")
+        templates = [FRONT_TEMPLATE, MANUAL_TEMPLATE, SETTINGS_TEMPLATE, WEB_TEMPLATE, MAIN_TEMPLATE, PRESENTATION_TEMPLATE, PANEL_TEMPLATE]
+    except Exception as exc:
+        return CheckResult(
+            "responsive_layout.source_contract",
+            False,
+            PiSDErrorCodes.TEST_RESPONSIVE_LAYOUT_CONTRACT_FAILED,
+            f"failed to read responsive layout files: {exc}",
+            {"exception_type": type(exc).__name__},
+        )
+    required_css = ["PiSD Responsive Layout System 0.3.7", "status status", "preview drive", "body.manual-drive-page .mdrv-shell", "body.settings-page .st-grid", "@media (max-width: 759px)"]
+    missing_css = [token for token in required_css if token not in layout_css]
+    order_positions = [manual.find(token) for token in ("manualDriveStatusPanel", "manualDriveCameraPanel", "manualDrivePadPanel", "manualDriveStopPanel")]
+    manual_order_ok = all(pos >= 0 for pos in order_positions) and order_positions == sorted(order_positions)
+    bad_templates = []
+    for template in templates:
+        source = template.read_text(encoding="utf-8")
+        order = [source.find("css/unified_layout.css"), source.find("css/pisd_design_system.css"), source.find("css/pisd_layout_system.css")]
+        if any(pos < 0 for pos in order) or not (order[0] < order[1] < order[2]):
+            bad_templates.append(str(template.relative_to(PROJECT_ROOT)))
+    ok = not missing_css and manual_order_ok and not bad_templates
+    return CheckResult(
+        "responsive_layout.source_contract",
+        ok,
+        PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_RESPONSIVE_LAYOUT_CONTRACT_FAILED,
+        "responsive layout system loaded last and Manual Drive semantic order is fixed" if ok else "responsive layout source contract failed",
+        {"missing_css": missing_css, "manual_order_ok": manual_order_ok, "bad_templates": bad_templates},
+    )
+
 def _check_api_status(client) -> CheckResult:
     response = client.get("/api/status")
     payload = response.get_json(silent=True) or {}
@@ -939,6 +976,7 @@ def _check_api_main_dashboard_gui(client) -> list[CheckResult]:
         ("/testing/static/css/panel_presentation_global.css", "api.panel_presentation.global_css", b"--pisd-ui-gap"),
         ("/testing/static/js/panel_presentation_global.js", "api.panel_presentation.global_js", b"PiSDPanelPresentation"),
         ("/testing/static/css/unified_layout.css", "api.panel_presentation.unified_css", b"PiSD 0.3.2 unified visual recovery layer"),
+        ("/testing/static/css/pisd_layout_system.css", "api.panel_presentation.layout_css", b"PiSD Responsive Layout System 0.3.7"),
         ("/testing/static/css/panel_presentation.css", "api.panel_presentation.static_css", b".pp-shell"),
         ("/testing/static/js/panel_presentation.js", "api.panel_presentation.static_js", b"ppSave"),
     ):
@@ -1231,6 +1269,7 @@ def main() -> int:
         checks.append(_safe_check("panel_api.contract_data", _check_panel_api_contract_data))
         checks.append(_safe_check("panel_presentation.static_files", _check_panel_presentation_static_files))
         checks.append(_safe_check("panel_presentation.source_contract", _check_panel_presentation_source_contract))
+        checks.append(_safe_check("responsive_layout.source_contract", _check_responsive_layout_source_contract))
 
     if not args.skip_camera:
         checks.append(_safe_check("camera.service_frame", lambda: _check_camera_service(bool(args.hardware))))

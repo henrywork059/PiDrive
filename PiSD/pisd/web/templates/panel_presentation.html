@@ -8,9 +8,10 @@
   <link rel="stylesheet" href="{{ static_asset('css/panel_presentation.css') }}">
   <link rel="stylesheet" href="{{ static_asset('css/unified_layout.css') }}">
   <link rel="stylesheet" href="{{ static_asset('css/pisd_design_system.css') }}">
+  <link rel="stylesheet" href="{{ static_asset('css/pisd_layout_system.css') }}">
   <script src="{{ static_asset('js/panel_presentation_global.js') }}" defer></script>
 </head>
-<body>
+<body class="panel-presentation-page">
   <header class="pp-topbar">
     <div>
       <p class="pp-kicker">PiSD panel presentation</p>
@@ -46,6 +47,30 @@
             <option value="single">single column</option>
             <option value="dense">dense</option>
             <option value="wide">wide</option>
+          </select>
+        </label>
+        <label>Layout system
+          <select name="layoutSystem" id="ppLayoutSystem">
+            <option value="strict-responsive">strict responsive</option>
+          </select>
+        </label>
+        <label>Semantic layout lock
+          <select name="semanticLayoutLock" id="ppSemanticLayoutLock">
+            <option value="true">locked</option>
+            <option value="false">off for testing only</option>
+          </select>
+        </label>
+        <label>Preview priority
+          <select name="previewPriority" id="ppPreviewPriority">
+            <option value="fit-view">fit view</option>
+            <option value="balanced">balanced</option>
+            <option value="compact">compact</option>
+          </select>
+        </label>
+        <label>Topbar mode
+          <select name="topbarMode" id="ppTopbarMode">
+            <option value="compact">compact</option>
+            <option value="standard">standard</option>
           </select>
         </label>
         <label>Density

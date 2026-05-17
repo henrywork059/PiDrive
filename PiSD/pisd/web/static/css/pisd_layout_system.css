@@ -1,0 +1,426 @@
+/* PiSD Responsive Layout System 0.3.7
+   Final layout authority loaded after page CSS, unified_layout.css, and
+   pisd_design_system.css. This file owns page/panel placement. Presentation
+   settings may tune spacing, density, radius, font scale, preview fit, and
+   role weights, but must not reorder safety-critical page regions. */
+
+:root {
+  --pisd-layout-page-max: 1520px;
+  --pisd-layout-page-gutter: clamp(6px, 1vw, 14px);
+  --pisd-layout-gap: clamp(7px, var(--pisd-ui-gap, 10px), 18px);
+  --pisd-layout-panel-pad: calc(0.68rem * var(--pisd-ui-density-pad, 0.86));
+  --pisd-layout-topbar-min: 42px;
+  --pisd-layout-control-min: 292px;
+  --pisd-layout-control-ideal: calc(300px + (var(--pisd-control-h-span, 1) - 1) * 34px);
+  --pisd-layout-control-max: 420px;
+  --pisd-layout-preview-min: min(520px, calc(100vw - 2 * var(--pisd-layout-page-gutter)));
+  --pisd-layout-preview-target-height: calc(100svh - var(--pisd-layout-topbar-min) - 176px);
+  --pisd-layout-preview-max-height: 760px;
+  --pisd-layout-preview-min-height: 300px;
+  --pisd-layout-form-min: minmax(min(100%, 150px), 1fr);
+  --pisd-layout-wide-break: 1100px;
+  --pisd-layout-mid-break: 760px;
+}
+
+html { min-width: 320px; }
+body {
+  min-height: 100svh !important;
+  overflow-x: hidden !important;
+  font-size: calc(1rem * var(--pisd-ui-font-scale, 1)) !important;
+}
+
+body[data-pisd-layout-system="strict-responsive"] {
+  --pisd-layout-gap: clamp(7px, var(--pisd-ui-gap, 10px), 18px);
+}
+
+/* Shared page rails ------------------------------------------------------- */
+.fp-shell,
+.st-grid,
+.layout,
+.md-shell,
+.pp-shell,
+.pt-shell,
+.mdrv-shell {
+  width: min(var(--pisd-layout-page-max), calc(100vw - (2 * var(--pisd-layout-page-gutter)))) !important;
+  max-width: min(var(--pisd-layout-page-max), calc(100vw - (2 * var(--pisd-layout-page-gutter)))) !important;
+  margin-inline: auto !important;
+  padding-block: var(--pisd-layout-page-gutter) !important;
+  gap: var(--pisd-layout-gap) !important;
+  align-items: start !important;
+}
+
+/* Shared panel surfaces. Keep presentation unified across tabs. */
+:is(.fp-hero, .fp-mode-card, .fp-quick-actions,
+    .st-card, .card, .md-panel, .pp-card, .pp-preview-panel,
+    .pt-control-panel, .pt-control-section, .pt-panel,
+    .mdrv-panel) {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  padding: var(--pisd-layout-panel-pad) !important;
+  border-radius: var(--pisd-ui-radius, 14px) !important;
+  overflow: hidden !important;
+}
+
+:is(.st-card-head, .card-header, .md-panel-head, .pp-card-head, .pt-panel-head, .mdrv-panel-head) {
+  min-width: 0 !important;
+  gap: 0.48rem !important;
+}
+
+:is(.st-form-grid, .form-grid, .md-form-grid, .pp-control-grid) {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, var(--pisd-layout-form-min)) !important;
+  gap: 0.52rem !important;
+}
+
+:is(.st-form-grid, .form-grid, .md-form-grid, .pp-control-grid) label {
+  min-width: 0 !important;
+}
+
+/* Compact topbars on every page. They should give space back to content. */
+:is(.st-topbar, .mdrv-topbar, .topbar, .md-topbar, .pp-topbar, .pt-hero) {
+  min-height: var(--pisd-layout-topbar-min) !important;
+  padding: 0.34rem 0.62rem !important;
+}
+
+:is(.st-subtitle, .subtitle, .md-subtitle, .pp-subtitle, .pt-summary, .fp-summary) {
+  display: none !important;
+}
+
+/* Front page -------------------------------------------------------------- */
+body.front-page .fp-shell {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+}
+body.front-page .fp-hero {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  align-items: center !important;
+  gap: var(--pisd-layout-gap) !important;
+}
+body.front-page .fp-mode-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)) !important;
+  gap: var(--pisd-layout-gap) !important;
+}
+body.front-page .fp-mode-card {
+  min-height: 108px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+}
+body.front-page .fp-quick-actions {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+}
+
+/* Manual Drive: strict semantic layout -----------------------------------
+   Wide and iPad landscape: status is full-width top. Camera Preview is
+   directly below status in the main column. Manual Control and Safety are in
+   the right control column. Phone/tablet portrait stacks in the same semantic
+   order. */
+body.manual-drive-page .mdrv-shell {
+  display: grid !important;
+  grid-template-columns:
+    minmax(var(--pisd-layout-preview-min), 1fr)
+    minmax(var(--pisd-layout-control-min), min(var(--pisd-layout-control-ideal), var(--pisd-layout-control-max))) !important;
+  grid-template-areas:
+    "status status"
+    "preview drive"
+    "preview stop"
+    "log log" !important;
+  grid-auto-flow: row !important;
+  grid-auto-rows: min-content !important;
+}
+body.manual-drive-page #manualDriveStatusPanel,
+body.manual-drive-page .mdrv-status-panel {
+  grid-area: status !important;
+  grid-column: 1 / -1 !important;
+  grid-row: 1 !important;
+  align-self: start !important;
+}
+body.manual-drive-page #manualDriveCameraPanel,
+body.manual-drive-page .mdrv-preview-panel {
+  grid-area: preview !important;
+  grid-column: 1 / 2 !important;
+  grid-row: 2 / span 2 !important;
+  align-self: stretch !important;
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
+}
+body.manual-drive-page #manualDrivePadPanel,
+body.manual-drive-page .mdrv-drive-panel {
+  grid-area: drive !important;
+  grid-column: 2 / 3 !important;
+  grid-row: 2 !important;
+  align-self: start !important;
+}
+body.manual-drive-page #manualDriveStopPanel,
+body.manual-drive-page .mdrv-stop-panel {
+  grid-area: stop !important;
+  grid-column: 2 / 3 !important;
+  grid-row: 3 !important;
+  align-self: start !important;
+}
+body.manual-drive-page #manualDriveLogPanel,
+body.manual-drive-page .mdrv-log-panel {
+  grid-area: log !important;
+  grid-column: 1 / -1 !important;
+  grid-row: 4 !important;
+}
+body.manual-drive-page .mdrv-status-strip {
+  display: grid !important;
+  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  gap: 0.38rem !important;
+}
+body.manual-drive-page .mdrv-preview-frame {
+  flex: 1 1 auto !important;
+  width: 100% !important;
+  height: clamp(
+    var(--pisd-layout-preview-min-height),
+    var(--pisd-layout-preview-target-height),
+    var(--pisd-layout-preview-max-height)
+  ) !important;
+  min-height: var(--pisd-layout-preview-min-height) !important;
+  max-height: var(--pisd-layout-preview-max-height) !important;
+  aspect-ratio: auto !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+body.manual-drive-page .mdrv-preview-frame img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: var(--pisd-ui-preview-fit, contain) !important;
+}
+body.manual-drive-page .mdrv-drive-panel .mdrv-drag-pad {
+  width: min(100%, 340px) !important;
+  max-width: 340px !important;
+  margin-inline: auto !important;
+}
+body.manual-drive-page .mdrv-drive-panel,
+body.manual-drive-page .mdrv-stop-panel {
+  max-width: 100% !important;
+}
+body.manual-drive-page .mdrv-full-stop,
+body.manual-drive-page .mdrv-big-stop {
+  width: 100% !important;
+}
+body.manual-drive-page .mdrv-log-panel[hidden] { display: none !important; }
+
+/* Settings page ----------------------------------------------------------- */
+body.settings-page .st-grid {
+  display: grid !important;
+  grid-template-columns: minmax(260px, 0.82fr) minmax(420px, 1.35fr) minmax(300px, 0.92fr) !important;
+  grid-template-areas:
+    "main main main"
+    "motor presentation manual"
+    "camera presentation action" !important;
+  grid-auto-flow: row !important;
+}
+body.settings-page #settingsMainPanel { grid-area: main !important; }
+body.settings-page #settingsMotorPanel { grid-area: motor !important; }
+body.settings-page #settingsPanelPresentationPanel { grid-area: presentation !important; }
+body.settings-page #settingsManualDrivePanel { grid-area: manual !important; }
+body.settings-page #settingsCameraPanel { grid-area: camera !important; }
+body.settings-page #settingsActionPanel { grid-area: action !important; }
+
+/* Testing page ------------------------------------------------------------ */
+body.testing-page .layout {
+  display: grid !important;
+  grid-template-columns: repeat(12, minmax(0, 1fr)) !important;
+  grid-auto-flow: row dense !important;
+}
+body.testing-page .layout > .card { grid-column: span 4 !important; }
+body.testing-page .layout > .card.wide { grid-column: span 6 !important; }
+body.testing-page .layout > .card[data-panel-role="preview"]:first-child { grid-column: span 6 !important; }
+body.testing-page .preview-grid {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(138px, 190px) !important;
+  gap: 0.55rem !important;
+}
+body.testing-page .preview-box img { max-height: min(42svh, 340px) !important; }
+
+/* Dashboard page ---------------------------------------------------------- */
+body.dashboard-page .md-shell {
+  display: grid !important;
+  grid-template-columns: minmax(260px, 0.78fr) minmax(420px, 1.36fr) minmax(300px, 0.92fr) !important;
+  grid-template-areas:
+    "status preview manual"
+    "status preview channel"
+    "errors preview stop"
+    "errors log log" !important;
+  grid-auto-flow: row !important;
+}
+body.dashboard-page .md-panel-status { grid-area: status !important; }
+body.dashboard-page .md-panel-preview { grid-area: preview !important; }
+body.dashboard-page .md-panel-manual { grid-area: manual !important; }
+body.dashboard-page .md-panel-channel { grid-area: channel !important; }
+body.dashboard-page .md-panel-stop { grid-area: stop !important; }
+body.dashboard-page .md-panel-errors { grid-area: errors !important; }
+body.dashboard-page .md-panel-log { grid-area: log !important; }
+body.dashboard-page .md-preview-frame { max-height: min(56svh, 540px) !important; }
+
+/* Panel presentation page ------------------------------------------------- */
+body.panel-presentation-page .pp-shell {
+  display: grid !important;
+  grid-template-columns: minmax(310px, 420px) minmax(0, 1fr) !important;
+  grid-template-areas:
+    "controls preview"
+    "output output" !important;
+  grid-auto-flow: row !important;
+}
+body.panel-presentation-page #panelPresentationControls { grid-area: controls !important; }
+body.panel-presentation-page #panelPresentationPreview { grid-area: preview !important; }
+body.panel-presentation-page #panelPresentationOutput { grid-area: output !important; }
+body.panel-presentation-page .pp-panel-grid {
+  display: grid !important;
+  grid-template-columns: minmax(180px, 0.85fr) minmax(320px, 1.5fr) minmax(190px, 0.85fr) !important;
+  gap: var(--pisd-layout-gap) !important;
+}
+body.panel-presentation-page .pp-card[data-panel-role="preview"] {
+  grid-column: 2 !important;
+  grid-row: span 2 !important;
+}
+
+/* Panel testing lab ------------------------------------------------------- */
+body.panel-testing-page .pt-shell {
+  display: grid !important;
+  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr) !important;
+  grid-auto-flow: row !important;
+}
+body.panel-testing-page .pt-control-panel {
+  position: sticky !important;
+  top: calc(var(--pisd-layout-topbar-min) + 8px) !important;
+  max-height: calc(100svh - var(--pisd-layout-topbar-min) - 16px) !important;
+  overflow: auto !important;
+}
+
+/* Medium screens: keep main relations, reduce column counts. */
+@media (max-width: 1099px) {
+  body.manual-drive-page .mdrv-shell {
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 0.48fr) !important;
+    grid-template-areas:
+      "status status"
+      "preview drive"
+      "preview stop"
+      "log log" !important;
+  }
+  body.manual-drive-page .mdrv-preview-frame {
+    height: clamp(290px, calc(100svh - var(--pisd-layout-topbar-min) - 212px), 62svh) !important;
+  }
+  body.settings-page .st-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-template-areas:
+      "main main"
+      "presentation presentation"
+      "manual motor"
+      "camera action" !important;
+  }
+  body.testing-page .layout,
+  body.dashboard-page .md-shell {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-template-areas: none !important;
+  }
+  body.testing-page .layout > .card,
+  body.testing-page .layout > .card.wide,
+  body.testing-page .layout > .card[data-panel-role="preview"]:first-child,
+  body.dashboard-page .md-panel-status,
+  body.dashboard-page .md-panel-preview,
+  body.dashboard-page .md-panel-manual,
+  body.dashboard-page .md-panel-channel,
+  body.dashboard-page .md-panel-stop,
+  body.dashboard-page .md-panel-errors,
+  body.dashboard-page .md-panel-log {
+    grid-column: auto !important;
+    grid-row: auto !important;
+    grid-area: auto !important;
+  }
+  body.panel-presentation-page .pp-shell,
+  body.panel-testing-page .pt-shell {
+    grid-template-columns: 1fr !important;
+    grid-template-areas: none !important;
+  }
+  body.panel-testing-page .pt-control-panel { position: static !important; max-height: none !important; }
+}
+
+/* Small screens: one column in fixed semantic order. */
+@media (max-width: 759px) {
+  :root {
+    --pisd-layout-page-gutter: 6px;
+    --pisd-layout-gap: 7px;
+  }
+  :is(.st-topbar, .mdrv-topbar, .topbar, .md-topbar, .pp-topbar, .pt-hero) {
+    position: static !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+  }
+  body.front-page .fp-hero,
+  body.front-page .fp-mode-grid,
+  body.settings-page .st-grid,
+  body.testing-page .layout,
+  body.dashboard-page .md-shell,
+  body.panel-presentation-page .pp-shell,
+  body.panel-presentation-page .pp-panel-grid,
+  body.panel-testing-page .pt-shell,
+  body.manual-drive-page .mdrv-shell {
+    grid-template-columns: 1fr !important;
+  }
+  body.settings-page .st-grid,
+  body.panel-presentation-page .pp-shell,
+  body.dashboard-page .md-shell {
+    grid-template-areas: none !important;
+  }
+  body.manual-drive-page .mdrv-shell {
+    grid-template-areas:
+      "status"
+      "preview"
+      "drive"
+      "stop"
+      "log" !important;
+  }
+  body.manual-drive-page #manualDriveStatusPanel,
+  body.manual-drive-page #manualDriveCameraPanel,
+  body.manual-drive-page #manualDrivePadPanel,
+  body.manual-drive-page #manualDriveStopPanel,
+  body.manual-drive-page #manualDriveLogPanel,
+  body.settings-page #settingsMainPanel,
+  body.settings-page #settingsMotorPanel,
+  body.settings-page #settingsPanelPresentationPanel,
+  body.settings-page #settingsManualDrivePanel,
+  body.settings-page #settingsCameraPanel,
+  body.settings-page #settingsActionPanel,
+  body.panel-presentation-page #panelPresentationControls,
+  body.panel-presentation-page #panelPresentationPreview,
+  body.panel-presentation-page #panelPresentationOutput {
+    grid-column: 1 / -1 !important;
+    grid-row: auto !important;
+  }
+  body.manual-drive-page .mdrv-preview-frame {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: 52svh !important;
+    aspect-ratio: var(--pisd-ui-preview-aspect, 16 / 9) !important;
+  }
+  body.manual-drive-page .mdrv-status-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  body.testing-page .layout > .card,
+  body.testing-page .layout > .card.wide,
+  body.testing-page .layout > .card[data-panel-role="preview"]:first-child {
+    grid-column: 1 / -1 !important;
+  }
+  body.testing-page .preview-grid { grid-template-columns: 1fr !important; }
+  body.manual-drive-page .mdrv-drive-panel .mdrv-drag-pad { width: min(100%, 310px) !important; }
+}
+
+@media (max-height: 680px) and (min-width: 760px) {
+  :root { --pisd-layout-topbar-min: 38px; }
+  body.manual-drive-page .mdrv-preview-frame {
+    height: clamp(260px, calc(100svh - var(--pisd-layout-topbar-min) - 188px), 58svh) !important;
+  }
+  body.manual-drive-page .mdrv-panel-head { margin-bottom: 0.34rem !important; }
+  body.manual-drive-page .mdrv-compact-actions { gap: 0.28rem !important; }
+}

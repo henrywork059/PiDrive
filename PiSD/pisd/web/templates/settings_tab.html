@@ -8,9 +8,10 @@
   <link rel="stylesheet" href="{{ static_asset('css/settings_tab.css') }}">
   <link rel="stylesheet" href="{{ static_asset('css/unified_layout.css') }}">
   <link rel="stylesheet" href="{{ static_asset('css/pisd_design_system.css') }}">
+  <link rel="stylesheet" href="{{ static_asset('css/pisd_layout_system.css') }}">
   <script src="{{ static_asset('js/panel_presentation_global.js') }}" defer></script>
 </head>
-<body>
+<body class="settings-page">
   <header class="st-topbar">
     <div><p class="st-kicker">PiSD settings</p><h1>Settings</h1><p class="st-subtitle">Saved here, applied to all tabs through the shared backend settings manager.</p></div>
     <nav class="st-actions" aria-label="Settings navigation"><a class="pisd-front-link" href="/">Back to Front Page</a><span id="stGlobalCode" class="st-code-pill">{{ initial_status.code }}</span><button id="stStopAll" class="st-button st-danger">STOP</button></nav>
@@ -35,6 +36,10 @@
       <form id="stPresentationForm" class="st-form-grid">
         <label>Theme <select name="theme"><option value="dark">dark</option><option value="light">light</option><option value="contrast">contrast</option></select></label>
         <label>Layout <select name="layoutMode"><option value="auto">auto</option><option value="single">single</option><option value="dense">dense</option><option value="wide">wide</option></select></label>
+        <label>Layout system <select name="layoutSystem"><option value="strict-responsive">strict responsive</option></select></label>
+        <label>Semantic lock <select name="semanticLayoutLock"><option value="true">locked</option><option value="false">off for testing only</option></select></label>
+        <label>Preview priority <select name="previewPriority"><option value="fit-view">fit view</option><option value="balanced">balanced</option><option value="compact">compact</option></select></label>
+        <label>Topbar <select name="topbarMode"><option value="compact">compact</option><option value="standard">standard</option></select></label>
         <label>Density <select name="density"><option value="compact">compact</option><option value="comfortable">comfortable</option><option value="spacious">spacious</option></select></label>
         <label>Header <select name="panelHeaderMode"><option value="compact">compact</option><option value="standard">standard</option><option value="minimal">minimal</option></select></label>
         <label>Preview fit <select name="previewFit"><option value="contain">contain</option><option value="cover">cover</option></select></label>

@@ -839,3 +839,57 @@ Folder expectations:
 
 - Continuous recordings: one folder per recording session under `recordings/YYYY-MM-DD/`.
 - Single manual captures: all same-day captures under `recordings/single_captures/YYYY-MM-DD/`.
+
+## PiSD 0.3.7 responsive layout checks
+
+After applying `PiSD_0_3_7_patch`, run:
+
+```bash
+cd ~/PiDrive/PiSD
+python3 scripts/test_responsive_layout_contract.py --static-only
+python3 scripts/test_ui_presentation_consistency.py --static-only
+python3 scripts/test_manual_drive_page.py --static-only
+python3 scripts/run_standard_validation.py --skip-api --skip-camera --skip-motor
+```
+
+Expected simple result style:
+
+```text
+OK   PISD-OK-000   responsive_layout.source_contract - shared responsive layout contract passed
+```
+
+Then start the server and visually check:
+
+```bash
+python3 PiSD.py --host 0.0.0.0 --port 5050 --hardware
+```
+
+Open:
+
+```text
+http://<pi-ip>:5050/manual-drive
+http://<pi-ip>:5050/settings
+http://<pi-ip>:5050/testing
+http://<pi-ip>:5050/dashboard
+http://<pi-ip>:5050/panel-presentation
+http://<pi-ip>:5050/panel-testing
+```
+
+Manual Drive layout must be:
+
+```text
+status  status
+preview drive
+preview stop
+log     log
+```
+
+On phone/portrait it must stack:
+
+```text
+status
+preview
+drive
+stop
+log
+```

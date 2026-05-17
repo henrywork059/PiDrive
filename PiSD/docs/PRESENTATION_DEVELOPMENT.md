@@ -165,3 +165,23 @@ Recording UI rule:
 - A single-frame capture must show a user-facing confirmation message.
 - Single captures share one daily folder.
 - Continuous recordings each use their own session folder.
+
+## PiSD 0.3.7 responsive layout system
+
+PiSD 0.3.7 adds `pisd/web/static/css/pisd_layout_system.css` as the final page/panel layout authority. This file is loaded after `pisd_design_system.css` and owns page grids, responsive breakpoints, and safety-critical panel order.
+
+Important rule: page-specific CSS may style controls, but it must not move semantic panel regions. The Manual Drive page must keep this order:
+
+```text
+wide:  status status / preview drive / preview stop / log log
+small: status / preview / drive / stop / log
+```
+
+Presentation settings can tune density, font scale, gap, radius, preview fit, button scale, and panel role weights. They must not move Status, Preview, Drive, STOP, or Log into a different semantic order.
+
+Before changing any page layout, run:
+
+```bash
+python3 scripts/test_responsive_layout_contract.py --static-only
+python3 scripts/test_ui_presentation_consistency.py --static-only
+```

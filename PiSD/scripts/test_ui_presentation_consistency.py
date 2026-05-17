@@ -26,6 +26,7 @@ WEB_ROOT = PROJECT_ROOT / "pisd" / "web"
 TEMPLATE_DIR = WEB_ROOT / "templates"
 UNIFIED_CSS = WEB_ROOT / "static" / "css" / "unified_layout.css"
 DESIGN_SYSTEM_CSS = WEB_ROOT / "static" / "css" / "pisd_design_system.css"
+LAYOUT_SYSTEM_CSS = WEB_ROOT / "static" / "css" / "pisd_layout_system.css"
 PRESENTATION_REGISTRY = PROJECT_ROOT / "pisd" / "core" / "presentation_registry.py"
 OUTPUT_DIR = PROJECT_ROOT / "test_outputs" / "ui_presentation_consistency"
 SUMMARY_PATH = OUTPUT_DIR / "summary.json"
@@ -75,11 +76,24 @@ REQUIRED_DESIGN_TOKENS = [
     "mdrv-capture-notice",
 ]
 
+
+REQUIRED_LAYOUT_TOKENS = [
+    "PiSD Responsive Layout System 0.3.7",
+    "body.manual-drive-page .mdrv-shell",
+    "status status",
+    "preview drive",
+    "body.settings-page .st-grid",
+    "body.testing-page .layout",
+    "body.dashboard-page .md-shell",
+    "body.panel-presentation-page .pp-shell",
+    "body.panel-testing-page .pt-shell",
+]
+
 REQUIRED_REGISTRY_TOKENS = [
     "PRESENTATION_DEFAULTS",
     "PAGE_LAYOUT_CONTRACTS",
     "manual_drive",
-    "status drive",
+    "status status",
     "preview drive",
     "STYLE_DEVELOPMENT_RULES",
     "COLOR_PALETTE",
@@ -119,7 +133,7 @@ def emit(result: Result) -> None:
 
 def check_files() -> list[Result]:
     results: list[Result] = []
-    files = {"unified_css": UNIFIED_CSS, "design_system_css": DESIGN_SYSTEM_CSS, "presentation_registry": PRESENTATION_REGISTRY, **TEMPLATES}
+    files = {"unified_css": UNIFIED_CSS, "design_system_css": DESIGN_SYSTEM_CSS, "layout_system_css": LAYOUT_SYSTEM_CSS, "presentation_registry": PRESENTATION_REGISTRY, **TEMPLATES}
     for label, path in files.items():
         ok = path.exists() and path.stat().st_size > 0
         results.append(
@@ -138,6 +152,7 @@ def check_source_contract() -> Result:
     try:
         css = UNIFIED_CSS.read_text(encoding="utf-8")
         design_css = DESIGN_SYSTEM_CSS.read_text(encoding="utf-8")
+        layout_css = LAYOUT_SYSTEM_CSS.read_text(encoding="utf-8")
         registry = PRESENTATION_REGISTRY.read_text(encoding="utf-8")
         template_sources = {name: path.read_text(encoding="utf-8") for name, path in TEMPLATES.items()}
     except Exception as exc:
@@ -151,26 +166,30 @@ def check_source_contract() -> Result:
 
     missing_css = [token for token in REQUIRED_CSS_TOKENS if token not in css]
     missing_design = [token for token in REQUIRED_DESIGN_TOKENS if token not in design_css]
+    missing_layout = [token for token in REQUIRED_LAYOUT_TOKENS if token not in layout_css]
     missing_registry = [token for token in REQUIRED_REGISTRY_TOKENS if token not in registry]
     missing_links = []
     wrong_order = []
     unversioned_static = []
     for name, source in template_sources.items():
-        if "css/unified_layout.css" not in source or "css/pisd_design_system.css" not in source:
+        if "css/unified_layout.css" not in source or "css/pisd_design_system.css" not in source or "css/pisd_layout_system.css" not in source:
             missing_links.append(name)
-        elif source.find("css/unified_layout.css") > source.find("css/pisd_design_system.css"):
-            wrong_order.append(name)
+        else:
+            order = [source.find("css/unified_layout.css"), source.find("css/pisd_design_system.css"), source.find("css/pisd_layout_system.css")]
+            if not (order[0] < order[1] < order[2]):
+                wrong_order.append(name)
         if "url_for('static'" in source or 'url_for("static"' in source:
             unversioned_static.append(name)
-    ok = not missing_css and not missing_design and not missing_registry and not missing_links and not wrong_order and not unversioned_static
+    ok = not missing_css and not missing_design and not missing_layout and not missing_registry and not missing_links and not wrong_order and not unversioned_static
     return Result(
         "ui_presentation.source_contract",
         ok,
         PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_UI_PRESENTATION_CONSISTENCY_FAILED,
-        "all GUI pages load the design system last, use versioned assets, and share one presentation registry" if ok else "unified presentation/design-system contract failed",
+        "all GUI pages load the design and layout system last, use versioned assets, and share one presentation registry" if ok else "unified presentation/design-system contract failed",
         {
             "missing_css": missing_css,
             "missing_design": missing_design,
+            "missing_layout": missing_layout,
             "missing_registry": missing_registry,
             "missing_links": missing_links,
             "wrong_order": wrong_order,
@@ -197,6 +216,7 @@ def check_routes(hardware: bool) -> list[Result]:
         ("/panel-testing", "route.panel_testing", b"ptPanelGrid"),
         ("/testing/static/css/unified_layout.css", "static.unified_css", b"PiSD 0.3.2 unified visual recovery layer"),
         ("/testing/static/css/pisd_design_system.css", "static.design_system_css", b"PiSD Design System 0.3.6"),
+        ("/testing/static/css/pisd_layout_system.css", "static.layout_system_css", b"PiSD Responsive Layout System 0.3.7"),
         ("/api/presentation/manifest", "api.presentation_manifest", b"Presentation design-system manifest loaded"),
     ):
         response = client.get(path)

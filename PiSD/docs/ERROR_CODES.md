@@ -255,3 +255,7 @@ Used by manual drive page validation when the `/manual-drive` page, its static f
 - `PISD-REC-006` — recording stop/final manifest write failed.
 - `PISD-REC-007` — invalid recording configuration.
 - `PISD-TEST-022` — recording service validation failed.
+
+## PiSD 0.3.7 responsive layout test code
+
+- `PISD-TEST-023` — responsive layout contract validation failed. Used by `scripts/test_responsive_layout_contract.py` when a page does not load the shared layout system, the CSS order is wrong, or the Manual Drive semantic panel order is broken.
