@@ -16,7 +16,7 @@
     <div class="md-title-block">
       <p class="md-kicker">PiSD actual GUI shell</p>
       <h1>Main Dashboard</h1>
-      <p class="md-subtitle">First real control dashboard shell built from the tested API contracts. Testing pages remain available separately.</p>
+      <p class="md-subtitle">Legacy/development dashboard kept for bench comparison. Use Manual Drive and AI Mode for the current driving workflows.</p>
     </div>
     <nav class="md-top-actions" aria-label="Dashboard navigation and global actions">
       <a class="md-link-button" href="/">Back to Front Page</a>
@@ -120,7 +120,7 @@
         <button class="md-drive-button" data-steering="0" data-throttle="-0.18" disabled>Reverse</button>
       </div>
       <label class="md-inline-control">Speed
-        <input id="mdManualSpeed" type="range" min="0.08" max="0.45" step="0.01" value="0.18">
+        <input id="mdManualSpeed" type="range" min="0.08" max="1.0" step="0.01" value="0.18">
         <output id="mdManualSpeedValue">0.18</output>
       </label>
       <p id="mdManualSafetyText" class="md-warning-text">Movement buttons are locked until the safety checkbox is enabled. STOP remains active.</p>
@@ -148,7 +148,7 @@
           </select>
         </label>
         <label>Speed
-          <input name="speed" type="number" min="0.05" max="0.6" step="0.01" value="0.18">
+          <input name="speed" type="number" min="0.05" max="1.0" step="0.01" value="0.18">
         </label>
         <label>Duration seconds
           <input name="duration" type="number" min="0.1" max="2" step="0.1" value="0.4">

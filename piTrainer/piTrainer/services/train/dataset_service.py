@@ -4,17 +4,23 @@ import numpy as np
 import pandas as pd
 
 
+def _series_or_default(df: pd.DataFrame, column: str, default, dtype):
+    if column in df.columns:
+        return df[column].to_numpy(dtype)
+    return np.full(len(df), default, dtype=dtype)
+
+
 def make_tf_dataset(df: pd.DataFrame, img_h: int, img_w: int, batch_size: int, shuffle: bool, augment: bool):
     import tensorflow as tf
 
     paths = df['abs_image'].astype(str).to_numpy()
     steering = df['steering'].to_numpy(np.float32)
     throttle = df['throttle'].to_numpy(np.float32)
-    flip_lr = df.get('aug_flip_lr', pd.Series(False, index=df.index)).astype(bool).to_numpy(np.bool_)
-    brightness = df.get('aug_brightness_delta', pd.Series(0.0, index=df.index)).to_numpy(np.float32)
-    contrast = df.get('aug_contrast_factor', pd.Series(1.0, index=df.index)).to_numpy(np.float32)
-    saturation = df.get('aug_saturation_factor', pd.Series(1.0, index=df.index)).to_numpy(np.float32)
-    hue = df.get('aug_hue_delta', pd.Series(0.0, index=df.index)).to_numpy(np.float32)
+    flip_lr = _series_or_default(df, 'aug_flip_lr', False, np.bool_)
+    brightness = _series_or_default(df, 'aug_brightness_delta', 0.0, np.float32)
+    contrast = _series_or_default(df, 'aug_contrast_factor', 1.0, np.float32)
+    saturation = _series_or_default(df, 'aug_saturation_factor', 1.0, np.float32)
+    hue = _series_or_default(df, 'aug_hue_delta', 0.0, np.float32)
 
     dataset = tf.data.Dataset.from_tensor_slices((paths, steering, throttle, flip_lr, brightness, contrast, saturation, hue))
     if shuffle:
@@ -44,6 +50,11 @@ def make_tf_dataset(df: pd.DataFrame, img_h: int, img_w: int, batch_size: int, s
         }
         return image, outputs
 
+    options = tf.data.Options()
+    # Faster input pipeline for local image folders. Order is not meaningful once
+    # samples are shuffled, so allow TensorFlow to overlap decode/resize work.
+    options.experimental_deterministic = not bool(shuffle or augment)
+    dataset = dataset.with_options(options)
     dataset = dataset.map(_load, num_parallel_calls=tf.data.AUTOTUNE)
-    dataset = dataset.batch(batch_size).prefetch(tf.data.AUTOTUNE)
+    dataset = dataset.batch(max(1, int(batch_size))).prefetch(tf.data.AUTOTUNE)
     return dataset

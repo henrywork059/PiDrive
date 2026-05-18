@@ -290,3 +290,7 @@ PiSD 0.5.5 keeps the 0.5.2 AI error-code set and explicitly applies reverse stee
 ## PiSD 0.5.6 camera default profile note
 
 PiSD 0.5.6 keeps the existing camera/error-code set, but changes the default OV5647 visual profile to the user-tested `03_request_awb_off_lock` request/PIL RGB path. Existing `runtime_settings.json` camera settings are migrated only when they still match the old uncustomised AWB-auto default, so user-selected colour profiles are preserved.
+
+## Current safety-policy note
+
+From PiSD 0.5.12, `/api/control/manual` applies the saved Manual Drive speed limit before motor output and refuses non-zero hardware motor commands unless the request includes live `safety_ack` and `enable_motor_output`. AI Mode also keeps `motor_output_enabled` as a live/session checkbox rather than a persisted runtime setting.

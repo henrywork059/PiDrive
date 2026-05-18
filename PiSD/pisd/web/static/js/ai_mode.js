@@ -18,15 +18,16 @@
   const AI_OVERLAY_SETTINGS = {
     path_length_scale: 1.0,
     // PiSD_0_5_9: mirror Manual Drive's road-edge overlay guide.
-    curve_strength: 2.45,
+    curve_strength: 3.35,
     opacity: 0.94,
-    path_width_scale: 0.40,
+    path_width_scale: 0.34,
   };
 
   let statusTimer = null;
   let aiRunning = false;
   let overlayEnabled = true;
   let lastAIStatus = initial.ai_mode || {};
+  let aiMotorEnableInitialised = false;
 
   function clamp(value, min = -1, max = 1, fallback = 0) {
     const n = Number(value);
@@ -75,7 +76,6 @@
       update_hz: Number(els.aiUpdateHz?.value || 8),
       steering_smoothing: Number(els.aiSteerSmooth?.value || 0.35),
       throttle_smoothing: Number(els.aiThrottleSmooth?.value || 0.25),
-      motor_output_enabled: Boolean(els.aiEnableMotor?.checked),
     };
   }
 
@@ -86,7 +86,13 @@
 
   function renderConfig(config = {}) {
     if (els.aiOutputMode) els.aiOutputMode.value = config.output_mode || 'steering_and_throttle';
-    if (els.aiEnableMotor) els.aiEnableMotor.checked = Boolean(config.motor_output_enabled);
+    // PiSD_0_5_12: never restore motor output enable from saved config; it is session-only.
+    // Only clear it during initial render so Save/Refresh does not unexpectedly uncheck
+    // the live checkbox immediately before Start AI Drive reads it.
+    if (els.aiEnableMotor && !aiMotorEnableInitialised) {
+      els.aiEnableMotor.checked = false;
+      aiMotorEnableInitialised = true;
+    }
     setRange('aiMaxThrottle', 'aiMaxThrottleOut', config.max_throttle ?? 0.22);
     setRange('aiMaxSteering', 'aiMaxSteeringOut', config.max_steering ?? 0.70);
     setRange('aiFixedThrottle', 'aiFixedThrottleOut', config.fixed_throttle ?? 0.16);
@@ -160,22 +166,24 @@
     const safeSteering = clamp(steering, -1, 1, 0);
     const speed = Math.max(0, safeThrottle);
     const movingReverse = safeThrottle < -0.02;
-    const steeringMagnitude = Math.pow(Math.abs(safeSteering), 0.72);
-    const signedTurn = Math.sign(safeSteering) * steeringMagnitude;
+    // PiSD_0_5_10: match Manual Drive overlay direction and stronger
+    // curvature, so left steering bends the road guide left on screen.
+    const steeringMagnitude = Math.pow(Math.abs(safeSteering), 0.58);
+    const signedTurn = -Math.sign(safeSteering) * steeringMagnitude;
     const curveStrength = AI_OVERLAY_SETTINGS.curve_strength;
     const baseY = 94;
     const horizonY = clamp(34 - (speed * 12) - ((AI_OVERLAY_SETTINGS.path_length_scale || 1.0) - 1.0) * 12, 20, 42, 24);
     const bottomHalf = 20;
-    const topHalf = 6.0;
-    const centerShift = clamp(signedTurn * curveStrength * 12.5, -30, 30, 0);
-    const bend = clamp(signedTurn * curveStrength * 18.0, -42, 42, 0);
-    const topCenter = clamp(50 + centerShift, 18, 82, 50);
+    const topHalf = 5.4;
+    const centerShift = clamp(signedTurn * curveStrength * 16.0, -36, 36, 0);
+    const bend = clamp(signedTurn * curveStrength * 28.0, -64, 64, 0);
+    const topCenter = clamp(50 + centerShift, 14, 86, 50);
     const leftBase = 50 - bottomHalf;
     const rightBase = 50 + bottomHalf;
-    const leftTop = clamp(topCenter - topHalf, 8, 88, 44);
-    const rightTop = clamp(topCenter + topHalf, 12, 92, 56);
-    const leftInnerBias = signedTurn < 0 ? 1.36 : 0.78;
-    const rightInnerBias = signedTurn > 0 ? 1.36 : 0.78;
+    const leftTop = clamp(topCenter - topHalf, 6, 86, 44.6);
+    const rightTop = clamp(topCenter + topHalf, 14, 94, 55.4);
+    const leftInnerBias = signedTurn < 0 ? 1.66 : 0.62;
+    const rightInnerBias = signedTurn > 0 ? 1.66 : 0.62;
     return {
       leftPath: roadBoundaryPath(leftBase, leftTop, bend, leftInnerBias, baseY, horizonY),
       rightPath: roadBoundaryPath(rightBase, rightTop, bend, rightInnerBias, baseY, horizonY),
@@ -384,14 +392,16 @@
   }
 
   async function startAI(mode) {
+    const safetyAck = Boolean(els.aiSafetyAck?.checked);
+    const enableMotorOutput = Boolean(els.aiEnableMotor?.checked);
     await saveConfig();
     try {
       const data = await api('/api/ai/start', {
         method: 'POST',
         body: {
           mode,
-          safety_ack: Boolean(els.aiSafetyAck?.checked),
-          enable_motor_output: Boolean(els.aiEnableMotor?.checked),
+          safety_ack: safetyAck,
+          enable_motor_output: enableMotorOutput,
         },
       });
       renderAI(data.ai || {});

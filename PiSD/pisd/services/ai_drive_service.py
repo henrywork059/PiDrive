@@ -89,7 +89,8 @@ class AIDriveService:
                 "command_timeout_s": clamp_float(data.get("command_timeout_s", self._settings.get("command_timeout_s", 0.75)), 0.2, 3.0, 0.75),
                 "output_mode": str(data.get("output_mode", self._settings.get("output_mode", "steering_and_throttle")) or "steering_and_throttle"),
                 "preview_only_by_default": str(data.get("preview_only_by_default", self._settings.get("preview_only_by_default", True))).lower() not in {"false", "0", "no", "off"},
-                "motor_output_enabled": str(data.get("motor_output_enabled", self._settings.get("motor_output_enabled", False))).lower() in {"true", "1", "yes", "on"},
+                # PiSD_0_5_12: motor output enable is passed to start() as a live safety acknowledgement, not persisted in settings.
+                "motor_output_enabled": False,
             }
             if self._settings["output_mode"] not in {"steering_only", "steering_and_throttle"}:
                 self._settings["output_mode"] = "steering_and_throttle"
@@ -292,7 +293,8 @@ class AIDriveService:
         max_throttle = clamp_float(settings.get("max_throttle", 0.22), 0.0, 1.0, 0.22)
         fixed_throttle = clamp_float(settings.get("fixed_throttle", 0.16), 0.0, 1.0, 0.16)
         if settings.get("output_mode") == "steering_only":
-            throttle = fixed_throttle if abs(steering) > 0.01 else 0.0
+            # Fixed-throttle mode should keep moving straight; do not stop just because steering is near zero.
+            throttle = fixed_throttle
         steering = max(-max_steering, min(max_steering, steering))
         throttle = max(-max_throttle, min(max_throttle, throttle))
         # PiSD_0_5_5 Option A: do not invert steering when throttle is negative.

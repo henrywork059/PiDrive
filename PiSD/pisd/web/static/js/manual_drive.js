@@ -15,9 +15,9 @@
       enabled: true,
       path_length_scale: 1.0,
       // PiSD_0_5_9: road-edge guide defaults. Visual-only; no motor output change. reverse guide hidden.
-      curve_strength: 2.45,
+      curve_strength: 3.35,
       opacity: 0.94,
-      path_width_scale: 0.40,
+      path_width_scale: 0.34,
     },
   };
   const globalCode = $('mdrvGlobalCode');
@@ -88,7 +88,7 @@
   const overlayPathWidthOut = $('mdrvOverlayPathWidthOut');
   let dragging = false;
   let lastSentAt = 0;
-  const STOP_COMMAND = { steering: 0, throttle: 0, steer_mix: 1.0 };
+  const STOP_COMMAND = { steering: 0, throttle: 0 };
   const STOP_OUTPUT = { left: 0, right: 0 };
   let lastPayload = { ...STOP_COMMAND };
   let lastMotorOutput = { ...STOP_OUTPUT };
@@ -419,7 +419,7 @@
     return {
       enabled: String(source.enabled ?? DEFAULTS.overlay.enabled).toLowerCase() !== 'false' && !['0', 'no', 'off'].includes(String(source.enabled ?? DEFAULTS.overlay.enabled).toLowerCase()),
       path_length_scale: clamp(source.path_length_scale ?? DEFAULTS.overlay.path_length_scale, 0.5, 1.8, DEFAULTS.overlay.path_length_scale),
-      curve_strength: clamp(source.curve_strength ?? DEFAULTS.overlay.curve_strength, 0.4, 3.2, DEFAULTS.overlay.curve_strength),
+      curve_strength: clamp(source.curve_strength ?? DEFAULTS.overlay.curve_strength, 0.4, 5.0, DEFAULTS.overlay.curve_strength),
       opacity: clamp(source.opacity ?? DEFAULTS.overlay.opacity, 0.2, 1.0, DEFAULTS.overlay.opacity),
       path_width_scale: clamp(source.path_width_scale ?? DEFAULTS.overlay.path_width_scale, 0.3, 1.8, DEFAULTS.overlay.path_width_scale),
     };
@@ -519,22 +519,25 @@
     const safeSteering = clamp(steering, -1, 1, 0);
     const speed = Math.max(0, safeThrottle);
     const movingReverse = safeThrottle < -0.02;
-    const steeringMagnitude = Math.pow(Math.abs(safeSteering), 0.72);
-    const signedTurn = Math.sign(safeSteering) * steeringMagnitude;
+    // PiSD_0_5_10: flip the visual turn sign so a left steering command bends
+    // the road guide left on screen, and make small steering inputs read more
+    // clearly by using a lower exponent plus stronger centre/bend scaling.
+    const steeringMagnitude = Math.pow(Math.abs(safeSteering), 0.58);
+    const signedTurn = -Math.sign(safeSteering) * steeringMagnitude;
     const curveStrength = overlaySettings.curve_strength || DEFAULTS.overlay.curve_strength;
     const baseY = 94;
     const horizonY = clamp(34 - (speed * 12) - ((overlaySettings.path_length_scale || 1.0) - 1.0) * 12, 20, 42, 24);
     const bottomHalf = 20;
-    const topHalf = 6.0;
-    const centerShift = clamp(signedTurn * curveStrength * 12.5, -30, 30, 0);
-    const bend = clamp(signedTurn * curveStrength * 18.0, -42, 42, 0);
-    const topCenter = clamp(50 + centerShift, 18, 82, 50);
+    const topHalf = 5.4;
+    const centerShift = clamp(signedTurn * curveStrength * 16.0, -36, 36, 0);
+    const bend = clamp(signedTurn * curveStrength * 28.0, -64, 64, 0);
+    const topCenter = clamp(50 + centerShift, 14, 86, 50);
     const leftBase = 50 - bottomHalf;
     const rightBase = 50 + bottomHalf;
-    const leftTop = clamp(topCenter - topHalf, 8, 88, 44);
-    const rightTop = clamp(topCenter + topHalf, 12, 92, 56);
-    const leftInnerBias = signedTurn < 0 ? 1.36 : 0.78;
-    const rightInnerBias = signedTurn > 0 ? 1.36 : 0.78;
+    const leftTop = clamp(topCenter - topHalf, 6, 86, 44.6);
+    const rightTop = clamp(topCenter + topHalf, 14, 94, 55.4);
+    const leftInnerBias = signedTurn < 0 ? 1.66 : 0.62;
+    const rightInnerBias = signedTurn > 0 ? 1.66 : 0.62;
     const leftPath = roadBoundaryPath(leftBase, leftTop, bend, leftInnerBias, baseY, horizonY);
     const rightPath = roadBoundaryPath(rightBase, rightTop, bend, rightInnerBias, baseY, horizonY);
     const centerPath = roadCenterPath(50, topCenter, bend, baseY, horizonY);
@@ -928,7 +931,8 @@
     return {
       steering: clamp(norm.x * currentSteer(), -1, 1, 0),
       throttle: clamp(-norm.y * currentSpeed(), -1, 1, 0),
-      steer_mix: 1.0,
+      safety_ack: Boolean(arm?.checked),
+      enable_motor_output: Boolean(arm?.checked),
     };
   }
 

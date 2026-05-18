@@ -29,9 +29,9 @@ DEFAULT_RUNTIME_SETTINGS: dict[str, Any] = {
             # PiSD_0_5_9: road-style overlay defaults. The two road-edge
             # lines converge near the horizon when straight and bend at
             # different rates when steering, while remaining visual-only.
-            "curve_strength": 2.45,
+            "curve_strength": 3.35,
             "opacity": 0.94,
-            "path_width_scale": 0.40,
+            "path_width_scale": 0.34,
         },
     },
     "ai_mode": {
@@ -311,21 +311,22 @@ class SettingsManager:
                 {"path_length_scale": 1.0, "curve_strength": 1.0, "opacity": 0.92, "path_width_scale": 1.0},
                 {"path_length_scale": 1.0, "curve_strength": 1.45, "opacity": 0.95, "path_width_scale": 0.72},
                 {"path_length_scale": 1.0, "curve_strength": 1.95, "opacity": 0.96, "path_width_scale": 0.55},
+                {"path_length_scale": 1.0, "curve_strength": 2.45, "opacity": 0.94, "path_width_scale": 0.40},
             )
             for old_defaults in old_default_sets:
                 if all(abs(float(overlay.get(k, old_defaults[k])) - v) <= 0.001 for k, v in old_defaults.items()):
                     overlay.update({
                         "path_length_scale": overlay_defaults.get("path_length_scale", 1.0),
-                        "curve_strength": overlay_defaults.get("curve_strength", 2.45),
+                        "curve_strength": overlay_defaults.get("curve_strength", 3.35),
                         "opacity": overlay_defaults.get("opacity", 0.94),
-                        "path_width_scale": overlay_defaults.get("path_width_scale", 0.40),
+                        "path_width_scale": overlay_defaults.get("path_width_scale", 0.34),
                     })
                     break
         except Exception:
             pass
         for key, lower, upper in (
             ("path_length_scale", 0.5, 1.8),
-            ("curve_strength", 0.4, 3.2),
+            ("curve_strength", 0.4, 5.0),
             ("opacity", 0.2, 1.0),
             ("path_width_scale", 0.3, 1.8),
         ):
@@ -355,5 +356,6 @@ class SettingsManager:
         if ai.get("output_mode") not in {"steering_only", "steering_and_throttle"}:
             ai["output_mode"] = ai_defaults.get("output_mode", "steering_and_throttle")
         ai["preview_only_by_default"] = str(ai.get("preview_only_by_default", ai_defaults.get("preview_only_by_default", True))).lower() not in {"false", "0", "no", "off"}
-        ai["motor_output_enabled"] = str(ai.get("motor_output_enabled", ai_defaults.get("motor_output_enabled", False))).lower() in {"true", "1", "yes", "on"}
+        # PiSD_0_5_12: motor_output_enabled is a live/session safety checkbox, not a persistent setting.
+        ai["motor_output_enabled"] = False
         return merged

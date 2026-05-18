@@ -204,7 +204,7 @@ function manualPayloadFromButton(button) {
   const baseThrottle = Number(button.dataset.throttle || 0);
   const steering = Number(button.dataset.steering || 0);
   const throttle = baseThrottle === 0 ? 0 : Math.sign(baseThrottle) * speed;
-  return { steering, throttle, steer_mix: 1.0 };
+  return { steering, throttle, safety_ack: Boolean(motorArm?.checked), enable_motor_output: Boolean(motorArm?.checked) };
 }
 
 async function sendManual(button) {

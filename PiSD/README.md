@@ -1,6 +1,6 @@
 # PiSD
 
-`PiSD_0_5_8_patch` — overlay curve presentation refinement patch built forward from the PiSD_0_5_0 stable baseline plus the accepted AI Mode work.
+`PiSD_0_5_12_patch` — speed/safety policy cleanup patch built forward from the PiSD_0_5_0 stable baseline plus the accepted AI Mode and overlay work.
 
 Stable v5 is built from `PiSD_0_4_0` plus accepted patches `PiSD_0_4_1` through `PiSD_0_4_10`. It includes the v4 camera/motor/error-reporting foundation, responsive GUI, Manual Drive page, recording/snapshot workflow, and all accepted v4 patch-line improvements: code cleanup, Manual Drive preview overlay, predicted steering/throttle arc, overlay calibration/debugging, command-safety consistency, preview FPS/stale-state reliability, and safer recording/snapshot folder management.
 
@@ -12,7 +12,7 @@ It is intentionally separate from the existing `PiServer/` folder. PiSD may refe
 
 ## Current version
 
-`PiSD_0_5_8` — current patched working version when this patch is applied after the accepted AI Mode patch line.
+`PiSD_0_5_12` — current patched working version when this patch is applied after the accepted AI Mode, overlay, and validation cleanup patch line.
 
 This package consolidates the accepted `0.4.x` work into a full installable `PiSD/` folder rather than a patch-only zip. It should be used as the clean rollback point before starting future `0_5_x` patches.
 
@@ -37,6 +37,7 @@ Included accepted work:
 - Reverse driving currently uses Option A: negative throttle keeps the same steering sign in motor output and preview overlays.
 
 - Manual Drive and AI Mode overlays now use a road-guide presentation: two left/right road-edge lines form a perspective trapezium when straight and bend by different amounts when turning.
+- PiSD 0.5.12 cleans up overlapping speed/safety policies: Manual Drive backend now enforces saved max speed in the API, hardware manual commands require live safety/motor-output acknowledgement, Manual Drive no longer overrides saved motor `steer_mix`, AI fixed-throttle steering-only mode keeps moving straight, and AI motor-output enable is no longer persisted across reloads.
 - PiSD 0.5.11 fixes stale retired-Autopilot validation scripts so project tests now validate the AI Mode replacement path. PiSD 0.5.10 fixed the road-overlay turn direction, stronger curvature, hidden reverse drawing, and removed the car-rectangle marker.
 
 This stable baseline keeps only one dependency file:
@@ -72,7 +73,7 @@ Supported model file discovery currently includes:
 
 Runtime inference is implemented first for `.tflite` when `tflite_runtime` or TensorFlow Lite support is installed, and for `.keras`/`.h5` when TensorFlow is installed. `.onnx` and `.pt` files are listed so the UI can see them, but they are not runnable until a future backend is added.
 
-AI reverse steering policy in this patch is **same sign**: when throttle is negative, PiSD does not flip the steering value. This matches Manual Drive and MotorService mixing while still drawing the overlay path backward.
+AI reverse steering policy remains **same sign**: when throttle is negative, PiSD does not flip the steering value. The current road-guide overlay does not draw reverse motion.
 
 AI drive is blocked unless:
 

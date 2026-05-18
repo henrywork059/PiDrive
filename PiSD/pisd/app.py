@@ -11,6 +11,7 @@ from pisd.core.errors import ErrorReporter, PiSDErrorCodes, ok_payload, report_p
 from pisd.core.panel_contracts import build_panel_testing_manifest, get_panel_contracts
 from pisd.core.presentation_registry import build_presentation_manifest
 from pisd.core.settings_manager import SettingsManager
+from pisd.core.value_utils import clamp_float
 from pisd.services.camera_service import CameraService
 from pisd.services.motor_service import MotorService
 from pisd.services.recording_service import RecordingService
@@ -149,7 +150,7 @@ def create_app(hardware_enabled: bool = False):
             "manual_drive": {"path": "/manual-drive", "purpose": "Simple user driving page with camera preview, status, STOP, manual pad, and training-data recording."},
             "ai_mode": {"path": "/ai-mode", "purpose": "AI model loading, preview prediction, and guarded AI drive mode."},
             "settings_tab": {"path": "/settings", "purpose": "Settings tab for camera/motor/system API checks."},
-            "main_dashboard": {"path": "/dashboard", "purpose": "Actual GUI dashboard shell v1."},
+            "main_dashboard": {"path": "/dashboard", "purpose": "Legacy/development dashboard shell kept for bench comparison; Manual Drive and AI Mode are the current driving pages."},
             "panel_presentation": {"path": "/panel-presentation", "purpose": "Browser-local panel presentation settings that apply across pages."},
             "static_base": "/testing/static/",
             "endpoints": [
@@ -168,7 +169,7 @@ def create_app(hardware_enabled: bool = False):
                 {"method": "GET", "path": "/api/motor/config", "purpose": "Read current motor settings."},
                 {"method": "POST", "path": "/api/motor/apply", "purpose": "Apply motor settings without moving the car."},
                 {"method": "POST", "path": "/api/motor/test-channel", "purpose": "Test one motor side/direction/speed/duration."},
-                {"method": "POST", "path": "/api/control/manual", "purpose": "Send manual steering/throttle command."},
+                {"method": "POST", "path": "/api/control/manual", "purpose": "Send guarded manual steering/throttle command using saved Manual Drive speed policy."},
                 {"method": "POST", "path": "/api/control/stop", "purpose": "Emergency stop / set outputs to zero."},
                 {"method": "GET", "path": "/api/recording/status", "purpose": "Read capture/recording state and output folders."},
                 {"method": "POST", "path": "/api/recording/capture", "purpose": "Save one traceable frame and JSON record."},
@@ -618,7 +619,13 @@ def create_app(hardware_enabled: bool = False):
         if json_error is not None:
             return jsonify(report_payload(False, json_error)), 400
         try:
-            ok, settings, report = settings_manager.save({"ai_mode": data})
+            # PiSD_0_5_12: motor output enable is a live/session safety choice.
+            # Do not persist it into runtime_settings.json or it can reappear armed
+            # after a browser reload. AI start still receives enable_motor_output
+            # separately and checks it before drive mode starts.
+            persisted_ai = dict(data)
+            persisted_ai.pop("motor_output_enabled", None)
+            ok, settings, report = settings_manager.save({"ai_mode": persisted_ai})
             if not ok:
                 return jsonify(report_payload(False, report, "AI settings were not saved.", settings=settings)), 400
             ai_drive_service.apply_settings(settings.get("ai_mode") or {})
@@ -727,14 +734,32 @@ def create_app(hardware_enabled: bool = False):
         if json_error is not None:
             return jsonify(report_payload(False, json_error)), 400
         try:
+            requested_steering = clamp_float(data.get("steering", 0.0), -1.0, 1.0, 0.0)
+            requested_throttle = clamp_float(data.get("throttle", 0.0), -1.0, 1.0, 0.0)
+            if motor_service.hardware_enabled and (abs(requested_steering) > 1e-6 or abs(requested_throttle) > 1e-6):
+                if not bool(data.get("safety_ack", False)) or not bool(data.get("enable_motor_output", False)):
+                    report = motor_service.errors.report(
+                        PiSDErrorCodes.MOTOR_TEST_UNARMED,
+                        "Manual drive refused because safety_ack and enable_motor_output are required when hardware motor output is enabled.",
+                        severity="warning",
+                        context={"path": request.path},
+                    )
+                    return jsonify(report_payload(False, report, motor=motor_service.status())), 403
+
+            manual_settings = (settings_manager.get().get("manual_drive") or {})
+            speed_limit = clamp_float(manual_settings.get("max_speed_limit", 1.0), 0.0, 1.0, 1.0)
+            safe_throttle = max(-speed_limit, min(speed_limit, requested_throttle))
+
             ai_drive_service.stop(motor_service, stop_motors=False)
+            # steer_mix is intentionally not accepted as a Manual Drive policy
+            # override here. MotorService will use the saved motor.steer_mix so
+            # motor calibration remains the single source of truth.
             left, right = motor_service.update(
-                steering=data.get("steering", 0.0),
-                throttle=data.get("throttle", 0.0),
-                steer_mix=data.get("steer_mix"),
+                steering=requested_steering,
+                throttle=safe_throttle,
             )
             report = motor_service.errors.latest() if motor_service.last_error else None
-            return jsonify(report_payload(True, report, "Manual motor command applied.", left=left, right=right, motor=motor_service.status()))
+            return jsonify(report_payload(True, report, "Manual motor command applied.", left=left, right=right, motor=motor_service.status(), manual_speed_limit=speed_limit))
         except Exception as exc:
             report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"Manual control API failed: {exc}", exc=exc)
             return jsonify(report_payload(False, report)), 500

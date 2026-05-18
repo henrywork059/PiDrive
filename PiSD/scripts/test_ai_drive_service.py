@@ -69,6 +69,11 @@ def main() -> int:
     reverse_ok = abs(reverse_safe["steering"] - 0.45) < 1e-6 and abs(reverse_safe["throttle"] + 0.6) < 1e-6
     results.append(Result("ai_service.reverse_steering_same_sign", reverse_ok, PiSDErrorCodes.OK if reverse_ok else PiSDErrorCodes.TEST_AI_MODE_FAILED, "reverse throttle keeps the same steering sign before motor output" if reverse_ok else "reverse throttle unexpectedly inverted steering", {"safe": reverse_safe}))
 
+    steering_only_service = AIDriveService(OUTPUT_ROOT, {"output_mode": "steering_only", "fixed_throttle": 0.33, "max_throttle": 1.0, "steering_smoothing": 0.0, "throttle_smoothing": 0.0})
+    straight_safe = steering_only_service.apply_safety(0.0, 0.0)
+    steering_only_ok = abs(straight_safe["throttle"] - 0.33) < 1e-6
+    results.append(Result("ai_service.steering_only_keeps_fixed_throttle", steering_only_ok, PiSDErrorCodes.OK if steering_only_ok else PiSDErrorCodes.TEST_AI_MODE_FAILED, "steering-only mode keeps fixed throttle even when predicted steering is straight" if steering_only_ok else "steering-only mode stopped on straight steering", {"safe": straight_safe}))
+
     unloaded_status = service.status()
     safety_layer = unloaded_status.get("safety_layer") or {}
     layer_ok = bool(safety_layer.get("between_ai_and_motors")) and safety_layer.get("reverse_steering_policy") == "same_sign" and not unloaded_status.get("model_ready")
