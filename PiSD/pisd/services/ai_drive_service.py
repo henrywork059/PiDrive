@@ -124,6 +124,8 @@ class AIDriveService:
                     "output_mode": self._settings.get("output_mode"),
                     "drive_requires_safety_ack": True,
                     "drive_requires_enable_motor_output": True,
+                    "reverse_steering_policy": "same_sign",
+                    "reverse_steering_note": "Option A: negative throttle keeps the same steering sign before motor mixing.",
                 },
             }
         data.update(self.errors.status_fields(limit=5))
@@ -293,6 +295,8 @@ class AIDriveService:
             throttle = fixed_throttle if abs(steering) > 0.01 else 0.0
         steering = max(-max_steering, min(max_steering, steering))
         throttle = max(-max_throttle, min(max_throttle, throttle))
+        # PiSD_0_5_5 Option A: do not invert steering when throttle is negative.
+        # MotorService and the preview overlay both receive the same steering sign.
         steer_alpha = clamp_float(settings.get("steering_smoothing", 0.35), 0.0, 1.0, 0.35)
         throttle_alpha = clamp_float(settings.get("throttle_smoothing", 0.25), 0.0, 1.0, 0.25)
         steering = previous.get("steering", 0.0) + (steering - previous.get("steering", 0.0)) * (1.0 - steer_alpha)

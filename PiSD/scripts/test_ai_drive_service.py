@@ -64,9 +64,15 @@ def main() -> int:
     full_scale_ok = abs(full_safe["throttle"] - 1.0) < 1e-6 and abs((full_scale_service.status().get("settings") or {}).get("max_throttle", 0.0) - 1.0) < 1e-6
     results.append(Result("ai_service.full_scale_throttle", full_scale_ok, PiSDErrorCodes.OK if full_scale_ok else PiSDErrorCodes.TEST_AI_MODE_FAILED, "AI max/fixed throttle settings allow full-scale 1.00" if full_scale_ok else "AI throttle settings were still clamped below 1.00", {"safe": full_safe, "settings": full_scale_service.status().get("settings")}))
 
+    reverse_service = AIDriveService(OUTPUT_ROOT, {"max_throttle": 1.0, "max_steering": 1.0, "steering_smoothing": 0.0, "throttle_smoothing": 0.0})
+    reverse_safe = reverse_service.apply_safety(0.45, -0.6)
+    reverse_ok = abs(reverse_safe["steering"] - 0.45) < 1e-6 and abs(reverse_safe["throttle"] + 0.6) < 1e-6
+    results.append(Result("ai_service.reverse_steering_same_sign", reverse_ok, PiSDErrorCodes.OK if reverse_ok else PiSDErrorCodes.TEST_AI_MODE_FAILED, "reverse throttle keeps the same steering sign before motor output" if reverse_ok else "reverse throttle unexpectedly inverted steering", {"safe": reverse_safe}))
+
     unloaded_status = service.status()
-    layer_ok = bool((unloaded_status.get("safety_layer") or {}).get("between_ai_and_motors")) and not unloaded_status.get("model_ready")
-    results.append(Result("ai_service.status_safety_layer", layer_ok, PiSDErrorCodes.OK if layer_ok else PiSDErrorCodes.TEST_AI_MODE_FAILED, "status exposes AI safety layer and model readiness" if layer_ok else "AI safety status failed", {"status": unloaded_status}))
+    safety_layer = unloaded_status.get("safety_layer") or {}
+    layer_ok = bool(safety_layer.get("between_ai_and_motors")) and safety_layer.get("reverse_steering_policy") == "same_sign" and not unloaded_status.get("model_ready")
+    results.append(Result("ai_service.status_safety_layer", layer_ok, PiSDErrorCodes.OK if layer_ok else PiSDErrorCodes.TEST_AI_MODE_FAILED, "status exposes AI safety layer, model readiness, and same-sign reverse steering policy" if layer_ok else "AI safety status failed", {"status": unloaded_status}))
 
     for result in results:
         emit(result)

@@ -496,13 +496,13 @@
     const horizonScale = overlaySettings.path_length_scale || 1.0;
     const horizon = (movingReverse ? (14 + speed * 30) : (22 + speed * 62)) * horizonScale;
 
-    // 0.4.6: draw a sampled constant-curvature path rather than a single
-    // quadratic curve. This is a screen-space bicycle/Ackermann approximation:
-    // throttle controls horizon length; steering controls curvature. Reverse is
-    // mirrored so the driver sees where the car will back toward.
+    // 0.5.5: Option A reverse behaviour. Keep the steering sign the same
+    // when throttle is negative, matching MotorService.update() and the manual
+    // command labels. Reverse is drawn behind the car, but steering is not
+    // inverted or mirrored by the overlay.
     const visualWheelbase = 34;
     const maxSteerRad = 0.72 * (overlaySettings.curve_strength || 1.0);
-    const visualSteering = movingReverse ? -safeSteering : safeSteering;
+    const visualSteering = safeSteering;
     const curvature = Math.tan(visualSteering * maxSteerRad) / visualWheelbase;
     const signedDistance = movingReverse ? -horizon : horizon;
     const points = [];
@@ -548,7 +548,8 @@
     }
     if (overlayCurveLabel) {
       const curve = Math.abs(curvature) < 0.001 ? 'straight' : `curve ${Math.abs(curvature).toFixed(3)}`;
-      overlayCurveLabel.textContent = `${curveLabelText(safeThrottle, safeSteering)} · ${curve}`;
+      const reversePolicy = movingReverse ? ' · reverse same steering' : '';
+      overlayCurveLabel.textContent = `${curveLabelText(safeThrottle, safeSteering)} · ${curve}${reversePolicy}`;
     }
     if (previewFrame) {
       previewFrame.dataset.overlayMotion = moving ? (movingReverse ? 'reverse' : 'forward') : 'stopped';

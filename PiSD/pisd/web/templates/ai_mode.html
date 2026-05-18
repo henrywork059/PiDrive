@@ -151,7 +151,7 @@
           <label class="ai-field"><span>Steering smoothing</span><input id="aiSteerSmooth" type="range" min="0" max="1" step="0.05"><output id="aiSteerSmoothOut">0.35</output></label>
           <label class="ai-field"><span>Throttle smoothing</span><input id="aiThrottleSmooth" type="range" min="0" max="1" step="0.05"><output id="aiThrottleSmoothOut">0.25</output></label>
         </div>
-        <p class="mdrv-help ai-range-note">Throttle values use the same full-scale command range as Manual Drive: <strong>0.00</strong> to <strong>1.00</strong>. The safety limiter still clamps AI output before it reaches the motors.</p>
+        <p class="mdrv-help ai-range-note">Throttle values use the same full-scale command range as Manual Drive: <strong>0.00</strong> to <strong>1.00</strong>. The safety limiter still clamps AI output before it reaches the motors. Reverse steering uses <strong>Option A</strong>: keep the same steering sign when throttle is negative.</p>
       </section>
 
       <section class="mdrv-panel ai-panel" id="aiRunPanel">
@@ -173,6 +173,7 @@
           <div><dt>Raw throttle</dt><dd id="aiRawThrottle">0.00</dd></div>
           <div><dt>Safe steering</dt><dd id="aiSafeSteering">0.00</dd></div>
           <div><dt>Safe throttle</dt><dd id="aiSafeThrottle">0.00</dd></div>
+          <div><dt>Reverse steering</dt><dd id="aiReverseSteeringPolicy">same sign</dd></div>
           <div><dt>Left motor</dt><dd id="aiLeftMotor">0.00</dd></div>
           <div><dt>Right motor</dt><dd id="aiRightMotor">0.00</dd></div>
           <div><dt>Inference</dt><dd id="aiInferenceMs">0 ms</dd></div>

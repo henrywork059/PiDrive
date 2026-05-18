@@ -88,6 +88,8 @@ def check_source_contract() -> Result:
             "Overlay: On",
             "labels.jsonl",
             "AI → safety limiter → motors",
+            "Reverse steering",
+            "same sign",
             "manual_drive.css",
             "mdrv-panel",
             'max="1.0"',
@@ -107,6 +109,9 @@ def check_source_contract() -> Result:
             "updateAIOverlay",
             "sampledIntendedPath",
             "aiOverlayToggle",
+            "reverse same steering",
+            "visualSteering = safeSteering",
+            "aiReverseSteeringPolicy",
         ],
     }
     sources = {"template": template, "css": css, "js": js}
@@ -117,7 +122,7 @@ def check_source_contract() -> Result:
         "ai_mode.source_contract",
         ok,
         PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_AI_MODE_FAILED,
-        "AI Mode source contains model-loading, Manual Drive-style preview overlay, safety, and drive contracts" if ok else "AI Mode source contract failed",
+        "AI Mode source contains model-loading, Manual Drive-style preview overlay, safety, same-sign reverse steering policy, and drive contracts" if ok else "AI Mode source contract failed",
         {"missing": missing},
     )
 

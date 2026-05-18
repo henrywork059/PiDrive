@@ -234,6 +234,8 @@ def check_source_contract() -> list[Result]:
         "updateDriveOverlay",
         "drawIntendedPath",
         "sampledIntendedPath",
+        "visualSteering = safeSteering",
+        "reverse same steering",
         "pointsToPath",
         "curveLabelText",
         "setOverlayEnabled",
@@ -311,7 +313,7 @@ def check_source_contract() -> list[Result]:
         "manual_drive.preview_overlay",
         overlay_ok,
         PiSDErrorCodes.OK if overlay_ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
-        "manual drive preview has visible Overlay: On/Off button, calibration controls, live source debug, and intended path overlay tied to throttle/steering" if overlay_ok else "manual drive overlay toggle/calibration/source/path logic is missing",
+        "manual drive preview has visible Overlay: On/Off button, calibration controls, live source debug, same-sign reverse steering, and intended path overlay tied to throttle/steering" if overlay_ok else "manual drive overlay toggle/calibration/source/path logic is missing",
         {},
     ))
 

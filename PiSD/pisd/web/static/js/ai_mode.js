@@ -135,9 +135,12 @@
     const startY = movingReverse ? 68 : 88;
     const samples = 34;
     const horizon = (movingReverse ? (14 + speed * 30) : (22 + speed * 62)) * AI_OVERLAY_SETTINGS.path_length_scale;
+    // PiSD_0_5_5 Option A: reverse keeps the same steering sign. The overlay
+    // is drawn backwards when throttle is negative, but it does not invert the
+    // AI safe steering value before visualising the path.
     const visualWheelbase = 34;
     const maxSteerRad = 0.72 * AI_OVERLAY_SETTINGS.curve_strength;
-    const visualSteering = movingReverse ? -safeSteering : safeSteering;
+    const visualSteering = safeSteering;
     const curvature = Math.tan(visualSteering * maxSteerRad) / visualWheelbase;
     const signedDistance = movingReverse ? -horizon : horizon;
     const points = [];
@@ -181,7 +184,8 @@
     }
     if (els.aiOverlayCurveLabel) {
       const curve = Math.abs(curvature) < 0.001 ? 'straight' : `curve ${Math.abs(curvature).toFixed(3)}`;
-      els.aiOverlayCurveLabel.textContent = `${curveLabelText(safeThrottle, safeSteering)} · ${curve}`;
+      const reversePolicy = movingReverse ? ' · reverse same steering' : '';
+      els.aiOverlayCurveLabel.textContent = `${curveLabelText(safeThrottle, safeSteering)} · ${curve}${reversePolicy}`;
     }
     if (els.aiPreviewFrame) {
       els.aiPreviewFrame.dataset.overlayMotion = moving ? (movingReverse ? 'reverse' : 'forward') : 'stopped';
@@ -243,6 +247,10 @@
     if (els.aiRawThrottle) els.aiRawThrottle.textContent = fmt(raw.throttle);
     if (els.aiSafeSteering) els.aiSafeSteering.textContent = fmt(safe.steering);
     if (els.aiSafeThrottle) els.aiSafeThrottle.textContent = fmt(safe.throttle);
+    if (els.aiReverseSteeringPolicy) {
+      const safety = ai.safety_layer || {};
+      els.aiReverseSteeringPolicy.textContent = safety.reverse_steering_policy === 'same_sign' ? 'same sign' : (safety.reverse_steering_policy || 'same sign');
+    }
     if (els.aiLeftMotor) els.aiLeftMotor.textContent = fmt(motor.left);
     if (els.aiRightMotor) els.aiRightMotor.textContent = fmt(motor.right);
     if (els.aiInferenceMs) els.aiInferenceMs.textContent = `${fmt(ai.last_inference_ms, 1)} ms`;

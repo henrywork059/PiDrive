@@ -281,3 +281,8 @@ PiSD 0.5.3 keeps the 0.5.2 AI error-code set, but fixes AI Mode max throttle and
 ## PiSD 0.5.4 AI preview overlay note
 
 PiSD 0.5.4 keeps the 0.5.2 AI error-code set and the 0.5.3 full-throttle range fix, but replaces the separate AI preview box with the same preview-frame/overlay design pattern used by Manual Drive. The AI overlay draws its path from the latest safe AI command after the safety limiter, while also showing raw model steering/throttle for comparison.
+
+
+## PiSD 0.5.5 reverse steering policy note
+
+PiSD 0.5.5 keeps the 0.5.2 AI error-code set and explicitly applies reverse steering Option A: negative throttle keeps the same steering sign. The Manual Drive and AI Mode predicted-path overlays now use the same steering sign as the command sent through `MotorService.update(...)`, so reverse path visualisation is not mirrored by a hidden frontend-only inversion.
