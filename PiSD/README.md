@@ -37,7 +37,7 @@ Included accepted work:
 - Reverse driving currently uses Option A: negative throttle keeps the same steering sign in motor output and preview overlays.
 
 - Manual Drive and AI Mode overlays now use a road-guide presentation: two left/right road-edge lines form a perspective trapezium when straight and bend by different amounts when turning.
-- PiSD 0.5.9 hides reverse-motion drawing in the overlay and removes the car-rectangle marker from the preview guide.
+- PiSD 0.5.11 fixes stale retired-Autopilot validation scripts so project tests now validate the AI Mode replacement path. PiSD 0.5.10 fixed the road-overlay turn direction, stronger curvature, hidden reverse drawing, and removed the car-rectangle marker.
 
 This stable baseline keeps only one dependency file:
 

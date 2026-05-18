@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Validate the PiSD Autopilot page source contract.
+"""Validate the retired Autopilot page compatibility path.
 
-Static checks do not start camera output or move motors. Optional Flask route
-checks only load pages/API status in simulation mode.
+Scripted Autopilot has been replaced by AI Mode. The legacy files are kept only
+so old bookmarks/static references redirect to `/ai-mode` instead of running
+scripted motor profiles.
 """
 
 from __future__ import annotations
@@ -25,6 +26,7 @@ WEB_ROOT = PROJECT_ROOT / "pisd" / "web"
 TEMPLATE = WEB_ROOT / "templates" / "autopilot.html"
 CSS = WEB_ROOT / "static" / "css" / "autopilot.css"
 JS = WEB_ROOT / "static" / "js" / "autopilot.js"
+AI_TEMPLATE = WEB_ROOT / "templates" / "ai_mode.html"
 OUTPUT_DIR = PROJECT_ROOT / "test_outputs" / "autopilot_page"
 SUMMARY_PATH = OUTPUT_DIR / "summary.json"
 
@@ -42,7 +44,7 @@ class Result:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Validate PiSD Autopilot page.")
+    parser = argparse.ArgumentParser(description="Validate retired PiSD Autopilot compatibility page.")
     parser.add_argument("--static-only", action="store_true", help="Skip Flask route/API checks.")
     parser.add_argument("--output", default=str(SUMMARY_PATH), help="Summary JSON output path.")
     return parser.parse_args()
@@ -54,12 +56,12 @@ def emit(result: Result) -> None:
 
 def check_files() -> list[Result]:
     results: list[Result] = []
-    for name, path in {"template": TEMPLATE, "css": CSS, "js": JS}.items():
+    for name, path in {"template": TEMPLATE, "css": CSS, "js": JS, "ai_template": AI_TEMPLATE}.items():
         ok = path.exists() and path.stat().st_size > 0
         results.append(Result(
-            f"autopilot.file.{name}",
+            f"autopilot_compat.file.{name}",
             ok,
-            PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_AUTOPILOT_CONTRACT_FAILED,
+            PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_AI_MODE_FAILED,
             f"{path.relative_to(PROJECT_ROOT)} exists" if ok else f"{path.relative_to(PROJECT_ROOT)} missing or empty",
             {"path": str(path.relative_to(PROJECT_ROOT)), "bytes": path.stat().st_size if path.exists() else 0},
         ))
@@ -71,28 +73,24 @@ def check_source_contract() -> Result:
         template = TEMPLATE.read_text(encoding="utf-8")
         css = CSS.read_text(encoding="utf-8")
         js = JS.read_text(encoding="utf-8")
+        ai_template = AI_TEMPLATE.read_text(encoding="utf-8")
     except Exception as exc:
-        return Result("autopilot.source_contract", False, PiSDErrorCodes.TEST_AUTOPILOT_CONTRACT_FAILED, f"failed to read source: {exc}")
+        return Result("autopilot_compat.source_contract", False, PiSDErrorCodes.TEST_AI_MODE_FAILED, f"failed to read source: {exc}")
+
     expected = {
-        "template": [
-            "PiSD Autopilot", "Back to Front Page", "autopilotInitialStatus", "autopilotControlPanel",
-            "apSafetyAck", "apEnableMotorOutput", "apStart", "apStop", "STOP AUTOPILOT + MOTORS",
-            "autopilotPreviewPanel", "apStartCamera", "apLiveCamera", "apStopCamera",
-        ],
-        "css": [".ap-shell", ".ap-grid", ".ap-preview-frame", ".ap-big-stop", "data-autopilot-running"],
-        "js": [
-            "autopilotInitialStatus", "/api/autopilot/status", "/api/autopilot/config", "/api/autopilot/start",
-            "/api/autopilot/stop", "/api/camera/start", "/video_feed", "sendBeacon", "failSafeStop",
-        ],
+        "template": ["PiSD Autopilot replaced", "url=/ai-mode", "Scripted Autopilot has been replaced", "/ai-mode"],
+        "css": ["scripted Autopilot CSS is intentionally retired", "AI Mode: /ai-mode"],
+        "js": ["scripted Autopilot JS is retired", "window.location.replace('/ai-mode')"],
+        "ai_template": ["PiSD AI Mode", "legacy_autopilot_alias", "old scripted Autopilot page has been replaced"],
     }
-    sources = {"template": template, "css": css, "js": js}
+    sources = {"template": template, "css": css, "js": js, "ai_template": ai_template}
     missing = {name: [token for token in tokens if token not in sources[name]] for name, tokens in expected.items()}
     missing = {name: tokens for name, tokens in missing.items() if tokens}
     return Result(
-        "autopilot.source_contract",
+        "autopilot_compat.source_contract",
         not missing,
-        PiSDErrorCodes.OK if not missing else PiSDErrorCodes.TEST_AUTOPILOT_CONTRACT_FAILED,
-        "autopilot page source contract passed" if not missing else "autopilot page source contract missing tokens",
+        PiSDErrorCodes.OK if not missing else PiSDErrorCodes.TEST_AI_MODE_FAILED,
+        "legacy Autopilot files redirect to AI Mode" if not missing else "legacy Autopilot compatibility source contract missing tokens",
         {"missing": missing},
     )
 
@@ -101,21 +99,27 @@ def check_routes() -> list[Result]:
     try:
         app = create_app(hardware_enabled=False)
     except RuntimeError as exc:
-        return [Result("autopilot.create_app", False, PiSDErrorCodes.APP_DEPENDENCY_MISSING, f"Flask app could not be created: {exc}")]
+        return [Result("autopilot_compat.create_app", False, PiSDErrorCodes.APP_DEPENDENCY_MISSING, f"Flask app could not be created: {exc}")]
     client = app.test_client()
     results: list[Result] = []
+
+    response = client.get("/autopilot")
+    ok = response.status_code == 200 and b"PiSD AI Mode" in response.data and b"old scripted Autopilot page has been replaced" in response.data
+    results.append(Result(
+        "autopilot_compat.route.alias_page",
+        ok,
+        PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_AI_MODE_FAILED,
+        "/autopilot loads AI Mode compatibility page" if ok else "/autopilot did not load AI Mode compatibility page",
+        {"http_status": response.status_code},
+    ))
+
     for path, label, marker in (
-        ("/autopilot", "autopilot.route.page", b"PiSD Autopilot"),
-        ("/testing/static/css/autopilot.css", "autopilot.static.css", b".ap-shell"),
-        ("/testing/static/js/autopilot.js", "autopilot.static.js", b"/api/autopilot/start"),
+        ("/testing/static/css/autopilot.css", "autopilot_compat.static.css", b"intentionally retired"),
+        ("/testing/static/js/autopilot.js", "autopilot_compat.static.js", b"/ai-mode"),
     ):
         response = client.get(path)
         ok = response.status_code == 200 and marker in response.data
-        results.append(Result(label, ok, PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_AUTOPILOT_CONTRACT_FAILED, f"{path} loaded" if ok else f"{path} failed", {"http_status": response.status_code}))
-    response = client.get("/api/autopilot/status")
-    payload = response.get_json(silent=True) or {}
-    ok = response.status_code == 200 and payload.get("ok") is True and isinstance(payload.get("autopilot"), dict)
-    results.append(Result("autopilot.route.status_api", ok, PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_AUTOPILOT_CONTRACT_FAILED, "status API loaded" if ok else "status API failed", {"http_status": response.status_code, "code": payload.get("code")}))
+        results.append(Result(label, ok, PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_AI_MODE_FAILED, f"{path} loaded" if ok else f"{path} failed", {"http_status": response.status_code}))
     return results
 
 
@@ -131,7 +135,7 @@ def main() -> int:
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps({"ok": ok, "results": [r.as_dict() for r in results]}, indent=2), encoding="utf-8")
-    print(json.dumps({"summary": str(output), "code": PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_AUTOPILOT_CONTRACT_FAILED, "failed": sum(1 for r in results if not r.ok)}, indent=2))
+    print(json.dumps({"summary": str(output), "code": PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_AI_MODE_FAILED, "failed": sum(1 for r in results if not r.ok)}, indent=2))
     return 0 if ok else 1
 
 
