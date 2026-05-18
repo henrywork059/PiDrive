@@ -74,6 +74,11 @@
                   <marker id="mdrvOverlayArrow" viewBox="0 0 18 18" refX="15.2" refY="9" markerWidth="8.5" markerHeight="8.5" orient="auto" markerUnits="strokeWidth">
                     <path d="M 2 2 L 16 9 L 2 16 L 5.4 9 z"></path>
                   </marker>
+                  <linearGradient id="mdrvOverlaySurfaceGradient" x1="0" y1="100" x2="0" y2="8" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stop-color="rgb(14, 165, 233)" stop-opacity="0.34"></stop>
+                    <stop offset="48%" stop-color="rgb(34, 197, 94)" stop-opacity="0.20"></stop>
+                    <stop offset="100%" stop-color="rgb(14, 165, 233)" stop-opacity="0.03"></stop>
+                  </linearGradient>
                 </defs>
                 <path id="aiOverlaySurface" class="mdrv-overlay-path-surface" d="M 28 96 L 44 24 L 56 24 L 72 96 Z"></path>
                 <path id="aiOverlayPathWide" class="mdrv-overlay-path-wide" d="M 34 94 L 45 24"></path>
@@ -195,6 +200,7 @@
     </section>
   </main>
   <script id="aiModeInitialStatus" type="application/json">{{ initial_status | tojson }}</script>
+  <script src="{{ static_asset('js/overlay_geometry.js') }}"></script>
   <script src="{{ static_asset('js/ai_mode.js') }}"></script>
 </body>
 </html>

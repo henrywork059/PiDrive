@@ -128,122 +128,44 @@
     return `${source} · ${tightness} ${turn}`;
   }
 
+  const overlayGeometry = window.PiSDOverlayGeometry || null;
+
   function pointsToPath(points) {
-    if (!Array.isArray(points) || !points.length) return '';
-    if (points.length < 3) {
-      return points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join(' ');
-    }
-    const commands = [`M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)}`];
-    for (let i = 1; i < points.length - 2; i += 1) {
-      const current = points[i];
-      const next = points[i + 1];
-      const midX = (current.x + next.x) / 2;
-      const midY = (current.y + next.y) / 2;
-      commands.push(`Q ${current.x.toFixed(2)} ${current.y.toFixed(2)} ${midX.toFixed(2)} ${midY.toFixed(2)}`);
-    }
-    const penultimate = points[points.length - 2];
-    const last = points[points.length - 1];
-    commands.push(`Q ${penultimate.x.toFixed(2)} ${penultimate.y.toFixed(2)} ${last.x.toFixed(2)} ${last.y.toFixed(2)}`);
-    return commands.join(' ');
+    return overlayGeometry?.pointsToPath(points) || '';
   }
 
   function pointsToPolygonPath(leftPoints, rightPoints) {
-    if (!Array.isArray(leftPoints) || !leftPoints.length || !Array.isArray(rightPoints) || !rightPoints.length) return '';
-    const commands = [`M ${leftPoints[0].x.toFixed(2)} ${leftPoints[0].y.toFixed(2)}`];
-    leftPoints.slice(1).forEach((point) => commands.push(`L ${point.x.toFixed(2)} ${point.y.toFixed(2)}`));
-    rightPoints.slice().reverse().forEach((point) => commands.push(`L ${point.x.toFixed(2)} ${point.y.toFixed(2)}`));
-    commands.push('Z');
-    return commands.join(' ');
+    return overlayGeometry?.pointsToPolygonPath(leftPoints, rightPoints) || '';
   }
 
   function roadBoundaryPath(points) {
-    return pointsToPath(points);
+    return overlayGeometry?.roadBoundaryPath(points) || pointsToPath(points);
   }
 
   function roadGuideGeometry(throttle, steering) {
-    const safeThrottle = clamp(throttle, -1, 1, 0);
-    const safeSteering = clamp(steering, -1, 1, 0);
-    const speed = Math.max(0, safeThrottle);
-    const movingReverse = safeThrottle < -0.02;
-    // PiSD_0_6_2: match Manual Drive's kinematic sampled path corridor.
-    // Ground-plane centre prediction plus tangent-normal edge offsets make
-    // turn previews read like a real path instead of a decorative SVG bow.
-    // Negative/left steering still shifts the visible future path to the
-    // right side of the camera frame, preserving the accepted v6 convention.
-    const curveStrength = AI_OVERLAY_SETTINGS.curve_strength;
-    const lengthScale = AI_OVERLAY_SETTINGS.path_length_scale;
-    const widthCalibration = AI_OVERLAY_SETTINGS.path_width_scale;
-    const visualWidthScale = clamp(0.82 + widthCalibration * 0.32, 0.78, 1.36, 0.93);
-    const baseY = 96;
-    const lookahead = clamp(1.72 + speed * 0.72 + ((lengthScale || 1.0) - 1.0) * 0.62, 1.15, 2.82, 1.72);
-    const horizonY = clamp(32 - speed * 9 - ((lengthScale || 1.0) - 1.0) * 12, 18, 43, 29);
-    const samples = 33;
-    const wheelbase = 0.32;
-    const maxSteerRad = 0.58;
-    const visualSteering = -safeSteering;
-    const shapedSteering = Math.sign(visualSteering) * Math.pow(Math.abs(visualSteering), 1.04);
-    const steerRad = shapedSteering * maxSteerRad;
-    const curvatureGain = clamp((curveStrength || 3.35) / 3.35, 0.24, 1.55, 1.0);
-    const curvature = clamp((Math.tan(steerRad) / wheelbase) * 0.36 * curvatureGain, -0.92, 0.92, 0);
-    const roadHalfWidth = 0.405 * visualWidthScale;
-    const cameraForwardOffset = 0.24;
-    const nearClip = 0.18;
-    const centerWorld = [];
-    let x = 0;
-    let z = 0;
-    let heading = 0;
-
-    for (let i = 0; i < samples; i += 1) {
-      if (i > 0) {
-        const ds = lookahead / (samples - 1);
-        heading += curvature * ds;
-        x += Math.sin(heading) * ds;
-        z += Math.cos(heading) * ds;
-      }
-      centerWorld.push({ x, z, heading });
-    }
-
-    function projectGroundPoint(point) {
-      const projectedZ = Math.max(nearClip, point.z + cameraForwardOffset);
-      const maxProjectedZ = lookahead + cameraForwardOffset;
-      const t = clamp((projectedZ - nearClip) / Math.max(0.1, maxProjectedZ - nearClip), 0, 1, 0);
-      const depth = 1 - Math.pow(1 - t, 1.18);
-      const y = baseY - (baseY - horizonY) * depth;
-      const perspectiveScale = 63 / (projectedZ + 0.88);
-      const edgeGuard = 2.8 + t * 2.4;
+    if (!overlayGeometry?.roadGuideGeometry) {
+      const movingReverse = Number(throttle) < -0.02;
+      const fallbackLeft = [{ x: 32, y: 96 }, { x: 44, y: 31 }];
+      const fallbackRight = [{ x: 68, y: 96 }, { x: 56, y: 31 }];
+      const fallbackCenter = [{ x: 50, y: 96 }, { x: 50, y: 31 }];
       return {
-        x: clamp(50 + point.x * perspectiveScale, edgeGuard, 100 - edgeGuard, 50),
-        y: clamp(y, 8, 98, y),
+        leftPath: roadBoundaryPath(fallbackLeft),
+        rightPath: roadBoundaryPath(fallbackRight),
+        centerPath: pointsToPath(fallbackCenter),
+        surfacePath: pointsToPolygonPath(fallbackLeft, fallbackRight),
+        start: fallbackCenter[0],
+        end: fallbackCenter[fallbackCenter.length - 1],
+        curve: 0,
+        movingReverse,
+        speed: Math.max(0, clamp(throttle, -1, 1, 0)),
       };
     }
-
-    const leftPoints = [];
-    const rightPoints = [];
-    const centerPoints = [];
-    for (let i = 0; i < centerWorld.length; i += 1) {
-      const previous = centerWorld[Math.max(0, i - 1)];
-      const next = centerWorld[Math.min(centerWorld.length - 1, i + 1)];
-      const dx = next.x - previous.x;
-      const dz = next.z - previous.z;
-      const tangentLength = Math.hypot(dx, dz) || 1;
-      const normal = { x: -dz / tangentLength, z: dx / tangentLength };
-      const point = centerWorld[i];
-      leftPoints.push(projectGroundPoint({ x: point.x + normal.x * roadHalfWidth, z: point.z + normal.z * roadHalfWidth }));
-      rightPoints.push(projectGroundPoint({ x: point.x - normal.x * roadHalfWidth, z: point.z - normal.z * roadHalfWidth }));
-      centerPoints.push(projectGroundPoint(point));
-    }
-
-    return {
-      leftPath: roadBoundaryPath(leftPoints),
-      rightPath: roadBoundaryPath(rightPoints),
-      centerPath: pointsToPath(centerPoints),
-      surfacePath: pointsToPolygonPath(leftPoints, rightPoints),
-      start: centerPoints[0],
-      end: centerPoints[centerPoints.length - 1],
-      curve: curvature * curveStrength,
-      movingReverse,
-      speed,
-    };
+    return overlayGeometry.roadGuideGeometry({
+      throttle,
+      steering,
+      settings: AI_OVERLAY_SETTINGS,
+      defaults: AI_OVERLAY_SETTINGS,
+    });
   }
 
   function drawAIPath(throttle, steering) {
@@ -258,7 +180,7 @@
     const widthScale = AI_OVERLAY_SETTINGS.path_width_scale;
     if (els.aiOverlaySurface) {
       els.aiOverlaySurface.setAttribute('d', surfacePath);
-      els.aiOverlaySurface.style.opacity = movingReverse ? '0' : (movingForward ? String(Math.max(0.10, AI_OVERLAY_SETTINGS.opacity * 0.26)) : String(Math.max(0.04, AI_OVERLAY_SETTINGS.opacity * 0.10)));
+      els.aiOverlaySurface.style.opacity = movingReverse ? '0' : (movingForward ? String(Math.max(0.16, AI_OVERLAY_SETTINGS.opacity * 0.36)) : String(Math.max(0.04, AI_OVERLAY_SETTINGS.opacity * 0.10)));
     }
     if (els.aiOverlayPathWide) {
       els.aiOverlayPathWide.setAttribute('d', leftPath);
@@ -274,7 +196,7 @@
     }
     if (els.aiOverlayPath) {
       els.aiOverlayPath.setAttribute('d', centerPath);
-      els.aiOverlayPath.style.opacity = movingReverse ? '0' : (movingForward ? String(Math.max(0.38, AI_OVERLAY_SETTINGS.opacity * 0.66)) : String(Math.max(0.10, AI_OVERLAY_SETTINGS.opacity * 0.22)));
+      els.aiOverlayPath.style.opacity = movingReverse ? '0' : (movingForward ? String(Math.max(0.18, AI_OVERLAY_SETTINGS.opacity * 0.34)) : String(Math.max(0.08, AI_OVERLAY_SETTINGS.opacity * 0.16)));
       els.aiOverlayPath.style.strokeDasharray = movingForward ? 'none' : '6 8';
       els.aiOverlayPath.style.strokeWidth = String((1.15 + speed * 0.38) * widthScale);
     }

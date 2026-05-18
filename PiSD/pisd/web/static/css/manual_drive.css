@@ -287,11 +287,11 @@ body[data-pisd-theme="light"] .mdrv-file-controls select { color: #0f172a; backg
 }
 
 .mdrv-overlay-path-surface {
-  fill: rgba(14, 165, 233, .18);
-  stroke: rgba(224, 242, 254, .16);
-  stroke-width: .36;
-  opacity: .18;
-  filter: drop-shadow(0 0 8px rgba(14, 165, 233, .32));
+  fill: url(#mdrvOverlaySurfaceGradient);
+  stroke: rgba(224, 242, 254, .22);
+  stroke-width: .42;
+  opacity: .30;
+  filter: drop-shadow(0 0 10px rgba(14, 165, 233, .36));
 }
 
 .mdrv-overlay-path-wide {
