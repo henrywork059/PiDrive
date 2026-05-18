@@ -70,11 +70,13 @@
     const speed = Math.max(0, safeThrottle);
     const movingReverse = safeThrottle < -0.02;
 
-    // PiSD_0_6_3: shared road-guide geometry for Manual Drive and AI Mode.
+    // PiSD_0_6_4: shared road-guide geometry for Manual Drive and AI Mode.
     // The centre path is predicted on a ground plane with a kinematic bicycle
-    // curvature command, integrated with a midpoint/RK-lite step.  Road edges
+    // curvature command, integrated with a midpoint/RK-lite step. Road edges
     // are offset from local tangent normals before projection, and X/Y screen
     // projection now uses the same hyperbolic depth basis to avoid turn warping.
+    // v0.6.4 intentionally flips the visual steering sign after hardware/UI
+    // feedback showed the previous left/right overlay direction was inverted.
     const curveStrength = numberSetting(settings, defaults, 'curve_strength');
     const lengthScale = numberSetting(settings, defaults, 'path_length_scale');
     const widthCalibration = numberSetting(settings, defaults, 'path_width_scale');
@@ -85,7 +87,7 @@
     const samples = 56;
     const wheelbase = 0.32;
     const maxSteerRad = 0.62;
-    const visualSteering = -safeSteering;
+    const visualSteering = safeSteering;
     const shapedSteering = Math.sign(visualSteering) * Math.pow(Math.abs(visualSteering), 1.05);
     const steerRad = shapedSteering * maxSteerRad;
     const curvatureGain = clamp((curveStrength || DEFAULT_OVERLAY.curve_strength) / DEFAULT_OVERLAY.curve_strength, 0.2, 1.65, 1.0);
