@@ -348,7 +348,7 @@ Expected:
 
 - files are saved under `test_outputs/camera_color/`
 - `summary.json` records backend, capture source, colour path, metadata, and any PiSD error code
-- `01_request_awb_auto.jpg` should be treated as the main preview baseline
+- `03_request_awb_off_lock.jpg` should be treated as the main preview/training baseline
 
 Single-frame camera test with explicit preview path:
 
@@ -381,7 +381,7 @@ Only keep manual gains if the result is visually better under the real lighting 
 
 ## PiSD 0.0.5 camera settings tests
 
-The visual camera path should use `capture_source=request`, with `01_request_awb_auto` confirmed correct. Raw array tests are optional; when needed, use `array_color_order=rgb` first because `91_array_rgb` was confirmed correct on the OV5647 setup.
+The visual camera path should use `capture_source=request`, with `03_request_awb_off_lock` selected as the current default after colour comparison. Raw array tests are optional; when needed, use `array_color_order=rgb` first because `91_array_rgb` was confirmed correct on the OV5647 setup.
 
 ### Dump camera capabilities
 

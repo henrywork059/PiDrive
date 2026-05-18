@@ -175,19 +175,19 @@ python scripts/check_error_reporting.py
 
 ## Camera colour / AWB debugging notes
 
-Patch `0.0.4` changes the default Picamera2 preview path from raw `capture_array()` plus OpenCV JPEG encoding to a Picamera2 request/PIL image path. This is intentional because the raw array path is useful for computer vision but can make colour debugging confusing when the array channel order is interpreted incorrectly.
+Patch `0.0.4` changed the default Picamera2 preview path from raw `capture_array()` plus OpenCV JPEG encoding to a Picamera2 request/PIL image path. This is intentional because the raw array path is useful for computer vision but can make colour debugging confusing when the array channel order is interpreted incorrectly.
 
-Current camera colour-related settings in `config/defaults.json`:
+Current camera colour-related settings in `config/defaults.json` after PiSD 0.5.6:
 
 ```json
 {
   "capture_source": "request",
   "array_color_order": "rgb",
-  "auto_white_balance": true,
+  "auto_white_balance": false,
   "awb_mode": "auto",
   "colour_gains_red": 0.0,
   "colour_gains_blue": 0.0,
-  "awb_settle_seconds": 0.5
+  "awb_settle_seconds": 1.0
 }
 ```
 
@@ -196,7 +196,7 @@ Recommended meaning:
 - `capture_source: "request"` — use Picamera2 request image/JPEG path for preview; this is the preferred default for colour checking.
 - `capture_source: "array"` — use raw array capture and PiSD/OpenCV encoding for computer-vision tests.
 - `array_color_order` — only affects the `array` path. Use `rgb` by default; the `91_array_rgb` diagnostic was confirmed correct on the OV5647 setup.
-- `auto_white_balance` — keep `true` for normal use; set `false` only when testing a fixed AWB lock or manual `ColourGains`.
+- `auto_white_balance` — defaults to `false` for the tested OV5647 locked-AWB visual profile. Use `true` only when actively testing AWB-auto modes.
 - `colour_gains_red` / `colour_gains_blue` — if both are above zero, PiSD sends Picamera2 `ColourGains`, which disables auto AWB.
 
 Colour diagnostic command:
@@ -213,9 +213,9 @@ PiSD/test_outputs/camera_color/
 
 Compare these images first:
 
-- `01_request_awb_auto.jpg` — confirmed correct default preview path.
+- `01_request_awb_auto.jpg` — older AWB-auto comparison; user testing showed it could still look too red/blue, so it is no longer the default.
 - `02_request_awb_daylight.jpg` — daylight AWB comparison.
-- `03_request_awb_off_lock.jpg` — lets AWB settle briefly, then locks it.
+- `03_request_awb_off_lock.jpg` — lets AWB settle briefly, then locks it. This is now the PiSD default visual preview/training profile.
 - `91_array_rgb_confirmed_correct.jpg` — confirmed correct raw array/CV path when `--include-array-diagnostics` is used.
 
 Keep preview on `capture_source: "request"`; use `array_color_order: "rgb"` for CV/raw array processing.

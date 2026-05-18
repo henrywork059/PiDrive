@@ -1,6 +1,6 @@
 # PiSD
 
-`PiSD_0_5_5_patch` — reverse steering Option A patch built forward from the PiSD_0_5_0 stable baseline plus the accepted AI Mode work.
+`PiSD_0_5_6_patch` — camera default profile patch built forward from the PiSD_0_5_0 stable baseline plus the accepted AI Mode work.
 
 Stable v5 is built from `PiSD_0_4_0` plus accepted patches `PiSD_0_4_1` through `PiSD_0_4_10`. It includes the v4 camera/motor/error-reporting foundation, responsive GUI, Manual Drive page, recording/snapshot workflow, and all accepted v4 patch-line improvements: code cleanup, Manual Drive preview overlay, predicted steering/throttle arc, overlay calibration/debugging, command-safety consistency, preview FPS/stale-state reliability, and safer recording/snapshot folder management.
 
@@ -12,7 +12,7 @@ It is intentionally separate from the existing `PiServer/` folder. PiSD may refe
 
 ## Current version
 
-`PiSD_0_5_5` — current patched working version when this patch is applied after the accepted AI Mode patch line.
+`PiSD_0_5_6` — current patched working version when this patch is applied after the accepted AI Mode patch line.
 
 This package consolidates the accepted `0.4.x` work into a full installable `PiSD/` folder rather than a patch-only zip. It should be used as the clean rollback point before starting future `0_5_x` patches.
 
@@ -33,6 +33,7 @@ Included accepted work:
 - AI Mode max throttle and fixed throttle controls now allow full-scale `1.00`, matching Manual Drive motor command range.
 - AI Mode reuses Manual Drive panel/topbar/button styling for a consistent interface.
 - AI Mode preview now reuses the Manual Drive preview-frame design and includes an AI safe-command path overlay drawn from the model prediction after the safety limiter.
+- Default OV5647 camera profile now uses the tested `03_request_awb_off_lock` request/PIL RGB visual profile for preview and training capture.
 - Reverse driving currently uses Option A: negative throttle keeps the same steering sign in motor output and preview overlays.
 
 This stable baseline keeps only one dependency file:
@@ -425,7 +426,7 @@ Camera colour diagnostic on the Pi. Use this if the real camera opens but the sa
 python scripts/diagnose_camera_color.py --hardware
 ```
 
-This saves comparison files under `test_outputs/camera_color/`. The first image, `01_request_awb_auto.jpg`, is the preferred preview baseline. When array diagnostics are enabled, `91_array_rgb` is the known-good raw array reference.
+This saves comparison files under `test_outputs/camera_color/`. `03_request_awb_off_lock.jpg` is the preferred preview/training baseline after the OV5647 colour comparison. When array diagnostics are enabled, `91_array_rgb` is the known-good raw array reference.
 
 Raw array colour-order check. Use RGB first because the `91_array_rgb` diagnostic was confirmed correct:
 

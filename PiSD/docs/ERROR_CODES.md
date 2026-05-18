@@ -286,3 +286,7 @@ PiSD 0.5.4 keeps the 0.5.2 AI error-code set and the 0.5.3 full-throttle range f
 ## PiSD 0.5.5 reverse steering policy note
 
 PiSD 0.5.5 keeps the 0.5.2 AI error-code set and explicitly applies reverse steering Option A: negative throttle keeps the same steering sign. The Manual Drive and AI Mode predicted-path overlays now use the same steering sign as the command sent through `MotorService.update(...)`, so reverse path visualisation is not mirrored by a hidden frontend-only inversion.
+
+## PiSD 0.5.6 camera default profile note
+
+PiSD 0.5.6 keeps the existing camera/error-code set, but changes the default OV5647 visual profile to the user-tested `03_request_awb_off_lock` request/PIL RGB path. Existing `runtime_settings.json` camera settings are migrated only when they still match the old uncustomised AWB-auto default, so user-selected colour profiles are preserved.

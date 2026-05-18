@@ -2,7 +2,7 @@
 """Run a matrix of camera setting changes through the PiSD CameraService.
 
 The default matrix uses the request/PIL path. Hardware colour checks showed
-01_request_awb_auto is correct for visual capture and 91_array_rgb is correct
+03_request_awb_off_lock is the current default for visual capture and 91_array_rgb is correct
 for raw array/CV interpretation on this OV5647 setup. Add
 --include-array-diagnostics only when intentionally retesting raw-array colour
 interpretation.

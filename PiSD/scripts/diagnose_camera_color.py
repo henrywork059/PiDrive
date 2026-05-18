@@ -4,7 +4,7 @@
 This script is intended for the OV5647/Picamera2 colour debugging path. It saves
 multiple JPEGs using different PiSD camera-service capture paths so the user can
 compare whether the colour problem is caused by AWB/tuning or RGB/BGR array
-encoding. Hardware testing showed 01_request_awb_auto and 91_array_rgb are
+encoding. Hardware testing showed 03_request_awb_off_lock and 91_array_rgb are
 the correct references for this OV5647 setup.
 """
 
@@ -152,7 +152,7 @@ def main() -> int:
         results.append(capture_scenario(base_config, args.hardware, args.seconds, label, updates, output_dir))
 
     summary_path = output_dir / "summary.json"
-    note = "01_request_awb_auto is the trusted visual reference. 91_array_rgb_confirmed_correct is the known-good raw array/CV reference for this OV5647 setup."
+    note = "03_request_awb_off_lock is the trusted default visual reference. 91_array_rgb_confirmed_correct is the known-good raw array/CV reference for this OV5647 setup."
     summary_path.write_text(json.dumps({"note": note, "results": results}, indent=2), encoding="utf-8")
     print(json.dumps({"output_dir": str(output_dir), "summary": str(summary_path), "note": note, "results": results}, indent=2))
 

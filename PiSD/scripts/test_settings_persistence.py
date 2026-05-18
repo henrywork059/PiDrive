@@ -64,8 +64,9 @@ def manager_checks() -> bool:
     ok = True
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / 'runtime_settings.json'
-        mgr = SettingsManager(path, {'camera': {'width': 426}, 'motor': {'steer_mix': 1.0}})
+        mgr = SettingsManager(path, {'camera': {'width': 426, 'auto_white_balance': False, 'awb_settle_seconds': 1.0}, 'motor': {'steer_mix': 1.0}})
         ok &= line(mgr.get()['camera']['width'] == 426, PiSDErrorCodes.OK, 'settings.manager.defaults', 'defaults loaded')
+        ok &= line(mgr.get()['camera']['auto_white_balance'] is False and mgr.get()['camera']['awb_settle_seconds'] == 1.0, PiSDErrorCodes.OK, 'settings.manager.camera_default_profile', '0.5.6 camera default profile loaded')
         saved, settings, report = mgr.save({'manual_drive': {'speed': 0.22, 'overlay': {'path_length_scale': 9, 'curve_strength': 0.1, 'opacity': 'bad', 'path_width_scale': 1.4}}, 'panel_presentation': {'theme': 'light'}})
         ok &= line(saved and settings['manual_drive']['speed'] == 0.22, PiSDErrorCodes.OK if saved else report.code, 'settings.manager.save', 'settings saved')
         overlay = settings['manual_drive']['overlay']
@@ -74,6 +75,32 @@ def manager_checks() -> bool:
         ok &= line(mgr2.get()['panel_presentation']['theme'] == 'light', PiSDErrorCodes.OK, 'settings.manager.reload', 'settings reloaded')
         bad, _settings, report = mgr2.save({'unknown_group': {}})
         ok &= line((not bad) and report and report.code == PiSDErrorCodes.SETTINGS_INVALID_PAYLOAD, report.code if report else PiSDErrorCodes.TEST_SETTINGS_PERSISTENCE_FAILED, 'settings.manager.reject_bad', 'bad payload rejected with code')
+
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / 'runtime_settings.json'
+        path.write_text(json.dumps({'camera': {
+            'capture_source': 'request',
+            'array_color_order': 'rgb',
+            'format': 'BGR888',
+            'auto_white_balance': True,
+            'awb_mode': 'auto',
+            'colour_gains_red': 0.0,
+            'colour_gains_blue': 0.0,
+            'awb_settle_seconds': 0.5,
+            'brightness': 0.0,
+            'contrast': 1.0,
+            'saturation': 1.0,
+        }}, indent=2), encoding='utf-8')
+        mgr3 = SettingsManager(path, {'camera': {'auto_white_balance': False, 'awb_settle_seconds': 1.0}, 'motor': {}})
+        cam = mgr3.get()['camera']
+        ok &= line(cam['auto_white_balance'] is False and cam['awb_settle_seconds'] == 1.0, PiSDErrorCodes.OK, 'settings.manager.camera_migration', 'old AWB-auto camera default migrates to locked-AWB profile')
+
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / 'runtime_settings.json'
+        path.write_text(json.dumps({'camera': {'auto_white_balance': True, 'awb_mode': 'daylight'}}, indent=2), encoding='utf-8')
+        mgr4 = SettingsManager(path, {'camera': {'auto_white_balance': False, 'awb_settle_seconds': 1.0}, 'motor': {}})
+        cam = mgr4.get()['camera']
+        ok &= line(cam['auto_white_balance'] is True and cam['awb_mode'] == 'daylight', PiSDErrorCodes.OK, 'settings.manager.camera_custom_preserved', 'custom camera AWB mode is preserved')
     return ok
 
 

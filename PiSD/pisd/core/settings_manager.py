@@ -152,6 +152,61 @@ class SettingsManager:
             self._settings = copy.deepcopy(self.defaults)
         return self.save({})
 
+
+    def _looks_like_old_awb_auto_camera_default(self, camera: dict[str, Any]) -> bool:
+        """Return true only for the old uncustomised 0.5.x camera profile.
+
+        PiSD_0_5_6 changes the OV5647 default to the tested 03/91-style
+        locked-AWB visual profile. Existing runtime_settings.json files should
+        inherit that only when they still look like the old stock AWB-auto
+        default. User-chosen profiles such as daylight/tungsten/manual gains
+        are intentionally preserved.
+        """
+        def _s(key: str, default: str = "") -> str:
+            return str(camera.get(key, default) or default).strip().lower()
+
+        def _f(key: str, default: float) -> float:
+            try:
+                return float(camera.get(key, default))
+            except Exception:
+                return default
+
+        def _b(key: str, default: bool) -> bool:
+            value = camera.get(key, default)
+            if isinstance(value, bool):
+                return value
+            return str(value).strip().lower() in {"true", "1", "yes", "on"}
+
+        return (
+            _s("capture_source", "request") == "request"
+            and _s("array_color_order", "rgb") == "rgb"
+            and _s("format", "bgr888") == "bgr888"
+            and _b("auto_white_balance", True) is True
+            and _s("awb_mode", "auto") == "auto"
+            and abs(_f("colour_gains_red", 0.0)) < 1e-9
+            and abs(_f("colour_gains_blue", 0.0)) < 1e-9
+            and _f("awb_settle_seconds", 0.5) <= 0.5
+            and abs(_f("brightness", 0.0)) < 1e-9
+            and abs(_f("contrast", 1.0) - 1.0) < 1e-9
+            and abs(_f("saturation", 1.0) - 1.0) < 1e-9
+        )
+
+    def _apply_camera_default_profile_migration(self, camera: dict[str, Any]) -> None:
+        if not isinstance(camera, dict):
+            return
+        if self._looks_like_old_awb_auto_camera_default(camera):
+            camera["capture_source"] = "request"
+            camera["array_color_order"] = "rgb"
+            camera["format"] = "BGR888"
+            camera["auto_white_balance"] = False
+            camera["awb_mode"] = "auto"
+            camera["colour_gains_red"] = 0.0
+            camera["colour_gains_blue"] = 0.0
+            camera["awb_settle_seconds"] = 1.0
+            camera["brightness"] = 0.0
+            camera["contrast"] = 1.0
+            camera["saturation"] = 1.0
+
     def _normalise(self, data: dict[str, Any]) -> dict[str, Any]:
         merged = deep_merge(self.defaults, data)
         panel = merged.setdefault("panel_presentation", {})
@@ -187,6 +242,13 @@ class SettingsManager:
             panel["previewPriority"] = "fit-view"
         if panel.get("topbarMode") not in {"compact", "standard"}:
             panel["topbarMode"] = "compact"
+
+        # PiSD_0_5_6: migrate only the old uncustomised AWB-auto camera default
+        # to the OV5647 03/91-style locked-AWB profile. This prevents existing
+        # runtime_settings.json files from keeping the old red-prone default,
+        # while preserving user-chosen camera profiles.
+        camera = merged.setdefault("camera", {})
+        self._apply_camera_default_profile_migration(camera)
 
         # Clamp persisted motor limits as settings are loaded, not only when the
         # MotorService receives them. Older runtime_settings.json files are normalised here before

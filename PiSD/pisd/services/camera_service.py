@@ -197,11 +197,15 @@ class CameraConfig:
     ae_metering_mode: str = "centre-weighted"
     ae_exposure_mode: str = "normal"
     ae_constraint_mode: str = "normal"
-    auto_white_balance: bool = True
+    # PiSD_0_5_6: default to the hardware-tested OV5647 03/91-style
+    # visual profile: request/PIL RGB path with AWB locked after a short
+    # settle. This avoids the red/yellow/blue drift seen in AWB-auto
+    # diagnostic variants while keeping manual colour gains disabled.
+    auto_white_balance: bool = False
     awb_mode: str = "auto"
     colour_gains_red: float = 0.0
     colour_gains_blue: float = 0.0
-    awb_settle_seconds: float = 0.5
+    awb_settle_seconds: float = 1.0
     brightness: float = 0.0
     contrast: float = 1.0
     saturation: float = 1.0
@@ -398,9 +402,9 @@ class CameraService:
             "valid_array_color_orders": sorted(_VALID_ARRAY_COLOR_ORDERS),
             "recommended_visual_capture_source": "request",
             "recommended_array_color_order": "rgb",
-            "verified_colour_reference": "01_request_awb_auto",
+            "verified_colour_reference": "03_request_awb_off_lock",
             "verified_array_reference": "91_array_rgb",
-            "note": "Use capture_source=request for visual colour reference. For raw array/CV paths, this OV5647 test setup matched array_color_order=rgb.",
+            "note": "Use capture_source=request with the 03_request_awb_off_lock profile for visual colour/training reference. For raw array/CV paths, this OV5647 test setup matched array_color_order=rgb.",
             "fps_pipeline": {
                 "recommended_display_endpoint": "/video_feed",
                 "snapshot_endpoint": "/api/camera/frame.jpg",
@@ -670,6 +674,25 @@ class CameraService:
                 return frame.copy()
             return frame
 
+    def _should_settle_awb_before_lock(self) -> bool:
+        return (
+            not bool(self.config.auto_white_balance)
+            and float(self.config.awb_settle_seconds) > 0.0
+            and float(self.config.colour_gains_red) <= 0.0
+            and float(self.config.colour_gains_blue) <= 0.0
+        )
+
+    def _build_startup_controls_for_awb_lock(self, controls: dict[str, Any]) -> dict[str, Any]:
+        """Allow AWB to settle briefly before the locked-AWB default is applied."""
+        if not self._should_settle_awb_before_lock():
+            return controls
+        startup_controls = dict(controls)
+        startup_controls["AwbEnable"] = True
+        awb_mode = self._resolve_control_enum("AwbModeEnum", self.config.awb_mode, _AWB_MODE_MAP, "awb_mode")
+        if awb_mode is not None:
+            startup_controls["AwbMode"] = awb_mode
+        return startup_controls
+
     def _open_picamera2_locked(self) -> tuple[bool, str]:
         if Picamera2 is None:
             self._record(PiSDErrorCodes.CAMERA_PICAMERA2_MISSING, "Picamera2 is not installed.", severity="warning")
@@ -678,10 +701,11 @@ class CameraService:
             picam2 = Picamera2()
             frame_duration = max(1, int(1_000_000 / max(self.config.fps, 1)))
             controls = self._build_picamera_controls(include_frame_duration=True)
+            startup_controls = self._build_startup_controls_for_awb_lock(controls)
             transform = self._build_transform()
             kwargs: dict[str, Any] = {
                 "main": {"size": (self.config.width, self.config.height), "format": self.config.format},
-                "controls": {"FrameDurationLimits": (frame_duration, frame_duration), **controls},
+                "controls": {"FrameDurationLimits": (frame_duration, frame_duration), **startup_controls},
                 "queue": bool(self.config.queue),
                 "buffer_count": int(self.config.buffer_count),
             }
@@ -701,6 +725,7 @@ class CameraService:
                     "queue": self.config.queue,
                     "hflip": self.config.hflip,
                     "vflip": self.config.vflip,
+                    "awb_lock_after_settle": self._should_settle_awb_before_lock(),
                 }
             if self.config.awb_settle_seconds > 0:
                 time.sleep(float(self.config.awb_settle_seconds))

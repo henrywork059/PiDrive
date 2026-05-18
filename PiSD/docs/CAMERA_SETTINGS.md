@@ -27,7 +27,7 @@ Use this only for diagnostics or future computer vision pipelines:
 "capture_source": "array"
 ```
 
-Known note from hardware testing: `01_request_awb_auto` was confirmed correct for visual preview, and `91_array_rgb` was confirmed correct for the raw array/CV path. Earlier auto/BGR array outputs were wrong, so array modes remain optional diagnostics and default to RGB.
+Known note from hardware testing: `03_request_awb_off_lock` is now the default visual preview/training profile, and `91_array_rgb` remains the confirmed raw array/CV path. Earlier auto/BGR array outputs were wrong, so array modes remain optional diagnostics and default to RGB.
 
 ## Main configuration settings
 
@@ -59,11 +59,11 @@ Known note from hardware testing: `01_request_awb_auto` was confirmed correct fo
 
 | Setting | Purpose |
 |---|---|
-| `auto_white_balance` | true = AWB enabled; false = manual colour gains |
+| `auto_white_balance` | defaults to false for the tested locked-AWB visual profile; true enables AWB test modes |
 | `awb_mode` | `auto`, `daylight`, `cloudy`, `indoor`, `fluorescent`, `tungsten`, `incandescent`, `custom` |
 | `colour_gains_red` | manual red gain; applies only when AWB is off |
 | `colour_gains_blue` | manual blue gain; applies only when AWB is off |
-| `awb_settle_seconds` | delay after start before first checks/captures |
+| `awb_settle_seconds` | default 1.0 seconds; lets the sensor settle before locking/checking colour |
 | `brightness` | image brightness control |
 | `contrast` | image contrast control |
 | `saturation` | image saturation control |

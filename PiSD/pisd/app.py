@@ -185,10 +185,15 @@ def create_app(hardware_enabled: bool = False):
                 {"method": "POST", "path": "/api/ai/stop", "purpose": "Stop AI mode and stop motors when needed."},
             ],
             "known_good_camera": {
-                "visual_reference": "01_request_awb_auto",
+                "visual_reference": "03_request_awb_off_lock",
                 "array_reference": "91_array_rgb_confirmed_correct",
                 "capture_source": "request",
                 "array_color_order": "rgb",
+                "default_profile": "ov5647_request_locked_awb_03",
+                "auto_white_balance": False,
+                "awb_settle_seconds": 1.0,
+                "colour_gains_red": 0.0,
+                "colour_gains_blue": 0.0,
                 "live_preview_endpoint": "/video_feed",
                 "fps_stats_endpoint": "/api/camera/fps-stats",
                 "fast_preview_preset": {
