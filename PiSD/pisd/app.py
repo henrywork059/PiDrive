@@ -69,7 +69,7 @@ def create_app(hardware_enabled: bool = False):
     runtime_settings = settings_manager.get()
     camera_service = CameraService(runtime_settings.get("camera") or defaults.get("camera"), hardware_enabled=hardware_enabled)
     motor_service = MotorService(runtime_settings.get("motor") or defaults.get("motor"), hardware_enabled=hardware_enabled)
-    recording_service = RecordingService(PROJECT_ROOT)
+    recording_service = RecordingService(PROJECT_ROOT, settings_provider=settings_manager.get)
     ai_drive_service = AIDriveService(PROJECT_ROOT, runtime_settings.get("ai_mode") or {})
 
     app = Flask(
@@ -525,7 +525,12 @@ def create_app(hardware_enabled: bool = False):
         if json_error is not None:
             return jsonify(report_payload(False, json_error)), 400
         try:
-            result = recording_service.capture_once(camera_service, motor_service, label=data.get("label", "manual_capture"))
+            result = recording_service.capture_once(
+                camera_service,
+                motor_service,
+                label=data.get("label", "manual_capture"),
+                overlay_settings=data.get("overlay_settings"),
+            )
             return jsonify(result), 200 if result.get("ok") else 503
         except Exception as exc:
             report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"Recording capture API failed: {exc}", exc=exc)
@@ -542,6 +547,7 @@ def create_app(hardware_enabled: bool = False):
                 motor_service,
                 label=data.get("label", "manual_drive"),
                 fps=data.get("fps", 6),
+                overlay_settings=data.get("overlay_settings"),
             )
             return jsonify(result), 200 if result.get("ok") else 409
         except Exception as exc:

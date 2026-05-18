@@ -43,8 +43,9 @@ The JSONL record beside the image stores:
 - steering, throttle, steer mix
 - effective left/right motor outputs
 - motor tuning values such as bias, directions, and max speed
+- Manual Drive visual path overlay settings used when the frame was saved
 
-This means a training or debugging script can link every frame back to the exact runtime state that produced it.
+This means a training or debugging script can link every frame back to the exact runtime state that produced it. From PiSD 0.6.7 onward, piTrainer can also redraw the path overlay from the saved overlay metadata instead of guessing the current browser settings.
 
 ## API endpoints
 
@@ -148,3 +149,38 @@ Deleting the active recording session is refused. Stop recording first.
 - Missing folders return `PISD-REC-008`.
 - Delete failures return `PISD-REC-009`.
 - Zip failures return `PISD-REC-010`.
+
+
+## 0.6.7 overlay metadata for trainer redraw
+
+Manual screenshots and continuous recordings now save the active Manual Drive path-overlay settings alongside each frame. This is separate from the camera image itself; it is metadata for later visualisation in piTrainer.
+
+Saved locations:
+
+- `manifest.json` stores the latest/session-level `overlay_settings`, `overlay_settings_source`, and `overlay_schema_version`.
+- `records.jsonl` stores `overlay_settings` on every full frame record.
+- `labels.jsonl` also stores `overlay_settings` beside the compact trainer fields.
+
+Example `labels.jsonl` row shape:
+
+```json
+{
+  "frame": "frames/frame_000001_YYYYMMDDTHHMMSSffffffZ_xxxxxxxx.jpg",
+  "relative_file": "recordings/YYYY-MM-DD/session/frames/frame_000001_YYYYMMDDTHHMMSSffffffZ_xxxxxxxx.jpg",
+  "steering": 0.12,
+  "throttle": 0.18,
+  "timestamp_utc": "2026-05-18T14:30:00.000000+00:00",
+  "source_frame_seq": 1,
+  "session_id": "YYYYMMDD_HHMMSS_manual_drive_xxxxxxxx",
+  "overlay_schema_version": "PiSD_0_6_7_overlay_settings_v1",
+  "overlay_settings": {
+    "enabled": true,
+    "path_length_scale": 1.0,
+    "curve_strength": 3.35,
+    "opacity": 0.94,
+    "path_width_scale": 0.34
+  }
+}
+```
+
+The overlay settings are visual-only metadata. They do not change motor outputs. User-entered unclamped overlay tuning numbers are preserved where they are finite JSON-safe values, so piTrainer can reproduce the same guide style used during recording.

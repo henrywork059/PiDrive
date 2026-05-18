@@ -525,6 +525,10 @@
     return normaliseOverlaySettings(next);
   }
 
+  function overlaySettingsForRecording() {
+    return normaliseOverlaySettings(overlaySettings);
+  }
+
   function openOverlaySettingsPopup() {
     if (!overlaySettingsPopup) return;
     writeOverlayControls();
@@ -1074,7 +1078,7 @@
 
   async function captureFrame() {
     try {
-      const { payload } = await api('POST', '/api/recording/capture', { label: 'manual_capture' }, 'camera');
+      const { payload } = await api('POST', '/api/recording/capture', { label: 'manual_capture', overlay_settings: overlaySettingsForRecording() }, 'camera');
       const record = payload?.record || {};
       if (payload?.ok) {
         const file = record.relative_file || record.file || '';
@@ -1097,7 +1101,7 @@
         const { payload } = await api('POST', '/api/recording/stop', {}, 'camera');
         showCaptureNotice(`Recording stopped: ${payload?.code || 'PISD-OK-000'}`, payload?.code || 'PISD-OK-000');
       } else {
-        const { payload } = await api('POST', '/api/recording/start', { label: 'manual_drive', fps: manual.recording_fps || DEFAULTS.recording_fps }, 'camera');
+        const { payload } = await api('POST', '/api/recording/start', { label: 'manual_drive', fps: manual.recording_fps || DEFAULTS.recording_fps, overlay_settings: overlaySettingsForRecording() }, 'camera');
         const session = payload?.recording?.active_session || {};
         showCaptureNotice(`Recording started${session.session_id ? ': ' + session.session_id : ''}`, payload?.code || 'PISD-OK-000');
       }

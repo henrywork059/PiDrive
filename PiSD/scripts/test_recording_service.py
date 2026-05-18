@@ -88,18 +88,30 @@ def main() -> int:
     if OUTPUT_ROOT.exists() and not args.keep_output:
         shutil.rmtree(OUTPUT_ROOT)
     OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
-    service = RecordingService(PROJECT_ROOT, root_name="test_outputs/recording_service/recordings")
+    provider_overlay = {"enabled": True, "curve_strength": 9.87, "sample_count": 77, "path_width_scale": 0.66}
+    capture_overlay = {"enabled": True, "curve_strength": 12.34, "sample_count": 123, "path_width_scale": 0.99}
+    service = RecordingService(
+        PROJECT_ROOT,
+        root_name="test_outputs/recording_service/recordings",
+        settings_provider=lambda: {"manual_drive": {"overlay": provider_overlay}},
+    )
     camera = FakeCamera()
     motor = FakeMotor()
     results: list[Result] = []
 
-    capture = service.capture_once(camera, motor, label="unit_capture")
+    capture = service.capture_once(camera, motor, label="unit_capture", overlay_settings=capture_overlay)
     record = capture.get("record") or {}
     frame_file = PROJECT_ROOT / record.get("relative_file", "missing")
-    ok = capture.get("code") == PiSDErrorCodes.OK and frame_file.exists() and record.get("steering") == 0.12 and "camera_settings" in record
+    ok = (
+        capture.get("code") == PiSDErrorCodes.OK
+        and frame_file.exists()
+        and record.get("steering") == 0.12
+        and "camera_settings" in record
+        and (record.get("overlay_settings") or {}).get("curve_strength") == capture_overlay["curve_strength"]
+    )
     results.append(Result("recording.capture_once", ok, capture.get("code", PiSDErrorCodes.TEST_RECORDING_SERVICE_FAILED), "single capture saved frame and metadata" if ok else "single capture failed", {"record": record}))
 
-    capture2 = service.capture_once(camera, motor, label="unit_capture")
+    capture2 = service.capture_once(camera, motor, label="unit_capture", overlay_settings=capture_overlay)
     record2 = capture2.get("record") or {}
     same_folder = (Path(record.get("file", "missing")).parent == Path(record2.get("file", "other")).parent) if record and record2 else False
     ordered = record.get("frame_index") == 1 and record2.get("frame_index") == 2
@@ -128,14 +140,22 @@ def main() -> int:
     labels_ok = False
     if lines:
         item = json.loads(lines[0])
-        schema_ok = all(key in item for key in ("frame_id", "frame_index", "saved_at_utc", "relative_file", "camera_settings", "motor_state", "steering", "throttle", "motor_outputs", "motor_tuning", "training_label"))
+        schema_ok = (
+            all(key in item for key in ("frame_id", "frame_index", "saved_at_utc", "relative_file", "camera_settings", "motor_state", "steering", "throttle", "motor_outputs", "motor_tuning", "training_label", "overlay_settings", "overlay_schema_version"))
+            and (item.get("overlay_settings") or {}).get("sample_count") == provider_overlay["sample_count"]
+        )
         labels_file = records_file.with_name("labels.jsonl")
         label_lines = labels_file.read_text().strip().splitlines() if labels_file.exists() else []
         if label_lines:
             label = json.loads(label_lines[0])
-            labels_ok = all(key in label for key in ("frame", "relative_file", "steering", "throttle", "timestamp_utc", "source_frame_seq", "session_id")) and label.get("steering") == item.get("steering") and label.get("throttle") == item.get("throttle")
-    results.append(Result("recording.metadata_schema", schema_ok, PiSDErrorCodes.OK if schema_ok else PiSDErrorCodes.TEST_RECORDING_SERVICE_FAILED, "metadata includes traceable order/time/camera/motor/training-label fields" if schema_ok else "metadata schema incomplete"))
-    results.append(Result("recording.training_labels_jsonl", labels_ok, PiSDErrorCodes.OK if labels_ok else PiSDErrorCodes.TEST_RECORDING_SERVICE_FAILED, "labels.jsonl stores trainer-friendly frame/steering/throttle labels" if labels_ok else "labels.jsonl training labels missing or incomplete"))
+            labels_ok = (
+                all(key in label for key in ("frame", "relative_file", "steering", "throttle", "timestamp_utc", "source_frame_seq", "session_id", "overlay_settings", "overlay_schema_version"))
+                and label.get("steering") == item.get("steering")
+                and label.get("throttle") == item.get("throttle")
+                and (label.get("overlay_settings") or {}).get("curve_strength") == provider_overlay["curve_strength"]
+            )
+    results.append(Result("recording.metadata_schema", schema_ok, PiSDErrorCodes.OK if schema_ok else PiSDErrorCodes.TEST_RECORDING_SERVICE_FAILED, "metadata includes traceable order/time/camera/motor/training-label/overlay fields" if schema_ok else "metadata schema incomplete"))
+    results.append(Result("recording.training_labels_jsonl", labels_ok, PiSDErrorCodes.OK if labels_ok else PiSDErrorCodes.TEST_RECORDING_SERVICE_FAILED, "labels.jsonl stores trainer-friendly frame/steering/throttle labels plus overlay settings" if labels_ok else "labels.jsonl training labels missing or incomplete"))
 
     listed = service.list_collections()
     collections = listed.get("collections") or {}

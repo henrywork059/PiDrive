@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import atexit
 import json
+import math
 import shutil
 import threading
 import time
@@ -10,7 +11,7 @@ import zipfile
 from io import BytesIO
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from pisd.core.errors import ErrorReport, ErrorReporter, PiSDErrorCodes, ok_payload, report_payload
 from pisd.core.value_utils import clamp_float
@@ -51,9 +52,10 @@ class RecordingService:
     instances passed at call time so it can be tested without hardware.
     """
 
-    def __init__(self, project_root: Path | str, root_name: str = "recordings"):
+    def __init__(self, project_root: Path | str, root_name: str = "recordings", settings_provider: Callable[[], dict[str, Any]] | None = None):
         self.project_root = Path(project_root)
         self.root_dir = self.project_root / root_name
+        self.settings_provider = settings_provider
         self.errors = ErrorReporter("recording")
         self._lock = threading.RLock()
         self._stop_event = threading.Event()
@@ -96,7 +98,7 @@ class RecordingService:
         data.update(self.errors.status_fields(limit=5))
         return data
 
-    def start(self, camera_service: Any, motor_service: Any, *, label: Any = "manual_drive", fps: Any = 6.0) -> dict[str, Any]:
+    def start(self, camera_service: Any, motor_service: Any, *, label: Any = "manual_drive", fps: Any = 6.0, overlay_settings: Any | None = None) -> dict[str, Any]:
         record_fps = clamp_float(fps, 0.2, 30.0, 6.0)
         session_label = _safe_label(label, "manual_drive")
         with self._lock:
@@ -109,6 +111,7 @@ class RecordingService:
                 )
                 return report_payload(False, report, recording=self.status())
             now = _utc_now()
+            overlay_snapshot = self._current_overlay_settings(overlay_settings)
             session_id = f"{now.strftime('%Y%m%d_%H%M%S')}_{session_label}_{uuid.uuid4().hex[:8]}"
             session_dir = self.root_dir / _date_folder(now) / session_id
             frames_dir = session_dir / "frames"
@@ -125,6 +128,9 @@ class RecordingService:
                     "labels_file": str((session_dir / "labels.jsonl").relative_to(self.project_root)),
                     "manifest_file": str((session_dir / "manifest.json").relative_to(self.project_root)),
                     "frame_count": 0,
+                    "overlay_settings": overlay_snapshot,
+                    "overlay_settings_source": "manual_drive_runtime_overlay",
+                    "overlay_schema_version": "PiSD_0_6_7_overlay_settings_v1",
                     "schema": {
                         "frame_id": "unique stable frame id",
                         "frame_index": "1-based session order",
@@ -135,12 +141,14 @@ class RecordingService:
                         "steering": "last manual steering command if available",
                         "throttle": "last manual throttle command if available",
                         "motor_outputs": "left/right effective motor outputs",
+                        "overlay_settings": "Manual Drive visual path overlay settings at save time for trainer redraw",
                     },
                     "training_labels_schema": {
                         "frame": "relative frame path used by trainers",
                         "steering": "manual steering label in -1..1",
                         "throttle": "manual throttle label in -1..1",
                         "timestamp_utc": "save time for traceability",
+                        "overlay_settings": "Manual Drive visual path overlay settings at save time for trainer redraw",
                     },
                 }
                 self._write_json(session_dir / "manifest.json", manifest)
@@ -162,6 +170,9 @@ class RecordingService:
                 "manifest_file": str(session_dir / "manifest.json"),
                 "started_at_utc": now.isoformat(),
                 "record_fps": record_fps,
+                "overlay_settings": overlay_snapshot,
+                "overlay_settings_source": "manual_drive_runtime_overlay",
+                "overlay_schema_version": "PiSD_0_6_7_overlay_settings_v1",
             }
             self._frame_count = 0
             self._last_saved_record = {}
@@ -206,7 +217,7 @@ class RecordingService:
             self._thread = None
         return ok_payload("Recording stopped.", recording=self.status(), stopped_session=session)
 
-    def capture_once(self, camera_service: Any, motor_service: Any, *, label: Any = "capture") -> dict[str, Any]:
+    def capture_once(self, camera_service: Any, motor_service: Any, *, label: Any = "capture", overlay_settings: Any | None = None) -> dict[str, Any]:
         label_text = _safe_label(label, "capture")
         try:
             frame, seq, source_frame_at, byte_count = self._get_frame(camera_service)
@@ -231,6 +242,7 @@ class RecordingService:
                         label=label_text,
                         frame_index=frame_index,
                         session=session,
+                        overlay_settings=overlay_settings,
                     )
                     self._frame_count = frame_index
                     self._finalise_manifest_locked(open_session=True)
@@ -246,6 +258,7 @@ class RecordingService:
                     label=label_text,
                     frame_index=frame_index,
                     session=session,
+                    overlay_settings=overlay_settings,
                 )
                 self._write_json(
                     Path(session["manifest_file"]),
@@ -254,6 +267,9 @@ class RecordingService:
                         "frame_count": frame_index,
                         "last_saved_record": record,
                         "updated_at_utc": record["saved_at_utc"],
+                        "overlay_settings": record.get("overlay_settings", {}),
+                        "overlay_settings_source": record.get("overlay_settings_source", "manual_drive_runtime_overlay"),
+                        "overlay_schema_version": record.get("overlay_schema_version", "PiSD_0_6_7_overlay_settings_v1"),
                         "capture_folder_policy": "All manual single captures for the same day are saved in this one folder.",
                     },
                 )
@@ -475,6 +491,57 @@ class RecordingService:
         except Exception:
             pass
 
+    def _json_safe_overlay_settings(self, value: Any) -> dict[str, Any]:
+        """Return a JSON-safe overlay settings snapshot without clamping user tuning values.
+
+        Overlay settings are visual/training metadata, not motor-safety inputs.
+        Preserve finite typed numbers and simple scalar values so piTrainer can
+        redraw the same guide later, but discard unserialisable values.
+        """
+        if not isinstance(value, dict):
+            return {}
+        cleaned: dict[str, Any] = {}
+        for key, item in value.items():
+            key_text = str(key)
+            if isinstance(item, bool) or item is None or isinstance(item, str):
+                cleaned[key_text] = item
+            elif isinstance(item, int):
+                cleaned[key_text] = item
+            elif isinstance(item, float):
+                if math.isfinite(item):
+                    cleaned[key_text] = item
+            else:
+                try:
+                    numeric = float(item)
+                    if math.isfinite(numeric):
+                        cleaned[key_text] = numeric
+                except Exception:
+                    continue
+        return cleaned
+
+    def _settings_provider_overlay(self) -> dict[str, Any]:
+        if not self.settings_provider:
+            return {}
+        try:
+            settings = self.settings_provider() or {}
+            manual = settings.get("manual_drive") if isinstance(settings, dict) else {}
+            overlay = manual.get("overlay") if isinstance(manual, dict) else {}
+            return self._json_safe_overlay_settings(overlay)
+        except Exception:
+            return {}
+
+    def _current_overlay_settings(self, explicit: Any | None = None, *, session: dict[str, Any] | None = None) -> dict[str, Any]:
+        explicit_overlay = self._json_safe_overlay_settings(explicit)
+        if explicit_overlay:
+            return explicit_overlay
+        provider_overlay = self._settings_provider_overlay()
+        if provider_overlay:
+            return provider_overlay
+        session_overlay = self._json_safe_overlay_settings((session or {}).get("overlay_settings"))
+        if session_overlay:
+            return session_overlay
+        return {}
+
     def _record_loop(self, camera_service: Any, motor_service: Any, record_fps: float) -> None:
         interval = 1.0 / max(0.2, record_fps)
         last_seq: int | None = None
@@ -576,6 +643,7 @@ class RecordingService:
         label: str,
         frame_index: int,
         session: dict[str, Any],
+        overlay_settings: Any | None = None,
     ) -> dict[str, Any]:
         saved_at = _utc_now()
         frame_id = f"{session['session_id']}_{frame_index:06d}_{_stamp(saved_at)}_{uuid.uuid4().hex[:8]}"
@@ -587,6 +655,7 @@ class RecordingService:
         camera_status = camera_service.get_config()
         motor_status = motor_service.status()
         last_command = motor_status.get("last_command") or {}
+        overlay_snapshot = self._current_overlay_settings(overlay_settings, session=session)
         record = {
             "frame_id": frame_id,
             "frame_index": int(frame_index),
@@ -620,6 +689,9 @@ class RecordingService:
                 "right_direction": motor_status.get("right_direction"),
                 "steering_direction": motor_status.get("steering_direction"),
             },
+            "overlay_settings": overlay_snapshot,
+            "overlay_settings_source": "manual_drive_runtime_overlay",
+            "overlay_schema_version": "PiSD_0_6_7_overlay_settings_v1",
         }
         # PiSD_0_5_2: write a compact trainer-friendly label beside the full
         # trace record. The full records.jsonl remains the source for debugging,
@@ -633,6 +705,8 @@ class RecordingService:
             "timestamp_utc": record["saved_at_utc"],
             "source_frame_seq": record["source_frame_seq"],
             "session_id": record["session_id"],
+            "overlay_settings": overlay_snapshot,
+            "overlay_schema_version": record["overlay_schema_version"],
         }
         record["training_label"] = training_label
         records_file = Path(session["records_file"])
@@ -640,6 +714,10 @@ class RecordingService:
             handle.write(json.dumps(record, sort_keys=True) + "\n")
         with labels_file.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(training_label, sort_keys=True) + "\n")
+        if self._active_session and self._active_session.get("session_id") == session.get("session_id"):
+            self._active_session["overlay_settings"] = overlay_snapshot
+            self._active_session["overlay_settings_source"] = record["overlay_settings_source"]
+            self._active_session["overlay_schema_version"] = record["overlay_schema_version"]
         self._last_saved_record = record
         return record
 
@@ -657,12 +735,16 @@ class RecordingService:
             "manifest_file": str(manifest_file),
             "frame_count": int(self._frame_count),
             "last_saved_record": self._last_saved_record,
+            "overlay_settings": self._last_saved_record.get("overlay_settings") or self._active_session.get("overlay_settings", {}),
+            "overlay_settings_source": self._last_saved_record.get("overlay_settings_source") or self._active_session.get("overlay_settings_source", "manual_drive_runtime_overlay"),
+            "overlay_schema_version": self._last_saved_record.get("overlay_schema_version") or self._active_session.get("overlay_schema_version", "PiSD_0_6_7_overlay_settings_v1"),
             "ended_at_utc": "" if open_session else _utc_now().isoformat(),
             "running": bool(open_session),
             "training_data": {
                 "format": "behavioural_cloning_jsonl",
                 "labels_file": str(Path(self._active_session.get("labels_file") or manifest_file.with_name("labels.jsonl"))),
-                "label_fields": ["frame", "steering", "throttle", "timestamp_utc"],
+                "label_fields": ["frame", "steering", "throttle", "timestamp_utc", "overlay_settings"],
+                "overlay_schema_version": "PiSD_0_6_7_overlay_settings_v1",
             },
         }
         self._write_json(manifest_file, manifest)
