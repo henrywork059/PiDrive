@@ -165,47 +165,72 @@
     const safeSteering = clamp(steering, -1, 1, 0);
     const speed = Math.max(0, safeThrottle);
     const movingReverse = safeThrottle < -0.02;
-    // PiSD_0_6_1: match Manual Drive's filled sampled road corridor.
+    // PiSD_0_6_2: match Manual Drive's kinematic sampled path corridor.
+    // Ground-plane centre prediction plus tangent-normal edge offsets make
+    // turn previews read like a real path instead of a decorative SVG bow.
     // Negative/left steering still shifts the visible future path to the
     // right side of the camera frame, preserving the accepted v6 convention.
-    const steeringMagnitude = Math.pow(Math.abs(safeSteering), 0.58);
-    const signedTurn = -Math.sign(safeSteering) * steeringMagnitude;
     const curveStrength = AI_OVERLAY_SETTINGS.curve_strength;
     const lengthScale = AI_OVERLAY_SETTINGS.path_length_scale;
     const widthCalibration = AI_OVERLAY_SETTINGS.path_width_scale;
     const visualWidthScale = clamp(0.82 + widthCalibration * 0.32, 0.78, 1.36, 0.93);
     const baseY = 96;
-    const horizonY = clamp(31 - (speed * 10) - ((lengthScale || 1.0) - 1.0) * 13, 18, 42, 27);
-    const bottomHalf = 24.5 * visualWidthScale;
-    const topHalf = 5.2 * visualWidthScale;
-    const topShift = clamp(signedTurn * curveStrength * 15.6, -37, 37, 0);
-    const samples = 11;
-    const centerPoints = [];
+    const lookahead = clamp(1.72 + speed * 0.72 + ((lengthScale || 1.0) - 1.0) * 0.62, 1.15, 2.82, 1.72);
+    const horizonY = clamp(32 - speed * 9 - ((lengthScale || 1.0) - 1.0) * 12, 18, 43, 29);
+    const samples = 33;
+    const wheelbase = 0.32;
+    const maxSteerRad = 0.58;
+    const visualSteering = -safeSteering;
+    const shapedSteering = Math.sign(visualSteering) * Math.pow(Math.abs(visualSteering), 1.04);
+    const steerRad = shapedSteering * maxSteerRad;
+    const curvatureGain = clamp((curveStrength || 3.35) / 3.35, 0.24, 1.55, 1.0);
+    const curvature = clamp((Math.tan(steerRad) / wheelbase) * 0.36 * curvatureGain, -0.92, 0.92, 0);
+    const roadHalfWidth = 0.405 * visualWidthScale;
+    const cameraForwardOffset = 0.24;
+    const nearClip = 0.18;
+    const centerWorld = [];
+    let x = 0;
+    let z = 0;
+    let heading = 0;
 
     for (let i = 0; i < samples; i += 1) {
-      const t = i / (samples - 1);
+      if (i > 0) {
+        const ds = lookahead / (samples - 1);
+        heading += curvature * ds;
+        x += Math.sin(heading) * ds;
+        z += Math.cos(heading) * ds;
+      }
+      centerWorld.push({ x, z, heading });
+    }
+
+    function projectGroundPoint(point) {
+      const projectedZ = Math.max(nearClip, point.z + cameraForwardOffset);
+      const maxProjectedZ = lookahead + cameraForwardOffset;
+      const t = clamp((projectedZ - nearClip) / Math.max(0.1, maxProjectedZ - nearClip), 0, 1, 0);
       const depth = 1 - Math.pow(1 - t, 1.18);
       const y = baseY - (baseY - horizonY) * depth;
-      const progressiveTurn = topShift * (0.10 * t + 0.90 * Math.pow(t, 1.36));
-      const middleBow = signedTurn * curveStrength * 8.8 * Math.sin(Math.PI * t) * Math.pow(t, 0.78);
-      const x = clamp(50 + progressiveTurn + middleBow, 8, 92, 50);
-      centerPoints.push({ x, y });
+      const perspectiveScale = 63 / (projectedZ + 0.88);
+      const edgeGuard = 2.8 + t * 2.4;
+      return {
+        x: clamp(50 + point.x * perspectiveScale, edgeGuard, 100 - edgeGuard, 50),
+        y: clamp(y, 8, 98, y),
+      };
     }
 
     const leftPoints = [];
     const rightPoints = [];
-    for (let i = 0; i < centerPoints.length; i += 1) {
-      const previous = centerPoints[Math.max(0, i - 1)];
-      const next = centerPoints[Math.min(centerPoints.length - 1, i + 1)];
+    const centerPoints = [];
+    for (let i = 0; i < centerWorld.length; i += 1) {
+      const previous = centerWorld[Math.max(0, i - 1)];
+      const next = centerWorld[Math.min(centerWorld.length - 1, i + 1)];
       const dx = next.x - previous.x;
-      const dy = next.y - previous.y;
-      const length = Math.hypot(dx, dy) || 1;
-      const normal = { x: -dy / length, y: dx / length };
-      const t = i / (centerPoints.length - 1);
-      const halfWidth = bottomHalf * Math.pow(1 - t, 1.12) + topHalf * t;
-      const point = centerPoints[i];
-      leftPoints.push({ x: point.x - normal.x * halfWidth, y: point.y - normal.y * halfWidth });
-      rightPoints.push({ x: point.x + normal.x * halfWidth, y: point.y + normal.y * halfWidth });
+      const dz = next.z - previous.z;
+      const tangentLength = Math.hypot(dx, dz) || 1;
+      const normal = { x: -dz / tangentLength, z: dx / tangentLength };
+      const point = centerWorld[i];
+      leftPoints.push(projectGroundPoint({ x: point.x + normal.x * roadHalfWidth, z: point.z + normal.z * roadHalfWidth }));
+      rightPoints.push(projectGroundPoint({ x: point.x - normal.x * roadHalfWidth, z: point.z - normal.z * roadHalfWidth }));
+      centerPoints.push(projectGroundPoint(point));
     }
 
     return {
@@ -215,7 +240,7 @@
       surfacePath: pointsToPolygonPath(leftPoints, rightPoints),
       start: centerPoints[0],
       end: centerPoints[centerPoints.length - 1],
-      curve: signedTurn * curveStrength,
+      curve: curvature * curveStrength,
       movingReverse,
       speed,
     };
