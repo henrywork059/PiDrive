@@ -275,6 +275,7 @@ body[data-pisd-theme="light"] .mdrv-file-controls select { color: #0f172a; backg
 
 .mdrv-overlay-path-svg marker path { fill: rgba(56, 189, 248, .98); stroke: rgba(240, 249, 255, .98); stroke-width: .9; paint-order: stroke fill; filter: drop-shadow(0 0 3px rgba(56, 189, 248, .75)); }
 
+.mdrv-overlay-path-surface,
 .mdrv-overlay-path-wide,
 .mdrv-overlay-path-guide,
 .mdrv-overlay-path {
@@ -283,6 +284,14 @@ body[data-pisd-theme="light"] .mdrv-file-controls select { color: #0f172a; backg
   stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
   transition: opacity 120ms ease, stroke-width 120ms ease, stroke-dasharray 120ms ease, filter 120ms ease;
+}
+
+.mdrv-overlay-path-surface {
+  fill: rgba(14, 165, 233, .18);
+  stroke: rgba(224, 242, 254, .16);
+  stroke-width: .36;
+  opacity: .18;
+  filter: drop-shadow(0 0 8px rgba(14, 165, 233, .32));
 }
 
 .mdrv-overlay-path-wide {
@@ -320,6 +329,7 @@ body[data-pisd-theme="light"] .mdrv-file-controls select { color: #0f172a; backg
   r: 2.25;
 }
 
+.mdrv-preview-frame[data-overlay-motion="reverse"] .mdrv-overlay-path-surface,
 .mdrv-preview-frame[data-overlay-motion="reverse"] .mdrv-overlay-path,
 .mdrv-preview-frame[data-overlay-motion="reverse"] .mdrv-overlay-path-guide,
 .mdrv-preview-frame[data-overlay-motion="reverse"] .mdrv-overlay-path-wide,
@@ -329,6 +339,7 @@ body[data-pisd-theme="light"] .mdrv-file-controls select { color: #0f172a; backg
   opacity: 0 !important;
 }
 
+.mdrv-preview-frame[data-overlay-motion="stopped"] .mdrv-overlay-path-surface,
 .mdrv-preview-frame[data-overlay-motion="stopped"] .mdrv-overlay-path,
 .mdrv-preview-frame[data-overlay-motion="stopped"] .mdrv-overlay-path-guide,
 .mdrv-preview-frame[data-overlay-motion="stopped"] .mdrv-overlay-path-wide {

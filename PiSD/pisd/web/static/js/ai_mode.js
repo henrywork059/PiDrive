@@ -3,8 +3,8 @@
   const els = {};
   const ids = [
     'aiGlobalCode', 'aiRunMode', 'aiModelReady', 'aiPreviewFrame', 'aiPreviewImage', 'aiPreviewCaption', 'aiStartCamera', 'aiSnapshot', 'aiLive', 'aiStopCamera',
-    'aiOverlayToggle', 'aiOverlayMode', 'aiOverlayCurveLabel', 'aiOverlayCar', 'aiOverlayPathWide', 'aiOverlayPathGuide', 'aiOverlayPath',
-    'aiOverlayEndpoint', 'aiOverlayThrottleFill', 'aiOverlaySteeringFill', 'aiOverlayThrottleValue', 'aiOverlaySteeringValue',
+    'aiOverlayToggle', 'aiOverlayMode', 'aiOverlayCurveLabel', 'aiOverlayCar', 'aiOverlaySurface', 'aiOverlayPathWide', 'aiOverlayPathGuide', 'aiOverlayPath',
+    'aiOverlayEndpoint', 'aiOverlayStartPoint', 'aiOverlayThrottleFill', 'aiOverlaySteeringFill', 'aiOverlayThrottleValue', 'aiOverlaySteeringValue',
     'aiOverlayRawSteering', 'aiOverlayRawThrottle', 'aiOverlayLeftValue', 'aiOverlayRightValue',
     'aiRefreshModels', 'aiModelSelect', 'aiLoadModel', 'aiPredictOnce', 'aiSelectedModel', 'aiBackend', 'aiInputShape', 'aiModelsDir',
     'aiSafetyAck', 'aiEnableMotor', 'aiOutputMode', 'aiMaxThrottle', 'aiMaxThrottleOut', 'aiMaxSteering', 'aiMaxSteeringOut',
@@ -147,18 +147,17 @@
     return commands.join(' ');
   }
 
-  function roadBoundaryPath(baseX, horizonX, bend, innerBias, baseY, horizonY) {
-    const span = baseY - horizonY;
-    const c1 = { x: baseX + bend * 0.26 * innerBias, y: baseY - span * 0.28 };
-    const c2 = { x: horizonX + bend * 0.74 * innerBias, y: horizonY + span * 0.30 };
-    return `M ${baseX.toFixed(2)} ${baseY.toFixed(2)} C ${c1.x.toFixed(2)} ${c1.y.toFixed(2)} ${c2.x.toFixed(2)} ${c2.y.toFixed(2)} ${horizonX.toFixed(2)} ${horizonY.toFixed(2)}`;
+  function pointsToPolygonPath(leftPoints, rightPoints) {
+    if (!Array.isArray(leftPoints) || !leftPoints.length || !Array.isArray(rightPoints) || !rightPoints.length) return '';
+    const commands = [`M ${leftPoints[0].x.toFixed(2)} ${leftPoints[0].y.toFixed(2)}`];
+    leftPoints.slice(1).forEach((point) => commands.push(`L ${point.x.toFixed(2)} ${point.y.toFixed(2)}`));
+    rightPoints.slice().reverse().forEach((point) => commands.push(`L ${point.x.toFixed(2)} ${point.y.toFixed(2)}`));
+    commands.push('Z');
+    return commands.join(' ');
   }
 
-  function roadCenterPath(startX, endX, bend, baseY, horizonY) {
-    const span = baseY - horizonY;
-    const c1 = { x: startX + bend * 0.34, y: baseY - span * 0.32 };
-    const c2 = { x: endX + bend * 0.72, y: horizonY + span * 0.28 };
-    return `M ${startX.toFixed(2)} ${baseY.toFixed(2)} C ${c1.x.toFixed(2)} ${c1.y.toFixed(2)} ${c2.x.toFixed(2)} ${c2.y.toFixed(2)} ${endX.toFixed(2)} ${horizonY.toFixed(2)}`;
+  function roadBoundaryPath(points) {
+    return pointsToPath(points);
   }
 
   function roadGuideGeometry(throttle, steering) {
@@ -166,29 +165,56 @@
     const safeSteering = clamp(steering, -1, 1, 0);
     const speed = Math.max(0, safeThrottle);
     const movingReverse = safeThrottle < -0.02;
-    // PiSD_0_5_10: match Manual Drive overlay direction and stronger
-    // curvature, so left steering bends the road guide left on screen.
+    // PiSD_0_6_1: match Manual Drive's filled sampled road corridor.
+    // Negative/left steering still shifts the visible future path to the
+    // right side of the camera frame, preserving the accepted v6 convention.
     const steeringMagnitude = Math.pow(Math.abs(safeSteering), 0.58);
     const signedTurn = -Math.sign(safeSteering) * steeringMagnitude;
     const curveStrength = AI_OVERLAY_SETTINGS.curve_strength;
-    const baseY = 94;
-    const horizonY = clamp(34 - (speed * 12) - ((AI_OVERLAY_SETTINGS.path_length_scale || 1.0) - 1.0) * 12, 20, 42, 24);
-    const bottomHalf = 20;
-    const topHalf = 5.4;
-    const centerShift = clamp(signedTurn * curveStrength * 16.0, -36, 36, 0);
-    const bend = clamp(signedTurn * curveStrength * 28.0, -64, 64, 0);
-    const topCenter = clamp(50 + centerShift, 14, 86, 50);
-    const leftBase = 50 - bottomHalf;
-    const rightBase = 50 + bottomHalf;
-    const leftTop = clamp(topCenter - topHalf, 6, 86, 44.6);
-    const rightTop = clamp(topCenter + topHalf, 14, 94, 55.4);
-    const leftInnerBias = signedTurn < 0 ? 1.66 : 0.62;
-    const rightInnerBias = signedTurn > 0 ? 1.66 : 0.62;
+    const lengthScale = AI_OVERLAY_SETTINGS.path_length_scale;
+    const widthCalibration = AI_OVERLAY_SETTINGS.path_width_scale;
+    const visualWidthScale = clamp(0.82 + widthCalibration * 0.32, 0.78, 1.36, 0.93);
+    const baseY = 96;
+    const horizonY = clamp(31 - (speed * 10) - ((lengthScale || 1.0) - 1.0) * 13, 18, 42, 27);
+    const bottomHalf = 24.5 * visualWidthScale;
+    const topHalf = 5.2 * visualWidthScale;
+    const topShift = clamp(signedTurn * curveStrength * 15.6, -37, 37, 0);
+    const samples = 11;
+    const centerPoints = [];
+
+    for (let i = 0; i < samples; i += 1) {
+      const t = i / (samples - 1);
+      const depth = 1 - Math.pow(1 - t, 1.18);
+      const y = baseY - (baseY - horizonY) * depth;
+      const progressiveTurn = topShift * (0.10 * t + 0.90 * Math.pow(t, 1.36));
+      const middleBow = signedTurn * curveStrength * 8.8 * Math.sin(Math.PI * t) * Math.pow(t, 0.78);
+      const x = clamp(50 + progressiveTurn + middleBow, 8, 92, 50);
+      centerPoints.push({ x, y });
+    }
+
+    const leftPoints = [];
+    const rightPoints = [];
+    for (let i = 0; i < centerPoints.length; i += 1) {
+      const previous = centerPoints[Math.max(0, i - 1)];
+      const next = centerPoints[Math.min(centerPoints.length - 1, i + 1)];
+      const dx = next.x - previous.x;
+      const dy = next.y - previous.y;
+      const length = Math.hypot(dx, dy) || 1;
+      const normal = { x: -dy / length, y: dx / length };
+      const t = i / (centerPoints.length - 1);
+      const halfWidth = bottomHalf * Math.pow(1 - t, 1.12) + topHalf * t;
+      const point = centerPoints[i];
+      leftPoints.push({ x: point.x - normal.x * halfWidth, y: point.y - normal.y * halfWidth });
+      rightPoints.push({ x: point.x + normal.x * halfWidth, y: point.y + normal.y * halfWidth });
+    }
+
     return {
-      leftPath: roadBoundaryPath(leftBase, leftTop, bend, leftInnerBias, baseY, horizonY),
-      rightPath: roadBoundaryPath(rightBase, rightTop, bend, rightInnerBias, baseY, horizonY),
-      centerPath: roadCenterPath(50, topCenter, bend, baseY, horizonY),
-      end: { x: topCenter, y: horizonY },
+      leftPath: roadBoundaryPath(leftPoints),
+      rightPath: roadBoundaryPath(rightPoints),
+      centerPath: pointsToPath(centerPoints),
+      surfacePath: pointsToPolygonPath(leftPoints, rightPoints),
+      start: centerPoints[0],
+      end: centerPoints[centerPoints.length - 1],
       curve: signedTurn * curveStrength,
       movingReverse,
       speed,
@@ -202,26 +228,35 @@
     const steeringAbs = Math.abs(safeSteering);
     const movingForward = safeThrottle >= 0.02;
     const movingReverse = safeThrottle < -0.02;
-    const { leftPath, rightPath, centerPath, end, curve, speed } = roadGuideGeometry(safeThrottle, safeSteering);
+    const { leftPath, rightPath, centerPath, surfacePath, start, end, curve, speed } = roadGuideGeometry(safeThrottle, safeSteering);
     const opacity = movingReverse ? '0' : (movingForward || steeringAbs >= 0.02 ? String(AI_OVERLAY_SETTINGS.opacity) : String(Math.max(0.12, AI_OVERLAY_SETTINGS.opacity * 0.26)));
     const widthScale = AI_OVERLAY_SETTINGS.path_width_scale;
+    if (els.aiOverlaySurface) {
+      els.aiOverlaySurface.setAttribute('d', surfacePath);
+      els.aiOverlaySurface.style.opacity = movingReverse ? '0' : (movingForward ? String(Math.max(0.10, AI_OVERLAY_SETTINGS.opacity * 0.26)) : String(Math.max(0.04, AI_OVERLAY_SETTINGS.opacity * 0.10)));
+    }
     if (els.aiOverlayPathWide) {
       els.aiOverlayPathWide.setAttribute('d', leftPath);
       els.aiOverlayPathWide.style.opacity = opacity;
       els.aiOverlayPathWide.style.strokeDasharray = 'none';
-      els.aiOverlayPathWide.style.strokeWidth = String(1.28 * widthScale);
+      els.aiOverlayPathWide.style.strokeWidth = String(2.25 * widthScale);
     }
     if (els.aiOverlayPathGuide) {
       els.aiOverlayPathGuide.setAttribute('d', rightPath);
       els.aiOverlayPathGuide.style.opacity = opacity;
       els.aiOverlayPathGuide.style.strokeDasharray = 'none';
-      els.aiOverlayPathGuide.style.strokeWidth = String(1.28 * widthScale);
+      els.aiOverlayPathGuide.style.strokeWidth = String(2.25 * widthScale);
     }
     if (els.aiOverlayPath) {
       els.aiOverlayPath.setAttribute('d', centerPath);
       els.aiOverlayPath.style.opacity = movingReverse ? '0' : (movingForward ? String(Math.max(0.38, AI_OVERLAY_SETTINGS.opacity * 0.66)) : String(Math.max(0.10, AI_OVERLAY_SETTINGS.opacity * 0.22)));
       els.aiOverlayPath.style.strokeDasharray = movingForward ? 'none' : '6 8';
-      els.aiOverlayPath.style.strokeWidth = String((0.75 + speed * 0.44) * widthScale);
+      els.aiOverlayPath.style.strokeWidth = String((1.15 + speed * 0.38) * widthScale);
+    }
+    if (els.aiOverlayStartPoint) {
+      els.aiOverlayStartPoint.setAttribute('cx', start.x.toFixed(2));
+      els.aiOverlayStartPoint.setAttribute('cy', start.y.toFixed(2));
+      els.aiOverlayStartPoint.style.opacity = movingReverse ? '0' : (els.aiOverlayPath?.style.opacity || opacity);
     }
     if (els.aiOverlayEndpoint) {
       els.aiOverlayEndpoint.setAttribute('cx', end.x.toFixed(2));
