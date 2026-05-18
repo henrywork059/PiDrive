@@ -70,7 +70,7 @@ def manager_checks() -> bool:
         saved, settings, report = mgr.save({'manual_drive': {'speed': 0.22, 'overlay': {'path_length_scale': 9, 'curve_strength': 0.1, 'opacity': 'bad', 'path_width_scale': 1.4}}, 'panel_presentation': {'theme': 'light'}})
         ok &= line(saved and settings['manual_drive']['speed'] == 0.22, PiSDErrorCodes.OK if saved else report.code, 'settings.manager.save', 'settings saved')
         overlay = settings['manual_drive']['overlay']
-        ok &= line(overlay['path_length_scale'] == 1.8 and overlay['curve_strength'] == 0.4 and overlay['opacity'] == 0.92 and overlay['path_width_scale'] == 1.4, PiSDErrorCodes.OK, 'settings.manager.overlay_clamp', 'overlay calibration values clamped/preserved')
+        ok &= line(overlay['path_length_scale'] == 1.8 and overlay['curve_strength'] == 0.4 and overlay['opacity'] == 0.96 and overlay['path_width_scale'] == 1.4, PiSDErrorCodes.OK, 'settings.manager.overlay_clamp', 'overlay calibration values clamped/preserved')
         mgr2 = SettingsManager(path, {'camera': {'width': 426}, 'motor': {'steer_mix': 1.0}})
         ok &= line(mgr2.get()['panel_presentation']['theme'] == 'light', PiSDErrorCodes.OK, 'settings.manager.reload', 'settings reloaded')
         bad, _settings, report = mgr2.save({'unknown_group': {}})

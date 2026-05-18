@@ -284,7 +284,7 @@ body[data-pisd-theme="light"] .mdrv-file-controls select { color: #0f172a; backg
   overflow: visible;
 }
 
-.mdrv-overlay-path-svg marker path { fill: rgba(56, 189, 248, .95); }
+.mdrv-overlay-path-svg marker path { fill: rgba(56, 189, 248, .98); stroke: rgba(240, 249, 255, .98); stroke-width: .9; paint-order: stroke fill; filter: drop-shadow(0 0 3px rgba(56, 189, 248, .75)); }
 
 .mdrv-overlay-path-wide,
 .mdrv-overlay-path-guide,
@@ -292,46 +292,47 @@ body[data-pisd-theme="light"] .mdrv-file-controls select { color: #0f172a; backg
   fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;
-  transition: opacity 120ms ease, stroke-width 120ms ease, stroke-dasharray 120ms ease;
+  vector-effect: non-scaling-stroke;
+  transition: opacity 120ms ease, stroke-width 120ms ease, stroke-dasharray 120ms ease, filter 120ms ease;
 }
 
 .mdrv-overlay-path-wide {
   stroke: rgba(15, 23, 42, .68);
-  stroke-width: 10;
-  opacity: .34;
+  stroke-width: 5.8;
+  opacity: .22;
 }
 
 .mdrv-overlay-path-guide {
   stroke: rgba(255, 255, 255, .66);
-  stroke-width: 6.2;
-  opacity: .38;
+  stroke-width: 2.6;
+  opacity: .52;
 }
 
 .mdrv-overlay-path {
   stroke: rgba(56, 189, 248, .94);
-  stroke-width: 4.2;
+  stroke-width: 1.45;
   marker-end: url(#mdrvOverlayArrow);
-  filter: drop-shadow(0 0 8px rgba(56, 189, 248, .68));
-  opacity: .92;
+  filter: drop-shadow(0 0 4px rgba(56, 189, 248, .82));
+  opacity: .95;
 }
 
 .mdrv-overlay-start-point,
 .mdrv-overlay-endpoint {
   fill: rgba(255, 255, 255, .92);
   stroke: rgba(14, 165, 233, .96);
-  stroke-width: 1.2;
-  filter: drop-shadow(0 0 6px rgba(56, 189, 248, .65));
+  stroke-width: 1.0;
+  filter: drop-shadow(0 0 6px rgba(56, 189, 248, .70));
 }
 
 .mdrv-overlay-endpoint {
-  fill: rgba(34, 197, 94, .95);
-  r: 2.9;
+  fill: rgba(34, 197, 94, .96);
+  r: 2.25;
 }
 
 .mdrv-preview-frame[data-overlay-motion="reverse"] .mdrv-overlay-path,
 .mdrv-preview-frame[data-overlay-motion="reverse"] .mdrv-overlay-path-svg marker path {
-  stroke: rgba(251, 191, 36, .95);
-  fill: rgba(251, 191, 36, .95);
+  stroke: rgba(251, 191, 36, .98);
+  fill: rgba(251, 191, 36, .98);
 }
 
 .mdrv-preview-frame[data-overlay-motion="reverse"] .mdrv-overlay-endpoint {

@@ -14,9 +14,11 @@
     overlay: {
       enabled: true,
       path_length_scale: 1.0,
-      curve_strength: 1.0,
-      opacity: 0.92,
-      path_width_scale: 1.0,
+      // PiSD_0_5_8: stronger bounded curvature, thinner line, clearer arrow.
+      // These are visual-only defaults; they do not change motor output.
+      curve_strength: 1.95,
+      opacity: 0.96,
+      path_width_scale: 0.55,
     },
   };
   const globalCode = $('mdrvGlobalCode');
@@ -418,9 +420,9 @@
     return {
       enabled: String(source.enabled ?? DEFAULTS.overlay.enabled).toLowerCase() !== 'false' && !['0', 'no', 'off'].includes(String(source.enabled ?? DEFAULTS.overlay.enabled).toLowerCase()),
       path_length_scale: clamp(source.path_length_scale ?? DEFAULTS.overlay.path_length_scale, 0.5, 1.8, DEFAULTS.overlay.path_length_scale),
-      curve_strength: clamp(source.curve_strength ?? DEFAULTS.overlay.curve_strength, 0.4, 1.8, DEFAULTS.overlay.curve_strength),
+      curve_strength: clamp(source.curve_strength ?? DEFAULTS.overlay.curve_strength, 0.4, 3.2, DEFAULTS.overlay.curve_strength),
       opacity: clamp(source.opacity ?? DEFAULTS.overlay.opacity, 0.2, 1.0, DEFAULTS.overlay.opacity),
-      path_width_scale: clamp(source.path_width_scale ?? DEFAULTS.overlay.path_width_scale, 0.6, 1.8, DEFAULTS.overlay.path_width_scale),
+      path_width_scale: clamp(source.path_width_scale ?? DEFAULTS.overlay.path_width_scale, 0.3, 1.8, DEFAULTS.overlay.path_width_scale),
     };
   }
 
@@ -482,7 +484,40 @@
 
   function pointsToPath(points) {
     if (!Array.isArray(points) || !points.length) return '';
-    return points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join(' ');
+    if (points.length < 3) {
+      return points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join(' ');
+    }
+    // PiSD_0_5_7: smooth the sampled vehicle path before drawing the arrow.
+    // The sampled points still come from the curvature model; this only avoids
+    // a segmented/polyline look in the camera overlay.
+    const commands = [`M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)}`];
+    for (let i = 1; i < points.length - 2; i += 1) {
+      const current = points[i];
+      const next = points[i + 1];
+      const midX = (current.x + next.x) / 2;
+      const midY = (current.y + next.y) / 2;
+      commands.push(`Q ${current.x.toFixed(2)} ${current.y.toFixed(2)} ${midX.toFixed(2)} ${midY.toFixed(2)}`);
+    }
+    const penultimate = points[points.length - 2];
+    const last = points[points.length - 1];
+    commands.push(`Q ${penultimate.x.toFixed(2)} ${penultimate.y.toFixed(2)} ${last.x.toFixed(2)} ${last.y.toFixed(2)}`);
+    return commands.join(' ');
+  }
+
+  function fitPathToOverlayBounds(points) {
+    if (!Array.isArray(points) || points.length < 2) return points || [];
+    const minX = Math.min(...points.map(point => point.x));
+    const maxX = Math.max(...points.map(point => point.x));
+    const leftLimit = 7;
+    const rightLimit = 93;
+    if (minX >= leftLimit && maxX <= rightLimit) return points;
+    const available = rightLimit - leftLimit;
+    const width = Math.max(1, maxX - minX);
+    const scale = Math.min(1, available / width);
+    return points.map(point => ({
+      x: 50 + ((point.x - 50) * scale),
+      y: point.y,
+    }));
   }
 
   function sampledIntendedPath(throttle, steering) {
@@ -492,19 +527,28 @@
     const movingReverse = safeThrottle < -0.02;
     const startX = 50;
     const startY = movingReverse ? 68 : 88;
-    const samples = 34;
+    const samples = 46;
     const horizonScale = overlaySettings.path_length_scale || 1.0;
-    const horizon = (movingReverse ? (14 + speed * 30) : (22 + speed * 62)) * horizonScale;
+    const horizon = (movingReverse ? (13 + speed * 28) : (20 + speed * 56)) * horizonScale;
 
-    // 0.5.5: Option A reverse behaviour. Keep the steering sign the same
-    // when throttle is negative, matching MotorService.update() and the manual
-    // command labels. Reverse is drawn behind the car, but steering is not
-    // inverted or mirrored by the overlay.
-    const visualWheelbase = 34;
-    const maxSteerRad = 0.72 * (overlaySettings.curve_strength || 1.0);
-    const visualSteering = safeSteering;
-    const curvature = Math.tan(visualSteering * maxSteerRad) / visualWheelbase;
-    const signedDistance = movingReverse ? -horizon : horizon;
+    // PiSD_0_5_8: keep the same car-like curvature idea, but tune it as a
+    // *screen overlay*. The curve is intentionally more readable than a strict
+    // low-speed model: smaller visual wheelbase, nonlinear steering response,
+    // bounded steering angle, and bounded turn sweep to avoid off-screen loops.
+    const visualWheelbase = 18;
+    const maxSteerRad = 0.96 * (overlaySettings.curve_strength || 1.0);
+    const steeringMagnitude = Math.pow(Math.abs(safeSteering), 0.66);
+    // Reverse policy remains same-sign: visualSteering = safeSteering in sign,
+    // with nonlinear magnitude scaling only for clearer presentation.
+    const visualSteering = Math.sign(safeSteering) * steeringMagnitude;
+    const steerAngle = clamp(visualSteering * maxSteerRad, -1.25, 1.25, 0);
+    const curvature = Math.tan(steerAngle) / visualWheelbase;
+    let signedDistance = movingReverse ? -horizon : horizon;
+    const maxSweep = 2.32;
+    if (Math.abs(curvature) > 0.0008) {
+      const limited = Math.min(Math.abs(signedDistance), maxSweep / Math.abs(curvature));
+      signedDistance = Math.sign(signedDistance) * limited;
+    }
     const points = [];
     for (let i = 0; i <= samples; i += 1) {
       const s = signedDistance * (i / samples);
@@ -516,7 +560,7 @@
       }
       points.push({ x: startX + lateral, y: startY - longitudinal });
     }
-    return { points, curvature, movingReverse, speed };
+    return { points: fitPathToOverlayBounds(points), curvature, movingReverse, speed };
   }
 
   function drawIntendedPath(throttle, steering) {
@@ -531,15 +575,15 @@
     const calibratedOpacity = overlaySettings.opacity || DEFAULTS.overlay.opacity;
     const opacity = moving || steeringAbs >= 0.02 ? String(calibratedOpacity) : String(Math.max(0.18, calibratedOpacity * 0.32));
     const widthScale = overlaySettings.path_width_scale || 1.0;
-    const strokeWidth = String((2.4 + speed * 3.2) * widthScale);
+    const strokeWidth = String((1.18 + speed * 1.42) * widthScale);
     for (const pathElement of [overlayPathWide, overlayPathGuide, overlayPath]) {
       if (!pathElement) continue;
       pathElement.setAttribute('d', pathD);
       pathElement.style.opacity = opacity;
       pathElement.style.strokeDasharray = movingReverse ? '7 5' : 'none';
     }
-    if (overlayPathWide) overlayPathWide.style.strokeWidth = String(10 * widthScale);
-    if (overlayPathGuide) overlayPathGuide.style.strokeWidth = String(6.2 * widthScale);
+    if (overlayPathWide) overlayPathWide.style.strokeWidth = String(5.8 * widthScale);
+    if (overlayPathGuide) overlayPathGuide.style.strokeWidth = String(2.6 * widthScale);
     overlayPath.style.strokeWidth = strokeWidth;
     if (overlayEndpoint) {
       overlayEndpoint.setAttribute('cx', end.x.toFixed(2));

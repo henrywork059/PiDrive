@@ -74,8 +74,8 @@
             <div class="mdrv-overlay-center-line"></div>
             <svg id="mdrvOverlayPathSvg" class="mdrv-overlay-path-svg" viewBox="0 0 100 100" preserveAspectRatio="none" focusable="false">
               <defs>
-                <marker id="mdrvOverlayArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
-                  <path d="M 0 0 L 10 5 L 0 10 z"></path>
+                <marker id="mdrvOverlayArrow" viewBox="0 0 16 16" refX="13.4" refY="8" markerWidth="7.4" markerHeight="7.4" orient="auto-start-reverse" markerUnits="strokeWidth">
+                  <path d="M 1.2 1.4 L 14.1 8 L 1.2 14.6 L 4.0 8 z"></path>
                 </marker>
               </defs>
               <path id="mdrvOverlayPathWide" class="mdrv-overlay-path-wide" d="M 50 88 L 50 18"></path>
@@ -133,11 +133,11 @@
         <summary>Overlay calibration</summary>
         <div class="mdrv-overlay-calibration-grid">
           <label>Path length <input id="mdrvOverlayLengthScale" type="range" min="0.5" max="1.8" step="0.05" value="1.0"><output id="mdrvOverlayLengthScaleOut">1.00</output></label>
-          <label>Curve strength <input id="mdrvOverlayCurveScale" type="range" min="0.4" max="1.8" step="0.05" value="1.0"><output id="mdrvOverlayCurveScaleOut">1.00</output></label>
-          <label>Opacity <input id="mdrvOverlayOpacity" type="range" min="0.2" max="1.0" step="0.05" value="0.92"><output id="mdrvOverlayOpacityOut">0.92</output></label>
-          <label>Path width <input id="mdrvOverlayPathWidth" type="range" min="0.6" max="1.8" step="0.05" value="1.0"><output id="mdrvOverlayPathWidthOut">1.00</output></label>
+          <label>Curve strength <input id="mdrvOverlayCurveScale" type="range" min="0.4" max="3.2" step="0.05" value="1.95"><output id="mdrvOverlayCurveScaleOut">1.95</output></label>
+          <label>Opacity <input id="mdrvOverlayOpacity" type="range" min="0.2" max="1.0" step="0.05" value="0.96"><output id="mdrvOverlayOpacityOut">0.96</output></label>
+          <label>Path width <input id="mdrvOverlayPathWidth" type="range" min="0.3" max="1.8" step="0.05" value="0.55"><output id="mdrvOverlayPathWidthOut">0.55</output></label>
         </div>
-        <p class="mdrv-overlay-calibration-note">These settings change only the preview overlay, not the motor output.</p>
+        <p class="mdrv-overlay-calibration-note">These settings change only the preview overlay, not the motor output. The curve uses a bounded visual Ackermann/bicycle-style curvature model and a smoothed arrow path. Stronger curves are for readability only.</p>
       </details>
       <p id="mdrvSafetyText" class="mdrv-warning">Drag pad is locked until motor output is enabled. Releasing the pad sends STOP.</p>
       <button id="mdrvStopPad" class="mdrv-button mdrv-danger mdrv-full-stop" title="Stop motor output only. Camera/live preview is not stopped.">STOP motors</button>

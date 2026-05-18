@@ -17,9 +17,10 @@
   const IDLE_PREVIEW_SRC = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720'%3E%3Crect width='1280' height='720' fill='%23020617'/%3E%3Ctext x='640' y='340' fill='%2394a3b8' font-family='Arial,sans-serif' font-size='42' text-anchor='middle'%3EAI preview idle%3C/text%3E%3Ctext x='640' y='398' fill='%2364748b' font-family='Arial,sans-serif' font-size='26' text-anchor='middle'%3EStart camera / live, then run AI preview%3C/text%3E%3C/svg%3E";
   const AI_OVERLAY_SETTINGS = {
     path_length_scale: 1.0,
-    curve_strength: 1.0,
-    opacity: 0.92,
-    path_width_scale: 1.0,
+    // PiSD_0_5_8: mirror Manual Drive's stronger bounded-curvature overlay.
+    curve_strength: 1.95,
+    opacity: 0.96,
+    path_width_scale: 0.55,
   };
 
   let statusTimer = null;
@@ -123,7 +124,38 @@
 
   function pointsToPath(points) {
     if (!Array.isArray(points) || !points.length) return '';
-    return points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join(' ');
+    if (points.length < 3) {
+      return points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join(' ');
+    }
+    // Smooth sampled AI safe-command points into a continuous arrowed curve.
+    const commands = [`M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)}`];
+    for (let i = 1; i < points.length - 2; i += 1) {
+      const current = points[i];
+      const next = points[i + 1];
+      const midX = (current.x + next.x) / 2;
+      const midY = (current.y + next.y) / 2;
+      commands.push(`Q ${current.x.toFixed(2)} ${current.y.toFixed(2)} ${midX.toFixed(2)} ${midY.toFixed(2)}`);
+    }
+    const penultimate = points[points.length - 2];
+    const last = points[points.length - 1];
+    commands.push(`Q ${penultimate.x.toFixed(2)} ${penultimate.y.toFixed(2)} ${last.x.toFixed(2)} ${last.y.toFixed(2)}`);
+    return commands.join(' ');
+  }
+
+  function fitPathToOverlayBounds(points) {
+    if (!Array.isArray(points) || points.length < 2) return points || [];
+    const minX = Math.min(...points.map(point => point.x));
+    const maxX = Math.max(...points.map(point => point.x));
+    const leftLimit = 7;
+    const rightLimit = 93;
+    if (minX >= leftLimit && maxX <= rightLimit) return points;
+    const available = rightLimit - leftLimit;
+    const width = Math.max(1, maxX - minX);
+    const scale = Math.min(1, available / width);
+    return points.map(point => ({
+      x: 50 + ((point.x - 50) * scale),
+      y: point.y,
+    }));
   }
 
   function sampledIntendedPath(throttle, steering) {
@@ -133,16 +165,25 @@
     const movingReverse = safeThrottle < -0.02;
     const startX = 50;
     const startY = movingReverse ? 68 : 88;
-    const samples = 34;
-    const horizon = (movingReverse ? (14 + speed * 30) : (22 + speed * 62)) * AI_OVERLAY_SETTINGS.path_length_scale;
-    // PiSD_0_5_5 Option A: reverse keeps the same steering sign. The overlay
-    // is drawn backwards when throttle is negative, but it does not invert the
-    // AI safe steering value before visualising the path.
-    const visualWheelbase = 34;
-    const maxSteerRad = 0.72 * AI_OVERLAY_SETTINGS.curve_strength;
-    const visualSteering = safeSteering;
-    const curvature = Math.tan(visualSteering * maxSteerRad) / visualWheelbase;
-    const signedDistance = movingReverse ? -horizon : horizon;
+    const samples = 46;
+    const horizon = (movingReverse ? (13 + speed * 28) : (20 + speed * 56)) * AI_OVERLAY_SETTINGS.path_length_scale;
+    // PiSD_0_5_8 keeps the same-sign reverse policy and uses the same visual
+    // overlay model as Manual Drive: more curvature on screen, bounded so the
+    // AI safe-command arrow stays readable inside the camera preview frame.
+    const visualWheelbase = 18;
+    const maxSteerRad = 0.96 * AI_OVERLAY_SETTINGS.curve_strength;
+    const steeringMagnitude = Math.pow(Math.abs(safeSteering), 0.66);
+    // Reverse policy remains same-sign: visualSteering = safeSteering in sign,
+    // with nonlinear magnitude scaling only for clearer presentation.
+    const visualSteering = Math.sign(safeSteering) * steeringMagnitude;
+    const steerAngle = clamp(visualSteering * maxSteerRad, -1.25, 1.25, 0);
+    const curvature = Math.tan(steerAngle) / visualWheelbase;
+    let signedDistance = movingReverse ? -horizon : horizon;
+    const maxSweep = 2.32;
+    if (Math.abs(curvature) > 0.0008) {
+      const limited = Math.min(Math.abs(signedDistance), maxSweep / Math.abs(curvature));
+      signedDistance = Math.sign(signedDistance) * limited;
+    }
     const points = [];
     for (let i = 0; i <= samples; i += 1) {
       const s = signedDistance * (i / samples);
@@ -154,7 +195,7 @@
       }
       points.push({ x: startX + lateral, y: startY - longitudinal });
     }
-    return { points, curvature, movingReverse, speed };
+    return { points: fitPathToOverlayBounds(points), curvature, movingReverse, speed };
   }
 
   function drawAIPath(throttle, steering) {
@@ -174,9 +215,9 @@
       pathElement.style.opacity = opacity;
       pathElement.style.strokeDasharray = movingReverse ? '7 5' : 'none';
     }
-    if (els.aiOverlayPathWide) els.aiOverlayPathWide.style.strokeWidth = String(10 * widthScale);
-    if (els.aiOverlayPathGuide) els.aiOverlayPathGuide.style.strokeWidth = String(6.2 * widthScale);
-    if (els.aiOverlayPath) els.aiOverlayPath.style.strokeWidth = String((2.4 + speed * 3.2) * widthScale);
+    if (els.aiOverlayPathWide) els.aiOverlayPathWide.style.strokeWidth = String(5.8 * widthScale);
+    if (els.aiOverlayPathGuide) els.aiOverlayPathGuide.style.strokeWidth = String(2.6 * widthScale);
+    if (els.aiOverlayPath) els.aiOverlayPath.style.strokeWidth = String((1.18 + speed * 1.42) * widthScale);
     if (els.aiOverlayEndpoint) {
       els.aiOverlayEndpoint.setAttribute('cx', end.x.toFixed(2));
       els.aiOverlayEndpoint.setAttribute('cy', end.y.toFixed(2));
