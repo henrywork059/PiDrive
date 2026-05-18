@@ -39,6 +39,7 @@ class _FrameReviewCard(QWidget):
                 speed_true=float(payload.get('throttle_true', 0.0) or 0.0),
                 steering_pred=float(payload.get('steering_pred', 0.0) or 0.0),
                 speed_pred=float(payload.get('throttle_pred', 0.0) or 0.0),
+                overlay_settings=payload.get('overlay_settings') if isinstance(payload.get('overlay_settings'), dict) else {},
             )
             self.image.setText('')
             self.image.setPixmap(rendered)

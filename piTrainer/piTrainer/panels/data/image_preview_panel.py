@@ -64,6 +64,7 @@ class ImagePreviewPanel(QGroupBox):
         self.current_record: dict[str, Any] | None = None
         self.overlay_options: dict[str, bool] = {
             'path_preview': True,
+            'legacy_path_preview': False,
             'speed_vertical': False,
             'steering_horizontal': False,
             'steering_arc': False,
@@ -75,13 +76,16 @@ class ImagePreviewPanel(QGroupBox):
 
         hint_label = QLabel(
             'Click or drag on the preview to edit steering/speed using the same logic as the drive arrow. '
-            'Use the sliders below for precise adjustment.'
+            'PiSD V7 overlay metadata is used for road-guide redraw when available. Use the sliders below for precise adjustment.'
         )
         hint_label.setProperty('role', 'muted')
         hint_label.setWordWrap(True)
 
         self.steering_value_label = QLabel('0.000')
         self.speed_value_label = QLabel('0.000')
+        self.overlay_meta_label = QLabel('Overlay metadata: none')
+        self.overlay_meta_label.setProperty('role', 'muted')
+        self.overlay_meta_label.setWordWrap(True)
 
         self.steering_slider = QSlider(Qt.Horizontal)
         self.steering_slider.setRange(-1000, 1000)
@@ -111,9 +115,11 @@ class ImagePreviewPanel(QGroupBox):
         layout.addWidget(hint_label)
         layout.addLayout(steering_row)
         layout.addLayout(speed_row)
+        layout.addWidget(self.overlay_meta_label)
 
         self._set_slider_enabled(False)
         self._update_value_labels(0.0, 0.0)
+        self._update_overlay_meta_label({})
 
     def set_record(self, record: dict[str, Any] | None) -> None:
         self._flush_pending_commit()
@@ -124,6 +130,7 @@ class ImagePreviewPanel(QGroupBox):
     def set_overlay_options(self, options: dict[str, bool]) -> None:
         self.overlay_options = {
             'path_preview': bool(options.get('path_preview', True)),
+            'legacy_path_preview': bool(options.get('legacy_path_preview', False)),
             'speed_vertical': bool(options.get('speed_vertical', False)),
             'steering_horizontal': bool(options.get('steering_horizontal', False)),
             'steering_arc': bool(options.get('steering_arc', False)),
@@ -151,6 +158,7 @@ class ImagePreviewPanel(QGroupBox):
         self.speed_slider.setValue(0)
         self._syncing_controls = False
         self._update_value_labels(0.0, 0.0)
+        self._update_overlay_meta_label({})
 
     def _set_slider_enabled(self, enabled: bool) -> None:
         self.steering_slider.setEnabled(enabled)
@@ -166,6 +174,7 @@ class ImagePreviewPanel(QGroupBox):
         self._syncing_controls = False
         self._set_slider_enabled(self.current_record is not None)
         self._update_value_labels(steering, speed)
+        self._update_overlay_meta_label(record)
 
     def _on_slider_changed(self) -> None:
         if self._syncing_controls:
@@ -186,6 +195,18 @@ class ImagePreviewPanel(QGroupBox):
     def _update_value_labels(self, steering: float, speed: float) -> None:
         self.steering_value_label.setText(f'{steering:.3f}')
         self.speed_value_label.setText(f'{speed:.3f}')
+
+    def _update_overlay_meta_label(self, record: dict[str, Any]) -> None:
+        settings = record.get('overlay_settings') if isinstance(record, dict) else {}
+        has_settings = bool(settings) if isinstance(settings, dict) else False
+        schema = str(record.get('overlay_schema_version', '') if isinstance(record, dict) else '').strip()
+        source = str(record.get('overlay_settings_source', '') if isinstance(record, dict) else '').strip()
+        if has_settings:
+            count = len(settings)
+            suffix = f' | {source}' if source else ''
+            self.overlay_meta_label.setText(f'Overlay metadata: PiSD road settings loaded ({count} value(s)) | {schema or "no schema"}{suffix}')
+        else:
+            self.overlay_meta_label.setText('Overlay metadata: using PiSD V7 defaults')
 
     def _render_preview(self) -> None:
         record = self.current_record or {}

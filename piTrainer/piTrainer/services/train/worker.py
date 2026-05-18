@@ -82,6 +82,8 @@ class TrainingWorker(QThread):
                 'review_frame_number': int(idx + 1),
                 'review_total': int(len(self._review_rows)),
                 'abs_image': str(row.get('abs_image', '')),
+                'overlay_settings': row.get('overlay_settings') if isinstance(row.get('overlay_settings'), dict) else {},
+                'overlay_schema_version': str(row.get('overlay_schema_version', '')),
                 'steering_true': float(steering_true[idx]),
                 'steering_pred': float(steering_pred[idx]),
                 'throttle_true': float(throttle_true[idx]),

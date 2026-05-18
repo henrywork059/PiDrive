@@ -10,7 +10,10 @@ def dataframe_preview_rows(df: pd.DataFrame, limit: int | None = None) -> list[d
     rows = []
     keep_columns = [
         col
-        for col in ["session", "frame_id", "mode", "steering", "throttle", "ts", "cam_w", "cam_h", "format"]
+        for col in [
+            "session", "source", "frame_id", "mode", "steering", "throttle", "ts",
+            "has_overlay_settings", "overlay_schema_version", "cam_w", "cam_h", "format",
+        ]
         if col in df.columns
     ]
     sample = df if limit is None else df.head(limit)

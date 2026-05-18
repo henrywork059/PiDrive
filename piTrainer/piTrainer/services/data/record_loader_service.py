@@ -107,11 +107,65 @@ def _training_label_record(record: dict[str, Any]) -> dict[str, Any]:
     return record
 
 
-def build_row(session_name: str, session_dir: Path, record: dict, *, source: str = "records.jsonl") -> dict:
+def _json_safe_mapping(value: Any) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return dict(value)
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return {}
+        try:
+            decoded = json.loads(text)
+            return dict(decoded) if isinstance(decoded, dict) else {}
+        except json.JSONDecodeError:
+            return {}
+    return {}
+
+
+def _load_manifest_defaults(session_dir: Path) -> dict[str, Any]:
+    manifest_path = Path(session_dir) / "manifest.json"
+    if not manifest_path.exists():
+        return {}
+    try:
+        with manifest_path.open("r", encoding="utf-8") as handle:
+            manifest = json.load(handle)
+    except Exception:
+        return {}
+    if not isinstance(manifest, dict):
+        return {}
+    return {
+        "overlay_settings": _json_safe_mapping(manifest.get("overlay_settings")),
+        "overlay_schema_version": manifest.get("overlay_schema_version", ""),
+        "overlay_settings_source": manifest.get("overlay_settings_source", "manifest"),
+    }
+
+
+def _overlay_metadata(record: dict[str, Any], defaults: dict[str, Any] | None = None) -> dict[str, Any]:
+    defaults = defaults or {}
+    settings = _json_safe_mapping(record.get("overlay_settings")) or _json_safe_mapping(defaults.get("overlay_settings"))
+    schema = record.get("overlay_schema_version", defaults.get("overlay_schema_version", ""))
+    source = record.get("overlay_settings_source", defaults.get("overlay_settings_source", ""))
+    return {
+        "overlay_settings": settings,
+        "overlay_schema_version": str(schema or ""),
+        "overlay_settings_source": str(source or ""),
+        "has_overlay_settings": bool(settings),
+    }
+
+
+def build_row(
+    session_name: str,
+    session_dir: Path,
+    record: dict,
+    *,
+    source: str = "records.jsonl",
+    manifest_defaults: dict[str, Any] | None = None,
+) -> dict:
     record = _training_label_record(record)
     image_path = _resolve_image_path(session_dir, record)
     steering = coalesce_value(record, STEER_KEYS, 0.0)
     throttle = coalesce_value(record, THROTTLE_KEYS, 0.0)
+    overlay_meta = _overlay_metadata(record, manifest_defaults)
     row = {
         "session": session_name,
         "session_dir": str(Path(session_dir).resolve()),
@@ -126,6 +180,7 @@ def build_row(session_name: str, session_dir: Path, record: dict, *, source: str
         "frame": record.get("frame", ""),
         "relative_file": record.get("relative_file", ""),
         "source_frame_seq": record.get("source_frame_seq", ""),
+        **overlay_meta,
     }
     for key in ["cam_w", "cam_h", "format", "camera_w", "camera_h", "source_frame_bytes"]:
         if key in record:
@@ -149,8 +204,9 @@ def _load_labels_rows(session_name: str, session_dir: Path) -> list[dict]:
     labels_path = session_dir / "labels.jsonl"
     if not labels_path.exists():
         return []
+    manifest_defaults = _load_manifest_defaults(session_dir)
     rows = [
-        build_row(session_name, session_dir, record, source="labels.jsonl")
+        build_row(session_name, session_dir, record, source="labels.jsonl", manifest_defaults=manifest_defaults)
         for _line_no, record in _iter_jsonl(labels_path)
         if isinstance(record, dict)
     ]
@@ -163,8 +219,9 @@ def _load_records_rows(session_name: str, session_dir: Path) -> list[dict]:
     records_path = session_dir / "records.jsonl"
     if not records_path.exists():
         return []
+    manifest_defaults = _load_manifest_defaults(session_dir)
     rows = [
-        build_row(session_name, session_dir, record, source="records.jsonl")
+        build_row(session_name, session_dir, record, source="records.jsonl", manifest_defaults=manifest_defaults)
         for _line_no, record in _iter_jsonl(records_path)
         if isinstance(record, dict)
     ]
@@ -191,6 +248,14 @@ def load_records_dataframe(records_root: Path, sessions: list[str]) -> pd.DataFr
     df["steering"] = pd.to_numeric(df["steering"], errors="coerce").fillna(0.0).clip(-1.0, 1.0).astype("float32")
     df["throttle"] = pd.to_numeric(df["throttle"], errors="coerce").fillna(0.0).clip(-1.0, 1.0).astype("float32")
     df["abs_image"] = df["abs_image"].astype(str)
+    if "overlay_settings" not in df.columns:
+        df["overlay_settings"] = [{} for _ in range(len(df))]
+    if "overlay_schema_version" not in df.columns:
+        df["overlay_schema_version"] = ""
+    if "overlay_settings_source" not in df.columns:
+        df["overlay_settings_source"] = ""
+    if "has_overlay_settings" not in df.columns:
+        df["has_overlay_settings"] = df["overlay_settings"].map(bool)
     return df.reset_index(drop=True)
 
 

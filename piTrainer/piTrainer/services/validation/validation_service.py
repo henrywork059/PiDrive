@@ -89,6 +89,8 @@ def run_validation(
         'modes': rows.get('mode', pd.Series([''] * len(rows))).astype(str).tolist(),
         'timestamps': rows.get('ts', pd.Series([''] * len(rows))).astype(str).tolist(),
         'abs_images': rows.get('abs_image', pd.Series([''] * len(rows))).astype(str).tolist(),
+        'overlay_settings': rows.get('overlay_settings', pd.Series([{} for _ in range(len(rows))])).tolist(),
+        'overlay_schema_versions': rows.get('overlay_schema_version', pd.Series([''] * len(rows))).astype(str).tolist(),
         'steering_true': steering_true,
         'throttle_true': throttle_true,
         'steering_pred': steering_pred,
@@ -125,6 +127,8 @@ def validation_preview_rows(result: dict | None) -> list[dict]:
     modes = list(result.get('modes', []))
     timestamps = list(result.get('timestamps', []))
     abs_images = list(result.get('abs_images', []))
+    overlay_settings = list(result.get('overlay_settings', []))
+    overlay_schema_versions = list(result.get('overlay_schema_versions', []))
     steering_true = np.asarray(result.get('steering_true', []))
     throttle_true = np.asarray(result.get('throttle_true', []))
     steering_pred = np.asarray(result.get('steering_pred', []))
@@ -141,6 +145,8 @@ def validation_preview_rows(result: dict | None) -> list[dict]:
                 'frame_number': str(frame_numbers[idx]) if idx < len(frame_numbers) else '',
                 'ts': str(timestamps[idx]) if idx < len(timestamps) else '',
                 'abs_image': str(abs_images[idx]) if idx < len(abs_images) else '',
+                'overlay_settings': overlay_settings[idx] if idx < len(overlay_settings) and isinstance(overlay_settings[idx], dict) else {},
+                'overlay_schema_version': str(overlay_schema_versions[idx]) if idx < len(overlay_schema_versions) else '',
                 'target_steering': float(steering_true[idx]) if idx < len(steering_true) else 0.0,
                 'pred_steering': float(steering_pred[idx]) if idx < len(steering_pred) else 0.0,
                 'target_speed': float(throttle_true[idx]) if idx < len(throttle_true) else 0.0,

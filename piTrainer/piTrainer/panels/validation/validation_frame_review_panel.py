@@ -196,6 +196,7 @@ class ValidationFrameReviewPanel(QGroupBox):
                 speed_true=float(row.get('target_speed', 0.0) or 0.0),
                 steering_pred=float(row.get('pred_steering', 0.0) or 0.0),
                 speed_pred=float(row.get('pred_speed', 0.0) or 0.0),
+                overlay_settings=row.get('overlay_settings') if isinstance(row.get('overlay_settings'), dict) else {},
             )
             self.image_label.setText('')
             self.image_label.setPixmap(rendered)
