@@ -14,11 +14,10 @@
     overlay: {
       enabled: true,
       path_length_scale: 1.0,
-      // PiSD_0_5_8: stronger bounded curvature, thinner line, clearer arrow.
-      // These are visual-only defaults; they do not change motor output.
-      curve_strength: 1.95,
-      opacity: 0.96,
-      path_width_scale: 0.55,
+      // PiSD_0_5_9: road-edge guide defaults. Visual-only; no motor output change. reverse guide hidden.
+      curve_strength: 2.45,
+      opacity: 0.94,
+      path_width_scale: 0.40,
     },
   };
   const globalCode = $('mdrvGlobalCode');
@@ -487,9 +486,6 @@
     if (points.length < 3) {
       return points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join(' ');
     }
-    // PiSD_0_5_7: smooth the sampled vehicle path before drawing the arrow.
-    // The sampled points still come from the curvature model; this only avoids
-    // a segmented/polyline look in the camera overlay.
     const commands = [`M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)}`];
     for (let i = 1; i < points.length - 2; i += 1) {
       const current = points[i];
@@ -504,63 +500,53 @@
     return commands.join(' ');
   }
 
-  function fitPathToOverlayBounds(points) {
-    if (!Array.isArray(points) || points.length < 2) return points || [];
-    const minX = Math.min(...points.map(point => point.x));
-    const maxX = Math.max(...points.map(point => point.x));
-    const leftLimit = 7;
-    const rightLimit = 93;
-    if (minX >= leftLimit && maxX <= rightLimit) return points;
-    const available = rightLimit - leftLimit;
-    const width = Math.max(1, maxX - minX);
-    const scale = Math.min(1, available / width);
-    return points.map(point => ({
-      x: 50 + ((point.x - 50) * scale),
-      y: point.y,
-    }));
+  function roadBoundaryPath(baseX, horizonX, bend, innerBias, baseY, horizonY) {
+    const span = baseY - horizonY;
+    const c1 = { x: baseX + bend * 0.26 * innerBias, y: baseY - span * 0.28 };
+    const c2 = { x: horizonX + bend * 0.74 * innerBias, y: horizonY + span * 0.30 };
+    return `M ${baseX.toFixed(2)} ${baseY.toFixed(2)} C ${c1.x.toFixed(2)} ${c1.y.toFixed(2)} ${c2.x.toFixed(2)} ${c2.y.toFixed(2)} ${horizonX.toFixed(2)} ${horizonY.toFixed(2)}`;
   }
 
-  function sampledIntendedPath(throttle, steering) {
+  function roadCenterPath(startX, endX, bend, baseY, horizonY) {
+    const span = baseY - horizonY;
+    const c1 = { x: startX + bend * 0.34, y: baseY - span * 0.32 };
+    const c2 = { x: endX + bend * 0.72, y: horizonY + span * 0.28 };
+    return `M ${startX.toFixed(2)} ${baseY.toFixed(2)} C ${c1.x.toFixed(2)} ${c1.y.toFixed(2)} ${c2.x.toFixed(2)} ${c2.y.toFixed(2)} ${endX.toFixed(2)} ${horizonY.toFixed(2)}`;
+  }
+
+  function roadGuideGeometry(throttle, steering) {
     const safeThrottle = clamp(throttle, -1, 1, 0);
     const safeSteering = clamp(steering, -1, 1, 0);
-    const speed = Math.abs(safeThrottle);
+    const speed = Math.max(0, safeThrottle);
     const movingReverse = safeThrottle < -0.02;
-    const startX = 50;
-    const startY = movingReverse ? 68 : 88;
-    const samples = 46;
-    const horizonScale = overlaySettings.path_length_scale || 1.0;
-    const horizon = (movingReverse ? (13 + speed * 28) : (20 + speed * 56)) * horizonScale;
-
-    // PiSD_0_5_8: keep the same car-like curvature idea, but tune it as a
-    // *screen overlay*. The curve is intentionally more readable than a strict
-    // low-speed model: smaller visual wheelbase, nonlinear steering response,
-    // bounded steering angle, and bounded turn sweep to avoid off-screen loops.
-    const visualWheelbase = 18;
-    const maxSteerRad = 0.96 * (overlaySettings.curve_strength || 1.0);
-    const steeringMagnitude = Math.pow(Math.abs(safeSteering), 0.66);
-    // Reverse policy remains same-sign: visualSteering = safeSteering in sign,
-    // with nonlinear magnitude scaling only for clearer presentation.
-    const visualSteering = Math.sign(safeSteering) * steeringMagnitude;
-    const steerAngle = clamp(visualSteering * maxSteerRad, -1.25, 1.25, 0);
-    const curvature = Math.tan(steerAngle) / visualWheelbase;
-    let signedDistance = movingReverse ? -horizon : horizon;
-    const maxSweep = 2.32;
-    if (Math.abs(curvature) > 0.0008) {
-      const limited = Math.min(Math.abs(signedDistance), maxSweep / Math.abs(curvature));
-      signedDistance = Math.sign(signedDistance) * limited;
-    }
-    const points = [];
-    for (let i = 0; i <= samples; i += 1) {
-      const s = signedDistance * (i / samples);
-      let lateral = 0;
-      let longitudinal = s;
-      if (Math.abs(curvature) > 0.0008) {
-        lateral = (1 - Math.cos(curvature * s)) / curvature;
-        longitudinal = Math.sin(curvature * s) / curvature;
-      }
-      points.push({ x: startX + lateral, y: startY - longitudinal });
-    }
-    return { points: fitPathToOverlayBounds(points), curvature, movingReverse, speed };
+    const steeringMagnitude = Math.pow(Math.abs(safeSteering), 0.72);
+    const signedTurn = Math.sign(safeSteering) * steeringMagnitude;
+    const curveStrength = overlaySettings.curve_strength || DEFAULTS.overlay.curve_strength;
+    const baseY = 94;
+    const horizonY = clamp(34 - (speed * 12) - ((overlaySettings.path_length_scale || 1.0) - 1.0) * 12, 20, 42, 24);
+    const bottomHalf = 20;
+    const topHalf = 6.0;
+    const centerShift = clamp(signedTurn * curveStrength * 12.5, -30, 30, 0);
+    const bend = clamp(signedTurn * curveStrength * 18.0, -42, 42, 0);
+    const topCenter = clamp(50 + centerShift, 18, 82, 50);
+    const leftBase = 50 - bottomHalf;
+    const rightBase = 50 + bottomHalf;
+    const leftTop = clamp(topCenter - topHalf, 8, 88, 44);
+    const rightTop = clamp(topCenter + topHalf, 12, 92, 56);
+    const leftInnerBias = signedTurn < 0 ? 1.36 : 0.78;
+    const rightInnerBias = signedTurn > 0 ? 1.36 : 0.78;
+    const leftPath = roadBoundaryPath(leftBase, leftTop, bend, leftInnerBias, baseY, horizonY);
+    const rightPath = roadBoundaryPath(rightBase, rightTop, bend, rightInnerBias, baseY, horizonY);
+    const centerPath = roadCenterPath(50, topCenter, bend, baseY, horizonY);
+    return {
+      leftPath,
+      rightPath,
+      centerPath,
+      end: { x: topCenter, y: horizonY },
+      curve: signedTurn * curveStrength,
+      movingReverse,
+      speed,
+    };
   }
 
   function drawIntendedPath(throttle, steering) {
@@ -568,35 +554,44 @@
     const safeThrottle = clamp(throttle, -1, 1, 0);
     const safeSteering = clamp(steering, -1, 1, 0);
     const steeringAbs = Math.abs(safeSteering);
-    const moving = Math.abs(safeThrottle) >= 0.02;
-    const { points, curvature, movingReverse, speed } = sampledIntendedPath(safeThrottle, safeSteering);
-    const pathD = pointsToPath(points);
-    const end = points[points.length - 1] || { x: 50, y: 88 };
+    const movingForward = safeThrottle >= 0.02;
+    const movingReverse = safeThrottle < -0.02;
+    const { leftPath, rightPath, centerPath, end, curve, speed } = roadGuideGeometry(safeThrottle, safeSteering);
     const calibratedOpacity = overlaySettings.opacity || DEFAULTS.overlay.opacity;
-    const opacity = moving || steeringAbs >= 0.02 ? String(calibratedOpacity) : String(Math.max(0.18, calibratedOpacity * 0.32));
     const widthScale = overlaySettings.path_width_scale || 1.0;
-    const strokeWidth = String((1.18 + speed * 1.42) * widthScale);
-    for (const pathElement of [overlayPathWide, overlayPathGuide, overlayPath]) {
-      if (!pathElement) continue;
-      pathElement.setAttribute('d', pathD);
-      pathElement.style.opacity = opacity;
-      pathElement.style.strokeDasharray = movingReverse ? '7 5' : 'none';
+    const opacity = movingReverse ? '0' : (movingForward || steeringAbs >= 0.02 ? String(calibratedOpacity) : String(Math.max(0.12, calibratedOpacity * 0.26)));
+
+    if (overlayPathWide) {
+      overlayPathWide.setAttribute('d', leftPath);
+      overlayPathWide.style.opacity = opacity;
+      overlayPathWide.style.strokeDasharray = 'none';
+      overlayPathWide.style.strokeWidth = String(1.28 * widthScale);
     }
-    if (overlayPathWide) overlayPathWide.style.strokeWidth = String(5.8 * widthScale);
-    if (overlayPathGuide) overlayPathGuide.style.strokeWidth = String(2.6 * widthScale);
-    overlayPath.style.strokeWidth = strokeWidth;
+    if (overlayPathGuide) {
+      overlayPathGuide.setAttribute('d', rightPath);
+      overlayPathGuide.style.opacity = opacity;
+      overlayPathGuide.style.strokeDasharray = 'none';
+      overlayPathGuide.style.strokeWidth = String(1.28 * widthScale);
+    }
+    overlayPath.setAttribute('d', centerPath);
+    overlayPath.style.opacity = movingReverse ? '0' : (movingForward ? String(Math.max(0.38, calibratedOpacity * 0.66)) : String(Math.max(0.10, calibratedOpacity * 0.22)));
+    overlayPath.style.strokeDasharray = movingForward ? 'none' : '6 8';
+    overlayPath.style.strokeWidth = String((0.75 + speed * 0.44) * widthScale);
     if (overlayEndpoint) {
       overlayEndpoint.setAttribute('cx', end.x.toFixed(2));
       overlayEndpoint.setAttribute('cy', end.y.toFixed(2));
-      overlayEndpoint.style.opacity = opacity;
+      overlayEndpoint.style.opacity = movingReverse ? '0' : overlayPath.style.opacity;
     }
     if (overlayCurveLabel) {
-      const curve = Math.abs(curvature) < 0.001 ? 'straight' : `curve ${Math.abs(curvature).toFixed(3)}`;
-      const reversePolicy = movingReverse ? ' · reverse same steering' : '';
-      overlayCurveLabel.textContent = `${curveLabelText(safeThrottle, safeSteering)} · ${curve}${reversePolicy}`;
+      if (movingReverse) {
+        overlayCurveLabel.textContent = 'reverse · guide hidden';
+      } else {
+        const curveText = Math.abs(curve) < 0.08 ? 'trapezium' : `road curve ${Math.abs(curve).toFixed(2)}`;
+        overlayCurveLabel.textContent = `${curveLabelText(safeThrottle, safeSteering)} · ${curveText}`;
+      }
     }
     if (previewFrame) {
-      previewFrame.dataset.overlayMotion = moving ? (movingReverse ? 'reverse' : 'forward') : 'stopped';
+      previewFrame.dataset.overlayMotion = movingForward ? 'forward' : (movingReverse ? 'reverse' : 'stopped');
     }
   }
 
@@ -614,10 +609,6 @@
     if (overlayRightValue) overlayRightValue.textContent = formatSigned(right);
     setSignedFill(overlayThrottleFill, throttle);
     setSignedFill(overlaySteeringFill, steering);
-    if (overlayCar) {
-      overlayCar.style.transform = `translateX(-50%) rotate(${(steering * 28).toFixed(1)}deg)`;
-      overlayCar.style.opacity = moving || Math.abs(steering) >= 0.02 ? '1' : '0.78';
-    }
     drawIntendedPath(throttle, steering);
   }
 

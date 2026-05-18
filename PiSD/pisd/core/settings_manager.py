@@ -26,12 +26,12 @@ DEFAULT_RUNTIME_SETTINGS: dict[str, Any] = {
         "overlay": {
             "enabled": True,
             "path_length_scale": 1.0,
-            # PiSD_0_5_8: keep the overlay visual-only, but make the
-            # default predicted path more obviously curved with a thinner,
-            # cleaner line for the live camera view.
-            "curve_strength": 1.95,
-            "opacity": 0.96,
-            "path_width_scale": 0.55,
+            # PiSD_0_5_9: road-style overlay defaults. The two road-edge
+            # lines converge near the horizon when straight and bend at
+            # different rates when steering, while remaining visual-only.
+            "curve_strength": 2.45,
+            "opacity": 0.94,
+            "path_width_scale": 0.40,
         },
     },
     "ai_mode": {
@@ -302,22 +302,23 @@ class SettingsManager:
         overlay = manual.get("overlay") if isinstance(manual.get("overlay"), dict) else {}
         manual["overlay"] = overlay
         overlay["enabled"] = str(overlay.get("enabled", overlay_defaults.get("enabled", True))).lower() not in {"false", "0", "no", "off"}
-        # PiSD_0_5_8: migrate only known uncustomised overlay presentation
+        # PiSD_0_5_9: migrate only known uncustomised overlay presentation
         # defaults. User-tuned overlay calibration remains untouched. This lets
-        # the new thinner/more-curved presentation appear after upgrading from
-        # either the original 0.4.7 defaults or the 0.5.7 presentation defaults.
+        # the new road-edge overlay presentation appear after upgrading from
+        # the original 0.4.7, 0.5.7, or 0.5.8 presentation defaults.
         try:
             old_default_sets = (
                 {"path_length_scale": 1.0, "curve_strength": 1.0, "opacity": 0.92, "path_width_scale": 1.0},
                 {"path_length_scale": 1.0, "curve_strength": 1.45, "opacity": 0.95, "path_width_scale": 0.72},
+                {"path_length_scale": 1.0, "curve_strength": 1.95, "opacity": 0.96, "path_width_scale": 0.55},
             )
             for old_defaults in old_default_sets:
                 if all(abs(float(overlay.get(k, old_defaults[k])) - v) <= 0.001 for k, v in old_defaults.items()):
                     overlay.update({
                         "path_length_scale": overlay_defaults.get("path_length_scale", 1.0),
-                        "curve_strength": overlay_defaults.get("curve_strength", 1.95),
-                        "opacity": overlay_defaults.get("opacity", 0.96),
-                        "path_width_scale": overlay_defaults.get("path_width_scale", 0.55),
+                        "curve_strength": overlay_defaults.get("curve_strength", 2.45),
+                        "opacity": overlay_defaults.get("opacity", 0.94),
+                        "path_width_scale": overlay_defaults.get("path_width_scale", 0.40),
                     })
                     break
         except Exception:

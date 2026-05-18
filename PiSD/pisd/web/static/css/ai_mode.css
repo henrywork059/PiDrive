@@ -321,7 +321,7 @@ body[data-pisd-card-accent="strong"] .ai-intro-panel {
 
 /* PiSD_0_5_4: AI Mode now reuses the Manual Drive preview frame and
    predicted-path overlay, but the values come from the AI model safety output.
-   PiSD_0_5_8 keeps the same stronger, thinner, bounded arrow-curve presentation as Manual Drive. */
+   PiSD_0_5_9 keeps the same road-edge guide presentation as Manual Drive. */
 .ai-preview-frame {
   min-height: clamp(260px, calc(100vh - 290px), 66vh);
   height: clamp(260px, calc(100vh - 290px), 66vh);
@@ -344,11 +344,12 @@ body[data-pisd-card-accent="strong"] .ai-intro-panel {
 }
 
 .ai-drive-overlay .mdrv-overlay-path {
-  stroke: rgba(34, 211, 238, .98);
+  stroke: rgba(34, 211, 238, .78);
 }
 
+.ai-drive-overlay .mdrv-overlay-path-wide,
 .ai-drive-overlay .mdrv-overlay-path-guide {
-  stroke: rgba(226, 232, 240, .68);
+  stroke: rgba(191, 219, 254, .96);
 }
 
 .ai-overlay-wheel-row {

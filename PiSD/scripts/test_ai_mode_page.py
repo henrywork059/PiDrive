@@ -84,7 +84,7 @@ def check_source_contract() -> Result:
             "STOP AI + motors",
             "aiPreviewFrame",
             "aiDriveOverlay",
-            "AI safe arc",
+            "AI road guide",
             "Overlay: On",
             "labels.jsonl",
             "AI → safety limiter → motors",
@@ -107,10 +107,10 @@ def check_source_contract() -> Result:
             "sendBeacon",
             "enforceFullScaleThrottleRanges",
             "updateAIOverlay",
-            "sampledIntendedPath",
+            "roadGuideGeometry",
             "aiOverlayToggle",
-            "reverse same steering",
-            "visualSteering = safeSteering",
+            "reverse guide hidden",
+            "roadBoundaryPath",
             "aiReverseSteeringPolicy",
         ],
     }
@@ -122,7 +122,7 @@ def check_source_contract() -> Result:
         "ai_mode.source_contract",
         ok,
         PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_AI_MODE_FAILED,
-        "AI Mode source contains model-loading, Manual Drive-style preview overlay, safety, same-sign reverse steering policy, and drive contracts" if ok else "AI Mode source contract failed",
+        "AI Mode source contains model-loading, Manual Drive-style road-guide overlay, safety, same-sign reverse steering policy, and drive contracts" if ok else "AI Mode source contract failed",
         {"missing": missing},
     )
 

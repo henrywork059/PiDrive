@@ -165,10 +165,10 @@ body[data-pisd-theme="light"] .mdrv-file-controls select { color: #0f172a; backg
 }
 @media (max-width: 759px) { .mdrv-file-summary { grid-template-columns: 1fr; } }
 
-/* 0.4.6 Manual Drive preview predicted-arc overlay.
-   The overlay now uses a sampled constant-curvature path: throttle changes the
-   visible horizon length; steering changes curvature. It remains visual only and
-   does not change motor output. */
+/* 0.5.9 Manual Drive road-guide overlay.
+   The overlay now uses two road-edge guide lines plus a subtle centre direction
+   arrow: straight driving forms a perspective trapezium, while steering bends
+   the left and right road edges by different amounts. Reverse motion is hidden. */
 .mdrv-preview-frame {
   position: relative;
 }
@@ -242,38 +242,27 @@ body[data-pisd-theme="light"] .mdrv-file-controls select { color: #0f172a; backg
 .mdrv-overlay-road {
   position: absolute;
   left: 50%;
-  top: 13%;
-  width: min(60%, 500px);
-  height: 73%;
+  top: 10%;
+  width: min(68%, 560px);
+  height: 78%;
   transform: translateX(-50%);
-  border-left: 1px dashed rgba(226, 232, 240, .22);
-  border-right: 1px dashed rgba(226, 232, 240, .22);
+  border: 0;
   background:
-    linear-gradient(90deg, transparent 0 18%, rgba(148, 163, 184, .08) 18% 19%, transparent 19% 81%, rgba(148, 163, 184, .08) 81% 82%, transparent 82% 100%),
-    repeating-linear-gradient(180deg, transparent 0 14px, rgba(226, 232, 240, .07) 15px 16px, transparent 17px 31px);
-  border-radius: 30% 30% 12% 12% / 8% 8% 12% 12%;
+    linear-gradient(180deg, rgba(14,165,233,.05), transparent 24%, transparent 100%),
+    radial-gradient(ellipse at 50% 8%, rgba(255,255,255,.10), transparent 42%);
+  border-radius: 2rem 2rem 1rem 1rem;
 }
-
-.mdrv-overlay-road::before,
-.mdrv-overlay-road::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: linear-gradient(180deg, rgba(226,232,240,.06), rgba(226,232,240,.34), rgba(226,232,240,.08));
-}
-
-.mdrv-overlay-road::before { left: 32%; }
-.mdrv-overlay-road::after { right: 32%; }
 
 .mdrv-overlay-center-line {
   position: absolute;
   left: 50%;
   top: 0;
-  bottom: 0;
-  border-left: 2px dashed rgba(251, 191, 36, .48);
+  width: min(12%, 70px);
+  height: 100%;
   transform: translateX(-50%);
+  opacity: .18;
+  background: linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,.04));
+  clip-path: polygon(38% 0, 62% 0, 52% 100%, 48% 100%);
 }
 
 .mdrv-overlay-path-svg {
@@ -297,23 +286,25 @@ body[data-pisd-theme="light"] .mdrv-file-controls select { color: #0f172a; backg
 }
 
 .mdrv-overlay-path-wide {
-  stroke: rgba(15, 23, 42, .68);
-  stroke-width: 5.8;
-  opacity: .22;
+  stroke: rgba(236, 253, 245, .96);
+  stroke-width: 1.15;
+  opacity: .92;
+  filter: drop-shadow(0 0 4px rgba(34, 197, 94, .42));
 }
 
 .mdrv-overlay-path-guide {
-  stroke: rgba(255, 255, 255, .66);
-  stroke-width: 2.6;
-  opacity: .52;
+  stroke: rgba(236, 253, 245, .96);
+  stroke-width: 1.15;
+  opacity: .92;
+  filter: drop-shadow(0 0 4px rgba(34, 197, 94, .42));
 }
 
 .mdrv-overlay-path {
-  stroke: rgba(56, 189, 248, .94);
-  stroke-width: 1.45;
+  stroke: rgba(56, 189, 248, .78);
+  stroke-width: .72;
   marker-end: url(#mdrvOverlayArrow);
-  filter: drop-shadow(0 0 4px rgba(56, 189, 248, .82));
-  opacity: .95;
+  filter: drop-shadow(0 0 4px rgba(56, 189, 248, .58));
+  opacity: .56;
 }
 
 .mdrv-overlay-start-point,
@@ -330,45 +321,23 @@ body[data-pisd-theme="light"] .mdrv-file-controls select { color: #0f172a; backg
 }
 
 .mdrv-preview-frame[data-overlay-motion="reverse"] .mdrv-overlay-path,
+.mdrv-preview-frame[data-overlay-motion="reverse"] .mdrv-overlay-path-guide,
+.mdrv-preview-frame[data-overlay-motion="reverse"] .mdrv-overlay-path-wide,
+.mdrv-preview-frame[data-overlay-motion="reverse"] .mdrv-overlay-endpoint,
+.mdrv-preview-frame[data-overlay-motion="reverse"] .mdrv-overlay-start-point,
 .mdrv-preview-frame[data-overlay-motion="reverse"] .mdrv-overlay-path-svg marker path {
-  stroke: rgba(251, 191, 36, .98);
-  fill: rgba(251, 191, 36, .98);
-}
-
-.mdrv-preview-frame[data-overlay-motion="reverse"] .mdrv-overlay-endpoint {
-  fill: rgba(251, 191, 36, .95);
-  stroke: rgba(255, 255, 255, .9);
+  opacity: 0 !important;
 }
 
 .mdrv-preview-frame[data-overlay-motion="stopped"] .mdrv-overlay-path,
 .mdrv-preview-frame[data-overlay-motion="stopped"] .mdrv-overlay-path-guide,
 .mdrv-preview-frame[data-overlay-motion="stopped"] .mdrv-overlay-path-wide {
-  opacity: .24 !important;
+  opacity: .20 !important;
 }
 
-.mdrv-overlay-car {
-  position: absolute;
-  left: 50%;
-  bottom: 6%;
-  width: clamp(28px, 8vw, 54px);
-  height: clamp(40px, 10vw, 70px);
-  border: 2px solid rgba(255, 255, 255, .9);
-  border-radius: 14px 14px 10px 10px;
-  background: rgba(14, 165, 233, .36);
-  transform: translateX(-50%) rotate(0deg);
-  transform-origin: 50% 78%;
-}
-
+.mdrv-overlay-car,
 .mdrv-overlay-car-nose {
-  position: absolute;
-  left: 50%;
-  top: -10px;
-  width: 0;
-  height: 0;
-  border-left: 8px solid transparent;
-  border-right: 8px solid transparent;
-  border-bottom: 12px solid rgba(255, 255, 255, .92);
-  transform: translateX(-50%);
+  display: none;
 }
 
 .mdrv-overlay-meter {

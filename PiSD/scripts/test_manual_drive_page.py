@@ -109,8 +109,8 @@ def check_source_contract() -> list[Result]:
         "mdrvOverlayPathWide",
         "mdrvOverlayEndpoint",
         "mdrvOverlayCurveLabel",
-        "Predicted arc",
-        "sampled predicted arc",
+        "Road guide",
+        "road-style guide",
         "mdrvArm",
         "Overlay calibration",
         "mdrvOverlayLengthScale",
@@ -160,7 +160,7 @@ def check_source_contract() -> list[Result]:
         "does not start the camera, restart preview, or send motor commands",
         "STOP motors",
     ]
-    required_css = [".mdrv-shell", ".mdrv-panel", ".mdrv-status-panel", ".mdrv-preview-frame", ".mdrv-drag-pad", ".mdrv-big-stop", ".mdrv-drag-knob", "width: 28px", ".mdrv-recording-indicator", ".mdrv-capture-notice", ".mdrv-overlay-toggle", ".mdrv-drive-overlay", ".mdrv-overlay-path", ".mdrv-overlay-path-wide", ".mdrv-overlay-endpoint", "constant-curvature", "marker-end: url(#mdrvOverlayArrow)", ".mdrv-drive-debug-panel", ".mdrv-overlay-calibration", "data-overlay-source", "data-preview-state", "Preview stale", "@media (max-width: 1100px)"]
+    required_css = [".mdrv-shell", ".mdrv-panel", ".mdrv-status-panel", ".mdrv-preview-frame", ".mdrv-drag-pad", ".mdrv-big-stop", ".mdrv-drag-knob", "width: 28px", ".mdrv-recording-indicator", ".mdrv-capture-notice", ".mdrv-overlay-toggle", ".mdrv-drive-overlay", ".mdrv-overlay-path", ".mdrv-overlay-path-wide", ".mdrv-overlay-endpoint", "road-guide overlay", "marker-end: url(#mdrvOverlayArrow)", ".mdrv-drive-debug-panel", ".mdrv-overlay-calibration", "data-overlay-source", "data-preview-state", "Preview stale", "@media (max-width: 1100px)"]
     required_unified_css = [
         "PiSD 0.3.3 manual-drive semantic layout recovery",
         "body.manual-drive-page .mdrv-shell",
@@ -233,9 +233,9 @@ def check_source_contract() -> list[Result]:
         "renderMotorSignalsFromApiResponse",
         "updateDriveOverlay",
         "drawIntendedPath",
-        "sampledIntendedPath",
-        "visualSteering = safeSteering",
-        "reverse same steering",
+        "roadGuideGeometry",
+        "roadBoundaryPath",
+        "reverse guide hidden",
         "pointsToPath",
         "curveLabelText",
         "setOverlayEnabled",
@@ -276,7 +276,7 @@ def check_source_contract() -> list[Result]:
         "manual_drive.source_contract",
         ok,
         PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
-        "manual drive page contains camera preview, manual-page overlay toggle/sampled predicted-arc visualisation, overlay calibration, live source debugging, preview FPS/stale-state debugging, compact status, current intent/output signals, smaller drag knob, locked drag pad, STOP, capture/recording indicators, persistence, API calls, and the recovered semantic layout" if ok else "manual drive source contract failed",
+        "manual drive page contains camera preview, manual-page overlay toggle/road-guide visualisation, overlay calibration, live source debugging, preview FPS/stale-state debugging, compact status, current intent/output signals, smaller drag knob, locked drag pad, STOP, capture/recording indicators, persistence, API calls, and the recovered semantic layout" if ok else "manual drive source contract failed",
         {"missing": missing},
     )]
     status_index = template.find("manualDriveStatusPanel")
@@ -313,7 +313,7 @@ def check_source_contract() -> list[Result]:
         "manual_drive.preview_overlay",
         overlay_ok,
         PiSDErrorCodes.OK if overlay_ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
-        "manual drive preview has visible Overlay: On/Off button, calibration controls, live source debug, same-sign reverse steering, and intended path overlay tied to throttle/steering" if overlay_ok else "manual drive overlay toggle/calibration/source/path logic is missing",
+        "manual drive preview has visible Overlay: On/Off button, calibration controls, live source debug, same-sign reverse steering, and road-guide overlay tied to throttle/steering" if overlay_ok else "manual drive overlay toggle/calibration/source/path logic is missing",
         {},
     ))
 

@@ -32,12 +32,12 @@ Included accepted work:
 - AI Mode model listing/loading from `PiSD/models/` and a guarded safety layer between AI predictions and motor output.
 - AI Mode max throttle and fixed throttle controls now allow full-scale `1.00`, matching Manual Drive motor command range.
 - AI Mode reuses Manual Drive panel/topbar/button styling for a consistent interface.
-- AI Mode preview now reuses the Manual Drive preview-frame design and includes an AI safe-command path overlay drawn from the model prediction after the safety limiter.
+- AI Mode preview now reuses the Manual Drive preview-frame design and includes an AI safe-command road-guide overlay drawn from the model prediction after the safety limiter.
 - Default OV5647 camera profile now uses the tested `03_request_awb_off_lock` request/PIL RGB visual profile for preview and training capture.
 - Reverse driving currently uses Option A: negative throttle keeps the same steering sign in motor output and preview overlays.
 
-- Manual Drive and AI Mode overlays now use a smoother, thinner, more visibly curved arrow path based on the same steering-curvature visual logic.
-- PiSD 0.5.8 further improves the predicted-path overlay with stronger bounded curvature, thinner default strokes, and a clearer SVG arrowhead presentation.
+- Manual Drive and AI Mode overlays now use a road-guide presentation: two left/right road-edge lines form a perspective trapezium when straight and bend by different amounts when turning.
+- PiSD 0.5.9 hides reverse-motion drawing in the overlay and removes the car-rectangle marker from the preview guide.
 
 This stable baseline keeps only one dependency file:
 
