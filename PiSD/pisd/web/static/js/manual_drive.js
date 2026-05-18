@@ -1080,8 +1080,18 @@
     $('mdrvStopPad')?.addEventListener('click', () => stopAll('drive'));
     $('mdrvStopBig')?.addEventListener('click', () => stopAll('stop'));
     overlayToggle?.addEventListener('click', () => setOverlayEnabled(!previewFrame?.classList.contains('mdrv-overlay-enabled'), true));
+    const applyOverlayNumberInput = () => {
+      applyOverlayCalibration(readOverlayCalibrationFromControls(), true);
+    };
     for (const control of [overlayLengthScale, overlayCurveScale, overlayOpacity, overlayPathWidth]) {
-      control?.addEventListener('input', () => applyOverlayCalibration(readOverlayCalibrationFromControls(), true));
+      control?.addEventListener('change', applyOverlayNumberInput);
+      control?.addEventListener('keydown', event => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          applyOverlayNumberInput();
+          event.target?.blur?.();
+        }
+      });
     }
     $('mdrvRefreshFiles')?.addEventListener('click', refreshRecordingItems);
     $('mdrvDownloadZip')?.addEventListener('click', downloadSelectedZip);

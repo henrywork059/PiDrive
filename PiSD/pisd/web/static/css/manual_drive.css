@@ -456,18 +456,30 @@ body[data-pisd-theme="light"] .mdrv-file-controls select { color: #0f172a; backg
 
 .mdrv-overlay-calibration-grid label {
   display: grid;
-  grid-template-columns: minmax(78px, .9fr) minmax(90px, 1.1fr) 42px;
+  grid-template-columns: minmax(82px, .9fr) minmax(96px, 1fr);
   align-items: center;
-  gap: .34rem;
+  gap: .4rem;
   color: var(--mdrv-muted);
   font-size: .72rem;
 }
 
-.mdrv-overlay-calibration-grid output {
+.mdrv-overlay-calibration-grid input[type="number"] {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid rgba(148, 163, 184, .24);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, .84);
   color: #ffffff;
+  font: inherit;
   font-weight: 850;
   font-variant-numeric: tabular-nums;
-  text-align: right;
+  padding: .32rem .42rem;
+}
+
+.mdrv-overlay-calibration-grid input[type="number"]:focus {
+  border-color: rgba(56, 189, 248, .72);
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, .16);
+  outline: none;
 }
 
 .mdrv-overlay-calibration-note {
@@ -495,7 +507,6 @@ body[data-pisd-theme="light"] .mdrv-file-controls select { color: #0f172a; backg
 
 @media (max-width: 480px) {
   .mdrv-overlay-calibration-grid label { grid-template-columns: 1fr; }
-  .mdrv-overlay-calibration-grid output { text-align: left; }
 }
 
 /* 0.4.9 Manual Drive preview truth/debugging.
