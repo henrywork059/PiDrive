@@ -18,6 +18,22 @@
       curve_strength: 3.35,
       opacity: 0.94,
       path_width_scale: 0.34,
+      sample_count: 56,
+      wheelbase: 0.32,
+      max_steer_rad: 0.62,
+      curve_response: 1.05,
+      curvature_scale: 0.52,
+      curvature_limit: 2.25,
+      entry_blend_start: 0.76,
+      road_half_width: 0.41,
+      base_y: 96,
+      horizon_y: 31,
+      camera_forward_offset: 0.26,
+      near_clip: 0.19,
+      perspective_scale: 64,
+      perspective_depth: 0.92,
+      turn_compression: 0.075,
+      turn_width_taper: 0.08,
     },
   };
   const globalCode = $('mdrvGlobalCode');
@@ -80,14 +96,32 @@
   const previewAgeDebug = $('mdrvPreviewAgeDebug');
   const previewFpsDebug = $('mdrvPreviewFpsDebug');
   const previewLoopDebug = $('mdrvPreviewLoopDebug');
+  const overlaySettingsOpen = $('mdrvOverlaySettingsOpen');
+  const overlaySettingsPopup = $('mdrvOverlaySettingsPopup');
+  const overlaySettingsClose = $('mdrvOverlaySettingsClose');
+  const overlaySettingsApply = $('mdrvOverlaySettingsApply');
+  const overlaySettingsReset = $('mdrvOverlaySettingsReset');
+  const overlaySettingsStatus = $('mdrvOverlaySettingsStatus');
   const overlayLengthScale = $('mdrvOverlayLengthScale');
   const overlayCurveScale = $('mdrvOverlayCurveScale');
   const overlayOpacity = $('mdrvOverlayOpacity');
   const overlayPathWidth = $('mdrvOverlayPathWidth');
-  const overlayLengthScaleOut = $('mdrvOverlayLengthScaleOut');
-  const overlayCurveScaleOut = $('mdrvOverlayCurveScaleOut');
-  const overlayOpacityOut = $('mdrvOverlayOpacityOut');
-  const overlayPathWidthOut = $('mdrvOverlayPathWidthOut');
+  const overlaySampleCount = $('mdrvOverlaySampleCount');
+  const overlayWheelbase = $('mdrvOverlayWheelbase');
+  const overlayMaxSteerRad = $('mdrvOverlayMaxSteerRad');
+  const overlayCurveResponse = $('mdrvOverlayCurveResponse');
+  const overlayCurvatureScale = $('mdrvOverlayCurvatureScale');
+  const overlayCurvatureLimit = $('mdrvOverlayCurvatureLimit');
+  const overlayEntryBlendStart = $('mdrvOverlayEntryBlendStart');
+  const overlayRoadHalfWidth = $('mdrvOverlayRoadHalfWidth');
+  const overlayBaseY = $('mdrvOverlayBaseY');
+  const overlayHorizonY = $('mdrvOverlayHorizonY');
+  const overlayCameraOffset = $('mdrvOverlayCameraOffset');
+  const overlayNearClip = $('mdrvOverlayNearClip');
+  const overlayPerspectiveScale = $('mdrvOverlayPerspectiveScale');
+  const overlayPerspectiveDepth = $('mdrvOverlayPerspectiveDepth');
+  const overlayTurnCompression = $('mdrvOverlayTurnCompression');
+  const overlayTurnWidthTaper = $('mdrvOverlayTurnWidthTaper');
   let dragging = false;
   let lastSentAt = 0;
   const STOP_COMMAND = { steering: 0, throttle: 0 };
@@ -112,6 +146,29 @@
   let lastPreviewFps = null;
   let lastPreviewStats = null;
   let lastPreviewImageLoadAt = 0;
+
+  const OVERLAY_CONTROL_BINDINGS = [
+    ['path_length_scale', overlayLengthScale],
+    ['curve_strength', overlayCurveScale],
+    ['opacity', overlayOpacity],
+    ['path_width_scale', overlayPathWidth],
+    ['sample_count', overlaySampleCount],
+    ['wheelbase', overlayWheelbase],
+    ['max_steer_rad', overlayMaxSteerRad],
+    ['curve_response', overlayCurveResponse],
+    ['curvature_scale', overlayCurvatureScale],
+    ['curvature_limit', overlayCurvatureLimit],
+    ['entry_blend_start', overlayEntryBlendStart],
+    ['road_half_width', overlayRoadHalfWidth],
+    ['base_y', overlayBaseY],
+    ['horizon_y', overlayHorizonY],
+    ['camera_forward_offset', overlayCameraOffset],
+    ['near_clip', overlayNearClip],
+    ['perspective_scale', overlayPerspectiveScale],
+    ['perspective_depth', overlayPerspectiveDepth],
+    ['turn_compression', overlayTurnCompression],
+    ['turn_width_taper', overlayTurnWidthTaper],
+  ];
 
   function isOk(code) { return String(code || '').startsWith('PISD-OK'); }
   function clamp(value, min, max, fallback = 0) {
@@ -416,45 +473,72 @@
   }
 
 
-  function normaliseOverlaySettings(raw = {}) {
-    const source = raw && typeof raw === 'object' ? raw : {};
-    return {
-      enabled: String(source.enabled ?? DEFAULTS.overlay.enabled).toLowerCase() !== 'false' && !['0', 'no', 'off'].includes(String(source.enabled ?? DEFAULTS.overlay.enabled).toLowerCase()),
-      path_length_scale: clamp(source.path_length_scale ?? DEFAULTS.overlay.path_length_scale, 0.5, 1.8, DEFAULTS.overlay.path_length_scale),
-      curve_strength: clamp(source.curve_strength ?? DEFAULTS.overlay.curve_strength, 0.4, 5.0, DEFAULTS.overlay.curve_strength),
-      opacity: clamp(source.opacity ?? DEFAULTS.overlay.opacity, 0.2, 1.0, DEFAULTS.overlay.opacity),
-      path_width_scale: clamp(source.path_width_scale ?? DEFAULTS.overlay.path_width_scale, 0.3, 1.8, DEFAULTS.overlay.path_width_scale),
-    };
+  function overlayNumber(value, fallback) {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : fallback;
   }
 
-  function updateOverlaySettingLabels() {
-    if (overlayLengthScaleOut) overlayLengthScaleOut.textContent = overlaySettings.path_length_scale.toFixed(2);
-    if (overlayCurveScaleOut) overlayCurveScaleOut.textContent = overlaySettings.curve_strength.toFixed(2);
-    if (overlayOpacityOut) overlayOpacityOut.textContent = overlaySettings.opacity.toFixed(2);
-    if (overlayPathWidthOut) overlayPathWidthOut.textContent = overlaySettings.path_width_scale.toFixed(2);
+  function normaliseOverlaySettings(raw = {}) {
+    const source = raw && typeof raw === 'object' ? raw : {};
+    const next = {
+      enabled: String(source.enabled ?? DEFAULTS.overlay.enabled).toLowerCase() !== 'false' && !['0', 'no', 'off'].includes(String(source.enabled ?? DEFAULTS.overlay.enabled).toLowerCase()),
+    };
+    for (const [key] of OVERLAY_CONTROL_BINDINGS) {
+      next[key] = overlayNumber(source[key] ?? DEFAULTS.overlay[key], DEFAULTS.overlay[key]);
+    }
+    return next;
+  }
+
+  function boundedOpacity(value, fallback = DEFAULTS.overlay.opacity) {
+    return clamp(value, 0, 1, fallback);
+  }
+
+  function setOverlaySettingsStatus(message) {
+    if (overlaySettingsStatus) overlaySettingsStatus.textContent = message;
+  }
+
+  function writeOverlayControls() {
+    for (const [key, control] of OVERLAY_CONTROL_BINDINGS) {
+      if (control) control.value = Number.isFinite(Number(overlaySettings[key])) ? String(overlaySettings[key]) : '';
+    }
   }
 
   function applyOverlayCalibration(settings = overlaySettings, persist = false) {
     overlaySettings = normaliseOverlaySettings(settings);
-    if (overlayLengthScale) overlayLengthScale.value = overlaySettings.path_length_scale;
-    if (overlayCurveScale) overlayCurveScale.value = overlaySettings.curve_strength;
-    if (overlayOpacity) overlayOpacity.value = overlaySettings.opacity;
-    if (overlayPathWidth) overlayPathWidth.value = overlaySettings.path_width_scale;
-    if (previewFrame) previewFrame.style.setProperty('--mdrv-overlay-calibrated-opacity', String(overlaySettings.opacity));
-    updateOverlaySettingLabels();
+    writeOverlayControls();
+    if (previewFrame) previewFrame.style.setProperty('--mdrv-overlay-calibrated-opacity', String(boundedOpacity(overlaySettings.opacity)));
     setOverlayEnabled(overlaySettings.enabled, false);
     updateDriveOverlay(lastPayload, lastMotorOutput, lastOverlaySource);
-    if (persist) persistOverlaySettingsSoon();
+    if (persist) {
+      persistOverlaySettingsSoon();
+      setOverlaySettingsStatus('Applied and queued to save');
+    }
   }
 
   function readOverlayCalibrationFromControls() {
-    return normaliseOverlaySettings({
-      ...overlaySettings,
-      path_length_scale: overlayLengthScale?.value,
-      curve_strength: overlayCurveScale?.value,
-      opacity: overlayOpacity?.value,
-      path_width_scale: overlayPathWidth?.value,
-    });
+    const next = { ...overlaySettings };
+    for (const [key, control] of OVERLAY_CONTROL_BINDINGS) {
+      if (!control) continue;
+      const n = Number(control.value);
+      next[key] = Number.isFinite(n) ? n : DEFAULTS.overlay[key];
+    }
+    return normaliseOverlaySettings(next);
+  }
+
+  function openOverlaySettingsPopup() {
+    if (!overlaySettingsPopup) return;
+    writeOverlayControls();
+    overlaySettingsPopup.hidden = false;
+    document.body.classList.add('mdrv-overlay-settings-open-body');
+    setOverlaySettingsStatus('Ready');
+    window.setTimeout(() => overlayLengthScale?.focus?.(), 0);
+  }
+
+  function closeOverlaySettingsPopup() {
+    if (!overlaySettingsPopup) return;
+    overlaySettingsPopup.hidden = true;
+    document.body.classList.remove('mdrv-overlay-settings-open-body');
+    overlaySettingsOpen?.focus?.();
   }
 
   function setSignedFill(element, value) {
@@ -531,8 +615,8 @@
     const movingForward = safeThrottle >= 0.02;
     const movingReverse = safeThrottle < -0.02;
     const { leftPath, rightPath, centerPath, surfacePath, start, end, curve, speed } = roadGuideGeometry(safeThrottle, safeSteering);
-    const calibratedOpacity = overlaySettings.opacity || DEFAULTS.overlay.opacity;
-    const widthScale = overlaySettings.path_width_scale || 1.0;
+    const calibratedOpacity = boundedOpacity(overlaySettings.opacity || DEFAULTS.overlay.opacity);
+    const widthScale = Math.max(0.05, Math.abs(overlaySettings.path_width_scale || 1.0));
     const opacity = movingReverse ? '0' : (movingForward || steeringAbs >= 0.02 ? String(calibratedOpacity) : String(Math.max(0.12, calibratedOpacity * 0.26)));
 
     if (overlaySurface) {
@@ -1083,8 +1167,21 @@
     const applyOverlayNumberInput = () => {
       applyOverlayCalibration(readOverlayCalibrationFromControls(), true);
     };
-    for (const control of [overlayLengthScale, overlayCurveScale, overlayOpacity, overlayPathWidth]) {
-      control?.addEventListener('change', applyOverlayNumberInput);
+    overlaySettingsOpen?.addEventListener('click', openOverlaySettingsPopup);
+    overlaySettingsClose?.addEventListener('click', closeOverlaySettingsPopup);
+    overlaySettingsPopup?.addEventListener('click', event => {
+      if (event.target === overlaySettingsPopup) closeOverlaySettingsPopup();
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && overlaySettingsPopup && !overlaySettingsPopup.hidden) closeOverlaySettingsPopup();
+    });
+    overlaySettingsApply?.addEventListener('click', applyOverlayNumberInput);
+    overlaySettingsReset?.addEventListener('click', () => {
+      applyOverlayCalibration({ ...DEFAULTS.overlay, enabled: overlaySettings.enabled }, true);
+      setOverlaySettingsStatus('Reset to defaults');
+    });
+    for (const [, control] of OVERLAY_CONTROL_BINDINGS) {
+      control?.addEventListener('change', () => setOverlaySettingsStatus('Edited; press Apply numbers'));
       control?.addEventListener('keydown', event => {
         if (event.key === 'Enter') {
           event.preventDefault();

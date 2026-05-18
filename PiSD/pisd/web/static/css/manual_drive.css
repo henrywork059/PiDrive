@@ -434,59 +434,146 @@ body[data-pisd-theme="light"] .mdrv-file-controls select { color: #0f172a; backg
 
 .mdrv-overlay-calibration {
   margin-top: .5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .55rem;
   border: 1px solid rgba(56, 189, 248, .22);
   border-radius: calc(var(--pisd-ui-radius, 14px) * .72);
   background: rgba(2, 132, 199, .08);
   padding: .45rem .52rem;
 }
 
-.mdrv-overlay-calibration summary {
-  cursor: pointer;
+.mdrv-overlay-settings-open {
+  white-space: nowrap;
+}
+
+.mdrv-overlay-calibration-summary {
+  color: var(--mdrv-muted);
+  font-size: .72rem;
+  line-height: 1.25;
+}
+
+.mdrv-overlay-settings-popup[hidden] { display: none; }
+
+.mdrv-overlay-settings-popup {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: min(4vw, 2rem);
+  background: rgba(2, 6, 23, .72);
+  backdrop-filter: blur(12px);
+}
+
+.mdrv-overlay-settings-card {
+  width: min(1100px, 96vw);
+  max-height: min(88vh, 850px);
+  overflow: auto;
+  border: 1px solid rgba(56, 189, 248, .28);
+  border-radius: 22px;
+  background: linear-gradient(145deg, rgba(15, 23, 42, .98), rgba(8, 47, 73, .94));
+  box-shadow: 0 26px 80px rgba(0, 0, 0, .52);
+  padding: 1rem;
+}
+
+.mdrv-overlay-settings-head,
+.mdrv-overlay-settings-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+}
+
+.mdrv-overlay-settings-head h3 {
+  margin: 0;
+  color: #f8fafc;
+  font-size: 1.15rem;
+}
+
+.mdrv-overlay-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .75rem;
+  margin-top: .8rem;
+}
+
+.mdrv-overlay-settings-grid fieldset {
+  min-width: 0;
+  margin: 0;
+  border: 1px solid rgba(148, 163, 184, .18);
+  border-radius: 16px;
+  background: rgba(15, 23, 42, .42);
+  padding: .72rem;
+}
+
+.mdrv-overlay-settings-grid legend {
   color: #bae6fd;
-  font-weight: 850;
+  font-weight: 900;
+  font-size: .82rem;
+  padding: 0 .35rem;
+}
+
+.mdrv-overlay-settings-grid label {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(100px, .75fr);
+  align-items: center;
+  gap: .6rem;
+  margin-top: .5rem;
+  color: var(--mdrv-muted);
   font-size: .78rem;
 }
 
-.mdrv-overlay-calibration-grid {
+.mdrv-overlay-settings-grid label span {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: .45rem .55rem;
-  margin-top: .45rem;
+  gap: .12rem;
 }
 
-.mdrv-overlay-calibration-grid label {
-  display: grid;
-  grid-template-columns: minmax(82px, .9fr) minmax(96px, 1fr);
-  align-items: center;
-  gap: .4rem;
-  color: var(--mdrv-muted);
-  font-size: .72rem;
+.mdrv-overlay-settings-grid small {
+  color: rgba(148, 163, 184, .78);
+  font-size: .67rem;
+  line-height: 1.15;
 }
 
-.mdrv-overlay-calibration-grid input[type="number"] {
+.mdrv-overlay-settings-grid input[type="number"] {
   width: 100%;
   min-width: 0;
   border: 1px solid rgba(148, 163, 184, .24);
   border-radius: 10px;
-  background: rgba(15, 23, 42, .84);
+  background: rgba(2, 6, 23, .74);
   color: #ffffff;
   font: inherit;
   font-weight: 850;
   font-variant-numeric: tabular-nums;
-  padding: .32rem .42rem;
+  padding: .46rem .52rem;
 }
 
-.mdrv-overlay-calibration-grid input[type="number"]:focus {
+.mdrv-overlay-settings-grid input[type="number"]:focus {
   border-color: rgba(56, 189, 248, .72);
   box-shadow: 0 0 0 2px rgba(56, 189, 248, .16);
   outline: none;
 }
 
 .mdrv-overlay-calibration-note {
-  margin: .35rem 0 0;
+  margin: .55rem 0 0;
   color: var(--mdrv-muted);
-  font-size: .7rem;
+  font-size: .74rem;
+  line-height: 1.35;
 }
+
+.mdrv-overlay-settings-actions {
+  margin-top: .9rem;
+  padding-top: .75rem;
+  border-top: 1px solid rgba(148, 163, 184, .16);
+}
+
+.mdrv-overlay-settings-status {
+  color: #bae6fd;
+  font-size: .74rem;
+}
+
+.mdrv-overlay-settings-open-body { overflow: hidden; }
 
 .mdrv-preview-frame[data-overlay-source="live-status"] .mdrv-overlay-hud {
   border-color: rgba(34, 197, 94, .38);
@@ -502,11 +589,13 @@ body[data-pisd-theme="light"] .mdrv-file-controls select { color: #0f172a; backg
 
 @media (max-width: 900px) {
   .mdrv-drive-debug-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .mdrv-overlay-calibration-grid { grid-template-columns: 1fr; }
+  .mdrv-overlay-settings-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 480px) {
-  .mdrv-overlay-calibration-grid label { grid-template-columns: 1fr; }
+  .mdrv-overlay-settings-grid label { grid-template-columns: 1fr; }
+  .mdrv-overlay-calibration { align-items: flex-start; flex-direction: column; }
+  .mdrv-overlay-settings-actions { align-items: stretch; flex-direction: column; }
 }
 
 /* 0.4.9 Manual Drive preview truth/debugging.

@@ -32,6 +32,25 @@ DEFAULT_RUNTIME_SETTINGS: dict[str, Any] = {
             "curve_strength": 3.35,
             "opacity": 0.94,
             "path_width_scale": 0.34,
+            # PiSD_0_6_6: advanced visual-only overlay tuning. Values are
+            # intentionally preserved as typed instead of clamped to the old
+            # slider ranges; the browser renderer applies local safety guards.
+            "sample_count": 56,
+            "wheelbase": 0.32,
+            "max_steer_rad": 0.62,
+            "curve_response": 1.05,
+            "curvature_scale": 0.52,
+            "curvature_limit": 2.25,
+            "entry_blend_start": 0.76,
+            "road_half_width": 0.41,
+            "base_y": 96,
+            "horizon_y": 31,
+            "camera_forward_offset": 0.26,
+            "near_clip": 0.19,
+            "perspective_scale": 64,
+            "perspective_depth": 0.92,
+            "turn_compression": 0.075,
+            "turn_width_taper": 0.08,
         },
     },
     "ai_mode": {
@@ -293,11 +312,12 @@ class SettingsManager:
         except Exception:
             manual["recording_fps"] = self.defaults["manual_drive"].get("recording_fps", 6.0)
 
-        # PiSD_0_4_7: preserve and safely clamp Manual Drive overlay calibration.
-        # These values tune the visual predicted path only; they do not change
-        # actual motor output. Keeping them under manual_drive makes older
-        # runtime_settings.json files backward compatible and avoids resetting
-        # user-local config on upgrade.
+        # PiSD_0_6_6: preserve Manual Drive overlay calibration without the
+        # old slider clamps. These values tune the visual predicted path only;
+        # they do not change actual motor output. The browser renderer still
+        # applies internal safety guards for SVG/performance-critical values,
+        # but persisted user numbers are no longer forced back into the old
+        # min/max range.
         overlay_defaults = self.defaults["manual_drive"].get("overlay", {})
         overlay = manual.get("overlay") if isinstance(manual.get("overlay"), dict) else {}
         manual["overlay"] = overlay
@@ -324,16 +344,13 @@ class SettingsManager:
                     break
         except Exception:
             pass
-        for key, lower, upper in (
-            ("path_length_scale", 0.5, 1.8),
-            ("curve_strength", 0.4, 5.0),
-            ("opacity", 0.2, 1.0),
-            ("path_width_scale", 0.3, 1.8),
-        ):
+        for key, default in overlay_defaults.items():
+            if key == "enabled":
+                continue
             try:
-                overlay[key] = max(lower, min(upper, float(overlay.get(key, overlay_defaults.get(key, 1.0)))))
+                overlay[key] = float(overlay.get(key, default))
             except Exception:
-                overlay[key] = overlay_defaults.get(key, 1.0)
+                overlay[key] = default
 
         ai = merged.setdefault("ai_mode", {})
         ai_defaults = self.defaults.get("ai_mode", {})

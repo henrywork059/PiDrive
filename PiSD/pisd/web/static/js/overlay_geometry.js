@@ -6,11 +6,32 @@
     curve_strength: 3.35,
     opacity: 0.94,
     path_width_scale: 0.34,
+    sample_count: 56,
+    wheelbase: 0.32,
+    max_steer_rad: 0.62,
+    curve_response: 1.05,
+    curvature_scale: 0.52,
+    curvature_limit: 2.25,
+    entry_blend_start: 0.76,
+    road_half_width: 0.41,
+    base_y: 96,
+    horizon_y: 31,
+    camera_forward_offset: 0.26,
+    near_clip: 0.19,
+    perspective_scale: 64,
+    perspective_depth: 0.92,
+    turn_compression: 0.075,
+    turn_width_taper: 0.08,
   };
 
   function clamp(value, min, max, fallback = 0) {
     const number = Number(value);
     return Number.isFinite(number) ? Math.max(min, Math.min(max, number)) : fallback;
+  }
+
+  function finiteOr(value, fallback = 0) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : fallback;
   }
 
   function numberSetting(settings, defaults, key) {
@@ -80,22 +101,31 @@
     const curveStrength = numberSetting(settings, defaults, 'curve_strength');
     const lengthScale = numberSetting(settings, defaults, 'path_length_scale');
     const widthCalibration = numberSetting(settings, defaults, 'path_width_scale');
-    const visualWidthScale = clamp(0.82 + widthCalibration * 0.32, 0.78, 1.36, 0.93);
-    const baseY = 96;
-    const lookahead = clamp(1.65 + speed * 0.85 + ((lengthScale || 1.0) - 1.0) * 0.75, 1.2, 3.1, 1.65);
-    const horizonY = clamp(31 - speed * 8.5 - ((lengthScale || 1.0) - 1.0) * 14, 16, 44, 31);
-    const samples = 56;
-    const wheelbase = 0.32;
-    const maxSteerRad = 0.62;
+    const visualWidthScale = Math.max(0.03, 0.82 + widthCalibration * 0.32);
+    const baseY = clamp(numberSetting(settings, defaults, 'base_y'), -40, 160, DEFAULT_OVERLAY.base_y);
+    const baseHorizonY = finiteOr(numberSetting(settings, defaults, 'horizon_y'), DEFAULT_OVERLAY.horizon_y);
+    const lookahead = clamp(1.65 + speed * 0.85 + (lengthScale - 1.0) * 0.75, 0.25, 8.5, 1.65);
+    const horizonY = clamp(baseHorizonY - speed * 8.5 - (lengthScale - 1.0) * 14, -60, 120, DEFAULT_OVERLAY.horizon_y);
+    const samples = Math.round(clamp(numberSetting(settings, defaults, 'sample_count'), 8, 220, DEFAULT_OVERLAY.sample_count));
+    const wheelbase = Math.max(0.01, Math.abs(numberSetting(settings, defaults, 'wheelbase')) || DEFAULT_OVERLAY.wheelbase);
+    const maxSteerRad = Math.max(0.01, Math.abs(numberSetting(settings, defaults, 'max_steer_rad')) || DEFAULT_OVERLAY.max_steer_rad);
+    const curveResponse = clamp(numberSetting(settings, defaults, 'curve_response'), 0.2, 4.0, DEFAULT_OVERLAY.curve_response);
+    const curvatureScale = finiteOr(numberSetting(settings, defaults, 'curvature_scale'), DEFAULT_OVERLAY.curvature_scale);
+    const curvatureLimit = Math.max(0.05, Math.abs(numberSetting(settings, defaults, 'curvature_limit')) || DEFAULT_OVERLAY.curvature_limit);
+    const entryBlendStart = clamp(numberSetting(settings, defaults, 'entry_blend_start'), -1.5, 2.0, DEFAULT_OVERLAY.entry_blend_start);
+    const roadHalfWidthBase = Math.max(0.01, Math.abs(numberSetting(settings, defaults, 'road_half_width')) || DEFAULT_OVERLAY.road_half_width);
+    const cameraForwardOffset = Math.max(0.01, Math.abs(numberSetting(settings, defaults, 'camera_forward_offset')) || DEFAULT_OVERLAY.camera_forward_offset);
+    const nearClip = Math.max(0.01, Math.abs(numberSetting(settings, defaults, 'near_clip')) || DEFAULT_OVERLAY.near_clip);
+    const perspectiveBase = Math.max(1, Math.abs(numberSetting(settings, defaults, 'perspective_scale')) || DEFAULT_OVERLAY.perspective_scale);
+    const perspectiveDepth = Math.max(0.05, Math.abs(numberSetting(settings, defaults, 'perspective_depth')) || DEFAULT_OVERLAY.perspective_depth);
+    const turnCompressionSetting = finiteOr(numberSetting(settings, defaults, 'turn_compression'), DEFAULT_OVERLAY.turn_compression);
+    const turnWidthTaperSetting = finiteOr(numberSetting(settings, defaults, 'turn_width_taper'), DEFAULT_OVERLAY.turn_width_taper);
     const visualSteering = safeSteering;
-    const shapedSteering = Math.sign(visualSteering) * Math.pow(Math.abs(visualSteering), 1.05);
+    const shapedSteering = Math.sign(visualSteering) * Math.pow(Math.abs(visualSteering), curveResponse);
     const steerRad = shapedSteering * maxSteerRad;
-    const curvatureGain = clamp((curveStrength || DEFAULT_OVERLAY.curve_strength) / DEFAULT_OVERLAY.curve_strength, 0.2, 1.65, 1.0);
-    const curvatureLimit = clamp(1.15 + curvatureGain * 0.65, 1.15, 2.25, 1.65);
-    const curvature = clamp((Math.tan(steerRad) / wheelbase) * 0.52 * curvatureGain, -curvatureLimit, curvatureLimit, 0);
-    const roadHalfWidth = 0.41 * visualWidthScale;
-    const cameraForwardOffset = 0.26;
-    const nearClip = 0.19;
+    const curvatureGain = (Number.isFinite(curveStrength) && DEFAULT_OVERLAY.curve_strength !== 0) ? curveStrength / DEFAULT_OVERLAY.curve_strength : 1.0;
+    const curvature = clamp((Math.tan(steerRad) / wheelbase) * curvatureScale * curvatureGain, -curvatureLimit, curvatureLimit, 0);
+    const roadHalfWidth = roadHalfWidthBase * visualWidthScale;
     const centerWorld = [];
     let x = 0;
     let z = 0;
@@ -106,7 +136,7 @@
       centerWorld.push({ x, z, heading });
       if (i < samples - 1) {
         const progress = i / Math.max(1, samples - 1);
-        const entryBlend = 0.76 + 0.24 * Math.sin(progress * Math.PI * 0.5);
+        const entryBlend = entryBlendStart + (1 - entryBlendStart) * Math.sin(progress * Math.PI * 0.5);
         const localCurvature = curvature * entryBlend;
         const midHeading = heading + localCurvature * ds * 0.5;
         x += Math.sin(midHeading) * ds;
@@ -118,14 +148,14 @@
     function projectGroundPoint(point) {
       const projectedZ = Math.max(nearClip, point.z + cameraForwardOffset);
       const maxProjectedZ = lookahead + cameraForwardOffset;
-      const perspectiveScale = 64 / (projectedZ + 0.92);
+      const perspectiveScale = perspectiveBase / (projectedZ + perspectiveDepth);
       const nearPerspectiveZ = Math.max(nearClip, cameraForwardOffset);
-      const scaleAtNear = 64 / (nearPerspectiveZ + 0.92);
-      const scaleAtFar = 64 / (maxProjectedZ + 0.92);
+      const scaleAtNear = perspectiveBase / (nearPerspectiveZ + perspectiveDepth);
+      const scaleAtFar = perspectiveBase / (maxProjectedZ + perspectiveDepth);
       const depthRatio = clamp((perspectiveScale - scaleAtFar) / Math.max(0.01, scaleAtNear - scaleAtFar), 0, 1, 0);
       const y = horizonY + (baseY - horizonY) * depthRatio;
       const t = clamp((projectedZ - nearClip) / Math.max(0.1, maxProjectedZ - nearClip), 0, 1, 0);
-      const turnCompression = Math.abs(curvature) > 0.45 ? 1 - 0.075 * t : 1;
+      const turnCompression = Math.abs(curvature) > 0.45 ? Math.max(0.05, 1 - turnCompressionSetting * t) : 1;
       const edgeGuard = 2.6 + t * 2.8;
       return {
         x: clamp(50 + point.x * perspectiveScale * turnCompression, edgeGuard, 100 - edgeGuard, 50),
@@ -145,7 +175,7 @@
       const tangentLength = Math.hypot(dx, dz) || 1;
       const normal = { x: -dz / tangentLength, z: dx / tangentLength };
       const progress = i / Math.max(1, centerWorld.length - 1);
-      const turnWidthTaper = 1 - Math.min(0.18, Math.abs(curvature) * 0.08 * progress);
+      const turnWidthTaper = Math.max(0.05, 1 - Math.abs(curvature) * turnWidthTaperSetting * progress);
       const localHalfWidth = roadHalfWidth * turnWidthTaper;
       leftPoints.push(projectGroundPoint({ x: point.x + normal.x * localHalfWidth, z: point.z + normal.z * localHalfWidth }));
       rightPoints.push(projectGroundPoint({ x: point.x - normal.x * localHalfWidth, z: point.z - normal.z * localHalfWidth }));

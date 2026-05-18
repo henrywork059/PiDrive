@@ -67,10 +67,20 @@ def manager_checks() -> bool:
         mgr = SettingsManager(path, {'camera': {'width': 426, 'auto_white_balance': False, 'awb_settle_seconds': 1.0}, 'motor': {'steer_mix': 1.0}})
         ok &= line(mgr.get()['camera']['width'] == 426, PiSDErrorCodes.OK, 'settings.manager.defaults', 'defaults loaded')
         ok &= line(mgr.get()['camera']['auto_white_balance'] is False and mgr.get()['camera']['awb_settle_seconds'] == 1.0, PiSDErrorCodes.OK, 'settings.manager.camera_default_profile', '0.5.6 camera default profile loaded')
-        saved, settings, report = mgr.save({'manual_drive': {'speed': 0.22, 'overlay': {'path_length_scale': 9, 'curve_strength': 0.1, 'opacity': 'bad', 'path_width_scale': 1.4}}, 'panel_presentation': {'theme': 'light'}})
+        saved, settings, report = mgr.save({'manual_drive': {'speed': 0.22, 'overlay': {'path_length_scale': 9, 'curve_strength': 0.1, 'opacity': 'bad', 'path_width_scale': 1.4, 'sample_count': 128, 'perspective_scale': 105}}, 'panel_presentation': {'theme': 'light'}})
         ok &= line(saved and settings['manual_drive']['speed'] == 0.22, PiSDErrorCodes.OK if saved else report.code, 'settings.manager.save', 'settings saved')
         overlay = settings['manual_drive']['overlay']
-        ok &= line(overlay['path_length_scale'] == 1.8 and overlay['curve_strength'] == 0.4 and overlay['opacity'] == 0.94 and overlay['path_width_scale'] == 1.4, PiSDErrorCodes.OK, 'settings.manager.overlay_clamp', 'overlay calibration values clamped/preserved')
+        ok &= line(
+            overlay['path_length_scale'] == 9
+            and overlay['curve_strength'] == 0.1
+            and overlay['opacity'] == 0.94
+            and overlay['path_width_scale'] == 1.4
+            and overlay['sample_count'] == 128
+            and overlay['perspective_scale'] == 105,
+            PiSDErrorCodes.OK,
+            'settings.manager.overlay_unclamped',
+            'overlay calibration numbers are preserved without old slider clamps',
+        )
         ai_saved, ai_settings, ai_report = mgr.save({'ai_mode': {'motor_output_enabled': True, 'fixed_throttle': 0.44}})
         ok &= line(ai_saved and ai_settings['ai_mode']['motor_output_enabled'] is False and ai_settings['ai_mode']['fixed_throttle'] == 0.44, PiSDErrorCodes.OK if ai_saved else ai_report.code, 'settings.manager.ai_motor_enable_session_only', 'AI motor output enable is not persisted')
         mgr2 = SettingsManager(path, {'camera': {'width': 426}, 'motor': {'steer_mix': 1.0}})
