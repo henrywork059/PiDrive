@@ -33,7 +33,7 @@ class ExportOptionsPanel(QGroupBox):
         destination_widget = QWidget()
         destination_form = QFormLayout(destination_widget)
         destination_form.setContentsMargins(0, 0, 0, 0)
-        destination_standardize_form_layout(form)
+        standardize_form_layout(destination_form)
         destination_form.addRow("Output directory", out_row)
         destination_form.addRow("Base file name", self.base_name)
 
