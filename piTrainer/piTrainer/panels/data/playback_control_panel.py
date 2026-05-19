@@ -27,12 +27,15 @@ class PlaybackControlPanel(QGroupBox):
         self.status_label.setAlignment(Qt.AlignLeft)
 
         self.play_btn = QPushButton('Play')
+        self.play_btn.setProperty('role', 'primary')
         self.play_btn.clicked.connect(self.play_callback)
 
         self.stop_btn = QPushButton('Stop')
+        self.stop_btn.setProperty('role', 'secondary')
         self.stop_btn.clicked.connect(self.stop_callback)
 
         self.restart_btn = QPushButton('Restart')
+        self.restart_btn.setProperty('role', 'secondary')
         self.restart_btn.clicked.connect(self.restart_callback)
 
         controls_row = QHBoxLayout()

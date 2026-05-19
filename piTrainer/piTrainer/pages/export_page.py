@@ -31,17 +31,17 @@ class ExportPage(DockPage):
 
         workflow_tabs = make_workflow_tabs([
             (
-                'Status',
+                '1 Status',
                 make_scrollable_stack([
                     ('Model Status', self.model_status_panel, True),
-                ], object_name='exportStatusWorkflowScrollArea'),
+                ], object_name='exportStatusWorkflowScrollArea', intro='Confirm that a trained model is ready before exporting.'),
             ),
             (
-                'Export',
+                '2 Export',
                 make_scrollable_stack([
                     ('Export Options', self.options_panel, True),
                     ('Export Actions', self.actions_panel, True),
-                ], object_name='exportRunWorkflowScrollArea'),
+                ], object_name='exportRunWorkflowScrollArea', intro='Choose the output folder and artifact types, then export once the model is ready.'),
             ),
         ], object_name='exportWorkflowTabs')
         controls_dock = self.add_panel(

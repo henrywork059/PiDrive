@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QGroupBox, QLabel, QVBoxLayout
 
 
@@ -8,10 +9,13 @@ class ValidationSummaryPanel(QGroupBox):
         super().__init__('Validation Summary')
         self.model_label = QLabel('Model source: no in-memory model yet.')
         self.model_label.setWordWrap(True)
+        self.model_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
         self.dataset_label = QLabel('Datasets: validation=0 | filtered=0 | training=0')
         self.dataset_label.setWordWrap(True)
+        self.dataset_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
         self.result_label = QLabel('No validation run yet.')
         self.result_label.setWordWrap(True)
+        self.result_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
 
         layout = QVBoxLayout(self)
         layout.addWidget(self.model_label)

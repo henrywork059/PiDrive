@@ -54,18 +54,18 @@ class PreprocessPage(DockPage):
 
         workflow_tabs = make_workflow_tabs([
             (
-                'Source',
+                '1 Source',
                 make_scrollable_stack([
                     ('Source Summary', self.summary_panel, True),
                     ('Preprocess Filters', self.filter_panel, True),
-                ], object_name='preprocessSourceWorkflowScrollArea'),
+                ], object_name='preprocessSourceWorkflowScrollArea', intro='Check which loaded rows will be used before you apply any preprocessing recipe.'),
             ),
             (
-                'Recipe',
+                '2 Recipe',
                 make_scrollable_stack([
                     ('Preprocess Recipe', self.config_panel, True),
                     ('Preprocess Actions', self.actions_panel, False),
-                ], object_name='preprocessRecipeWorkflowScrollArea'),
+                ], object_name='preprocessRecipeWorkflowScrollArea', intro='Preview first, then confirm the recipe only when the row counts and image size look right.'),
             ),
         ], object_name='preprocessWorkflowTabs')
         controls_dock = self.add_panel(

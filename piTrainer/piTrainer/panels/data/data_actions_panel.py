@@ -11,15 +11,19 @@ class DataActionsPanel(QGroupBox):
         help_label.setWordWrap(True)
 
         refresh_btn = QPushButton("Refresh Sessions")
+        refresh_btn.setProperty('role', 'secondary')
         refresh_btn.clicked.connect(refresh_callback)
 
         load_btn = QPushButton("Load Selected Sessions")
+        load_btn.setProperty('role', 'primary')
         load_btn.clicked.connect(load_callback)
 
         clear_filter_btn = QPushButton("Clear Preview Filter")
+        clear_filter_btn.setProperty('role', 'secondary')
         clear_filter_btn.clicked.connect(clear_filter_callback)
 
         shortcuts_btn = QPushButton("Show Shortcuts")
+        shortcuts_btn.setProperty('role', 'secondary')
         shortcuts_btn.clicked.connect(shortcuts_callback)
 
         layout = QVBoxLayout(self)

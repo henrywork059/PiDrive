@@ -8,6 +8,8 @@ class LogPanel(QGroupBox):
         super().__init__(title)
         self.text = QPlainTextEdit()
         self.text.setReadOnly(True)
+        self.text.setPlaceholderText('Messages and progress will appear here.')
+        self.text.setLineWrapMode(QPlainTextEdit.WidgetWidth)
 
         layout = QVBoxLayout(self)
         layout.addWidget(self.text)

@@ -7,13 +7,17 @@ class TrainControlPanel(QGroupBox):
     def __init__(self, prepare_callback, start_callback, stop_callback, save_model_callback) -> None:
         super().__init__("Training Controls")
         self.prepare_btn = QPushButton("Prepare Split")
+        self.prepare_btn.setProperty('role', 'secondary')
         self.prepare_btn.clicked.connect(prepare_callback)
         self.start_btn = QPushButton("Start Training")
+        self.start_btn.setProperty('role', 'primary')
         self.start_btn.clicked.connect(start_callback)
         self.stop_btn = QPushButton("Stop")
+        self.stop_btn.setProperty('role', 'danger')
         self.stop_btn.clicked.connect(stop_callback)
         self.stop_btn.setEnabled(False)
         self.save_model_btn = QPushButton('Save Trained Model')
+        self.save_model_btn.setProperty('role', 'secondary')
         self.save_model_btn.clicked.connect(save_model_callback)
 
         self.progress = QProgressBar(); self.progress.setRange(0, 100); self.progress.setValue(0)

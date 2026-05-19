@@ -8,21 +8,27 @@ class PreprocessActionsPanel(QGroupBox):
         super().__init__('Preprocess Actions')
 
         preview_btn = QPushButton('Preview Preprocess')
+        preview_btn.setProperty('role', 'secondary')
         preview_btn.clicked.connect(preview_callback)
 
         apply_btn = QPushButton('Confirm and Start Preprocess')
+        apply_btn.setProperty('role', 'primary')
         apply_btn.clicked.connect(apply_callback)
 
         reset_btn = QPushButton('Reset Preprocess')
+        reset_btn.setProperty('role', 'secondary')
         reset_btn.clicked.connect(reset_callback)
 
         save_settings_btn = QPushButton('Save Preprocess Settings')
+        save_settings_btn.setProperty('role', 'secondary')
         save_settings_btn.clicked.connect(save_settings_callback)
 
         save_data_btn = QPushButton('Save Preprocessed Data')
+        save_data_btn.setProperty('role', 'secondary')
         save_data_btn.clicked.connect(save_data_callback)
 
         sync_btn = QPushButton('Sync Image Size to Train Tab')
+        sync_btn.setProperty('role', 'secondary')
         sync_btn.clicked.connect(sync_callback)
 
         layout = QVBoxLayout(self)

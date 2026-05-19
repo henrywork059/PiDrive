@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import QFormLayout, QGroupBox, QLabel
 
+from ...ui.layout_widgets import standardize_form_layout
+
 
 class ModelStatusPanel(QGroupBox):
     def __init__(self) -> None:
@@ -11,7 +13,7 @@ class ModelStatusPanel(QGroupBox):
         self.val_rows = QLabel("0")
         self.epochs_ran = QLabel("0")
 
-        layout = QFormLayout(self)
+        layout = standardize_form_layout(QFormLayout(self))
         layout.addRow("Model ready", self.ready)
         layout.addRow("Train rows", self.train_rows)
         layout.addRow("Validation rows", self.val_rows)

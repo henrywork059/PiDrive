@@ -47,17 +47,17 @@ class TrainPage(DockPage):
 
         workflow_tabs = make_workflow_tabs([
             (
-                'Setup',
+                '1 Setup',
                 make_scrollable_stack([
                     ('Split Summary', self.split_summary_panel, True),
                     ('Training Controls', self.control_panel, True),
-                ], object_name='trainSetupWorkflowScrollArea'),
+                ], object_name='trainSetupWorkflowScrollArea', intro='Prepare the split, start training, then watch the frame review and history/log tabs.'),
             ),
             (
-                'Config',
+                '2 Config',
                 make_scrollable_stack([
                     ('Training Config', self.config_panel, True),
-                ], object_name='trainConfigWorkflowScrollArea'),
+                ], object_name='trainConfigWorkflowScrollArea', intro='Change model and schedule settings here. Keep defaults unless you are intentionally experimenting.'),
             ),
         ], object_name='trainWorkflowTabs')
         controls_dock = self.add_panel(

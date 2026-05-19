@@ -4,6 +4,7 @@ import pandas as pd
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QHeaderView,
     QGroupBox,
     QLabel,
     QTableWidget,
@@ -29,6 +30,13 @@ class PreviewPanel(QGroupBox):
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SingleSelection)
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.table.setAlternatingRowColors(True)
+        self.table.setWordWrap(False)
+        self.table.setSortingEnabled(True)
+        self.table.setMinimumHeight(260)
+        self.table.verticalHeader().setVisible(False)
+        self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
         self.table.itemSelectionChanged.connect(self._handle_selection_change)
 
         self.autoplay_timer = QTimer(self)
@@ -60,10 +68,13 @@ class PreviewPanel(QGroupBox):
         self.table.setRowCount(len(rows))
         self.table.setColumnCount(len(columns))
         self.table.setHorizontalHeaderLabels(columns)
+        self.table.setSortingEnabled(False)
         for row_idx, row in enumerate(rows):
             for col_idx, col in enumerate(columns):
                 value = row.get(col, '')
                 self.table.setItem(row_idx, col_idx, QTableWidgetItem(str(value)))
+        self.table.resizeColumnsToContents()
+        self.table.setSortingEnabled(True)
         self._refresh_summary()
         if rows:
             self.table.selectRow(0)

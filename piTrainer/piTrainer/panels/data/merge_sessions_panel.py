@@ -21,6 +21,7 @@ class MergeSessionsPanel(QGroupBox):
         self.load_after_merge_check.setChecked(True)
 
         merge_btn = QPushButton('Merge Selected Sessions')
+        merge_btn.setProperty('role', 'primary')
         merge_btn.clicked.connect(self._on_merge_clicked)
 
         name_row = QHBoxLayout()

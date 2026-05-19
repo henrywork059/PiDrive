@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pandas as pd
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QGroupBox, QLabel, QVBoxLayout
 
 
@@ -8,8 +9,10 @@ class PreprocessSummaryPanel(QGroupBox):
     def __init__(self) -> None:
         super().__init__('Source Summary')
         self.info_label = QLabel('Load sessions on the Data tab to start preprocessing.')
+        self.info_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
         self.info_label.setWordWrap(True)
         self.preview_label = QLabel('No preview calculated yet.')
+        self.preview_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
         self.preview_label.setWordWrap(True)
         self.preview_label.setProperty('role', 'muted')
 

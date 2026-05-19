@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import QFormLayout, QGroupBox, QLabel
 
+from ...ui.layout_widgets import standardize_form_layout
+
 
 class DatasetStatsPanel(QGroupBox):
     def __init__(self) -> None:
@@ -14,7 +16,7 @@ class DatasetStatsPanel(QGroupBox):
             "thr_mean": QLabel("0.0000"),
             "thr_std": QLabel("0.0000"),
         }
-        layout = QFormLayout(self)
+        layout = standardize_form_layout(QFormLayout(self))
         layout.addRow("Usable rows", self.labels["rows"])
         layout.addRow("Sessions", self.labels["sessions"])
         layout.addRow("Steering mean", self.labels["steer_mean"])

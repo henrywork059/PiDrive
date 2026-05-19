@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
 )
 
 from ...app_state import AppState
-from ...ui.layout_widgets import CollapsibleSection
+from ...ui.layout_widgets import CollapsibleSection, standardize_form_layout
 
 
 class PreprocessFilterPanel(QGroupBox):
@@ -104,7 +104,7 @@ class PreprocessFilterPanel(QGroupBox):
         widget = QWidget()
         form = QFormLayout(widget)
         form.setContentsMargins(0, 0, 0, 0)
-        form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+        standardize_form_layout(form)
         return widget, form
 
     def _source_section(self) -> QWidget:

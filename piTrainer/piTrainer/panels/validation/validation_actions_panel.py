@@ -7,8 +7,11 @@ class ValidationActionsPanel(QGroupBox):
     def __init__(self, browse_model_callback, validate_callback, clear_callback) -> None:
         super().__init__('Validation Actions')
         self.browse_button = QPushButton('Browse Model...')
+        self.browse_button.setProperty('role', 'secondary')
         self.run_button = QPushButton('Run Validation')
+        self.run_button.setProperty('role', 'primary')
         self.clear_button = QPushButton('Clear Results')
+        self.clear_button.setProperty('role', 'secondary')
 
         self.browse_button.clicked.connect(browse_model_callback)
         self.run_button.clicked.connect(validate_callback)

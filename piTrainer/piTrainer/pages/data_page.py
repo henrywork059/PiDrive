@@ -68,32 +68,32 @@ class DataPage(DockPage):
 
         workflow_tabs = make_workflow_tabs([
             (
-                'Load',
+                '1 Load',
                 make_scrollable_stack([
                     ('Session Source', self.session_source_panel, True),
                     ('Dataset Stats', self.stats_panel, True),
                     ('Data Actions', self.data_actions_panel, False),
-                ], object_name='dataLoadWorkflowScrollArea'),
+                ], object_name='dataLoadWorkflowScrollArea', intro='Start here: choose a PiSD/piTrainer records root, scan sessions, select sessions, then load them.'),
             ),
             (
-                'Review',
+                '2 Review',
                 make_scrollable_stack([
                     ('Frame Filter', self.filter_panel, True),
                     ('Overlay Controls', self.overlay_panel, True),
                     ('Playback Control', self.playback_panel, False),
-                ], object_name='dataReviewWorkflowScrollArea'),
+                ], object_name='dataReviewWorkflowScrollArea', intro='Review frames after loading. Filter the table, choose overlays, and play through the selected rows.'),
             ),
             (
-                'Manage',
+                '3 Manage',
                 make_scrollable_stack([
                     ('Merge Sessions', self.merge_sessions_panel, True),
                     ('Data Control', self.data_control_panel, False),
-                ], object_name='dataManageWorkflowScrollArea'),
+                ], object_name='dataManageWorkflowScrollArea', intro='Use these tools only when you need to merge sessions or remove a bad frame from the dataset.'),
             ),
         ], object_name='dataWorkflowTabs')
         workflow_dock = self.add_panel(
             'workflow_controls',
-            'Workflow Controls',
+            'Data Workflow',
             workflow_tabs,
             Qt.LeftDockWidgetArea,
         )

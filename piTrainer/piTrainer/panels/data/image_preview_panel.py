@@ -16,7 +16,7 @@ class InteractiveImageLabel(QLabel):
         super().__init__('No preview')
         self.parent_panel = parent_panel
         self.setAlignment(Qt.AlignCenter)
-        self.setMinimumHeight(320)
+        self.setMinimumHeight(380)
         self.setWordWrap(True)
         self._pixmap: QPixmap | None = None
 
@@ -76,7 +76,7 @@ class ImagePreviewPanel(QGroupBox):
         self.image_label = InteractiveImageLabel(self)
 
         hint_label = QLabel(
-            'Click or drag on the preview to edit steering/speed using the same logic as the drive arrow. '
+            'Select a row on the left, then review the image and PiSD V7 overlay here. Click or drag only when you want to correct steering/speed. '
             'PiSD V7 overlay metadata is used for road-guide redraw when available. Use the sliders below for precise adjustment.'
         )
         hint_label.setProperty('role', 'muted')

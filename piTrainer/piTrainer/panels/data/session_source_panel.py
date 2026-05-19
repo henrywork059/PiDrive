@@ -70,9 +70,11 @@ class SessionSourcePanel(QGroupBox):
         self.path_edit.editingFinished.connect(self._apply_path_only)
 
         browse_btn = QPushButton('Browse')
+        browse_btn.setProperty('role', 'secondary')
         browse_btn.clicked.connect(self._browse)
 
         refresh_btn = QPushButton('Refresh')
+        refresh_btn.setProperty('role', 'secondary')
         refresh_btn.clicked.connect(self._refresh)
 
         path_row = QHBoxLayout()
@@ -90,12 +92,16 @@ class SessionSourcePanel(QGroupBox):
         self.list_widget.setSpacing(6)
         self.list_widget.setAlternatingRowColors(False)
         self.list_widget.setUniformItemSizes(False)
+        self.list_widget.setMinimumHeight(220)
 
         select_all_btn = QPushButton('Select All')
+        select_all_btn.setProperty('role', 'secondary')
         select_all_btn.clicked.connect(self.select_all)
         clear_btn = QPushButton('Clear')
+        clear_btn.setProperty('role', 'secondary')
         clear_btn.clicked.connect(self.clear_all)
         load_btn = QPushButton('Load Selected')
+        load_btn.setProperty('role', 'primary')
         load_btn.clicked.connect(self.load_callback)
 
         buttons = QHBoxLayout()

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import QFormLayout, QGroupBox, QLabel
 
+from ...ui.layout_widgets import standardize_form_layout
+
 
 class SplitSummaryPanel(QGroupBox):
     def __init__(self) -> None:
@@ -12,7 +14,7 @@ class SplitSummaryPanel(QGroupBox):
         self.sessions = QLabel("0")
         self.model_ready = QLabel("No")
 
-        layout = QFormLayout(self)
+        layout = standardize_form_layout(QFormLayout(self))
         layout.addRow("Loaded rows", self.total_rows)
         layout.addRow("Train rows", self.train_rows)
         layout.addRow("Validation rows", self.val_rows)

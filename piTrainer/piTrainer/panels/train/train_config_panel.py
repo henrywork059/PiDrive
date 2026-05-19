@@ -3,7 +3,7 @@ from __future__ import annotations
 from PySide6.QtWidgets import QCheckBox, QComboBox, QDoubleSpinBox, QFormLayout, QGroupBox, QSpinBox, QVBoxLayout, QWidget
 
 from ...app_state import AppState
-from ...ui.layout_widgets import CollapsibleSection
+from ...ui.layout_widgets import CollapsibleSection, standardize_form_layout
 
 
 class TrainConfigPanel(QGroupBox):
@@ -57,7 +57,7 @@ class TrainConfigPanel(QGroupBox):
         widget = QWidget()
         form = QFormLayout(widget)
         form.setContentsMargins(0, 0, 0, 0)
-        form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+        standardize_form_layout(form)
         return widget, form
 
     def _input_split_section(self) -> QWidget:

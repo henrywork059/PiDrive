@@ -69,10 +69,13 @@ class ValidationFrameReviewPanel(QGroupBox):
         self.meta_label.setProperty('role', 'muted')
 
         self.best_button = QPushButton('Best')
+        self.best_button.setProperty('role', 'secondary')
         self.best_button.clicked.connect(self._select_best)
         self.worst_button = QPushButton('Worst')
+        self.worst_button.setProperty('role', 'secondary')
         self.worst_button.clicked.connect(self._select_worst)
         self.edit_button = QPushButton('Edit in Data')
+        self.edit_button.setProperty('role', 'primary')
         self.edit_button.clicked.connect(self._edit_current_frame)
 
         controls_widget = QWidget()

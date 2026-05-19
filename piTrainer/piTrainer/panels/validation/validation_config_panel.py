@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
 )
 
 from ...app_state import AppState
-from ...ui.layout_widgets import CollapsibleSection
+from ...ui.layout_widgets import CollapsibleSection, standardize_form_layout
 
 
 class ValidationConfigPanel(QGroupBox):
@@ -71,7 +71,7 @@ class ValidationConfigPanel(QGroupBox):
         widget = QWidget()
         form = QFormLayout(widget)
         form.setContentsMargins(0, 0, 0, 0)
-        form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+        standardize_form_layout(form)
         return widget, form
 
     def browse_model_file(self, parent) -> None:

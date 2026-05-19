@@ -41,8 +41,10 @@ class FrameFilterPanel(QGroupBox):
         self.steering_max_spin = self._build_range_spinbox(1.0)
 
         apply_btn = QPushButton("Apply")
+        apply_btn.setProperty('role', 'primary')
         apply_btn.clicked.connect(self.apply_callback)
         clear_btn = QPushButton("Clear")
+        clear_btn.setProperty('role', 'secondary')
         clear_btn.clicked.connect(self.clear_callback)
 
         form = QVBoxLayout(self)

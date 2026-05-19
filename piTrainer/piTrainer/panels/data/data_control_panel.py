@@ -13,6 +13,7 @@ class DataControlPanel(QGroupBox):
         help_label.setWordWrap(True)
 
         self.delete_btn = QPushButton("Delete Selected Frame")
+        self.delete_btn.setProperty('role', 'danger')
         self.delete_btn.clicked.connect(self.delete_frame_callback)
 
         layout = QVBoxLayout(self)

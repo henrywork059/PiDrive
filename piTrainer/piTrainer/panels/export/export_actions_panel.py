@@ -7,6 +7,7 @@ class ExportActionsPanel(QGroupBox):
     def __init__(self, export_callback) -> None:
         super().__init__("Export Actions")
         self.export_btn = QPushButton("Export Selected Artifacts")
+        self.export_btn.setProperty('role', 'primary')
         self.export_btn.clicked.connect(export_callback)
 
         layout = QVBoxLayout(self)

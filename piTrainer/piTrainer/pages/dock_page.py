@@ -5,7 +5,7 @@ from PySide6.QtWidgets import QDockWidget, QFrame, QMainWindow, QWidget
 
 
 class DockPage(QMainWindow):
-    layout_version = "0_4_2_tabbed_collapsible_layout"
+    layout_version = "0_4_3_guided_readable_layout"
 
     def __init__(self, page_id: str) -> None:
         super().__init__()

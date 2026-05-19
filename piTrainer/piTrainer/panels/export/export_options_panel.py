@@ -3,7 +3,7 @@ from __future__ import annotations
 from PySide6.QtWidgets import QFileDialog, QCheckBox, QFormLayout, QGroupBox, QHBoxLayout, QLineEdit, QPushButton, QVBoxLayout, QWidget
 
 from ...app_state import AppState
-from ...ui.layout_widgets import CollapsibleSection
+from ...ui.layout_widgets import CollapsibleSection, standardize_form_layout
 
 
 class ExportOptionsPanel(QGroupBox):
@@ -33,7 +33,7 @@ class ExportOptionsPanel(QGroupBox):
         destination_widget = QWidget()
         destination_form = QFormLayout(destination_widget)
         destination_form.setContentsMargins(0, 0, 0, 0)
-        destination_form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+        destination_standardize_form_layout(form)
         destination_form.addRow("Output directory", out_row)
         destination_form.addRow("Base file name", self.base_name)
 

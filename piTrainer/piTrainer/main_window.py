@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import QMainWindow, QMessageBox, QStatusBar, QTabWidget
 
@@ -14,13 +15,16 @@ from .pages.validation_page import ValidationPage
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle('PiCar Trainer — PySide6 Desktop App')
-        self.resize(1400, 900)
+        self.setWindowTitle('PiDrive piTrainer — Data → Preprocess → Train → Validate → Export')
+        self.resize(1500, 920)
+        self.setMinimumSize(1100, 720)
         self.state = AppState()
 
         self.tabs = QTabWidget()
         self.tabs.setDocumentMode(True)
         self.tabs.setMovable(False)
+        self.tabs.setUsesScrollButtons(True)
+        self.tabs.setElideMode(Qt.ElideRight)
         self.tabs.setTabPosition(QTabWidget.North)
 
         self.data_page = DataPage(self.state, self)
@@ -29,18 +33,23 @@ class MainWindow(QMainWindow):
         self.validation_page = ValidationPage(self.state, self)
         self.export_page = ExportPage(self.state, self)
 
-        self.tabs.addTab(self.data_page, 'Data')
-        self.tabs.addTab(self.preprocess_page, 'Preprocess')
-        self.tabs.addTab(self.train_page, 'Train')
-        self.tabs.addTab(self.validation_page, 'Validation')
-        self.tabs.addTab(self.export_page, 'Export')
+        self.tabs.addTab(self.data_page, '1 Data')
+        self.tabs.addTab(self.preprocess_page, '2 Preprocess')
+        self.tabs.addTab(self.train_page, '3 Train')
+        self.tabs.addTab(self.validation_page, '4 Validate')
+        self.tabs.addTab(self.export_page, '5 Export')
+        self.tabs.setTabToolTip(0, 'Load PiSD/piTrainer sessions and review frames with overlays.')
+        self.tabs.setTabToolTip(1, 'Filter, balance, resize, and preview the active dataset.')
+        self.tabs.setTabToolTip(2, 'Prepare the split, configure training, and review training progress.')
+        self.tabs.setTabToolTip(3, 'Validate a trained or saved model and inspect best/worst frames.')
+        self.tabs.setTabToolTip(4, 'Export the trained model and deployment artifacts.')
 
         self.setCentralWidget(self.tabs)
 
         self.status = QStatusBar()
         self.status.setSizeGripEnabled(True)
         self.setStatusBar(self.status)
-        self.set_status_message('Ready')
+        self.set_status_message('Ready — start at 1 Data, then move left-to-right through the workflow tabs.')
 
         self._setup_shortcuts()
         self.data_page.refresh_sessions()
@@ -85,7 +94,7 @@ class MainWindow(QMainWindow):
 
     def show_shortcuts(self) -> None:
         lines = [
-            'Ctrl+1 / Ctrl+2 / Ctrl+3 / Ctrl+4 / Ctrl+5 -> Switch to Data / Preprocess / Train / Validation / Export',
+            'Ctrl+1 / Ctrl+2 / Ctrl+3 / Ctrl+4 / Ctrl+5 -> Switch to 1 Data / 2 Preprocess / 3 Train / 4 Validate / 5 Export',
             'Ctrl+Tab / Ctrl+Shift+Tab -> Next / Previous page',
             'F5 -> Refresh sessions',
             'Ctrl+L -> Load selected sessions',
@@ -110,7 +119,7 @@ class MainWindow(QMainWindow):
         self.validation_page.refresh_from_state()
         self.export_page.refresh_from_state()
         self.set_status_message(
-            f'Loaded {len(self.state.filtered_df)} usable records from {len(self.state.selected_sessions)} session(s).'
+            f'Loaded {len(self.state.filtered_df)} usable records from {len(self.state.selected_sessions)} session(s). Next: open 2 Preprocess or 3 Train.'
         )
 
     def on_training_finished(self) -> None:

@@ -43,17 +43,17 @@ class ValidationPage(DockPage):
 
         workflow_tabs = make_workflow_tabs([
             (
-                'Run',
+                '1 Run',
                 make_scrollable_stack([
                     ('Validation Config', self.config_panel, True),
                     ('Validation Actions', self.actions_panel, True),
-                ], object_name='validationRunWorkflowScrollArea'),
+                ], object_name='validationRunWorkflowScrollArea', intro='Choose the model source and dataset, then run validation to inspect prediction error.'),
             ),
             (
-                'Status',
+                '2 Results',
                 make_scrollable_stack([
                     ('Validation Summary', self.summary_panel, True),
-                ], object_name='validationStatusWorkflowScrollArea'),
+                ], object_name='validationStatusWorkflowScrollArea', intro='Read the result summary here after validation finishes.'),
             ),
         ], object_name='validationWorkflowTabs')
         controls_dock = self.add_panel(
