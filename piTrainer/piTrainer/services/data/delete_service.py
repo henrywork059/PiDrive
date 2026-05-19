@@ -4,30 +4,47 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .record_loader_service import IMAGE_KEYS, coalesce_value
+from .record_loader_service import IMAGE_KEYS
 from .session_service import resolve_session_dir
 
 TS_KEYS = ['ts', 'timestamp', 'timestamp_utc', 'saved_at_utc']
 ID_KEYS = ['frame_id', 'id', 'source_frame_seq']
 
 
-def _record_image_name(record: dict[str, Any]) -> str:
-    image_value = coalesce_value(record, IMAGE_KEYS, '')
-    return Path(str(image_value or '')).name
+def _training_label(record: dict[str, Any]) -> dict[str, Any]:
+    training_label = record.get('training_label')
+    return training_label if isinstance(training_label, dict) else {}
 
 
-def _record_ts(record: dict[str, Any]) -> str:
-    return str(coalesce_value(record, TS_KEYS, '') or '')
+def _candidate_values(record: dict[str, Any], keys: list[str]) -> list[Any]:
+    values: list[Any] = []
+    nested = _training_label(record)
+    for source in (record, nested):
+        for key in keys:
+            if key in source and source[key] is not None:
+                values.append(source[key])
+    return values
 
 
-def _record_id(record: dict[str, Any]) -> str:
-    return str(coalesce_value(record, ID_KEYS, '') or '')
+def _record_image_names(record: dict[str, Any]) -> set[str]:
+    return {Path(str(value or '')).name for value in _candidate_values(record, IMAGE_KEYS) if str(value or '').strip()}
+
+
+def _record_timestamps(record: dict[str, Any]) -> set[str]:
+    return {str(value or '') for value in _candidate_values(record, TS_KEYS) if str(value or '').strip()}
+
+
+def _record_ids(record: dict[str, Any]) -> set[str]:
+    return {str(value or '') for value in _candidate_values(record, ID_KEYS) if str(value or '').strip()}
 
 
 def _line_matches(record: dict, frame_id: str, image_name: str, ts: str) -> bool:
-    id_match = bool(frame_id) and _record_id(record) == str(frame_id)
-    image_match = bool(image_name) and _record_image_name(record) == str(image_name)
-    ts_match = bool(ts) and _record_ts(record) == str(ts)
+    ids = _record_ids(record)
+    image_names = _record_image_names(record)
+    timestamps = _record_timestamps(record)
+    id_match = bool(frame_id) and str(frame_id) in ids
+    image_match = bool(image_name) and str(image_name) in image_names
+    ts_match = bool(ts) and str(ts) in timestamps
     if id_match and (image_match or ts_match):
         return True
     if image_match and ts_match:

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pandas as pd
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import QTimer, Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QHeaderView,
@@ -72,7 +72,9 @@ class PreviewPanel(QGroupBox):
         for row_idx, row in enumerate(rows):
             for col_idx, col in enumerate(columns):
                 value = row.get(col, '')
-                self.table.setItem(row_idx, col_idx, QTableWidgetItem(str(value)))
+                item = QTableWidgetItem(str(value))
+                item.setData(Qt.UserRole, row_idx)
+                self.table.setItem(row_idx, col_idx, item)
         self.table.resizeColumnsToContents()
         self.table.setSortingEnabled(True)
         self._refresh_summary()
@@ -93,7 +95,11 @@ class PreviewPanel(QGroupBox):
         selected = self.table.selectedItems()
         if not selected:
             return -1
-        return selected[0].row()
+        source_row = selected[0].data(Qt.UserRole)
+        try:
+            return int(source_row)
+        except (TypeError, ValueError):
+            return selected[0].row()
 
     def select_record_identity(self, identity: tuple[str, str, str, str]) -> bool:
         if not identity:

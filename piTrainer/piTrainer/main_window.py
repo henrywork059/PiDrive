@@ -115,7 +115,6 @@ class MainWindow(QMainWindow):
     def on_dataset_loaded(self) -> None:
         self.preprocess_page.refresh_from_state()
         self.train_page.refresh_from_state()
-        self.preprocess_page.refresh_from_state()
         self.validation_page.refresh_from_state()
         self.export_page.refresh_from_state()
         self.set_status_message(

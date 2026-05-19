@@ -117,15 +117,21 @@ class DataPage(DockPage):
     def _record_mask(df: pd.DataFrame, identity: tuple[str, str, str, str]):
         if df.empty:
             return pd.Series([], dtype=bool)
+
+        def column_text(column: str) -> pd.Series:
+            if column in df.columns:
+                return df[column].fillna('').astype(str)
+            return pd.Series([''] * len(df), index=df.index, dtype=str)
+
         session, frame_id, ts, abs_image = identity
         return (
-            df.get('session', '').astype(str) == session
+            column_text('session') == session
         ) & (
-            df.get('frame_id', '').astype(str) == frame_id
+            column_text('frame_id') == frame_id
         ) & (
-            df.get('ts', '').astype(str) == ts
+            column_text('ts') == ts
         ) & (
-            df.get('abs_image', '').astype(str) == abs_image
+            column_text('abs_image') == abs_image
         )
 
     def refresh_sessions(self) -> None:
