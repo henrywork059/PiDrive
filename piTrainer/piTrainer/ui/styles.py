@@ -180,6 +180,59 @@ def build_stylesheet() -> str:
         border: 2px solid #cfe7ff;
         image: none;
     }
+
+    #controlStack {
+        background: #101722;
+        border: none;
+    }
+    QScrollArea#dataWorkflowScrollArea,
+    QScrollArea#trainWorkflowScrollArea,
+    QScrollArea#preprocessWorkflowScrollArea,
+    QScrollArea#validationWorkflowScrollArea,
+    QScrollArea#exportWorkflowScrollArea {
+        background: #101722;
+        border: none;
+    }
+    QToolButton#collapsibleSectionHeader {
+        background: #1e2a3a;
+        color: #f7fbff;
+        border: 1px solid #344860;
+        border-radius: 8px;
+        padding: 8px 10px;
+        font-weight: 700;
+        text-align: left;
+    }
+    QToolButton#collapsibleSectionHeader:hover {
+        background: #26364c;
+        border-color: #56a7ff;
+    }
+    QFrame#collapsibleSectionBody {
+        background: #151c27;
+        border: 1px solid #2f3747;
+        border-top: none;
+        border-bottom-left-radius: 8px;
+        border-bottom-right-radius: 8px;
+    }
+    QWidget#collapsibleSection {
+        background: transparent;
+    }
+    QScrollBar:vertical {
+        background: #0f141c;
+        width: 12px;
+        margin: 0px;
+    }
+    QScrollBar::handle:vertical {
+        background: #344860;
+        min-height: 24px;
+        border-radius: 6px;
+    }
+    QScrollBar::handle:vertical:hover {
+        background: #4e6d91;
+    }
+    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+        height: 0px;
+    }
+
     QLabel[role='muted'] {
         color: #8b94a7;
     }

@@ -10,6 +10,7 @@ from ..panels.export.export_options_panel import ExportOptionsPanel
 from ..panels.export.model_status_panel import ModelStatusPanel
 from ..services.export.export_service import export_model_artifacts
 from .dock_page import DockPage
+from ..ui.layout_widgets import ControlStack, make_scroll_area
 
 
 class ExportPage(DockPage):
@@ -27,15 +28,21 @@ class ExportPage(DockPage):
 
     def build_default_layout(self) -> None:
         self.clear_docks()
-        status_dock = self.add_panel('status', 'Model Status', self.model_status_panel, Qt.LeftDockWidgetArea)
-        options_dock = self.add_panel('options', 'Export Options', self.options_panel, Qt.LeftDockWidgetArea)
-        actions_dock = self.add_panel('actions', 'Export Actions', self.actions_panel, Qt.LeftDockWidgetArea)
+
+        controls_stack = ControlStack([
+            ('1. Model Status', self.model_status_panel, True),
+            ('2. Export Options', self.options_panel, True),
+            ('3. Export Actions', self.actions_panel, True),
+        ])
+        controls_dock = self.add_panel(
+            'workflow_controls',
+            'Export Workflow',
+            make_scroll_area(controls_stack, object_name='exportWorkflowScrollArea'),
+            Qt.LeftDockWidgetArea,
+        )
         log_dock = self.add_panel('log', 'Export Log', self.log_panel, Qt.RightDockWidgetArea)
-        self.splitDockWidget(status_dock, options_dock, Qt.Vertical)
-        self.splitDockWidget(options_dock, actions_dock, Qt.Vertical)
-        self.splitDockWidget(status_dock, log_dock, Qt.Horizontal)
-        self.resizeDocks([status_dock, options_dock, actions_dock], [170, 310, 150], Qt.Vertical)
-        self.resizeDocks([status_dock, log_dock], [320, 760], Qt.Horizontal)
+        self.splitDockWidget(controls_dock, log_dock, Qt.Horizontal)
+        self.resizeDocks([controls_dock, log_dock], [350, 940], Qt.Horizontal)
 
     def refresh_from_state(self) -> None:
         model_ready = self.state.model is not None

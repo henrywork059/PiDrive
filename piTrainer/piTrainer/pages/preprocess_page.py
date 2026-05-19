@@ -21,6 +21,7 @@ from ..services.preprocess.preprocess_service import (
     save_preprocessed_dataset,
 )
 from .dock_page import DockPage
+from ..ui.layout_widgets import ControlStack, make_scroll_area
 
 
 class PreprocessPage(DockPage):
@@ -51,22 +52,26 @@ class PreprocessPage(DockPage):
     def build_default_layout(self) -> None:
         self.clear_docks()
 
-        summary_dock = self.add_panel('summary', 'Source Summary', self.summary_panel, Qt.LeftDockWidgetArea)
-        filter_dock = self.add_panel('filter', 'Preprocess Filters', self.filter_panel, Qt.LeftDockWidgetArea)
-        config_dock = self.add_panel('config', 'Preprocess Recipe', self.config_panel, Qt.LeftDockWidgetArea)
-        actions_dock = self.add_panel('actions', 'Preprocess Actions', self.actions_panel, Qt.LeftDockWidgetArea)
+        controls_stack = ControlStack([
+            ('1. Source Summary', self.summary_panel, True),
+            ('2. Preprocess Filters', self.filter_panel, False),
+            ('3. Preprocess Recipe', self.config_panel, True),
+            ('4. Preprocess Actions', self.actions_panel, True),
+        ])
+        controls_dock = self.add_panel(
+            'workflow_controls',
+            'Preprocess Workflow',
+            make_scroll_area(controls_stack, object_name='preprocessWorkflowScrollArea'),
+            Qt.LeftDockWidgetArea,
+        )
         result_dock = self.add_panel('result', 'Preprocess Preview', self.result_panel, Qt.RightDockWidgetArea)
         log_dock = self.add_panel('log', 'Preprocess Log', self.log_panel, Qt.RightDockWidgetArea)
 
-        self.splitDockWidget(summary_dock, filter_dock, Qt.Vertical)
-        self.splitDockWidget(filter_dock, config_dock, Qt.Vertical)
-        self.splitDockWidget(config_dock, actions_dock, Qt.Vertical)
-        self.splitDockWidget(summary_dock, result_dock, Qt.Horizontal)
+        self.splitDockWidget(controls_dock, result_dock, Qt.Horizontal)
         self.splitDockWidget(result_dock, log_dock, Qt.Vertical)
 
-        self.resizeDocks([summary_dock, filter_dock, config_dock, actions_dock], [180, 300, 250, 170], Qt.Vertical)
-        self.resizeDocks([result_dock, log_dock], [520, 170], Qt.Vertical)
-        self.resizeDocks([summary_dock, result_dock], [330, 760], Qt.Horizontal)
+        self.resizeDocks([controls_dock, result_dock], [350, 940], Qt.Horizontal)
+        self.resizeDocks([result_dock, log_dock], [590, 190], Qt.Vertical)
 
     def _load_saved_recipe_if_available(self) -> None:
         recipe = load_preprocess_settings(self.state.out_dir_path)

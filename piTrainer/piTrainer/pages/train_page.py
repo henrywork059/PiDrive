@@ -18,6 +18,7 @@ from ..services.train.split_service import split_dataframe
 from ..services.train.worker import TrainingWorker
 from ..utils.path_utils import ensure_dir, safe_filename
 from .dock_page import DockPage
+from ..ui.layout_widgets import ControlStack, make_scroll_area
 
 
 class TrainPage(DockPage):
@@ -43,20 +44,29 @@ class TrainPage(DockPage):
 
     def build_default_layout(self) -> None:
         self.clear_docks()
-        summary_dock = self.add_panel('summary', 'Split Summary', self.split_summary_panel, Qt.LeftDockWidgetArea)
-        config_dock = self.add_panel('config', 'Training Config', self.config_panel, Qt.LeftDockWidgetArea)
-        control_dock = self.add_panel('control', 'Training Controls', self.control_panel, Qt.LeftDockWidgetArea)
+
+        controls_stack = ControlStack([
+            ('1. Split Summary', self.split_summary_panel, True),
+            ('2. Training Config', self.config_panel, True),
+            ('3. Training Controls', self.control_panel, True),
+        ])
+        controls_dock = self.add_panel(
+            'workflow_controls',
+            'Training Workflow',
+            make_scroll_area(controls_stack, object_name='trainWorkflowScrollArea'),
+            Qt.LeftDockWidgetArea,
+        )
         review_dock = self.add_panel('review', 'Epoch Frame Review', self.epoch_review_panel, Qt.RightDockWidgetArea)
         history_dock = self.add_panel('history', 'Training History', self.history_panel, Qt.RightDockWidgetArea)
-        log_dock = self.add_panel('log', 'Training Log', self.log_panel, Qt.BottomDockWidgetArea)
-        self.splitDockWidget(summary_dock, config_dock, Qt.Vertical)
-        self.splitDockWidget(config_dock, control_dock, Qt.Vertical)
-        self.splitDockWidget(summary_dock, review_dock, Qt.Horizontal)
+        log_dock = self.add_panel('log', 'Training Log', self.log_panel, Qt.RightDockWidgetArea)
+
+        self.splitDockWidget(controls_dock, review_dock, Qt.Horizontal)
         self.splitDockWidget(review_dock, history_dock, Qt.Vertical)
-        self.splitDockWidget(history_dock, log_dock, Qt.Vertical)
-        self.resizeDocks([summary_dock, config_dock, control_dock], [170, 430, 150], Qt.Vertical)
-        self.resizeDocks([review_dock, history_dock, log_dock], [360, 230, 160], Qt.Vertical)
-        self.resizeDocks([summary_dock, review_dock], [340, 780], Qt.Horizontal)
+        self.tabifyDockWidget(history_dock, log_dock)
+        history_dock.raise_()
+
+        self.resizeDocks([controls_dock, review_dock], [350, 960], Qt.Horizontal)
+        self.resizeDocks([review_dock, history_dock], [560, 260], Qt.Vertical)
 
     def refresh_from_state(self) -> None:
         self.split_summary_panel.set_counts(

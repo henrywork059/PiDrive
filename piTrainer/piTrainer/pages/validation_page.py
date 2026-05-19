@@ -13,6 +13,7 @@ from ..panels.validation.validation_plot_panel import ValidationPlotPanel
 from ..panels.validation.validation_summary_panel import ValidationSummaryPanel
 from ..services.validation.validation_service import build_validation_summary_text, run_validation
 from .dock_page import DockPage
+from ..ui.layout_widgets import ControlStack, make_scroll_area
 
 
 class ValidationPage(DockPage):
@@ -40,22 +41,28 @@ class ValidationPage(DockPage):
     def build_default_layout(self) -> None:
         self.clear_docks()
 
-        summary_dock = self.add_panel('summary', 'Validation Summary', self.summary_panel, Qt.LeftDockWidgetArea)
-        config_dock = self.add_panel('config', 'Validation Config', self.config_panel, Qt.LeftDockWidgetArea)
-        actions_dock = self.add_panel('actions', 'Validation Actions', self.actions_panel, Qt.LeftDockWidgetArea)
-        plot_dock = self.add_panel('plot', 'Validation Plot', self.plot_panel, Qt.RightDockWidgetArea)
+        controls_stack = ControlStack([
+            ('1. Validation Summary', self.summary_panel, True),
+            ('2. Validation Config', self.config_panel, True),
+            ('3. Validation Actions', self.actions_panel, True),
+        ])
+        controls_dock = self.add_panel(
+            'workflow_controls',
+            'Validation Workflow',
+            make_scroll_area(controls_stack, object_name='validationWorkflowScrollArea'),
+            Qt.LeftDockWidgetArea,
+        )
         frame_dock = self.add_panel('frame_review', 'Validation Frame Review', self.frame_review_panel, Qt.RightDockWidgetArea)
+        plot_dock = self.add_panel('plot', 'Validation Plot', self.plot_panel, Qt.RightDockWidgetArea)
         log_dock = self.add_panel('log', 'Validation Log', self.log_panel, Qt.RightDockWidgetArea)
 
-        self.splitDockWidget(summary_dock, config_dock, Qt.Vertical)
-        self.splitDockWidget(config_dock, actions_dock, Qt.Vertical)
-        self.splitDockWidget(summary_dock, plot_dock, Qt.Horizontal)
-        self.splitDockWidget(plot_dock, frame_dock, Qt.Vertical)
-        self.splitDockWidget(frame_dock, log_dock, Qt.Vertical)
+        self.splitDockWidget(controls_dock, frame_dock, Qt.Horizontal)
+        self.splitDockWidget(frame_dock, plot_dock, Qt.Vertical)
+        self.tabifyDockWidget(plot_dock, log_dock)
+        plot_dock.raise_()
 
-        self.resizeDocks([summary_dock, config_dock, actions_dock], [170, 290, 150], Qt.Vertical)
-        self.resizeDocks([plot_dock, frame_dock, log_dock], [250, 430, 150], Qt.Vertical)
-        self.resizeDocks([summary_dock, plot_dock], [340, 780], Qt.Horizontal)
+        self.resizeDocks([controls_dock, frame_dock], [350, 950], Qt.Horizontal)
+        self.resizeDocks([frame_dock, plot_dock], [560, 250], Qt.Vertical)
 
     def refresh_from_state(self) -> None:
         self.summary_panel.set_model_state(

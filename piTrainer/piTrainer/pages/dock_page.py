@@ -5,6 +5,8 @@ from PySide6.QtWidgets import QDockWidget, QFrame, QMainWindow, QWidget
 
 
 class DockPage(QMainWindow):
+    layout_version = "0_4_1_readable_scroll_layout"
+
     def __init__(self, page_id: str) -> None:
         super().__init__()
         self.page_id = page_id
@@ -48,15 +50,18 @@ class DockPage(QMainWindow):
         self.addDockWidget(area, dock)
         return dock
 
+    def _layout_key(self, name: str) -> str:
+        return f"{self.page_id}/{self.layout_version}/{name}"
+
     def save_layout(self) -> None:
         settings = QSettings("OpenAI", "PiTrainer")
-        settings.setValue(f"{self.page_id}/geometry", self.saveGeometry())
-        settings.setValue(f"{self.page_id}/state", self.saveState())
+        settings.setValue(self._layout_key("geometry"), self.saveGeometry())
+        settings.setValue(self._layout_key("state"), self.saveState())
 
     def restore_layout(self) -> None:
         settings = QSettings("OpenAI", "PiTrainer")
-        geometry = settings.value(f"{self.page_id}/geometry")
-        state = settings.value(f"{self.page_id}/state")
+        geometry = settings.value(self._layout_key("geometry"))
+        state = settings.value(self._layout_key("state"))
         if geometry is not None:
             self.restoreGeometry(geometry)
         if state is not None:
@@ -64,8 +69,7 @@ class DockPage(QMainWindow):
 
     def reset_layout(self) -> None:
         settings = QSettings("OpenAI", "PiTrainer")
-        settings.remove(f"{self.page_id}/geometry")
-        settings.remove(f"{self.page_id}/state")
+        settings.remove(f"{self.page_id}/{self.layout_version}")
         self.build_default_layout()
 
     def build_default_layout(self) -> None:

@@ -24,6 +24,7 @@ from ..services.data.record_loader_service import build_filtered_dataframe, load
 from ..services.data.session_service import list_sessions
 from ..services.data.stats_service import calculate_basic_stats
 from .dock_page import DockPage
+from ..ui.layout_widgets import ControlStack, make_scroll_area
 
 
 class DataPage(DockPage):
@@ -65,39 +66,33 @@ class DataPage(DockPage):
     def build_default_layout(self) -> None:
         self.clear_docks()
 
-        source_dock = self.add_panel('session_source', 'Session Source', self.session_source_panel, Qt.LeftDockWidgetArea)
-        filter_dock = self.add_panel('frame_filter', 'Frame Filter', self.filter_panel, Qt.LeftDockWidgetArea)
-        action_dock = self.add_panel('data_actions', 'Data Actions', self.data_actions_panel, Qt.LeftDockWidgetArea)
-        overlay_dock = self.add_panel('overlay_controls', 'Overlay Controls', self.overlay_panel, Qt.LeftDockWidgetArea)
-        playback_dock = self.add_panel('playback_control', 'Playback Control', self.playback_panel, Qt.LeftDockWidgetArea)
-        merge_dock = self.add_panel('merge_sessions', 'Merge Sessions', self.merge_sessions_panel, Qt.LeftDockWidgetArea)
-        control_dock = self.add_panel('data_control', 'Data Control', self.data_control_panel, Qt.LeftDockWidgetArea)
+        workflow_stack = ControlStack([
+            ('1. Session Source', self.session_source_panel, True),
+            ('2. Dataset Stats', self.stats_panel, True),
+            ('3. Frame Filter', self.filter_panel, False),
+            ('4. Data Actions', self.data_actions_panel, True),
+            ('5. Overlay Controls', self.overlay_panel, False),
+            ('6. Playback Control', self.playback_panel, False),
+            ('7. Merge Sessions', self.merge_sessions_panel, False),
+            ('8. Data Control', self.data_control_panel, False),
+        ])
+        workflow_dock = self.add_panel(
+            'workflow_controls',
+            'Workflow Controls',
+            make_scroll_area(workflow_stack, object_name='dataWorkflowScrollArea'),
+            Qt.LeftDockWidgetArea,
+        )
 
         preview_dock = self.add_panel('record_preview', 'Record Preview', self.preview_panel, Qt.RightDockWidgetArea)
-        image_dock = self.add_panel('image_preview', 'Image Preview', self.image_preview_panel, Qt.RightDockWidgetArea)
-        plot_dock = self.add_panel('data_plot', 'Data Plot', self.plot_panel, Qt.RightDockWidgetArea)
-        stats_dock = self.add_panel('stats', 'Dataset Stats', self.stats_panel, Qt.RightDockWidgetArea)
+        image_dock = self.add_panel('image_preview', 'Image Preview + V7 Overlay', self.image_preview_panel, Qt.RightDockWidgetArea)
+        plot_dock = self.add_panel('data_plot', 'Data Plot', self.plot_panel, Qt.BottomDockWidgetArea)
 
-        self.splitDockWidget(source_dock, filter_dock, Qt.Vertical)
-        self.splitDockWidget(filter_dock, action_dock, Qt.Vertical)
-        self.splitDockWidget(action_dock, overlay_dock, Qt.Vertical)
-        self.splitDockWidget(overlay_dock, playback_dock, Qt.Vertical)
-        self.splitDockWidget(playback_dock, merge_dock, Qt.Vertical)
-        self.splitDockWidget(merge_dock, control_dock, Qt.Vertical)
-
-        self.splitDockWidget(source_dock, preview_dock, Qt.Horizontal)
+        self.splitDockWidget(workflow_dock, preview_dock, Qt.Horizontal)
         self.splitDockWidget(preview_dock, image_dock, Qt.Horizontal)
         self.splitDockWidget(preview_dock, plot_dock, Qt.Vertical)
-        self.splitDockWidget(image_dock, stats_dock, Qt.Vertical)
 
-        self.resizeDocks(
-            [source_dock, filter_dock, action_dock, overlay_dock, playback_dock, merge_dock, control_dock],
-            [220, 220, 120, 160, 150, 150, 110],
-            Qt.Vertical,
-        )
-        self.resizeDocks([preview_dock, plot_dock], [470, 220], Qt.Vertical)
-        self.resizeDocks([image_dock, stats_dock], [470, 170], Qt.Vertical)
-        self.resizeDocks([source_dock, preview_dock, image_dock], [320, 590, 490], Qt.Horizontal)
+        self.resizeDocks([workflow_dock, preview_dock, image_dock], [340, 520, 620], Qt.Horizontal)
+        self.resizeDocks([preview_dock, plot_dock], [560, 210], Qt.Vertical)
 
     @staticmethod
     def _record_identity(record) -> tuple[str, str, str, str]:
