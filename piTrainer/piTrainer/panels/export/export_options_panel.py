@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from PySide6.QtWidgets import QFileDialog, QCheckBox, QFormLayout, QGroupBox, QHBoxLayout, QLineEdit, QPushButton, QWidget
+from PySide6.QtWidgets import QFileDialog, QCheckBox, QFormLayout, QGroupBox, QHBoxLayout, QLineEdit, QPushButton, QVBoxLayout, QWidget
 
 from ...app_state import AppState
+from ...ui.layout_widgets import CollapsibleSection
 
 
 class ExportOptionsPanel(QGroupBox):
@@ -29,12 +30,26 @@ class ExportOptionsPanel(QGroupBox):
         out_layout.addWidget(self.out_dir, 1)
         out_layout.addWidget(browse_btn)
 
-        layout = QFormLayout(self)
-        layout.addRow("Output directory", out_row)
-        layout.addRow("Base file name", self.base_name)
-        layout.addRow(self.export_keras)
-        layout.addRow(self.export_tflite)
-        layout.addRow(self.quantize_int8)
+        destination_widget = QWidget()
+        destination_form = QFormLayout(destination_widget)
+        destination_form.setContentsMargins(0, 0, 0, 0)
+        destination_form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+        destination_form.addRow("Output directory", out_row)
+        destination_form.addRow("Base file name", self.base_name)
+
+        artifact_widget = QWidget()
+        artifact_layout = QVBoxLayout(artifact_widget)
+        artifact_layout.setContentsMargins(0, 0, 0, 0)
+        artifact_layout.addWidget(self.export_keras)
+        artifact_layout.addWidget(self.export_tflite)
+        artifact_layout.addWidget(self.quantize_int8)
+        artifact_layout.addStretch(1)
+
+        layout = QVBoxLayout(self)
+        layout.setSpacing(8)
+        layout.addWidget(CollapsibleSection('Destination', destination_widget, expanded=True))
+        layout.addWidget(CollapsibleSection('Artifact Types', artifact_widget, expanded=True))
+        layout.addStretch(1)
 
     def _browse(self) -> None:
         folder = QFileDialog.getExistingDirectory(self, "Choose output directory", self.out_dir.text().strip())

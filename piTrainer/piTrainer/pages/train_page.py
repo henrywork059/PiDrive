@@ -18,7 +18,7 @@ from ..services.train.split_service import split_dataframe
 from ..services.train.worker import TrainingWorker
 from ..utils.path_utils import ensure_dir, safe_filename
 from .dock_page import DockPage
-from ..ui.layout_widgets import ControlStack, make_scroll_area
+from ..ui.layout_widgets import make_scrollable_stack, make_workflow_tabs
 
 
 class TrainPage(DockPage):
@@ -45,15 +45,25 @@ class TrainPage(DockPage):
     def build_default_layout(self) -> None:
         self.clear_docks()
 
-        controls_stack = ControlStack([
-            ('1. Split Summary', self.split_summary_panel, True),
-            ('2. Training Config', self.config_panel, True),
-            ('3. Training Controls', self.control_panel, True),
-        ])
+        workflow_tabs = make_workflow_tabs([
+            (
+                'Setup',
+                make_scrollable_stack([
+                    ('Split Summary', self.split_summary_panel, True),
+                    ('Training Controls', self.control_panel, True),
+                ], object_name='trainSetupWorkflowScrollArea'),
+            ),
+            (
+                'Config',
+                make_scrollable_stack([
+                    ('Training Config', self.config_panel, True),
+                ], object_name='trainConfigWorkflowScrollArea'),
+            ),
+        ], object_name='trainWorkflowTabs')
         controls_dock = self.add_panel(
             'workflow_controls',
             'Training Workflow',
-            make_scroll_area(controls_stack, object_name='trainWorkflowScrollArea'),
+            workflow_tabs,
             Qt.LeftDockWidgetArea,
         )
         review_dock = self.add_panel('review', 'Epoch Frame Review', self.epoch_review_panel, Qt.RightDockWidgetArea)

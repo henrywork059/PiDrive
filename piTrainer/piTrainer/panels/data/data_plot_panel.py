@@ -3,8 +3,9 @@ from __future__ import annotations
 import pandas as pd
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-from PySide6.QtWidgets import QComboBox, QGroupBox, QLabel, QVBoxLayout
+from PySide6.QtWidgets import QComboBox, QGroupBox, QLabel, QVBoxLayout, QWidget
 
+from ...ui.layout_widgets import CollapsibleSection
 from ...services.data.plot_service import (
     build_plot_summary,
     filter_plot_dataframe,
@@ -49,11 +50,16 @@ class DataPlotPanel(QGroupBox):
         self.canvas = FigureCanvas(self.figure)
         self.canvas.setMinimumHeight(280)
 
+        controls_widget = QWidget()
+        controls_layout = QVBoxLayout(controls_widget)
+        controls_layout.setContentsMargins(0, 0, 0, 0)
+        controls_layout.addWidget(help_label)
+        controls_layout.addWidget(self.session_combo)
+        controls_layout.addWidget(self.plot_type_combo)
+        controls_layout.addWidget(self.summary_label)
+
         layout = QVBoxLayout(self)
-        layout.addWidget(help_label)
-        layout.addWidget(self.session_combo)
-        layout.addWidget(self.plot_type_combo)
-        layout.addWidget(self.summary_label)
+        layout.addWidget(CollapsibleSection('Plot Controls + Summary', controls_widget, expanded=False))
         layout.addWidget(self.canvas, 1)
 
         self._set_combo_items([])

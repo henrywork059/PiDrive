@@ -4,10 +4,11 @@ from typing import Any
 
 from PySide6.QtCore import QPoint, QTimer, Qt
 from PySide6.QtGui import QMouseEvent, QPixmap
-from PySide6.QtWidgets import QGroupBox, QHBoxLayout, QLabel, QSlider, QVBoxLayout
+from PySide6.QtWidgets import QGroupBox, QHBoxLayout, QLabel, QSlider, QVBoxLayout, QWidget
 
 from ...services.data.overlay_service import apply_overlays, clip_speed, clip_steering, drive_values_from_point
 from ...utils.image_utils import load_scaled_pixmap
+from ...ui.layout_widgets import CollapsibleSection
 
 
 class InteractiveImageLabel(QLabel):
@@ -105,17 +106,22 @@ class ImagePreviewPanel(QGroupBox):
         speed_row.addWidget(self.speed_slider, 1)
         speed_row.addWidget(self.speed_value_label)
 
+        editor_widget = QWidget()
+        editor_layout = QVBoxLayout(editor_widget)
+        editor_layout.setContentsMargins(0, 0, 0, 0)
+        editor_layout.addWidget(hint_label)
+        editor_layout.addLayout(steering_row)
+        editor_layout.addLayout(speed_row)
+        editor_layout.addWidget(self.overlay_meta_label)
+
         self.commit_timer = QTimer(self)
         self.commit_timer.setSingleShot(True)
         self.commit_timer.setInterval(250)
         self.commit_timer.timeout.connect(self._emit_record_edited)
 
         layout = QVBoxLayout(self)
-        layout.addWidget(self.image_label)
-        layout.addWidget(hint_label)
-        layout.addLayout(steering_row)
-        layout.addLayout(speed_row)
-        layout.addWidget(self.overlay_meta_label)
+        layout.addWidget(self.image_label, 1)
+        layout.addWidget(CollapsibleSection('Edit Steering / Speed + Overlay Metadata', editor_widget, expanded=False))
 
         self._set_slider_enabled(False)
         self._update_value_labels(0.0, 0.0)

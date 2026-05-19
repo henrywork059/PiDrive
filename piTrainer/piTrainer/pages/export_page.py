@@ -10,7 +10,7 @@ from ..panels.export.export_options_panel import ExportOptionsPanel
 from ..panels.export.model_status_panel import ModelStatusPanel
 from ..services.export.export_service import export_model_artifacts
 from .dock_page import DockPage
-from ..ui.layout_widgets import ControlStack, make_scroll_area
+from ..ui.layout_widgets import make_scrollable_stack, make_workflow_tabs
 
 
 class ExportPage(DockPage):
@@ -29,15 +29,25 @@ class ExportPage(DockPage):
     def build_default_layout(self) -> None:
         self.clear_docks()
 
-        controls_stack = ControlStack([
-            ('1. Model Status', self.model_status_panel, True),
-            ('2. Export Options', self.options_panel, True),
-            ('3. Export Actions', self.actions_panel, True),
-        ])
+        workflow_tabs = make_workflow_tabs([
+            (
+                'Status',
+                make_scrollable_stack([
+                    ('Model Status', self.model_status_panel, True),
+                ], object_name='exportStatusWorkflowScrollArea'),
+            ),
+            (
+                'Export',
+                make_scrollable_stack([
+                    ('Export Options', self.options_panel, True),
+                    ('Export Actions', self.actions_panel, True),
+                ], object_name='exportRunWorkflowScrollArea'),
+            ),
+        ], object_name='exportWorkflowTabs')
         controls_dock = self.add_panel(
             'workflow_controls',
             'Export Workflow',
-            make_scroll_area(controls_stack, object_name='exportWorkflowScrollArea'),
+            workflow_tabs,
             Qt.LeftDockWidgetArea,
         )
         log_dock = self.add_panel('log', 'Export Log', self.log_panel, Qt.RightDockWidgetArea)

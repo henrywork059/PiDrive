@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QScrollArea,
     QSizePolicy,
+    QTabWidget,
     QToolButton,
     QVBoxLayout,
     QWidget,
@@ -53,14 +54,14 @@ class CollapsibleSection(QWidget):
 
 
 class ControlStack(QWidget):
-    """A vertical stack of collapsible controls for one dock sidebar."""
+    """A vertical stack of collapsible controls for one dock/sidebar tab."""
 
-    def __init__(self, sections: Iterable[tuple[str, QWidget, bool]]) -> None:
+    def __init__(self, sections: Iterable[tuple[str, QWidget, bool]], *, margins: tuple[int, int, int, int] = (8, 8, 8, 8)) -> None:
         super().__init__()
         self.setObjectName('controlStack')
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.MinimumExpanding)
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setContentsMargins(*margins)
         layout.setSpacing(10)
         for title, widget, expanded in sections:
             layout.addWidget(CollapsibleSection(title, widget, expanded=expanded))
@@ -77,3 +78,34 @@ def make_scroll_area(widget: QWidget, *, object_name: str = 'pageScrollArea') ->
     scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
     scroll.setWidget(widget)
     return scroll
+
+
+def make_workflow_tabs(
+    tabs: Iterable[tuple[str, QWidget]],
+    *,
+    object_name: str = 'workflowTabs',
+    tab_position: QTabWidget.TabPosition = QTabWidget.North,
+) -> QTabWidget:
+    """Create a compact tab widget for groups of workflow controls.
+
+    This is used when one long collapsible sidebar is still too tall. Each tab can
+    contain its own scroll area / ControlStack so only one task family is visible
+    at a time.
+    """
+    tab_widget = QTabWidget()
+    tab_widget.setObjectName(object_name)
+    tab_widget.setDocumentMode(True)
+    tab_widget.setTabPosition(tab_position)
+    for title, widget in tabs:
+        tab_widget.addTab(widget, title)
+    return tab_widget
+
+
+def make_scrollable_stack(
+    sections: Iterable[tuple[str, QWidget, bool]],
+    *,
+    object_name: str = 'workflowScrollArea',
+    margins: tuple[int, int, int, int] = (8, 8, 8, 8),
+) -> QScrollArea:
+    """Convenience helper for one scrollable stack of collapsible sections."""
+    return make_scroll_area(ControlStack(sections, margins=margins), object_name=object_name)

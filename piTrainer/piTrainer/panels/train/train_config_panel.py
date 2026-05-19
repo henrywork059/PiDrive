@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from PySide6.QtWidgets import QCheckBox, QComboBox, QDoubleSpinBox, QFormLayout, QGroupBox, QSpinBox
+from PySide6.QtWidgets import QCheckBox, QComboBox, QDoubleSpinBox, QFormLayout, QGroupBox, QSpinBox, QVBoxLayout, QWidget
 
 from ...app_state import AppState
+from ...ui.layout_widgets import CollapsibleSection
 
 
 class TrainConfigPanel(QGroupBox):
@@ -40,34 +41,63 @@ class TrainConfigPanel(QGroupBox):
         self.augment = QCheckBox("Enable light image augmentation"); self.augment.setChecked(cfg.augment)
         self.shuffle = QCheckBox("Shuffle training rows"); self.shuffle.setChecked(cfg.shuffle)
 
-        layout = QFormLayout(self)
-        layout.addRow("Image height", self.img_h)
-        layout.addRow("Image width", self.img_w)
-        layout.addRow("Batch size", self.batch_size)
-        layout.addRow("Epochs", self.epochs)
-        layout.addRow("Learning rate", self.learning_rate)
-        layout.addRow("Validation ratio", self.val_ratio)
-        layout.addRow("Split mode", self.split_mode)
-        layout.addRow("Model size", self.model_size)
-        layout.addRow("Dropout rate", self.dropout_rate)
-        layout.addRow("Steering loss weight", self.steering_loss_weight)
-        layout.addRow("Speed loss weight", self.throttle_loss_weight)
-        layout.addRow("Gradient clipnorm", self.clipnorm)
-        layout.addRow("L2 regularization", self.l2_reg)
-        layout.addRow("Epoch review samples", self.review_sample_count)
-        layout.addRow("Random seed", self.seed)
-        layout.addRow(self.early_stopping)
-        layout.addRow("Early-stop patience", self.early_stopping_patience)
-        layout.addRow(self.reduce_lr)
-        layout.addRow("LR patience", self.reduce_lr_patience)
-        layout.addRow("LR factor", self.reduce_lr_factor)
-        layout.addRow(self.only_manual)
-        layout.addRow(self.augment)
-        layout.addRow(self.shuffle)
+        layout = QVBoxLayout(self)
+        layout.setSpacing(8)
+        layout.addWidget(CollapsibleSection('Input Size + Split', self._input_split_section(), expanded=True))
+        layout.addWidget(CollapsibleSection('Model + Loss', self._model_loss_section(), expanded=False))
+        layout.addWidget(CollapsibleSection('Training Schedule', self._schedule_section(), expanded=True))
+        layout.addWidget(CollapsibleSection('Review + Dataset Options', self._review_options_section(), expanded=False))
+        layout.addStretch(1)
 
         self.early_stopping.toggled.connect(self._update_enabled_state)
         self.reduce_lr.toggled.connect(self._update_enabled_state)
         self._update_enabled_state()
+
+    def _section_form(self) -> tuple[QWidget, QFormLayout]:
+        widget = QWidget()
+        form = QFormLayout(widget)
+        form.setContentsMargins(0, 0, 0, 0)
+        form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+        return widget, form
+
+    def _input_split_section(self) -> QWidget:
+        widget, form = self._section_form()
+        form.addRow("Image height", self.img_h)
+        form.addRow("Image width", self.img_w)
+        form.addRow("Validation ratio", self.val_ratio)
+        form.addRow("Split mode", self.split_mode)
+        form.addRow("Random seed", self.seed)
+        return widget
+
+    def _model_loss_section(self) -> QWidget:
+        widget, form = self._section_form()
+        form.addRow("Model size", self.model_size)
+        form.addRow("Dropout rate", self.dropout_rate)
+        form.addRow("Steering loss weight", self.steering_loss_weight)
+        form.addRow("Speed loss weight", self.throttle_loss_weight)
+        form.addRow("Gradient clipnorm", self.clipnorm)
+        form.addRow("L2 regularization", self.l2_reg)
+        return widget
+
+    def _schedule_section(self) -> QWidget:
+        widget, form = self._section_form()
+        form.addRow("Batch size", self.batch_size)
+        form.addRow("Epochs", self.epochs)
+        form.addRow("Learning rate", self.learning_rate)
+        form.addRow(self.early_stopping)
+        form.addRow("Early-stop patience", self.early_stopping_patience)
+        form.addRow(self.reduce_lr)
+        form.addRow("LR patience", self.reduce_lr_patience)
+        form.addRow("LR factor", self.reduce_lr_factor)
+        return widget
+
+    def _review_options_section(self) -> QWidget:
+        widget, form = self._section_form()
+        form.addRow("Epoch review samples", self.review_sample_count)
+        form.addRow(self.only_manual)
+        form.addRow(self.augment)
+        form.addRow(self.shuffle)
+        return widget
 
     def _update_enabled_state(self) -> None:
         self.early_stopping_patience.setEnabled(self.early_stopping.isChecked())
@@ -77,4 +107,27 @@ class TrainConfigPanel(QGroupBox):
 
     def push_to_state(self) -> None:
         cfg = self.state.train_config
-        cfg.img_h = self.img_h.value(); cfg.img_w = self.img_w.value(); cfg.batch_size = self.batch_size.value(); cfg.epochs = self.epochs.value(); cfg.learning_rate = self.learning_rate.value(); cfg.val_ratio = self.val_ratio.value(); cfg.model_size = self.model_size.currentText(); cfg.seed = self.seed.value(); cfg.early_stopping = self.early_stopping.isChecked(); cfg.early_stopping_patience = self.early_stopping_patience.value(); cfg.reduce_lr_on_plateau = self.reduce_lr.isChecked(); cfg.reduce_lr_patience = self.reduce_lr_patience.value(); cfg.reduce_lr_factor = self.reduce_lr_factor.value(); cfg.only_manual = self.only_manual.isChecked(); cfg.augment = self.augment.isChecked(); cfg.shuffle = self.shuffle.isChecked(); cfg.split_mode = self.split_mode.currentText(); cfg.session_split = cfg.split_mode == 'By session'; cfg.dropout_rate = self.dropout_rate.value(); cfg.steering_loss_weight = self.steering_loss_weight.value(); cfg.throttle_loss_weight = self.throttle_loss_weight.value(); cfg.clipnorm = self.clipnorm.value(); cfg.l2_reg = self.l2_reg.value(); cfg.review_sample_count = self.review_sample_count.value()
+        cfg.img_h = self.img_h.value()
+        cfg.img_w = self.img_w.value()
+        cfg.batch_size = self.batch_size.value()
+        cfg.epochs = self.epochs.value()
+        cfg.learning_rate = self.learning_rate.value()
+        cfg.val_ratio = self.val_ratio.value()
+        cfg.model_size = self.model_size.currentText()
+        cfg.seed = self.seed.value()
+        cfg.early_stopping = self.early_stopping.isChecked()
+        cfg.early_stopping_patience = self.early_stopping_patience.value()
+        cfg.reduce_lr_on_plateau = self.reduce_lr.isChecked()
+        cfg.reduce_lr_patience = self.reduce_lr_patience.value()
+        cfg.reduce_lr_factor = self.reduce_lr_factor.value()
+        cfg.only_manual = self.only_manual.isChecked()
+        cfg.augment = self.augment.isChecked()
+        cfg.shuffle = self.shuffle.isChecked()
+        cfg.split_mode = self.split_mode.currentText()
+        cfg.session_split = cfg.split_mode == 'By session'
+        cfg.dropout_rate = self.dropout_rate.value()
+        cfg.steering_loss_weight = self.steering_loss_weight.value()
+        cfg.throttle_loss_weight = self.throttle_loss_weight.value()
+        cfg.clipnorm = self.clipnorm.value()
+        cfg.l2_reg = self.l2_reg.value()
+        cfg.review_sample_count = self.review_sample_count.value()

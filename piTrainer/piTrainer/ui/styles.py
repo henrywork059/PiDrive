@@ -185,13 +185,18 @@ def build_stylesheet() -> str:
         background: #101722;
         border: none;
     }
-    QScrollArea#dataWorkflowScrollArea,
-    QScrollArea#trainWorkflowScrollArea,
-    QScrollArea#preprocessWorkflowScrollArea,
-    QScrollArea#validationWorkflowScrollArea,
-    QScrollArea#exportWorkflowScrollArea {
+    QScrollArea {
         background: #101722;
         border: none;
+    }
+    QTabWidget#dataWorkflowTabs::pane,
+    QTabWidget#preprocessWorkflowTabs::pane,
+    QTabWidget#trainWorkflowTabs::pane,
+    QTabWidget#validationWorkflowTabs::pane,
+    QTabWidget#exportWorkflowTabs::pane {
+        background: #101722;
+        border: 1px solid #2f3747;
+        border-radius: 6px;
     }
     QToolButton#collapsibleSectionHeader {
         background: #1e2a3a;

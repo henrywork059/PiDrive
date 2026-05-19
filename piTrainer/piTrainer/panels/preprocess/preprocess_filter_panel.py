@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
 )
 
 from ...app_state import AppState
+from ...ui.layout_widgets import CollapsibleSection
 
 
 class PreprocessFilterPanel(QGroupBox):
@@ -25,8 +26,7 @@ class PreprocessFilterPanel(QGroupBox):
         self.state = state
 
         help_label = QLabel(
-            'Use this panel to decide which source rows are allowed into preprocessing before augmentation or resizing. '
-            'These filters narrow the active dataset; they do not modify the original session files.'
+            'Choose which source rows can enter preprocessing. These filters narrow the active dataset; they do not modify the original session files.'
         )
         help_label.setWordWrap(True)
         help_label.setProperty('role', 'muted')
@@ -85,22 +85,13 @@ class PreprocessFilterPanel(QGroupBox):
         self._range_row_speed = self._make_range_row(self.speed_min, self.speed_max)
         self._straight_row = self._make_range_row(self.straight_threshold, self.straight_keep_ratio)
 
-        form = QFormLayout()
-        form.addRow('Source rows', self.source_combo)
-        form.addRow('Mode filter', self.mode_combo)
-        form.addRow(self.require_images)
-        form.addRow(self.drop_duplicate_images)
-        form.addRow('Keep every Nth row', self.frame_stride)
-        form.addRow(self.enable_steering_range)
-        form.addRow('Steering min / max', self._range_row_steer)
-        form.addRow(self.enable_speed_range)
-        form.addRow('Speed min / max', self._range_row_speed)
-        form.addRow(self.balance_straight)
-        form.addRow('Straight threshold / keep ratio', self._straight_row)
-
         layout = QVBoxLayout(self)
+        layout.setSpacing(8)
         layout.addWidget(help_label)
-        layout.addLayout(form)
+        layout.addWidget(CollapsibleSection('Source + Mode', self._source_section(), expanded=True))
+        layout.addWidget(CollapsibleSection('Frame Thinning', self._thinning_section(), expanded=False))
+        layout.addWidget(CollapsibleSection('Steering + Speed Ranges', self._range_section(), expanded=False))
+        layout.addWidget(CollapsibleSection('Straight-row Balancing', self._balance_section(), expanded=False))
         layout.addStretch(1)
 
         self.enable_steering_range.toggled.connect(self._update_enabled_state)
@@ -108,6 +99,40 @@ class PreprocessFilterPanel(QGroupBox):
         self.balance_straight.toggled.connect(self._update_enabled_state)
         self.sync_from_state()
         self._update_enabled_state()
+
+    def _section_form(self) -> tuple[QWidget, QFormLayout]:
+        widget = QWidget()
+        form = QFormLayout(widget)
+        form.setContentsMargins(0, 0, 0, 0)
+        form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+        return widget, form
+
+    def _source_section(self) -> QWidget:
+        widget, form = self._section_form()
+        form.addRow('Source rows', self.source_combo)
+        form.addRow('Mode filter', self.mode_combo)
+        form.addRow(self.require_images)
+        return widget
+
+    def _thinning_section(self) -> QWidget:
+        widget, form = self._section_form()
+        form.addRow(self.drop_duplicate_images)
+        form.addRow('Keep every Nth row', self.frame_stride)
+        return widget
+
+    def _range_section(self) -> QWidget:
+        widget, form = self._section_form()
+        form.addRow(self.enable_steering_range)
+        form.addRow('Steering min / max', self._range_row_steer)
+        form.addRow(self.enable_speed_range)
+        form.addRow('Speed min / max', self._range_row_speed)
+        return widget
+
+    def _balance_section(self) -> QWidget:
+        widget, form = self._section_form()
+        form.addRow(self.balance_straight)
+        form.addRow('Threshold / keep ratio', self._straight_row)
+        return widget
 
     def _make_range_row(self, left, right) -> QWidget:
         container = QWidget()

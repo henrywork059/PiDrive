@@ -12,9 +12,11 @@ from PySide6.QtWidgets import (
     QPushButton,
     QSpinBox,
     QVBoxLayout,
+    QWidget,
 )
 
 from ...app_state import AppState
+from ...ui.layout_widgets import CollapsibleSection
 
 
 class ValidationConfigPanel(QGroupBox):
@@ -40,23 +42,37 @@ class ValidationConfigPanel(QGroupBox):
         self.max_rows_spin.setSpecialValueText('All rows')
         self.max_rows_spin.setValue(0)
 
-        form = QFormLayout()
-        form.addRow('Model Source', self.model_source_combo)
-        form.addRow('Dataset Source', self.dataset_source_combo)
-        form.addRow('Model File', self.model_path_edit)
-        form.addRow('Batch Size', self.batch_spin)
-        form.addRow('Max Rows', self.max_rows_spin)
-
         helper = QPushButton('Use current export folder')
         helper.clicked.connect(self.fill_from_export_dir)
 
-        helper_row = QHBoxLayout()
+        helper_widget = QWidget()
+        helper_row = QHBoxLayout(helper_widget)
+        helper_row.setContentsMargins(0, 0, 0, 0)
         helper_row.addWidget(helper)
         helper_row.addStretch(1)
 
+        model_widget, model_form = self._section_form()
+        model_form.addRow('Model Source', self.model_source_combo)
+        model_form.addRow('Model File', self.model_path_edit)
+        model_form.addRow(helper_widget)
+
+        dataset_widget, dataset_form = self._section_form()
+        dataset_form.addRow('Dataset Source', self.dataset_source_combo)
+        dataset_form.addRow('Batch Size', self.batch_spin)
+        dataset_form.addRow('Max Rows', self.max_rows_spin)
+
         layout = QVBoxLayout(self)
-        layout.addLayout(form)
-        layout.addLayout(helper_row)
+        layout.setSpacing(8)
+        layout.addWidget(CollapsibleSection('Model Source', model_widget, expanded=True))
+        layout.addWidget(CollapsibleSection('Dataset + Run Limits', dataset_widget, expanded=True))
+        layout.addStretch(1)
+
+    def _section_form(self) -> tuple[QWidget, QFormLayout]:
+        widget = QWidget()
+        form = QFormLayout(widget)
+        form.setContentsMargins(0, 0, 0, 0)
+        form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+        return widget, form
 
     def browse_model_file(self, parent) -> None:
         path, _ = QFileDialog.getOpenFileName(
@@ -95,7 +111,6 @@ class ValidationConfigPanel(QGroupBox):
 
     def max_rows(self) -> int:
         return int(self.max_rows_spin.value())
-
 
     def set_saved_model_path(self, path: str) -> None:
         self.model_path_edit.setText(str(path))

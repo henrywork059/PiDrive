@@ -13,7 +13,7 @@ from ..panels.validation.validation_plot_panel import ValidationPlotPanel
 from ..panels.validation.validation_summary_panel import ValidationSummaryPanel
 from ..services.validation.validation_service import build_validation_summary_text, run_validation
 from .dock_page import DockPage
-from ..ui.layout_widgets import ControlStack, make_scroll_area
+from ..ui.layout_widgets import make_scrollable_stack, make_workflow_tabs
 
 
 class ValidationPage(DockPage):
@@ -41,15 +41,25 @@ class ValidationPage(DockPage):
     def build_default_layout(self) -> None:
         self.clear_docks()
 
-        controls_stack = ControlStack([
-            ('1. Validation Summary', self.summary_panel, True),
-            ('2. Validation Config', self.config_panel, True),
-            ('3. Validation Actions', self.actions_panel, True),
-        ])
+        workflow_tabs = make_workflow_tabs([
+            (
+                'Run',
+                make_scrollable_stack([
+                    ('Validation Config', self.config_panel, True),
+                    ('Validation Actions', self.actions_panel, True),
+                ], object_name='validationRunWorkflowScrollArea'),
+            ),
+            (
+                'Status',
+                make_scrollable_stack([
+                    ('Validation Summary', self.summary_panel, True),
+                ], object_name='validationStatusWorkflowScrollArea'),
+            ),
+        ], object_name='validationWorkflowTabs')
         controls_dock = self.add_panel(
             'workflow_controls',
             'Validation Workflow',
-            make_scroll_area(controls_stack, object_name='validationWorkflowScrollArea'),
+            workflow_tabs,
             Qt.LeftDockWidgetArea,
         )
         frame_dock = self.add_panel('frame_review', 'Validation Frame Review', self.frame_review_panel, Qt.RightDockWidgetArea)

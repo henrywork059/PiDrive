@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
 )
 
 from ...app_state import AppState
+from ...ui.layout_widgets import CollapsibleSection
 
 
 class PreprocessConfigPanel(QGroupBox):
@@ -21,8 +22,7 @@ class PreprocessConfigPanel(QGroupBox):
         self.state = state
 
         help_label = QLabel(
-            'Use this panel for augmentation and output setup. Color variants are intentionally mild and are meant only '
-            'to simulate small live-camera exposure and white-balance changes, not aggressive recoloring.'
+            'Set augmentation and output size. Color variants are mild and meant to simulate small camera exposure/WB changes.'
         )
         help_label.setWordWrap(True)
         help_label.setProperty('role', 'muted')
@@ -50,22 +50,42 @@ class PreprocessConfigPanel(QGroupBox):
 
         self.turn_row = self._make_range_row(self.turn_threshold, self.turn_copies)
 
-        form = QFormLayout()
-        form.addRow(self.turn_boost)
-        form.addRow('Turn threshold / extra copies', self.turn_row)
-        form.addRow(self.mirror_enabled)
-        form.addRow('Mild exposure / WB variants', self.color_variants)
-        form.addRow('Output image height', self.image_h)
-        form.addRow('Output image width', self.image_w)
-
         layout = QVBoxLayout(self)
+        layout.setSpacing(8)
         layout.addWidget(help_label)
-        layout.addLayout(form)
+        layout.addWidget(CollapsibleSection('Turning Boost', self._turning_section(), expanded=False))
+        layout.addWidget(CollapsibleSection('Mirror + Color Variants', self._variant_section(), expanded=False))
+        layout.addWidget(CollapsibleSection('Output Image Size', self._size_section(), expanded=True))
         layout.addStretch(1)
 
         self.turn_boost.toggled.connect(self._update_enabled_state)
         self.sync_from_state()
         self._update_enabled_state()
+
+    def _section_form(self) -> tuple[QWidget, QFormLayout]:
+        widget = QWidget()
+        form = QFormLayout(widget)
+        form.setContentsMargins(0, 0, 0, 0)
+        form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+        return widget, form
+
+    def _turning_section(self) -> QWidget:
+        widget, form = self._section_form()
+        form.addRow(self.turn_boost)
+        form.addRow('Turn threshold / extra copies', self.turn_row)
+        return widget
+
+    def _variant_section(self) -> QWidget:
+        widget, form = self._section_form()
+        form.addRow(self.mirror_enabled)
+        form.addRow('Mild exposure / WB variants', self.color_variants)
+        return widget
+
+    def _size_section(self) -> QWidget:
+        widget, form = self._section_form()
+        form.addRow('Output image height', self.image_h)
+        form.addRow('Output image width', self.image_w)
+        return widget
 
     def _make_range_row(self, left, right) -> QWidget:
         container = QWidget()

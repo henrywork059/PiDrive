@@ -21,7 +21,7 @@ from ..services.preprocess.preprocess_service import (
     save_preprocessed_dataset,
 )
 from .dock_page import DockPage
-from ..ui.layout_widgets import ControlStack, make_scroll_area
+from ..ui.layout_widgets import make_scrollable_stack, make_workflow_tabs
 
 
 class PreprocessPage(DockPage):
@@ -52,16 +52,26 @@ class PreprocessPage(DockPage):
     def build_default_layout(self) -> None:
         self.clear_docks()
 
-        controls_stack = ControlStack([
-            ('1. Source Summary', self.summary_panel, True),
-            ('2. Preprocess Filters', self.filter_panel, False),
-            ('3. Preprocess Recipe', self.config_panel, True),
-            ('4. Preprocess Actions', self.actions_panel, True),
-        ])
+        workflow_tabs = make_workflow_tabs([
+            (
+                'Source',
+                make_scrollable_stack([
+                    ('Source Summary', self.summary_panel, True),
+                    ('Preprocess Filters', self.filter_panel, True),
+                ], object_name='preprocessSourceWorkflowScrollArea'),
+            ),
+            (
+                'Recipe',
+                make_scrollable_stack([
+                    ('Preprocess Recipe', self.config_panel, True),
+                    ('Preprocess Actions', self.actions_panel, False),
+                ], object_name='preprocessRecipeWorkflowScrollArea'),
+            ),
+        ], object_name='preprocessWorkflowTabs')
         controls_dock = self.add_panel(
             'workflow_controls',
             'Preprocess Workflow',
-            make_scroll_area(controls_stack, object_name='preprocessWorkflowScrollArea'),
+            workflow_tabs,
             Qt.LeftDockWidgetArea,
         )
         result_dock = self.add_panel('result', 'Preprocess Preview', self.result_panel, Qt.RightDockWidgetArea)

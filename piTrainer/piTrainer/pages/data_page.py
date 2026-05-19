@@ -24,7 +24,7 @@ from ..services.data.record_loader_service import build_filtered_dataframe, load
 from ..services.data.session_service import list_sessions
 from ..services.data.stats_service import calculate_basic_stats
 from .dock_page import DockPage
-from ..ui.layout_widgets import ControlStack, make_scroll_area
+from ..ui.layout_widgets import make_scrollable_stack, make_workflow_tabs
 
 
 class DataPage(DockPage):
@@ -66,20 +66,35 @@ class DataPage(DockPage):
     def build_default_layout(self) -> None:
         self.clear_docks()
 
-        workflow_stack = ControlStack([
-            ('1. Session Source', self.session_source_panel, True),
-            ('2. Dataset Stats', self.stats_panel, True),
-            ('3. Frame Filter', self.filter_panel, False),
-            ('4. Data Actions', self.data_actions_panel, True),
-            ('5. Overlay Controls', self.overlay_panel, False),
-            ('6. Playback Control', self.playback_panel, False),
-            ('7. Merge Sessions', self.merge_sessions_panel, False),
-            ('8. Data Control', self.data_control_panel, False),
-        ])
+        workflow_tabs = make_workflow_tabs([
+            (
+                'Load',
+                make_scrollable_stack([
+                    ('Session Source', self.session_source_panel, True),
+                    ('Dataset Stats', self.stats_panel, True),
+                    ('Data Actions', self.data_actions_panel, False),
+                ], object_name='dataLoadWorkflowScrollArea'),
+            ),
+            (
+                'Review',
+                make_scrollable_stack([
+                    ('Frame Filter', self.filter_panel, True),
+                    ('Overlay Controls', self.overlay_panel, True),
+                    ('Playback Control', self.playback_panel, False),
+                ], object_name='dataReviewWorkflowScrollArea'),
+            ),
+            (
+                'Manage',
+                make_scrollable_stack([
+                    ('Merge Sessions', self.merge_sessions_panel, True),
+                    ('Data Control', self.data_control_panel, False),
+                ], object_name='dataManageWorkflowScrollArea'),
+            ),
+        ], object_name='dataWorkflowTabs')
         workflow_dock = self.add_panel(
             'workflow_controls',
             'Workflow Controls',
-            make_scroll_area(workflow_stack, object_name='dataWorkflowScrollArea'),
+            workflow_tabs,
             Qt.LeftDockWidgetArea,
         )
 

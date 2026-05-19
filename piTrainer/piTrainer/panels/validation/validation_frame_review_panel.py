@@ -18,6 +18,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ...ui.layout_widgets import CollapsibleSection
+
 from ...services.data.overlay_service import apply_prediction_comparison_overlay
 from ...services.validation.validation_service import validation_preview_rows
 from ...utils.image_utils import load_scaled_pixmap
@@ -73,14 +75,16 @@ class ValidationFrameReviewPanel(QGroupBox):
         self.edit_button = QPushButton('Edit in Data')
         self.edit_button.clicked.connect(self._edit_current_frame)
 
-        top_controls = QGridLayout()
+        controls_widget = QWidget()
+        top_controls = QGridLayout(controls_widget)
+        top_controls.setContentsMargins(0, 0, 0, 0)
         top_controls.addWidget(self.bad_only_checkbox, 0, 0)
         top_controls.addWidget(QLabel('Bad threshold'), 0, 1)
         top_controls.addWidget(self.error_threshold_spin, 0, 2)
-        top_controls.addWidget(QLabel('Order'), 0, 3)
-        top_controls.addWidget(self.sort_combo, 0, 4)
-        top_controls.addWidget(self.count_label, 0, 5)
-        top_controls.setColumnStretch(5, 1)
+        top_controls.addWidget(QLabel('Order'), 1, 0)
+        top_controls.addWidget(self.sort_combo, 1, 1, 1, 2)
+        top_controls.addWidget(self.count_label, 1, 3)
+        top_controls.setColumnStretch(4, 1)
 
         action_row = QHBoxLayout()
         action_row.addWidget(self.best_button)
@@ -101,8 +105,8 @@ class ValidationFrameReviewPanel(QGroupBox):
         splitter.setStretchFactor(1, 2)
 
         layout = QVBoxLayout(self)
+        layout.addWidget(CollapsibleSection('Frame Filter + Sorting', controls_widget, expanded=False))
         layout.addWidget(self.help_label)
-        layout.addLayout(top_controls)
         layout.addWidget(splitter, 1)
 
     def set_result(self, result: dict | None) -> None:
