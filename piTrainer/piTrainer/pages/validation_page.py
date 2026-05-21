@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import pandas as pd
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QDockWidget
 
 from ..app_state import AppState
 from ..panels.common.log_panel import LogPanel
@@ -56,23 +54,23 @@ class ValidationPage(DockPage):
                 ], object_name='validationStatusWorkflowScrollArea', intro='Read the result summary here after validation finishes.'),
             ),
         ], object_name='validationWorkflowTabs')
-        controls_dock = self.add_panel(
-            'workflow_controls',
-            'Validation Workflow',
-            workflow_tabs,
-            Qt.LeftDockWidgetArea,
-        )
-        frame_dock = self.add_panel('frame_review', 'Validation Frame Review', self.frame_review_panel, Qt.RightDockWidgetArea)
-        plot_dock = self.add_panel('plot', 'Validation Plot', self.plot_panel, Qt.RightDockWidgetArea)
-        log_dock = self.add_panel('log', 'Validation Log', self.log_panel, Qt.RightDockWidgetArea)
 
-        self.splitDockWidget(controls_dock, frame_dock, Qt.Horizontal)
-        self.splitDockWidget(frame_dock, plot_dock, Qt.Vertical)
-        self.tabifyDockWidget(plot_dock, log_dock)
-        plot_dock.raise_()
+        result_tabs = make_workflow_tabs([
+            ('Plot', self.plot_panel, 'Validation error plot.'),
+            ('Log', self.log_panel, 'Validation messages and errors.'),
+        ], object_name='validationResultTabs')
 
-        self.resizeDocks([controls_dock, frame_dock], [350, 950], Qt.Horizontal)
-        self.resizeDocks([frame_dock, plot_dock], [560, 250], Qt.Vertical)
+        right_stack = self.make_vertical_splitter([
+            self.make_panel_frame('frame_review', 'Validation Frame Review', self.frame_review_panel),
+            self.make_panel_frame('results', 'Validation Plot / Log', result_tabs),
+        ], sizes=[620, 280], object_name='right_stack', stretch=[5, 2])
+
+        workspace = self.make_horizontal_splitter([
+            self.make_panel_frame('workflow_controls', 'Validation Workflow', workflow_tabs),
+            right_stack,
+        ], sizes=[360, 1040], object_name='main_workspace', stretch=[0, 3])
+
+        self.set_workspace_widget(workspace)
 
     def refresh_from_state(self) -> None:
         self.summary_panel.set_model_state(

@@ -289,6 +289,33 @@ def build_stylesheet() -> str:
     QLabel[role='hint'] {
         color: #c8d8ee;
     }
+
+    QSplitter[role='pageSplitter'] {
+        background: #0d131d;
+    }
+    QSplitter[role='pageSplitter']::handle {
+        background: #223047;
+        border: 1px solid #394f71;
+        border-radius: 3px;
+        margin: 2px;
+    }
+    QSplitter[role='pageSplitter']::handle:hover {
+        background: #35608e;
+        border-color: #78baff;
+    }
+    QFrame[role='splitterPanel'] {
+        background: #111722;
+        border: 1px solid #303a4b;
+        border-radius: 10px;
+    }
+    QLabel#splitterPanelTitle {
+        color: #f4f7fb;
+        background: #1c293b;
+        border: 1px solid #33445c;
+        border-radius: 8px;
+        padding: 7px 10px;
+        font-weight: 800;
+    }
     QScrollBar:vertical {
         background: #0d131d;
         width: 12px;

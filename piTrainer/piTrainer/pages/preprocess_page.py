@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import pandas as pd
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QDockWidget
 
 from ..app_state import AppState
 from ..panels.common.log_panel import LogPanel
@@ -68,20 +66,18 @@ class PreprocessPage(DockPage):
                 ], object_name='preprocessRecipeWorkflowScrollArea', intro='Preview first, then confirm the recipe only when the row counts and image size look right.'),
             ),
         ], object_name='preprocessWorkflowTabs')
-        controls_dock = self.add_panel(
-            'workflow_controls',
-            'Preprocess Workflow',
-            workflow_tabs,
-            Qt.LeftDockWidgetArea,
-        )
-        result_dock = self.add_panel('result', 'Preprocess Preview', self.result_panel, Qt.RightDockWidgetArea)
-        log_dock = self.add_panel('log', 'Preprocess Log', self.log_panel, Qt.RightDockWidgetArea)
 
-        self.splitDockWidget(controls_dock, result_dock, Qt.Horizontal)
-        self.splitDockWidget(result_dock, log_dock, Qt.Vertical)
+        right_stack = self.make_vertical_splitter([
+            self.make_panel_frame('result', 'Preprocess Preview', self.result_panel),
+            self.make_panel_frame('log', 'Preprocess Log', self.log_panel),
+        ], sizes=[620, 240], object_name='right_stack', stretch=[5, 2])
 
-        self.resizeDocks([controls_dock, result_dock], [350, 940], Qt.Horizontal)
-        self.resizeDocks([result_dock, log_dock], [590, 190], Qt.Vertical)
+        workspace = self.make_horizontal_splitter([
+            self.make_panel_frame('workflow_controls', 'Preprocess Workflow', workflow_tabs),
+            right_stack,
+        ], sizes=[360, 1040], object_name='main_workspace', stretch=[0, 3])
+
+        self.set_workspace_widget(workspace)
 
     def _load_saved_recipe_if_available(self) -> None:
         recipe = load_preprocess_settings(self.state.out_dir_path)

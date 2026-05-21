@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QDockWidget
 
 from ..app_state import AppState
 from ..panels.common.log_panel import LogPanel
@@ -44,15 +42,13 @@ class ExportPage(DockPage):
                 ], object_name='exportRunWorkflowScrollArea', intro='Choose the output folder and artifact types, then export once the model is ready.'),
             ),
         ], object_name='exportWorkflowTabs')
-        controls_dock = self.add_panel(
-            'workflow_controls',
-            'Export Workflow',
-            workflow_tabs,
-            Qt.LeftDockWidgetArea,
-        )
-        log_dock = self.add_panel('log', 'Export Log', self.log_panel, Qt.RightDockWidgetArea)
-        self.splitDockWidget(controls_dock, log_dock, Qt.Horizontal)
-        self.resizeDocks([controls_dock, log_dock], [350, 940], Qt.Horizontal)
+
+        workspace = self.make_horizontal_splitter([
+            self.make_panel_frame('workflow_controls', 'Export Workflow', workflow_tabs),
+            self.make_panel_frame('log', 'Export Log', self.log_panel),
+        ], sizes=[360, 1040], object_name='main_workspace', stretch=[0, 3])
+
+        self.set_workspace_widget(workspace)
 
     def refresh_from_state(self) -> None:
         model_ready = self.state.model is not None

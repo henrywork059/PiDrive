@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import pandas as pd
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QDockWidget, QMessageBox
+from PySide6.QtWidgets import QMessageBox
 
 from ..app_state import AppState
 from ..panels.data.data_actions_panel import DataActionsPanel
@@ -91,23 +90,19 @@ class DataPage(DockPage):
                 ], object_name='dataManageWorkflowScrollArea', intro='Use these tools only when you need to merge sessions or remove a bad frame from the dataset.'),
             ),
         ], object_name='dataWorkflowTabs')
-        workflow_dock = self.add_panel(
-            'workflow_controls',
-            'Data Workflow',
-            workflow_tabs,
-            Qt.LeftDockWidgetArea,
-        )
 
-        preview_dock = self.add_panel('record_preview', 'Record Preview', self.preview_panel, Qt.RightDockWidgetArea)
-        image_dock = self.add_panel('image_preview', 'Image Preview + V7 Overlay', self.image_preview_panel, Qt.RightDockWidgetArea)
-        plot_dock = self.add_panel('data_plot', 'Data Plot', self.plot_panel, Qt.BottomDockWidgetArea)
+        right_stack = self.make_vertical_splitter([
+            self.make_panel_frame('image_preview', 'Image Preview + V7 Overlay', self.image_preview_panel),
+            self.make_panel_frame('data_plot', 'Data Plot', self.plot_panel),
+        ], sizes=[620, 240], object_name='right_stack', stretch=[5, 2])
 
-        self.splitDockWidget(workflow_dock, preview_dock, Qt.Horizontal)
-        self.splitDockWidget(preview_dock, image_dock, Qt.Horizontal)
-        self.splitDockWidget(preview_dock, plot_dock, Qt.Vertical)
+        workspace = self.make_horizontal_splitter([
+            self.make_panel_frame('workflow_controls', 'Data Workflow', workflow_tabs),
+            self.make_panel_frame('record_preview', 'Record Preview', self.preview_panel),
+            right_stack,
+        ], sizes=[360, 560, 620], object_name='main_workspace', stretch=[0, 2, 2])
 
-        self.resizeDocks([workflow_dock, preview_dock, image_dock], [340, 520, 620], Qt.Horizontal)
-        self.resizeDocks([preview_dock, plot_dock], [560, 210], Qt.Vertical)
+        self.set_workspace_widget(workspace)
 
     @staticmethod
     def _record_identity(record) -> tuple[str, str, str, str]:
