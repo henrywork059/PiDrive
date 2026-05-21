@@ -4,6 +4,8 @@ from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QDockWidget
 
 from ..app_state import AppState
 from ..panels.common.log_panel import LogPanel
@@ -62,23 +64,23 @@ class TrainPage(DockPage):
                 ], object_name='trainConfigWorkflowScrollArea', intro='Change model and schedule settings here. Keep defaults unless you are intentionally experimenting.'),
             ),
         ], object_name='trainWorkflowTabs')
+        controls_dock = self.add_panel(
+            'workflow_controls',
+            'Training Workflow',
+            workflow_tabs,
+            Qt.LeftDockWidgetArea,
+        )
+        review_dock = self.add_panel('review', 'Epoch Frame Review', self.epoch_review_panel, Qt.RightDockWidgetArea)
+        history_dock = self.add_panel('history', 'Training History', self.history_panel, Qt.RightDockWidgetArea)
+        log_dock = self.add_panel('log', 'Training Log', self.log_panel, Qt.RightDockWidgetArea)
 
-        progress_stack = make_workflow_tabs([
-            ('History', self.history_panel, 'Training loss and metric curves.'),
-            ('Log', self.log_panel, 'Detailed training messages and errors.'),
-        ], object_name='trainProgressTabs')
+        self.splitDockWidget(controls_dock, review_dock, Qt.Horizontal)
+        self.splitDockWidget(review_dock, history_dock, Qt.Vertical)
+        self.tabifyDockWidget(history_dock, log_dock)
+        history_dock.raise_()
 
-        right_stack = self.make_vertical_splitter([
-            self.make_panel_frame('review', 'Epoch Frame Review', self.epoch_review_panel),
-            self.make_panel_frame('progress', 'Training History / Log', progress_stack),
-        ], sizes=[620, 280], object_name='right_stack', stretch=[5, 2])
-
-        workspace = self.make_horizontal_splitter([
-            self.make_panel_frame('workflow_controls', 'Training Workflow', workflow_tabs),
-            right_stack,
-        ], sizes=[360, 1040], object_name='main_workspace', stretch=[0, 3])
-
-        self.set_workspace_widget(workspace)
+        self.resizeDocks([controls_dock, review_dock], [350, 960], Qt.Horizontal)
+        self.resizeDocks([review_dock, history_dock], [560, 260], Qt.Vertical)
 
     def refresh_from_state(self) -> None:
         self.split_summary_panel.set_counts(
