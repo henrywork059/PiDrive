@@ -9,7 +9,7 @@ import pandas as pd
 
 from ...utils.path_utils import ensure_dir, safe_filename
 
-MANUAL_MODES = {'manual', 'user', 'train'}
+MANUAL_MODES = {'manual', 'user', 'train', 'manual_drive'}
 COLOR_PRESETS = [
     {'aug_brightness_delta': 0.020, 'aug_contrast_factor': 1.02, 'aug_saturation_factor': 1.01, 'aug_hue_delta': 0.004},
     {'aug_brightness_delta': -0.018, 'aug_contrast_factor': 0.99, 'aug_saturation_factor': 0.99, 'aug_hue_delta': -0.004},

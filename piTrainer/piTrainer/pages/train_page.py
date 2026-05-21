@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
+import pandas as pd
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDockWidget
 
@@ -19,6 +20,9 @@ from ..services.train.worker import TrainingWorker
 from ..utils.path_utils import ensure_dir, safe_filename
 from .dock_page import DockPage
 from ..ui.layout_widgets import make_scrollable_stack, make_workflow_tabs
+
+
+REQUIRED_TRAIN_COLUMNS = ("abs_image", "steering", "throttle")
 
 
 class TrainPage(DockPage):
@@ -99,22 +103,104 @@ class TrainPage(DockPage):
         )
         self.main_window.set_status_message('Prepared training split.')
 
+    @staticmethod
+    def _missing_training_columns(df: pd.DataFrame) -> list[str]:
+        return [column for column in REQUIRED_TRAIN_COLUMNS if column not in df.columns]
+
+    @staticmethod
+    def _usable_training_rows(df: pd.DataFrame) -> pd.DataFrame:
+        if df is None or df.empty:
+            return pd.DataFrame()
+        missing = TrainPage._missing_training_columns(df)
+        if missing:
+            return pd.DataFrame()
+        cleaned = df.copy()
+        cleaned['abs_image'] = cleaned['abs_image'].fillna('').astype(str)
+        cleaned = cleaned[cleaned['abs_image'].str.len() > 0].copy()
+        if cleaned.empty:
+            return cleaned.reset_index(drop=True)
+        exists_mask = cleaned['abs_image'].map(lambda value: Path(str(value)).exists())
+        cleaned = cleaned[exists_mask].copy()
+        if cleaned.empty:
+            return cleaned.reset_index(drop=True)
+        cleaned['steering'] = pd.to_numeric(cleaned['steering'], errors='coerce')
+        cleaned['throttle'] = pd.to_numeric(cleaned['throttle'], errors='coerce')
+        cleaned = cleaned[cleaned['steering'].notna() & cleaned['throttle'].notna()].copy()
+        cleaned['steering'] = cleaned['steering'].clip(-1.0, 1.0).astype('float32')
+        cleaned['throttle'] = cleaned['throttle'].clip(-1.0, 1.0).astype('float32')
+        return cleaned.reset_index(drop=True)
+
+    def _prepare_training_inputs(self) -> tuple[pd.DataFrame, pd.DataFrame] | None:
+        if self.state.filtered_df.empty:
+            self.log_panel.append_line('No active rows to train. Load sessions on the Data page first, or confirm a non-empty Preprocess result.')
+            self.main_window.set_status_message('No training data loaded.')
+            return None
+
+        missing = self._missing_training_columns(self.state.filtered_df)
+        if missing:
+            self.log_panel.append_line('Cannot start training. Active dataset is missing required column(s): ' + ', '.join(missing))
+            self.main_window.set_status_message('Training data is missing required columns.')
+            return None
+
+        # Always refresh the split at the moment training starts. This avoids stale
+        # empty splits after loading new PiSD V7 sessions or confirming preprocessing.
+        self.prepare_split()
+
+        train_df = self._usable_training_rows(self.state.train_df)
+        val_df = self._usable_training_rows(self.state.val_df)
+
+        if train_df.empty and not self.state.train_df.empty:
+            self.log_panel.append_line(
+                'Prepared training rows exist, but none have readable image files and numeric steering/speed labels.'
+            )
+        if train_df.empty:
+            active_rows = self._usable_training_rows(self.state.filtered_df)
+            if not active_rows.empty:
+                self.log_panel.append_line(
+                    'Training split produced no usable train rows, so piTrainer will train from all active usable rows.'
+                )
+                train_df = active_rows
+                val_df = pd.DataFrame(columns=active_rows.columns)
+
+        if train_df.empty:
+            self.log_panel.append_line(
+                'Cannot start training. No usable rows remain after checking image paths, steering, and speed labels.'
+            )
+            self.main_window.set_status_message('No usable training rows.')
+            return None
+
+        dropped_train = len(self.state.train_df) - len(train_df)
+        dropped_val = max(0, len(self.state.val_df) - len(val_df))
+        if dropped_train > 0 or dropped_val > 0:
+            self.log_panel.append_line(
+                f'Skipped unusable rows before training: train={dropped_train}, val={dropped_val}. '
+                'Rows are skipped when the image path is missing/unreadable or labels are not numeric.'
+            )
+
+        self.state.train_df = train_df
+        self.state.val_df = val_df
+        self.refresh_from_state()
+        return train_df, val_df
+
     def start_training(self) -> None:
         if self.worker is not None and self.worker.isRunning():
             self.log_panel.append_line('Training is already running.')
             return
         self.config_panel.push_to_state()
-        if self.state.filtered_df.empty:
-            self.log_panel.append_line('No data loaded. Load sessions on the Data page first.')
+
+        prepared = self._prepare_training_inputs()
+        if prepared is None:
             return
-        if self.state.train_df.empty and self.state.val_df.empty:
-            self.prepare_split()
+        train_df, val_df = prepared
+
         self.history_panel.clear_history()
         self.epoch_review_panel.clear_review()
-        self.log_panel.append_line('Starting training worker...')
+        self.log_panel.append_line(
+            f'Starting training worker with {len(train_df)} train row(s) and {len(val_df)} validation row(s)...'
+        )
         self.control_panel.set_running(True)
 
-        self.worker = TrainingWorker(self.state.train_df, self.state.val_df, self.state.train_config)
+        self.worker = TrainingWorker(train_df, val_df, self.state.train_config)
         self.worker.log_message.connect(self.log_panel.append_line)
         self.worker.progress_changed.connect(self.control_panel.set_progress)
         self.worker.epoch_metrics.connect(self.history_panel.append_epoch_metrics)
