@@ -21,6 +21,7 @@ class MainWindow(QMainWindow):
         self.state = AppState()
 
         self.tabs = QTabWidget()
+        self.tabs.setObjectName('mainWorkflowTabs')
         self.tabs.setDocumentMode(True)
         self.tabs.setMovable(False)
         self.tabs.setUsesScrollButtons(True)
@@ -49,7 +50,7 @@ class MainWindow(QMainWindow):
         self.status = QStatusBar()
         self.status.setSizeGripEnabled(True)
         self.setStatusBar(self.status)
-        self.set_status_message('Ready — start at 1 Data, then move left-to-right through the workflow tabs.')
+        self.set_status_message('Ready — follow the green Next Step buttons from 1 Data through 5 Export. Drag splitter handles to adjust panel proportions.')
 
         self._setup_shortcuts()
         self.data_page.refresh_sessions()

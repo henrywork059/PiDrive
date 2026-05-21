@@ -70,7 +70,13 @@ class ValidationPage(DockPage):
             right_stack,
         ], sizes=[360, 1040], object_name='main_workspace', stretch=[0, 3])
 
-        self.set_workspace_widget(workspace)
+        self.set_workspace_widget(
+            workspace,
+            step='4 of 5',
+            title='Validate',
+            summary='Run the trained model on validation data, inspect worst/best frames, and send bad labels back to Data if needed.',
+            next_step='Next: click the green Run Validation button, then review high-error frames.',
+        )
 
     def refresh_from_state(self) -> None:
         self.summary_panel.set_model_state(

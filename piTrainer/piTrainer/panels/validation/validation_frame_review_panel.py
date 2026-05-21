@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
     QPushButton,
     QSplitter,
@@ -57,6 +58,11 @@ class ValidationFrameReviewPanel(QGroupBox):
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SingleSelection)
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.table.setAlternatingRowColors(True)
+        self.table.setWordWrap(False)
+        self.table.verticalHeader().setVisible(False)
+        self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
         self.table.itemSelectionChanged.connect(self._refresh_preview)
 
         self.image_label = QLabel('No validation frame selected.')
@@ -159,6 +165,7 @@ class ValidationFrameReviewPanel(QGroupBox):
                 else:
                     text = str(value)
                 self.table.setItem(row_idx, col_idx, QTableWidgetItem(text))
+        self.table.resizeColumnsToContents()
         if self.rows:
             self.table.selectRow(0)
         else:

@@ -13,6 +13,8 @@ class ModelStatusPanel(QGroupBox):
         self.val_rows = QLabel("0")
         self.epochs_ran = QLabel("0")
 
+        for label in (self.ready, self.train_rows, self.val_rows, self.epochs_ran):
+            label.setProperty('role', 'statValue')
         layout = standardize_form_layout(QFormLayout(self))
         layout.addRow("Model ready", self.ready)
         layout.addRow("Train rows", self.train_rows)

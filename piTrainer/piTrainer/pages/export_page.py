@@ -48,7 +48,13 @@ class ExportPage(DockPage):
             self.make_panel_frame('log', 'Export Log', self.log_panel),
         ], sizes=[360, 1040], object_name='main_workspace', stretch=[0, 3])
 
-        self.set_workspace_widget(workspace)
+        self.set_workspace_widget(
+            workspace,
+            step='5 of 5',
+            title='Export',
+            summary='Confirm a trained model is ready, choose artifact options, and export files for deployment or backup.',
+            next_step='Next: click the green Export Selected Artifacts button after checking the output path.',
+        )
 
     def refresh_from_state(self) -> None:
         model_ready = self.state.model is not None

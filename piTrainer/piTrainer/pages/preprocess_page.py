@@ -77,7 +77,13 @@ class PreprocessPage(DockPage):
             right_stack,
         ], sizes=[360, 1040], object_name='main_workspace', stretch=[0, 3])
 
-        self.set_workspace_widget(workspace)
+        self.set_workspace_widget(
+            workspace,
+            step='2 of 5',
+            title='Preprocess',
+            summary='Check row counts, apply only the filters/augmentation you need, and confirm a non-empty active dataset.',
+            next_step='Next: preview the recipe, then click the green Confirm and Start Preprocess button.',
+        )
 
     def _load_saved_recipe_if_available(self) -> None:
         recipe = load_preprocess_settings(self.state.out_dir_path)

@@ -14,9 +14,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ..ui.layout_widgets import make_page_banner
+
 
 class DockPage(QMainWindow):
-    layout_version = "0_4_7_full_width_splitter_layout"
+    layout_version = "0_4_10_presentation_layout"
 
     def __init__(self, page_id: str) -> None:
         super().__init__()
@@ -34,16 +36,38 @@ class DockPage(QMainWindow):
         filler.setFrameShape(QFrame.NoFrame)
         self.setCentralWidget(filler)
 
-    def set_workspace_widget(self, widget: QWidget) -> None:
-        """Set the page's central workspace.
+    def set_workspace_widget(
+        self,
+        widget: QWidget,
+        *,
+        step: str = '',
+        title: str = '',
+        summary: str = '',
+        next_step: str = '',
+    ) -> None:
+        """Set the page's central workspace with an optional workflow banner.
 
-        Since 0_4_7 the default pages use full-width splitter workspaces rather
-        than nested docks. This keeps all visible page sections inside the main
-        window width and lets the user change proportions by dragging splitter
-        handles.
+        The default pages use full-width splitter workspaces rather than nested
+        docks. The banner adds quick orientation above the splitter so users can
+        tell where they are, what to check, and what the recommended next action
+        is without hunting through dense panels.
         """
         widget.setObjectName(f"{self.page_id}_workspace_widget")
-        self.setCentralWidget(widget)
+        widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        if title or summary or next_step:
+            wrapper = QFrame()
+            wrapper.setObjectName(f"{self.page_id}_page_shell")
+            wrapper.setProperty("role", "pageShell")
+            wrapper.setFrameShape(QFrame.NoFrame)
+            wrapper.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+            layout = QVBoxLayout(wrapper)
+            layout.setContentsMargins(12, 10, 12, 12)
+            layout.setSpacing(10)
+            layout.addWidget(make_page_banner(step, title, summary, next_step), 0)
+            layout.addWidget(widget, 1)
+            self.setCentralWidget(wrapper)
+        else:
+            self.setCentralWidget(widget)
 
     def clear_docks(self) -> None:
         self._splitters = []
@@ -65,7 +89,7 @@ class DockPage(QMainWindow):
         self.addDockWidget(area, dock)
         return dock
 
-    def make_panel_frame(self, panel_id: str, title: str, widget: QWidget) -> QFrame:
+    def make_panel_frame(self, panel_id: str, title: str, widget: QWidget, subtitle: str = '') -> QFrame:
         """Wrap a content widget in a titled frame for splitter workspaces."""
         frame = QFrame()
         frame.setObjectName(f"{self.page_id}_{panel_id}_panel")
@@ -83,7 +107,16 @@ class DockPage(QMainWindow):
         layout.setContentsMargins(10, 8, 10, 10)
         layout.setSpacing(8)
         layout.addWidget(header)
+        if subtitle:
+            subtitle_label = QLabel(subtitle)
+            subtitle_label.setObjectName("splitterPanelSubtitle")
+            subtitle_label.setProperty("role", "panelSubtitle")
+            subtitle_label.setWordWrap(True)
+            layout.addWidget(subtitle_label)
         layout.addWidget(widget, 1)
+        if panel_id == 'workflow_controls':
+            frame.setMinimumWidth(330)
+            frame.setMaximumWidth(520)
         return frame
 
     def make_splitter(
@@ -100,7 +133,8 @@ class DockPage(QMainWindow):
         splitter.setObjectName(f"{self.page_id}_{object_name}_splitter")
         splitter.setProperty("role", "pageSplitter")
         splitter.setChildrenCollapsible(children_collapsible)
-        splitter.setHandleWidth(8)
+        splitter.setHandleWidth(10)
+        splitter.setOpaqueResize(True)
         splitter.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         for index, widget in enumerate(widgets):
             splitter.addWidget(widget)

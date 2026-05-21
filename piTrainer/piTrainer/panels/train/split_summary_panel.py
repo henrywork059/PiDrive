@@ -14,6 +14,8 @@ class SplitSummaryPanel(QGroupBox):
         self.sessions = QLabel("0")
         self.model_ready = QLabel("No")
 
+        for label in (self.total_rows, self.train_rows, self.val_rows, self.sessions, self.model_ready):
+            label.setProperty('role', 'statValue')
         layout = standardize_form_layout(QFormLayout(self))
         layout.addRow("Loaded rows", self.total_rows)
         layout.addRow("Train rows", self.train_rows)

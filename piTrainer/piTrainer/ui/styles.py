@@ -32,6 +32,38 @@ def build_stylesheet() -> str:
         background: #101620;
         color: #c6cad4;
         border-top: 1px solid #2a3140;
+        padding: 3px 8px;
+    }
+    QFrame[role='pageShell'] {
+        background: #0d131d;
+        border: none;
+    }
+    QFrame#pageBanner {
+        background: #142238;
+        border: 1px solid #315074;
+        border-left: 5px solid #5eb2ff;
+        border-radius: 12px;
+    }
+    QLabel#pageBannerTitle {
+        color: #ffffff;
+        background: transparent;
+        font-size: 18px;
+        font-weight: 900;
+        letter-spacing: 0.2px;
+    }
+    QLabel#pageBannerSummary {
+        color: #c8d8ee;
+        background: transparent;
+        font-size: 13px;
+        line-height: 1.25em;
+    }
+    QLabel#pageBannerNext {
+        color: #eafff0;
+        background: #1f7d42;
+        border: 1px solid #77df9a;
+        border-radius: 10px;
+        padding: 8px 11px;
+        font-weight: 800;
     }
     QDockWidget {
         color: #f7fbff;
@@ -138,12 +170,15 @@ def build_stylesheet() -> str:
         border: 1px solid #67adff;
     }
     QPlainTextEdit {
-        padding: 7px;
+        padding: 8px;
         font-family: Consolas, 'Cascadia Mono', monospace;
+        border-radius: 9px;
     }
     QTableWidget {
         gridline-color: #283347;
         alternate-background-color: #121a26;
+        background: #0d131d;
+        border-radius: 9px;
     }
     QTableWidget::item {
         padding: 5px;
@@ -201,6 +236,21 @@ def build_stylesheet() -> str:
         border: 1px solid #303a4b;
         background: #111722;
     }
+    QTabWidget#mainWorkflowTabs::pane {
+        border: 0px;
+        background: #0d131d;
+    }
+    QTabWidget#mainWorkflowTabs QTabBar::tab {
+        min-width: 132px;
+        padding: 10px 18px;
+        margin-right: 5px;
+        border-top-left-radius: 10px;
+        border-top-right-radius: 10px;
+    }
+    QTabWidget#mainWorkflowTabs QTabBar::tab:selected {
+        background: #31537a;
+        border-color: #82c4ff;
+    }
     QTabBar::tab {
         min-width: 104px;
         padding: 9px 14px;
@@ -227,9 +277,13 @@ def build_stylesheet() -> str:
         border-radius: 8px;
     }
     QTabWidget[role='workflowTabs'] QTabBar::tab {
-        min-width: 78px;
-        padding: 7px 10px;
+        min-width: 86px;
+        padding: 8px 11px;
         font-size: 12px;
+    }
+    QTabWidget[role='workflowTabs'] QTabBar::tab:selected {
+        background: #27415f;
+        border-color: #6ab2ff;
     }
     QProgressBar {
         min-height: 24px;
@@ -277,9 +331,9 @@ def build_stylesheet() -> str:
         background: #1e2b3d;
         color: #f7fbff;
         border: 1px solid #374d67;
-        border-radius: 9px;
-        padding: 8px 10px;
-        font-weight: 750;
+        border-radius: 10px;
+        padding: 9px 11px;
+        font-weight: 800;
         text-align: left;
     }
     QToolButton#collapsibleSectionHeader:hover {
@@ -314,6 +368,28 @@ def build_stylesheet() -> str:
     QLabel[role='hint'] {
         color: #c8d8ee;
     }
+    QLabel[role='statValue'] {
+        color: #ffffff;
+        background: #101a28;
+        border: 1px solid #2e4b70;
+        border-radius: 8px;
+        padding: 5px 8px;
+        font-weight: 850;
+    }
+    QLabel[role='summaryLine'] {
+        color: #dce8f8;
+        background: #101a28;
+        border: 1px solid #283c58;
+        border-radius: 9px;
+        padding: 8px 10px;
+    }
+    QLabel[role='summaryBlock'] {
+        color: #eaf2ff;
+        background: #101a28;
+        border: 1px solid #2e4b70;
+        border-radius: 9px;
+        padding: 9px 10px;
+    }
 
     QSplitter[role='pageSplitter'] {
         background: #0d131d;
@@ -331,15 +407,20 @@ def build_stylesheet() -> str:
     QFrame[role='splitterPanel'] {
         background: #111722;
         border: 1px solid #303a4b;
-        border-radius: 10px;
+        border-radius: 12px;
     }
     QLabel#splitterPanelTitle {
         color: #f4f7fb;
         background: #1c293b;
         border: 1px solid #33445c;
-        border-radius: 8px;
-        padding: 7px 10px;
-        font-weight: 800;
+        border-radius: 9px;
+        padding: 8px 11px;
+        font-weight: 850;
+    }
+    QLabel#splitterPanelSubtitle {
+        color: #aebbd0;
+        background: transparent;
+        padding: 0px 3px 2px 3px;
     }
     QScrollBar:vertical {
         background: #0d131d;

@@ -102,7 +102,13 @@ class DataPage(DockPage):
             right_stack,
         ], sizes=[360, 560, 620], object_name='main_workspace', stretch=[0, 2, 2])
 
-        self.set_workspace_widget(workspace)
+        self.set_workspace_widget(
+            workspace,
+            step='1 of 5',
+            title='Data',
+            summary='Load PiSD/piTrainer recording sessions, inspect labels, and confirm the V7 overlay before preparing a dataset.',
+            next_step='Next: select session(s) and click the green Load Selected button.',
+        )
 
     @staticmethod
     def _record_identity(record) -> tuple[str, str, str, str]:

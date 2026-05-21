@@ -16,6 +16,8 @@ class DatasetStatsPanel(QGroupBox):
             "thr_mean": QLabel("0.0000"),
             "thr_std": QLabel("0.0000"),
         }
+        for label in self.labels.values():
+            label.setProperty('role', 'statValue')
         layout = standardize_form_layout(QFormLayout(self))
         layout.addRow("Usable rows", self.labels["rows"])
         layout.addRow("Sessions", self.labels["sessions"])

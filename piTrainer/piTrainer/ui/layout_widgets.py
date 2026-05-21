@@ -7,6 +7,7 @@ from PySide6.QtCore import QTimer, Qt
 from PySide6.QtWidgets import (
     QFormLayout,
     QFrame,
+    QHBoxLayout,
     QLabel,
     QScrollArea,
     QSizePolicy,
@@ -22,6 +23,48 @@ SectionSpec = tuple[str, QWidget, bool] | tuple[str, QWidget, bool, str]
 TabSpec = tuple[str, QWidget] | tuple[str, QWidget, str]
 
 
+
+
+
+def make_page_banner(step: str, title: str, summary: str, next_step: str = '') -> QFrame:
+    """Create a consistent page header that explains the current workflow stage."""
+    banner = QFrame()
+    banner.setObjectName('pageBanner')
+    banner.setProperty('role', 'pageBanner')
+    banner.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
+    title_label = QLabel(f"{step}  {title}".strip())
+    title_label.setObjectName('pageBannerTitle')
+    title_label.setProperty('role', 'pageBannerTitle')
+    title_label.setWordWrap(False)
+
+    summary_label = QLabel(summary)
+    summary_label.setObjectName('pageBannerSummary')
+    summary_label.setProperty('role', 'pageBannerSummary')
+    summary_label.setWordWrap(True)
+    summary_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+
+    text_layout = QVBoxLayout()
+    text_layout.setContentsMargins(0, 0, 0, 0)
+    text_layout.setSpacing(3)
+    text_layout.addWidget(title_label)
+    text_layout.addWidget(summary_label)
+
+    layout = QHBoxLayout(banner)
+    layout.setContentsMargins(14, 11, 14, 11)
+    layout.setSpacing(14)
+    layout.addLayout(text_layout, 1)
+
+    if next_step:
+        next_label = QLabel(next_step)
+        next_label.setObjectName('pageBannerNext')
+        next_label.setProperty('role', 'pageBannerNext')
+        next_label.setWordWrap(True)
+        next_label.setMinimumWidth(230)
+        next_label.setMaximumWidth(380)
+        layout.addWidget(next_label, 0, Qt.AlignRight | Qt.AlignVCenter)
+
+    return banner
 
 def style_next_step_button(button: QPushButton, text: str | None = None) -> QPushButton:
     """Make the forward workflow action obvious, wide, and gently animated.
@@ -138,7 +181,9 @@ class ControlStack(QWidget):
         layout.setContentsMargins(*margins)
         layout.setSpacing(11)
         if intro:
-            layout.addWidget(make_hint_label(intro, object_name='sidebarIntro'))
+            intro_label = make_hint_label(intro, object_name='sidebarIntro')
+            intro_label.setProperty('role', 'intro')
+            layout.addWidget(intro_label)
         for section in sections:
             title, widget, expanded, *rest = section
             tooltip = str(rest[0]) if rest else ''

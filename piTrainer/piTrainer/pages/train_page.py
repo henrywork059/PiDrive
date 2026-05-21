@@ -78,7 +78,13 @@ class TrainPage(DockPage):
             right_stack,
         ], sizes=[360, 1040], object_name='main_workspace', stretch=[0, 3])
 
-        self.set_workspace_widget(workspace)
+        self.set_workspace_widget(
+            workspace,
+            step='3 of 5',
+            title='Train',
+            summary='Prepare the train/validation split, start model training, and watch epoch examples plus the live log.',
+            next_step='Next: click the green Start Training button when the split summary looks correct.',
+        )
 
     def refresh_from_state(self) -> None:
         self.split_summary_panel.set_counts(

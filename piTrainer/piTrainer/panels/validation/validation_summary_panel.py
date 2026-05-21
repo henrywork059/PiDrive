@@ -8,12 +8,15 @@ class ValidationSummaryPanel(QGroupBox):
     def __init__(self) -> None:
         super().__init__('Validation Summary')
         self.model_label = QLabel('Model source: no in-memory model yet.')
+        self.model_label.setProperty('role', 'summaryLine')
         self.model_label.setWordWrap(True)
         self.model_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
         self.dataset_label = QLabel('Datasets: validation=0 | filtered=0 | training=0')
+        self.dataset_label.setProperty('role', 'summaryLine')
         self.dataset_label.setWordWrap(True)
         self.dataset_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
         self.result_label = QLabel('No validation run yet.')
+        self.result_label.setProperty('role', 'summaryBlock')
         self.result_label.setWordWrap(True)
         self.result_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
 
