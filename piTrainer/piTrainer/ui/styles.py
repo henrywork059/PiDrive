@@ -91,6 +91,31 @@ def build_stylesheet() -> str:
     QPushButton[role='primary']:hover {
         background: #3f82cc;
     }
+    QPushButton[role='nextStep'] {
+        min-height: 40px;
+        padding: 8px 14px;
+        background: #208242;
+        border: 2px solid #70e096;
+        color: #ffffff;
+        border-radius: 10px;
+        font-weight: 850;
+    }
+    QPushButton[role='nextStep']:hover {
+        background: #2d9b52;
+        border-color: #a8f3bd;
+    }
+    QPushButton[role='nextStep']:pressed {
+        background: #166a34;
+    }
+    QPushButton[role='nextStep']:disabled {
+        background: #1b3023;
+        color: #8fa994;
+        border-color: #31533a;
+    }
+    QPushButton[role='nextStep'][pulse='true'] {
+        background: #2a9550;
+        border-color: #b9f6c9;
+    }
     QPushButton[role='danger'] {
         background: #5b2630;
         border-color: #c75d70;

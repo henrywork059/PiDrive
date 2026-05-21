@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import QGroupBox, QPushButton, QVBoxLayout
 
+from ...ui.layout_widgets import style_next_step_button
+
 
 class ValidationActionsPanel(QGroupBox):
     def __init__(self, browse_model_callback, validate_callback, clear_callback) -> None:
@@ -9,7 +11,7 @@ class ValidationActionsPanel(QGroupBox):
         self.browse_button = QPushButton('Browse Model...')
         self.browse_button.setProperty('role', 'secondary')
         self.run_button = QPushButton('Run Validation')
-        self.run_button.setProperty('role', 'primary')
+        style_next_step_button(self.run_button, 'Next Step: Run Validation')
         self.clear_button = QPushButton('Clear Results')
         self.clear_button.setProperty('role', 'secondary')
 

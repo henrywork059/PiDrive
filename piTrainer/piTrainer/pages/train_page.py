@@ -58,7 +58,7 @@ class TrainPage(DockPage):
             (
                 '2 Config',
                 make_scrollable_stack([
-                    ('Training Config', self.config_panel, True),
+                    ('Training Config', self.config_panel, False),
                 ], object_name='trainConfigWorkflowScrollArea', intro='Change model and schedule settings here. Keep defaults unless you are intentionally experimenting.'),
             ),
         ], object_name='trainWorkflowTabs')

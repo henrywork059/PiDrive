@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import QGroupBox, QLabel, QPushButton, QVBoxLayout
 
+from ...ui.layout_widgets import style_next_step_button
+
 
 class DataActionsPanel(QGroupBox):
     def __init__(self, refresh_callback, load_callback, clear_filter_callback, shortcuts_callback) -> None:
@@ -15,7 +17,7 @@ class DataActionsPanel(QGroupBox):
         refresh_btn.clicked.connect(refresh_callback)
 
         load_btn = QPushButton("Load Selected Sessions")
-        load_btn.setProperty('role', 'primary')
+        style_next_step_button(load_btn, "Next Step: Load Selected Sessions")
         load_btn.clicked.connect(load_callback)
 
         clear_filter_btn = QPushButton("Clear Preview Filter")

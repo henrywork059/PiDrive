@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import QGroupBox, QHBoxLayout, QProgressBar, QPushButton, QVBoxLayout
 
+from ...ui.layout_widgets import style_next_step_button
+
 
 class TrainControlPanel(QGroupBox):
     def __init__(self, prepare_callback, start_callback, stop_callback, save_model_callback) -> None:
@@ -10,7 +12,7 @@ class TrainControlPanel(QGroupBox):
         self.prepare_btn.setProperty('role', 'secondary')
         self.prepare_btn.clicked.connect(prepare_callback)
         self.start_btn = QPushButton("Start Training")
-        self.start_btn.setProperty('role', 'primary')
+        style_next_step_button(self.start_btn, "Next Step: Start Training")
         self.start_btn.clicked.connect(start_callback)
         self.stop_btn = QPushButton("Stop")
         self.stop_btn.setProperty('role', 'danger')
@@ -22,10 +24,10 @@ class TrainControlPanel(QGroupBox):
 
         self.progress = QProgressBar(); self.progress.setRange(0, 100); self.progress.setValue(0)
 
-        row1 = QHBoxLayout(); row1.addWidget(self.prepare_btn); row1.addWidget(self.start_btn); row1.addWidget(self.stop_btn)
+        row1 = QHBoxLayout(); row1.addWidget(self.prepare_btn); row1.addWidget(self.stop_btn)
         row2 = QHBoxLayout(); row2.addWidget(self.save_model_btn); row2.addStretch(1)
 
-        layout = QVBoxLayout(self); layout.addLayout(row1); layout.addLayout(row2); layout.addWidget(self.progress)
+        layout = QVBoxLayout(self); layout.addLayout(row1); layout.addWidget(self.start_btn); layout.addLayout(row2); layout.addWidget(self.progress)
 
     def set_running(self, running: bool) -> None:
         self.prepare_btn.setEnabled(not running)

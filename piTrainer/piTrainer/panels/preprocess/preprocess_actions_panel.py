@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import QGroupBox, QPushButton, QVBoxLayout
 
+from ...ui.layout_widgets import style_next_step_button
+
 
 class PreprocessActionsPanel(QGroupBox):
     def __init__(self, preview_callback, apply_callback, reset_callback, sync_callback, save_settings_callback, save_data_callback) -> None:
@@ -12,7 +14,7 @@ class PreprocessActionsPanel(QGroupBox):
         preview_btn.clicked.connect(preview_callback)
 
         apply_btn = QPushButton('Confirm and Start Preprocess')
-        apply_btn.setProperty('role', 'primary')
+        style_next_step_button(apply_btn, 'Next Step: Confirm and Start Preprocess')
         apply_btn.clicked.connect(apply_callback)
 
         reset_btn = QPushButton('Reset Preprocess')

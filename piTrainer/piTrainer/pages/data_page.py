@@ -71,22 +71,22 @@ class DataPage(DockPage):
                 make_scrollable_stack([
                     ('Session Source', self.session_source_panel, True),
                     ('Dataset Stats', self.stats_panel, True),
-                    ('Data Actions', self.data_actions_panel, False),
+                    ('Data Actions', self.data_actions_panel, True),
                 ], object_name='dataLoadWorkflowScrollArea', intro='Start here: choose a PiSD/piTrainer records root, scan sessions, select sessions, then load them.'),
             ),
             (
                 '2 Review',
                 make_scrollable_stack([
-                    ('Frame Filter', self.filter_panel, True),
-                    ('Overlay Controls', self.overlay_panel, True),
-                    ('Playback Control', self.playback_panel, False),
+                    ('Frame Filter', self.filter_panel, False),
+                    ('Overlay Controls', self.overlay_panel, False),
+                    ('Playback Control', self.playback_panel, True),
                 ], object_name='dataReviewWorkflowScrollArea', intro='Review frames after loading. Filter the table, choose overlays, and play through the selected rows.'),
             ),
             (
                 '3 Manage',
                 make_scrollable_stack([
                     ('Merge Sessions', self.merge_sessions_panel, True),
-                    ('Data Control', self.data_control_panel, False),
+                    ('Data Control', self.data_control_panel, True),
                 ], object_name='dataManageWorkflowScrollArea', intro='Use these tools only when you need to merge sessions or remove a bad frame from the dataset.'),
             ),
         ], object_name='dataWorkflowTabs')

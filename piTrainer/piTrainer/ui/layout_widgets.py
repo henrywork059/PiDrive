@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Sequence
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QTimer, Qt
 from PySide6.QtWidgets import (
     QFormLayout,
     QFrame,
@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QSizePolicy,
     QTabWidget,
+    QPushButton,
     QToolButton,
     QVBoxLayout,
     QWidget,
@@ -20,6 +21,37 @@ from PySide6.QtWidgets import (
 SectionSpec = tuple[str, QWidget, bool] | tuple[str, QWidget, bool, str]
 TabSpec = tuple[str, QWidget] | tuple[str, QWidget, str]
 
+
+
+def style_next_step_button(button: QPushButton, text: str | None = None) -> QPushButton:
+    """Make the forward workflow action obvious, wide, and gently animated.
+
+    The animation is intentionally slow/subtle: it only toggles a stylesheet
+    property so the button breathes instead of flashing harshly.
+    """
+    if text is not None:
+        button.setText(text)
+    button.setProperty('role', 'nextStep')
+    button.setProperty('pulse', False)
+    button.setMinimumHeight(42)
+    button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+    button.setCursor(Qt.PointingHandCursor)
+    if not button.toolTip():
+        button.setToolTip('Recommended next step in the workflow.')
+
+    timer = QTimer(button)
+    timer.setInterval(1450)
+
+    def toggle_pulse() -> None:
+        button.setProperty('pulse', not bool(button.property('pulse')))
+        button.style().unpolish(button)
+        button.style().polish(button)
+        button.update()
+
+    timer.timeout.connect(toggle_pulse)
+    timer.start()
+    button._next_step_pulse_timer = timer  # keep a Python reference for PySide
+    return button
 
 def make_hint_label(text: str, *, object_name: str = 'quickHint') -> QLabel:
     """Create a consistent wrapped helper label for dense workflow panels."""

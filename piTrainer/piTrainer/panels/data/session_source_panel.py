@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 from ...app_state import AppState
+from ...ui.layout_widgets import style_next_step_button
 
 
 class SessionSourceRowWidget(QFrame):
@@ -101,20 +102,20 @@ class SessionSourcePanel(QGroupBox):
         clear_btn.setProperty('role', 'secondary')
         clear_btn.clicked.connect(self.clear_all)
         load_btn = QPushButton('Load Selected')
-        load_btn.setProperty('role', 'primary')
+        style_next_step_button(load_btn, 'Next Step: Load Selected')
         load_btn.clicked.connect(self.load_callback)
 
-        buttons = QHBoxLayout()
-        buttons.addWidget(select_all_btn)
-        buttons.addWidget(clear_btn)
-        buttons.addWidget(load_btn)
+        select_row = QHBoxLayout()
+        select_row.addWidget(select_all_btn)
+        select_row.addWidget(clear_btn)
 
         layout = QVBoxLayout(self)
         layout.addWidget(help_label)
         layout.addLayout(path_row)
         layout.addWidget(self.summary_label)
         layout.addWidget(self.list_widget, 1)
-        layout.addLayout(buttons)
+        layout.addLayout(select_row)
+        layout.addWidget(load_btn)
 
         self._apply_path_only()
         self._update_summary()

@@ -43,8 +43,8 @@ class ValidationPage(DockPage):
             (
                 '1 Run',
                 make_scrollable_stack([
-                    ('Validation Config', self.config_panel, True),
                     ('Validation Actions', self.actions_panel, True),
+                    ('Validation Config', self.config_panel, True),
                 ], object_name='validationRunWorkflowScrollArea', intro='Choose the model source and dataset, then run validation to inspect prediction error.'),
             ),
             (

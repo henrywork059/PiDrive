@@ -37,8 +37,8 @@ class ExportPage(DockPage):
             (
                 '2 Export',
                 make_scrollable_stack([
-                    ('Export Options', self.options_panel, True),
                     ('Export Actions', self.actions_panel, True),
+                    ('Export Options', self.options_panel, True),
                 ], object_name='exportRunWorkflowScrollArea', intro='Choose the output folder and artifact types, then export once the model is ready.'),
             ),
         ], object_name='exportWorkflowTabs')
