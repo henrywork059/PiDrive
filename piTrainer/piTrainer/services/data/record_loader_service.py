@@ -137,6 +137,8 @@ def _load_manifest_defaults(session_dir: Path) -> dict[str, Any]:
         "overlay_settings": _json_safe_mapping(manifest.get("overlay_settings")),
         "overlay_schema_version": manifest.get("overlay_schema_version", ""),
         "overlay_settings_source": manifest.get("overlay_settings_source", "manifest"),
+        "session_label": str(manifest.get("label") or manifest.get("session_label") or ""),
+        "manifest_session_id": str(manifest.get("session_id") or ""),
     }
 
 
@@ -166,6 +168,11 @@ def build_row(
     steering = coalesce_value(record, STEER_KEYS, 0.0)
     throttle = coalesce_value(record, THROTTLE_KEYS, 0.0)
     overlay_meta = _overlay_metadata(record, manifest_defaults)
+    inferred_mode = coalesce_value(record, MODE_KEYS, "")
+    if not inferred_mode and manifest_defaults:
+        inferred_mode = manifest_defaults.get("session_label") or manifest_defaults.get("manifest_session_id") or session_name
+    if not inferred_mode:
+        inferred_mode = session_name
     row = {
         "session": session_name,
         "session_dir": str(Path(session_dir).resolve()),
@@ -173,7 +180,7 @@ def build_row(
         "frame_id": record.get("frame_id", record.get("id", record.get("source_frame_seq", ""))),
         "frame_index": record.get("frame_index", record.get("source_frame_seq", "")),
         "ts": record.get("ts", record.get("timestamp", record.get("timestamp_utc", record.get("saved_at_utc", "")))),
-        "mode": coalesce_value(record, MODE_KEYS, ""),
+        "mode": inferred_mode,
         "steering": steering,
         "throttle": throttle,
         "abs_image": str(image_path) if image_path else "",

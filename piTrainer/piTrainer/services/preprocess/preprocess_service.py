@@ -10,6 +10,12 @@ import pandas as pd
 from ...utils.path_utils import ensure_dir, safe_filename
 
 MANUAL_MODES = {'manual', 'user', 'train', 'manual_drive'}
+MANUAL_HINT_COLUMNS = ('mode', 'session_label', 'label', 'session', 'session_id')
+
+
+def _manual_series_mask(values: pd.Series) -> pd.Series:
+    text = values.fillna('').astype(str).str.strip().str.lower()
+    return text.isin(MANUAL_MODES) | text.str.contains('manual', na=False)
 COLOR_PRESETS = [
     {'aug_brightness_delta': 0.020, 'aug_contrast_factor': 1.02, 'aug_saturation_factor': 1.01, 'aug_hue_delta': 0.004},
     {'aug_brightness_delta': -0.018, 'aug_contrast_factor': 0.99, 'aug_saturation_factor': 0.99, 'aug_hue_delta': -0.004},
@@ -84,13 +90,27 @@ def save_preprocessed_dataset(df: pd.DataFrame, recipe: dict[str, object], out_d
 
 
 def _mode_mask(df: pd.DataFrame, mode_filter: str) -> pd.Series:
-    if 'mode' not in df.columns:
+    if mode_filter not in {'Manual only', 'Exclude manual'}:
         return pd.Series([True] * len(df), index=df.index)
-    modes = df['mode'].fillna('').astype(str).str.lower()
+
+    manual_mask = pd.Series([False] * len(df), index=df.index)
+    saw_column = False
+    for column in MANUAL_HINT_COLUMNS:
+        if column not in df.columns:
+            continue
+        saw_column = True
+        manual_mask |= _manual_series_mask(df[column])
+
+    # Some PiSD V7 labels.jsonl rows do not carry a direct mode field. In that
+    # case the session folder/name is the safest fallback because continuous
+    # manual-drive recordings are named like ..._manual_drive_....
+    if not saw_column:
+        manual_mask = pd.Series([True] * len(df), index=df.index)
+
     if mode_filter == 'Manual only':
-        return modes.isin(MANUAL_MODES)
+        return manual_mask
     if mode_filter == 'Exclude manual':
-        return ~modes.isin(MANUAL_MODES)
+        return ~manual_mask
     return pd.Series([True] * len(df), index=df.index)
 
 
