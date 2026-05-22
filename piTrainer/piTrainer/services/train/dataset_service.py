@@ -3,6 +3,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from ..data.visibility_service import without_hidden_rows
+
 
 def _series_or_default(df: pd.DataFrame, column: str, default, dtype):
     if column in df.columns:
@@ -13,6 +15,7 @@ def _series_or_default(df: pd.DataFrame, column: str, default, dtype):
 def make_tf_dataset(df: pd.DataFrame, img_h: int, img_w: int, batch_size: int, shuffle: bool, augment: bool):
     import tensorflow as tf
 
+    df = without_hidden_rows(df)
     paths = df['abs_image'].astype(str).to_numpy()
     steering = df['steering'].to_numpy(np.float32)
     throttle = df['throttle'].to_numpy(np.float32)

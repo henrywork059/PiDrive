@@ -97,7 +97,7 @@ The Data page uses this pattern twice:
 - `Data Workflow`: `1 Load`, `2 Manage`, `3 Review`;
 - `Data Review`: `1 Records`, `2 Stats`, `3 Plot`.
 
-Keep the record table first in `Data Review`, because row selection drives the image preview and deletion workflow. The record table should support multi-row selection for batch frame deletion and batch label editing, `frame_id` should remain the first visible column, and the table should keep the first column visible after multi-selection instead of horizontally jumping to later columns. Keep dataset statistics inside `Data Review`, not in the loading workflow. Keep playback controls directly underneath the image preview so frame playback stays visually tied to the currently displayed frame. Keep Frame Filter in the Manage workflow beside Data Control. Keep Bulk Edit Selected Frames in the Review workflow so users can apply either steering-only or speed-only changes to the selected Record Preview rows after explicit warning confirmation. Keep Merge Sessions in the Review workflow, but collapsed by default so normal review remains compact. Do not reintroduce a separate generic `Data Actions` panel; place each action beside the thing it affects, such as refresh/load in `Session Source`, delete in `Data Control`, bulk steering/speed edits in Review, and filter clearing in `Frame Filter`.
+Keep the record table first in `Data Review`, because row selection drives the image preview and deletion workflow. The record table should support multi-row selection for batch frame hiding/deletion and batch label editing, `frame_id` should remain the first visible column, and the table should keep the first column visible after multi-selection instead of horizontally jumping to later columns. Keep dataset statistics inside `Data Review`, not in the loading workflow. Keep playback controls directly underneath the image preview so frame playback stays visually tied to the currently displayed frame. Keep Frame Filter in the Manage workflow beside Data Control. Keep Bulk Edit Selected Frames in the Review workflow so users can apply either steering-only or speed-only changes to the selected Record Preview rows after explicit warning confirmation. Keep Merge Sessions in the Review workflow, but collapsed by default so normal review remains compact. Do not reintroduce a separate generic `Data Actions` panel; place each action beside the thing it affects, such as refresh/load in `Session Source`, hide/delete in `Data Control`, bulk steering/speed edits in Review, and filter clearing in `Frame Filter`.
 
 ## Collapsible sections
 
@@ -112,7 +112,7 @@ Good default-collapse candidates:
 - training hyperparameter detail;
 - export detail options.
 
-Data Control is an exception: it is a destructive management tool, but the user requested it to stay expanded by default so frame deletion is easy to find. The delete action should use an explicit confirmation checkbox in Data Control. Once that checkbox is ticked, repeated delete operations should not show a separate confirmation popup every time. Bulk Edit Selected Frames is also expanded in Review so the batch steering/speed workflow is visible, but it must keep its own overwrite-warning checkbox and a final confirmation dialog before writing labels.
+Data Control is an exception: it is a destructive management tool, but the user requested it to stay expanded by default so frame hiding/deletion is easy to find. The delete action should now be a traceable soft-delete: add hidden flags to matching `labels.jsonl` / `records.jsonl` rows and keep image files in place. The hide/delete action should use an explicit confirmation checkbox in Data Control. Once that checkbox is ticked, repeated hide/delete operations should not show a separate confirmation popup every time. Bulk Edit Selected Frames is also expanded in Review so the batch steering/speed workflow is visible, but it must keep its own overwrite-warning checkbox and a final confirmation dialog before writing labels.
 
 Bad default-collapse candidates:
 
@@ -122,6 +122,20 @@ Bad default-collapse candidates:
 - run validation action;
 - export action.
 
+
+## Hidden/deleted frame handling
+
+Frame deletion should be fast and traceable. Do not physically remove selected images or rewrite JSONL files by dropping rows. Instead, selected frames should be hidden from training by setting traceable flags such as `hidden_from_training`, `piTrainer_hidden`, `deleted_by_pitrainer`, `hidden_at_utc`, and `hidden_reason` on the matching JSONL records. If a `training_label` object is present, mirror the same flags there too.
+
+Expected behaviour:
+
+- selected rows disappear from the active Record Preview after hide/delete;
+- the source JSONL records remain in place for audit/recovery;
+- the image files remain on disk;
+- future session loads skip hidden records;
+- preprocessing, training, validation, and TensorFlow dataset creation apply a final hidden-row guard before using rows.
+
+This means the Delete key and Data Control button are user-facing delete/hide actions, but the implementation is a soft delete. Do not roll this back to physical file removal unless the user explicitly asks for a permanent purge tool.
 
 ## Batch frame editing
 

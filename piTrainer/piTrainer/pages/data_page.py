@@ -15,7 +15,7 @@ from ..panels.data.overlay_control_panel import OverlayControlPanel
 from ..panels.data.playback_control_panel import PlaybackControlPanel
 from ..panels.data.preview_panel import PreviewPanel
 from ..panels.data.session_source_panel import SessionSourcePanel
-from ..services.data.delete_service import delete_frame_from_session
+from ..services.data.delete_service import hide_frames_from_training
 from ..services.data.edit_service import update_frame_controls
 from ..services.data.filter_service import filter_preview_dataframe
 from ..services.data.merge_service import merge_sessions
@@ -76,7 +76,7 @@ class DataPage(DockPage):
                 make_scrollable_stack([
                     ('Data Control', self.data_control_panel, True),
                     ('Frame Filter', self.filter_panel, True),
-                ], object_name='dataManageWorkflowScrollArea', intro='Manage the loaded dataset: confirm delete actions once, delete selected frame rows, and filter frames before review or training.'),
+                ], object_name='dataManageWorkflowScrollArea', intro='Manage the loaded dataset: confirm hide/delete actions once, hide selected frame rows, and filter frames before review or training.'),
             ),
             (
                 '3 Review',
@@ -92,7 +92,7 @@ class DataPage(DockPage):
             (
                 '1 Records',
                 self.preview_panel,
-                'Switch here to inspect, multi-select, and delete labelled frame rows.',
+                'Switch here to inspect, multi-select, and hide bad frame rows from training.',
             ),
             (
                 '2 Stats',
@@ -433,45 +433,55 @@ class DataPage(DockPage):
         self.playback_panel.set_playback_active(bool(state.get('active', False)))
         self.playback_panel.set_frame_position(int(state.get('current_index', 0)), int(state.get('total', 0)))
 
+    def _remove_identities_from_dataframe(self, df: pd.DataFrame, identities: list[tuple[str, str, str, str]]) -> pd.DataFrame:
+        if df.empty or not identities:
+            return df.copy()
+        remove_mask = pd.Series([False] * len(df), index=df.index)
+        for identity in identities:
+            mask = self._record_mask(df, identity)
+            if len(mask) == len(df):
+                remove_mask |= mask
+        return df[~remove_mask].copy().reset_index(drop=True)
+
+    def _hide_records_from_loaded_data(self, identities: list[tuple[str, str, str, str]]) -> None:
+        for df_attr in ['dataset_df', 'filtered_df', 'train_df', 'val_df']:
+            df = getattr(self.state, df_attr)
+            if isinstance(df, pd.DataFrame):
+                setattr(self.state, df_attr, self._remove_identities_from_dataframe(df, identities))
+        self.current_preview_source_df = self._remove_identities_from_dataframe(self.current_preview_source_df, identities)
+
     def delete_selected_frame(self) -> None:
         self.preview_panel.stop_autoplay()
         records = self.preview_panel.selected_records()
         if not records:
-            QMessageBox.information(self, 'Delete Selected Frame(s)', 'Select one or more frame rows from Record Preview first.')
+            QMessageBox.information(self, 'Hide Selected Frame(s)', 'Select one or more frame rows from Record Preview first.')
             return
         if not self.data_control_panel.deletion_confirmed():
             QMessageBox.information(
                 self,
-                'Delete Selected Frame(s)',
-                'Tick "I confirm frame delete actions" in Data Workflow > 2 Manage > Data Control before deleting. '
-                'After it is ticked, Delete will not open this confirmation popup each time.',
+                'Hide Selected Frame(s)',
+                'Tick "I confirm frame hide/delete actions" in Data Workflow > 2 Manage > Data Control before hiding frames. '
+                'After it is ticked, Delete will hide selected rows without opening this confirmation popup each time.',
             )
             return
 
-        deleted_messages: list[str] = []
-        failed_messages: list[str] = []
-        for record in records:
-            session_name = str(record.get('session', ''))
-            frame_id = str(record.get('frame_id', ''))
-            image_path = str(record.get('abs_image', ''))
-            ts = str(record.get('ts', ''))
-            ok, message = delete_frame_from_session(
-                self.state.records_root_path,
-                session_name=session_name,
-                frame_id=frame_id,
-                image_path=image_path,
-                ts=ts,
-            )
-            if ok:
-                deleted_messages.append(message)
-            else:
-                failed_messages.append(message)
+        identities = [self._record_identity(record) for record in records]
+        result = hide_frames_from_training(self.state.records_root_path, records)
+        hidden_count = int(result.get('hidden_count', 0) or 0)
+        metadata_rows_changed = int(result.get('metadata_rows_changed', 0) or 0)
+        failed_messages = list(result.get('failed_messages', []))
 
-        if deleted_messages:
-            self.load_selected_sessions()
+        if hidden_count:
+            self._hide_records_from_loaded_data(identities)
+            self.stats_panel.set_stats(calculate_basic_stats(self.state.filtered_df))
+            self.apply_preview_filter()
+            self.image_preview_panel.clear_preview()
+            self.bulk_edit_panel.set_selected_count(0)
+            self.main_window.on_dataset_loaded()
             self.main_window.set_status_message(
-                f"Deleted {len(deleted_messages)} selected frame(s)."
+                f"Hidden {hidden_count} selected frame(s) from training with traceable flags "
+                f"in {metadata_rows_changed} metadata row(s). Image files were kept."
                 + (f" {len(failed_messages)} failed." if failed_messages else '')
             )
         if failed_messages:
-            QMessageBox.warning(self, 'Delete Selected Frame(s)', '\n'.join(failed_messages[:8]))
+            QMessageBox.warning(self, 'Hide Selected Frame(s)', '\n'.join(failed_messages[:8]))

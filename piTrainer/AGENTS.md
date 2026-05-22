@@ -31,7 +31,7 @@ Preserve these accepted V6 behaviours:
 - PiSD V7 saved overlay metadata and overlay redraw support.
 - Manual-drive preprocessing support.
 - Training-start preflight fixes.
-- Record table sorting, single-frame edit, multi-select delete, bulk selected-frame edit, and merge support.
+- Record table sorting, single-frame edit, multi-select soft-delete/hide, bulk selected-frame edit, and merge support.
 - Full-width splitter layout.
 - Horizontal scrollbars only when panel content is reduced too far.
 - Compact top guide banner.
@@ -57,13 +57,14 @@ Preserve these accepted V6 behaviours:
 - Keep Merge Sessions in `3 Review`, collapsed by default.
 - Keep `frame_id` as the first visible Record Preview table column.
 - Keep the Record Preview table horizontally anchored to the first column after multi-row selection.
-- Keep batch frame deletion tied to the Data Control confirmation checkbox; do not restore repeated confirmation popups for every delete.
+- Keep batch frame deletion as a soft-delete/hide action tied to the Data Control confirmation checkbox; do not physically remove JSONL rows or image files, and do not restore repeated confirmation popups for every delete.
 - Keep compact banner guide labels free from the old `Show:` prefix.
 - Keep Browse/location-picking and other prerequisite setup buttons yellow-forward amber, not brown.
 - Keep green for main actions, including `nextStep` and `primary` action roles.
 - Keep scrollbars readable but still slim; V6.6 uses about 30% thicker scrollbars than V6.5 after user review.
 - Keep splitter handles slim so they do not dominate narrow panels.
 - Keep the Edit Steering slider and bulk steering slider fill centred on neutral steering instead of filling from the left edge.
+- Hidden/deleted frames must remain traceable in `labels.jsonl` / `records.jsonl` using hidden flags, and must be excluded from active dataframes, preprocessing, training, and validation.
 
 ## Packaging checklist
 

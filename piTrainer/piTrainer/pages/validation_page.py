@@ -110,10 +110,10 @@ class ValidationPage(DockPage):
     def _selected_dataset(self) -> pd.DataFrame:
         dataset_name = self.config_panel.dataset_source()
         if dataset_name == 'Validation split':
-            return self.state.val_df.copy()
+            return without_hidden_rows(self.state.val_df)
         if dataset_name == 'Training split':
-            return self.state.train_df.copy()
-        return self.state.filtered_df.copy()
+            return without_hidden_rows(self.state.train_df)
+        return without_hidden_rows(self.state.filtered_df)
 
     def validate_model(self) -> None:
         dataset_df = self._selected_dataset()

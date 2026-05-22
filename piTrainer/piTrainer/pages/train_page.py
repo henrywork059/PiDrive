@@ -14,6 +14,7 @@ from ..panels.train.train_epoch_review_panel import TrainEpochReviewPanel
 from ..panels.train.train_history_panel import TrainHistoryPanel
 from ..services.export.export_service import save_keras_model
 from ..services.train.split_service import split_dataframe
+from ..services.data.visibility_service import without_hidden_rows
 from ..services.train.worker import TrainingWorker
 from ..utils.path_utils import ensure_dir, safe_filename
 from .dock_page import DockPage
@@ -124,7 +125,9 @@ class TrainPage(DockPage):
         missing = TrainPage._missing_training_columns(df)
         if missing:
             return pd.DataFrame()
-        cleaned = df.copy()
+        cleaned = without_hidden_rows(df).copy()
+        if cleaned.empty:
+            return cleaned.reset_index(drop=True)
         cleaned['abs_image'] = cleaned['abs_image'].fillna('').astype(str)
         cleaned = cleaned[cleaned['abs_image'].str.len() > 0].copy()
         if cleaned.empty:

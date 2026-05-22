@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 
-FORMAT_VERSION = "0_6_7_bulk_selected_frame_edit"
+FORMAT_VERSION = "0_6_8_soft_delete_hidden_training_rows"
 
 
 @dataclass(frozen=True)

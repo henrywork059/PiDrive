@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 
 from ...utils.path_utils import ensure_dir, safe_filename
+from ..data.visibility_service import without_hidden_rows
 
 MANUAL_MODES = {'manual', 'user', 'train', 'manual_drive'}
 MANUAL_HINT_COLUMNS = ('mode', 'session_label', 'label', 'session', 'session_id')
@@ -326,7 +327,8 @@ def apply_preprocessing_recipe(df: pd.DataFrame, recipe: dict[str, object]) -> t
             'straight_keep_ratio': float(recipe.get('straight_keep_ratio', 0.35) or 0.35),
         }
 
-    filtered = df.copy()
+    visible_source = without_hidden_rows(df).copy()
+    filtered = visible_source.copy()
     mask = _mode_mask(filtered, str(recipe.get('mode_filter', 'Any mode')))
     mask &= _range_mask(filtered, 'steering', recipe.get('steering_range'))
     mask &= _range_mask(filtered, 'throttle', recipe.get('speed_range'))
@@ -339,7 +341,7 @@ def apply_preprocessing_recipe(df: pd.DataFrame, recipe: dict[str, object]) -> t
     boosted, turn_counts = _apply_turn_boost(balanced, recipe)
     expanded, aug_counts = _build_augmented_dataset(boosted, recipe)
     return expanded, build_summary_dict(
-        df,
+        visible_source,
         expanded,
         aug_counts=aug_counts,
         balance_counts=balance_counts,

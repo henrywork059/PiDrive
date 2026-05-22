@@ -8,6 +8,7 @@ from typing import Any
 import pandas as pd
 
 from .session_service import resolve_session_dir
+from .visibility_service import is_record_hidden
 
 STEER_KEYS = ["steering", "angle", "user/angle", "user_angle", "target_steering"]
 THROTTLE_KEYS = ["throttle", "user/throttle", "user_throttle", "target_throttle"]
@@ -207,6 +208,25 @@ def _iter_jsonl(path: Path):
                 continue
 
 
+
+
+def _record_identity_key(record: dict[str, Any]) -> tuple[str, str, str]:
+    merged = _training_label_record(record)
+    frame_id = str(merged.get("frame_id", merged.get("id", merged.get("source_frame_seq", ""))) or "")
+    ts = str(merged.get("ts", merged.get("timestamp", merged.get("timestamp_utc", merged.get("saved_at_utc", "")))) or "")
+    image_name = Path(str(coalesce_value(merged, IMAGE_KEYS, "") or "")).name
+    return frame_id, ts, image_name
+
+
+def _hidden_record_identities(path: Path) -> set[tuple[str, str, str]]:
+    if not path.exists():
+        return set()
+    identities: set[tuple[str, str, str]] = set()
+    for _line_no, record in _iter_jsonl(path):
+        if isinstance(record, dict) and is_record_hidden(record):
+            identities.add(_record_identity_key(record))
+    return identities
+
 def _load_labels_rows(session_name: str, session_dir: Path) -> list[dict]:
     labels_path = session_dir / "labels.jsonl"
     if not labels_path.exists():
@@ -215,22 +235,29 @@ def _load_labels_rows(session_name: str, session_dir: Path) -> list[dict]:
     rows = [
         build_row(session_name, session_dir, record, source="labels.jsonl", manifest_defaults=manifest_defaults)
         for _line_no, record in _iter_jsonl(labels_path)
-        if isinstance(record, dict)
+        if isinstance(record, dict) and not is_record_hidden(record)
     ]
     # labels.jsonl is the primary PiSD training file, but keep only usable image rows.
     usable = [row for row in rows if str(row.get("abs_image", ""))]
     return usable
 
 
-def _load_records_rows(session_name: str, session_dir: Path) -> list[dict]:
+def _load_records_rows(
+    session_name: str,
+    session_dir: Path,
+    hidden_label_identities: set[tuple[str, str, str]] | None = None,
+) -> list[dict]:
     records_path = session_dir / "records.jsonl"
     if not records_path.exists():
         return []
+    hidden_label_identities = hidden_label_identities or set()
     manifest_defaults = _load_manifest_defaults(session_dir)
     rows = [
         build_row(session_name, session_dir, record, source="records.jsonl", manifest_defaults=manifest_defaults)
         for _line_no, record in _iter_jsonl(records_path)
         if isinstance(record, dict)
+        and not is_record_hidden(record)
+        and _record_identity_key(record) not in hidden_label_identities
     ]
     return rows
 
@@ -247,7 +274,8 @@ def load_records_dataframe(records_root: Path, sessions: list[str]) -> pd.DataFr
         if label_rows:
             rows.extend(label_rows)
             continue
-        rows.extend(_load_records_rows(session_name, session_dir))
+        hidden_label_identities = _hidden_record_identities(session_dir / "labels.jsonl")
+        rows.extend(_load_records_rows(session_name, session_dir, hidden_label_identities=hidden_label_identities))
 
     if not rows:
         return pd.DataFrame()

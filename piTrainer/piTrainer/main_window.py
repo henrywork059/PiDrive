@@ -130,7 +130,7 @@ class MainWindow(QMainWindow):
             'Ctrl+L -> Load selected sessions',
             'Ctrl+A -> Select all sessions',
             'Ctrl+Shift+A -> Clear selected sessions',
-            'Delete -> Delete selected frame row(s) on the Data page after the Data Control checkbox is ticked',
+            'Delete -> Hide selected frame row(s) from training after the Data Control checkbox is ticked',
             'Ctrl+P -> Prepare split',
             'Ctrl+R -> Start training',
             'Esc -> Stop training',
