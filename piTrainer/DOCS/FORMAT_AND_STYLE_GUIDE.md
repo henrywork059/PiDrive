@@ -1,6 +1,6 @@
 # piTrainer Format and Style Guide
 
-This document records the presentation decisions used by the V5 trainer UI. It is intended to stop future patches from styling individual tabs or panels differently by accident.
+This document records the presentation decisions used by the V6 trainer UI. It is intended to stop future patches from styling individual tabs or panels differently by accident.
 
 ## Single source of truth
 
@@ -95,7 +95,9 @@ Use this pattern when a panel has multiple related work modes. Do not stack all 
 The Data page uses this pattern twice:
 
 - `Data Workflow`: `1 Load`, `2 Review`, `3 Manage`;
-- `Data Review`: `1 Records`, `2 Plot`.
+- `Data Review`: `1 Stats`, `2 Records`, `3 Plot`.
+
+Keep dataset statistics inside `Data Review`, not in the loading workflow. Keep playback controls directly underneath the image preview so frame playback stays visually tied to the currently displayed frame. Do not reintroduce a separate generic `Data Actions` panel; place each action beside the thing it affects, such as refresh/load in `Session Source` and filter clearing in `Frame Filter`.
 
 ## Collapsible sections
 
@@ -107,7 +109,6 @@ Good default-collapse candidates:
 
 - advanced filters;
 - overlay fine tuning;
-- playback fine controls;
 - merge/delete/management tools;
 - training hyperparameter detail;
 - export detail options.
@@ -233,7 +234,7 @@ Patch releases should update:
 When making future UI patches:
 
 1. Check the latest app state and latest patch notes.
-2. Keep V5 features unless explicitly removed:
+2. Keep V6 features unless explicitly removed:
    - PiSD V7 data support;
    - V7 overlay redraw;
    - preprocessing/manual-drive fix;
@@ -247,7 +248,7 @@ When making future UI patches:
 4. Include patch notes in `piTrainer/PATCH_NOTES/`.
 5. Do not reset user data or runtime config casually.
 
-## Current V5 style decision summary
+## Current V6 style decision summary
 
 The trainer should look like a guided professional desktop workflow, not a dense engineering debug screen. Keep the path clear:
 

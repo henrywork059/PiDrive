@@ -19,7 +19,7 @@ class PlaybackControlPanel(QGroupBox):
         self.restart_callback = restart_callback
         self.speed_change_callback = speed_change_callback
 
-        help_label = QLabel('Control preview playback here. Adjust playback speed and move through filtered frames automatically.')
+        help_label = QLabel('Playback controls for the filtered frame list shown in Data Review.')
         help_label.setProperty('role', 'muted')
         help_label.setWordWrap(True)
 
@@ -60,7 +60,7 @@ class PlaybackControlPanel(QGroupBox):
         layout.addLayout(controls_row)
         layout.addLayout(speed_row)
         layout.addWidget(self.status_label)
-        layout.addStretch(1)
+        self.set_playback_active(False)
 
     def playback_fps(self) -> float:
         return float(self.speed_spin.value())

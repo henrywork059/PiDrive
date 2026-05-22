@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import pandas as pd
-from PySide6.QtWidgets import QMessageBox
+from PySide6.QtWidgets import QMessageBox, QVBoxLayout, QWidget
 
 from ..app_state import AppState
-from ..panels.data.data_actions_panel import DataActionsPanel
 from ..panels.data.data_control_panel import DataControlPanel
 from ..panels.data.data_plot_panel import DataPlotPanel
 from ..panels.data.dataset_stats_panel import DatasetStatsPanel
@@ -23,7 +22,7 @@ from ..services.data.record_loader_service import build_filtered_dataframe, load
 from ..services.data.session_service import list_sessions
 from ..services.data.stats_service import calculate_basic_stats
 from .dock_page import DockPage
-from ..ui.formatting import splitter_args
+from ..ui.formatting import get_density_profile, splitter_args
 from ..ui.layout_widgets import make_scrollable_stack, make_workflow_tabs
 
 
@@ -52,12 +51,6 @@ class DataPage(DockPage):
             speed_change_callback=self.on_playback_speed_changed,
         )
         self.plot_panel = DataPlotPanel()
-        self.data_actions_panel = DataActionsPanel(
-            refresh_callback=self.refresh_sessions,
-            load_callback=self.load_selected_sessions,
-            clear_filter_callback=self.clear_preview_filter,
-            shortcuts_callback=self.main_window.show_shortcuts,
-        )
         self.data_control_panel = DataControlPanel(delete_frame_callback=self.delete_selected_frame)
         self.build_default_layout()
         self.restore_layout()
@@ -71,8 +64,6 @@ class DataPage(DockPage):
                 '1 Load',
                 make_scrollable_stack([
                     ('Session Source', self.session_source_panel, True),
-                    ('Dataset Stats', self.stats_panel, True),
-                    ('Data Actions', self.data_actions_panel, True),
                 ], object_name='dataLoadWorkflowScrollArea', intro='Start here: choose a PiSD/piTrainer records root, scan sessions, select sessions, then load them.'),
             ),
             (
@@ -80,8 +71,7 @@ class DataPage(DockPage):
                 make_scrollable_stack([
                     ('Frame Filter', self.filter_panel, False),
                     ('Overlay Controls', self.overlay_panel, False),
-                    ('Playback Control', self.playback_panel, True),
-                ], object_name='dataReviewWorkflowScrollArea', intro='Review frames after loading. Filter the table, choose overlays, and play through the selected rows.'),
+                ], object_name='dataReviewWorkflowScrollArea', intro='Review frames after loading. Filter the table and choose overlays before inspecting records, stats, plots, or playback.'),
             ),
             (
                 '3 Manage',
@@ -94,21 +84,34 @@ class DataPage(DockPage):
 
         review_tabs = make_workflow_tabs([
             (
-                '1 Records',
+                '1 Stats',
+                self.stats_panel,
+                'Switch here to check the loaded dataset summary.',
+            ),
+            (
+                '2 Records',
                 self.preview_panel,
                 'Switch here to inspect and select individual labelled frames.',
             ),
             (
-                '2 Plot',
+                '3 Plot',
                 self.plot_panel,
                 'Switch here to review steering, speed, mode, and session distributions.',
             ),
         ], object_name='dataReviewTabs')
 
+        visual_review = QWidget()
+        visual_review.setObjectName('dataImagePlaybackStack')
+        visual_layout = QVBoxLayout(visual_review)
+        visual_layout.setContentsMargins(0, 0, 0, 0)
+        visual_layout.setSpacing(get_density_profile().panel_spacing)
+        visual_layout.addWidget(self.image_preview_panel, 1)
+        visual_layout.addWidget(self.playback_panel, 0)
+
         workspace = self.make_horizontal_splitter([
             self.make_panel_frame('workflow_controls', 'Data Workflow', workflow_tabs),
             self.make_panel_frame('record_review', 'Data Review', review_tabs),
-            self.make_panel_frame('image_preview', 'Image Preview + V7 Overlay', self.image_preview_panel),
+            self.make_panel_frame('image_preview', 'Image Preview + Playback + V7 Overlay', visual_review),
         ], object_name='main_workspace', **splitter_args('three_panel_workspace'))
 
         self.set_workspace_widget(

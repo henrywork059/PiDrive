@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
 )
 
 
-FORMAT_VERSION = "0_5_6_combined_data_review_tabs"
+FORMAT_VERSION = "0_6_1_data_review_playback_cleanup"
 
 
 @dataclass(frozen=True)
