@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pandas as pd
+from pathlib import Path
 from PySide6.QtWidgets import QMessageBox, QVBoxLayout, QWidget
 
 from ..app_state import AppState
@@ -16,7 +17,7 @@ from ..panels.data.playback_control_panel import PlaybackControlPanel
 from ..panels.data.preview_panel import PreviewPanel
 from ..panels.data.session_source_panel import SessionSourcePanel
 from ..services.data.delete_service import hide_frames_from_training
-from ..services.data.edit_service import update_frame_controls
+from ..services.data.edit_service import update_frame_controls, update_frame_controls_batch
 from ..services.data.filter_service import filter_preview_dataframe
 from ..services.data.merge_service import merge_sessions
 from ..services.data.record_loader_service import build_filtered_dataframe, load_records_dataframe
@@ -136,6 +137,15 @@ class DataPage(DockPage):
     @staticmethod
     def _record_identity(record) -> tuple[str, str, str, str]:
         return PreviewPanel.record_identity(record)
+
+    @staticmethod
+    def _bulk_edit_target_key(record) -> tuple[str, str, str, str]:
+        return (
+            str(record.get('session', '') or ''),
+            str(record.get('frame_id', '') or ''),
+            Path(str(record.get('abs_image', '') or record.get('image_path', '') or record.get('frame', '') or '')).name,
+            str(record.get('ts', '') or ''),
+        )
 
     @staticmethod
     def _record_mask(df: pd.DataFrame, identity: tuple[str, str, str, str]):
@@ -336,6 +346,34 @@ class DataPage(DockPage):
             if len(mask) == len(self.current_preview_source_df) and mask.any():
                 self.current_preview_source_df.loc[mask, field_name] = float(value)
 
+    def _update_records_field_in_loaded_data(self, identities: list[tuple[str, str, str, str]], field_name: str, value: float) -> None:
+        identity_set = set(identities)
+        if not identity_set:
+            return
+
+        def update_df(df: pd.DataFrame) -> None:
+            if not isinstance(df, pd.DataFrame) or df.empty:
+                return
+
+            def column_text(column: str) -> pd.Series:
+                if column in df.columns:
+                    return df[column].fillna('').astype(str)
+                return pd.Series([''] * len(df), index=df.index, dtype=str)
+
+            row_keys = zip(
+                column_text('session'),
+                column_text('frame_id'),
+                column_text('ts'),
+                column_text('abs_image'),
+            )
+            mask = pd.Series([key in identity_set for key in row_keys], index=df.index, dtype=bool)
+            if mask.any():
+                df.loc[mask, field_name] = float(value)
+
+        for df_attr in ['dataset_df', 'filtered_df']:
+            update_df(getattr(self.state, df_attr))
+        update_df(self.current_preview_source_df)
+
     def apply_bulk_steering_edit(self, steering: float) -> None:
         self._apply_bulk_control_edit(field_name='steering', field_label='steering', value=float(steering))
 
@@ -370,38 +408,34 @@ class DataPage(DockPage):
             self.main_window.set_status_message(f'Bulk {field_label} edit cancelled.')
             return
 
-        updated_identities: list[tuple[str, str, str, str]] = []
-        failed_messages: list[str] = []
-        for record in records:
-            identity = self._record_identity(record)
-            current_steering = float(record.get('steering', 0.0) or 0.0)
-            current_speed = float(record.get('throttle', 0.0) or 0.0)
-            steering = value if field_name == 'steering' else current_steering
-            speed = value if field_name == 'throttle' else current_speed
-            ok, message = update_frame_controls(
-                self.state.records_root_path,
-                session_name=str(record.get('session', '')),
-                frame_id=str(record.get('frame_id', '')),
-                image_path=str(record.get('abs_image', '')),
-                ts=str(record.get('ts', '')),
-                steering=steering,
-                throttle=speed,
-                update_steering=(field_name == 'steering'),
-                update_throttle=(field_name == 'throttle'),
-            )
-            if ok:
-                updated_identities.append(identity)
-                self._update_record_field_in_loaded_data(identity, field_name, value)
-            else:
-                failed_messages.append(message)
+        result = update_frame_controls_batch(
+            self.state.records_root_path,
+            records,
+            steering=value if field_name == 'steering' else 0.0,
+            throttle=value if field_name == 'throttle' else 0.0,
+            update_steering=(field_name == 'steering'),
+            update_throttle=(field_name == 'throttle'),
+        )
 
+        matched_key_set = {tuple(key) for key in result.get('matched_keys', [])}
+        updated_identities = [
+            self._record_identity(record)
+            for record in records
+            if self._bulk_edit_target_key(record) in matched_key_set
+        ]
+        if updated_identities:
+            self._update_records_field_in_loaded_data(updated_identities, field_name, value)
+
+        failed_messages = list(result.get('failed_messages', []))
         self.stats_panel.set_stats(calculate_basic_stats(self.state.filtered_df))
         first_identity = updated_identities[0] if updated_identities else None
         self.apply_preview_filter(select_identity=first_identity)
 
-        if updated_identities:
+        updated_count = int(result.get('updated_count', 0))
+        rows_changed = int(result.get('metadata_rows_changed', 0))
+        if updated_count:
             self.main_window.set_status_message(
-                f'Updated {field_label} for {len(updated_identities)} selected frame(s).'
+                f'Updated {field_label} for {updated_count} selected frame(s) with {rows_changed} metadata row(s) changed.'
                 + (f' {len(failed_messages)} failed.' if failed_messages else '')
             )
         if failed_messages:

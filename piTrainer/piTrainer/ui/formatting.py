@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 
-FORMAT_VERSION = "0_6_8_soft_delete_hidden_training_rows"
+FORMAT_VERSION = "0_6_9_fast_bulk_edit_jsonl_batches"
 
 
 @dataclass(frozen=True)

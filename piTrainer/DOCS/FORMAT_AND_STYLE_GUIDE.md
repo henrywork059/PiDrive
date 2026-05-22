@@ -150,7 +150,8 @@ Expected behaviour:
 - `Apply Speed Only` must only change speed/throttle while preserving each frame's existing steering;
 - the user must tick the bulk overwrite confirmation checkbox before buttons are enabled;
 - a final warning confirmation dialog must appear before values are written to `labels.jsonl` / `records.jsonl`;
-- bulk edits should update the loaded DataFrame, stats, plot, and preview without requiring a full app restart.
+- bulk edits should update the loaded DataFrame, stats, plot, and preview without requiring a full app restart;
+- bulk edits should use a batch JSONL service that groups selected rows by session and scans each `labels.jsonl` / `records.jsonl` file once. Do not call the single-frame edit function once per selected row, because that repeatedly rewrites the same metadata files and becomes slow on large sessions.
 
 Do not combine steering and speed into one bulk-apply button unless the user explicitly asks. One-at-a-time application reduces accidental overwrites.
 

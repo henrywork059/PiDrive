@@ -53,7 +53,7 @@ Preserve these accepted V6 behaviours:
 - Keep Data Review tabs ordered as `1 Records`, `2 Stats`, `3 Plot` unless the user asks otherwise.
 - Keep Data Workflow tabs ordered as `1 Load`, `2 Manage`, `3 Review` unless the user asks otherwise.
 - Keep Frame Filter in `2 Manage` beside Data Control.
-- Keep Bulk Edit Selected Frames in `3 Review`; it edits only steering or only speed one at a time and requires an overwrite checkbox plus a warning confirmation dialog.
+- Keep Bulk Edit Selected Frames in `3 Review`; it edits only steering or only speed one at a time, requires an overwrite checkbox plus a warning confirmation dialog, and must use the batch JSONL updater so each selected session metadata file is scanned once rather than once per selected frame.
 - Keep Merge Sessions in `3 Review`, collapsed by default.
 - Keep `frame_id` as the first visible Record Preview table column.
 - Keep the Record Preview table horizontally anchored to the first column after multi-row selection.
