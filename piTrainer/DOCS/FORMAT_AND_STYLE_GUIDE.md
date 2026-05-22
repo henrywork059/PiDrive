@@ -78,9 +78,9 @@ Expected banner format:
 
 - left: page number and page name, for example `1 of 5  Data`;
 - below/near it: one short purpose sentence;
-- right: compact green guide button, for example `Show: Load Selected`.
+- right: compact green guide button, for example `Load Selected`.
 
-The banner guide button should not perform the action directly. It should reveal and focus the real green Next Step button inside the workflow panel.
+The banner guide button should not perform the action directly. It should reveal and focus the real green action button inside the workflow panel.
 
 ## Workflow tabs
 
@@ -97,13 +97,13 @@ The Data page uses this pattern twice:
 - `Data Workflow`: `1 Load`, `2 Manage`, `3 Review`;
 - `Data Review`: `1 Records`, `2 Stats`, `3 Plot`.
 
-Keep the record table first in `Data Review`, because row selection drives the image preview and deletion workflow. The record table should support multi-row selection for batch frame deletion, and `frame_id` should remain the first visible column. Keep dataset statistics inside `Data Review`, not in the loading workflow. Keep playback controls directly underneath the image preview so frame playback stays visually tied to the currently displayed frame. Keep Frame Filter in the Manage workflow beside Data Control. Keep Merge Sessions in the Review workflow, but collapsed by default so normal review remains compact. Do not reintroduce a separate generic `Data Actions` panel; place each action beside the thing it affects, such as refresh/load in `Session Source`, delete in `Data Control`, and filter clearing in `Frame Filter`.
+Keep the record table first in `Data Review`, because row selection drives the image preview and deletion workflow. The record table should support multi-row selection for batch frame deletion, `frame_id` should remain the first visible column, and the table should keep the first column visible after multi-selection instead of horizontally jumping to later columns. Keep dataset statistics inside `Data Review`, not in the loading workflow. Keep playback controls directly underneath the image preview so frame playback stays visually tied to the currently displayed frame. Keep Frame Filter in the Manage workflow beside Data Control. Keep Merge Sessions in the Review workflow, but collapsed by default so normal review remains compact. Do not reintroduce a separate generic `Data Actions` panel; place each action beside the thing it affects, such as refresh/load in `Session Source`, delete in `Data Control`, and filter clearing in `Frame Filter`.
 
 ## Collapsible sections
 
 Only detailed settings and fine-detail data tools should be collapsed by default.
 
-Keep main action sections open by default, especially sections containing the page's Next Step button. The user should not need to search for the next action.
+Keep main action sections open by default, especially sections containing the page's main action button. The user should not need to search for the next action.
 
 Good default-collapse candidates:
 
@@ -122,9 +122,9 @@ Bad default-collapse candidates:
 - run validation action;
 - export action.
 
-## Next Step buttons
+## Main action buttons
 
-The main workflow action button on each page should be obvious.
+The main workflow action button on each page should be obvious without using the old label prefix.
 
 Expected style:
 
@@ -136,13 +136,15 @@ Expected style:
 
 Expected examples:
 
-- `Next Step: Load Selected`
-- `Next Step: Confirm and Start Preprocess`
-- `Next Step: Start Training`
-- `Next Step: Run Validation`
-- `Next Step: Export Selected Artifacts`
+- `Load Selected`
+- `Confirm and Start Preprocess`
+- `Start Training`
+- `Run Validation`
+- `Export Selected Artifacts`
 
-Do not make secondary buttons look like the main Next Step button.
+Do not make secondary buttons look like the main action button.
+
+Visible action labels should not include the old `Next Step:` prefix, and compact banner guide labels should not include the old `Show:` prefix.
 
 ## Visual hierarchy
 
@@ -209,7 +211,7 @@ Typical density-controlled items:
 Use the existing role system:
 
 - `nextStep`: green main workflow action;
-- `primary`: main blue action when it is not the workflow Next Step;
+- `primary`: main blue action when it is not the green workflow action;
 - `secondary`: normal actions;
 - `amber`: browse/location-picking actions; the accepted shade should be more yellowish than brown so Browse stands out clearly;
 - `danger`: destructive actions;
@@ -244,7 +246,7 @@ When making future UI patches:
    - full-width splitters;
    - scrollable panel bodies;
    - compact guided banner;
-   - green Next Step buttons;
+   - green action buttons;
    - unified formatting system.
 3. Prefer updating `formatting.py`, `styles.py`, or `layout_widgets.py` before editing every panel individually.
 4. Include patch notes in `piTrainer/PATCH_NOTES/`.

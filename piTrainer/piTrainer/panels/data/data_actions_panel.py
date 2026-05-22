@@ -17,14 +17,14 @@ class DataActionsPanel(QGroupBox):
         refresh_btn.clicked.connect(refresh_callback)
 
         load_btn = QPushButton("Load Selected Sessions")
-        style_next_step_button(load_btn, "Next Step: Load Selected Sessions")
+        style_next_step_button(load_btn, "Load Selected Sessions")
         load_btn.clicked.connect(load_callback)
 
         clear_filter_btn = QPushButton("Clear Preview Filter")
         clear_filter_btn.setProperty('role', 'secondary')
         clear_filter_btn.clicked.connect(clear_filter_callback)
 
-        shortcuts_btn = QPushButton("Show Shortcuts")
+        shortcuts_btn = QPushButton("View Shortcuts")
         shortcuts_btn.setProperty('role', 'secondary')
         shortcuts_btn.clicked.connect(shortcuts_callback)
 

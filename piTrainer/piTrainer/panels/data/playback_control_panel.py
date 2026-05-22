@@ -19,7 +19,7 @@ class PlaybackControlPanel(QGroupBox):
         self.restart_callback = restart_callback
         self.speed_change_callback = speed_change_callback
 
-        help_label = QLabel('Playback controls for the filtered frame list shown in Data Review.')
+        help_label = QLabel('Playback controls for the filtered frame list displayed in Data Review.')
         help_label.setProperty('role', 'muted')
         help_label.setWordWrap(True)
 

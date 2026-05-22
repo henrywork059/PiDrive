@@ -311,7 +311,7 @@ class DockPage(QMainWindow):
         """Bring a nested action widget into view without triggering it.
 
         Used by the compact page banner: pressing the banner button opens the
-        correct workflow tab/section, scrolls to the real green Next Step button,
+        correct workflow tab/section, scrolls to the real green action button,
         and briefly highlights it so the user knows which control to click.
         """
         if widget is None:

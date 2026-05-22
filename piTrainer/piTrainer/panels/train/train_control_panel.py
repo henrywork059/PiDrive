@@ -12,7 +12,7 @@ class TrainControlPanel(QGroupBox):
         self.prepare_btn.setProperty('role', 'secondary')
         self.prepare_btn.clicked.connect(prepare_callback)
         self.start_btn = QPushButton("Start Training")
-        style_next_step_button(self.start_btn, "Next Step: Start Training")
+        style_next_step_button(self.start_btn, "Start Training")
         self.start_btn.clicked.connect(start_callback)
         self.stop_btn = QPushButton("Stop")
         self.stop_btn.setProperty('role', 'danger')

@@ -36,6 +36,7 @@ class PreviewPanel(QGroupBox):
         self.table.setMinimumHeight(170)
         self.table.verticalHeader().setVisible(False)
         self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.horizontalScrollBar().setTracking(True)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
         self.table.itemSelectionChanged.connect(self._handle_selection_change)
 
@@ -81,6 +82,7 @@ class PreviewPanel(QGroupBox):
         if rows:
             self.table.selectRow(0)
             self.table.setCurrentCell(0, 0)
+            self._keep_first_column_visible()
             self._handle_selection_change()
         elif self.selection_callback is not None:
             self.selection_callback(None)
@@ -211,7 +213,23 @@ class PreviewPanel(QGroupBox):
         self.table.setCurrentCell(next_view_row, 0)
         self._handle_selection_change()
 
+    def _keep_first_column_visible(self) -> None:
+        if self.table.columnCount() <= 0:
+            return
+        scrollbar = self.table.horizontalScrollBar()
+        scrollbar.setValue(scrollbar.minimum())
+        view_row = self._current_view_row()
+        if view_row >= 0:
+            first_item = self.table.item(view_row, 0)
+            if first_item is not None:
+                self.table.scrollToItem(first_item, QAbstractItemView.EnsureVisible)
+                scrollbar.setValue(scrollbar.minimum())
+
+    def _schedule_first_column_visible(self) -> None:
+        QTimer.singleShot(0, self._keep_first_column_visible)
+
     def _handle_selection_change(self) -> None:
+        self._schedule_first_column_visible()
         if self.selection_callback is None:
             return
         row = self.current_row()
@@ -232,7 +250,7 @@ class PreviewPanel(QGroupBox):
             self.summary_label.setText('No frames to preview. Load sessions or change the filter.')
             return
         if row < 0:
-            self.summary_label.setText(f'Showing {total} frame(s). Select a row to inspect it.')
+            self.summary_label.setText(f'Displaying {total} frame(s). Select a row to inspect it.')
             return
         record = self.selected_record() or {}
         session = str(record.get('session', ''))
@@ -244,7 +262,7 @@ class PreviewPanel(QGroupBox):
         selected_note = f" {selected_count} row(s) selected." if selected_count > 1 else ""
         display_row = view_row + 1 if view_row >= 0 else row + 1
         self.summary_label.setText(
-            f"Showing {total} frame(s). Current: row {display_row}, session '{session}', frame '{frame_id}', mode '{mode}', steering {steering:.3f}, speed {throttle:.3f}.{selected_note}"
+            f"Displaying {total} frame(s). Current: row {display_row}, session '{session}', frame '{frame_id}', mode '{mode}', steering {steering:.3f}, speed {throttle:.3f}.{selected_note}"
         )
 
     def _emit_playback_state(self) -> None:

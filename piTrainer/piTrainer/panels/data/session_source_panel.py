@@ -102,7 +102,7 @@ class SessionSourcePanel(QGroupBox):
         clear_btn.setProperty('role', 'secondary')
         clear_btn.clicked.connect(self.clear_all)
         self.load_btn = QPushButton('Load Selected')
-        style_next_step_button(self.load_btn, 'Next Step: Load Selected')
+        style_next_step_button(self.load_btn, 'Load Selected')
         self.load_btn.clicked.connect(self.load_callback)
 
         select_row = QHBoxLayout()

@@ -41,7 +41,7 @@ def make_page_banner(
     next_callback: Callable[[], None] | None = None,
     next_tooltip: str = '',
 ) -> QFrame:
-    """Create a compact page header with an optional guided next-step button."""
+    """Create a compact page header with an optional guided action button."""
     profile = get_density_profile()
     banner = QFrame()
     banner.setObjectName('pageBanner')
@@ -81,7 +81,7 @@ def make_page_banner(
         next_button.setMaximumWidth(360)
         next_button.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         next_button.setCursor(Qt.PointingHandCursor)
-        next_button.setToolTip(next_tooltip or 'Click to show the recommended green Next Step button.')
+        next_button.setToolTip(next_tooltip or 'Click to locate the recommended green action button.')
         if next_callback is not None:
             next_button.clicked.connect(next_callback)
         layout.addWidget(next_button, 0, Qt.AlignRight | Qt.AlignVCenter)
@@ -102,7 +102,7 @@ def style_next_step_button(button: QPushButton, text: str | None = None) -> QPus
     button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
     button.setCursor(Qt.PointingHandCursor)
     if not button.toolTip():
-        button.setToolTip('Recommended next step in the workflow.')
+        button.setToolTip('Recommended action in the workflow.')
 
     timer = QTimer(button)
     timer.setInterval(1450)
@@ -115,7 +115,7 @@ def style_next_step_button(button: QPushButton, text: str | None = None) -> QPus
 
     timer.timeout.connect(toggle_pulse)
     timer.start()
-    button._next_step_pulse_timer = timer  # keep a Python reference for PySide
+    button._action_pulse_timer = timer  # keep a Python reference for PySide
     return button
 
 def make_hint_label(text: str, *, object_name: str = 'quickHint') -> QLabel:
@@ -219,7 +219,7 @@ def make_scroll_area(
 
     ``widgetResizable=True`` lets the content expand with the viewport in normal
     layouts. When the viewport becomes narrower than ``content_min_width`` or the
-    child widget's own minimum size, Qt shows a horizontal scrollbar on demand
+    child widget's own minimum size, Qt displays a horizontal scrollbar on demand
     instead of clipping controls and labels.
     """
     if content_min_width is not None:

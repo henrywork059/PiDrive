@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QTimer, Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
@@ -40,7 +40,7 @@ class ValidationFrameReviewPanel(QGroupBox):
         self.help_label.setWordWrap(True)
         self.help_label.setProperty('role', 'muted')
 
-        self.bad_only_checkbox = QCheckBox('Show only bad predictions')
+        self.bad_only_checkbox = QCheckBox('Only bad predictions')
         self.bad_only_checkbox.toggled.connect(self._apply_filters)
         self.error_threshold_spin = QDoubleSpinBox()
         self.error_threshold_spin.setRange(0.0, 10.0)
@@ -67,8 +67,13 @@ class ValidationFrameReviewPanel(QGroupBox):
 
         self.image_label = QLabel('No validation frame selected.')
         self.image_label.setAlignment(Qt.AlignCenter)
-        self.image_label.setMinimumHeight(320)
+        self.image_label.setMinimumHeight(180)
         self.image_label.setWordWrap(True)
+
+        self.resize_preview_timer = QTimer(self)
+        self.resize_preview_timer.setSingleShot(True)
+        self.resize_preview_timer.setInterval(140)
+        self.resize_preview_timer.timeout.connect(self._refresh_preview)
 
         self.meta_label = QLabel('')
         self.meta_label.setWordWrap(True)
@@ -117,6 +122,11 @@ class ValidationFrameReviewPanel(QGroupBox):
         layout.addWidget(CollapsibleSection('Frame Filter + Sorting', controls_widget, expanded=False))
         layout.addWidget(self.help_label)
         layout.addWidget(splitter, 1)
+
+    def resizeEvent(self, event) -> None:  # noqa: N802 - Qt API name
+        super().resizeEvent(event)
+        if self.selected_row() is not None:
+            self.resize_preview_timer.start()
 
     def set_result(self, result: dict | None) -> None:
         self.result = result
@@ -199,7 +209,9 @@ class ValidationFrameReviewPanel(QGroupBox):
             self.image_label.setText('Select a validation row to preview it.')
             self.meta_label.setText('')
             return
-        pixmap = load_scaled_pixmap(str(row.get('abs_image', '')), 620, 420)
+        target_width = max(260, self.image_label.width() - 14)
+        target_height = max(180, self.image_label.height() - 14)
+        pixmap = load_scaled_pixmap(str(row.get('abs_image', '')), target_width, target_height)
         if pixmap is None:
             self.image_label.clear()
             self.image_label.setText('Image not available')

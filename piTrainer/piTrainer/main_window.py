@@ -59,7 +59,7 @@ class MainWindow(QMainWindow):
         self.status.addPermanentWidget(self.version_label)
         self.setStatusBar(self.status)
         self.set_status_message(
-            f'Ready — {STATUS_VERSION_TEXT}. Follow the green Next Step buttons from 1 Data through 5 Export. Drag splitter handles to adjust panel proportions.'
+            f'Ready — {STATUS_VERSION_TEXT}. Follow the green action buttons from 1 Data through 5 Export. Drag splitter handles to adjust panel proportions.'
         )
         self._apply_responsive_density()
 
@@ -136,7 +136,7 @@ class MainWindow(QMainWindow):
             'Esc -> Stop training',
             'Ctrl+E -> Export model',
             'Ctrl+Shift+R -> Reset current page layout',
-            'F1 -> Show this shortcut list',
+            'F1 -> Open this shortcut list',
         ]
         QMessageBox.information(self, 'Shortcuts', chr(10).join(lines))
 

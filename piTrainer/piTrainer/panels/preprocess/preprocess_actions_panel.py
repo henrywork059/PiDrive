@@ -14,7 +14,7 @@ class PreprocessActionsPanel(QGroupBox):
         preview_btn.clicked.connect(preview_callback)
 
         self.apply_btn = QPushButton('Confirm and Start Preprocess')
-        style_next_step_button(self.apply_btn, 'Next Step: Confirm and Start Preprocess')
+        style_next_step_button(self.apply_btn, 'Confirm and Start Preprocess')
         self.apply_btn.clicked.connect(apply_callback)
 
         reset_btn = QPushButton('Reset Preprocess')

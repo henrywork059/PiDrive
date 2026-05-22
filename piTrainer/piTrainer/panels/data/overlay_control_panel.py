@@ -12,12 +12,12 @@ class OverlayControlPanel(QGroupBox):
         help_label.setProperty('role', 'muted')
         help_label.setWordWrap(True)
 
-        self.path_preview_cb = QCheckBox('Show PiSD V7 road guide')
-        self.legacy_path_preview_cb = QCheckBox('Show legacy trainer path (debug)')
-        self.speed_vertical_cb = QCheckBox('Show speed as vertical bar')
-        self.steering_horizontal_cb = QCheckBox('Show steering as horizontal bar')
-        self.steering_arc_cb = QCheckBox('Show steering as semi-circle bar')
-        self.drive_arrow_cb = QCheckBox('Show drive arrow (optional debug)')
+        self.path_preview_cb = QCheckBox('Display PiSD V7 road guide')
+        self.legacy_path_preview_cb = QCheckBox('Display legacy trainer path (debug)')
+        self.speed_vertical_cb = QCheckBox('Display speed as vertical bar')
+        self.steering_horizontal_cb = QCheckBox('Display steering as horizontal bar')
+        self.steering_arc_cb = QCheckBox('Display steering as semi-circle bar')
+        self.drive_arrow_cb = QCheckBox('Display drive arrow (optional debug)')
 
         self.path_preview_cb.setChecked(True)
 

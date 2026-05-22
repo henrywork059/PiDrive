@@ -15,7 +15,7 @@ class DataControlPanel(QGroupBox):
         self.confirm_delete_check = QCheckBox("I confirm frame delete actions")
         self.confirm_delete_check.setToolTip(
             "Required before Delete Selected Frame(s) will remove metadata rows and image files. "
-            "When checked, delete actions do not show a repeated confirmation popup."
+            "When checked, delete actions do not open a repeated confirmation popup."
         )
 
         self.delete_btn = QPushButton("Delete Selected Frame(s)")

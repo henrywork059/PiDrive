@@ -11,7 +11,7 @@ class ValidationActionsPanel(QGroupBox):
         self.browse_button = QPushButton('Browse Model...')
         self.browse_button.setProperty('role', 'secondary')
         self.run_button = QPushButton('Run Validation')
-        style_next_step_button(self.run_button, 'Next Step: Run Validation')
+        style_next_step_button(self.run_button, 'Run Validation')
         self.clear_button = QPushButton('Clear Results')
         self.clear_button.setProperty('role', 'secondary')
 

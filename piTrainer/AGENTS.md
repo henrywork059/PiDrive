@@ -35,7 +35,7 @@ Preserve these accepted V6 behaviours:
 - Full-width splitter layout.
 - Horizontal scrollbars only when panel content is reduced too far.
 - Compact top guide banner.
-- Green Next Step buttons.
+- Green action buttons without the old `Next Step:` label prefix.
 - Central style/format control through `piTrainer/piTrainer/ui/formatting.py` and `piTrainer/piTrainer/ui/styles.py`.
 - Visible version in the app window/status area.
 
@@ -53,7 +53,9 @@ Preserve these accepted V6 behaviours:
 - Keep Frame Filter in `2 Manage` beside Data Control.
 - Keep Merge Sessions in `3 Review`, collapsed by default.
 - Keep `frame_id` as the first visible Record Preview table column.
+- Keep the Record Preview table horizontally anchored to the first column after multi-row selection.
 - Keep batch frame deletion tied to the Data Control confirmation checkbox; do not restore repeated confirmation popups for every delete.
+- Keep compact banner guide labels free from the old `Show:` prefix.
 
 ## Packaging checklist
 

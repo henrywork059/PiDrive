@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
 )
 
 
-FORMAT_VERSION = "0_6_3_multi_delete_manage_filter_yellow_browse"
+FORMAT_VERSION = "0_6_4_record_table_first_column_action_labels"
 
 
 @dataclass(frozen=True)

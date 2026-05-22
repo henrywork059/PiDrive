@@ -54,12 +54,12 @@ class ExportPage(DockPage):
             step='5 of 5',
             title='Export',
             summary='Confirm a trained model is ready, choose artifact options, and export deployment files.',
-            next_step='Show: Export Artifacts',
+            next_step='Export Artifacts',
             next_callback=lambda: self.reveal_widget(
                 self.actions_panel.export_btn,
-                message='Showing the green Export Selected Artifacts button.'
+                message='Focused the green Export Selected Artifacts button.'
             ),
-            next_tooltip='Click to show the green Export Selected Artifacts button in Export Workflow > Export > Export Actions.',
+            next_tooltip='Click to focus the green Export Selected Artifacts button in Export Workflow > Export > Export Actions.',
         )
 
     def refresh_from_state(self) -> None:

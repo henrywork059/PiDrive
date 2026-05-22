@@ -119,12 +119,12 @@ class DataPage(DockPage):
             step='1 of 5',
             title='Data',
             summary='Load sessions, manage bad frames, review labels, and confirm the V7 overlay before preparing a dataset.',
-            next_step='Show: Load Selected',
+            next_step='Load Selected',
             next_callback=lambda: self.reveal_widget(
                 self.session_source_panel.load_btn,
-                message='Showing the green Load Selected button.'
+                message='Focused the green Load Selected button.'
             ),
-            next_tooltip='Click to show the green Load Selected button in Data Workflow > 1 Load > Session Source.',
+            next_tooltip='Click to focus the green Load Selected button in Data Workflow > 1 Load > Session Source.',
         )
 
     @staticmethod
@@ -256,7 +256,7 @@ class DataPage(DockPage):
         self.plot_panel.set_dataframe(filtered_preview)
         if filtered_preview.empty:
             self.image_preview_panel.clear_preview()
-        self.main_window.set_status_message(f'Showing {len(filtered_preview)} preview frame(s).')
+        self.main_window.set_status_message(f'Displaying {len(filtered_preview)} preview frame(s).')
 
     def clear_preview_filter(self) -> None:
         self.filter_panel.reset()
@@ -352,7 +352,7 @@ class DataPage(DockPage):
                 self,
                 'Delete Selected Frame(s)',
                 'Tick "I confirm frame delete actions" in Data Workflow > 2 Manage > Data Control before deleting. '
-                'After it is ticked, Delete will not show this confirmation popup each time.',
+                'After it is ticked, Delete will not open this confirmation popup each time.',
             )
             return
 
