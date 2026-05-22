@@ -9,6 +9,7 @@ from PySide6.QtWidgets import QGroupBox, QHBoxLayout, QLabel, QSlider, QVBoxLayo
 from ...services.data.overlay_service import apply_overlays, clip_speed, clip_steering, drive_values_from_point
 from ...utils.image_utils import load_scaled_pixmap
 from ...ui.layout_widgets import CollapsibleSection
+from ...ui.sliders import CenteredFillSlider
 
 
 class InteractiveImageLabel(QLabel):
@@ -16,7 +17,7 @@ class InteractiveImageLabel(QLabel):
         super().__init__('No preview')
         self.parent_panel = parent_panel
         self.setAlignment(Qt.AlignCenter)
-        self.setMinimumHeight(380)
+        self.setMinimumHeight(220)
         self.setWordWrap(True)
         self._pixmap: QPixmap | None = None
 
@@ -57,6 +58,11 @@ class InteractiveImageLabel(QLabel):
             self._handle_event_position(event.position().toPoint())
         super().mouseMoveEvent(event)
 
+    def resizeEvent(self, event) -> None:  # noqa: N802 - Qt API name
+        super().resizeEvent(event)
+        if hasattr(self.parent_panel, '_schedule_render_preview'):
+            self.parent_panel._schedule_render_preview()
+
 
 class ImagePreviewPanel(QGroupBox):
     def __init__(self, record_edited_callback=None) -> None:
@@ -88,7 +94,7 @@ class ImagePreviewPanel(QGroupBox):
         self.overlay_meta_label.setProperty('role', 'muted')
         self.overlay_meta_label.setWordWrap(True)
 
-        self.steering_slider = QSlider(Qt.Horizontal)
+        self.steering_slider = CenteredFillSlider(Qt.Horizontal, center_value=0)
         self.steering_slider.setRange(-1000, 1000)
         self.steering_slider.valueChanged.connect(self._on_slider_changed)
 
@@ -118,6 +124,11 @@ class ImagePreviewPanel(QGroupBox):
         self.commit_timer.setSingleShot(True)
         self.commit_timer.setInterval(250)
         self.commit_timer.timeout.connect(self._emit_record_edited)
+
+        self.resize_render_timer = QTimer(self)
+        self.resize_render_timer.setSingleShot(True)
+        self.resize_render_timer.setInterval(120)
+        self.resize_render_timer.timeout.connect(self._render_preview)
 
         layout = QVBoxLayout(self)
         layout.addWidget(self.image_label, 1)
@@ -214,10 +225,20 @@ class ImagePreviewPanel(QGroupBox):
         else:
             self.overlay_meta_label.setText('Overlay metadata: using PiSD V7 defaults')
 
+    def _schedule_render_preview(self) -> None:
+        if self.current_record is not None:
+            self.resize_render_timer.start()
+
+    def _preview_size(self) -> tuple[int, int]:
+        width = max(260, self.image_label.width() - 14)
+        height = max(180, self.image_label.height() - 14)
+        return width, height
+
     def _render_preview(self) -> None:
         record = self.current_record or {}
         image_path = str(record.get('abs_image', ''))
-        pixmap = load_scaled_pixmap(image_path, width=560, height=420)
+        target_width, target_height = self._preview_size()
+        pixmap = load_scaled_pixmap(image_path, width=target_width, height=target_height)
         if pixmap is None:
             self.image_label.set_display_pixmap(None)
             self.image_label.setText('Image not available')

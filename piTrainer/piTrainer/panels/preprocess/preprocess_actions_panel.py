@@ -10,7 +10,7 @@ class PreprocessActionsPanel(QGroupBox):
         super().__init__('Preprocess Actions')
 
         preview_btn = QPushButton('Preview Preprocess')
-        preview_btn.setProperty('role', 'secondary')
+        preview_btn.setProperty('role', 'amber')
         preview_btn.clicked.connect(preview_callback)
 
         self.apply_btn = QPushButton('Confirm and Start Preprocess')

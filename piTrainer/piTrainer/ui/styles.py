@@ -136,15 +136,17 @@ def build_stylesheet(density: str = "comfortable") -> str:
         border-color: @COLOR_BORDER_SUBTLE@;
     }
     QPushButton[role='primary'] {
-        background: @COLOR_PRIMARY@;
-        border-color: @COLOR_PRIMARY_BORDER@;
+        background: @COLOR_SUCCESS@;
+        border-color: @COLOR_SUCCESS_BORDER@;
         color: @COLOR_TEXT_ON_DARK@;
+        font-weight: 760;
     }
     QPushButton[role='primary']:hover {
-        background: @COLOR_PRIMARY_HOVER@;
+        background: @COLOR_SUCCESS_HOVER@;
+        border-color: @COLOR_SUCCESS_BORDER@;
     }
     QPushButton[role='primary']:pressed {
-        background: @COLOR_PRIMARY_ACTIVE@;
+        background: @COLOR_SUCCESS_ACTIVE@;
     }
     QPushButton[role='nextStep'] {
         min-height: @NEXT_MIN@px;
@@ -357,6 +359,43 @@ def build_stylesheet(density: str = "comfortable") -> str:
     QProgressBar::chunk {
         background: @COLOR_PRIMARY@;
         border-radius: 6px;
+    }
+
+    QSlider::groove:horizontal {
+        height: 7px;
+        background: @COLOR_SLIDER_TRACK@;
+        border: 1px solid @COLOR_BORDER_SUBTLE@;
+        border-radius: 4px;
+    }
+    QSlider::sub-page:horizontal {
+        background: @COLOR_SLIDER_STANDARD_FILL@;
+        border-radius: 4px;
+    }
+    QSlider::add-page:horizontal {
+        background: @COLOR_SLIDER_TRACK@;
+        border-radius: 4px;
+    }
+    QSlider::handle:horizontal {
+        width: 18px;
+        height: 18px;
+        margin: -6px 0px;
+        background: @COLOR_SLIDER_HANDLE@;
+        border: 2px solid @COLOR_SLIDER_HANDLE_BORDER@;
+        border-radius: 9px;
+    }
+    QSlider::handle:horizontal:hover {
+        background: @COLOR_SLIDER_HANDLE_HOVER@;
+        border-color: @COLOR_TEXT_PRIMARY@;
+    }
+    QSlider:disabled::groove:horizontal,
+    QSlider:disabled::add-page:horizontal,
+    QSlider:disabled::sub-page:horizontal {
+        background: @COLOR_BG_INPUT@;
+        border-color: @COLOR_BORDER_SUBTLE@;
+    }
+    QSlider:disabled::handle:horizontal {
+        background: @COLOR_TEXT_DISABLED@;
+        border-color: @COLOR_BORDER_SUBTLE@;
     }
     QCheckBox {
         color: @COLOR_TEXT_PRIMARY@;

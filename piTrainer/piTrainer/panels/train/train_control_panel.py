@@ -9,7 +9,7 @@ class TrainControlPanel(QGroupBox):
     def __init__(self, prepare_callback, start_callback, stop_callback, save_model_callback) -> None:
         super().__init__("Training Controls")
         self.prepare_btn = QPushButton("Prepare Split")
-        self.prepare_btn.setProperty('role', 'secondary')
+        self.prepare_btn.setProperty('role', 'amber')
         self.prepare_btn.clicked.connect(prepare_callback)
         self.start_btn = QPushButton("Start Training")
         style_next_step_button(self.start_btn, "Start Training")

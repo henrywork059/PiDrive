@@ -75,7 +75,7 @@ class SessionSourcePanel(QGroupBox):
         browse_btn.clicked.connect(self._browse)
 
         refresh_btn = QPushButton('Refresh')
-        refresh_btn.setProperty('role', 'secondary')
+        refresh_btn.setProperty('role', 'amber')
         refresh_btn.clicked.connect(self._refresh)
 
         path_row = QHBoxLayout()

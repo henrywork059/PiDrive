@@ -36,6 +36,7 @@ Preserve these accepted V6 behaviours:
 - Horizontal scrollbars only when panel content is reduced too far.
 - Compact top guide banner.
 - Green action buttons without the old `Next Step:` label prefix.
+- Yellow amber buttons only for prerequisite/setup actions that should normally be completed before the main green action.
 - Central style/format control through `piTrainer/piTrainer/ui/formatting.py` and `piTrainer/piTrainer/ui/styles.py`.
 - Central colour tokens through `piTrainer/piTrainer/ui/theme.py`; do not scatter local hex colours through panels/services.
 - Visible version in the app window/status area.
@@ -57,8 +58,11 @@ Preserve these accepted V6 behaviours:
 - Keep the Record Preview table horizontally anchored to the first column after multi-row selection.
 - Keep batch frame deletion tied to the Data Control confirmation checkbox; do not restore repeated confirmation popups for every delete.
 - Keep compact banner guide labels free from the old `Show:` prefix.
-- Keep Browse/location-picking buttons yellow-forward amber, not brown.
-- Keep splitter handles and scrollbars slim so they do not dominate narrow panels.
+- Keep Browse/location-picking and other prerequisite setup buttons yellow-forward amber, not brown.
+- Keep green for main actions, including `nextStep` and `primary` action roles.
+- Keep scrollbars readable but still slim; V6.6 uses about 30% thicker scrollbars than V6.5 after user review.
+- Keep splitter handles slim so they do not dominate narrow panels.
+- Keep the Edit Steering slider fill centred on neutral steering instead of filling from the left edge.
 
 ## Packaging checklist
 

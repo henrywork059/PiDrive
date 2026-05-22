@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 
-FORMAT_VERSION = "0_6_5_color_system_slim_splitters"
+FORMAT_VERSION = "0_6_6_action_colours_scrollbar_steering_slider"
 
 
 @dataclass(frozen=True)
@@ -71,7 +71,7 @@ DENSITY_PROFILES: Mapping[str, DensityProfile] = {
         input_min=24,
         main_tab_min=104,
         workflow_tab_min=72,
-        scrollbar=5,
+        scrollbar=7,
         banner_margin=(9, 5, 9, 5),
         banner_spacing=4,
         page_margin=(6, 5, 6, 6),
@@ -98,7 +98,7 @@ DENSITY_PROFILES: Mapping[str, DensityProfile] = {
         input_min=25,
         main_tab_min=118,
         workflow_tab_min=78,
-        scrollbar=6,
+        scrollbar=8,
         banner_margin=(10, 6, 10, 6),
         banner_spacing=5,
         page_margin=(8, 7, 8, 8),
@@ -125,7 +125,7 @@ DENSITY_PROFILES: Mapping[str, DensityProfile] = {
         input_min=26,
         main_tab_min=132,
         workflow_tab_min=86,
-        scrollbar=6,
+        scrollbar=8,
         banner_margin=(11, 6, 11, 6),
         banner_spacing=5,
         page_margin=(10, 8, 10, 10),

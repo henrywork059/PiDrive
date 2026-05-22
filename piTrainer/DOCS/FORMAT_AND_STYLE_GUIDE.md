@@ -205,7 +205,7 @@ Typical density-controlled items:
 - scrollbar width;
 - splitter handle width;
 
-Current V6.5 sizing rule: scrollbars and splitter handles use slimmer values than V6.4. They were reduced by about half to stop the divider/scroll rails from visually dominating narrow panels while still remaining draggable.
+Current V6.6 sizing rule: splitter handles stay slim, while scrollbars are about 30% thicker than V6.5 so they remain easier to see and grab after user review.
 - workflow and panel soft widths.
 
 ## Colour roles
@@ -216,18 +216,28 @@ The colour source of truth is:
 piTrainer/piTrainer/ui/theme.py
 ```
 
-The Qt stylesheet should reference semantic colour tokens through `styles.py` / `formatting.py`, and matplotlib plots should use `theme_color()` instead of local hex values. The palette follows these practical rules: high text contrast, neutral dark surfaces, blue/cyan for navigation and focus, green for guided next actions, yellow amber for browsing/location-picking, and red/pink only for destructive or error states.
+The Qt stylesheet should reference semantic colour tokens through `styles.py` / `formatting.py`, and matplotlib plots should use `theme_color()` instead of local hex values. The palette follows these practical rules: high text contrast, neutral dark surfaces, blue/cyan for navigation and focus, green for main actions, yellow amber for prerequisite/setup actions that normally need to happen before a main green action, and red/pink only for destructive or error states.
 
 Use the existing role system:
 
-- `nextStep`: green main workflow action;
-- `primary`: main blue action when it is not the green workflow action;
-- `secondary`: normal actions;
-- `amber`: browse/location-picking actions; the accepted shade is now yellow-forward amber with dark text so Browse stands out clearly;
+- `nextStep`: large green main workflow action;
+- `primary`: green main action inside a panel when the button is not the large guided workflow button;
+- `secondary`: normal supporting actions;
+- `amber`: prerequisite/setup actions that usually happen before the main action, such as Browse, Refresh, Preview Preprocess, Prepare Split, or Browse Model; the accepted shade is yellow-forward amber with dark text;
 - `danger`: destructive actions;
 - `muted`, `hint`, `intro`, `statValue`, `summaryLine`, `summaryBlock`, `panelSubtitle`: label/text roles.
 
 Do not add random one-off colour schemes inside panels. If a new colour is needed, add a semantic token to `theme.py`, then consume it through the central stylesheet or plotting helpers.
+
+
+## Sliders
+
+Steering and speed sliders should not use the same fill logic when their value ranges are different.
+
+- Speed is a 0-to-1 value, so a normal left-to-right fill is correct.
+- Steering is a -1-to-1 value, so neutral steering is in the middle. The Edit Steering slider should fill outward from the centre marker, not from the left edge.
+
+Use the shared slider helper in `piTrainer/piTrainer/ui/sliders.py` for centred-fill steering sliders rather than patching local paint logic into each panel.
 
 ## Version display
 
