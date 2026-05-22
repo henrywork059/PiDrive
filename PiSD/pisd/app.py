@@ -609,7 +609,7 @@ def create_app(hardware_enabled: bool = False):
 
     @app.get("/api/ai/status")
     def api_ai_status():
-        return jsonify(ok_payload("AI mode status loaded.", ai=ai_drive_service.status()))
+        return jsonify(ok_payload("AI mode status loaded.", ai=ai_drive_service.status(), motor=motor_service.status()))
 
     @app.get("/api/ai/models")
     def api_ai_models():

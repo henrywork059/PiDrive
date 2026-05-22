@@ -51,6 +51,7 @@ DEFAULT_RUNTIME_SETTINGS: dict[str, Any] = {
             "perspective_depth": 0.92,
             "turn_compression": 0.075,
             "turn_width_taper": 0.08,
+            "turn_rate_visual_scale": 2.2,
         },
     },
     "ai_mode": {

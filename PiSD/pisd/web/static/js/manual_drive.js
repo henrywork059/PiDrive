@@ -36,6 +36,14 @@
       turn_width_taper: 0.08,
     },
   };
+  const DEFAULT_MOTOR_SETTINGS = {
+    steering_mode: 'turn_rate',
+    steer_mix: 1.0,
+    turn_gain: 0.75,
+    turn_curve: 1.5,
+    min_inside_speed: 0.0,
+    allow_pivot_turn: false,
+  };
   const globalCode = $('mdrvGlobalCode');
   const preview = $('mdrvPreview');
   const log = $('mdrvLog');
@@ -122,6 +130,7 @@
   const overlayPerspectiveDepth = $('mdrvOverlayPerspectiveDepth');
   const overlayTurnCompression = $('mdrvOverlayTurnCompression');
   const overlayTurnWidthTaper = $('mdrvOverlayTurnWidthTaper');
+  const overlayTurnRateVisualScale = $('mdrvOverlayTurnRateVisualScale');
   let dragging = false;
   let lastSentAt = 0;
   const STOP_COMMAND = { steering: 0, throttle: 0 };
@@ -135,6 +144,7 @@
   const PREVIEW_IDLE_SRC = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720'%3E%3Crect width='1280' height='720' fill='%23020617'/%3E%3Ctext x='640' y='340' fill='%2394a3b8' font-family='Arial,sans-serif' font-size='42' text-anchor='middle'%3EPreview idle%3C/text%3E%3Ctext x='640' y='398' fill='%2364748b' font-family='Arial,sans-serif' font-size='26' text-anchor='middle'%3EPress Start camera or Live stream%3C/text%3E%3C/svg%3E";
   let currentPreviewMode = "idle";
   let overlaySettings = { ...DEFAULTS.overlay };
+  let latestMotorSettings = { ...DEFAULT_MOTOR_SETTINGS };
   let overlayPersistTimer = 0;
   let lastOverlaySource = 'stopped';
   let manualDriveActive = false;
@@ -168,12 +178,31 @@
     ['perspective_depth', overlayPerspectiveDepth],
     ['turn_compression', overlayTurnCompression],
     ['turn_width_taper', overlayTurnWidthTaper],
+    ['turn_rate_visual_scale', overlayTurnRateVisualScale],
   ];
 
   function isOk(code) { return String(code || '').startsWith('PISD-OK'); }
   function clamp(value, min, max, fallback = 0) {
     const n = Number(value);
     return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : fallback;
+  }
+  function normaliseMotorOverlaySettings(raw = {}) {
+    const source = raw && typeof raw === 'object' ? raw : {};
+    const mode = String(source.steering_mode || DEFAULT_MOTOR_SETTINGS.steering_mode).trim().toLowerCase();
+    const allowPivot = typeof source.allow_pivot_turn === 'string'
+      ? ['true', '1', 'yes', 'on'].includes(source.allow_pivot_turn.trim().toLowerCase())
+      : Boolean(source.allow_pivot_turn ?? DEFAULT_MOTOR_SETTINGS.allow_pivot_turn);
+    return {
+      steering_mode: mode === 'arcade_mix' ? 'arcade_mix' : 'turn_rate',
+      steer_mix: clamp(source.steer_mix, 0, 2, DEFAULT_MOTOR_SETTINGS.steer_mix),
+      turn_gain: clamp(source.turn_gain, 0, 5, DEFAULT_MOTOR_SETTINGS.turn_gain),
+      turn_curve: clamp(source.turn_curve, 0.05, 8, DEFAULT_MOTOR_SETTINGS.turn_curve),
+      min_inside_speed: clamp(source.min_inside_speed, 0, 0.99, DEFAULT_MOTOR_SETTINGS.min_inside_speed),
+      allow_pivot_turn: allowPivot,
+    };
+  }
+  function updateOverlayMotorSettings(motor = {}) {
+    latestMotorSettings = normaliseMotorOverlaySettings({ ...latestMotorSettings, ...(motor || {}) });
   }
   function maxSpeedLimit() {
     return clamp(readRuntimeLocal().manual_drive?.max_speed_limit || DEFAULTS.max_speed_limit, 0.1, 1.0, DEFAULTS.max_speed_limit);
@@ -608,6 +637,7 @@
       steering,
       settings: overlaySettings,
       defaults: DEFAULTS.overlay,
+      motorSettings: latestMotorSettings,
     });
   }
 
@@ -618,7 +648,7 @@
     const steeringAbs = Math.abs(safeSteering);
     const movingForward = safeThrottle >= 0.02;
     const movingReverse = safeThrottle < -0.02;
-    const { leftPath, rightPath, centerPath, surfacePath, start, end, curve, speed } = roadGuideGeometry(safeThrottle, safeSteering);
+    const { leftPath, rightPath, centerPath, surfacePath, start, end, curve, speed, turnIntent, steeringMode } = roadGuideGeometry(safeThrottle, safeSteering);
     const calibratedOpacity = boundedOpacity(overlaySettings.opacity || DEFAULTS.overlay.opacity);
     const widthScale = Math.max(0.05, Math.abs(overlaySettings.path_width_scale || 1.0));
     const opacity = movingReverse ? '0' : (movingForward || steeringAbs >= 0.02 ? String(calibratedOpacity) : String(Math.max(0.12, calibratedOpacity * 0.26)));
@@ -658,7 +688,8 @@
         overlayCurveLabel.textContent = 'reverse · guide hidden';
       } else {
         const curveText = Math.abs(curve) < 0.08 ? 'trapezium' : `road curve ${Math.abs(curve).toFixed(2)}`;
-        overlayCurveLabel.textContent = `${curveLabelText(safeThrottle, safeSteering)} · ${curveText}`;
+        const modeText = steeringMode === 'arcade_mix' ? 'arcade overlay' : `turn ${Math.abs(Number(turnIntent || 0)).toFixed(2)}`;
+        overlayCurveLabel.textContent = `${curveLabelText(safeThrottle, safeSteering)} · ${modeText} · ${curveText}`;
       }
     }
     if (previewFrame) {
@@ -706,6 +737,7 @@
 
   function renderMotorSignalsFromApiResponse(payload, fallbackCommand = lastPayload, sourceHint = 'live status') {
     const motor = payload?.motor || {};
+    updateOverlayMotorSettings(motor);
     const command = motor.last_command || fallbackCommand || lastPayload;
     const output = {
       left: payload?.left ?? motor.last_left ?? lastMotorOutput.left,
@@ -928,6 +960,7 @@
   }
 
   function renderStatus(status) {
+    updateOverlayMotorSettings(status?.motor || {});
     $('mdrvHardware').textContent = status.hardware_requested ? 'on' : 'sim';
     $('mdrvCameraState').textContent = status.camera?.running ? 'run' : (status.camera?.backend || 'off');
     $('mdrvMotorState').textContent = status.motor?.hardware_enabled ? 'hw' : 'sim';

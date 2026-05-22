@@ -22,6 +22,19 @@
     perspective_depth: 0.92,
     turn_compression: 0.075,
     turn_width_taper: 0.08,
+    // PiSD_0_7_2: maps the unitless turn_rate motor command to visual ground-plane curvature.
+    // This keeps Turn Gain / Turn Curve aligned with the overlay without making the
+    // displayed path too flat after dropping the older wheelbase/tan-only mapping.
+    turn_rate_visual_scale: 2.2,
+  };
+
+  const DEFAULT_MOTOR = {
+    steering_mode: 'turn_rate',
+    steer_mix: 1.0,
+    turn_gain: 0.75,
+    turn_curve: 1.5,
+    min_inside_speed: 0.0,
+    allow_pivot_turn: false,
   };
 
   function clamp(value, min, max, fallback = 0) {
@@ -40,6 +53,37 @@
     const fromDefaults = defaults && Object.prototype.hasOwnProperty.call(defaults, key) ? Number(defaults[key]) : NaN;
     if (Number.isFinite(fromDefaults)) return fromDefaults;
     return DEFAULT_OVERLAY[key];
+  }
+
+  function motorNumberSetting(motorSettings, key, fallback) {
+    const value = motorSettings && Object.prototype.hasOwnProperty.call(motorSettings, key) ? Number(motorSettings[key]) : NaN;
+    return Number.isFinite(value) ? value : fallback;
+  }
+
+  function motorBoolSetting(motorSettings, key, fallback = false) {
+    if (!motorSettings || !Object.prototype.hasOwnProperty.call(motorSettings, key)) return Boolean(fallback);
+    const value = motorSettings[key];
+    if (typeof value === 'string') return ['true', '1', 'yes', 'on'].includes(value.trim().toLowerCase());
+    return Boolean(value);
+  }
+
+  function normaliseMotorSettings(motorSettings = {}) {
+    const mode = String(motorSettings.steering_mode || DEFAULT_MOTOR.steering_mode).trim().toLowerCase();
+    return {
+      steering_mode: mode === 'arcade_mix' ? 'arcade_mix' : 'turn_rate',
+      steer_mix: clamp(motorNumberSetting(motorSettings, 'steer_mix', DEFAULT_MOTOR.steer_mix), 0, 2, DEFAULT_MOTOR.steer_mix),
+      turn_gain: clamp(motorNumberSetting(motorSettings, 'turn_gain', DEFAULT_MOTOR.turn_gain), 0, 5, DEFAULT_MOTOR.turn_gain),
+      turn_curve: clamp(motorNumberSetting(motorSettings, 'turn_curve', DEFAULT_MOTOR.turn_curve), 0.05, 8, DEFAULT_MOTOR.turn_curve),
+      min_inside_speed: clamp(motorNumberSetting(motorSettings, 'min_inside_speed', DEFAULT_MOTOR.min_inside_speed), 0, 0.99, DEFAULT_MOTOR.min_inside_speed),
+      allow_pivot_turn: motorBoolSetting(motorSettings, 'allow_pivot_turn', DEFAULT_MOTOR.allow_pivot_turn),
+    };
+  }
+
+  function turnRateIntent(steering, motor) {
+    const safeSteering = clamp(steering, -1, 1, 0);
+    if (Math.abs(safeSteering) <= 1e-6) return 0;
+    const shaped = Math.pow(Math.abs(safeSteering), motor.turn_curve);
+    return clamp(Math.sign(safeSteering) * shaped * motor.turn_gain, -1, 1, 0);
   }
 
   function appendCurveSegments(points, commands) {
@@ -120,11 +164,25 @@
     const perspectiveDepth = Math.max(0.05, Math.abs(numberSetting(settings, defaults, 'perspective_depth')) || DEFAULT_OVERLAY.perspective_depth);
     const turnCompressionSetting = finiteOr(numberSetting(settings, defaults, 'turn_compression'), DEFAULT_OVERLAY.turn_compression);
     const turnWidthTaperSetting = finiteOr(numberSetting(settings, defaults, 'turn_width_taper'), DEFAULT_OVERLAY.turn_width_taper);
+    const turnRateVisualScale = Math.max(0.01, Math.abs(numberSetting(settings, defaults, 'turn_rate_visual_scale')) || DEFAULT_OVERLAY.turn_rate_visual_scale);
+    const motor = normaliseMotorSettings(options.motorSettings || {});
     const visualSteering = safeSteering;
-    const shapedSteering = Math.sign(visualSteering) * Math.pow(Math.abs(visualSteering), curveResponse);
-    const steerRad = shapedSteering * maxSteerRad;
     const curvatureGain = (Number.isFinite(curveStrength) && DEFAULT_OVERLAY.curve_strength !== 0) ? curveStrength / DEFAULT_OVERLAY.curve_strength : 1.0;
-    const curvature = clamp((Math.tan(steerRad) / wheelbase) * curvatureScale * curvatureGain, -curvatureLimit, curvatureLimit, 0);
+    const turnIntent = turnRateIntent(visualSteering, motor);
+    let curvature = 0;
+    if (motor.steering_mode === 'turn_rate') {
+      // PiSD_0_7_2: mirror MotorService turn_rate semantics. Steering now means
+      // unitless path tightness, not a wheel-angle proxy, so Turn Gain and Turn
+      // Curve must shape the overlay in the same way they shape motor output.
+      curvature = turnIntent * curvatureScale * curvatureGain * turnRateVisualScale;
+    } else {
+      // Fallback for the old arcade mixer. This preserves the previous visual
+      // behaviour when users deliberately switch motor steering_mode back.
+      const shapedSteering = Math.sign(visualSteering) * Math.pow(Math.abs(visualSteering), curveResponse);
+      const steerRad = shapedSteering * maxSteerRad;
+      curvature = (Math.tan(steerRad) / wheelbase) * curvatureScale * curvatureGain * motor.steer_mix;
+    }
+    curvature = clamp(curvature, -curvatureLimit, curvatureLimit, 0);
     const roadHalfWidth = roadHalfWidthBase * visualWidthScale;
     const centerWorld = [];
     let x = 0;
@@ -190,6 +248,10 @@
       start: centerPoints[0] || { x: 50, y: baseY },
       end: centerPoints[centerPoints.length - 1] || { x: 50, y: horizonY },
       curve: curvature * curveStrength,
+      turnIntent,
+      steeringMode: motor.steering_mode,
+      turnGain: motor.turn_gain,
+      turnCurve: motor.turn_curve,
       movingReverse,
       speed,
     };
@@ -201,5 +263,7 @@
     pointsToPolygonPath,
     roadBoundaryPath,
     roadGuideGeometry,
+    normaliseMotorSettings,
+    turnRateIntent,
   };
 })();

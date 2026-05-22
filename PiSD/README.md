@@ -1,6 +1,6 @@
 # PiSD
 
-`PiSD_0_7_1` patch line — current work builds forward from the `PiSD_0_7_0` stable v7 package.
+`PiSD_0_7_2` patch line — current work builds forward from the `PiSD_0_7_0` stable v7 package.
 
 PiSD is a clean sandbox under `PiDrive/PiSD` for rebuilding and testing PiServer GUI and runtime functions from square one.
 
@@ -10,9 +10,9 @@ Future bug-fix patches after this package should use `PiSD_0_7_x_patch` naming u
 
 ## Current version
 
-`PiSD_0_7_1` — first bug-fix patch after the stable `PiSD_0_7_0` baseline.
+`PiSD_0_7_2` — overlay calculation patch after the `0_7_1` turn-rate steering algorithm update.
 
-This package consolidates the accepted `0_6_1` through `0_6_7` patch line into a full installable `PiSD/` folder rather than a patch-only zip. It should be used as the rollback point before starting future `0_7_x` patches.
+This patch line builds forward from the full installable `PiSD_0_7_0` stable package. Use `PiSD_0_7_0` as the rollback point unless a newer stable line is promoted.
 
 Included accepted work:
 
@@ -44,6 +44,7 @@ Included accepted work:
 - Hardware Manual Drive API commands require live safety and motor-output acknowledgement.
 - Manual Drive no longer overrides saved motor `steer_mix`; motor mixing is controlled by the motor settings.
 - Default motor steering mode is now `turn_rate`: left/right input controls curve tightness while up/down controls travel speed along that curve. The older `arcade_mix` behaviour remains selectable as a fallback.
+- The Manual Drive and AI Mode overlays now read the current motor steering mode, Turn Gain, and Turn Curve so the drawn path uses the same curve-tightness meaning as the motor algorithm.
 - Dashboard is labelled as a legacy/development comparison shell, with stale speed limits raised to full-scale to avoid conflicting with current Manual Drive limits.
 - Default OV5647 camera profile code includes the attempted `03_request_awb_off_lock` request/PIL RGB visual profile and safe runtime migration. This still needs real Pi confirmation if colour does not match the earlier 03/91 diagnostic captures on a specific camera.
 

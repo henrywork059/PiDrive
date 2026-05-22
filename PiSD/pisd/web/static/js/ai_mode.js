@@ -21,6 +21,15 @@
     curve_strength: 3.35,
     opacity: 0.94,
     path_width_scale: 0.34,
+    turn_rate_visual_scale: 2.2,
+  };
+  const DEFAULT_MOTOR_SETTINGS = {
+    steering_mode: 'turn_rate',
+    steer_mix: 1.0,
+    turn_gain: 0.75,
+    turn_curve: 1.5,
+    min_inside_speed: 0.0,
+    allow_pivot_turn: false,
   };
 
   let statusTimer = null;
@@ -28,11 +37,32 @@
   let overlayEnabled = true;
   let lastAIStatus = initial.ai_mode || {};
   let aiMotorEnableInitialised = false;
+  let latestMotorSettings = { ...DEFAULT_MOTOR_SETTINGS };
 
   function clamp(value, min = -1, max = 1, fallback = 0) {
     const n = Number(value);
     if (!Number.isFinite(n)) return fallback;
     return Math.min(max, Math.max(min, n));
+  }
+
+  function normaliseMotorOverlaySettings(raw = {}) {
+    const source = raw && typeof raw === 'object' ? raw : {};
+    const mode = String(source.steering_mode || DEFAULT_MOTOR_SETTINGS.steering_mode).trim().toLowerCase();
+    const allowPivot = typeof source.allow_pivot_turn === 'string'
+      ? ['true', '1', 'yes', 'on'].includes(source.allow_pivot_turn.trim().toLowerCase())
+      : Boolean(source.allow_pivot_turn ?? DEFAULT_MOTOR_SETTINGS.allow_pivot_turn);
+    return {
+      steering_mode: mode === 'arcade_mix' ? 'arcade_mix' : 'turn_rate',
+      steer_mix: clamp(source.steer_mix, 0, 2, DEFAULT_MOTOR_SETTINGS.steer_mix),
+      turn_gain: clamp(source.turn_gain, 0, 5, DEFAULT_MOTOR_SETTINGS.turn_gain),
+      turn_curve: clamp(source.turn_curve, 0.05, 8, DEFAULT_MOTOR_SETTINGS.turn_curve),
+      min_inside_speed: clamp(source.min_inside_speed, 0, 0.99, DEFAULT_MOTOR_SETTINGS.min_inside_speed),
+      allow_pivot_turn: allowPivot,
+    };
+  }
+
+  function updateOverlayMotorSettings(motor = {}) {
+    latestMotorSettings = normaliseMotorOverlaySettings({ ...latestMotorSettings, ...(motor || {}) });
   }
 
   function fmt(value, digits = 2) {
@@ -165,6 +195,7 @@
       steering,
       settings: AI_OVERLAY_SETTINGS,
       defaults: AI_OVERLAY_SETTINGS,
+      motorSettings: latestMotorSettings,
     });
   }
 
@@ -175,7 +206,7 @@
     const steeringAbs = Math.abs(safeSteering);
     const movingForward = safeThrottle >= 0.02;
     const movingReverse = safeThrottle < -0.02;
-    const { leftPath, rightPath, centerPath, surfacePath, start, end, curve, speed } = roadGuideGeometry(safeThrottle, safeSteering);
+    const { leftPath, rightPath, centerPath, surfacePath, start, end, curve, speed, turnIntent, steeringMode } = roadGuideGeometry(safeThrottle, safeSteering);
     const opacity = movingReverse ? '0' : (movingForward || steeringAbs >= 0.02 ? String(AI_OVERLAY_SETTINGS.opacity) : String(Math.max(0.12, AI_OVERLAY_SETTINGS.opacity * 0.26)));
     const widthScale = AI_OVERLAY_SETTINGS.path_width_scale;
     if (els.aiOverlaySurface) {
@@ -215,7 +246,8 @@
         els.aiOverlayCurveLabel.textContent = `${curveLabelText(safeThrottle, safeSteering)} · reverse guide hidden`;
       } else {
         const curveText = Math.abs(curve) < 0.08 ? 'trapezium' : `road curve ${Math.abs(curve).toFixed(2)}`;
-        els.aiOverlayCurveLabel.textContent = `${curveLabelText(safeThrottle, safeSteering)} · ${curveText}`;
+        const modeText = steeringMode === 'arcade_mix' ? 'arcade overlay' : `turn ${Math.abs(Number(turnIntent || 0)).toFixed(2)}`;
+        els.aiOverlayCurveLabel.textContent = `${curveLabelText(safeThrottle, safeSteering)} · ${modeText} · ${curveText}`;
       }
     }
     if (els.aiPreviewFrame) {
@@ -289,6 +321,7 @@
   async function refreshStatus() {
     try {
       const data = await api('/api/ai/status');
+      updateOverlayMotorSettings(data.motor || {});
       renderAI(data.ai || {});
       if (els.aiGlobalCode) els.aiGlobalCode.textContent = data.code || 'PISD-OK-000';
       return data;
@@ -458,6 +491,7 @@
   enforceFullScaleThrottleRanges();
   setPreview('idle', '');
   setOverlayEnabled(true);
+  updateOverlayMotorSettings(initial.motor || {});
   renderAI((initial.ai_mode || {}));
   wireRanges();
   bind();

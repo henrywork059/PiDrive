@@ -54,7 +54,7 @@ def static_checks() -> bool:
     js = (ROOT / 'pisd/web/static/js/manual_drive.js').read_text(encoding='utf-8')
     ok &= line('mdrvDragPad' in html and 'mdrvDragKnob' in html, PiSDErrorCodes.OK if 'mdrvDragPad' in html else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED, 'manual_drive.drag_pad_markup', 'drag pad markup present')
     ok &= line('/api/settings' in js and 'pointerdown' in js and 'pointermove' in js, PiSDErrorCodes.OK if '/api/settings' in js else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED, 'manual_drive.drag_pad_logic', 'drag pad and settings logic present')
-    ok &= line('mdrvOverlayLengthScale' in html and 'persistOverlaySettingsSoon' in js and 'normaliseOverlaySettings' in js, PiSDErrorCodes.OK if 'mdrvOverlayLengthScale' in html else PiSDErrorCodes.TEST_SETTINGS_PERSISTENCE_FAILED, 'manual_drive.overlay_settings', 'overlay calibration settings are present and persisted')
+    ok &= line('mdrvOverlayLengthScale' in html and 'mdrvOverlayTurnRateVisualScale' in html and 'persistOverlaySettingsSoon' in js and 'normaliseOverlaySettings' in js, PiSDErrorCodes.OK if 'mdrvOverlayLengthScale' in html else PiSDErrorCodes.TEST_SETTINGS_PERSISTENCE_FAILED, 'manual_drive.overlay_settings', 'overlay calibration settings are present and persisted')
     stjs = (ROOT / 'pisd/web/static/js/settings_tab.js').read_text(encoding='utf-8')
     ok &= line('/api/settings/apply' in stjs and 'panel_presentation' in stjs, PiSDErrorCodes.OK if '/api/settings/apply' in stjs else PiSDErrorCodes.TEST_SETTINGS_PERSISTENCE_FAILED, 'settings_tab.backend_apply', 'settings tab saves and applies backend settings')
     settings_html = (ROOT / 'pisd/web/templates/settings_tab.html').read_text(encoding='utf-8')
@@ -70,7 +70,7 @@ def manager_checks() -> bool:
         mgr = SettingsManager(path, {'camera': {'width': 426, 'auto_white_balance': False, 'awb_settle_seconds': 1.0}, 'motor': {'steer_mix': 1.0}})
         ok &= line(mgr.get()['camera']['width'] == 426, PiSDErrorCodes.OK, 'settings.manager.defaults', 'defaults loaded')
         ok &= line(mgr.get()['camera']['auto_white_balance'] is False and mgr.get()['camera']['awb_settle_seconds'] == 1.0, PiSDErrorCodes.OK, 'settings.manager.camera_default_profile', '0.5.6 camera default profile loaded')
-        saved, settings, report = mgr.save({'manual_drive': {'speed': 0.22, 'overlay': {'path_length_scale': 9, 'curve_strength': 0.1, 'opacity': 'bad', 'path_width_scale': 1.4, 'sample_count': 128, 'perspective_scale': 105}}, 'panel_presentation': {'theme': 'light'}})
+        saved, settings, report = mgr.save({'manual_drive': {'speed': 0.22, 'overlay': {'path_length_scale': 9, 'curve_strength': 0.1, 'opacity': 'bad', 'path_width_scale': 1.4, 'sample_count': 128, 'perspective_scale': 105, 'turn_rate_visual_scale': 3.1}}, 'panel_presentation': {'theme': 'light'}})
         ok &= line(saved and settings['manual_drive']['speed'] == 0.22, PiSDErrorCodes.OK if saved else report.code, 'settings.manager.save', 'settings saved')
         overlay = settings['manual_drive']['overlay']
         ok &= line(
@@ -79,7 +79,8 @@ def manager_checks() -> bool:
             and overlay['opacity'] == 0.94
             and overlay['path_width_scale'] == 1.4
             and overlay['sample_count'] == 128
-            and overlay['perspective_scale'] == 105,
+            and overlay['perspective_scale'] == 105
+            and overlay['turn_rate_visual_scale'] == 3.1,
             PiSDErrorCodes.OK,
             'settings.manager.overlay_unclamped',
             'overlay calibration numbers are preserved without old slider clamps',

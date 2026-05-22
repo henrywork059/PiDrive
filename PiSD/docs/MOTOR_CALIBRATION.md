@@ -141,7 +141,7 @@ Use this file to compare car setups and decide which direction multipliers or pi
 
 ## Manual Drive steering algorithm modes
 
-PiSD 0.7.1 changes the default steering interpretation for normal drive commands.
+PiSD 0.7.1 changes the default steering interpretation for normal drive commands. PiSD 0.7.2 updates the visual path overlay to use the same turn-rate calculation for drawing.
 
 The old mode is still available as `arcade_mix`:
 
@@ -185,6 +185,22 @@ Available motor settings:
 | `min_inside_speed` | Minimum inside-wheel factor in non-pivot mode. Use this if the inside wheel stopping makes the car drag or stall. |
 | `allow_pivot_turn` | Allows the inside wheel to reverse for very tight turns and zero-throttle pivoting. Default is `false`. |
 | `steer_mix` | Used by `arcade_mix` fallback mode. It is kept for compatibility and calibration comparisons. |
+
+
+### Visual path overlay alignment
+
+The Manual Drive and AI Mode path overlay now follows the same steering meaning as the motor service:
+
+```text
+turn_intent = sign(steering) * abs(steering) ** turn_curve * turn_gain
+turn_intent = clamp(turn_intent, -1.0, 1.0)
+```
+
+When `steering_mode` is `turn_rate`, the overlay uses this `turn_intent` as the curve-tightness source before applying visual-only projection/taper settings. This means changing `Turn Gain` or `Turn Curve` changes both the real wheel-speed mapping and the predicted path shape shown on screen.
+
+When `steering_mode` is switched back to `arcade_mix`, the overlay keeps the older wheelbase/tan-style visual fallback so legacy mixer comparisons still make sense.
+
+The extra Manual Drive overlay setting `turn_rate_visual_scale` is visual-only. It controls how strongly the unitless turn-rate command is drawn, but it does not change motor output.
 
 Expected behaviour with default `turn_rate` mode:
 
