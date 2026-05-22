@@ -83,8 +83,13 @@ class TrainPage(DockPage):
             workspace,
             step='3 of 5',
             title='Train',
-            summary='Prepare the train/validation split, start model training, and watch epoch examples plus the live log.',
-            next_step='Next: click the green Start Training button when the split summary looks correct.',
+            summary='Prepare the split, start model training, and watch epoch examples plus the live log.',
+            next_step='Show: Start Training',
+            next_callback=lambda: self.reveal_widget(
+                self.control_panel.start_btn,
+                message='Showing the green Start Training button.'
+            ),
+            next_tooltip='Click to show the green Start Training button in Training Workflow > Setup > Training Controls.',
         )
 
     def refresh_from_state(self) -> None:

@@ -107,8 +107,13 @@ class DataPage(DockPage):
             workspace,
             step='1 of 5',
             title='Data',
-            summary='Load PiSD/piTrainer recording sessions, inspect labels, and confirm the V7 overlay before preparing a dataset.',
-            next_step='Next: select session(s) and click the green Load Selected button.',
+            summary='Load sessions, inspect labels, and confirm the V7 overlay before preparing a dataset.',
+            next_step='Show: Load Selected',
+            next_callback=lambda: self.reveal_widget(
+                self.session_source_panel.load_btn,
+                message='Showing the green Load Selected button.'
+            ),
+            next_tooltip='Click to show the green Load Selected button in Data Workflow > Load > Session Source.',
         )
 
     @staticmethod

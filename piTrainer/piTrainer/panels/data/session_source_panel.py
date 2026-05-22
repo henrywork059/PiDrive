@@ -93,7 +93,7 @@ class SessionSourcePanel(QGroupBox):
         self.list_widget.setSpacing(6)
         self.list_widget.setAlternatingRowColors(False)
         self.list_widget.setUniformItemSizes(False)
-        self.list_widget.setMinimumHeight(220)
+        self.list_widget.setMinimumHeight(150)
 
         select_all_btn = QPushButton('Select All')
         select_all_btn.setProperty('role', 'secondary')
@@ -101,9 +101,9 @@ class SessionSourcePanel(QGroupBox):
         clear_btn = QPushButton('Clear')
         clear_btn.setProperty('role', 'secondary')
         clear_btn.clicked.connect(self.clear_all)
-        load_btn = QPushButton('Load Selected')
-        style_next_step_button(load_btn, 'Next Step: Load Selected')
-        load_btn.clicked.connect(self.load_callback)
+        self.load_btn = QPushButton('Load Selected')
+        style_next_step_button(self.load_btn, 'Next Step: Load Selected')
+        self.load_btn.clicked.connect(self.load_callback)
 
         select_row = QHBoxLayout()
         select_row.addWidget(select_all_btn)
@@ -115,7 +115,7 @@ class SessionSourcePanel(QGroupBox):
         layout.addWidget(self.summary_label)
         layout.addWidget(self.list_widget, 1)
         layout.addLayout(select_row)
-        layout.addWidget(load_btn)
+        layout.addWidget(self.load_btn)
 
         self._apply_path_only()
         self._update_summary()

@@ -8,8 +8,10 @@ from PySide6.QtWidgets import (
     QFrame,
     QLabel,
     QMainWindow,
+    QScrollArea,
     QSizePolicy,
     QSplitter,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -20,7 +22,7 @@ from ..ui.formatting import (
     apply_splitter_format,
     set_box_layout_format,
 )
-from ..ui.layout_widgets import make_page_banner, make_panel_content_scroll
+from ..ui.layout_widgets import CollapsibleSection, make_page_banner, make_panel_content_scroll
 
 
 class ResponsiveSplitter(QSplitter):
@@ -162,6 +164,8 @@ class DockPage(QMainWindow):
         title: str = '',
         summary: str = '',
         next_step: str = '',
+        next_callback=None,
+        next_tooltip: str = '',
     ) -> None:
         """Set the page's central workspace with an optional workflow banner.
 
@@ -180,7 +184,7 @@ class DockPage(QMainWindow):
             wrapper.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
             layout = QVBoxLayout(wrapper)
             set_box_layout_format(layout, role="page")
-            layout.addWidget(make_page_banner(step, title, summary, next_step), 0)
+            layout.addWidget(make_page_banner(step, title, summary, next_step, next_callback, next_tooltip), 0)
             layout.addWidget(widget, 1)
             self.setCentralWidget(wrapper)
         else:
@@ -302,6 +306,61 @@ class DockPage(QMainWindow):
             stretch=stretch,
             minimums=minimums,
         )
+
+    def reveal_widget(self, widget: QWidget | None, *, message: str = '') -> None:
+        """Bring a nested action widget into view without triggering it.
+
+        Used by the compact page banner: pressing the banner button opens the
+        correct workflow tab/section, scrolls to the real green Next Step button,
+        and briefly highlights it so the user knows which control to click.
+        """
+        if widget is None:
+            return
+        self._activate_tab_ancestors(widget)
+        self._expand_section_ancestors(widget)
+        widget.show()
+        widget.setFocus(Qt.OtherFocusReason)
+        self._ensure_widget_visible(widget)
+        self._spotlight_widget(widget)
+        if message and hasattr(self, 'main_window'):
+            self.main_window.set_status_message(message)
+
+    def _activate_tab_ancestors(self, widget: QWidget) -> None:
+        current = widget.parentWidget()
+        while current is not None:
+            parent = current.parentWidget()
+            if isinstance(parent, QTabWidget):
+                index = parent.indexOf(current)
+                if index >= 0:
+                    parent.setCurrentIndex(index)
+            current = parent
+
+    def _expand_section_ancestors(self, widget: QWidget) -> None:
+        current = widget.parentWidget()
+        while current is not None:
+            if isinstance(current, CollapsibleSection):
+                current.set_expanded(True)
+            current = current.parentWidget()
+
+    def _ensure_widget_visible(self, widget: QWidget) -> None:
+        for scroll_area in self.findChildren(QScrollArea):
+            content = scroll_area.widget()
+            if content is not None and (content is widget or content.isAncestorOf(widget)):
+                scroll_area.ensureWidgetVisible(widget, 24, 24)
+
+    def _spotlight_widget(self, widget: QWidget) -> None:
+        widget.setProperty('spotlight', True)
+        widget.style().unpolish(widget)
+        widget.style().polish(widget)
+        widget.update()
+
+        def clear_spotlight() -> None:
+            widget.setProperty('spotlight', False)
+            widget.style().unpolish(widget)
+            widget.style().polish(widget)
+            widget.update()
+
+        QTimer.singleShot(2600, clear_spotlight)
 
     def _layout_key(self, name: str) -> str:
         return f"{self.page_id}/{self.layout_version}/{name}"

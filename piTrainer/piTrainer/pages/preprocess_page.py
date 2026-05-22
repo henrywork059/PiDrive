@@ -82,8 +82,13 @@ class PreprocessPage(DockPage):
             workspace,
             step='2 of 5',
             title='Preprocess',
-            summary='Check row counts, apply only the filters/augmentation you need, and confirm a non-empty active dataset.',
-            next_step='Next: preview the recipe, then click the green Confirm and Start Preprocess button.',
+            summary='Check row counts, apply needed filters/augmentation, and confirm a non-empty active dataset.',
+            next_step='Show: Confirm Preprocess',
+            next_callback=lambda: self.reveal_widget(
+                self.actions_panel.apply_btn,
+                message='Showing the green Confirm and Start Preprocess button.'
+            ),
+            next_tooltip='Click to show the green Confirm and Start Preprocess button in Preprocess Workflow > Recipe.',
         )
 
     def _load_saved_recipe_if_available(self) -> None:

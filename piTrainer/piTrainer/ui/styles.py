@@ -44,8 +44,8 @@ def build_stylesheet(density: str = "comfortable") -> str:
     QFrame#pageBanner {
         background: #142238;
         border: 1px solid #315074;
-        border-left: 5px solid #5eb2ff;
-        border-radius: 9px;
+        border-left: 4px solid #5eb2ff;
+        border-radius: 7px;
     }
     QLabel#pageBannerTitle {
         color: #ffffff;
@@ -60,13 +60,21 @@ def build_stylesheet(density: str = "comfortable") -> str:
         font-size: @BASE_FONT@px;
         line-height: 1.25em;
     }
-    QLabel#pageBannerNext {
+    QPushButton#pageBannerNextButton {
         color: #eafff0;
-        background: #1f7d42;
+        background: #208242;
         border: 1px solid #77df9a;
-        border-radius: 9px;
-        padding: 7px 9px;
-        font-weight: 800;
+        border-radius: 8px;
+        padding: 4px 10px;
+        font-weight: 850;
+        text-align: center;
+    }
+    QPushButton#pageBannerNextButton:hover {
+        background: #2d9b52;
+        border-color: #a8f3bd;
+    }
+    QPushButton#pageBannerNextButton:pressed {
+        background: #166a34;
     }
     QDockWidget {
         color: #f7fbff;
@@ -157,6 +165,11 @@ def build_stylesheet(density: str = "comfortable") -> str:
     QPushButton[role='nextStep'][pulse='true'] {
         background: #2a9550;
         border-color: #b9f6c9;
+    }
+    QPushButton[role='nextStep'][spotlight='true'] {
+        background: #34aa60;
+        border: 3px solid #f3fff7;
+        color: #ffffff;
     }
     QPushButton[role='danger'] {
         background: #5b2630;

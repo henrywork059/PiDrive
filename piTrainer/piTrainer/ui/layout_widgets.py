@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import Sequence
+from typing import Callable, Sequence
 
 from PySide6.QtCore import QTimer, Qt
 from PySide6.QtWidgets import (
@@ -33,8 +33,16 @@ TabSpec = tuple[str, QWidget] | tuple[str, QWidget, str]
 
 
 
-def make_page_banner(step: str, title: str, summary: str, next_step: str = '') -> QFrame:
-    """Create a consistent page header that explains the current workflow stage."""
+def make_page_banner(
+    step: str,
+    title: str,
+    summary: str,
+    next_step: str = '',
+    next_callback: Callable[[], None] | None = None,
+    next_tooltip: str = '',
+) -> QFrame:
+    """Create a compact page header with an optional guided next-step button."""
+    profile = get_density_profile()
     banner = QFrame()
     banner.setObjectName('pageBanner')
     banner.setProperty('role', 'pageBanner')
@@ -48,28 +56,35 @@ def make_page_banner(step: str, title: str, summary: str, next_step: str = '') -
     summary_label = QLabel(summary)
     summary_label.setObjectName('pageBannerSummary')
     summary_label.setProperty('role', 'pageBannerSummary')
-    summary_label.setWordWrap(True)
+    # Keep the banner compact: detailed controls live in the workflow panel.
+    summary_label.setWordWrap(False)
     summary_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+    summary_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
     text_layout = QVBoxLayout()
     text_layout.setContentsMargins(0, 0, 0, 0)
-    text_layout.setSpacing(max(2, get_density_profile().panel_spacing - 3))
+    text_layout.setSpacing(1)
     text_layout.addWidget(title_label)
     text_layout.addWidget(summary_label)
 
     layout = QHBoxLayout(banner)
-    set_box_layout_format(layout, role='panel')
+    layout.setContentsMargins(*profile.banner_margin)
+    layout.setSpacing(profile.banner_spacing)
     layout.addLayout(text_layout, 1)
 
     if next_step:
-        next_label = QLabel(next_step)
-        next_label.setObjectName('pageBannerNext')
-        next_label.setProperty('role', 'pageBannerNext')
-        next_label.setWordWrap(True)
-        next_label.setMinimumWidth(170)
-        next_label.setMaximumWidth(320)
-        next_label.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
-        layout.addWidget(next_label, 0, Qt.AlignRight | Qt.AlignVCenter)
+        next_button = QPushButton(next_step)
+        next_button.setObjectName('pageBannerNextButton')
+        next_button.setProperty('role', 'pageBannerNext')
+        next_button.setMinimumHeight(max(26, profile.button_min))
+        next_button.setMinimumWidth(170)
+        next_button.setMaximumWidth(360)
+        next_button.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        next_button.setCursor(Qt.PointingHandCursor)
+        next_button.setToolTip(next_tooltip or 'Click to show the recommended green Next Step button.')
+        if next_callback is not None:
+            next_button.clicked.connect(next_callback)
+        layout.addWidget(next_button, 0, Qt.AlignRight | Qt.AlignVCenter)
 
     return banner
 

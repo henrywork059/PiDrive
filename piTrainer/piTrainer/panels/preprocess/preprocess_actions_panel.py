@@ -13,9 +13,9 @@ class PreprocessActionsPanel(QGroupBox):
         preview_btn.setProperty('role', 'secondary')
         preview_btn.clicked.connect(preview_callback)
 
-        apply_btn = QPushButton('Confirm and Start Preprocess')
-        style_next_step_button(apply_btn, 'Next Step: Confirm and Start Preprocess')
-        apply_btn.clicked.connect(apply_callback)
+        self.apply_btn = QPushButton('Confirm and Start Preprocess')
+        style_next_step_button(self.apply_btn, 'Next Step: Confirm and Start Preprocess')
+        self.apply_btn.clicked.connect(apply_callback)
 
         reset_btn = QPushButton('Reset Preprocess')
         reset_btn.setProperty('role', 'secondary')
@@ -35,7 +35,7 @@ class PreprocessActionsPanel(QGroupBox):
 
         layout = QVBoxLayout(self)
         layout.addWidget(preview_btn)
-        layout.addWidget(apply_btn)
+        layout.addWidget(self.apply_btn)
         layout.addWidget(reset_btn)
         layout.addWidget(save_settings_btn)
         layout.addWidget(save_data_btn)

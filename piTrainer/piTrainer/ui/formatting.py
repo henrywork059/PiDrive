@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
 )
 
 
-FORMAT_VERSION = "0_5_4_panel_overflow_scroll"
+FORMAT_VERSION = "0_5_5_compact_guided_banner"
 
 
 @dataclass(frozen=True)
@@ -41,6 +41,8 @@ class DensityProfile:
     main_tab_min: int
     workflow_tab_min: int
     scrollbar: int
+    banner_margin: tuple[int, int, int, int]
+    banner_spacing: int
     page_margin: tuple[int, int, int, int]
     page_spacing: int
     panel_margin: tuple[int, int, int, int]
@@ -68,6 +70,8 @@ DENSITY_PROFILES: Mapping[str, DensityProfile] = {
         main_tab_min=104,
         workflow_tab_min=72,
         scrollbar=10,
+        banner_margin=(9, 5, 9, 5),
+        banner_spacing=4,
         page_margin=(6, 5, 6, 6),
         page_spacing=6,
         panel_margin=(6, 5, 6, 6),
@@ -93,6 +97,8 @@ DENSITY_PROFILES: Mapping[str, DensityProfile] = {
         main_tab_min=118,
         workflow_tab_min=78,
         scrollbar=11,
+        banner_margin=(10, 6, 10, 6),
+        banner_spacing=5,
         page_margin=(8, 7, 8, 8),
         page_spacing=7,
         panel_margin=(7, 6, 7, 7),
@@ -118,6 +124,8 @@ DENSITY_PROFILES: Mapping[str, DensityProfile] = {
         main_tab_min=132,
         workflow_tab_min=86,
         scrollbar=12,
+        banner_margin=(11, 6, 11, 6),
+        banner_spacing=5,
         page_margin=(10, 8, 10, 10),
         page_spacing=8,
         panel_margin=(8, 7, 8, 8),

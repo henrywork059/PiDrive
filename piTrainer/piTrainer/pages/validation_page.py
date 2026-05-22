@@ -75,8 +75,13 @@ class ValidationPage(DockPage):
             workspace,
             step='4 of 5',
             title='Validate',
-            summary='Run the trained model on validation data, inspect worst/best frames, and send bad labels back to Data if needed.',
-            next_step='Next: click the green Run Validation button, then review high-error frames.',
+            summary='Run the model on validation data, inspect frames, and send bad labels back to Data if needed.',
+            next_step='Show: Run Validation',
+            next_callback=lambda: self.reveal_widget(
+                self.actions_panel.run_button,
+                message='Showing the green Run Validation button.'
+            ),
+            next_tooltip='Click to show the green Run Validation button in Validation Workflow > Run > Validation Actions.',
         )
 
     def refresh_from_state(self) -> None:
