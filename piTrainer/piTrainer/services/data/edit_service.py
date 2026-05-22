@@ -66,7 +66,17 @@ def _with_newline(raw_line: str) -> str:
     return raw_line if raw_line.endswith('\n') else raw_line + '\n'
 
 
-def _update_jsonl_file(path: Path, *, frame_id: str, image_name: str, ts: str, steering: float, throttle: float) -> bool:
+def _update_jsonl_file(
+    path: Path,
+    *,
+    frame_id: str,
+    image_name: str,
+    ts: str,
+    steering: float,
+    throttle: float,
+    update_steering: bool = True,
+    update_throttle: bool = True,
+) -> bool:
     if not path.exists():
         return False
 
@@ -85,14 +95,18 @@ def _update_jsonl_file(path: Path, *, frame_id: str, image_name: str, ts: str, s
                 continue
 
             if not updated and isinstance(record, dict) and _line_matches(record, frame_id=frame_id, image_name=image_name, ts=ts):
-                steer_key = _first_existing_key(record, STEER_KEYS, 'steering')
-                throttle_key = _first_existing_key(record, THROTTLE_KEYS, 'throttle')
-                record[steer_key] = float(steering)
-                record[throttle_key] = float(throttle)
+                if update_steering:
+                    steer_key = _first_existing_key(record, STEER_KEYS, 'steering')
+                    record[steer_key] = float(steering)
+                if update_throttle:
+                    throttle_key = _first_existing_key(record, THROTTLE_KEYS, 'throttle')
+                    record[throttle_key] = float(throttle)
                 training_label = record.get('training_label')
                 if isinstance(training_label, dict):
-                    training_label['steering'] = float(steering)
-                    training_label['throttle'] = float(throttle)
+                    if update_steering:
+                        training_label['steering'] = float(steering)
+                    if update_throttle:
+                        training_label['throttle'] = float(throttle)
                 updated = True
                 output_lines.append(json.dumps(record, ensure_ascii=False, sort_keys=True) + '\n')
                 continue
@@ -113,6 +127,8 @@ def update_frame_controls(
     ts: str,
     steering: float,
     throttle: float,
+    update_steering: bool = True,
+    update_throttle: bool = True,
 ) -> tuple[bool, str]:
     session_dir = resolve_session_dir(records_root, session_name)
     image_name = Path(image_path).name
@@ -124,6 +140,8 @@ def update_frame_controls(
         ts=ts,
         steering=steering,
         throttle=throttle,
+        update_steering=update_steering,
+        update_throttle=update_throttle,
     )
     records_updated = _update_jsonl_file(
         session_dir / 'records.jsonl',
@@ -132,6 +150,8 @@ def update_frame_controls(
         ts=ts,
         steering=steering,
         throttle=throttle,
+        update_steering=update_steering,
+        update_throttle=update_throttle,
     )
 
     if not labels_updated and not records_updated:
@@ -142,4 +162,10 @@ def update_frame_controls(
         targets.append('labels.jsonl')
     if records_updated:
         targets.append('records.jsonl')
-    return True, f"Updated steering/speed for frame '{frame_id}' in {', '.join(targets)}."
+    changed_fields = []
+    if update_steering:
+        changed_fields.append('steering')
+    if update_throttle:
+        changed_fields.append('speed')
+    field_label = '/'.join(changed_fields) if changed_fields else 'controls'
+    return True, f"Updated {field_label} for frame '{frame_id}' in {', '.join(targets)}."

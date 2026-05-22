@@ -97,7 +97,7 @@ The Data page uses this pattern twice:
 - `Data Workflow`: `1 Load`, `2 Manage`, `3 Review`;
 - `Data Review`: `1 Records`, `2 Stats`, `3 Plot`.
 
-Keep the record table first in `Data Review`, because row selection drives the image preview and deletion workflow. The record table should support multi-row selection for batch frame deletion, `frame_id` should remain the first visible column, and the table should keep the first column visible after multi-selection instead of horizontally jumping to later columns. Keep dataset statistics inside `Data Review`, not in the loading workflow. Keep playback controls directly underneath the image preview so frame playback stays visually tied to the currently displayed frame. Keep Frame Filter in the Manage workflow beside Data Control. Keep Merge Sessions in the Review workflow, but collapsed by default so normal review remains compact. Do not reintroduce a separate generic `Data Actions` panel; place each action beside the thing it affects, such as refresh/load in `Session Source`, delete in `Data Control`, and filter clearing in `Frame Filter`.
+Keep the record table first in `Data Review`, because row selection drives the image preview and deletion workflow. The record table should support multi-row selection for batch frame deletion and batch label editing, `frame_id` should remain the first visible column, and the table should keep the first column visible after multi-selection instead of horizontally jumping to later columns. Keep dataset statistics inside `Data Review`, not in the loading workflow. Keep playback controls directly underneath the image preview so frame playback stays visually tied to the currently displayed frame. Keep Frame Filter in the Manage workflow beside Data Control. Keep Bulk Edit Selected Frames in the Review workflow so users can apply either steering-only or speed-only changes to the selected Record Preview rows after explicit warning confirmation. Keep Merge Sessions in the Review workflow, but collapsed by default so normal review remains compact. Do not reintroduce a separate generic `Data Actions` panel; place each action beside the thing it affects, such as refresh/load in `Session Source`, delete in `Data Control`, bulk steering/speed edits in Review, and filter clearing in `Frame Filter`.
 
 ## Collapsible sections
 
@@ -112,7 +112,7 @@ Good default-collapse candidates:
 - training hyperparameter detail;
 - export detail options.
 
-Data Control is an exception: it is a destructive management tool, but the user requested it to stay expanded by default so frame deletion is easy to find. The delete action should use an explicit confirmation checkbox in Data Control. Once that checkbox is ticked, repeated delete operations should not show a separate confirmation popup every time.
+Data Control is an exception: it is a destructive management tool, but the user requested it to stay expanded by default so frame deletion is easy to find. The delete action should use an explicit confirmation checkbox in Data Control. Once that checkbox is ticked, repeated delete operations should not show a separate confirmation popup every time. Bulk Edit Selected Frames is also expanded in Review so the batch steering/speed workflow is visible, but it must keep its own overwrite-warning checkbox and a final confirmation dialog before writing labels.
 
 Bad default-collapse candidates:
 
@@ -121,6 +121,24 @@ Bad default-collapse candidates:
 - start training action;
 - run validation action;
 - export action.
+
+
+## Batch frame editing
+
+Bulk edits are intentionally separate from single-frame edits in the Image Preview panel.
+
+Expected behaviour:
+
+- users select one or more rows in `Data Review > 1 Records`;
+- `Data Workflow > 3 Review > Bulk Edit Selected Frames` shows the selected-frame count;
+- steering and speed are applied with separate buttons;
+- `Apply Steering Only` must only change steering while preserving each frame's existing speed/throttle;
+- `Apply Speed Only` must only change speed/throttle while preserving each frame's existing steering;
+- the user must tick the bulk overwrite confirmation checkbox before buttons are enabled;
+- a final warning confirmation dialog must appear before values are written to `labels.jsonl` / `records.jsonl`;
+- bulk edits should update the loaded DataFrame, stats, plot, and preview without requiring a full app restart.
+
+Do not combine steering and speed into one bulk-apply button unless the user explicitly asks. One-at-a-time application reduces accidental overwrites.
 
 ## Main action buttons
 
@@ -235,7 +253,7 @@ Do not add random one-off colour schemes inside panels. If a new colour is neede
 Steering and speed sliders should not use the same fill logic when their value ranges are different.
 
 - Speed is a 0-to-1 value, so a normal left-to-right fill is correct.
-- Steering is a -1-to-1 value, so neutral steering is in the middle. The Edit Steering slider should fill outward from the centre marker, not from the left edge.
+- Steering is a -1-to-1 value, so neutral steering is in the middle. The Edit Steering slider and bulk steering slider should fill outward from the centre marker, not from the left edge.
 
 Use the shared slider helper in `piTrainer/piTrainer/ui/sliders.py` for centred-fill steering sliders rather than patching local paint logic into each panel.
 

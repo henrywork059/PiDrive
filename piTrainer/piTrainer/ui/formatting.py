@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 
-FORMAT_VERSION = "0_6_6_action_colours_scrollbar_steering_slider"
+FORMAT_VERSION = "0_6_7_bulk_selected_frame_edit"
 
 
 @dataclass(frozen=True)

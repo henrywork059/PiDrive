@@ -31,7 +31,7 @@ Preserve these accepted V6 behaviours:
 - PiSD V7 saved overlay metadata and overlay redraw support.
 - Manual-drive preprocessing support.
 - Training-start preflight fixes.
-- Record table sorting, edit, multi-select delete, and merge support.
+- Record table sorting, single-frame edit, multi-select delete, bulk selected-frame edit, and merge support.
 - Full-width splitter layout.
 - Horizontal scrollbars only when panel content is reduced too far.
 - Compact top guide banner.
@@ -53,6 +53,7 @@ Preserve these accepted V6 behaviours:
 - Keep Data Review tabs ordered as `1 Records`, `2 Stats`, `3 Plot` unless the user asks otherwise.
 - Keep Data Workflow tabs ordered as `1 Load`, `2 Manage`, `3 Review` unless the user asks otherwise.
 - Keep Frame Filter in `2 Manage` beside Data Control.
+- Keep Bulk Edit Selected Frames in `3 Review`; it edits only steering or only speed one at a time and requires an overwrite checkbox plus a warning confirmation dialog.
 - Keep Merge Sessions in `3 Review`, collapsed by default.
 - Keep `frame_id` as the first visible Record Preview table column.
 - Keep the Record Preview table horizontally anchored to the first column after multi-row selection.
@@ -62,7 +63,7 @@ Preserve these accepted V6 behaviours:
 - Keep green for main actions, including `nextStep` and `primary` action roles.
 - Keep scrollbars readable but still slim; V6.6 uses about 30% thicker scrollbars than V6.5 after user review.
 - Keep splitter handles slim so they do not dominate narrow panels.
-- Keep the Edit Steering slider fill centred on neutral steering instead of filling from the left edge.
+- Keep the Edit Steering slider and bulk steering slider fill centred on neutral steering instead of filling from the left edge.
 
 ## Packaging checklist
 

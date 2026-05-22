@@ -4,6 +4,7 @@ import pandas as pd
 from PySide6.QtWidgets import QMessageBox, QVBoxLayout, QWidget
 
 from ..app_state import AppState
+from ..panels.data.bulk_edit_panel import BulkEditPanel
 from ..panels.data.data_control_panel import DataControlPanel
 from ..panels.data.data_plot_panel import DataPlotPanel
 from ..panels.data.dataset_stats_panel import DatasetStatsPanel
@@ -35,6 +36,10 @@ class DataPage(DockPage):
 
         self.session_source_panel = SessionSourcePanel(self.state, self.refresh_sessions, self.load_selected_sessions)
         self.session_list_panel = self.session_source_panel
+        self.bulk_edit_panel = BulkEditPanel(
+            apply_steering_callback=self.apply_bulk_steering_edit,
+            apply_speed_callback=self.apply_bulk_speed_edit,
+        )
         self.merge_sessions_panel = MergeSessionsPanel(self.merge_selected_sessions)
         self.filter_panel = FrameFilterPanel(self.apply_preview_filter, self.clear_preview_filter)
         self.overlay_panel = OverlayControlPanel(self.on_overlay_options_changed)
@@ -76,9 +81,10 @@ class DataPage(DockPage):
             (
                 '3 Review',
                 make_scrollable_stack([
+                    ('Bulk Edit Selected Frames', self.bulk_edit_panel, True, 'Apply one steering or speed value to selected Record Preview rows after confirmation.'),
                     ('Merge Sessions', self.merge_sessions_panel, False),
                     ('Overlay Controls', self.overlay_panel, False),
-                ], object_name='dataReviewWorkflowScrollArea', intro='Review loaded sessions and overlays. Merge Sessions is collapsed by default so normal frame review stays compact.'),
+                ], object_name='dataReviewWorkflowScrollArea', intro='Review loaded sessions and overlays. Use Bulk Edit only when selected frame labels should be changed together; Merge Sessions stays collapsed by default.'),
             ),
         ], object_name='dataWorkflowTabs')
 
@@ -271,6 +277,8 @@ class DataPage(DockPage):
             self.main_window.set_status_message('Overlay cleared.')
 
     def on_preview_record_selected(self, record) -> None:
+        selected_count = len(self.preview_panel.selected_records())
+        self.bulk_edit_panel.set_selected_count(selected_count)
         if not record:
             self.image_preview_panel.clear_preview()
             return
@@ -314,6 +322,90 @@ class DataPage(DockPage):
         self.apply_preview_filter(select_identity=identity)
         self.main_window.set_status_message(message)
 
+
+
+    def _update_record_field_in_loaded_data(self, identity: tuple[str, str, str, str], field_name: str, value: float) -> None:
+        for df_attr in ['dataset_df', 'filtered_df']:
+            df = getattr(self.state, df_attr)
+            if isinstance(df, pd.DataFrame) and not df.empty:
+                mask = self._record_mask(df, identity)
+                if len(mask) == len(df) and mask.any():
+                    df.loc[mask, field_name] = float(value)
+        if not self.current_preview_source_df.empty:
+            mask = self._record_mask(self.current_preview_source_df, identity)
+            if len(mask) == len(self.current_preview_source_df) and mask.any():
+                self.current_preview_source_df.loc[mask, field_name] = float(value)
+
+    def apply_bulk_steering_edit(self, steering: float) -> None:
+        self._apply_bulk_control_edit(field_name='steering', field_label='steering', value=float(steering))
+
+    def apply_bulk_speed_edit(self, speed: float) -> None:
+        self._apply_bulk_control_edit(field_name='throttle', field_label='speed', value=float(speed))
+
+    def _apply_bulk_control_edit(self, *, field_name: str, field_label: str, value: float) -> None:
+        self.preview_panel.stop_autoplay()
+        records = self.preview_panel.selected_records()
+        if not records:
+            QMessageBox.information(self, 'Bulk Edit Selected Frames', 'Select one or more frame rows from Record Preview first.')
+            return
+        if not self.bulk_edit_panel.bulk_edit_confirmed():
+            QMessageBox.information(
+                self,
+                'Bulk Edit Selected Frames',
+                'Tick "I understand this will overwrite selected frame labels" before applying a bulk edit.',
+            )
+            return
+
+        count = len(records)
+        confirm = QMessageBox.warning(
+            self,
+            f'Confirm Bulk {field_label.title()} Edit',
+            f'This will overwrite {field_label} for {count} selected frame(s) with {value:.3f}.\n\n'
+            'Only this field will be changed. The other control value will be kept from each existing row.\n'
+            'This writes to session labels.jsonl/records.jsonl and is not automatically undoable. Continue?',
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if confirm != QMessageBox.Yes:
+            self.main_window.set_status_message(f'Bulk {field_label} edit cancelled.')
+            return
+
+        updated_identities: list[tuple[str, str, str, str]] = []
+        failed_messages: list[str] = []
+        for record in records:
+            identity = self._record_identity(record)
+            current_steering = float(record.get('steering', 0.0) or 0.0)
+            current_speed = float(record.get('throttle', 0.0) or 0.0)
+            steering = value if field_name == 'steering' else current_steering
+            speed = value if field_name == 'throttle' else current_speed
+            ok, message = update_frame_controls(
+                self.state.records_root_path,
+                session_name=str(record.get('session', '')),
+                frame_id=str(record.get('frame_id', '')),
+                image_path=str(record.get('abs_image', '')),
+                ts=str(record.get('ts', '')),
+                steering=steering,
+                throttle=speed,
+                update_steering=(field_name == 'steering'),
+                update_throttle=(field_name == 'throttle'),
+            )
+            if ok:
+                updated_identities.append(identity)
+                self._update_record_field_in_loaded_data(identity, field_name, value)
+            else:
+                failed_messages.append(message)
+
+        self.stats_panel.set_stats(calculate_basic_stats(self.state.filtered_df))
+        first_identity = updated_identities[0] if updated_identities else None
+        self.apply_preview_filter(select_identity=first_identity)
+
+        if updated_identities:
+            self.main_window.set_status_message(
+                f'Updated {field_label} for {len(updated_identities)} selected frame(s).'
+                + (f' {len(failed_messages)} failed.' if failed_messages else '')
+            )
+        if failed_messages:
+            QMessageBox.warning(self, f'Bulk {field_label.title()} Edit', '\n'.join(failed_messages[:8]))
 
     def refresh_from_state(self) -> None:
         self.current_preview_source_df = self.state.filtered_df.copy()
