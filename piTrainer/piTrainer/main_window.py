@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeySequence, QShortcut
-from PySide6.QtWidgets import QMainWindow, QMessageBox, QStatusBar, QTabWidget
+from PySide6.QtWidgets import QApplication, QMainWindow, QMessageBox, QStatusBar, QTabWidget
 
 from .app_state import AppState
 from .pages.data_page import DataPage
@@ -10,14 +10,17 @@ from .pages.export_page import ExportPage
 from .pages.preprocess_page import PreprocessPage
 from .pages.train_page import TrainPage
 from .pages.validation_page import ValidationPage
+from .ui.formatting import apply_standard_widget_format, density_for_width
+from .ui.styles import build_stylesheet
 
 
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle('PiDrive piTrainer — Data → Preprocess → Train → Validate → Export')
-        self.resize(1500, 920)
-        self.setMinimumSize(1100, 720)
+        self.resize(1440, 880)
+        self.setMinimumSize(960, 620)
+        self._ui_density = ''
         self.state = AppState()
 
         self.tabs = QTabWidget()
@@ -51,6 +54,7 @@ class MainWindow(QMainWindow):
         self.status.setSizeGripEnabled(True)
         self.setStatusBar(self.status)
         self.set_status_message('Ready — follow the green Next Step buttons from 1 Data through 5 Export. Drag splitter handles to adjust panel proportions.')
+        self._apply_responsive_density()
 
         self._setup_shortcuts()
         self.data_page.refresh_sessions()
@@ -58,6 +62,23 @@ class MainWindow(QMainWindow):
         self.train_page.refresh_from_state()
         self.validation_page.refresh_from_state()
         self.export_page.refresh_from_state()
+
+
+    def resizeEvent(self, event) -> None:  # noqa: N802 - Qt API name
+        super().resizeEvent(event)
+        self._apply_responsive_density()
+
+    def _apply_responsive_density(self) -> None:
+        width = max(1, int(self.width()))
+        density = density_for_width(width)
+        if density == self._ui_density:
+            apply_standard_widget_format(self, density=density)
+            return
+        self._ui_density = density
+        app = QApplication.instance()
+        if app is not None:
+            app.setStyleSheet(build_stylesheet(density))
+        apply_standard_widget_format(self, density=density)
 
     def _setup_shortcuts(self) -> None:
         QShortcut(QKeySequence('Ctrl+1'), self, activated=lambda: self.tabs.setCurrentIndex(0))

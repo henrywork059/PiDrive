@@ -19,6 +19,7 @@ from ..services.preprocess.preprocess_service import (
     save_preprocessed_dataset,
 )
 from .dock_page import DockPage
+from ..ui.formatting import splitter_args
 from ..ui.layout_widgets import make_scrollable_stack, make_workflow_tabs
 
 
@@ -70,12 +71,12 @@ class PreprocessPage(DockPage):
         right_stack = self.make_vertical_splitter([
             self.make_panel_frame('result', 'Preprocess Preview', self.result_panel),
             self.make_panel_frame('log', 'Preprocess Log', self.log_panel),
-        ], sizes=[620, 240], object_name='right_stack', stretch=[5, 2])
+        ], object_name='right_stack', **splitter_args('preview_over_plot'))
 
         workspace = self.make_horizontal_splitter([
             self.make_panel_frame('workflow_controls', 'Preprocess Workflow', workflow_tabs),
             right_stack,
-        ], sizes=[360, 1040], object_name='main_workspace', stretch=[0, 3])
+        ], object_name='main_workspace', **splitter_args('two_panel_workspace'))
 
         self.set_workspace_widget(
             workspace,

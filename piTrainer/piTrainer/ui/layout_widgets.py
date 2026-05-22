@@ -18,6 +18,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from .formatting import (
+    get_density_profile,
+    set_box_layout_format,
+    standardize_form_layout as apply_standard_form_layout,
+)
+
 
 SectionSpec = tuple[str, QWidget, bool] | tuple[str, QWidget, bool, str]
 TabSpec = tuple[str, QWidget] | tuple[str, QWidget, str]
@@ -46,13 +52,12 @@ def make_page_banner(step: str, title: str, summary: str, next_step: str = '') -
 
     text_layout = QVBoxLayout()
     text_layout.setContentsMargins(0, 0, 0, 0)
-    text_layout.setSpacing(3)
+    text_layout.setSpacing(max(2, get_density_profile().panel_spacing - 3))
     text_layout.addWidget(title_label)
     text_layout.addWidget(summary_label)
 
     layout = QHBoxLayout(banner)
-    layout.setContentsMargins(14, 11, 14, 11)
-    layout.setSpacing(14)
+    set_box_layout_format(layout, role='panel')
     layout.addLayout(text_layout, 1)
 
     if next_step:
@@ -60,8 +65,9 @@ def make_page_banner(step: str, title: str, summary: str, next_step: str = '') -
         next_label.setObjectName('pageBannerNext')
         next_label.setProperty('role', 'pageBannerNext')
         next_label.setWordWrap(True)
-        next_label.setMinimumWidth(230)
-        next_label.setMaximumWidth(380)
+        next_label.setMinimumWidth(170)
+        next_label.setMaximumWidth(320)
+        next_label.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         layout.addWidget(next_label, 0, Qt.AlignRight | Qt.AlignVCenter)
 
     return banner
@@ -76,7 +82,7 @@ def style_next_step_button(button: QPushButton, text: str | None = None) -> QPus
         button.setText(text)
     button.setProperty('role', 'nextStep')
     button.setProperty('pulse', False)
-    button.setMinimumHeight(42)
+    button.setMinimumHeight(get_density_profile().next_min)
     button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
     button.setCursor(Qt.PointingHandCursor)
     if not button.toolTip():
@@ -107,14 +113,8 @@ def make_hint_label(text: str, *, object_name: str = 'quickHint') -> QLabel:
 
 
 def standardize_form_layout(form: QFormLayout) -> QFormLayout:
-    """Apply the same readable form behaviour across all dense config panels."""
-    form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
-    form.setLabelAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-    form.setFormAlignment(Qt.AlignTop)
-    form.setRowWrapPolicy(QFormLayout.WrapLongRows)
-    form.setHorizontalSpacing(12)
-    form.setVerticalSpacing(9)
-    return form
+    """Apply the central piTrainer form format to every dense config panel."""
+    return apply_standard_form_layout(form)
 
 
 class CollapsibleSection(QWidget):
@@ -146,13 +146,11 @@ class CollapsibleSection(QWidget):
         self.content_frame.setObjectName('collapsibleSectionBody')
         self.content_frame.setFrameShape(QFrame.NoFrame)
         body_layout = QVBoxLayout(self.content_frame)
-        body_layout.setContentsMargins(10, 9, 10, 11)
-        body_layout.setSpacing(9)
+        set_box_layout_format(body_layout, role='sectionBody')
         body_layout.addWidget(content)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
+        set_box_layout_format(layout, role='zero')
         layout.addWidget(self.toggle_button)
         layout.addWidget(self.content_frame)
 
@@ -172,14 +170,17 @@ class ControlStack(QWidget):
         sections: Iterable[SectionSpec],
         *,
         intro: str | None = None,
-        margins: tuple[int, int, int, int] = (10, 10, 10, 10),
+        margins: tuple[int, int, int, int] | None = None,
     ) -> None:
         super().__init__()
         self.setObjectName('controlStack')
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.MinimumExpanding)
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(*margins)
-        layout.setSpacing(11)
+        if margins is None:
+            set_box_layout_format(layout, role='stack')
+        else:
+            layout.setContentsMargins(*margins)
+            layout.setSpacing(get_density_profile().stack_spacing)
         if intro:
             intro_label = make_hint_label(intro, object_name='sidebarIntro')
             intro_label.setProperty('role', 'intro')
@@ -198,7 +199,7 @@ def make_scroll_area(widget: QWidget, *, object_name: str = 'pageScrollArea') ->
     scroll.setProperty('role', 'workflowScroll')
     scroll.setWidgetResizable(True)
     scroll.setFrameShape(QFrame.NoFrame)
-    scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+    scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
     scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
     scroll.setWidget(widget)
     return scroll
@@ -232,7 +233,7 @@ def make_scrollable_stack(
     *,
     object_name: str = 'workflowScrollArea',
     intro: str | None = None,
-    margins: tuple[int, int, int, int] = (10, 10, 10, 10),
+    margins: tuple[int, int, int, int] | None = None,
 ) -> QScrollArea:
     """Convenience helper for one scrollable stack of collapsible sections."""
     return make_scroll_area(ControlStack(sections, intro=intro, margins=margins), object_name=object_name)

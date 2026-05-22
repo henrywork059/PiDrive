@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 
-from PySide6.QtCore import QSettings, Qt
+from PySide6.QtCore import QSettings, QTimer, Qt
 from PySide6.QtWidgets import (
     QDockWidget,
     QFrame,
@@ -14,11 +14,129 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ..ui.formatting import (
+    FORMAT_VERSION,
+    apply_panel_frame_format,
+    apply_splitter_format,
+    set_box_layout_format,
+)
 from ..ui.layout_widgets import make_page_banner
 
 
+class ResponsiveSplitter(QSplitter):
+    """QSplitter that preserves user proportions while adapting to window size.
+
+    Qt splitters already resize their children, but large minimum sizes can make
+    panels feel clipped on smaller windows. This helper stores the current panel
+    ratios, reapplies them after resize, and uses soft minimum pixel lengths so
+    every visible section keeps a reasonable share of the available space.
+    """
+
+    def __init__(
+        self,
+        orientation: Qt.Orientation,
+        *,
+        ratios: Sequence[float] | None = None,
+        minimum_lengths: Sequence[int] | None = None,
+    ) -> None:
+        super().__init__(orientation)
+        self._ratios = self._normalise_ratios(ratios or [])
+        self._minimum_lengths = [max(0, int(value)) for value in (minimum_lengths or [])]
+        self._applying_sizes = False
+        self.splitterMoved.connect(self.capture_current_ratios)
+
+    @staticmethod
+    def _normalise_ratios(values: Sequence[float]) -> list[float]:
+        cleaned = [max(0.01, float(value)) for value in values if float(value) > 0]
+        total = sum(cleaned)
+        if total <= 0:
+            return []
+        return [value / total for value in cleaned]
+
+    def set_responsive_defaults(
+        self,
+        *,
+        ratios: Sequence[float] | None = None,
+        minimum_lengths: Sequence[int] | None = None,
+    ) -> None:
+        if ratios:
+            self._ratios = self._normalise_ratios(ratios)
+        if minimum_lengths is not None:
+            self._minimum_lengths = [max(0, int(value)) for value in minimum_lengths]
+        QTimer.singleShot(0, self.apply_responsive_sizes)
+
+    def restoreState(self, state) -> bool:  # noqa: N802 - Qt API name
+        ok = super().restoreState(state)
+        QTimer.singleShot(0, self.capture_current_ratios)
+        return ok
+
+    def resizeEvent(self, event) -> None:  # noqa: N802 - Qt API name
+        super().resizeEvent(event)
+        if not self._applying_sizes:
+            QTimer.singleShot(0, self.apply_responsive_sizes)
+
+    def _available_length(self) -> int:
+        length = self.width() if self.orientation() == Qt.Horizontal else self.height()
+        handles = max(0, self.count() - 1) * self.handleWidth()
+        return max(0, int(length) - int(handles))
+
+    def _ratios_for_count(self) -> list[float]:
+        count = self.count()
+        if count <= 0:
+            return []
+        if len(self._ratios) == count:
+            return list(self._ratios)
+        if not self._ratios:
+            return [1.0 / count] * count
+        padded = list(self._ratios[:count])
+        while len(padded) < count:
+            padded.append(padded[-1] if padded else 1.0)
+        return self._normalise_ratios(padded)
+
+    def _minimums_for_count(self) -> list[int]:
+        count = self.count()
+        defaults = [220] * count if self.orientation() == Qt.Horizontal else [120] * count
+        values = list(self._minimum_lengths[:count])
+        while len(values) < count:
+            values.append(defaults[len(values)] if len(values) < len(defaults) else defaults[-1])
+        return values
+
+    def capture_current_ratios(self, *_args) -> None:
+        if self._applying_sizes or self.count() <= 0:
+            return
+        sizes = [max(0, int(value)) for value in self.sizes()]
+        total = sum(sizes)
+        if total > 0:
+            self._ratios = [size / total for size in sizes]
+
+    def apply_responsive_sizes(self) -> None:
+        count = self.count()
+        total = self._available_length()
+        if count <= 0 or total <= 0:
+            return
+        ratios = self._ratios_for_count()
+        minimums = self._minimums_for_count()
+        min_sum = sum(minimums)
+        if min_sum >= total:
+            # When the window is narrow/short, distribute the available pixels by
+            # the soft minimums instead of letting one pane collapse to zero.
+            weights = self._normalise_ratios(minimums) or ratios
+            sizes = [max(40, int(round(total * weight))) for weight in weights]
+        else:
+            free = total - min_sum
+            sizes = [minimums[i] + int(round(free * ratios[i])) for i in range(count)]
+        delta = total - sum(sizes)
+        if sizes:
+            sizes[-1] = max(40, sizes[-1] + delta)
+        self._applying_sizes = True
+        try:
+            self.setSizes(sizes)
+        finally:
+            self._applying_sizes = False
+
+
 class DockPage(QMainWindow):
-    layout_version = "0_4_10_presentation_layout"
+    layout_version = FORMAT_VERSION
 
     def __init__(self, page_id: str) -> None:
         super().__init__()
@@ -61,8 +179,7 @@ class DockPage(QMainWindow):
             wrapper.setFrameShape(QFrame.NoFrame)
             wrapper.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
             layout = QVBoxLayout(wrapper)
-            layout.setContentsMargins(12, 10, 12, 12)
-            layout.setSpacing(10)
+            set_box_layout_format(layout, role="page")
             layout.addWidget(make_page_banner(step, title, summary, next_step), 0)
             layout.addWidget(widget, 1)
             self.setCentralWidget(wrapper)
@@ -93,9 +210,7 @@ class DockPage(QMainWindow):
         """Wrap a content widget in a titled frame for splitter workspaces."""
         frame = QFrame()
         frame.setObjectName(f"{self.page_id}_{panel_id}_panel")
-        frame.setProperty("role", "splitterPanel")
-        frame.setFrameShape(QFrame.StyledPanel)
-        frame.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        apply_panel_frame_format(frame, panel_id=panel_id)
 
         header = QLabel(title)
         header.setObjectName("splitterPanelTitle")
@@ -104,8 +219,7 @@ class DockPage(QMainWindow):
 
         widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         layout = QVBoxLayout(frame)
-        layout.setContentsMargins(10, 8, 10, 10)
-        layout.setSpacing(8)
+        set_box_layout_format(layout, role="panel")
         layout.addWidget(header)
         if subtitle:
             subtitle_label = QLabel(subtitle)
@@ -114,9 +228,6 @@ class DockPage(QMainWindow):
             subtitle_label.setWordWrap(True)
             layout.addWidget(subtitle_label)
         layout.addWidget(widget, 1)
-        if panel_id == 'workflow_controls':
-            frame.setMinimumWidth(330)
-            frame.setMaximumWidth(520)
         return frame
 
     def make_splitter(
@@ -127,15 +238,17 @@ class DockPage(QMainWindow):
         sizes: Sequence[int] | None = None,
         object_name: str,
         stretch: Sequence[int] | None = None,
+        minimums: Sequence[int] | None = None,
         children_collapsible: bool = False,
     ) -> QSplitter:
-        splitter = QSplitter(orientation)
+        default_ratios = None
+        if sizes:
+            total_size = sum(max(1, int(size)) for size in sizes)
+            default_ratios = [max(1, int(size)) / total_size for size in sizes]
+        splitter = ResponsiveSplitter(orientation, ratios=default_ratios, minimum_lengths=minimums)
         splitter.setObjectName(f"{self.page_id}_{object_name}_splitter")
-        splitter.setProperty("role", "pageSplitter")
+        apply_splitter_format(splitter)
         splitter.setChildrenCollapsible(children_collapsible)
-        splitter.setHandleWidth(10)
-        splitter.setOpaqueResize(True)
-        splitter.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         for index, widget in enumerate(widgets):
             splitter.addWidget(widget)
             if stretch and index < len(stretch):
@@ -144,6 +257,7 @@ class DockPage(QMainWindow):
                 splitter.setStretchFactor(index, 1)
         if sizes:
             splitter.setSizes([int(size) for size in sizes])
+            splitter.set_responsive_defaults(ratios=default_ratios, minimum_lengths=minimums)
         self._splitters.append(splitter)
         return splitter
 
@@ -154,6 +268,7 @@ class DockPage(QMainWindow):
         sizes: Sequence[int] | None = None,
         object_name: str,
         stretch: Sequence[int] | None = None,
+        minimums: Sequence[int] | None = None,
     ) -> QSplitter:
         return self.make_splitter(
             Qt.Horizontal,
@@ -161,6 +276,7 @@ class DockPage(QMainWindow):
             sizes=sizes,
             object_name=object_name,
             stretch=stretch,
+            minimums=minimums,
         )
 
     def make_vertical_splitter(
@@ -170,6 +286,7 @@ class DockPage(QMainWindow):
         sizes: Sequence[int] | None = None,
         object_name: str,
         stretch: Sequence[int] | None = None,
+        minimums: Sequence[int] | None = None,
     ) -> QSplitter:
         return self.make_splitter(
             Qt.Vertical,
@@ -177,6 +294,7 @@ class DockPage(QMainWindow):
             sizes=sizes,
             object_name=object_name,
             stretch=stretch,
+            minimums=minimums,
         )
 
     def _layout_key(self, name: str) -> str:

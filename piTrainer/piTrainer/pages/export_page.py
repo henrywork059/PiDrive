@@ -8,6 +8,7 @@ from ..panels.export.export_options_panel import ExportOptionsPanel
 from ..panels.export.model_status_panel import ModelStatusPanel
 from ..services.export.export_service import export_model_artifacts
 from .dock_page import DockPage
+from ..ui.formatting import splitter_args
 from ..ui.layout_widgets import make_scrollable_stack, make_workflow_tabs
 
 
@@ -46,7 +47,7 @@ class ExportPage(DockPage):
         workspace = self.make_horizontal_splitter([
             self.make_panel_frame('workflow_controls', 'Export Workflow', workflow_tabs),
             self.make_panel_frame('log', 'Export Log', self.log_panel),
-        ], sizes=[360, 1040], object_name='main_workspace', stretch=[0, 3])
+        ], object_name='main_workspace', **splitter_args('two_panel_workspace'))
 
         self.set_workspace_widget(
             workspace,

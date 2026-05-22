@@ -23,6 +23,7 @@ from ..services.data.record_loader_service import build_filtered_dataframe, load
 from ..services.data.session_service import list_sessions
 from ..services.data.stats_service import calculate_basic_stats
 from .dock_page import DockPage
+from ..ui.formatting import splitter_args
 from ..ui.layout_widgets import make_scrollable_stack, make_workflow_tabs
 
 
@@ -94,13 +95,13 @@ class DataPage(DockPage):
         right_stack = self.make_vertical_splitter([
             self.make_panel_frame('image_preview', 'Image Preview + V7 Overlay', self.image_preview_panel),
             self.make_panel_frame('data_plot', 'Data Plot', self.plot_panel),
-        ], sizes=[620, 240], object_name='right_stack', stretch=[5, 2])
+        ], object_name='right_stack', **splitter_args('preview_over_plot'))
 
         workspace = self.make_horizontal_splitter([
             self.make_panel_frame('workflow_controls', 'Data Workflow', workflow_tabs),
             self.make_panel_frame('record_preview', 'Record Preview', self.preview_panel),
             right_stack,
-        ], sizes=[360, 560, 620], object_name='main_workspace', stretch=[0, 2, 2])
+        ], object_name='main_workspace', **splitter_args('three_panel_workspace'))
 
         self.set_workspace_widget(
             workspace,

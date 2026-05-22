@@ -17,6 +17,7 @@ from ..services.train.split_service import split_dataframe
 from ..services.train.worker import TrainingWorker
 from ..utils.path_utils import ensure_dir, safe_filename
 from .dock_page import DockPage
+from ..ui.formatting import splitter_args
 from ..ui.layout_widgets import make_scrollable_stack, make_workflow_tabs
 
 
@@ -71,12 +72,12 @@ class TrainPage(DockPage):
         right_stack = self.make_vertical_splitter([
             self.make_panel_frame('review', 'Epoch Frame Review', self.epoch_review_panel),
             self.make_panel_frame('progress', 'Training History / Log', progress_stack),
-        ], sizes=[620, 280], object_name='right_stack', stretch=[5, 2])
+        ], object_name='right_stack', **splitter_args('preview_over_results'))
 
         workspace = self.make_horizontal_splitter([
             self.make_panel_frame('workflow_controls', 'Training Workflow', workflow_tabs),
             right_stack,
-        ], sizes=[360, 1040], object_name='main_workspace', stretch=[0, 3])
+        ], object_name='main_workspace', **splitter_args('two_panel_workspace'))
 
         self.set_workspace_widget(
             workspace,

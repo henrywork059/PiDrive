@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from .formatting import stylesheet_tokens
 
-def build_stylesheet() -> str:
-    return """
+
+def build_stylesheet(density: str = "comfortable") -> str:
+    values = stylesheet_tokens(density)
+    css = """
     QWidget {
-        font-size: 13px;
+        font-size: @BASE_FONT@px;
         color: #e6e8ee;
         background: #111722;
     }
@@ -42,27 +45,27 @@ def build_stylesheet() -> str:
         background: #142238;
         border: 1px solid #315074;
         border-left: 5px solid #5eb2ff;
-        border-radius: 12px;
+        border-radius: 9px;
     }
     QLabel#pageBannerTitle {
         color: #ffffff;
         background: transparent;
-        font-size: 18px;
+        font-size: @BANNER_TITLE@px;
         font-weight: 900;
         letter-spacing: 0.2px;
     }
     QLabel#pageBannerSummary {
         color: #c8d8ee;
         background: transparent;
-        font-size: 13px;
+        font-size: @BASE_FONT@px;
         line-height: 1.25em;
     }
     QLabel#pageBannerNext {
         color: #eafff0;
         background: #1f7d42;
         border: 1px solid #77df9a;
-        border-radius: 10px;
-        padding: 8px 11px;
+        border-radius: 9px;
+        padding: 7px 9px;
         font-weight: 800;
     }
     QDockWidget {
@@ -82,9 +85,9 @@ def build_stylesheet() -> str:
     }
     QGroupBox {
         border: 1px solid #303a4b;
-        border-radius: 10px;
-        margin-top: 12px;
-        padding: 13px 10px 10px 10px;
+        border-radius: 9px;
+        margin-top: 9px;
+        padding: 10px 8px 8px 8px;
         background: #171f2c;
         font-weight: 650;
         color: #f4f7ff;
@@ -94,8 +97,15 @@ def build_stylesheet() -> str:
         left: 12px;
         padding: 0 5px 0 5px;
     }
+    QGroupBox[role='formGroup'] {
+        border-color: #34465f;
+        background: #151f2d;
+    }
+    QFrame[role='splitterPanel'] QGroupBox[role='formGroup'] {
+        margin-top: 8px;
+    }
     QPushButton {
-        min-height: 28px;
+        min-height: @BUTTON_MIN@px;
         padding: 4px 10px;
         background: #263245;
         color: #eef2fb;
@@ -124,12 +134,12 @@ def build_stylesheet() -> str:
         background: #3f82cc;
     }
     QPushButton[role='nextStep'] {
-        min-height: 40px;
-        padding: 8px 14px;
+        min-height: @NEXT_MIN@px;
+        padding: 7px 12px;
         background: #208242;
         border: 2px solid #70e096;
         color: #ffffff;
-        border-radius: 10px;
+        border-radius: 9px;
         font-weight: 850;
     }
     QPushButton[role='nextStep']:hover {
@@ -158,7 +168,7 @@ def build_stylesheet() -> str:
         color: #dbe5f5;
     }
     QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox, QListWidget, QTextEdit, QPlainTextEdit, QTableWidget {
-        min-height: 26px;
+        min-height: @INPUT_MIN@px;
         background: #0d131d;
         color: #e6e8ee;
         border: 1px solid #344055;
@@ -229,20 +239,28 @@ def build_stylesheet() -> str:
         background: #1d2837;
         color: #e6e8ee;
         border: 1px solid #344055;
-        padding: 6px;
+        padding: 5px;
         font-weight: 700;
     }
     QTabWidget::pane {
         border: 1px solid #303a4b;
         background: #111722;
     }
+    QTabWidget[role='contentTabs']::pane {
+        border: 1px solid #303a4b;
+        border-radius: 8px;
+        background: #101722;
+    }
+    QTabWidget[role='contentTabs'] QTabBar::tab {
+        min-width: @WORKFLOW_TAB_MIN@px;
+    }
     QTabWidget#mainWorkflowTabs::pane {
         border: 0px;
         background: #0d131d;
     }
     QTabWidget#mainWorkflowTabs QTabBar::tab {
-        min-width: 132px;
-        padding: 10px 18px;
+        min-width: @MAIN_TAB_MIN@px;
+        padding: 8px 14px;
         margin-right: 5px;
         border-top-left-radius: 10px;
         border-top-right-radius: 10px;
@@ -253,7 +271,7 @@ def build_stylesheet() -> str:
     }
     QTabBar::tab {
         min-width: 104px;
-        padding: 9px 14px;
+        padding: 7px 9px;
         background: #17202d;
         color: #cfd5df;
         border: 1px solid #303a4b;
@@ -277,8 +295,8 @@ def build_stylesheet() -> str:
         border-radius: 8px;
     }
     QTabWidget[role='workflowTabs'] QTabBar::tab {
-        min-width: 86px;
-        padding: 8px 11px;
+        min-width: @WORKFLOW_TAB_MIN@px;
+        padding: 7px 9px;
         font-size: 12px;
     }
     QTabWidget[role='workflowTabs'] QTabBar::tab:selected {
@@ -286,7 +304,7 @@ def build_stylesheet() -> str:
         border-color: #6ab2ff;
     }
     QProgressBar {
-        min-height: 24px;
+        min-height: 22px;
         border: 1px solid #344055;
         border-radius: 7px;
         text-align: center;
@@ -327,12 +345,16 @@ def build_stylesheet() -> str:
         background: #101722;
         border: none;
     }
+    QScrollArea[role='workflowScroll'] {
+        border: 0px;
+        border-radius: 8px;
+    }
     QToolButton#collapsibleSectionHeader {
         background: #1e2b3d;
         color: #f7fbff;
         border: 1px solid #374d67;
-        border-radius: 10px;
-        padding: 9px 11px;
+        border-radius: 9px;
+        padding: 7px 9px;
         font-weight: 800;
         text-align: left;
     }
@@ -359,7 +381,7 @@ def build_stylesheet() -> str:
         color: #d7e7ff;
         border: 1px solid #2e4b70;
         border-radius: 9px;
-        padding: 9px 10px;
+        padding: 7px 9px;
         font-weight: 500;
     }
     QLabel[role='muted'] {
@@ -381,14 +403,14 @@ def build_stylesheet() -> str:
         background: #101a28;
         border: 1px solid #283c58;
         border-radius: 9px;
-        padding: 8px 10px;
+        padding: 7px 9px;
     }
     QLabel[role='summaryBlock'] {
         color: #eaf2ff;
         background: #101a28;
         border: 1px solid #2e4b70;
         border-radius: 9px;
-        padding: 9px 10px;
+        padding: 7px 9px;
     }
 
     QSplitter[role='pageSplitter'] {
@@ -407,14 +429,14 @@ def build_stylesheet() -> str:
     QFrame[role='splitterPanel'] {
         background: #111722;
         border: 1px solid #303a4b;
-        border-radius: 12px;
+        border-radius: 9px;
     }
     QLabel#splitterPanelTitle {
         color: #f4f7fb;
         background: #1c293b;
         border: 1px solid #33445c;
         border-radius: 9px;
-        padding: 8px 11px;
+        padding: 7px 9px;
         font-weight: 850;
     }
     QLabel#splitterPanelSubtitle {
@@ -424,12 +446,12 @@ def build_stylesheet() -> str:
     }
     QScrollBar:vertical {
         background: #0d131d;
-        width: 12px;
+        width: @SCROLLBAR@px;
         margin: 0px;
     }
     QScrollBar::handle:vertical {
         background: #374d67;
-        min-height: 28px;
+        min-height: @BUTTON_MIN@px;
         border-radius: 6px;
     }
     QScrollBar::handle:vertical:hover {
@@ -440,7 +462,7 @@ def build_stylesheet() -> str:
     }
     QScrollBar:horizontal {
         background: #0d131d;
-        height: 12px;
+        height: @SCROLLBAR@px;
         margin: 0px;
     }
     QScrollBar::handle:horizontal {
@@ -449,3 +471,6 @@ def build_stylesheet() -> str:
         border-radius: 6px;
     }
     """
+    for key, value in values.items():
+        css = css.replace(f"@{key}@", str(value))
+    return css
