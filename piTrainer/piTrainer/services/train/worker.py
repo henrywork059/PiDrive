@@ -93,6 +93,43 @@ class TrainingWorker(QThread):
 
         return {'epoch': int(epoch), 'best': build_item(best_idx), 'worst': build_item(worst_idx)}
 
+
+    def _configure_tensorflow_device(self, tf) -> None:
+        requested = str(getattr(self.config, 'compute_device', 'Auto (GPU if available)') or 'Auto (GPU if available)')
+        try:
+            gpus = list(tf.config.list_physical_devices('GPU'))
+        except Exception as exc:
+            self.log_message.emit(f'Could not inspect TensorFlow GPU devices: {exc}. Training will continue with TensorFlow defaults.')
+            return
+
+        if requested == 'CPU only':
+            if not gpus:
+                self.log_message.emit('Training device: CPU only selected. No TensorFlow GPU was detected.')
+                return
+            try:
+                tf.config.set_visible_devices([], 'GPU')
+                self.log_message.emit(f'Training device: CPU only selected. Hidden {len(gpus)} GPU device(s) from TensorFlow.')
+            except Exception as exc:
+                self.log_message.emit(f'CPU-only request could not hide GPU devices after TensorFlow initialisation: {exc}.')
+            return
+
+        if not gpus:
+            if requested == 'GPU only':
+                raise RuntimeError('GPU only was selected, but TensorFlow did not detect any GPU device.')
+            self.log_message.emit('Training device: no TensorFlow GPU detected; training will use CPU.')
+            return
+
+        for gpu in gpus:
+            try:
+                tf.config.experimental.set_memory_growth(gpu, True)
+            except Exception as exc:
+                self.log_message.emit(f'Could not enable GPU memory growth for {gpu.name}: {exc}')
+        names = ', '.join(getattr(gpu, 'name', str(gpu)) for gpu in gpus)
+        if requested == 'GPU only':
+            self.log_message.emit(f'Training device: GPU only selected. TensorFlow GPU device(s): {names}')
+        else:
+            self.log_message.emit(f'Training device: Auto selected. TensorFlow GPU device(s) available: {names}')
+
     def run(self) -> None:
         try:
             import tensorflow as tf
@@ -101,6 +138,8 @@ class TrainingWorker(QThread):
             return
 
         try:
+            self._configure_tensorflow_device(tf)
+
             if self.train_df.empty:
                 raise RuntimeError("Training dataframe is empty.")
 

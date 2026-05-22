@@ -67,6 +67,8 @@ Preserve these accepted V6 behaviours:
 - Keep the Edit Steering slider and bulk steering slider fill centred on neutral steering instead of filling from the left edge.
 - Hidden/deleted frames must remain traceable in `labels.jsonl` / `records.jsonl` using hidden flags, and must be excluded from active dataframes, preprocessing, training, and validation.
 - Single-frame edits from Image Preview should not rebuild the whole Record Preview table unless the edited value makes the row fail the active filter. Use targeted visible-row updates, delayed plot refresh, debounced JSONL writes, and cached JSONL parsing to keep clicking/dragging responsive.
+- Keep the Preprocess page arranged around the `1 Auto` fast path and `2 Settings` custom path. Most users should be able to click the green `Auto Preprocess Active Data` button after loading sessions; optional filters/augmentation/save-maintenance controls should stay behind collapsed advanced sections.
+- Keep Train Config `Training device` support. Default to `Auto (GPU if available)`, allow `CPU only` and `GPU only`, and configure/log TensorFlow GPU availability inside the training worker without importing TensorFlow on the UI thread.
 
 ## Packaging checklist
 

@@ -27,6 +27,7 @@ class PreprocessPage(DockPage):
     def __init__(self, state: AppState, main_window) -> None:
         self.state = state
         self.main_window = main_window
+        self.output_tabs = None
         super().__init__('preprocess')
 
         self.summary_panel = PreprocessSummaryPanel()
@@ -39,6 +40,8 @@ class PreprocessPage(DockPage):
             sync_callback=self.sync_image_size_to_train,
             save_settings_callback=self.save_recipe_settings,
             save_data_callback=self.save_processed_data,
+            defaults_callback=self.use_recommended_defaults,
+            auto_callback=self.auto_preprocess,
         )
         self.result_panel = PreprocessResultPanel()
         self.log_panel = LogPanel('Preprocess Log')
@@ -53,43 +56,53 @@ class PreprocessPage(DockPage):
 
         workflow_tabs = make_workflow_tabs([
             (
-                '1 Source',
+                '1 Auto',
                 make_scrollable_stack([
                     ('Source Summary', self.summary_panel, True),
-                    ('Preprocess Filters', self.filter_panel, False),
-                ], object_name='preprocessSourceWorkflowScrollArea', intro='Check which loaded rows will be used before you apply any preprocessing recipe.'),
+                    ('Quick Preprocess', self.actions_panel, True),
+                ], object_name='preprocessAutoWorkflowScrollArea', intro='Fast path: check the source summary, then run the green auto preprocess action.'),
+                'Recommended workflow for most preprocessing runs.',
             ),
             (
-                '2 Recipe',
+                '2 Settings',
                 make_scrollable_stack([
-                    ('Preprocess Actions', self.actions_panel, True),
-                    ('Preprocess Recipe', self.config_panel, False),
-                ], object_name='preprocessRecipeWorkflowScrollArea', intro='Preview first, then confirm the recipe only when the row counts and image size look right.'),
+                    ('Source Filters', self.filter_panel, True),
+                    ('Recipe + Image Size', self.config_panel, True),
+                ], object_name='preprocessSettingsWorkflowScrollArea', intro='Optional custom controls. The more advanced the setting, the deeper it is collapsed.'),
+                'Optional filters, balancing, augmentation, and image-size settings.',
             ),
         ], object_name='preprocessWorkflowTabs')
 
-        right_stack = self.make_vertical_splitter([
-            self.make_panel_frame('result', 'Preprocess Preview', self.result_panel),
-            self.make_panel_frame('log', 'Preprocess Log', self.log_panel),
-        ], object_name='right_stack', **splitter_args('preview_over_plot'))
+        self.output_tabs = make_workflow_tabs([
+            ('1 Preview', self.result_panel, 'Preview row counts and applied preprocessing results.'),
+            ('2 Log', self.log_panel, 'Detailed preprocessing messages.'),
+        ], object_name='preprocessOutputTabs')
 
         workspace = self.make_horizontal_splitter([
             self.make_panel_frame('workflow_controls', 'Preprocess Workflow', workflow_tabs),
-            right_stack,
+            self.make_panel_frame('result', 'Preprocess Review', self.output_tabs),
         ], object_name='main_workspace', **splitter_args('two_panel_workspace'))
 
         self.set_workspace_widget(
             workspace,
             step='2 of 5',
             title='Preprocess',
-            summary='Check row counts, apply needed filters/augmentation, and confirm a non-empty active dataset.',
-            next_step='Confirm Preprocess',
+            summary='Use Auto for the normal path, or open Settings for filters, balancing, augmentation, and image size.',
+            next_step='Auto Preprocess',
             next_callback=lambda: self.reveal_widget(
                 self.actions_panel.apply_btn,
-                message='Focused the green Confirm and Start Preprocess button.'
+                message='Focused the green Auto Preprocess Active Data button.'
             ),
-            next_tooltip='Click to focus the green Confirm and Start Preprocess button in Preprocess Workflow > Recipe.',
+            next_tooltip='Click to focus the green Auto Preprocess Active Data button in Preprocess Workflow > Auto.',
         )
+
+    def _activate_preview_tab(self) -> None:
+        if self.output_tabs is not None:
+            self.output_tabs.setCurrentIndex(0)
+
+    def _activate_log_tab(self) -> None:
+        if self.output_tabs is not None:
+            self.output_tabs.setCurrentIndex(1)
 
     def _load_saved_recipe_if_available(self) -> None:
         recipe = load_preprocess_settings(self.state.out_dir_path)
@@ -129,20 +142,63 @@ class PreprocessPage(DockPage):
             )
         )
 
-    def preview_recipe(self) -> None:
+    def _set_recommended_defaults(self) -> dict[str, object]:
+        self.filter_panel.reset_to_defaults()
+        self.config_panel.reset_to_defaults()
+        recipe = self.current_recipe()
+        self.state.preprocess_recipe = recipe
+        return recipe
+
+    def use_recommended_defaults(self) -> None:
+        self._set_recommended_defaults()
+        self.preview_recipe(message_prefix='Recommended defaults loaded and previewed')
+
+    def auto_preprocess(self) -> None:
+        self._set_recommended_defaults()
+        source_df = self._source_df()
+        if source_df.empty:
+            self.result_panel.set_preview_text(
+                build_preprocess_summary(
+                    source_df,
+                    self.state.selected_sessions,
+                    title='Auto preprocess could not start',
+                )
+            )
+            self._activate_preview_tab()
+            self.log_panel.append_line('Auto preprocess skipped: no source rows are loaded. Load sessions on the Data tab first.')
+            self.main_window.set_status_message('Auto preprocess needs loaded session data first.')
+            return
+        self.apply_recipe(source_df=source_df, message_prefix='Auto preprocessing complete')
+
+    def preview_recipe(self, *, message_prefix: str = 'Preprocess preview ready') -> None:
         source_df = self._source_df()
         recipe = self.current_recipe()
         result_df, summary = apply_preprocessing_recipe(source_df, recipe)
         preview_text = format_preprocess_preview(summary, recipe)
         self.result_panel.set_preview_text(preview_text)
         self.summary_panel.set_preview_counts(summary)
-        self.main_window.set_status_message(f'Preprocess preview ready: {len(result_df)} active row(s) after synthesis.')
+        self._activate_preview_tab()
+        self.main_window.set_status_message(f'{message_prefix}: {len(result_df)} active row(s) after synthesis.')
         self.log_panel.append_line(
-            f"Previewed preprocess recipe -> {summary['rows_after']} active row(s), generated {summary['generated_rows']} synthetic row(s)."
+            f"{message_prefix} -> {summary['rows_after']} active row(s), generated {summary['generated_rows']} synthetic row(s)."
         )
 
-    def apply_recipe(self) -> None:
-        source_df = self._source_df()
+    def apply_recipe(self, *, source_df: pd.DataFrame | None = None, message_prefix: str = 'Confirmed preprocessing') -> None:
+        if source_df is None:
+            source_df = self._source_df()
+        if source_df.empty:
+            self.result_panel.set_preview_text(
+                build_preprocess_summary(
+                    source_df,
+                    self.state.selected_sessions,
+                    title='No source rows to preprocess',
+                )
+            )
+            self._activate_preview_tab()
+            self.log_panel.append_line('Preprocess was not applied because no source rows are available.')
+            self.main_window.set_status_message('No source rows to preprocess.')
+            return
+
         recipe = self.current_recipe()
         result_df, summary = apply_preprocessing_recipe(source_df, recipe)
 
@@ -170,8 +226,9 @@ class PreprocessPage(DockPage):
         self.main_window.train_page.refresh_from_state()
         self.main_window.export_page.refresh_from_state()
         self.main_window.validation_page.refresh_from_state()
+        self._activate_preview_tab()
         message = (
-            f"Confirmed preprocessing: {summary['rows_after']} active row(s), including {summary['generated_rows']} synthetic row(s). "
+            f"{message_prefix}: {summary['rows_after']} active row(s), including {summary['generated_rows']} synthetic row(s). "
             f"Image size set to {recipe['image_width']}x{recipe['image_height']}. Train tab now uses the active preprocessed rows."
         )
         self.main_window.set_status_message(message)
@@ -200,6 +257,7 @@ class PreprocessPage(DockPage):
         path = save_preprocess_settings(recipe, self.state.out_dir_path)
         self.state.preprocess_recipe = recipe
         self.state.last_saved_preprocess_settings_path = str(path)
+        self._activate_log_tab()
         self.log_panel.append_line(f'Saved preprocess settings: {path}')
         self.main_window.set_status_message('Saved preprocess settings.')
 
@@ -219,6 +277,7 @@ class PreprocessPage(DockPage):
             train_config=self.state.train_config,
             last_saved_preprocess_path=self.state.last_saved_preprocess_path,
         )
+        self._activate_log_tab()
         self.log_panel.append_line(f'Saved preprocessed dataset: {folder}')
         self.main_window.set_status_message('Saved preprocessed dataset.')
 
@@ -235,6 +294,7 @@ class PreprocessPage(DockPage):
             train_config=self.state.train_config,
             last_saved_preprocess_path=self.state.last_saved_preprocess_path,
         )
+        self._activate_log_tab()
         self.log_panel.append_line(
             f"Synced preprocess image size to Train tab: {recipe['image_width']}x{recipe['image_height']}."
         )

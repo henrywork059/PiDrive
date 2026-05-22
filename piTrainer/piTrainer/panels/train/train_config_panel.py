@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtWidgets import QCheckBox, QComboBox, QDoubleSpinBox, QFormLayout, QGroupBox, QSpinBox, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QCheckBox, QComboBox, QDoubleSpinBox, QFormLayout, QGroupBox, QLabel, QSpinBox, QVBoxLayout, QWidget
 
 from ...app_state import AppState
 from ...ui.layout_widgets import CollapsibleSection, standardize_form_layout
@@ -30,6 +30,8 @@ class TrainConfigPanel(QGroupBox):
         self.clipnorm = QDoubleSpinBox(); self.clipnorm.setRange(0.0, 10.0); self.clipnorm.setDecimals(2); self.clipnorm.setSingleStep(0.1); self.clipnorm.setValue(float(getattr(cfg, 'clipnorm', 0.0) or 0.0))
         self.l2_reg = QDoubleSpinBox(); self.l2_reg.setRange(0.0, 0.1); self.l2_reg.setDecimals(5); self.l2_reg.setSingleStep(0.0005); self.l2_reg.setValue(float(getattr(cfg, 'l2_reg', 0.0) or 0.0))
         self.review_sample_count = QSpinBox(); self.review_sample_count.setRange(4, 256); self.review_sample_count.setSingleStep(4); self.review_sample_count.setValue(int(getattr(cfg, 'review_sample_count', 24) or 24))
+        self.compute_device = QComboBox(); self.compute_device.addItems(['Auto (GPU if available)', 'CPU only', 'GPU only']); self.compute_device.setCurrentText(str(getattr(cfg, 'compute_device', 'Auto (GPU if available)') or 'Auto (GPU if available)'))
+        self.compute_device.setToolTip('Auto uses TensorFlow GPU acceleration when the installed TensorFlow build can see a GPU. CPU only hides GPUs for safer compatibility. GPU only fails early if no GPU is available.')
 
         self.early_stopping = QCheckBox('Enable early stopping'); self.early_stopping.setChecked(getattr(cfg, 'early_stopping', True))
         self.early_stopping_patience = QSpinBox(); self.early_stopping_patience.setRange(1, 100); self.early_stopping_patience.setValue(getattr(cfg, 'early_stopping_patience', 4))
@@ -46,7 +48,8 @@ class TrainConfigPanel(QGroupBox):
         layout.addWidget(CollapsibleSection('Input Size + Split', self._input_split_section(), expanded=True))
         layout.addWidget(CollapsibleSection('Model + Loss', self._model_loss_section(), expanded=False))
         layout.addWidget(CollapsibleSection('Training Schedule', self._schedule_section(), expanded=True))
-        layout.addWidget(CollapsibleSection('Review + Dataset Options', self._review_options_section(), expanded=False))
+        layout.addWidget(CollapsibleSection('Device + Review Options', self._device_review_section(), expanded=True))
+        layout.addWidget(CollapsibleSection('Advanced Dataset Options', self._review_options_section(), expanded=False))
         layout.addStretch(1)
 
         self.early_stopping.toggled.connect(self._update_enabled_state)
@@ -91,9 +94,18 @@ class TrainConfigPanel(QGroupBox):
         form.addRow("LR factor", self.reduce_lr_factor)
         return widget
 
+    def _device_review_section(self) -> QWidget:
+        widget, form = self._section_form()
+        note = QLabel('Leave this on Auto. TensorFlow will use a GPU when a compatible GPU build/driver is available, otherwise it will continue on CPU.')
+        note.setWordWrap(True)
+        note.setProperty('role', 'muted')
+        form.addRow(note)
+        form.addRow('Training device', self.compute_device)
+        form.addRow('Epoch review samples', self.review_sample_count)
+        return widget
+
     def _review_options_section(self) -> QWidget:
         widget, form = self._section_form()
-        form.addRow("Epoch review samples", self.review_sample_count)
         form.addRow(self.only_manual)
         form.addRow(self.augment)
         form.addRow(self.shuffle)
@@ -131,3 +143,4 @@ class TrainConfigPanel(QGroupBox):
         cfg.clipnorm = self.clipnorm.value()
         cfg.l2_reg = self.l2_reg.value()
         cfg.review_sample_count = self.review_sample_count.value()
+        cfg.compute_device = self.compute_device.currentText()

@@ -26,7 +26,7 @@ class PreprocessFilterPanel(QGroupBox):
         self.state = state
 
         help_label = QLabel(
-            'Choose which source rows can enter preprocessing. These filters narrow the active dataset; they do not modify the original session files.'
+            'Choose the source rows for preprocessing. Leave the advanced filters collapsed unless you need to thin, range-filter, or rebalance the dataset.'
         )
         help_label.setWordWrap(True)
         help_label.setProperty('role', 'muted')
@@ -89,9 +89,9 @@ class PreprocessFilterPanel(QGroupBox):
         layout.setSpacing(8)
         layout.addWidget(help_label)
         layout.addWidget(CollapsibleSection('Source + Mode', self._source_section(), expanded=True))
-        layout.addWidget(CollapsibleSection('Frame Thinning', self._thinning_section(), expanded=False))
-        layout.addWidget(CollapsibleSection('Steering + Speed Ranges', self._range_section(), expanded=False))
-        layout.addWidget(CollapsibleSection('Straight-row Balancing', self._balance_section(), expanded=False))
+        layout.addWidget(CollapsibleSection('Advanced: Frame Thinning', self._thinning_section(), expanded=False))
+        layout.addWidget(CollapsibleSection('Advanced: Steering + Speed Ranges', self._range_section(), expanded=False))
+        layout.addWidget(CollapsibleSection('Advanced: Straight-row Balancing', self._balance_section(), expanded=False))
         layout.addStretch(1)
 
         self.enable_steering_range.toggled.connect(self._update_enabled_state)

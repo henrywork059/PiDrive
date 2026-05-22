@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 
-FORMAT_VERSION = "0_6_10_preview_navigation_edit_optimisation"
+FORMAT_VERSION = "0_6_11_preprocess_auto_gpu_layout"
 
 
 @dataclass(frozen=True)

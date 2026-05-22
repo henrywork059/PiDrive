@@ -22,7 +22,7 @@ class PreprocessConfigPanel(QGroupBox):
         self.state = state
 
         help_label = QLabel(
-            'Set augmentation and output size. Color variants are mild and meant to simulate small camera exposure/WB changes.'
+            'Set output image size first. Open the advanced sections only when you intentionally need turning boost, mirroring, or mild camera-variant augmentation.'
         )
         help_label.setWordWrap(True)
         help_label.setProperty('role', 'muted')
@@ -53,9 +53,9 @@ class PreprocessConfigPanel(QGroupBox):
         layout = QVBoxLayout(self)
         layout.setSpacing(8)
         layout.addWidget(help_label)
-        layout.addWidget(CollapsibleSection('Turning Boost', self._turning_section(), expanded=False))
-        layout.addWidget(CollapsibleSection('Mirror + Color Variants', self._variant_section(), expanded=False))
         layout.addWidget(CollapsibleSection('Output Image Size', self._size_section(), expanded=True))
+        layout.addWidget(CollapsibleSection('Advanced: Turning Boost', self._turning_section(), expanded=False))
+        layout.addWidget(CollapsibleSection('Advanced: Mirror + Color Variants', self._variant_section(), expanded=False))
         layout.addStretch(1)
 
         self.turn_boost.toggled.connect(self._update_enabled_state)

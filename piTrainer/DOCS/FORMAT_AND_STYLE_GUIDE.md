@@ -99,6 +99,21 @@ The Data page uses this pattern twice:
 
 Keep the record table first in `Data Review`, because row selection drives the image preview and deletion workflow. The record table should support multi-row selection for batch frame hiding/deletion and batch label editing, `frame_id` should remain the first visible column, and the table should keep the first column visible after multi-selection instead of horizontally jumping to later columns. Keep dataset statistics inside `Data Review`, not in the loading workflow. Keep playback controls directly underneath the image preview so frame playback stays visually tied to the currently displayed frame. Keep Frame Filter in the Manage workflow beside Data Control. Keep Bulk Edit Selected Frames in the Review workflow so users can apply either steering-only or speed-only changes to the selected Record Preview rows after explicit warning confirmation. Keep Merge Sessions in the Review workflow, but collapsed by default so normal review remains compact. Do not reintroduce a separate generic `Data Actions` panel; place each action beside the thing it affects, such as refresh/load in `Session Source`, hide/delete in `Data Control`, bulk steering/speed edits in Review, and filter clearing in `Frame Filter`.
 
+
+## Preprocess workflow
+
+The Preprocess page should favour the common path over the expert path. The accepted V6.11 layout is:
+
+```text
+[Preprocess Workflow: 1 Auto | 2 Settings] | [Preprocess Review: 1 Preview | 2 Log]
+```
+
+`1 Auto` is the default path for most users. It contains the source summary and `Quick Preprocess` panel. The green `Auto Preprocess Active Data` button loads the recommended defaults and applies preprocessing in one action. Amber setup buttons are available for `Use Recommended Defaults` and `Preview Current Recipe` when the user wants to check row counts first.
+
+`2 Settings` is optional and should contain custom controls only. Keep source/mode and output image size visible, but keep detailed thinning, range filters, balancing, turning boost, mirror, and colour-variant settings collapsed by default. More advanced settings should be deeper and more collapsed, not spread across the first visible workflow.
+
+Preprocess logs should not take vertical space from the main preview by default. Keep Preview and Log as tabs in the review area so the preview/result text remains the main thing users see after preprocessing.
+
 ## Collapsible sections
 
 Only detailed settings and fine-detail data tools should be collapsed by default.
@@ -170,7 +185,7 @@ Expected style:
 Expected examples:
 
 - `Load Selected`
-- `Confirm and Start Preprocess`
+- `Auto Preprocess Active Data`
 - `Start Training`
 - `Run Validation`
 - `Export Selected Artifacts`
@@ -217,6 +232,13 @@ Forms should use the shared form layout behaviour:
 - spacing comes from the active density profile.
 
 Use `standardize_form_layout()` from `formatting.py` for new forms.
+
+
+## Training device / GPU support
+
+Training should default to `Auto (GPU if available)`. This lets TensorFlow use a compatible GPU when the installed TensorFlow build and drivers expose one, while continuing on CPU when no GPU is visible. `CPU only` should hide GPU devices before model/dataset creation when possible, and `GPU only` should fail early with a clear log message if TensorFlow cannot detect a GPU.
+
+Keep TensorFlow imports inside the training worker so the UI starts even when TensorFlow or GPU support is missing. The worker should log which device mode was requested and whether GPU devices were detected.
 
 ## Density profiles
 
