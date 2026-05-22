@@ -145,10 +145,11 @@ def create_app(hardware_enabled: bool = False):
             "version": __version__,
             "code": PiSDErrorCodes.OK,
             "message": "Testing server GUI endpoint manifest loaded.",
-            "pages": ["/", "/manual-drive", "/ai-mode", "/settings", "/dashboard", "/testing", "/panel-presentation", "/panel-testing"],
+            "pages": ["/", "/manual-drive", "/ai-mode", "/motor-tuning", "/settings", "/dashboard", "/testing", "/panel-presentation", "/panel-testing"],
             "front_page": {"path": "/", "purpose": "Mode selection landing page."},
             "manual_drive": {"path": "/manual-drive", "purpose": "Simple user driving page with camera preview, status, STOP, manual pad, and training-data recording."},
             "ai_mode": {"path": "/ai-mode", "purpose": "AI model loading, preview prediction, and guarded AI drive mode."},
+            "motor_tuning": {"path": "/motor-tuning", "purpose": "Timed straight/turn motor calibration with matching visual overlay tuning."},
             "settings_tab": {"path": "/settings", "purpose": "Settings tab for camera/motor/system API checks."},
             "main_dashboard": {"path": "/dashboard", "purpose": "Legacy/development dashboard shell kept for bench comparison; Manual Drive and AI Mode are the current driving pages."},
             "panel_presentation": {"path": "/panel-presentation", "purpose": "Browser-local panel presentation settings that apply across pages."},
@@ -169,6 +170,7 @@ def create_app(hardware_enabled: bool = False):
                 {"method": "GET", "path": "/api/motor/config", "purpose": "Read current motor settings."},
                 {"method": "POST", "path": "/api/motor/apply", "purpose": "Apply motor settings without moving the car."},
                 {"method": "POST", "path": "/api/motor/test-channel", "purpose": "Test one motor side/direction/speed/duration."},
+                {"method": "POST", "path": "/api/motor/tune-run", "purpose": "Run a timed straight/turn tuning command through the normal motor steering algorithm, then stop."},
                 {"method": "POST", "path": "/api/control/manual", "purpose": "Send guarded manual steering/throttle command using saved Manual Drive speed policy."},
                 {"method": "POST", "path": "/api/control/stop", "purpose": "Emergency stop / set outputs to zero."},
                 {"method": "GET", "path": "/api/recording/status", "purpose": "Read capture/recording state and output folders."},
@@ -252,6 +254,13 @@ def create_app(hardware_enabled: bool = False):
             initial_status=build_status(),
         )
 
+    @app.get("/motor-tuning")
+    def motor_tuning():
+        return render_template(
+            "motor_tuning.html",
+            initial_status=build_status(),
+        )
+
     @app.get("/autopilot")
     def legacy_autopilot_alias():
         # PiSD_0_5_2: the earlier scripted Autopilot route is superseded by AI Mode.
@@ -310,7 +319,7 @@ def create_app(hardware_enabled: bool = False):
             "Panel presentation settings manifest loaded.",
             storage_key="pisd.panelPresentation.v1",
             path="/panel-presentation",
-            applies_to=["/", "/manual-drive", "/ai-mode", "/settings", "/testing", "/dashboard", "/panel-testing", "/panel-presentation"],
+            applies_to=["/", "/manual-drive", "/ai-mode", "/motor-tuning", "/settings", "/testing", "/dashboard", "/panel-testing", "/panel-presentation"],
             controls=presentation["controls"],
             source_of_truth="pisd/core/presentation_registry.py",
             design_system_css="css/pisd_design_system.css",
@@ -733,6 +742,38 @@ def create_app(hardware_enabled: bool = False):
         except Exception as exc:
             report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"Motor channel test API failed: {exc}", exc=exc)
             return jsonify(report_payload(False, report)), 500
+
+    @app.post("/api/motor/tune-run")
+    def api_motor_tune_run():
+        data, json_error = get_json_payload()
+        if json_error is not None:
+            return jsonify(report_payload(False, json_error)), 400
+        try:
+            requested_steering = clamp_float(data.get("steering", 0.0), -1.0, 1.0, 0.0)
+            requested_throttle = clamp_float(data.get("throttle", 0.0), -1.0, 1.0, 0.0)
+            duration_s = clamp_float(data.get("duration", 0.75), 0.05, 10.0, 0.75)
+            if motor_service.hardware_enabled and (abs(requested_steering) > 1e-6 or abs(requested_throttle) > 1e-6):
+                if not bool(data.get("safety_ack", False)) or not bool(data.get("enable_motor_output", False)):
+                    report = motor_service.errors.report(
+                        PiSDErrorCodes.MOTOR_TEST_UNARMED,
+                        "Motor tuning run refused because safety_ack and enable_motor_output are required when hardware motor output is enabled.",
+                        severity="warning",
+                        context={"path": request.path},
+                    )
+                    return jsonify(report_payload(False, report, motor=motor_service.status())), 403
+            ai_drive_service.stop(motor_service, stop_motors=False)
+            result = motor_service.run_timed_drive(
+                steering=requested_steering,
+                throttle=requested_throttle,
+                duration=duration_s,
+                label=data.get("label", "motor_tuning_drive"),
+            )
+            report = motor_service.errors.latest() if motor_service.last_error else None
+            return jsonify(report_payload(True, report, result.get("message", "Timed tuning drive completed."), tuning=result, motor=motor_service.status()))
+        except Exception as exc:
+            motor_service.stop()
+            report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"Motor tuning run API failed: {exc}", exc=exc)
+            return jsonify(report_payload(False, report, motor=motor_service.status())), 500
 
     @app.post("/api/control/manual")
     def api_control_manual():

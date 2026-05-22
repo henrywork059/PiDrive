@@ -1,6 +1,6 @@
 # PiSD
 
-`PiSD_0_7_2` patch line — current work builds forward from the `PiSD_0_7_0` stable v7 package.
+`PiSD_0_7_3` patch line — current work builds forward from the `PiSD_0_7_0` stable v7 package.
 
 PiSD is a clean sandbox under `PiDrive/PiSD` for rebuilding and testing PiServer GUI and runtime functions from square one.
 
@@ -10,7 +10,7 @@ Future bug-fix patches after this package should use `PiSD_0_7_x_patch` naming u
 
 ## Current version
 
-`PiSD_0_7_2` — overlay calculation patch after the `0_7_1` turn-rate steering algorithm update.
+`PiSD_0_7_3` — motor tuning page and overlay-to-real-motion calibration patch after the `0_7_2` overlay calculation update.
 
 This patch line builds forward from the full installable `PiSD_0_7_0` stable package. Use `PiSD_0_7_0` as the rollback point unless a newer stable line is promoted.
 
@@ -45,6 +45,8 @@ Included accepted work:
 - Manual Drive no longer overrides saved motor `steer_mix`; motor mixing is controlled by the motor settings.
 - Default motor steering mode is now `turn_rate`: left/right input controls curve tightness while up/down controls travel speed along that curve. The older `arcade_mix` behaviour remains selectable as a fallback.
 - The Manual Drive and AI Mode overlays now read the current motor steering mode, Turn Gain, and Turn Curve so the drawn path uses the same curve-tightness meaning as the motor algorithm.
+- New Motor Tuning page at `/motor-tuning` runs short straight/turn/custom timed commands through the same motor algorithm, then stops automatically.
+- Motor Tuning includes motor Turn Gain/Turn Curve controls and overlay calibration controls side-by-side, so the drawn path can be tuned to match the real car motion.
 - Dashboard is labelled as a legacy/development comparison shell, with stale speed limits raised to full-scale to avoid conflicting with current Manual Drive limits.
 - Default OV5647 camera profile code includes the attempted `03_request_awb_off_lock` request/PIL RGB visual profile and safe runtime migration. This still needs real Pi confirmation if colour does not match the earlier 03/91 diagnostic captures on a specific camera.
 
@@ -55,6 +57,21 @@ PiSD/requirements.txt
 ```
 
 `requirement.txt` must not be restored.
+
+## Motor tuning workflow
+
+Open `/motor-tuning` from the front page when calibrating the real car motion against the visual overlay.
+
+Use the page in this order:
+
+1. Lift the wheels or clear a safe test area, then tick both safety boxes before real motor output.
+2. Run a short Straight travel test to confirm speed and left/right balance.
+3. Run a short Turn test for left and right curves at a known speed and duration.
+4. Adjust motor `Turn Gain` / `Turn Curve` when the physical turn radius is wrong.
+5. Adjust overlay values, especially `turn_rate_visual_scale`, when the real car motion is correct but the drawn predicted path does not match the observed turn.
+6. Save overlay tuning; the values are stored under `manual_drive.overlay` and are also recorded in screenshots/recordings for future piTrainer redraw.
+
+The timed tuning endpoint is `/api/motor/tune-run`. It uses the same `MotorService.update()` mapping as Manual Drive and AI Mode, waits for the selected duration, and then sends STOP in a `finally` path. Real hardware movement still requires live safety acknowledgement and `enable_motor_output`.
 
 ## AI Mode workflow
 

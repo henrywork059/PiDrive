@@ -278,6 +278,62 @@ class MotorService:
     def status(self) -> dict[str, Any]:
         return self.get_config()
 
+    def run_timed_drive(
+        self,
+        *,
+        steering: float = 0.0,
+        throttle: float = 0.0,
+        duration: float = 0.75,
+        label: str = "motor_tuning_drive",
+    ) -> dict[str, Any]:
+        """Run a normal differential-drive command for a short timed tuning test.
+
+        This uses the same ``update`` path as Manual Drive and AI Mode, so it
+        respects steering_mode, Turn Gain, Turn Curve, motor direction, bias,
+        and max-speed settings. It always requests a stop in ``finally`` so a
+        tuning run cannot leave the last command latched after the delay.
+        """
+        requested_steering = clamp_float(steering, -1.0, 1.0, 0.0)
+        requested_throttle = clamp_float(throttle, -1.0, 1.0, 0.0)
+        duration_s = clamp_float(duration, 0.05, 10.0, 0.75)
+        label_text = str(label or "motor_tuning_drive").strip()[:80] or "motor_tuning_drive"
+
+        left = right = 0.0
+        started_at = time.time()
+        try:
+            left, right = self.update(steering=requested_steering, throttle=requested_throttle)
+            with self._lock:
+                self.last_command.update({
+                    "mode": "motor_tuning_timed_drive",
+                    "label": label_text,
+                    "duration": duration_s,
+                    "started_at": started_at,
+                })
+            if not self.hardware_enabled:
+                print(
+                    f"[PiSD MOTOR TUNE SIM] label={label_text} steering={requested_steering:+.2f} "
+                    f"throttle={requested_throttle:+.2f} left={left:+.2f} right={right:+.2f} duration={duration_s:.2f}s"
+                )
+            time.sleep(duration_s)
+            ok = True
+        finally:
+            self.stop()
+
+        status = self.status()
+        return {
+            "ok": bool(ok),
+            "code": PiSDErrorCodes.OK,
+            "message": "Timed tuning drive completed and motors were stopped.",
+            "label": label_text,
+            "steering": requested_steering,
+            "throttle": requested_throttle,
+            "duration": duration_s,
+            "left": left,
+            "right": right,
+            "hardware_output_enabled": bool(self.hardware_enabled),
+            "motor": status,
+        }
+
     def test_motor_channel(
         self,
         side: str,

@@ -220,3 +220,33 @@ Expected behaviour with default `turn_rate` mode:
 | `PISD-MOT-008` | live API channel test was not armed with `enable_motor_output` |
 | `PISD-MOT-009` | motor channel test output command failed |
 | `PISD-TEST-007` | motor channel test script detected a failed step |
+
+## PiSD 0.7.3 Motor Tuning page
+
+`/motor-tuning` is the preferred page for matching the visual overlay to the real car motion.
+
+The page separates two tuning jobs:
+
+1. Motor motion tuning
+   - `steering_mode`
+   - `turn_gain`
+   - `turn_curve`
+   - `min_inside_speed`
+   - `allow_pivot_turn`
+   - `steer_mix` for the old `arcade_mix` fallback
+
+2. Visual overlay matching
+   - `turn_rate_visual_scale` is the main visual match control.
+   - Increase it when the real car turns tighter than the drawn overlay.
+   - Decrease it when the drawn overlay turns tighter than the real car.
+   - Projection/width/curve settings remain visual-only and are stored under `manual_drive.overlay`.
+
+The page provides three safe timed tests:
+
+- Straight travel: run a selected speed for selected seconds.
+- Turn test: run left/right at selected speed, turn amount, and seconds.
+- Custom command: run exact steering/throttle values for selected seconds.
+
+All timed tuning runs call `/api/motor/tune-run`. That endpoint uses the same `MotorService.update()` path used by Manual Drive and AI Mode, then stops the motors after the requested duration. On real hardware, non-zero motion still requires `safety_ack=true` and `enable_motor_output=true` in the request.
+
+This page should be used to tune the actual turning behaviour first, then adjust the overlay until the visual predicted path matches the observed physical path.

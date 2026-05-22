@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PiSD Motor Tuning</title>
+  <link rel="stylesheet" href="{{ static_asset('css/panel_presentation_global.css') }}">
+  <link rel="stylesheet" href="{{ static_asset('css/pisd_design_system.css') }}">
+  <link rel="stylesheet" href="{{ static_asset('css/unified_layout.css') }}">
+  <link rel="stylesheet" href="{{ static_asset('css/motor_tuning.css') }}">
+  <script src="{{ static_asset('js/panel_presentation_global.js') }}" defer></script>
+</head>
+<body class="motor-tuning-page">
+  <main class="mtun-shell" id="motorTuningShell">
+    <section class="mtun-hero">
+      <div>
+        <a href="/" class="mtun-back">← Back to Front Page</a>
+        <p class="mtun-kicker">PiSD calibration</p>
+        <h1>Motor tuning</h1>
+        <p class="mtun-summary">Run short, timed movement tests and tune the visual road overlay so the predicted path matches the real car turning motion.</p>
+      </div>
+      <div class="mtun-status-strip" aria-label="Current PiSD status">
+        <span id="mtunGlobalCode" class="mtun-code">{{ initial_status.code }}</span>
+        <span>Version <strong>{{ initial_status.version }}</strong></span>
+        <span>Motor <strong id="mtunMotorAdapter">{{ initial_status.motor.adapter }}</strong></span>
+      </div>
+    </section>
+
+    <section class="mtun-panel mtun-safety-panel" id="motorTuningSafetyPanel">
+      <div class="mtun-panel-head"><div><p class="mtun-label">Safety</p><h2>Arm timed tests</h2></div><span class="mtun-code" data-code-for="safety">PISD-OK-000</span></div>
+      <label class="mtun-arm"><input id="mtunSafetyAck" type="checkbox"><span>Wheels are lifted / area is clear.</span></label>
+      <label class="mtun-arm"><input id="mtunEnableMotor" type="checkbox"><span>Enable real motor output for timed tuning runs.</span></label>
+      <p class="mtun-help">On real hardware, both boxes are required before any non-zero motor command is accepted. In simulation mode, tests still show the calculated left/right output and always stop after the selected seconds.</p>
+      <button id="mtunStopAll" class="mtun-button mtun-danger" type="button">STOP motors</button>
+    </section>
+
+    <section class="mtun-panel mtun-motion-panel" id="motorTuningMotionPanel">
+      <div class="mtun-panel-head"><div><p class="mtun-label">Timed motion</p><h2>Run calibration tests</h2></div><span class="mtun-code" data-code-for="motion">PISD-OK-000</span></div>
+      <div class="mtun-test-grid">
+        <form id="mtunStraightForm" class="mtun-card-form">
+          <h3>Straight travel</h3>
+          <p>Set the car travelling at a chosen speed for a chosen number of seconds.</p>
+          <label>Speed <input id="mtunStraightSpeed" name="speed" type="number" step="0.01" value="0.18" inputmode="decimal"></label>
+          <label>Seconds <input id="mtunStraightDuration" name="duration" type="number" step="0.05" value="0.75" inputmode="decimal"></label>
+          <div class="mtun-row">
+            <button id="mtunRunStraightForward" class="mtun-button mtun-primary" type="button">Run forward</button>
+            <button id="mtunRunStraightReverse" class="mtun-button" type="button">Run reverse</button>
+          </div>
+        </form>
+
+        <form id="mtunTurnForm" class="mtun-card-form">
+          <h3>Turn test</h3>
+          <p>Set a left/right curve at a certain speed for a certain number of seconds.</p>
+          <label>Direction
+            <select id="mtunTurnDirection" name="direction">
+              <option value="left">Left</option>
+              <option value="right">Right</option>
+            </select>
+          </label>
+          <label>Speed <input id="mtunTurnSpeed" name="speed" type="number" step="0.01" value="0.18" inputmode="decimal"></label>
+          <label>Turn amount <input id="mtunTurnAmount" name="turn" type="number" step="0.01" value="0.65" inputmode="decimal"></label>
+          <label>Seconds <input id="mtunTurnDuration" name="duration" type="number" step="0.05" value="0.75" inputmode="decimal"></label>
+          <button id="mtunRunTurn" class="mtun-button mtun-primary" type="button">Run turn</button>
+        </form>
+
+        <form id="mtunCustomForm" class="mtun-card-form">
+          <h3>Custom command</h3>
+          <p>Send one exact steering/throttle pair through the current motor algorithm.</p>
+          <label>Steering <input id="mtunCustomSteering" name="steering" type="number" step="0.01" value="0.00" inputmode="decimal"></label>
+          <label>Throttle <input id="mtunCustomThrottle" name="throttle" type="number" step="0.01" value="0.18" inputmode="decimal"></label>
+          <label>Seconds <input id="mtunCustomDuration" name="duration" type="number" step="0.05" value="0.75" inputmode="decimal"></label>
+          <button id="mtunRunCustom" class="mtun-button mtun-primary" type="button">Run custom</button>
+        </form>
+      </div>
+      <div class="mtun-output-row">
+        <div><span>Command</span><strong id="mtunCommandReadout">steering +0.00 / throttle +0.00</strong></div>
+        <div><span>Motor output</span><strong id="mtunMotorReadout">left +0.00 / right +0.00</strong></div>
+        <div><span>Overlay match note</span><strong id="mtunMatchNote">Adjust overlay after each physical test.</strong></div>
+      </div>
+    </section>
+
+    <section class="mtun-panel mtun-preview-panel" id="motorTuningOverlayPanel">
+      <div class="mtun-panel-head"><div><p class="mtun-label">Visual match</p><h2>Overlay preview</h2></div><span class="mtun-code" data-code-for="overlay">PISD-OK-000</span></div>
+      <div id="mtunOverlayPreview" class="mtun-overlay-preview" aria-label="Motor tuning overlay preview">
+        <svg id="mtunOverlaySvg" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="Predicted path overlay">
+          <defs>
+            <linearGradient id="mtunRoadFill" x1="0" y1="1" x2="0" y2="0">
+              <stop offset="0" stop-color="rgba(56, 189, 248, .50)"></stop>
+              <stop offset="1" stop-color="rgba(56, 189, 248, .05)"></stop>
+            </linearGradient>
+          </defs>
+          <path id="mtunOverlaySurface" class="mtun-overlay-surface" d=""></path>
+          <path id="mtunOverlayLeft" class="mtun-overlay-edge" d=""></path>
+          <path id="mtunOverlayRight" class="mtun-overlay-edge" d=""></path>
+          <path id="mtunOverlayCenter" class="mtun-overlay-center" d=""></path>
+          <circle id="mtunOverlayStart" class="mtun-overlay-dot" cx="50" cy="96" r="1.25"></circle>
+          <circle id="mtunOverlayEnd" class="mtun-overlay-dot end" cx="50" cy="31" r="1.5"></circle>
+        </svg>
+        <div class="mtun-overlay-hud"><strong id="mtunOverlayLabel">straight preview</strong><span id="mtunOverlayMeta">turn 0.00 · curve 0.00</span></div>
+      </div>
+      <p class="mtun-help">Use the latest real motion test as the reference: if the real car turns tighter than the drawn path, increase visual tightness; if the drawn path is too tight, reduce it.</p>
+    </section>
+
+    <section class="mtun-panel mtun-settings-panel" id="motorTuningSettingsPanel">
+      <div class="mtun-panel-head"><div><p class="mtun-label">Motor algorithm</p><h2>Speed + curve settings</h2></div><span class="mtun-code" data-code-for="motor">PISD-OK-000</span></div>
+      <form id="mtunMotorForm" class="mtun-settings-grid">
+        <label>Steering mode
+          <select id="mtunSteeringMode" name="steering_mode">
+            <option value="turn_rate">turn_rate</option>
+            <option value="arcade_mix">arcade_mix fallback</option>
+          </select>
+        </label>
+        <label>Turn Gain <input id="mtunTurnGain" name="turn_gain" type="number" step="0.01" value="0.75" inputmode="decimal"></label>
+        <label>Turn Curve <input id="mtunTurnCurve" name="turn_curve" type="number" step="0.01" value="1.50" inputmode="decimal"></label>
+        <label>Min Inside Speed <input id="mtunMinInsideSpeed" name="min_inside_speed" type="number" step="0.01" value="0.00" inputmode="decimal"></label>
+        <label>Steer Mix <input id="mtunSteerMix" name="steer_mix" type="number" step="0.01" value="1.00" inputmode="decimal"></label>
+        <label class="mtun-check"><input id="mtunAllowPivot" name="allow_pivot_turn" type="checkbox"> Allow pivot turn</label>
+      </form>
+      <div class="mtun-row">
+        <button id="mtunApplyMotor" class="mtun-button mtun-primary" type="button">Save motor tuning</button>
+        <button id="mtunRefreshStatus" class="mtun-button" type="button">Refresh status</button>
+      </div>
+      <p class="mtun-help">Turn Gain and Turn Curve affect real motor output in <code>turn_rate</code> mode. The overlay preview uses the same values plus the visual-only settings below.</p>
+    </section>
+
+    <section class="mtun-panel mtun-overlay-settings-panel" id="motorTuningOverlaySettingsPanel">
+      <div class="mtun-panel-head"><div><p class="mtun-label">Overlay calibration</p><h2>Match visual path to real motion</h2></div><span class="mtun-code" data-code-for="overlay-settings">PISD-OK-000</span></div>
+      <form id="mtunOverlayForm" class="mtun-overlay-grid">
+        <label>Turn-rate visual scale <small>Main match control for turning radius</small><input id="mtunOverlayTurnRateVisualScale" name="turn_rate_visual_scale" type="number" step="0.05" value="2.2" inputmode="decimal"></label>
+        <label>Curve strength <small>General curve response</small><input id="mtunOverlayCurveStrength" name="curve_strength" type="number" step="0.05" value="3.35" inputmode="decimal"></label>
+        <label>Curvature scale <small>Base curve multiplier</small><input id="mtunOverlayCurvatureScale" name="curvature_scale" type="number" step="0.01" value="0.52" inputmode="decimal"></label>
+        <label>Curvature limit <small>Maximum visual bend</small><input id="mtunOverlayCurvatureLimit" name="curvature_limit" type="number" step="0.05" value="2.25" inputmode="decimal"></label>
+        <label>Path length scale <small>Forward reach</small><input id="mtunOverlayPathLengthScale" name="path_length_scale" type="number" step="0.05" value="1.00" inputmode="decimal"></label>
+        <label>Path width scale <small>Road corridor width</small><input id="mtunOverlayPathWidthScale" name="path_width_scale" type="number" step="0.05" value="0.34" inputmode="decimal"></label>
+        <label>Road half width <small>Ground-plane width</small><input id="mtunOverlayRoadHalfWidth" name="road_half_width" type="number" step="0.01" value="0.41" inputmode="decimal"></label>
+        <label>Wheelbase <small>Visual model length</small><input id="mtunOverlayWheelbase" name="wheelbase" type="number" step="0.01" value="0.32" inputmode="decimal"></label>
+        <label>Near Y <small>Bottom screen anchor</small><input id="mtunOverlayBaseY" name="base_y" type="number" step="1" value="96" inputmode="decimal"></label>
+        <label>Horizon Y <small>Far screen anchor</small><input id="mtunOverlayHorizonY" name="horizon_y" type="number" step="1" value="31" inputmode="decimal"></label>
+        <label>Camera offset <small>Forward origin shift</small><input id="mtunOverlayCameraOffset" name="camera_forward_offset" type="number" step="0.01" value="0.26" inputmode="decimal"></label>
+        <label>Perspective scale <small>Horizontal projection</small><input id="mtunOverlayPerspectiveScale" name="perspective_scale" type="number" step="1" value="64" inputmode="decimal"></label>
+        <label>Perspective depth <small>Depth denominator</small><input id="mtunOverlayPerspectiveDepth" name="perspective_depth" type="number" step="0.01" value="0.92" inputmode="decimal"></label>
+        <label>Turn compression <small>Far-side compression</small><input id="mtunOverlayTurnCompression" name="turn_compression" type="number" step="0.005" value="0.075" inputmode="decimal"></label>
+        <label>Turn width taper <small>Narrowing in strong turns</small><input id="mtunOverlayTurnWidthTaper" name="turn_width_taper" type="number" step="0.01" value="0.08" inputmode="decimal"></label>
+        <label>Sample count <small>Curve smoothness</small><input id="mtunOverlaySampleCount" name="sample_count" type="number" step="1" value="56" inputmode="numeric"></label>
+        <label>Opacity <small>Surface/line visibility</small><input id="mtunOverlayOpacity" name="opacity" type="number" step="0.05" value="0.94" inputmode="decimal"></label>
+      </form>
+      <div class="mtun-row">
+        <button id="mtunApplyOverlay" class="mtun-button mtun-primary" type="button">Save overlay tuning</button>
+        <button id="mtunResetOverlay" class="mtun-button" type="button">Reset overlay preview values</button>
+      </div>
+      <p class="mtun-help">These values are stored in <code>manual_drive.overlay</code>, so Manual Drive, recordings, screenshots, and piTrainer redraw can use the same overlay calibration.</p>
+    </section>
+
+    <section class="mtun-panel mtun-log-panel" id="motorTuningLogPanel">
+      <div class="mtun-panel-head"><div><p class="mtun-label">Log</p><h2>Last response</h2></div><span class="mtun-code" data-code-for="log">PISD-OK-000</span></div>
+      <pre id="mtunLog" class="mtun-console">Motor tuning loaded. No command sent yet.</pre>
+    </section>
+  </main>
+
+  <script id="motorTuningInitialStatus" type="application/json">{{ initial_status | tojson }}</script>
+  <script src="{{ static_asset('js/overlay_geometry.js') }}"></script>
+  <script src="{{ static_asset('js/motor_tuning.js') }}"></script>
+</body>
+</html>
