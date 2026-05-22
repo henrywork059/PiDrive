@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
 )
 
 
-FORMAT_VERSION = "0_5_5_compact_guided_banner"
+FORMAT_VERSION = "0_5_6_combined_data_review_tabs"
 
 
 @dataclass(frozen=True)

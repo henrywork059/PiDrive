@@ -92,15 +92,23 @@ class DataPage(DockPage):
             ),
         ], object_name='dataWorkflowTabs')
 
-        right_stack = self.make_vertical_splitter([
-            self.make_panel_frame('image_preview', 'Image Preview + V7 Overlay', self.image_preview_panel),
-            self.make_panel_frame('data_plot', 'Data Plot', self.plot_panel),
-        ], object_name='right_stack', **splitter_args('preview_over_plot'))
+        review_tabs = make_workflow_tabs([
+            (
+                '1 Records',
+                self.preview_panel,
+                'Switch here to inspect and select individual labelled frames.',
+            ),
+            (
+                '2 Plot',
+                self.plot_panel,
+                'Switch here to review steering, speed, mode, and session distributions.',
+            ),
+        ], object_name='dataReviewTabs')
 
         workspace = self.make_horizontal_splitter([
             self.make_panel_frame('workflow_controls', 'Data Workflow', workflow_tabs),
-            self.make_panel_frame('record_preview', 'Record Preview', self.preview_panel),
-            right_stack,
+            self.make_panel_frame('record_review', 'Data Review', review_tabs),
+            self.make_panel_frame('image_preview', 'Image Preview + V7 Overlay', self.image_preview_panel),
         ], object_name='main_workspace', **splitter_args('three_panel_workspace'))
 
         self.set_workspace_widget(
