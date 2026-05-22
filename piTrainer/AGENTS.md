@@ -56,7 +56,7 @@ Preserve these accepted V6 behaviours:
 - Keep Bulk Edit Selected Frames in `3 Review`; it edits only steering or only speed one at a time, has a Select All Visible Frames setup button, requires an overwrite checkbox plus a warning confirmation dialog, and must use the batch JSONL updater so each selected session metadata file is scanned once rather than once per selected frame.
 - Keep Merge Sessions in `3 Review`, collapsed by default.
 - Keep `frame_id` as the first visible Record Preview table column.
-- Keep the Record Preview table horizontally anchored to the first column after multi-row selection; do not let Qt selection/current-cell behaviour scroll it to the second column.
+- Keep the Record Preview table horizontally anchored to the first column after multi-row selection; do not let Qt selection/current-cell behaviour scroll it to the second column, and do not force the selected row into the vertical centre on normal click/selection. Use ensure-visible scrolling only when keyboard/playback navigation needs it.
 - Keep Up/Down navigation cycling through Record Preview rows when the table has focus. Down moves to the next frame and wraps from the last row to the first; Up moves to the previous frame and wraps from the first row to the last.
 - Keep batch frame deletion as a soft-delete/hide action tied to the Data Control confirmation checkbox; do not physically remove JSONL rows or image files, and do not restore repeated confirmation popups for every delete.
 - Keep compact banner guide labels free from the old `Show:` prefix.
@@ -65,10 +65,10 @@ Preserve these accepted V6 behaviours:
 - Keep scrollbars readable but still slim; V6.6 uses about 30% thicker scrollbars than V6.5 after user review.
 - Keep splitter handles slim so they do not dominate narrow panels.
 - Keep the Edit Steering slider and bulk steering slider fill centred on neutral steering instead of filling from the left edge.
-- Hidden/deleted frames must remain traceable in `labels.jsonl` / `records.jsonl` using hidden flags, and must be excluded from active dataframes, preprocessing, training, and validation.
-- Single-frame edits from Image Preview should not rebuild the whole Record Preview table unless the edited value makes the row fail the active filter. Use targeted visible-row updates, delayed plot refresh, debounced JSONL writes, and cached JSONL parsing to keep clicking/dragging responsive.
+- Hidden/deleted frames must remain traceable in `labels.jsonl` / `records.jsonl` using hidden flags, and must be excluded from active dataframes, preprocessing, training, and validation. Validation pages must import and use the shared `without_hidden_rows()` guard.
+- Single-frame edits from Image Preview should not rebuild the whole Record Preview table unless the edited value makes the row fail the active filter. Use targeted visible-row updates, delayed plot refresh, queued/debounced JSONL writes that do not block clicking into the next frame, and cached JSONL parsing to keep clicking/dragging responsive. Background edit commits must preserve the user's current Record Preview selection.
 - Keep the Preprocess page arranged around the `1 Auto` fast path and `2 Settings` custom path. Most users should be able to click the green `Auto Preprocess Active Data` button after loading sessions; optional filters/augmentation/save-maintenance controls should stay behind collapsed advanced sections.
-- Keep Train Config `Training device` support. Default to `Auto (GPU if available)`, allow `CPU only` and `GPU only`, and configure/log TensorFlow GPU availability inside the training worker without importing TensorFlow on the UI thread.
+- Keep Train Config `Training device` support. Default to `Auto (GPU if available)`, allow `CPU only` and `GPU only`, and configure/log TensorFlow GPU availability inside the training worker without importing TensorFlow on the UI thread. Keep TensorFlow startup noise reduced by setting `TF_CPP_MIN_LOG_LEVEL` before any TensorFlow import, but do not silently disable oneDNN optimisations.
 
 ## Packaging checklist
 

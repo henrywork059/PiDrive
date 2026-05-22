@@ -240,6 +240,11 @@ Training should default to `Auto (GPU if available)`. This lets TensorFlow use a
 
 Keep TensorFlow imports inside the training worker so the UI starts even when TensorFlow or GPU support is missing. The worker should log which device mode was requested and whether GPU devices were detected.
 
+
+## TensorFlow log handling
+
+TensorFlow should still be imported lazily by training, validation, and export paths rather than on the UI thread at app startup. Set `TF_CPP_MIN_LOG_LEVEL` before any TensorFlow import so normal oneDNN/CPU feature INFO messages do not flood the PowerShell console. Do not silently set `TF_ENABLE_ONEDNN_OPTS=0`; users can still choose that manually if they specifically need to disable oneDNN optimisations for repeatability.
+
 ## Density profiles
 
 The UI supports responsive density profiles:
@@ -297,11 +302,11 @@ Use the shared slider helper in `piTrainer/piTrainer/ui/sliders.py` for centred-
 
 ## Record Preview navigation and edit responsiveness
 
-Record Preview must stay visually anchored on the first visible column. Multi-row selection, sorting, Select All, and keyboard movement should not leave the table horizontally scrolled to the second column. Keep `frame_id` as the first column and keep current-cell normalisation/scrollbar anchoring inside the preview panel rather than duplicating it in page code.
+Record Preview must stay visually anchored on the first visible column. Multi-row selection, sorting, Select All, and keyboard movement should not leave the table horizontally scrolled to the second column. Keep `frame_id` as the first column and keep current-cell normalisation/scrollbar anchoring inside the preview panel rather than duplicating it in page code. Normal mouse selection should not force the selected row into the vertical middle of the table; use ensure-visible scrolling only for programmatic navigation such as Up/Down cycling, playback, or focus-by-identity.
 
 When the Record Preview table has focus, Up and Down should cycle through frame rows. Down moves to the next frame and wraps from the last row to the first; Up moves to the previous frame and wraps from the first row to the last.
 
-Single-frame edits from Image Preview should feel immediate. Do not rebuild the full table after every small steering/speed adjustment unless an active speed/steering filter means the edited row may need to disappear. Prefer targeted row updates, debounced JSONL writes, cached JSONL parsing for repeated same-session edits, and delayed plot refresh.
+Single-frame edits from Image Preview should feel immediate. Do not rebuild the full table after every small steering/speed adjustment unless an active speed/steering filter means the edited row may need to disappear. Prefer targeted row updates, queued/debounced JSONL writes that do not block clicking into the next frame, cached JSONL parsing for repeated same-session edits, and delayed plot refresh. When a queued edit commits after the user has selected another row, update the edited row in place without stealing the current selection.
 
 Bulk Edit should keep a setup-style `Select All Visible Frames` button inside the Bulk Edit panel so users can quickly select every currently displayed frame before applying one steering-only or speed-only edit.
 

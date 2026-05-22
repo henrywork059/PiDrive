@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 
-FORMAT_VERSION = "0_6_11_preprocess_auto_gpu_layout"
+FORMAT_VERSION = "0_6_12_validation_scroll_edit_responsiveness"
 
 
 @dataclass(frozen=True)

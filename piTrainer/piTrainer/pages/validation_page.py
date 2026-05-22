@@ -9,6 +9,7 @@ from ..panels.validation.validation_config_panel import ValidationConfigPanel
 from ..panels.validation.validation_frame_review_panel import ValidationFrameReviewPanel
 from ..panels.validation.validation_plot_panel import ValidationPlotPanel
 from ..panels.validation.validation_summary_panel import ValidationSummaryPanel
+from ..services.data.visibility_service import without_hidden_rows
 from ..services.validation.validation_service import build_validation_summary_text, run_validation
 from .dock_page import DockPage
 from ..ui.formatting import splitter_args

@@ -18,7 +18,7 @@ from ..panels.data.playback_control_panel import PlaybackControlPanel
 from ..panels.data.preview_panel import PreviewPanel
 from ..panels.data.session_source_panel import SessionSourcePanel
 from ..services.data.delete_service import hide_frames_from_training
-from ..services.data.edit_service import update_frame_controls, update_frame_controls_batch
+from ..services.data.edit_service import update_frame_controls_batch, update_frame_controls_many
 from ..services.data.filter_service import filter_preview_dataframe
 from ..services.data.merge_service import merge_sessions
 from ..services.data.record_loader_service import build_filtered_dataframe, load_records_dataframe
@@ -300,47 +300,68 @@ class DataPage(DockPage):
             return
         self.image_preview_panel.set_record(record)
 
-    def on_image_record_edited(self, record: dict) -> None:
+    def on_image_record_edited(self, record: dict | list[dict]) -> None:
         if not record:
             return
-        self.preview_panel.stop_autoplay()
-        identity = self._record_identity(record)
-        steering = float(record.get('steering', 0.0) or 0.0)
-        throttle = float(record.get('throttle', 0.0) or 0.0)
+        if isinstance(record, list):
+            self.on_image_records_edited(record)
+            return
+        self.on_image_records_edited([record])
 
-        ok, message = update_frame_controls(
-            self.state.records_root_path,
-            session_name=str(record.get('session', '')),
-            frame_id=str(record.get('frame_id', '')),
-            image_path=str(record.get('abs_image', '')),
-            ts=str(record.get('ts', '')),
-            steering=steering,
-            throttle=throttle,
-        )
-        if not ok:
-            self.main_window.set_status_message(message)
+    def on_image_records_edited(self, records: list[dict]) -> None:
+        records = [dict(record) for record in records if record]
+        if not records:
+            return
+        self.preview_panel.stop_autoplay()
+        current_record = self.preview_panel.selected_record()
+        current_identity = self._record_identity(current_record) if current_record else None
+
+        result = update_frame_controls_many(self.state.records_root_path, records)
+        matched_key_set = {tuple(key) for key in result.get('matched_keys', [])}
+        updated_records = [
+            record for record in records
+            if self._bulk_edit_target_key(record) in matched_key_set
+        ]
+        if not updated_records:
+            failed_messages = list(result.get('failed_messages', []))
+            self.main_window.set_status_message(failed_messages[0] if failed_messages else 'No frame edit was applied.')
             return
 
-        for df_attr in ['dataset_df', 'filtered_df']:
-            df = getattr(self.state, df_attr)
-            if isinstance(df, pd.DataFrame) and not df.empty:
-                mask = self._record_mask(df, identity)
-                if len(mask) == len(df) and mask.any():
-                    df.loc[mask, 'steering'] = steering
-                    df.loc[mask, 'throttle'] = throttle
-        if not self.current_preview_source_df.empty:
-            mask = self._record_mask(self.current_preview_source_df, identity)
-            if len(mask) == len(self.current_preview_source_df) and mask.any():
-                self.current_preview_source_df.loc[mask, 'steering'] = steering
-                self.current_preview_source_df.loc[mask, 'throttle'] = throttle
+        needs_filter_rebuild = False
+        for edited_record in updated_records:
+            identity = self._record_identity(edited_record)
+            steering = float(edited_record.get('steering', 0.0) or 0.0)
+            throttle = float(edited_record.get('throttle', 0.0) or 0.0)
+            self._update_record_field_in_loaded_data(identity, 'steering', steering)
+            self._update_record_field_in_loaded_data(identity, 'throttle', throttle)
+            needs_filter_rebuild = needs_filter_rebuild or self._single_edit_needs_filter_rebuild(steering=steering, throttle=throttle)
 
         self.stats_panel.set_stats(calculate_basic_stats(self.state.filtered_df))
-        if self._single_edit_needs_filter_rebuild(steering=steering, throttle=throttle):
-            self.apply_preview_filter(select_identity=identity)
+        if needs_filter_rebuild:
+            self.apply_preview_filter(select_identity=current_identity)
         else:
-            self.preview_panel.update_record_values(identity, {'steering': steering, 'throttle': throttle})
+            for edited_record in updated_records:
+                identity = self._record_identity(edited_record)
+                preserve_preview_selection = bool(current_identity and current_identity != identity)
+                self.preview_panel.update_record_values(
+                    identity,
+                    {
+                        'steering': float(edited_record.get('steering', 0.0) or 0.0),
+                        'throttle': float(edited_record.get('throttle', 0.0) or 0.0),
+                    },
+                    preserve_selection=preserve_preview_selection,
+                )
             self.schedule_plot_refresh_from_preview()
-        self.main_window.set_status_message(message)
+
+        failed_messages = list(result.get('failed_messages', []))
+        updated_count = int(result.get('updated_count', 0) or 0)
+        rows_changed = int(result.get('metadata_rows_changed', 0) or 0)
+        self.main_window.set_status_message(
+            f'Updated steering/speed for {updated_count} frame edit(s) with {rows_changed} metadata row(s) changed.'
+            + (f' {len(failed_messages)} failed.' if failed_messages else '')
+        )
+        if failed_messages:
+            QMessageBox.warning(self, 'Edit Frame Data', '\n'.join(failed_messages[:8]))
 
     def schedule_plot_refresh_from_preview(self) -> None:
         self.single_edit_plot_timer.start()

@@ -222,7 +222,7 @@ class PreviewPanel(QGroupBox):
                 self.table.setCurrentCell(view_row, 0)
         finally:
             del blocker
-        self._keep_first_column_visible()
+        self._keep_first_column_visible(ensure_row_visible=True)
         if emit:
             self._handle_selection_change()
         return True
@@ -237,8 +237,19 @@ class PreviewPanel(QGroupBox):
                 return self._select_view_row(view_row)
         return False
 
-    def update_record_values(self, identity: tuple[str, str, str, str], values: dict[str, float]) -> bool:
-        """Update the already visible row after a single-frame edit without rebuilding the table."""
+    def update_record_values(
+        self,
+        identity: tuple[str, str, str, str],
+        values: dict[str, float],
+        *,
+        preserve_selection: bool = False,
+    ) -> bool:
+        """Update already visible row values without rebuilding the table.
+
+        When edits are committed from a debounce timer after the user has already
+        clicked another frame, preserve the current selection so the table does
+        not jump back to the older edited row.
+        """
         if not identity or self.df.empty:
             return False
         matched_source_rows: list[int] = []
@@ -267,9 +278,10 @@ class PreviewPanel(QGroupBox):
                     self.table.setItem(view_row, column, item)
                 item.setText(f'{float(value):.3f}')
 
-        view_row = self._view_row_for_source_row(matched_source_rows[0])
-        if view_row >= 0:
-            self._set_current_cell_first_column(view_row)
+        if not preserve_selection:
+            view_row = self._view_row_for_source_row(matched_source_rows[0])
+            if view_row >= 0:
+                self._set_current_cell_first_column(view_row)
         self._refresh_summary()
         self._schedule_first_column_visible()
         self._emit_playback_state()
@@ -292,7 +304,7 @@ class PreviewPanel(QGroupBox):
                 self.table.setCurrentCell(0, 0)
         finally:
             del blocker
-        self._keep_first_column_visible()
+        self._keep_first_column_visible(ensure_row_visible=True)
         self._handle_selection_change()
         return True
 
@@ -353,7 +365,7 @@ class PreviewPanel(QGroupBox):
         next_view_row = 0 if view_row < 0 else (view_row + 1) % total
         self._select_view_row(next_view_row)
 
-    def _keep_first_column_visible(self) -> None:
+    def _keep_first_column_visible(self, *, ensure_row_visible: bool = False) -> None:
         if self.table.columnCount() <= 0:
             return
         view_row = self._current_view_row()
@@ -361,16 +373,16 @@ class PreviewPanel(QGroupBox):
             self._set_current_cell_first_column(view_row)
         scrollbar = self.table.horizontalScrollBar()
         scrollbar.setValue(scrollbar.minimum())
-        if view_row >= 0:
+        if ensure_row_visible and view_row >= 0:
             first_item = self.table.item(view_row, 0)
             if first_item is not None:
-                self.table.scrollToItem(first_item, QAbstractItemView.PositionAtCenter)
+                self.table.scrollToItem(first_item, QAbstractItemView.EnsureVisible)
                 scrollbar.setValue(scrollbar.minimum())
 
     def _schedule_first_column_visible(self) -> None:
-        # Qt may auto-scroll after selection, sorting, or resize. Anchor more than once
-        # so multi-select stays at column 1 instead of drifting to the previous cell column.
-        for delay_ms in (0, 30, 90):
+        # Qt may auto-scroll horizontally after selection, sorting, or resize.
+        # Re-anchor the first column without vertically re-centring the selected row.
+        for delay_ms in (0, 30, 90, 180):
             QTimer.singleShot(delay_ms, self._keep_first_column_visible)
 
     def _handle_selection_change(self) -> None:

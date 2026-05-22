@@ -346,6 +346,110 @@ def _update_jsonl_file_batch(
     return changed_rows, matched_targets
 
 
+
+def _update_jsonl_file_many(
+    path: Path,
+    targets: list[dict[str, str]],
+) -> tuple[int, set[TargetKey]]:
+    """Update selected rows with their own steering/throttle values in one scan.
+
+    This is used by the image-preview editor debounce queue. Several quick
+    frame edits can be committed together without re-reading and rewriting the
+    same labels.jsonl / records.jsonl file once per frame.
+    """
+    if not path.exists() or not targets:
+        return 0, set()
+
+    target_by_key, by_id, by_image, by_ts = _build_target_indexes(targets)
+    matched_targets: set[TargetKey] = set()
+    changed_rows = 0
+    entries = _load_jsonl_entries(path)
+
+    for entry in entries:
+        record = entry.get('record')
+        if not isinstance(record, dict):
+            continue
+        key = _matching_indexed_target(
+            record,
+            target_by_key=target_by_key,
+            by_id=by_id,
+            by_image=by_image,
+            by_ts=by_ts,
+            already_matched=matched_targets,
+        )
+        if key is None:
+            continue
+        target = target_by_key[key]
+        _apply_record_control_update(
+            record,
+            steering=float(target.get('steering', 0.0) or 0.0),
+            throttle=float(target.get('throttle', 0.0) or 0.0),
+            update_steering=True,
+            update_throttle=True,
+        )
+        matched_targets.add(key)
+        changed_rows += 1
+        _set_jsonl_entry_record(entry, record)
+
+    if changed_rows:
+        _write_jsonl_entries(path, entries)
+    return changed_rows, matched_targets
+
+
+def update_frame_controls_many(
+    records_root: Path,
+    records: Iterable[dict[str, Any]],
+) -> dict[str, Any]:
+    """Update multiple frame edits with each frame's own steering/throttle.
+
+    Unlike the bulk-edit panel, this does not apply one shared value. It commits
+    the queued Image Preview edits in groups so each affected metadata file is
+    scanned and rewritten once.
+    """
+    targets_by_session: dict[str, list[dict[str, str]]] = {}
+    selected_targets: dict[TargetKey, dict[str, str]] = {}
+
+    for record in records:
+        target = _target_from_record(record)
+        session_name = target['session'].strip()
+        key = _target_key(target)
+        if not session_name or key in selected_targets:
+            continue
+        target['steering'] = str(float(record.get('steering', 0.0) or 0.0))
+        target['throttle'] = str(float(record.get('throttle', 0.0) or 0.0))
+        selected_targets[key] = target
+        targets_by_session.setdefault(session_name, []).append(target)
+
+    matched_keys: set[TargetKey] = set()
+    metadata_rows_changed = 0
+    files_changed: list[str] = []
+
+    for session_name, targets in targets_by_session.items():
+        session_dir = resolve_session_dir(records_root, session_name)
+        for filename in ('labels.jsonl', 'records.jsonl'):
+            changed_rows, file_matches = _update_jsonl_file_many(session_dir / filename, targets)
+            if changed_rows:
+                files_changed.append(f'{session_name}/{filename}')
+            metadata_rows_changed += changed_rows
+            matched_keys.update(file_matches)
+
+    failed_messages = [
+        f"Could not find frame '{_target_label(target)}' in session '{target.get('session', '')}'."
+        for key, target in selected_targets.items()
+        if key not in matched_keys
+    ]
+
+    return {
+        'selected_count': len(selected_targets),
+        'updated_count': len(matched_keys),
+        'metadata_rows_changed': metadata_rows_changed,
+        'files_changed': files_changed,
+        'failed_messages': failed_messages,
+        'field_label': 'steering/speed',
+        'matched_keys': sorted(matched_keys),
+    }
+
+
 def update_frame_controls(
     records_root: Path,
     session_name: str,

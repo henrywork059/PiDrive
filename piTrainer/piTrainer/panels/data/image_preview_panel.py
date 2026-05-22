@@ -78,6 +78,7 @@ class ImagePreviewPanel(QGroupBox):
             'drive_arrow': False,
         }
         self._syncing_controls = False
+        self._pending_edit_records: dict[tuple[str, str, str, str], dict[str, Any]] = {}
 
         self.image_label = InteractiveImageLabel(self)
 
@@ -122,9 +123,10 @@ class ImagePreviewPanel(QGroupBox):
 
         self.commit_timer = QTimer(self)
         self.commit_timer.setSingleShot(True)
-        # Debounce edits long enough that click/drag adjustments do not rewrite JSONL files repeatedly.
-        self.commit_timer.setInterval(750)
-        self.commit_timer.timeout.connect(self._emit_record_edited)
+        # Debounce edits so click/drag adjustments do not rewrite JSONL files repeatedly,
+        # but keep selection changes responsive by committing queued edits after the UI moves on.
+        self.commit_timer.setInterval(450)
+        self.commit_timer.timeout.connect(self._emit_pending_record_edits)
 
         self.resize_render_timer = QTimer(self)
         self.resize_render_timer.setSingleShot(True)
@@ -140,7 +142,9 @@ class ImagePreviewPanel(QGroupBox):
         self._update_overlay_meta_label({})
 
     def set_record(self, record: dict[str, Any] | None) -> None:
-        self._flush_pending_commit()
+        # Do not synchronously write pending edits when the user clicks another row.
+        # The debounce timer commits queued edits shortly after selection changes,
+        # which keeps frame-to-frame review responsive on large JSONL sessions.
         self.current_record = dict(record) if record else None
         self._sync_controls_from_record()
         self._render_preview()
@@ -166,7 +170,6 @@ class ImagePreviewPanel(QGroupBox):
         self._apply_current_control_values()
 
     def clear_preview(self) -> None:
-        self._flush_pending_commit()
         self.current_record = None
         self.image_label.set_display_pixmap(None)
         self.image_label.setText('No preview')
@@ -208,7 +211,7 @@ class ImagePreviewPanel(QGroupBox):
         self.current_record['throttle'] = speed
         self._update_value_labels(steering, speed)
         self._render_preview()
-        self.commit_timer.start()
+        self._queue_pending_edit(self.current_record)
 
     def _update_value_labels(self, steering: float, speed: float) -> None:
         self.steering_value_label.setText(f'{steering:.3f}')
@@ -249,11 +252,33 @@ class ImagePreviewPanel(QGroupBox):
         self.image_label.setText('')
         self.image_label.set_display_pixmap(rendered)
 
-    def _emit_record_edited(self) -> None:
-        if self.current_record is not None and self.record_edited_callback is not None:
-            self.record_edited_callback(dict(self.current_record))
+    @staticmethod
+    def _record_edit_key(record: dict[str, Any]) -> tuple[str, str, str, str]:
+        return (
+            str(record.get('session', '') or ''),
+            str(record.get('frame_id', '') or ''),
+            str(record.get('abs_image', '') or record.get('image_path', '') or record.get('frame', '') or ''),
+            str(record.get('ts', '') or ''),
+        )
+
+    def _queue_pending_edit(self, record: dict[str, Any]) -> None:
+        key = self._record_edit_key(record)
+        if not any(key):
+            return
+        self._pending_edit_records[key] = dict(record)
+        self.commit_timer.start()
+
+    def _emit_pending_record_edits(self) -> None:
+        if self.record_edited_callback is None or not self._pending_edit_records:
+            return
+        pending = [dict(record) for record in self._pending_edit_records.values()]
+        self._pending_edit_records.clear()
+        if len(pending) == 1:
+            self.record_edited_callback(pending[0])
+        else:
+            self.record_edited_callback(pending)
 
     def _flush_pending_commit(self) -> None:
         if self.commit_timer.isActive():
             self.commit_timer.stop()
-            self._emit_record_edited()
+        self._emit_pending_record_edits()
