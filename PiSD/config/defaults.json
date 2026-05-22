@@ -47,6 +47,11 @@
     "right_max_speed": 1.0,
     "left_bias": 0.0,
     "right_bias": 0.0,
-    "steer_mix": 1.0
+    "steer_mix": 1.0,
+    "steering_mode": "turn_rate",
+    "turn_gain": 0.75,
+    "turn_curve": 1.5,
+    "min_inside_speed": 0.0,
+    "allow_pivot_turn": false
   }
 }

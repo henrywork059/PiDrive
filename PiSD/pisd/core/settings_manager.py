@@ -291,6 +291,19 @@ class SettingsManager:
             motor["steer_mix"] = max(0.0, min(1.0, float(motor.get("steer_mix", self.defaults.get("motor", {}).get("steer_mix", 1.0)))))
         except Exception:
             motor["steer_mix"] = self.defaults.get("motor", {}).get("steer_mix", 1.0)
+        motor_defaults = self.defaults.get("motor", {})
+        steering_mode = str(motor.get("steering_mode", motor_defaults.get("steering_mode", "turn_rate")) or "turn_rate").strip().lower()
+        motor["steering_mode"] = steering_mode if steering_mode in {"turn_rate", "arcade_mix"} else motor_defaults.get("steering_mode", "turn_rate")
+        for key, lower, upper, default in (
+            ("turn_gain", 0.0, 2.0, motor_defaults.get("turn_gain", 0.75)),
+            ("turn_curve", 0.1, 5.0, motor_defaults.get("turn_curve", 1.5)),
+            ("min_inside_speed", 0.0, 0.95, motor_defaults.get("min_inside_speed", 0.0)),
+        ):
+            try:
+                motor[key] = max(lower, min(upper, float(motor.get(key, default))))
+            except Exception:
+                motor[key] = default
+        motor["allow_pivot_turn"] = str(motor.get("allow_pivot_turn", motor_defaults.get("allow_pivot_turn", False))).lower() in {"true", "1", "yes", "on"}
 
         manual = merged.setdefault("manual_drive", {})
         for key in ("speed", "steer_strength"):

@@ -57,6 +57,11 @@ class MotorConfig:
     left_bias: float = 0.0
     right_bias: float = 0.0
     steer_mix: float = 1.0
+    steering_mode: str = "turn_rate"
+    turn_gain: float = 0.75
+    turn_curve: float = 1.5
+    min_inside_speed: float = 0.0
+    allow_pivot_turn: bool = False
 
     def apply(self, data: dict[str, Any] | None) -> None:
         if not isinstance(data, dict):
@@ -80,6 +85,16 @@ class MotorConfig:
         self.left_bias = clamp_float(data.get("left_bias", self.left_bias), -0.35, 0.35, self.left_bias)
         self.right_bias = clamp_float(data.get("right_bias", self.right_bias), -0.35, 0.35, self.right_bias)
         self.steer_mix = clamp_float(data.get("steer_mix", self.steer_mix), 0.0, 1.0, self.steer_mix)
+        steering_mode = str(data.get("steering_mode", self.steering_mode) or self.steering_mode).strip().lower()
+        self.steering_mode = steering_mode if steering_mode in {"turn_rate", "arcade_mix"} else self.steering_mode
+        self.turn_gain = clamp_float(data.get("turn_gain", self.turn_gain), 0.0, 2.0, self.turn_gain)
+        self.turn_curve = clamp_float(data.get("turn_curve", self.turn_curve), 0.1, 5.0, self.turn_curve)
+        self.min_inside_speed = clamp_float(data.get("min_inside_speed", self.min_inside_speed), 0.0, 0.95, self.min_inside_speed)
+        raw_pivot = data.get("allow_pivot_turn", self.allow_pivot_turn)
+        if isinstance(raw_pivot, str):
+            self.allow_pivot_turn = raw_pivot.strip().lower() in {"true", "1", "yes", "on"}
+        else:
+            self.allow_pivot_turn = bool(raw_pivot)
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -94,6 +109,11 @@ class MotorConfig:
             "left_bias": float(self.left_bias),
             "right_bias": float(self.right_bias),
             "steer_mix": float(self.steer_mix),
+            "steering_mode": str(self.steering_mode),
+            "turn_gain": float(self.turn_gain),
+            "turn_curve": float(self.turn_curve),
+            "min_inside_speed": float(self.min_inside_speed),
+            "allow_pivot_turn": bool(self.allow_pivot_turn),
         }
 
 
@@ -396,6 +416,11 @@ class MotorService:
                 "steering": steering,
                 "throttle": throttle,
                 "steer_mix": mix,
+                "steering_mode": self.config.steering_mode,
+                "turn_gain": self.config.turn_gain,
+                "turn_curve": self.config.turn_curve,
+                "min_inside_speed": self.config.min_inside_speed,
+                "allow_pivot_turn": self.config.allow_pivot_turn,
                 "timestamp": time.time(),
             }
         if not self.hardware_enabled:
@@ -422,11 +447,46 @@ class MotorService:
 
     def _map_drive_locked(self, steering: float, throttle: float, steer_mix: float) -> tuple[float, float]:
         steering *= -1.0 if self.config.steering_direction < 0 else 1.0
-        left = throttle - steer_mix * steering
-        right = throttle + steer_mix * steering
+        if self.config.steering_mode == "arcade_mix":
+            left = throttle - steer_mix * steering
+            right = throttle + steer_mix * steering
+        else:
+            left, right = self._map_turn_rate_locked(steering, throttle)
         left = self._apply_tuning(left, self.config.left_max_speed, self.config.left_bias, self.config.left_direction)
         right = self._apply_tuning(right, self.config.right_max_speed, self.config.right_bias, self.config.right_direction)
         return left, right
+
+    def _map_turn_rate_locked(self, steering: float, throttle: float) -> tuple[float, float]:
+        """Map speed + curvature intent to differential output.
+
+        In turn-rate mode, throttle controls travel speed along the selected
+        curve and steering controls curve tightness. Positive steering means a
+        right curve; negative steering means a left curve. The default mapping
+        slows the inside wheel rather than reversing it, so full steering gives
+        the tightest non-pivot curve instead of immediately spinning in place.
+        """
+        speed = clamp_float(throttle, -1.0, 1.0, 0.0)
+        steer = clamp_float(steering, -1.0, 1.0, 0.0)
+        gain = clamp_float(self.config.turn_gain, 0.0, 2.0, 0.75)
+        curve = clamp_float(self.config.turn_curve, 0.1, 5.0, 1.5)
+        turn_mag = clamp_float((abs(steer) ** curve) * gain, 0.0, 1.0, 0.0)
+        if turn_mag <= 1e-6:
+            return speed, speed
+
+        if self.config.allow_pivot_turn and abs(speed) < 1e-4:
+            pivot = turn_mag
+            return (pivot, -pivot) if steer > 0 else (-pivot, pivot)
+
+        if self.config.allow_pivot_turn:
+            inside_factor = 1.0 - (2.0 * turn_mag)
+        else:
+            inside_factor = max(clamp_float(self.config.min_inside_speed, 0.0, 0.95, 0.0), 1.0 - turn_mag)
+
+        if steer > 0:
+            # Right curve: left/outside wheel keeps requested speed, right/inside wheel slows.
+            return speed, speed * inside_factor
+        # Left curve: right/outside wheel keeps requested speed, left/inside wheel slows.
+        return speed * inside_factor, speed
 
     def _apply_tuning(self, value: float, max_speed: float, bias: float, direction: int) -> float:
         value = clamp_float(value, -1.0, 1.0, 0.0)
@@ -440,7 +500,17 @@ class MotorService:
     def _stop_locked(self) -> None:
         self.last_left = 0.0
         self.last_right = 0.0
-        self.last_command = {"steering": 0.0, "throttle": 0.0, "steer_mix": self.config.steer_mix, "timestamp": time.time()}
+        self.last_command = {
+            "steering": 0.0,
+            "throttle": 0.0,
+            "steer_mix": self.config.steer_mix,
+            "steering_mode": self.config.steering_mode,
+            "turn_gain": self.config.turn_gain,
+            "turn_curve": self.config.turn_curve,
+            "min_inside_speed": self.config.min_inside_speed,
+            "allow_pivot_turn": self.config.allow_pivot_turn,
+            "timestamp": time.time(),
+        }
         left_ok = self.left.stop()
         right_ok = self.right.stop()
         if not left_ok or not right_ok:
@@ -461,6 +531,7 @@ class MotorService:
         if now - self._last_sim_log_at >= 0.35:
             print(
                 f"[PiSD MOTOR SIM] steering={steering:+.2f} throttle={throttle:+.2f} "
-                f"mix={steer_mix:.2f} left={left:+.2f} right={right:+.2f}"
+                f"mode={self.config.steering_mode} mix={steer_mix:.2f} turn_gain={self.config.turn_gain:.2f} "
+                f"left={left:+.2f} right={right:+.2f}"
             )
             self._last_sim_log_at = now

@@ -18,6 +18,7 @@ The backend accepts these top-level groups:
 
 - `camera` — camera settings passed to `CameraService.apply_settings()`.
 - `motor` — motor settings passed to `MotorService.apply_settings()`.
+  PiSD 0.7.1 motor settings include `steering_mode`, `turn_gain`, `turn_curve`, `min_inside_speed`, and `allow_pivot_turn` for the new turn-rate steering algorithm, while keeping `steer_mix` for `arcade_mix` fallback mode.
 - `manual_drive` — manual drive defaults such as drag-pad speed and steer strength.
 - `panel_presentation` — shared visual style used by all pages.
 - `safety` — GUI safety defaults.

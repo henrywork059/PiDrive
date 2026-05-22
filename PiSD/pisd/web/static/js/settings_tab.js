@@ -19,6 +19,11 @@ function normaliseSettingsForUi(settings = {}) {
   next.motor.left_max_speed = clampNumber(next.motor.left_max_speed ?? 1.0, 0, 1.0, 1.0);
   next.motor.right_max_speed = clampNumber(next.motor.right_max_speed ?? 1.0, 0, 1.0, 1.0);
   next.motor.steer_mix = clampNumber(next.motor.steer_mix ?? 1.0, 0, 1.0, 1.0);
+  next.motor.steering_mode = ['turn_rate', 'arcade_mix'].includes(String(next.motor.steering_mode || '').trim()) ? String(next.motor.steering_mode).trim() : 'turn_rate';
+  next.motor.turn_gain = clampNumber(next.motor.turn_gain ?? 0.75, 0, 2.0, 0.75);
+  next.motor.turn_curve = clampNumber(next.motor.turn_curve ?? 1.5, 0.1, 5.0, 1.5);
+  next.motor.min_inside_speed = clampNumber(next.motor.min_inside_speed ?? 0.0, 0, 0.95, 0.0);
+  next.motor.allow_pivot_turn = String(next.motor.allow_pivot_turn ?? false).toLowerCase() === 'true' || next.motor.allow_pivot_turn === true;
   next.motor.left_bias = clampNumber(next.motor.left_bias ?? 0.0, -0.35, 0.35, 0.0);
   next.motor.right_bias = clampNumber(next.motor.right_bias ?? 0.0, -0.35, 0.35, 0.0);
   next.manual_drive.max_speed_limit = clampNumber(next.manual_drive.max_speed_limit ?? 1.0, 0.1, 1.0, 1.0);

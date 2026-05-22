@@ -161,11 +161,26 @@
             <option value="-1">-1</option>
           </select>
         </label>
+        <label>Steering mode
+          <select name="steering_mode">
+            <option value="turn_rate" selected>turn_rate</option>
+            <option value="arcade_mix">arcade_mix</option>
+          </select>
+        </label>
+        <label>Turn gain <input name="turn_gain" type="number" value="0.75" min="0" max="2" step="0.05"></label>
+        <label>Turn curve <input name="turn_curve" type="number" value="1.5" min="0.1" max="5" step="0.05"></label>
+        <label>Min inside speed <input name="min_inside_speed" type="number" value="0" min="0" max="0.95" step="0.05"></label>
+        <label>Allow pivot turn
+          <select name="allow_pivot_turn" data-type="boolean">
+            <option value="false" selected>false</option>
+            <option value="true">true</option>
+          </select>
+        </label>
         <label>Left max speed <input name="left_max_speed" type="number" value="1.0" min="0" max="1.0" step="0.01"></label>
         <label>Right max speed <input name="right_max_speed" type="number" value="1.0" min="0" max="1.0" step="0.01"></label>
         <label>Left bias <input name="left_bias" type="number" value="0" min="-1" max="1" step="0.01"></label>
         <label>Right bias <input name="right_bias" type="number" value="0" min="-1" max="1" step="0.01"></label>
-        <label>Steer mix <input name="steer_mix" type="number" value="1" min="0" max="2" step="0.05"></label>
+        <label>Steer mix (arcade) <input name="steer_mix" type="number" value="1" min="0" max="2" step="0.05"></label>
       </form>
       <button id="applyMotorBtn" class="button primary">Apply motor settings</button>
     </section>

@@ -139,6 +139,63 @@ PiSD/test_outputs/motor_channels/summary.json
 
 Use this file to compare car setups and decide which direction multipliers or pin pairs should become the saved config.
 
+## Manual Drive steering algorithm modes
+
+PiSD 0.7.1 changes the default steering interpretation for normal drive commands.
+
+The old mode is still available as `arcade_mix`:
+
+```text
+left = throttle - steer_mix * steering
+right = throttle + steer_mix * steering
+```
+
+This can pivot or reverse one side quickly when steering is high. It is useful as a fallback because it matches older PiSD behaviour.
+
+The new default mode is `turn_rate`:
+
+```text
+X / steering input = curve tightness
+Y / throttle input = travel speed along that curve
+```
+
+In `turn_rate` mode, steering no longer means "add speed to one motor and subtract from the other" directly. Instead, steering produces a unitless turn value:
+
+```text
+turn = sign(steering) * abs(steering) ** turn_curve * turn_gain
+turn = clamp(turn, -1.0, 1.0)
+```
+
+Then the inside wheel is slowed while the outside wheel keeps the requested travel speed:
+
+```text
+right curve: left = speed,                 right = speed * inside_factor
+left curve:  left = speed * inside_factor, right = speed
+```
+
+With the default `allow_pivot_turn = false`, the inside wheel does not reverse. This gives a radius-feel control where the car travels along a curve rather than snapping into a spin.
+
+Available motor settings:
+
+| Setting | Meaning |
+|---|---|
+| `steering_mode` | `turn_rate` for the new curve/radius-feel control, or `arcade_mix` for the old mixer. |
+| `turn_gain` | Higher values make turns tighter; lower values make turns wider. |
+| `turn_curve` | Shapes the joystick response. Values above 1 make small steering gentler and full steering still tight. |
+| `min_inside_speed` | Minimum inside-wheel factor in non-pivot mode. Use this if the inside wheel stopping makes the car drag or stall. |
+| `allow_pivot_turn` | Allows the inside wheel to reverse for very tight turns and zero-throttle pivoting. Default is `false`. |
+| `steer_mix` | Used by `arcade_mix` fallback mode. It is kept for compatibility and calibration comparisons. |
+
+Expected behaviour with default `turn_rate` mode:
+
+| Input | Expected output feel |
+|---|---|
+| up only | straight forward |
+| up + slight right | wide right curve |
+| up + full right | tight right curve with right/inside wheel slowed |
+| down + slight left | reverse along a left curve |
+| left/right only | no pivot by default unless `allow_pivot_turn` is enabled |
+
 ## Error codes
 
 | Code | Meaning |
