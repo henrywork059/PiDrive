@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
 )
 
 
-FORMAT_VERSION = "0_5_2_unified_format"
+FORMAT_VERSION = "0_5_4_panel_overflow_scroll"
 
 
 @dataclass(frozen=True)
@@ -54,6 +54,8 @@ class DensityProfile:
     splitter_handle_width: int
     workflow_min_width: int
     panel_min_width: int
+    workflow_frame_min_width: int
+    panel_frame_min_width: int
 
 
 DENSITY_PROFILES: Mapping[str, DensityProfile] = {
@@ -79,6 +81,8 @@ DENSITY_PROFILES: Mapping[str, DensityProfile] = {
         splitter_handle_width=9,
         workflow_min_width=240,
         panel_min_width=200,
+        workflow_frame_min_width=96,
+        panel_frame_min_width=110,
     ),
     "comfortable": DensityProfile(
         base_font=13,
@@ -102,6 +106,8 @@ DENSITY_PROFILES: Mapping[str, DensityProfile] = {
         splitter_handle_width=10,
         workflow_min_width=260,
         panel_min_width=220,
+        workflow_frame_min_width=110,
+        panel_frame_min_width=130,
     ),
     "spacious": DensityProfile(
         base_font=13,
@@ -125,6 +131,8 @@ DENSITY_PROFILES: Mapping[str, DensityProfile] = {
         splitter_handle_width=11,
         workflow_min_width=280,
         panel_min_width=235,
+        workflow_frame_min_width=120,
+        panel_frame_min_width=150,
     ),
 }
 
@@ -225,12 +233,29 @@ def apply_splitter_format(splitter: QSplitter, *, density: str = "comfortable") 
     splitter.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
 
+def panel_content_min_width(panel_id: str = "", *, density: str = "comfortable") -> int:
+    """Return the width at which content should start horizontal scrolling.
+
+    Splitter panels themselves are allowed to become narrower than this so the
+    user can drag proportions freely. The content inside the panel keeps this
+    readable soft width and is exposed through a horizontal scrollbar only when
+    the visible panel is smaller.
+    """
+    profile = get_density_profile(density)
+    return profile.workflow_min_width if panel_id == "workflow_controls" else profile.panel_min_width
+
+
 def apply_panel_frame_format(frame: QFrame, *, panel_id: str = "", density: str = "comfortable") -> None:
     profile = get_density_profile(density)
     frame.setProperty("role", "splitterPanel")
     frame.setFrameShape(QFrame.StyledPanel)
     frame.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-    frame.setMinimumWidth(profile.workflow_min_width if panel_id == "workflow_controls" else profile.panel_min_width)
+    # Keep the frame itself easy to reduce with the splitter. The child content
+    # keeps its readable minimum inside a scroll area, so reducing a panel below
+    # its content width produces a horizontal scrollbar instead of clipping text.
+    frame.setMinimumWidth(
+        profile.workflow_frame_min_width if panel_id == "workflow_controls" else profile.panel_frame_min_width
+    )
 
 
 def apply_layout_tree_format(root: QWidget, *, density: str = "comfortable") -> None:
@@ -283,6 +308,13 @@ def apply_standard_widget_format(root: QWidget, *, density: str = "comfortable")
         button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         if button.property("role") == "nextStep":
             button.setMinimumHeight(get_density_profile(density).next_min)
+
+    # Every scrollable widget should reveal overflow when a splitter panel is
+    # squeezed below the content's soft readable width. Scroll bars stay hidden
+    # until they are actually needed.
+    for scroll_area in root.findChildren(QAbstractScrollArea):
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
 
     # Consistent readable tables and lists.
     for table in root.findChildren(QTableWidget):

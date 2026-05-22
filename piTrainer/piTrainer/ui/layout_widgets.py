@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 
 from .formatting import (
     get_density_profile,
+    panel_content_min_width,
     set_box_layout_format,
     standardize_form_layout as apply_standard_form_layout,
 )
@@ -192,17 +193,44 @@ class ControlStack(QWidget):
         layout.addStretch(1)
 
 
-def make_scroll_area(widget: QWidget, *, object_name: str = 'pageScrollArea') -> QScrollArea:
-    """Wrap a panel/sidebar so it remains usable when the dock is short."""
+def make_scroll_area(
+    widget: QWidget,
+    *,
+    object_name: str = 'pageScrollArea',
+    content_min_width: int | None = None,
+    role: str = 'workflowScroll',
+) -> QScrollArea:
+    """Wrap content so it stays reachable when a splitter pane is reduced.
+
+    ``widgetResizable=True`` lets the content expand with the viewport in normal
+    layouts. When the viewport becomes narrower than ``content_min_width`` or the
+    child widget's own minimum size, Qt shows a horizontal scrollbar on demand
+    instead of clipping controls and labels.
+    """
+    if content_min_width is not None:
+        widget.setMinimumWidth(max(int(content_min_width), widget.minimumWidth()))
+
     scroll = QScrollArea()
     scroll.setObjectName(object_name)
-    scroll.setProperty('role', 'workflowScroll')
+    scroll.setProperty('role', role)
     scroll.setWidgetResizable(True)
     scroll.setFrameShape(QFrame.NoFrame)
+    scroll.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
     scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
     scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
     scroll.setWidget(widget)
     return scroll
+
+
+def make_panel_content_scroll(widget: QWidget, *, panel_id: str = '', object_name: str = 'panelContentScrollArea') -> QScrollArea:
+    """Create the standard overflow wrapper used inside splitter panels."""
+    min_width = panel_content_min_width(panel_id)
+    return make_scroll_area(
+        widget,
+        object_name=object_name,
+        content_min_width=min_width,
+        role='panelContentScroll',
+    )
 
 
 def make_workflow_tabs(
@@ -236,4 +264,9 @@ def make_scrollable_stack(
     margins: tuple[int, int, int, int] | None = None,
 ) -> QScrollArea:
     """Convenience helper for one scrollable stack of collapsible sections."""
-    return make_scroll_area(ControlStack(sections, intro=intro, margins=margins), object_name=object_name)
+    return make_scroll_area(
+        ControlStack(sections, intro=intro, margins=margins),
+        object_name=object_name,
+        content_min_width=panel_content_min_width('workflow_controls'),
+        role='workflowScroll',
+    )

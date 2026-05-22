@@ -345,9 +345,12 @@ def build_stylesheet(density: str = "comfortable") -> str:
         background: #101722;
         border: none;
     }
-    QScrollArea[role='workflowScroll'] {
+    QScrollArea[role='workflowScroll'], QScrollArea[role='panelContentScroll'] {
         border: 0px;
         border-radius: 8px;
+    }
+    QScrollArea[role='panelContentScroll'] {
+        background: transparent;
     }
     QToolButton#collapsibleSectionHeader {
         background: #1e2b3d;
@@ -469,6 +472,15 @@ def build_stylesheet(density: str = "comfortable") -> str:
         background: #374d67;
         min-width: 28px;
         border-radius: 6px;
+    }
+    QScrollBar::handle:horizontal:hover {
+        background: #517396;
+    }
+    QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+        width: 0px;
+    }
+    QAbstractScrollArea::corner {
+        background: #0d131d;
     }
     """
     for key, value in values.items():

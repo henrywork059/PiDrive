@@ -20,7 +20,7 @@ from ..ui.formatting import (
     apply_splitter_format,
     set_box_layout_format,
 )
-from ..ui.layout_widgets import make_page_banner
+from ..ui.layout_widgets import make_page_banner, make_panel_content_scroll
 
 
 class ResponsiveSplitter(QSplitter):
@@ -218,6 +218,12 @@ class DockPage(QMainWindow):
         header.setWordWrap(False)
 
         widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        content_scroll = make_panel_content_scroll(
+            widget,
+            panel_id=panel_id,
+            object_name=f"{self.page_id}_{panel_id}_content_scroll",
+        )
+
         layout = QVBoxLayout(frame)
         set_box_layout_format(layout, role="panel")
         layout.addWidget(header)
@@ -227,7 +233,7 @@ class DockPage(QMainWindow):
             subtitle_label.setProperty("role", "panelSubtitle")
             subtitle_label.setWordWrap(True)
             layout.addWidget(subtitle_label)
-        layout.addWidget(widget, 1)
+        layout.addWidget(content_scroll, 1)
         return frame
 
     def make_splitter(
