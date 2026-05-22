@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Mapping, Sequence
 
+from .theme import THEME_COLORS
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QAbstractScrollArea,
@@ -22,7 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 
-FORMAT_VERSION = "0_6_4_record_table_first_column_action_labels"
+FORMAT_VERSION = "0_6_5_color_system_slim_splitters"
 
 
 @dataclass(frozen=True)
@@ -69,7 +71,7 @@ DENSITY_PROFILES: Mapping[str, DensityProfile] = {
         input_min=24,
         main_tab_min=104,
         workflow_tab_min=72,
-        scrollbar=10,
+        scrollbar=5,
         banner_margin=(9, 5, 9, 5),
         banner_spacing=4,
         page_margin=(6, 5, 6, 6),
@@ -82,7 +84,7 @@ DENSITY_PROFILES: Mapping[str, DensityProfile] = {
         stack_spacing=6,
         form_h_spacing=8,
         form_v_spacing=5,
-        splitter_handle_width=9,
+        splitter_handle_width=5,
         workflow_min_width=240,
         panel_min_width=200,
         workflow_frame_min_width=96,
@@ -96,7 +98,7 @@ DENSITY_PROFILES: Mapping[str, DensityProfile] = {
         input_min=25,
         main_tab_min=118,
         workflow_tab_min=78,
-        scrollbar=11,
+        scrollbar=6,
         banner_margin=(10, 6, 10, 6),
         banner_spacing=5,
         page_margin=(8, 7, 8, 8),
@@ -109,7 +111,7 @@ DENSITY_PROFILES: Mapping[str, DensityProfile] = {
         stack_spacing=8,
         form_h_spacing=9,
         form_v_spacing=6,
-        splitter_handle_width=10,
+        splitter_handle_width=5,
         workflow_min_width=260,
         panel_min_width=220,
         workflow_frame_min_width=110,
@@ -123,7 +125,7 @@ DENSITY_PROFILES: Mapping[str, DensityProfile] = {
         input_min=26,
         main_tab_min=132,
         workflow_tab_min=86,
-        scrollbar=12,
+        scrollbar=6,
         banner_margin=(11, 6, 11, 6),
         banner_spacing=5,
         page_margin=(10, 8, 10, 10),
@@ -136,7 +138,7 @@ DENSITY_PROFILES: Mapping[str, DensityProfile] = {
         stack_spacing=9,
         form_h_spacing=10,
         form_v_spacing=7,
-        splitter_handle_width=11,
+        splitter_handle_width=6,
         workflow_min_width=280,
         panel_min_width=235,
         workflow_frame_min_width=120,
@@ -187,7 +189,7 @@ def density_for_width(width: int) -> str:
 
 def stylesheet_tokens(density: str = "comfortable") -> dict[str, str]:
     profile = get_density_profile(density)
-    return {
+    tokens = {
         "BASE_FONT": str(profile.base_font),
         "BANNER_TITLE": str(profile.banner_title),
         "BUTTON_MIN": str(profile.button_min),
@@ -197,6 +199,8 @@ def stylesheet_tokens(density: str = "comfortable") -> dict[str, str]:
         "WORKFLOW_TAB_MIN": str(profile.workflow_tab_min),
         "SCROLLBAR": str(profile.scrollbar),
     }
+    tokens.update({f"COLOR_{name.upper()}": value for name, value in THEME_COLORS.items()})
+    return tokens
 
 
 def splitter_args(name: str) -> dict[str, list[int]]:

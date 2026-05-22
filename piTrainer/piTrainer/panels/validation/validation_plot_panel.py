@@ -5,6 +5,7 @@ from matplotlib.figure import Figure
 from PySide6.QtWidgets import QComboBox, QGroupBox, QLabel, QVBoxLayout
 
 from ...services.validation.validation_service import render_validation_plot
+from ...ui.theme import theme_color
 
 
 class ValidationPlotPanel(QGroupBox):
@@ -31,9 +32,9 @@ class ValidationPlotPanel(QGroupBox):
         self.summary_label.setWordWrap(True)
 
         self.figure = Figure(figsize=(6.2, 4.0), tight_layout=True)
-        self.figure.patch.set_facecolor('#171c26')
+        self.figure.patch.set_facecolor(theme_color('plot_bg'))
         self.canvas = FigureCanvas(self.figure)
-        self.canvas.setMinimumHeight(320)
+        self.canvas.setMinimumHeight(180)
 
         layout = QVBoxLayout(self)
         layout.addWidget(self.help_label)

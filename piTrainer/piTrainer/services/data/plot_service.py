@@ -4,6 +4,8 @@ from typing import Any
 
 import pandas as pd
 
+from ...ui.theme import theme_color
+
 
 def plot_sessions_for_combo(df: pd.DataFrame) -> list[str]:
     if df.empty or 'session' not in df.columns:
@@ -51,62 +53,62 @@ def build_plot_summary(df: pd.DataFrame) -> dict[str, Any]:
 def render_plot(ax, df: pd.DataFrame, plot_type: str, session_name: str) -> None:
     _style_axis(ax)
     if df.empty:
-        ax.text(0.5, 0.5, 'No session data to plot', ha='center', va='center', color='#d8deea', transform=ax.transAxes)
+        ax.text(0.5, 0.5, 'No session data to plot', ha='center', va='center', color=theme_color('text_secondary'), transform=ax.transAxes)
         ax.set_xticks([])
         ax.set_yticks([])
         return
 
     if plot_type == 'Steering Histogram':
         steering = _numeric_series(df, 'steering')
-        ax.hist(steering, bins=20)
-        ax.set_xlabel('Steering value', color='#d8deea')
-        ax.set_ylabel('Frame count', color='#d8deea')
+        ax.hist(steering, bins=20, color=theme_color('plot_steering'), edgecolor=theme_color('bg_panel'))
+        ax.set_xlabel('Steering value', color=theme_color('text_secondary'))
+        ax.set_ylabel('Frame count', color=theme_color('text_secondary'))
     elif plot_type == 'Speed Histogram':
         throttle = _numeric_series(df, 'throttle')
-        ax.hist(throttle, bins=20)
-        ax.set_xlabel('Speed value', color='#d8deea')
-        ax.set_ylabel('Frame count', color='#d8deea')
+        ax.hist(throttle, bins=20, color=theme_color('plot_speed'), edgecolor=theme_color('bg_panel'))
+        ax.set_xlabel('Speed value', color=theme_color('text_secondary'))
+        ax.set_ylabel('Frame count', color=theme_color('text_secondary'))
     elif plot_type == 'Steering vs Speed Scatter':
         steering = _numeric_series(df, 'steering')
         throttle = _numeric_series(df, 'throttle')
-        ax.scatter(steering, throttle, s=14, alpha=0.7)
-        ax.set_xlabel('Steering', color='#d8deea')
-        ax.set_ylabel('Speed', color='#d8deea')
+        ax.scatter(steering, throttle, s=14, alpha=0.75, color=theme_color('info'))
+        ax.set_xlabel('Steering', color=theme_color('text_secondary'))
+        ax.set_ylabel('Speed', color=theme_color('text_secondary'))
     elif plot_type == 'Mode Distribution':
         if 'mode' in df.columns:
             counts = df['mode'].fillna('unknown').astype(str).value_counts().sort_index()
-            ax.bar(counts.index.tolist(), counts.values.tolist())
-            ax.set_xlabel('Mode', color='#d8deea')
-            ax.set_ylabel('Frame count', color='#d8deea')
+            ax.bar(counts.index.tolist(), counts.values.tolist(), color=theme_color('primary'))
+            ax.set_xlabel('Mode', color=theme_color('text_secondary'))
+            ax.set_ylabel('Frame count', color=theme_color('text_secondary'))
             ax.tick_params(axis='x', rotation=20)
         else:
-            ax.text(0.5, 0.5, 'No mode data available', ha='center', va='center', color='#d8deea', transform=ax.transAxes)
+            ax.text(0.5, 0.5, 'No mode data available', ha='center', va='center', color=theme_color('text_secondary'), transform=ax.transAxes)
     elif plot_type == 'Session Frame Count':
         if 'session' in df.columns:
             counts = df['session'].fillna('unknown').astype(str).value_counts().sort_index()
-            ax.bar(counts.index.tolist(), counts.values.tolist())
-            ax.set_xlabel('Session', color='#d8deea')
-            ax.set_ylabel('Frame count', color='#d8deea')
+            ax.bar(counts.index.tolist(), counts.values.tolist(), color=theme_color('primary'))
+            ax.set_xlabel('Session', color=theme_color('text_secondary'))
+            ax.set_ylabel('Frame count', color=theme_color('text_secondary'))
             ax.tick_params(axis='x', rotation=25)
         else:
-            ax.text(0.5, 0.5, 'No session data available', ha='center', va='center', color='#d8deea', transform=ax.transAxes)
+            ax.text(0.5, 0.5, 'No session data available', ha='center', va='center', color=theme_color('text_secondary'), transform=ax.transAxes)
     else:
         x = range(len(df))
         steering = _numeric_series(df, 'steering')
         throttle = _numeric_series(df, 'throttle')
-        ax.plot(x, steering, label='Steering', linewidth=1.6)
-        ax.plot(x, throttle, label='Speed', linewidth=1.4)
-        ax.set_xlabel('Frame index', color='#d8deea')
-        ax.set_ylabel('Value', color='#d8deea')
+        ax.plot(x, steering, label='Steering', linewidth=1.8, color=theme_color('plot_steering'))
+        ax.plot(x, throttle, label='Speed', linewidth=1.6, color=theme_color('plot_speed'))
+        ax.set_xlabel('Frame index', color=theme_color('text_secondary'))
+        ax.set_ylabel('Value', color=theme_color('text_secondary'))
         legend = ax.legend(loc='upper right')
         if legend is not None:
             frame = legend.get_frame()
-            frame.set_facecolor('#171c26')
-            frame.set_edgecolor('#3b4d67')
+            frame.set_facecolor(theme_color('plot_bg'))
+            frame.set_edgecolor(theme_color('border'))
             for text in legend.get_texts():
-                text.set_color('#f4f7ff')
+                text.set_color(theme_color('text_primary'))
 
-    ax.set_title(f'{plot_type} — {session_name}', color='#f4f7ff')
+    ax.set_title(f'{plot_type} — {session_name}', color=theme_color('text_primary'))
 
 
 def _numeric_series(df: pd.DataFrame, column: str) -> pd.Series:
@@ -114,8 +116,8 @@ def _numeric_series(df: pd.DataFrame, column: str) -> pd.Series:
 
 
 def _style_axis(ax) -> None:
-    ax.set_facecolor('#0f141c')
-    ax.tick_params(colors='#d8deea')
+    ax.set_facecolor(theme_color('plot_axis'))
+    ax.tick_params(colors=theme_color('text_secondary'))
     for spine in ax.spines.values():
-        spine.set_color('#3b4d67')
-    ax.grid(True, alpha=0.25)
+        spine.set_color(theme_color('border'))
+    ax.grid(True, color=theme_color('plot_grid'), alpha=0.35)

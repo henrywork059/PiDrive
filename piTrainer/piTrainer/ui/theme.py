@@ -1,0 +1,67 @@
+from __future__ import annotations
+
+from typing import Mapping
+
+# Central semantic colour tokens used by Qt stylesheets and matplotlib plots.
+# Keep new colours here so pages and panels do not grow one-off palettes.
+THEME_COLORS: Mapping[str, str] = {
+    "bg_app": "#0b1020",
+    "bg_shell": "#0d1424",
+    "bg_panel": "#111a2c",
+    "bg_panel_alt": "#162238",
+    "bg_panel_lift": "#1c2940",
+    "bg_input": "#0f1726",
+    "bg_input_alt": "#131e30",
+    "bg_overlay": "#17243a",
+    "text_primary": "#f8fbff",
+    "text_secondary": "#d7e2f2",
+    "text_muted": "#9aa8bd",
+    "text_disabled": "#69768b",
+    "text_on_dark": "#ffffff",
+    "text_on_warning": "#14110a",
+    "border_subtle": "#2a384f",
+    "border": "#3b4f6d",
+    "border_strong": "#5d7da8",
+    "primary": "#3b82f6",
+    "primary_hover": "#60a5fa",
+    "primary_active": "#2563eb",
+    "primary_border": "#93c5fd",
+    "info": "#22d3ee",
+    "info_hover": "#67e8f9",
+    "info_surface": "#123040",
+    "success": "#22c55e",
+    "success_hover": "#34d399",
+    "success_active": "#15803d",
+    "success_surface": "#143323",
+    "success_border": "#86efac",
+    "warning": "#facc15",
+    "warning_hover": "#fde047",
+    "warning_active": "#ca8a04",
+    "warning_surface": "#3b2f12",
+    "warning_border": "#fef08a",
+    "danger": "#7f1d35",
+    "danger_hover": "#9f1239",
+    "danger_active": "#5f1026",
+    "danger_border": "#fb7185",
+    "selection": "#1d4ed8",
+    "selection_hover": "#2563eb",
+    "table_alt": "#121d2e",
+    "scroll_track": "#0b1020",
+    "scroll_handle": "#334155",
+    "scroll_handle_hover": "#64748b",
+    "splitter": "#26364f",
+    "splitter_hover": "#3b82f6",
+    "splitter_border": "#476483",
+    "plot_bg": "#101827",
+    "plot_axis": "#0f1726",
+    "plot_grid": "#334155",
+    "plot_steering": "#22d3ee",
+    "plot_speed": "#facc15",
+    "plot_error": "#fb7185",
+    "plot_reference": "#c4b5fd",
+}
+
+
+def theme_color(name: str, default: str = "#ffffff") -> str:
+    """Return a central piTrainer theme colour."""
+    return THEME_COLORS.get(name, default)

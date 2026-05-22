@@ -6,6 +6,7 @@ from matplotlib.figure import Figure
 from PySide6.QtWidgets import QComboBox, QGroupBox, QLabel, QVBoxLayout, QWidget
 
 from ...ui.layout_widgets import CollapsibleSection
+from ...ui.theme import theme_color
 from ...services.data.plot_service import (
     build_plot_summary,
     filter_plot_dataframe,
@@ -46,9 +47,9 @@ class DataPlotPanel(QGroupBox):
         self.summary_label.setWordWrap(True)
 
         self.figure = Figure(figsize=(6.0, 3.8), tight_layout=True)
-        self.figure.patch.set_facecolor('#171c26')
+        self.figure.patch.set_facecolor(theme_color('plot_bg'))
         self.canvas = FigureCanvas(self.figure)
-        self.canvas.setMinimumHeight(280)
+        self.canvas.setMinimumHeight(180)
 
         controls_widget = QWidget()
         controls_layout = QVBoxLayout(controls_widget)

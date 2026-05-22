@@ -37,6 +37,7 @@ Preserve these accepted V6 behaviours:
 - Compact top guide banner.
 - Green action buttons without the old `Next Step:` label prefix.
 - Central style/format control through `piTrainer/piTrainer/ui/formatting.py` and `piTrainer/piTrainer/ui/styles.py`.
+- Central colour tokens through `piTrainer/piTrainer/ui/theme.py`; do not scatter local hex colours through panels/services.
 - Visible version in the app window/status area.
 
 ## UI and layout rules
@@ -56,6 +57,8 @@ Preserve these accepted V6 behaviours:
 - Keep the Record Preview table horizontally anchored to the first column after multi-row selection.
 - Keep batch frame deletion tied to the Data Control confirmation checkbox; do not restore repeated confirmation popups for every delete.
 - Keep compact banner guide labels free from the old `Show:` prefix.
+- Keep Browse/location-picking buttons yellow-forward amber, not brown.
+- Keep splitter handles and scrollbars slim so they do not dominate narrow panels.
 
 ## Packaging checklist
 
@@ -63,7 +66,7 @@ For each patch:
 
 1. Patch only the required files.
 2. Update `piTrainer/piTrainer/version.py`.
-3. Update `piTrainer/DOCS/FORMAT_AND_STYLE_GUIDE.md` when UI/style rules change.
+3. Update `piTrainer/DOCS/FORMAT_AND_STYLE_GUIDE.md` when UI/style/colour rules change.
 4. Add detailed patch notes in `piTrainer/PATCH_NOTES/`.
 5. Run `python -m compileall` or AST parsing when possible.
 6. Remove `__pycache__` folders before packaging.

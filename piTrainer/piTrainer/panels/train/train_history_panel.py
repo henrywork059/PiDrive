@@ -5,12 +5,13 @@ from matplotlib.figure import Figure
 from PySide6.QtWidgets import QGroupBox, QVBoxLayout
 
 from ...services.train.history_service import build_plot_series
+from ...ui.theme import theme_color
 
 
 class TrainHistoryPanel(QGroupBox):
     def __init__(self) -> None:
         super().__init__("Training History")
-        self.figure = Figure(figsize=(6, 4), facecolor="#171c26")
+        self.figure = Figure(figsize=(6, 4), facecolor=theme_color("plot_bg"))
         self.canvas = FigureCanvas(self.figure)
         self.canvas.setStyleSheet("background: transparent;")
         self.history: dict[str, list[float]] = {}
@@ -42,15 +43,15 @@ class TrainHistoryPanel(QGroupBox):
             self._draw_empty()
 
     def _style_axes(self, ax) -> None:
-        self.figure.patch.set_facecolor("#171c26")
-        ax.set_facecolor("#0f141c")
-        ax.tick_params(colors="#dbe0ea")
-        ax.xaxis.label.set_color("#dbe0ea")
-        ax.yaxis.label.set_color("#dbe0ea")
-        ax.title.set_color("#f4f7ff")
+        self.figure.patch.set_facecolor(theme_color("plot_bg"))
+        ax.set_facecolor(theme_color("plot_axis"))
+        ax.tick_params(colors=theme_color("text_secondary"))
+        ax.xaxis.label.set_color(theme_color("text_secondary"))
+        ax.yaxis.label.set_color(theme_color("text_secondary"))
+        ax.title.set_color(theme_color("text_primary"))
         for spine in ax.spines.values():
-            spine.set_color("#334055")
-        ax.grid(color="#2a3140", alpha=0.7)
+            spine.set_color(theme_color("border"))
+        ax.grid(color=theme_color("plot_grid"), alpha=0.55)
 
     def _draw_empty(self) -> None:
         self.figure.clear()
@@ -65,13 +66,15 @@ class TrainHistoryPanel(QGroupBox):
         self.figure.clear()
         ax = self.figure.add_subplot(111)
         self._style_axes(ax)
+        palette = [theme_color("plot_steering"), theme_color("plot_speed"), theme_color("success"), theme_color("plot_reference"), theme_color("plot_error")]
+        ax.set_prop_cycle(color=palette)
         for label, xs, ys in build_plot_series(self.history):
             ax.plot(xs, ys, label=label, linewidth=2)
         ax.set_xlabel("Epoch")
         ax.set_ylabel("Loss / Metric")
         ax.set_title("Training Curves")
         if ax.lines:
-            legend = ax.legend(facecolor="#171c26", edgecolor="#334055")
+            legend = ax.legend(facecolor=theme_color("plot_bg"), edgecolor=theme_color("border"))
             for text in legend.get_texts():
-                text.set_color("#e6e8ee")
+                text.set_color(theme_color("text_secondary"))
         self.canvas.draw_idle()

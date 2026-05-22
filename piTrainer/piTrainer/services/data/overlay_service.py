@@ -8,6 +8,8 @@ from typing import Any
 from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QBrush, QPainter, QPainterPath, QPen, QPixmap
 
+from ...ui.theme import theme_color
+
 
 # Shared overlay helpers kept here to avoid duplicated path/arrow math across Data, Train and Validation.
 # PiTrainer keeps the older debug overlays, but the main path overlay now mirrors PiSD V7's recorded
@@ -119,7 +121,7 @@ def drive_values_from_point(x: float, y: float, width: float, height: float) -> 
 
 def _draw_label(painter: QPainter, rect: QRectF, text: str, color: QColor | None = None) -> None:
     painter.save()
-    painter.setPen(color or QColor('#f7fbff'))
+    painter.setPen(color or QColor(theme_color('text_primary')))
     painter.drawText(rect, Qt.AlignCenter, text)
     painter.restore()
 
@@ -656,11 +658,11 @@ def apply_prediction_comparison_overlay(
     painter.drawRoundedRect(legend_rect, 8, 8)
     painter.setPen(QPen(QColor(74, 208, 120, 235), 3))
     painter.drawLine(QPointF(legend_rect.left() + 12, legend_rect.top() + 15), QPointF(legend_rect.left() + 34, legend_rect.top() + 15))
-    painter.setPen(QColor('#f7fbff'))
+    painter.setPen(QColor(theme_color('text_primary')))
     painter.drawText(QRectF(legend_rect.left() + 40, legend_rect.top() + 4, legend_rect.width() - 45, 20), Qt.AlignLeft | Qt.AlignVCenter, 'Target PiSD road guide')
     painter.setPen(QPen(QColor(255, 164, 76, 235), 3))
     painter.drawLine(QPointF(legend_rect.left() + 12, legend_rect.top() + 32), QPointF(legend_rect.left() + 34, legend_rect.top() + 32))
-    painter.setPen(QColor('#f7fbff'))
+    painter.setPen(QColor(theme_color('text_primary')))
     painter.drawText(QRectF(legend_rect.left() + 40, legend_rect.top() + 21, legend_rect.width() - 45, 20), Qt.AlignLeft | Qt.AlignVCenter, 'Predicted PiSD road guide')
     painter.restore()
 

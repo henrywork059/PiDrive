@@ -16,7 +16,7 @@ The main stylesheet source is:
 piTrainer/piTrainer/ui/styles.py
 ```
 
-Use these files first when changing spacing, font size, margins, splitter widths, button heights, tab sizes, panel minimum widths, or density rules. Avoid hard-coded visual numbers inside individual pages and panels unless the value is genuinely content-specific.
+Use these files first when changing spacing, font size, margins, splitter widths, button heights, tab sizes, panel minimum widths, or density rules. Use `piTrainer/piTrainer/ui/theme.py` first when changing colours for widgets or plots. Avoid hard-coded visual numbers or colours inside individual pages and panels unless the value is genuinely content-specific.
 
 ## Overall layout principle
 
@@ -204,20 +204,30 @@ Typical density-controlled items:
 - form spacing;
 - scrollbar width;
 - splitter handle width;
+
+Current V6.5 sizing rule: scrollbars and splitter handles use slimmer values than V6.4. They were reduced by about half to stop the divider/scroll rails from visually dominating narrow panels while still remaining draggable.
 - workflow and panel soft widths.
 
 ## Colour roles
+
+The colour source of truth is:
+
+```text
+piTrainer/piTrainer/ui/theme.py
+```
+
+The Qt stylesheet should reference semantic colour tokens through `styles.py` / `formatting.py`, and matplotlib plots should use `theme_color()` instead of local hex values. The palette follows these practical rules: high text contrast, neutral dark surfaces, blue/cyan for navigation and focus, green for guided next actions, yellow amber for browsing/location-picking, and red/pink only for destructive or error states.
 
 Use the existing role system:
 
 - `nextStep`: green main workflow action;
 - `primary`: main blue action when it is not the green workflow action;
 - `secondary`: normal actions;
-- `amber`: browse/location-picking actions; the accepted shade should be more yellowish than brown so Browse stands out clearly;
+- `amber`: browse/location-picking actions; the accepted shade is now yellow-forward amber with dark text so Browse stands out clearly;
 - `danger`: destructive actions;
 - `muted`, `hint`, `intro`, `statValue`, `summaryLine`, `summaryBlock`, `panelSubtitle`: label/text roles.
 
-Do not add random one-off colour schemes inside panels.
+Do not add random one-off colour schemes inside panels. If a new colour is needed, add a semantic token to `theme.py`, then consume it through the central stylesheet or plotting helpers.
 
 ## Version display
 
@@ -247,7 +257,7 @@ When making future UI patches:
    - scrollable panel bodies;
    - compact guided banner;
    - green action buttons;
-   - unified formatting system.
+   - unified formatting/style/colour system.
 3. Prefer updating `formatting.py`, `styles.py`, or `layout_widgets.py` before editing every panel individually.
 4. Include patch notes in `piTrainer/PATCH_NOTES/`.
 5. Keep `piTrainer/AGENTS.md` aligned with current baseline and anti-rollback rules when workflow rules change.
@@ -261,4 +271,4 @@ The trainer should look like a guided professional desktop workflow, not a dense
 Load data -> Preprocess -> Train -> Validate -> Export
 ```
 
-Every tab and panel should support that flow with consistent sizing, clear grouping, readable spacing, and a visible next action.
+Every tab and panel should support that flow with consistent sizing, clear grouping, readable spacing, colour roles that match the action meaning, slim splitter/scroll controls, and a visible next action.
