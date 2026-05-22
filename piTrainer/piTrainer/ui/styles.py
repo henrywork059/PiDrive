@@ -180,6 +180,19 @@ def build_stylesheet(density: str = "comfortable") -> str:
         background: #202b3c;
         color: #dbe5f5;
     }
+    QPushButton[role='amber'] {
+        background: #7a4e12;
+        border-color: #d99a3d;
+        color: #fff6df;
+        font-weight: 750;
+    }
+    QPushButton[role='amber']:hover {
+        background: #925f18;
+        border-color: #ffc46d;
+    }
+    QPushButton[role='amber']:pressed {
+        background: #613d0e;
+    }
     QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox, QListWidget, QTextEdit, QPlainTextEdit, QTableWidget {
         min-height: @INPUT_MIN@px;
         background: #0d131d;

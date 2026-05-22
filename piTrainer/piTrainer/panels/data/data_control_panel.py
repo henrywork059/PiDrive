@@ -8,7 +8,7 @@ class DataControlPanel(QGroupBox):
         super().__init__("Data Control")
         self.delete_frame_callback = delete_frame_callback
 
-        help_label = QLabel("Use this panel only for data-changing actions.")
+        help_label = QLabel("Data-changing actions for the selected record. You can also press Delete while the Data page is active.")
         help_label.setProperty('role', 'muted')
         help_label.setWordWrap(True)
 

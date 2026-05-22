@@ -71,7 +71,7 @@ class SessionSourcePanel(QGroupBox):
         self.path_edit.editingFinished.connect(self._apply_path_only)
 
         browse_btn = QPushButton('Browse')
-        browse_btn.setProperty('role', 'secondary')
+        browse_btn.setProperty('role', 'amber')
         browse_btn.clicked.connect(self._browse)
 
         refresh_btn = QPushButton('Refresh')

@@ -87,17 +87,17 @@ The banner guide button should not perform the action directly. It should reveal
 Use numbered workflow tabs inside dense control areas, for example:
 
 ```text
-1 Load | 2 Review | 3 Manage
+1 Load | 2 Manage | 3 Review
 ```
 
 Use this pattern when a panel has multiple related work modes. Do not stack all modes vertically if that makes the panel hard to read.
 
 The Data page uses this pattern twice:
 
-- `Data Workflow`: `1 Load`, `2 Review`, `3 Manage`;
-- `Data Review`: `1 Stats`, `2 Records`, `3 Plot`.
+- `Data Workflow`: `1 Load`, `2 Manage`, `3 Review`;
+- `Data Review`: `1 Records`, `2 Stats`, `3 Plot`.
 
-Keep dataset statistics inside `Data Review`, not in the loading workflow. Keep playback controls directly underneath the image preview so frame playback stays visually tied to the currently displayed frame. Do not reintroduce a separate generic `Data Actions` panel; place each action beside the thing it affects, such as refresh/load in `Session Source` and filter clearing in `Frame Filter`.
+Keep the record table first in `Data Review`, because row selection drives the image preview and deletion workflow. Keep dataset statistics inside `Data Review`, not in the loading workflow. Keep playback controls directly underneath the image preview so frame playback stays visually tied to the currently displayed frame. Keep Merge Sessions in the Review workflow. Do not reintroduce a separate generic `Data Actions` panel; place each action beside the thing it affects, such as refresh/load in `Session Source`, delete in `Data Control`, and filter clearing in `Frame Filter`.
 
 ## Collapsible sections
 
@@ -109,9 +109,10 @@ Good default-collapse candidates:
 
 - advanced filters;
 - overlay fine tuning;
-- merge/delete/management tools;
 - training hyperparameter detail;
 - export detail options.
+
+Data Control is an exception: it is a destructive management tool, but the user requested it to stay expanded by default so frame deletion is easy to find. The delete action must still require confirmation.
 
 Bad default-collapse candidates:
 
@@ -210,6 +211,7 @@ Use the existing role system:
 - `nextStep`: green main workflow action;
 - `primary`: main blue action when it is not the workflow Next Step;
 - `secondary`: normal actions;
+- `amber`: browse/location-picking actions;
 - `danger`: destructive actions;
 - `muted`, `hint`, `intro`, `statValue`, `summaryLine`, `summaryBlock`, `panelSubtitle`: label/text roles.
 
@@ -246,7 +248,8 @@ When making future UI patches:
    - unified formatting system.
 3. Prefer updating `formatting.py`, `styles.py`, or `layout_widgets.py` before editing every panel individually.
 4. Include patch notes in `piTrainer/PATCH_NOTES/`.
-5. Do not reset user data or runtime config casually.
+5. Keep `piTrainer/AGENTS.md` aligned with current baseline and anti-rollback rules when workflow rules change.
+6. Do not reset user data or runtime config casually.
 
 ## Current V6 style decision summary
 

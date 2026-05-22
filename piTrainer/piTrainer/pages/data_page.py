@@ -67,31 +67,31 @@ class DataPage(DockPage):
                 ], object_name='dataLoadWorkflowScrollArea', intro='Start here: choose a PiSD/piTrainer records root, scan sessions, select sessions, then load them.'),
             ),
             (
-                '2 Review',
+                '2 Manage',
                 make_scrollable_stack([
-                    ('Frame Filter', self.filter_panel, False),
-                    ('Overlay Controls', self.overlay_panel, False),
-                ], object_name='dataReviewWorkflowScrollArea', intro='Review frames after loading. Filter the table and choose overlays before inspecting records, stats, plots, or playback.'),
+                    ('Data Control', self.data_control_panel, True),
+                ], object_name='dataManageWorkflowScrollArea', intro='Use these tools only when you need to remove a bad frame from the loaded dataset. Data Control is expanded by default.'),
             ),
             (
-                '3 Manage',
+                '3 Review',
                 make_scrollable_stack([
                     ('Merge Sessions', self.merge_sessions_panel, True),
-                    ('Data Control', self.data_control_panel, True),
-                ], object_name='dataManageWorkflowScrollArea', intro='Use these tools only when you need to merge sessions or remove a bad frame from the dataset.'),
+                    ('Frame Filter', self.filter_panel, False),
+                    ('Overlay Controls', self.overlay_panel, False),
+                ], object_name='dataReviewWorkflowScrollArea', intro='Review and combine loaded sessions. Merge selected sessions here, then filter records and choose overlays before playback.'),
             ),
         ], object_name='dataWorkflowTabs')
 
         review_tabs = make_workflow_tabs([
             (
-                '1 Stats',
-                self.stats_panel,
-                'Switch here to check the loaded dataset summary.',
+                '1 Records',
+                self.preview_panel,
+                'Switch here to inspect, select, and delete individual labelled frames.',
             ),
             (
-                '2 Records',
-                self.preview_panel,
-                'Switch here to inspect and select individual labelled frames.',
+                '2 Stats',
+                self.stats_panel,
+                'Switch here to check the loaded dataset summary.',
             ),
             (
                 '3 Plot',
@@ -118,13 +118,13 @@ class DataPage(DockPage):
             workspace,
             step='1 of 5',
             title='Data',
-            summary='Load sessions, inspect labels, and confirm the V7 overlay before preparing a dataset.',
+            summary='Load sessions, manage bad frames, review labels, and confirm the V7 overlay before preparing a dataset.',
             next_step='Show: Load Selected',
             next_callback=lambda: self.reveal_widget(
                 self.session_source_panel.load_btn,
                 message='Showing the green Load Selected button.'
             ),
-            next_tooltip='Click to show the green Load Selected button in Data Workflow > Load > Session Source.',
+            next_tooltip='Click to show the green Load Selected button in Data Workflow > 1 Load > Session Source.',
         )
 
     @staticmethod

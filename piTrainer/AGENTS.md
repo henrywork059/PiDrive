@@ -1,0 +1,68 @@
+# piTrainer AI Agent Instructions
+
+Use this file when an AI coding assistant continues piTrainer work inside the PiDrive monorepo.
+
+## Component scope
+
+- Work only inside `piTrainer/` unless the user explicitly asks to change another PiDrive component.
+- Treat `piTrainer/main.py` as the real entry point. Do not invent or document a different launcher.
+- Preserve the exact `piTrainer/` folder structure when preparing patches.
+
+## Current baseline and version line
+
+- Latest accepted full baseline: `piTrainer_0_6_0` / V6.
+- Future patch-only zips should build forward as `piTrainer_0_6_1_patch.zip`, `piTrainer_0_6_2_patch.zip`, and so on.
+- Patch zips must include only changed/new files plus patch notes.
+- Patch notes belong in `piTrainer/PATCH_NOTES/`.
+
+## Anti-rollback requirements
+
+Before editing, inspect:
+
+1. The current files in `piTrainer/`.
+2. The latest piTrainer patch note.
+3. The previous three piTrainer patch notes when available.
+
+Do not restore older copies of files by accident. Do not remove accepted V6 behaviour unless the user explicitly asks.
+
+Preserve these accepted V6 behaviours:
+
+- PiSD V7 `labels.jsonl` and `records.jsonl` support.
+- PiSD V7 saved overlay metadata and overlay redraw support.
+- Manual-drive preprocessing support.
+- Training-start preflight fixes.
+- Record table sorting, edit, delete, and merge support.
+- Full-width splitter layout.
+- Horizontal scrollbars only when panel content is reduced too far.
+- Compact top guide banner.
+- Green Next Step buttons.
+- Central style/format control through `piTrainer/piTrainer/ui/formatting.py` and `piTrainer/piTrainer/ui/styles.py`.
+- Visible version in the app window/status area.
+
+## UI and layout rules
+
+- Keep the app visually uniform across tabs and panels.
+- Use central formatting/style files before adding one-off widget styling.
+- Keep main action sections expanded by default.
+- Collapse only detailed settings and fine-detail data tools by default.
+- Keep panel content reachable with scrollbars when a splitter panel is reduced.
+- Put buttons near the thing they affect; avoid generic catch-all action panels.
+- Keep playback controls directly under the image preview.
+- Keep Data Review tabs ordered as `1 Records`, `2 Stats`, `3 Plot` unless the user asks otherwise.
+- Keep Data Workflow tabs ordered as `1 Load`, `2 Manage`, `3 Review` unless the user asks otherwise.
+
+## Packaging checklist
+
+For each patch:
+
+1. Patch only the required files.
+2. Update `piTrainer/piTrainer/version.py`.
+3. Update `piTrainer/DOCS/FORMAT_AND_STYLE_GUIDE.md` when UI/style rules change.
+4. Add detailed patch notes in `piTrainer/PATCH_NOTES/`.
+5. Run `python -m compileall` or AST parsing when possible.
+6. Remove `__pycache__` folders before packaging.
+7. Zip with `piTrainer/` as the top-level folder and no extra nesting.
+
+## Verification wording
+
+Only claim checks that were actually run. Be clear about anything not tested, especially live PySide6 rendering, real PiSD import, or TensorFlow training.

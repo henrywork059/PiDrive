@@ -99,6 +99,7 @@ class MainWindow(QMainWindow):
         QShortcut(QKeySequence('Ctrl+L'), self, activated=self.data_page.load_selected_sessions)
         QShortcut(QKeySequence('Ctrl+A'), self, activated=self.data_page.session_list_panel.select_all)
         QShortcut(QKeySequence('Ctrl+Shift+A'), self, activated=self.data_page.session_list_panel.clear_all)
+        QShortcut(QKeySequence('Delete'), self.data_page, activated=self.data_page.delete_selected_frame)
         QShortcut(QKeySequence('Ctrl+P'), self, activated=self.train_page.prepare_split)
         QShortcut(QKeySequence('Ctrl+R'), self, activated=self.train_page.start_training)
         QShortcut(QKeySequence('Escape'), self, activated=self.train_page.stop_training)
@@ -129,6 +130,7 @@ class MainWindow(QMainWindow):
             'Ctrl+L -> Load selected sessions',
             'Ctrl+A -> Select all sessions',
             'Ctrl+Shift+A -> Clear selected sessions',
+            'Delete -> Delete the selected frame on the Data page after confirmation',
             'Ctrl+P -> Prepare split',
             'Ctrl+R -> Start training',
             'Esc -> Stop training',

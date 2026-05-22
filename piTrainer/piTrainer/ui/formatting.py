@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
 )
 
 
-FORMAT_VERSION = "0_6_1_data_review_playback_cleanup"
+FORMAT_VERSION = "0_6_2_workflow_reorder_delete_shortcut"
 
 
 @dataclass(frozen=True)
@@ -169,7 +169,7 @@ SPLITTER_PRESETS: Mapping[str, Mapping[str, Sequence[int]]] = {
 }
 
 
-BUTTON_ROLES = {"primary", "secondary", "danger", "nextStep"}
+BUTTON_ROLES = {"primary", "secondary", "danger", "nextStep", "amber"}
 
 
 def get_density_profile(density: str = "comfortable") -> DensityProfile:

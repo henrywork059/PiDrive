@@ -14,6 +14,7 @@ class ExportOptionsPanel(QGroupBox):
 
         self.out_dir = QLineEdit(cfg.out_dir)
         browse_btn = QPushButton("Browse")
+        browse_btn.setProperty('role', 'amber')
         browse_btn.clicked.connect(self._browse)
 
         self.base_name = QLineEdit(cfg.base_name)
