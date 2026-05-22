@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 
-FORMAT_VERSION = "0_6_9_fast_bulk_edit_jsonl_batches"
+FORMAT_VERSION = "0_6_10_preview_navigation_edit_optimisation"
 
 
 @dataclass(frozen=True)

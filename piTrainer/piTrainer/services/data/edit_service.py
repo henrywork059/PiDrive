@@ -88,6 +88,64 @@ def _with_newline(raw_line: str) -> str:
     return raw_line if raw_line.endswith('\n') else raw_line + '\n'
 
 
+JsonlEntry = dict[str, Any]
+_MAX_JSONL_CACHE_FILES = 8
+_JSONL_CACHE: dict[Path, dict[str, Any]] = {}
+_JSONL_CACHE_ORDER: list[Path] = []
+
+
+def _file_signature(path: Path) -> tuple[int, int]:
+    stat = path.stat()
+    return int(stat.st_mtime_ns), int(stat.st_size)
+
+
+def _remember_jsonl_cache(path: Path, signature: tuple[int, int], entries: list[JsonlEntry]) -> list[JsonlEntry]:
+    resolved = path.resolve()
+    _JSONL_CACHE[resolved] = {'signature': signature, 'entries': entries}
+    if resolved in _JSONL_CACHE_ORDER:
+        _JSONL_CACHE_ORDER.remove(resolved)
+    _JSONL_CACHE_ORDER.append(resolved)
+    while len(_JSONL_CACHE_ORDER) > _MAX_JSONL_CACHE_FILES:
+        old = _JSONL_CACHE_ORDER.pop(0)
+        _JSONL_CACHE.pop(old, None)
+    return entries
+
+
+def _load_jsonl_entries(path: Path) -> list[JsonlEntry]:
+    resolved = path.resolve()
+    signature = _file_signature(path)
+    cached = _JSONL_CACHE.get(resolved)
+    if cached and cached.get('signature') == signature:
+        return cached.get('entries', [])
+
+    entries: list[JsonlEntry] = []
+    with path.open('r', encoding='utf-8') as handle:
+        for raw_line in handle:
+            raw = _with_newline(raw_line)
+            line = raw_line.strip()
+            record = None
+            if line:
+                try:
+                    parsed = json.loads(line)
+                except json.JSONDecodeError:
+                    parsed = None
+                if isinstance(parsed, dict):
+                    record = parsed
+            entries.append({'raw': raw, 'record': record})
+    return _remember_jsonl_cache(path, signature, entries)
+
+
+def _set_jsonl_entry_record(entry: JsonlEntry, record: dict[str, Any]) -> None:
+    entry['record'] = record
+    entry['raw'] = json.dumps(record, ensure_ascii=False, sort_keys=True) + '\n'
+
+
+def _write_jsonl_entries(path: Path, entries: list[JsonlEntry]) -> None:
+    with path.open('w', encoding='utf-8') as handle:
+        handle.writelines(str(entry.get('raw', '')) for entry in entries)
+    _remember_jsonl_cache(path, _file_signature(path), entries)
+
+
 def _target_from_record(record: dict[str, Any]) -> dict[str, str]:
     return {
         'session': str(record.get('session', '') or ''),
@@ -153,37 +211,24 @@ def _update_jsonl_file(
     if not path.exists():
         return False
 
+    entries = _load_jsonl_entries(path)
     updated = False
-    output_lines: list[str] = []
-    with path.open('r', encoding='utf-8') as handle:
-        for raw_line in handle:
-            line = raw_line.strip()
-            if not line:
-                output_lines.append(_with_newline(raw_line))
-                continue
-            try:
-                record = json.loads(line)
-            except json.JSONDecodeError:
-                output_lines.append(_with_newline(raw_line))
-                continue
-
-            if not updated and isinstance(record, dict) and _line_matches(record, frame_id=frame_id, image_name=image_name, ts=ts):
-                _apply_record_control_update(
-                    record,
-                    steering=steering,
-                    throttle=throttle,
-                    update_steering=update_steering,
-                    update_throttle=update_throttle,
-                )
-                updated = True
-                output_lines.append(json.dumps(record, ensure_ascii=False, sort_keys=True) + '\n')
-                continue
-
-            output_lines.append(_with_newline(raw_line))
+    for entry in entries:
+        record = entry.get('record')
+        if not updated and isinstance(record, dict) and _line_matches(record, frame_id=frame_id, image_name=image_name, ts=ts):
+            _apply_record_control_update(
+                record,
+                steering=steering,
+                throttle=throttle,
+                update_steering=update_steering,
+                update_throttle=update_throttle,
+            )
+            _set_jsonl_entry_record(entry, record)
+            updated = True
+            break
 
     if updated:
-        with path.open('w', encoding='utf-8') as handle:
-            handle.writelines(output_lines)
+        _write_jsonl_entries(path, entries)
     return updated
 
 
@@ -259,7 +304,9 @@ def _update_jsonl_file_batch(
     The previous bulk-edit path called the single-frame updater once per row,
     which rewrote labels.jsonl and records.jsonl repeatedly. This batch path
     keeps matching indexed by stable row identifiers, scans each metadata file
-    once, and rewrites only when something changed.
+    once, and rewrites only when something changed. Parsed JSONL entries are
+    also cached, so repeated edits within the same session avoid re-reading and
+    re-parsing the same files.
     """
     if not path.exists() or not targets:
         return 0, set()
@@ -267,47 +314,35 @@ def _update_jsonl_file_batch(
     target_by_key, by_id, by_image, by_ts = _build_target_indexes(targets)
     matched_targets: set[TargetKey] = set()
     changed_rows = 0
-    output_lines: list[str] = []
+    entries = _load_jsonl_entries(path)
 
-    with path.open('r', encoding='utf-8') as handle:
-        for raw_line in handle:
-            line = raw_line.strip()
-            if not line:
-                output_lines.append(_with_newline(raw_line))
-                continue
-            try:
-                record = json.loads(line)
-            except json.JSONDecodeError:
-                output_lines.append(_with_newline(raw_line))
-                continue
-
-            if isinstance(record, dict):
-                key = _matching_indexed_target(
-                    record,
-                    target_by_key=target_by_key,
-                    by_id=by_id,
-                    by_image=by_image,
-                    by_ts=by_ts,
-                    already_matched=matched_targets,
-                )
-                if key is not None:
-                    _apply_record_control_update(
-                        record,
-                        steering=steering,
-                        throttle=throttle,
-                        update_steering=update_steering,
-                        update_throttle=update_throttle,
-                    )
-                    matched_targets.add(key)
-                    changed_rows += 1
-                    output_lines.append(json.dumps(record, ensure_ascii=False, sort_keys=True) + '\n')
-                    continue
-
-            output_lines.append(_with_newline(raw_line))
+    for entry in entries:
+        record = entry.get('record')
+        if not isinstance(record, dict):
+            continue
+        key = _matching_indexed_target(
+            record,
+            target_by_key=target_by_key,
+            by_id=by_id,
+            by_image=by_image,
+            by_ts=by_ts,
+            already_matched=matched_targets,
+        )
+        if key is None:
+            continue
+        _apply_record_control_update(
+            record,
+            steering=steering,
+            throttle=throttle,
+            update_steering=update_steering,
+            update_throttle=update_throttle,
+        )
+        matched_targets.add(key)
+        changed_rows += 1
+        _set_jsonl_entry_record(entry, record)
 
     if changed_rows:
-        with path.open('w', encoding='utf-8') as handle:
-            handle.writelines(output_lines)
+        _write_jsonl_entries(path, entries)
     return changed_rows, matched_targets
 
 

@@ -31,7 +31,7 @@ Preserve these accepted V6 behaviours:
 - PiSD V7 saved overlay metadata and overlay redraw support.
 - Manual-drive preprocessing support.
 - Training-start preflight fixes.
-- Record table sorting, single-frame edit, multi-select soft-delete/hide, bulk selected-frame edit, and merge support.
+- Record table sorting, optimised single-frame edit, multi-select soft-delete/hide, bulk selected-frame edit, and merge support.
 - Full-width splitter layout.
 - Horizontal scrollbars only when panel content is reduced too far.
 - Compact top guide banner.
@@ -53,10 +53,11 @@ Preserve these accepted V6 behaviours:
 - Keep Data Review tabs ordered as `1 Records`, `2 Stats`, `3 Plot` unless the user asks otherwise.
 - Keep Data Workflow tabs ordered as `1 Load`, `2 Manage`, `3 Review` unless the user asks otherwise.
 - Keep Frame Filter in `2 Manage` beside Data Control.
-- Keep Bulk Edit Selected Frames in `3 Review`; it edits only steering or only speed one at a time, requires an overwrite checkbox plus a warning confirmation dialog, and must use the batch JSONL updater so each selected session metadata file is scanned once rather than once per selected frame.
+- Keep Bulk Edit Selected Frames in `3 Review`; it edits only steering or only speed one at a time, has a Select All Visible Frames setup button, requires an overwrite checkbox plus a warning confirmation dialog, and must use the batch JSONL updater so each selected session metadata file is scanned once rather than once per selected frame.
 - Keep Merge Sessions in `3 Review`, collapsed by default.
 - Keep `frame_id` as the first visible Record Preview table column.
-- Keep the Record Preview table horizontally anchored to the first column after multi-row selection.
+- Keep the Record Preview table horizontally anchored to the first column after multi-row selection; do not let Qt selection/current-cell behaviour scroll it to the second column.
+- Keep Up/Down navigation cycling through Record Preview rows when the table has focus. Down moves to the next frame and wraps from the last row to the first; Up moves to the previous frame and wraps from the first row to the last.
 - Keep batch frame deletion as a soft-delete/hide action tied to the Data Control confirmation checkbox; do not physically remove JSONL rows or image files, and do not restore repeated confirmation popups for every delete.
 - Keep compact banner guide labels free from the old `Show:` prefix.
 - Keep Browse/location-picking and other prerequisite setup buttons yellow-forward amber, not brown.
@@ -65,6 +66,7 @@ Preserve these accepted V6 behaviours:
 - Keep splitter handles slim so they do not dominate narrow panels.
 - Keep the Edit Steering slider and bulk steering slider fill centred on neutral steering instead of filling from the left edge.
 - Hidden/deleted frames must remain traceable in `labels.jsonl` / `records.jsonl` using hidden flags, and must be excluded from active dataframes, preprocessing, training, and validation.
+- Single-frame edits from Image Preview should not rebuild the whole Record Preview table unless the edited value makes the row fail the active filter. Use targeted visible-row updates, delayed plot refresh, debounced JSONL writes, and cached JSONL parsing to keep clicking/dragging responsive.
 
 ## Packaging checklist
 

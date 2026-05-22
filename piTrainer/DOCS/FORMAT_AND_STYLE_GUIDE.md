@@ -272,6 +272,17 @@ Steering and speed sliders should not use the same fill logic when their value r
 
 Use the shared slider helper in `piTrainer/piTrainer/ui/sliders.py` for centred-fill steering sliders rather than patching local paint logic into each panel.
 
+
+## Record Preview navigation and edit responsiveness
+
+Record Preview must stay visually anchored on the first visible column. Multi-row selection, sorting, Select All, and keyboard movement should not leave the table horizontally scrolled to the second column. Keep `frame_id` as the first column and keep current-cell normalisation/scrollbar anchoring inside the preview panel rather than duplicating it in page code.
+
+When the Record Preview table has focus, Up and Down should cycle through frame rows. Down moves to the next frame and wraps from the last row to the first; Up moves to the previous frame and wraps from the first row to the last.
+
+Single-frame edits from Image Preview should feel immediate. Do not rebuild the full table after every small steering/speed adjustment unless an active speed/steering filter means the edited row may need to disappear. Prefer targeted row updates, debounced JSONL writes, cached JSONL parsing for repeated same-session edits, and delayed plot refresh.
+
+Bulk Edit should keep a setup-style `Select All Visible Frames` button inside the Bulk Edit panel so users can quickly select every currently displayed frame before applying one steering-only or speed-only edit.
+
 ## Version display
 
 The visible app version is controlled by:

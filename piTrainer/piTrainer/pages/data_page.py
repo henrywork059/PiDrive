@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 from pathlib import Path
+from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QMessageBox, QVBoxLayout, QWidget
 
 from ..app_state import AppState
@@ -40,6 +41,7 @@ class DataPage(DockPage):
         self.bulk_edit_panel = BulkEditPanel(
             apply_steering_callback=self.apply_bulk_steering_edit,
             apply_speed_callback=self.apply_bulk_speed_edit,
+            select_all_callback=self.select_all_preview_frames_for_bulk_edit,
         )
         self.merge_sessions_panel = MergeSessionsPanel(self.merge_selected_sessions)
         self.filter_panel = FrameFilterPanel(self.apply_preview_filter, self.clear_preview_filter)
@@ -57,6 +59,10 @@ class DataPage(DockPage):
             speed_change_callback=self.on_playback_speed_changed,
         )
         self.plot_panel = DataPlotPanel()
+        self.single_edit_plot_timer = QTimer(self)
+        self.single_edit_plot_timer.setSingleShot(True)
+        self.single_edit_plot_timer.setInterval(650)
+        self.single_edit_plot_timer.timeout.connect(self.refresh_plot_from_preview)
         self.data_control_panel = DataControlPanel(delete_frame_callback=self.delete_selected_frame)
         self.build_default_layout()
         self.restore_layout()
@@ -329,10 +335,38 @@ class DataPage(DockPage):
                 self.current_preview_source_df.loc[mask, 'throttle'] = throttle
 
         self.stats_panel.set_stats(calculate_basic_stats(self.state.filtered_df))
-        self.apply_preview_filter(select_identity=identity)
+        if self._single_edit_needs_filter_rebuild(steering=steering, throttle=throttle):
+            self.apply_preview_filter(select_identity=identity)
+        else:
+            self.preview_panel.update_record_values(identity, {'steering': steering, 'throttle': throttle})
+            self.schedule_plot_refresh_from_preview()
         self.main_window.set_status_message(message)
 
+    def schedule_plot_refresh_from_preview(self) -> None:
+        self.single_edit_plot_timer.start()
 
+    def refresh_plot_from_preview(self) -> None:
+        if hasattr(self, 'plot_panel'):
+            self.plot_panel.set_dataframe(self.preview_panel.df)
+
+    def _single_edit_needs_filter_rebuild(self, *, steering: float, throttle: float) -> bool:
+        if self.filter_panel.speed_filter_enabled():
+            min_speed, max_speed = self.filter_panel.speed_range()
+            if throttle < min_speed or throttle > max_speed:
+                return True
+        if self.filter_panel.steering_filter_enabled():
+            min_steering, max_steering = self.filter_panel.steering_range()
+            if steering < min_steering or steering > max_steering:
+                return True
+        return False
+
+    def select_all_preview_frames_for_bulk_edit(self) -> None:
+        selected = self.preview_panel.select_all_records()
+        count = len(self.preview_panel.selected_records())
+        self.bulk_edit_panel.set_selected_count(count)
+        self.main_window.set_status_message(
+            f'Selected all {count} visible frame(s) for bulk edit.' if selected else 'No visible frame rows to select for bulk edit.'
+        )
 
     def _update_record_field_in_loaded_data(self, identity: tuple[str, str, str, str], field_name: str, value: float) -> None:
         for df_attr in ['dataset_df', 'filtered_df']:

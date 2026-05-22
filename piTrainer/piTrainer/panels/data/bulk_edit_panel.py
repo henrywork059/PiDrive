@@ -25,10 +25,12 @@ class BulkEditPanel(QGroupBox):
         self,
         apply_steering_callback: Callable[[float], None],
         apply_speed_callback: Callable[[float], None],
+        select_all_callback: Callable[[], None] | None = None,
     ) -> None:
         super().__init__('Bulk Edit Selected Frames')
         self.apply_steering_callback = apply_steering_callback
         self.apply_speed_callback = apply_speed_callback
+        self.select_all_callback = select_all_callback
         self._syncing_controls = False
         self._selected_count = 0
 
@@ -41,6 +43,11 @@ class BulkEditPanel(QGroupBox):
 
         self.selected_label = QLabel('Selected frames: 0')
         self.selected_label.setProperty('role', 'summaryLine')
+
+        self.select_all_btn = QPushButton('Select All Visible Frames')
+        self.select_all_btn.setProperty('role', 'amber')
+        self.select_all_btn.setToolTip('Select every currently visible Record Preview row before applying a bulk edit.')
+        self.select_all_btn.clicked.connect(self._select_all_visible_frames)
 
         self.confirm_bulk_check = QCheckBox('I understand this will overwrite selected frame labels')
         self.confirm_bulk_check.setToolTip(
@@ -95,6 +102,7 @@ class BulkEditPanel(QGroupBox):
         layout = QVBoxLayout(self)
         layout.addWidget(help_label)
         layout.addWidget(self.selected_label)
+        layout.addWidget(self.select_all_btn)
         layout.addWidget(self.confirm_bulk_check)
         layout.addLayout(steering_row)
         layout.addWidget(self.apply_steering_btn)
@@ -125,6 +133,10 @@ class BulkEditPanel(QGroupBox):
         enabled = self._can_apply()
         self.apply_steering_btn.setEnabled(enabled)
         self.apply_speed_btn.setEnabled(enabled)
+
+    def _select_all_visible_frames(self) -> None:
+        if self.select_all_callback is not None:
+            self.select_all_callback()
 
     def _on_steering_slider_changed(self, value: int) -> None:
         if self._syncing_controls:

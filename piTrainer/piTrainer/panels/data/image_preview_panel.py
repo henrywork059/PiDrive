@@ -122,7 +122,8 @@ class ImagePreviewPanel(QGroupBox):
 
         self.commit_timer = QTimer(self)
         self.commit_timer.setSingleShot(True)
-        self.commit_timer.setInterval(250)
+        # Debounce edits long enough that click/drag adjustments do not rewrite JSONL files repeatedly.
+        self.commit_timer.setInterval(750)
         self.commit_timer.timeout.connect(self._emit_record_edited)
 
         self.resize_render_timer = QTimer(self)
