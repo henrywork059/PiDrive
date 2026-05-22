@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
 )
 
 
-FORMAT_VERSION = "0_6_2_workflow_reorder_delete_shortcut"
+FORMAT_VERSION = "0_6_3_multi_delete_manage_filter_yellow_browse"
 
 
 @dataclass(frozen=True)

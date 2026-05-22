@@ -28,12 +28,12 @@ class PreviewPanel(QGroupBox):
 
         self.table = QTableWidget(0, 0)
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.table.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.table.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.table.setAlternatingRowColors(True)
         self.table.setWordWrap(False)
         self.table.setSortingEnabled(True)
-        self.table.setMinimumHeight(260)
+        self.table.setMinimumHeight(170)
         self.table.verticalHeader().setVisible(False)
         self.table.horizontalHeader().setStretchLastSection(True)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
@@ -80,6 +80,7 @@ class PreviewPanel(QGroupBox):
         self._refresh_summary()
         if rows:
             self.table.selectRow(0)
+            self.table.setCurrentCell(0, 0)
             self._handle_selection_change()
         elif self.selection_callback is not None:
             self.selection_callback(None)
@@ -91,23 +92,70 @@ class PreviewPanel(QGroupBox):
             return None
         return self.df.iloc[row].to_dict()
 
+    def selected_records(self) -> list[dict]:
+        records: list[dict] = []
+        for row in self.selected_source_rows():
+            if 0 <= row < len(self.df):
+                records.append(self.df.iloc[row].to_dict())
+        return records
+
+    def selected_source_rows(self) -> list[int]:
+        selection = self.table.selectionModel()
+        if selection is None:
+            return []
+        rows: list[int] = []
+        for index in selection.selectedRows():
+            item = self.table.item(index.row(), 0)
+            source_row = item.data(Qt.UserRole) if item is not None else index.row()
+            try:
+                rows.append(int(source_row))
+            except (TypeError, ValueError):
+                rows.append(int(index.row()))
+        # Keep source order stable for delete/reporting, and de-duplicate row selections.
+        return sorted(dict.fromkeys(rows))
+
     def current_row(self) -> int:
-        selected = self.table.selectedItems()
-        if not selected:
-            return -1
-        source_row = selected[0].data(Qt.UserRole)
+        item = self.table.currentItem()
+        if item is None:
+            rows = self.selected_source_rows()
+            return rows[0] if rows else -1
+        source_row = item.data(Qt.UserRole)
         try:
             return int(source_row)
         except (TypeError, ValueError):
-            return selected[0].row()
+            return item.row()
+
+    def _current_view_row(self) -> int:
+        item = self.table.currentItem()
+        if item is not None:
+            return int(item.row())
+        rows = self.table.selectionModel().selectedRows() if self.table.selectionModel() is not None else []
+        return int(rows[0].row()) if rows else -1
+
+    def _view_row_for_source_row(self, source_row: int) -> int:
+        for view_row in range(self.table.rowCount()):
+            item = self.table.item(view_row, 0)
+            if item is None:
+                continue
+            try:
+                if int(item.data(Qt.UserRole)) == int(source_row):
+                    return view_row
+            except (TypeError, ValueError):
+                continue
+        return -1
 
     def select_record_identity(self, identity: tuple[str, str, str, str]) -> bool:
         if not identity:
             return False
-        for row_idx in range(len(self.df)):
-            record = self.df.iloc[row_idx].to_dict()
+        for source_row in range(len(self.df)):
+            record = self.df.iloc[source_row].to_dict()
             if self.record_identity(record) == identity:
-                self.table.selectRow(row_idx)
+                view_row = self._view_row_for_source_row(source_row)
+                if view_row < 0:
+                    return False
+                self.table.clearSelection()
+                self.table.selectRow(view_row)
+                self.table.setCurrentCell(view_row, 0)
                 self._handle_selection_change()
                 return True
         return False
@@ -139,7 +187,9 @@ class PreviewPanel(QGroupBox):
         if self.table.rowCount() <= 0:
             self.stop_autoplay()
             return False
+        self.table.clearSelection()
         self.table.selectRow(0)
+        self.table.setCurrentCell(0, 0)
         self._handle_selection_change()
         return self.start_autoplay()
 
@@ -154,9 +204,11 @@ class PreviewPanel(QGroupBox):
         if total <= 1:
             self.stop_autoplay()
             return
-        row = self.current_row()
-        next_row = 0 if row < 0 else (row + 1) % total
-        self.table.selectRow(next_row)
+        view_row = self._current_view_row()
+        next_view_row = 0 if view_row < 0 else (view_row + 1) % total
+        self.table.clearSelection()
+        self.table.selectRow(next_view_row)
+        self.table.setCurrentCell(next_view_row, 0)
         self._handle_selection_change()
 
     def _handle_selection_change(self) -> None:
@@ -175,6 +227,7 @@ class PreviewPanel(QGroupBox):
     def _refresh_summary(self) -> None:
         total = len(self.df)
         row = self.current_row()
+        view_row = self._current_view_row()
         if total == 0:
             self.summary_label.setText('No frames to preview. Load sessions or change the filter.')
             return
@@ -187,13 +240,16 @@ class PreviewPanel(QGroupBox):
         mode = str(record.get('mode', ''))
         steering = float(record.get('steering', 0.0) or 0.0)
         throttle = float(record.get('throttle', 0.0) or 0.0)
+        selected_count = len(self.selected_source_rows())
+        selected_note = f" {selected_count} row(s) selected." if selected_count > 1 else ""
+        display_row = view_row + 1 if view_row >= 0 else row + 1
         self.summary_label.setText(
-            f"Showing {total} frame(s). Selected: row {row + 1}, session '{session}', frame '{frame_id}', mode '{mode}', steering {steering:.3f}, speed {throttle:.3f}."
+            f"Showing {total} frame(s). Current: row {display_row}, session '{session}', frame '{frame_id}', mode '{mode}', steering {steering:.3f}, speed {throttle:.3f}.{selected_note}"
         )
 
     def _emit_playback_state(self) -> None:
         if self.playback_state_callback is not None:
-            row = self.current_row()
+            row = self._current_view_row()
             self.playback_state_callback(
                 {
                     'active': self.autoplay_active(),

@@ -11,7 +11,7 @@ def dataframe_preview_rows(df: pd.DataFrame, limit: int | None = None) -> list[d
     keep_columns = [
         col
         for col in [
-            "session", "source", "frame_id", "mode", "steering", "throttle", "ts",
+            "frame_id", "session", "source", "mode", "steering", "throttle", "ts",
             "has_overlay_settings", "overlay_schema_version", "cam_w", "cam_h", "format",
         ]
         if col in df.columns

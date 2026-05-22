@@ -70,15 +70,15 @@ class DataPage(DockPage):
                 '2 Manage',
                 make_scrollable_stack([
                     ('Data Control', self.data_control_panel, True),
-                ], object_name='dataManageWorkflowScrollArea', intro='Use these tools only when you need to remove a bad frame from the loaded dataset. Data Control is expanded by default.'),
+                    ('Frame Filter', self.filter_panel, True),
+                ], object_name='dataManageWorkflowScrollArea', intro='Manage the loaded dataset: confirm delete actions once, delete selected frame rows, and filter frames before review or training.'),
             ),
             (
                 '3 Review',
                 make_scrollable_stack([
-                    ('Merge Sessions', self.merge_sessions_panel, True),
-                    ('Frame Filter', self.filter_panel, False),
+                    ('Merge Sessions', self.merge_sessions_panel, False),
                     ('Overlay Controls', self.overlay_panel, False),
-                ], object_name='dataReviewWorkflowScrollArea', intro='Review and combine loaded sessions. Merge selected sessions here, then filter records and choose overlays before playback.'),
+                ], object_name='dataReviewWorkflowScrollArea', intro='Review loaded sessions and overlays. Merge Sessions is collapsed by default so normal frame review stays compact.'),
             ),
         ], object_name='dataWorkflowTabs')
 
@@ -86,7 +86,7 @@ class DataPage(DockPage):
             (
                 '1 Records',
                 self.preview_panel,
-                'Switch here to inspect, select, and delete individual labelled frames.',
+                'Switch here to inspect, multi-select, and delete labelled frame rows.',
             ),
             (
                 '2 Stats',
@@ -343,33 +343,43 @@ class DataPage(DockPage):
 
     def delete_selected_frame(self) -> None:
         self.preview_panel.stop_autoplay()
-        record = self.preview_panel.selected_record()
-        if not record:
-            QMessageBox.information(self, 'Delete Selected Frame', 'Select one frame from Record Preview first.')
+        records = self.preview_panel.selected_records()
+        if not records:
+            QMessageBox.information(self, 'Delete Selected Frame(s)', 'Select one or more frame rows from Record Preview first.')
+            return
+        if not self.data_control_panel.deletion_confirmed():
+            QMessageBox.information(
+                self,
+                'Delete Selected Frame(s)',
+                'Tick "I confirm frame delete actions" in Data Workflow > 2 Manage > Data Control before deleting. '
+                'After it is ticked, Delete will not show this confirmation popup each time.',
+            )
             return
 
-        session_name = str(record.get('session', ''))
-        frame_id = str(record.get('frame_id', ''))
-        image_path = str(record.get('abs_image', ''))
-        ts = str(record.get('ts', ''))
-        confirm = QMessageBox.question(
-            self,
-            'Delete Selected Frame',
-            f"Delete frame '{frame_id}' from session '{session_name}'? This removes the JSONL row and image file.",
-        )
-        if confirm != QMessageBox.Yes:
-            return
+        deleted_messages: list[str] = []
+        failed_messages: list[str] = []
+        for record in records:
+            session_name = str(record.get('session', ''))
+            frame_id = str(record.get('frame_id', ''))
+            image_path = str(record.get('abs_image', ''))
+            ts = str(record.get('ts', ''))
+            ok, message = delete_frame_from_session(
+                self.state.records_root_path,
+                session_name=session_name,
+                frame_id=frame_id,
+                image_path=image_path,
+                ts=ts,
+            )
+            if ok:
+                deleted_messages.append(message)
+            else:
+                failed_messages.append(message)
 
-        ok, message = delete_frame_from_session(
-            self.state.records_root_path,
-            session_name=session_name,
-            frame_id=frame_id,
-            image_path=image_path,
-            ts=ts,
-        )
-        if ok:
+        if deleted_messages:
             self.load_selected_sessions()
-            self.main_window.set_status_message(message)
-            QMessageBox.information(self, 'Delete Selected Frame', message)
-        else:
-            QMessageBox.warning(self, 'Delete Selected Frame', message)
+            self.main_window.set_status_message(
+                f"Deleted {len(deleted_messages)} selected frame(s)."
+                + (f" {len(failed_messages)} failed." if failed_messages else '')
+            )
+        if failed_messages:
+            QMessageBox.warning(self, 'Delete Selected Frame(s)', '\n'.join(failed_messages[:8]))

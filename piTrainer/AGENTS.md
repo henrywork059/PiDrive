@@ -31,7 +31,7 @@ Preserve these accepted V6 behaviours:
 - PiSD V7 saved overlay metadata and overlay redraw support.
 - Manual-drive preprocessing support.
 - Training-start preflight fixes.
-- Record table sorting, edit, delete, and merge support.
+- Record table sorting, edit, multi-select delete, and merge support.
 - Full-width splitter layout.
 - Horizontal scrollbars only when panel content is reduced too far.
 - Compact top guide banner.
@@ -50,6 +50,10 @@ Preserve these accepted V6 behaviours:
 - Keep playback controls directly under the image preview.
 - Keep Data Review tabs ordered as `1 Records`, `2 Stats`, `3 Plot` unless the user asks otherwise.
 - Keep Data Workflow tabs ordered as `1 Load`, `2 Manage`, `3 Review` unless the user asks otherwise.
+- Keep Frame Filter in `2 Manage` beside Data Control.
+- Keep Merge Sessions in `3 Review`, collapsed by default.
+- Keep `frame_id` as the first visible Record Preview table column.
+- Keep batch frame deletion tied to the Data Control confirmation checkbox; do not restore repeated confirmation popups for every delete.
 
 ## Packaging checklist
 
