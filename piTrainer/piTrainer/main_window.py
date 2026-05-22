@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeySequence, QShortcut
-from PySide6.QtWidgets import QApplication, QMainWindow, QMessageBox, QStatusBar, QTabWidget
+from PySide6.QtWidgets import QApplication, QLabel, QMainWindow, QMessageBox, QStatusBar, QTabWidget
 
 from .app_state import AppState
 from .pages.data_page import DataPage
@@ -12,12 +12,13 @@ from .pages.train_page import TrainPage
 from .pages.validation_page import ValidationPage
 from .ui.formatting import apply_standard_widget_format, density_for_width
 from .ui.styles import build_stylesheet
+from .version import APP_WORKFLOW_TITLE, STATUS_VERSION_TEXT
 
 
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle('PiDrive piTrainer — Data → Preprocess → Train → Validate → Export')
+        self.setWindowTitle(APP_WORKFLOW_TITLE)
         self.resize(1440, 880)
         self.setMinimumSize(960, 620)
         self._ui_density = ''
@@ -52,8 +53,14 @@ class MainWindow(QMainWindow):
 
         self.status = QStatusBar()
         self.status.setSizeGripEnabled(True)
+        self.version_label = QLabel(STATUS_VERSION_TEXT)
+        self.version_label.setObjectName('appVersionLabel')
+        self.version_label.setProperty('role', 'muted')
+        self.status.addPermanentWidget(self.version_label)
         self.setStatusBar(self.status)
-        self.set_status_message('Ready — follow the green Next Step buttons from 1 Data through 5 Export. Drag splitter handles to adjust panel proportions.')
+        self.set_status_message(
+            f'Ready — {STATUS_VERSION_TEXT}. Follow the green Next Step buttons from 1 Data through 5 Export. Drag splitter handles to adjust panel proportions.'
+        )
         self._apply_responsive_density()
 
         self._setup_shortcuts()
