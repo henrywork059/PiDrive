@@ -22,7 +22,7 @@ class PreprocessConfigPanel(QGroupBox):
         self.state = state
 
         help_label = QLabel(
-            'Set output image size first. Open the advanced sections only when you intentionally need turning boost, mirroring, or mild camera-variant augmentation.'
+            'Recommended defaults now add one horizontal flip copy for every active frame. Open the advanced sections only when you intentionally need turning boost or mild camera-variant augmentation.'
         )
         help_label.setWordWrap(True)
         help_label.setProperty('role', 'muted')
@@ -37,7 +37,8 @@ class PreprocessConfigPanel(QGroupBox):
         self.turn_copies.setRange(1, 8)
         self.turn_copies.setValue(1)
 
-        self.mirror_enabled = QCheckBox('Add one left-right mirrored copy per row')
+        self.mirror_enabled = QCheckBox('Add one horizontal flip copy for every row')
+        self.mirror_enabled.setChecked(True)
         self.color_variants = QSpinBox()
         self.color_variants.setRange(0, 4)
         self.color_variants.setValue(0)
@@ -55,7 +56,7 @@ class PreprocessConfigPanel(QGroupBox):
         layout.addWidget(help_label)
         layout.addWidget(CollapsibleSection('Output Image Size', self._size_section(), expanded=True))
         layout.addWidget(CollapsibleSection('Advanced: Turning Boost', self._turning_section(), expanded=False))
-        layout.addWidget(CollapsibleSection('Advanced: Mirror + Color Variants', self._variant_section(), expanded=False))
+        layout.addWidget(CollapsibleSection('Default augmentation: Horizontal Flip + Advanced Color', self._variant_section(), expanded=False))
         layout.addStretch(1)
 
         self.turn_boost.toggled.connect(self._update_enabled_state)
@@ -108,7 +109,7 @@ class PreprocessConfigPanel(QGroupBox):
         self.turn_boost.setChecked(False)
         self.turn_threshold.setValue(0.18)
         self.turn_copies.setValue(1)
-        self.mirror_enabled.setChecked(False)
+        self.mirror_enabled.setChecked(True)
         self.color_variants.setValue(0)
         self.image_h.setValue(self.state.train_config.img_h)
         self.image_w.setValue(self.state.train_config.img_w)

@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 
-FORMAT_VERSION = "0_6_14_sortable_record_preview"
+FORMAT_VERSION = "0_6_15_preprocess_default_horizontal_flip"
 
 
 @dataclass(frozen=True)

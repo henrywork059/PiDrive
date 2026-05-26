@@ -108,9 +108,9 @@ The Preprocess page should favour the common path over the expert path. The acce
 [Preprocess Workflow: 1 Auto | 2 Settings] | [Preprocess Review: 1 Preview | 2 Log]
 ```
 
-`1 Auto` is the default path for most users. It contains the source summary and `Quick Preprocess` panel. The green `Auto Preprocess Active Data` button loads the recommended defaults and applies preprocessing in one action. Amber setup buttons are available for `Use Recommended Defaults` and `Preview Current Recipe` when the user wants to check row counts first.
+`1 Auto` is the default path for most users. It contains the source summary and `Quick Preprocess` panel. The green `Auto Preprocess Active Data` button loads the recommended defaults and applies preprocessing in one action. Recommended defaults include one horizontal flip copy for every active frame, with steering inverted on the flipped copy. Amber setup buttons are available for `Use Recommended Defaults` and `Preview Current Recipe` when the user wants to check row counts first.
 
-`2 Settings` is optional and should contain custom controls only. Keep source/mode and output image size visible, but keep detailed thinning, range filters, balancing, turning boost, mirror, and colour-variant settings collapsed by default. More advanced settings should be deeper and more collapsed, not spread across the first visible workflow.
+`2 Settings` is optional and should contain custom controls only. Keep source/mode and output image size visible. Horizontal flip augmentation is part of the recommended default recipe, but its checkbox should remain in the collapsed augmentation section so the normal workflow stays simple. Keep detailed thinning, range filters, balancing, turning boost, and colour-variant settings collapsed by default. More advanced settings should be deeper and more collapsed, not spread across the first visible workflow.
 
 Preprocess logs should not take vertical space from the main preview by default. Keep Preview and Log as tabs in the review area so the preview/result text remains the main thing users see after preprocessing.
 

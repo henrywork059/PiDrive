@@ -20,14 +20,14 @@ class PreprocessActionsPanel(QGroupBox):
         super().__init__('Quick Preprocess')
 
         guide = QLabel(
-            'Most users can click Auto Preprocess after loading sessions. Use Settings only when you need filtering, balancing, or augmentation.'
+            'Most users can click Auto Preprocess after loading sessions. Recommended defaults add one horizontal flip copy for every active frame.'
         )
         guide.setWordWrap(True)
         guide.setProperty('role', 'hint')
 
         self.auto_btn = QPushButton('Auto Preprocess Active Data')
         style_next_step_button(self.auto_btn, 'Auto Preprocess Active Data')
-        self.auto_btn.setToolTip('Load recommended defaults and immediately make the active training dataset.')
+        self.auto_btn.setToolTip('Load recommended defaults, add horizontal flip copies, and immediately make the active training dataset.')
         self.auto_btn.clicked.connect(auto_callback)
 
         # Keep the historical attribute used by the page banner, but point it to
@@ -36,7 +36,7 @@ class PreprocessActionsPanel(QGroupBox):
 
         default_btn = QPushButton('Use Recommended Defaults')
         default_btn.setProperty('role', 'amber')
-        default_btn.setToolTip('Reset the recipe to the safe default values and preview the result before applying.')
+        default_btn.setToolTip('Reset the recipe to safe defaults, including one horizontal flip copy per row, then preview the result before applying.')
         default_btn.clicked.connect(defaults_callback)
 
         preview_btn = QPushButton('Preview Current Recipe')

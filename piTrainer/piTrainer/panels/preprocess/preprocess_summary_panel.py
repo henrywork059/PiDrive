@@ -89,7 +89,7 @@ class PreprocessSummaryPanel(QGroupBox):
             'stride kept: {rows_after_stride}/{rows_after_dedup} | '
             'straight kept: {straight_rows_after_balance}/{straight_rows_before_balance} | '
             'turn boost added: {turn_rows_added} | generated: {generated_rows} '
-            '(mirror {mirror_rows_added}, mild color {color_rows_added}) | '
+            '(flip {mirror_rows_added}, mild color {color_rows_added}) | '
             'steering: {steering_min:.3f} to {steering_max:.3f} | speed: {throttle_min:.3f} to {throttle_max:.3f}'.format(
                 **summary
             )
