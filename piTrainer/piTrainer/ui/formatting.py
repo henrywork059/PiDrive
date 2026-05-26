@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 
-FORMAT_VERSION = "0_6_16_flip_steering_label_guard"
+FORMAT_VERSION = "0_6_17_training_random_rows_defaults"
 
 
 @dataclass(frozen=True)

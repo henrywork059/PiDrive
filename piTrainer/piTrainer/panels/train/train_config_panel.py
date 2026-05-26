@@ -21,7 +21,7 @@ class TrainConfigPanel(QGroupBox):
         self.val_ratio = QDoubleSpinBox(); self.val_ratio.setRange(0.05, 0.95); self.val_ratio.setDecimals(2); self.val_ratio.setSingleStep(0.05); self.val_ratio.setValue(cfg.val_ratio)
 
         self.model_size = QComboBox(); self.model_size.addItems(['Small CNN', 'Medium CNN']); self.model_size.setCurrentText(getattr(cfg, 'model_size', 'Small CNN'))
-        self.split_mode = QComboBox(); self.split_mode.addItems(['By session', 'Random rows', 'Sequential rows']); self.split_mode.setCurrentText(getattr(cfg, 'split_mode', 'By session'))
+        self.split_mode = QComboBox(); self.split_mode.addItems(['By session', 'Random rows', 'Sequential rows']); self.split_mode.setCurrentText(getattr(cfg, 'split_mode', 'Random rows') or 'Random rows')
         self.seed = QSpinBox(); self.seed.setRange(0, 999999); self.seed.setValue(getattr(cfg, 'seed', 42))
 
         self.dropout_rate = QDoubleSpinBox(); self.dropout_rate.setRange(0.0, 0.8); self.dropout_rate.setDecimals(2); self.dropout_rate.setSingleStep(0.05); self.dropout_rate.setValue(float(getattr(cfg, 'dropout_rate', 0.2) or 0.2))

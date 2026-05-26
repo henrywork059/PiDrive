@@ -49,12 +49,12 @@ def split_by_sequential_rows(df: pd.DataFrame, val_ratio: float) -> tuple[pd.Dat
 
 
 def split_dataframe(df: pd.DataFrame, config: TrainConfig) -> tuple[pd.DataFrame, pd.DataFrame]:
-    split_mode = getattr(config, 'split_mode', 'By session')
+    split_mode = getattr(config, 'split_mode', 'Random rows') or 'Random rows'
     seed = int(getattr(config, 'seed', 42) or 42)
     if split_mode == 'Random rows':
         return split_by_rows(df, config.val_ratio, seed)
     if split_mode == 'Sequential rows':
         return split_by_sequential_rows(df, config.val_ratio)
-    if getattr(config, 'session_split', True):
+    if getattr(config, 'session_split', False):
         return split_by_session(df, config.val_ratio, seed)
     return split_by_rows(df, config.val_ratio, seed)

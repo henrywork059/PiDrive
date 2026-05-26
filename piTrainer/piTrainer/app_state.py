@@ -12,12 +12,12 @@ class TrainConfig:
     img_h: int = 120
     img_w: int = 160
     batch_size: int = 32
-    epochs: int = 10
+    epochs: int = 100
     learning_rate: float = 1e-3
     val_ratio: float = 0.2
     only_manual: bool = True
     augment: bool = True
-    session_split: bool = True
+    session_split: bool = False
     shuffle: bool = True
     model_size: str = 'Small CNN'
     seed: int = 42
@@ -26,7 +26,7 @@ class TrainConfig:
     reduce_lr_on_plateau: bool = True
     reduce_lr_patience: int = 2
     reduce_lr_factor: float = 0.5
-    split_mode: str = 'By session'
+    split_mode: str = 'Random rows'
     dropout_rate: float = 0.2
     steering_loss_weight: float = 1.0
     throttle_loss_weight: float = 1.0

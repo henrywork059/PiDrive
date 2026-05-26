@@ -318,6 +318,18 @@ Single-frame edits from Image Preview should feel immediate. Do not rebuild the 
 
 Bulk Edit should keep a setup-style `Select All Visible Frames` button inside the Bulk Edit panel so users can quickly select every currently displayed frame before applying one steering-only or speed-only edit.
 
+
+## Training defaults
+
+Train Config should open with defaults that work for most small PiSD datasets without requiring extra choices:
+
+- split mode: `Random rows`;
+- default epochs: `100`;
+- validation ratio: keep the existing default ratio unless the user asks to change it;
+- training device: `Auto (GPU if available)`.
+
+`By session` and `Sequential rows` remain available as advanced/manual choices, but they should not be the default. Random rows usually gives the user an immediate train/validation split even when only one session is loaded.
+
 ## Record Preview table model rule
 
 The Record Preview list should stay intentionally simple. The accepted V6.14 pattern is:
