@@ -1,18 +1,18 @@
 # PiSD
 
-`PiSD_0_7_3` patch line — current work builds forward from the `PiSD_0_7_0` stable v7 package.
+`PiSD_0_8_0` full stable v8 package — current stable rollback baseline for future PiSD work.
 
 PiSD is a clean sandbox under `PiDrive/PiSD` for rebuilding and testing PiServer GUI and runtime functions from square one.
 
 It is intentionally separate from the existing `PiServer/` folder. PiSD may refer to PiServer code for behaviour patterns, but PiServer files must not be overwritten by PiSD experiments.
 
-Future bug-fix patches after this package should use `PiSD_0_7_x_patch` naming unless a newer stable line is promoted.
+Future bug-fix patches after this package should use `PiSD_0_8_x_patch` naming unless a newer stable line is promoted.
 
 ## Current version
 
-`PiSD_0_7_3` — motor tuning page and overlay-to-real-motion calibration patch after the `0_7_2` overlay calculation update.
+`PiSD_0_8_0` — full stable package built from `PiSD_0_7_0` plus accepted patches `0_7_1` through `0_7_3`.
 
-This patch line builds forward from the full installable `PiSD_0_7_0` stable package. Use `PiSD_0_7_0` as the rollback point unless a newer stable line is promoted.
+Use `PiSD_0_8_0` as the rollback point for future PiSD work unless a newer stable line is promoted.
 
 Included accepted work:
 
@@ -146,9 +146,9 @@ Use `records.jsonl` only for full debug metadata, filtering, or advanced trainin
 
 ## Stable baseline notes
 
-`PiSD_0_7_0` is the stable rollback baseline before future `0_7_x` patches.
+`PiSD_0_8_0` is the stable rollback baseline before future `0_8_x` patches.
 
-It includes the tested service foundation from earlier baselines plus the accepted v6 and v7 Manual Drive, recording, overlay, AI Mode, safety-policy, and validation cleanup patch lines.
+It includes the tested service foundation from earlier baselines plus the accepted v6, v7, and v8 Manual Drive, recording, overlay, AI Mode, steering algorithm, motor tuning, safety-policy, and validation cleanup patch lines.
 
 Real wheel direction is intentionally configurable through settings because different cars may be wired differently. Use lifted-wheel motor channel tests before driving on the floor.
 
@@ -179,7 +179,7 @@ From the PiDrive root:
 
 ```bash
 cd ~/PiDrive
-unzip -o PiSD_0_7_0.zip
+unzip -o PiSD_0_8_0.zip
 cd ~/PiDrive/PiSD
 python3 -m pip install --break-system-packages -r requirements.txt
 python3 PiSD.py --host 0.0.0.0 --port 5050 --hardware
@@ -221,4 +221,4 @@ python3 scripts/test_motor_channels.py --hardware
 - Dashboard remains a labelled legacy/development comparison shell; Manual Drive and AI Mode are the active control pages.
 - Shared API/status helper logic is still duplicated across some frontend files and can be centralised later.
 - piTrainer still needs a matching update to redraw the overlay from saved `overlay_settings` metadata.
-- Camera setting source-of-truth is still duplicated between backend defaults, service dataclass, UI forms, and diagnostic scripts. If the OV5647 colour still does not match the earlier 03/91 diagnostic result on real hardware, that should be a future `0_7_x` camera patch.
+- Camera setting source-of-truth is still duplicated between backend defaults, service dataclass, UI forms, and diagnostic scripts. If the OV5647 colour still does not match the earlier 03/91 diagnostic result on real hardware, that should be a future `0_8_x` camera patch.
