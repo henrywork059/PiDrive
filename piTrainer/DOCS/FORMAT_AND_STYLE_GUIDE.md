@@ -260,6 +260,17 @@ The Train page should use a three-column workspace:
 The rightmost frame-review column keeps best/worst epoch frames visually separate from controls and loss curves. Frame review cards should be stacked vertically so the right column stays readable at normal laptop widths.
 
 
+## Validation page layout
+
+The Validation page should use a three-column workspace:
+
+```text
+[Validation Workflow] | [Validation Plot / Log] | [Validation Frame Review]
+```
+
+The left column keeps model/dataset/run controls and the result summary. The middle column keeps validation plots and logs. The right column keeps frame-level validation review so users can inspect bad predictions without the preview pushing plots/logs down.
+
+
 ## Training device / GPU support
 
 Training should default to `Auto (GPU if available)`. This lets TensorFlow use a compatible GPU when the installed TensorFlow build and drivers expose one, while continuing on CPU when no GPU is visible. `CPU only` should hide GPU devices before model/dataset creation when possible, and `GPU only` should fail early with a clear log message if TensorFlow cannot detect a GPU.

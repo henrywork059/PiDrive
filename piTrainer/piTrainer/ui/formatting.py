@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 
-FORMAT_VERSION = "0_6_18_synthetic_ids_train_three_columns"
+FORMAT_VERSION = "0_6_19_validation_three_columns"
 
 
 @dataclass(frozen=True)
@@ -162,6 +162,11 @@ SPLITTER_PRESETS: Mapping[str, Mapping[str, Sequence[int]]] = {
         "sizes": (320, 620, 480),
         "stretch": (1, 2, 2),
         "minimums": (260, 320, 300),
+    },
+    "validation_three_panel_workspace": {
+        "sizes": (320, 560, 520),
+        "stretch": (1, 2, 2),
+        "minimums": (260, 300, 300),
     },
     "preview_over_plot": {
         "sizes": (640, 230),

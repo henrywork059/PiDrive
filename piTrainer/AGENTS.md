@@ -73,6 +73,7 @@ Preserve these accepted V6 behaviours:
 - Keep Train Config defaults beginner-friendly: split mode defaults to `Random rows`, `session_split` defaults to false, and default epochs is `100`. Do not restore the older `By session` / 10-epoch defaults unless the user asks.
 - Keep preprocessed synthetic/augmentation rows traceable: every generated row must have its own `frame_id` beginning with `s_`, plus `source_frame_id`, `is_synthetic=True`, and `synthetic_variant` metadata. Do not let horizontal flip, colour, or turn-boost copies reuse the original source `frame_id`.
 - Keep the Train page as a three-column workspace: left `Training Workflow`, middle `Training History / Log`, and right `Epoch Frame Review`. Do not move frame review back above the history/log stack unless the user asks.
+- Keep the Validation page as a three-column workspace: left `Validation Workflow`, middle `Validation Plot / Log`, and right `Validation Frame Review`. Do not return frame review to a vertical stack above/below plot/log unless the user asks.
 
 ## Packaging checklist
 

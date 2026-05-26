@@ -58,19 +58,15 @@ class ValidationPage(DockPage):
         ], object_name='validationWorkflowTabs')
 
         result_tabs = make_workflow_tabs([
-            ('Plot', self.plot_panel, 'Validation error plot.'),
-            ('Log', self.log_panel, 'Validation messages and errors.'),
+            ('1 Plot', self.plot_panel, 'Validation error plot.'),
+            ('2 Log', self.log_panel, 'Validation messages and errors.'),
         ], object_name='validationResultTabs')
-
-        right_stack = self.make_vertical_splitter([
-            self.make_panel_frame('frame_review', 'Validation Frame Review', self.frame_review_panel),
-            self.make_panel_frame('results', 'Validation Plot / Log', result_tabs),
-        ], object_name='right_stack', **splitter_args('preview_over_results'))
 
         workspace = self.make_horizontal_splitter([
             self.make_panel_frame('workflow_controls', 'Validation Workflow', workflow_tabs),
-            right_stack,
-        ], object_name='main_workspace', **splitter_args('two_panel_workspace'))
+            self.make_panel_frame('results', 'Validation Plot / Log', result_tabs),
+            self.make_panel_frame('frame_review', 'Validation Frame Review', self.frame_review_panel),
+        ], object_name='main_workspace', **splitter_args('validation_three_panel_workspace'))
 
         self.set_workspace_widget(
             workspace,
