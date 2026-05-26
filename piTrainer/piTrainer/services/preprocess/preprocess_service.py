@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 
 from ...utils.path_utils import ensure_dir, safe_filename
+from ..data.augmentation_service import normalize_horizontal_flip_labels
 from ..data.visibility_service import without_hidden_rows
 
 MANUAL_MODES = {'manual', 'user', 'train', 'manual_drive'}
@@ -248,6 +249,34 @@ def _apply_turn_boost(df: pd.DataFrame, recipe: dict[str, object]) -> tuple[pd.D
     }
 
 
+def _horizontal_flip_copy(base: pd.DataFrame) -> pd.DataFrame:
+    """Return a horizontal-flip augmentation copy with corrected labels.
+
+    A left/right image flip reverses the steering direction. Speed/throttle is
+    not a left/right quantity, so it must stay unchanged. Store source values on
+    the synthetic row to make this relationship traceable in saved/inspected
+    preprocessed data.
+    """
+    mirror_df = base.copy()
+    if 'steering' in mirror_df.columns:
+        source_steering = pd.to_numeric(mirror_df['steering'], errors='coerce').fillna(0.0).clip(-1.0, 1.0)
+        mirror_df['source_steering'] = source_steering
+        mirror_df['steering'] = (-source_steering).clip(-1.0, 1.0)
+    else:
+        mirror_df['source_steering'] = 0.0
+        mirror_df['steering'] = 0.0
+
+    if 'throttle' in mirror_df.columns:
+        mirror_df['source_throttle'] = pd.to_numeric(mirror_df['throttle'], errors='coerce')
+    if 'speed' in mirror_df.columns:
+        mirror_df['source_speed'] = pd.to_numeric(mirror_df['speed'], errors='coerce')
+
+    mirror_df['aug_flip_lr'] = True
+    mirror_df['aug_variant'] = 'horizontal_flip'
+    mirror_df['flip_steering_inverted'] = True
+    return mirror_df
+
+
 def _build_augmented_dataset(filtered: pd.DataFrame, recipe: dict[str, object]) -> tuple[pd.DataFrame, dict[str, int]]:
     base = _with_default_aug_columns(filtered).reset_index(drop=True)
     if base.empty:
@@ -265,11 +294,7 @@ def _build_augmented_dataset(filtered: pd.DataFrame, recipe: dict[str, object]) 
     color_rows_added = 0
 
     if mirror_enabled:
-        mirror_df = base.copy()
-        if 'steering' in mirror_df.columns:
-            mirror_df['steering'] = -pd.to_numeric(mirror_df['steering'], errors='coerce').fillna(0.0)
-        mirror_df['aug_flip_lr'] = True
-        mirror_df['aug_variant'] = 'mirror'
+        mirror_df = _horizontal_flip_copy(base)
         pieces.append(mirror_df)
         mirror_rows_added = int(len(mirror_df))
 
@@ -283,7 +308,7 @@ def _build_augmented_dataset(filtered: pd.DataFrame, recipe: dict[str, object]) 
         pieces.append(color_df)
         color_rows_added += int(len(color_df))
 
-    expanded = pd.concat(pieces, ignore_index=True)
+    expanded = normalize_horizontal_flip_labels(pd.concat(pieces, ignore_index=True))
     return expanded, {
         'original_rows_after_filter': int(len(base)),
         'mirror_rows_added': mirror_rows_added,
@@ -484,6 +509,7 @@ def format_preprocess_preview(summary: dict[str, float | int | str], recipe: dic
         f"Horizontal flip copies: {'Enabled' if recipe.get('mirror_enabled', False) else 'Disabled'}",
         f"Mild exposure / WB variants per row: {int(recipe.get('color_variants', 0) or 0)}",
         f"Added horizontal flip rows: {summary['mirror_rows_added']}",
+        "Horizontal flip labels: steering is inverted; speed/throttle is preserved.",
         f"Added mild color rows: {summary['color_rows_added']}",
         f"Output image size: {recipe.get('image_width')}x{recipe.get('image_height')}",
         '',

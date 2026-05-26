@@ -7,6 +7,8 @@ import numpy as np
 from ...ui.theme import theme_color
 import pandas as pd
 
+from ..data.augmentation_service import boolean_series, normalize_horizontal_flip_labels
+
 
 def _load_model(in_memory_model, model_source: str, model_path: str):
     if model_source == 'Current trained model':
@@ -24,7 +26,7 @@ def _load_model(in_memory_model, model_source: str, model_path: str):
 
 
 def _prepare_inputs(dataset_df: pd.DataFrame, img_h: int, img_w: int, max_rows: int):
-    rows = dataset_df.copy()
+    rows = normalize_horizontal_flip_labels(dataset_df.copy())
     rows['source_row_number'] = rows.index.astype(int) + 1
     rows = rows[rows['abs_image'].astype(str).map(lambda p: Path(p).exists())].reset_index(drop=True)
     if max_rows and max_rows > 0:
@@ -34,10 +36,16 @@ def _prepare_inputs(dataset_df: pd.DataFrame, img_h: int, img_w: int, max_rows: 
 
     from PIL import Image
 
+    flip_flags = boolean_series(rows['aug_flip_lr'], default=False).tolist() if 'aug_flip_lr' in rows.columns else [False] * len(rows)
+    flip_left_right = getattr(getattr(Image, 'Transpose', Image), 'FLIP_LEFT_RIGHT')
+
     images = []
-    for path in rows['abs_image'].astype(str):
+    for index, path in enumerate(rows['abs_image'].astype(str)):
         with Image.open(path) as image:
-            image = image.convert('RGB').resize((img_w, img_h))
+            image = image.convert('RGB')
+            if flip_flags[index]:
+                image = image.transpose(flip_left_right)
+            image = image.resize((img_w, img_h))
             arr = np.asarray(image, dtype=np.float32) / 255.0
             images.append(arr)
     x = np.stack(images, axis=0)

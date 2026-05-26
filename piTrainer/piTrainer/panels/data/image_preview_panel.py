@@ -6,6 +6,7 @@ from PySide6.QtCore import QPoint, QTimer, Qt
 from PySide6.QtGui import QMouseEvent, QPixmap
 from PySide6.QtWidgets import QGroupBox, QHBoxLayout, QLabel, QSlider, QVBoxLayout, QWidget
 
+from ...services.data.augmentation_service import truthy_value
 from ...services.data.overlay_service import apply_overlays, clip_speed, clip_steering, drive_values_from_point
 from ...utils.image_utils import load_scaled_pixmap
 from ...ui.layout_widgets import CollapsibleSection
@@ -242,7 +243,8 @@ class ImagePreviewPanel(QGroupBox):
         record = self.current_record or {}
         image_path = str(record.get('abs_image', ''))
         target_width, target_height = self._preview_size()
-        pixmap = load_scaled_pixmap(image_path, width=target_width, height=target_height)
+        flip_lr = truthy_value(record.get('aug_flip_lr', False), default=False)
+        pixmap = load_scaled_pixmap(image_path, width=target_width, height=target_height, flip_lr=flip_lr)
         if pixmap is None:
             self.image_label.set_display_pixmap(None)
             self.image_label.setText('Image not available')

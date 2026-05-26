@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 
-FORMAT_VERSION = "0_6_15_preprocess_default_horizontal_flip"
+FORMAT_VERSION = "0_6_16_flip_steering_label_guard"
 
 
 @dataclass(frozen=True)

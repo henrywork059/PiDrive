@@ -108,11 +108,19 @@ The Preprocess page should favour the common path over the expert path. The acce
 [Preprocess Workflow: 1 Auto | 2 Settings] | [Preprocess Review: 1 Preview | 2 Log]
 ```
 
-`1 Auto` is the default path for most users. It contains the source summary and `Quick Preprocess` panel. The green `Auto Preprocess Active Data` button loads the recommended defaults and applies preprocessing in one action. Recommended defaults include one horizontal flip copy for every active frame, with steering inverted on the flipped copy. Amber setup buttons are available for `Use Recommended Defaults` and `Preview Current Recipe` when the user wants to check row counts first.
+`1 Auto` is the default path for most users. It contains the source summary and `Quick Preprocess` panel. The green `Auto Preprocess Active Data` button loads the recommended defaults and applies preprocessing in one action. Recommended defaults include one horizontal flip copy for every active frame, with steering inverted on the flipped copy and speed/throttle preserved. Flipped rows keep source steering metadata so the training and validation paths can guard against stale or wrongly signed labels. Amber setup buttons are available for `Use Recommended Defaults` and `Preview Current Recipe` when the user wants to check row counts first.
 
 `2 Settings` is optional and should contain custom controls only. Keep source/mode and output image size visible. Horizontal flip augmentation is part of the recommended default recipe, but its checkbox should remain in the collapsed augmentation section so the normal workflow stays simple. Keep detailed thinning, range filters, balancing, turning boost, and colour-variant settings collapsed by default. More advanced settings should be deeper and more collapsed, not spread across the first visible workflow.
 
 Preprocess logs should not take vertical space from the main preview by default. Keep Preview and Log as tabs in the review area so the preview/result text remains the main thing users see after preprocessing.
+
+Horizontal flip safety rule:
+
+- flipped rows must set `aug_flip_lr=True`;
+- flipped rows must invert `steering` from the original/source steering;
+- flipped rows must preserve `throttle`/speed;
+- training and validation loaders must apply the image flip whenever `aug_flip_lr` is true;
+- validation/image preview must not show or score an unflipped image against an inverted steering label.
 
 ## Collapsible sections
 
