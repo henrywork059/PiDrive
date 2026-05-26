@@ -302,7 +302,7 @@ Use the shared slider helper in `piTrainer/piTrainer/ui/sliders.py` for centred-
 
 ## Record Preview navigation and edit responsiveness
 
-Record Preview must stay visually anchored on the first visible column. Use a simple read-only `QTableView` with a small `QAbstractTableModel`, not item-by-item `QTableWidget` current-cell logic. Keep sorting disabled so the visible row number matches the preview dataframe row number and selection mapping stays simple. Keep the visible columns short and stable, with `frame_id` as the first column. Multi-row selection, Select All, and keyboard movement should not leave the table horizontally scrolled to the second column. Keep current-index normalisation/scrollbar anchoring inside the preview panel rather than duplicating it in page code. Normal mouse selection should not force the selected row into the vertical middle of the table; use ensure-visible scrolling only for programmatic navigation such as Up/Down cycling, playback, or focus-by-identity.
+Record Preview must stay visually anchored on the first visible column. Use a simple read-only `QTableView` with a small `QAbstractTableModel`, not item-by-item `QTableWidget` current-cell logic. Header sorting is allowed, but it must stay inside the model and preserve an explicit view-row to source-dataframe-row mapping so selection, preview, bulk edit, and hide/delete operations keep targeting the correct frames. The default sort should be `frame_id` ascending. Keep the visible columns short and stable, with `frame_id` as the first column. Multi-row selection, Select All, and keyboard movement should not leave the table horizontally scrolled to the second column. Keep current-index normalisation/scrollbar anchoring inside the preview panel rather than duplicating it in page code. Normal mouse selection should not force the selected row into the vertical middle of the table; use ensure-visible scrolling only for programmatic navigation such as Up/Down cycling, playback, or focus-by-identity.
 
 When the Record Preview table has focus, Up and Down should cycle through frame rows. Down moves to the next frame and wraps from the last row to the first; Up moves to the previous frame and wraps from the first row to the last.
 
@@ -312,12 +312,13 @@ Bulk Edit should keep a setup-style `Select All Visible Frames` button inside th
 
 ## Record Preview table model rule
 
-The Record Preview list should stay intentionally simple. The accepted V6.13 pattern is:
+The Record Preview list should stay intentionally simple. The accepted V6.14 pattern is:
 
 - `QTableView` for the view;
 - one small read-only `QAbstractTableModel` for the preview rows;
 - `frame_id` as column 1;
-- no table sorting;
+- header sorting enabled through the model, with default sort by `frame_id`;
+- an explicit source-row mapping so sorted table rows still edit/hide/delete the correct records;
 - a short fixed column order: `frame_id`, `session`, `steering`, `throttle`, `mode`, `ts`;
 - row selection maps directly to the active preview dataframe row;
 - horizontal anchoring resets the scrollbar to the first column without vertically centring normal mouse selections.

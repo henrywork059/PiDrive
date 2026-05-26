@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 
-FORMAT_VERSION = "0_6_13_simple_record_preview_model"
+FORMAT_VERSION = "0_6_14_sortable_record_preview"
 
 
 @dataclass(frozen=True)
