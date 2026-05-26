@@ -302,13 +302,27 @@ Use the shared slider helper in `piTrainer/piTrainer/ui/sliders.py` for centred-
 
 ## Record Preview navigation and edit responsiveness
 
-Record Preview must stay visually anchored on the first visible column. Multi-row selection, sorting, Select All, and keyboard movement should not leave the table horizontally scrolled to the second column. Keep `frame_id` as the first column and keep current-cell normalisation/scrollbar anchoring inside the preview panel rather than duplicating it in page code. Normal mouse selection should not force the selected row into the vertical middle of the table; use ensure-visible scrolling only for programmatic navigation such as Up/Down cycling, playback, or focus-by-identity.
+Record Preview must stay visually anchored on the first visible column. Use a simple read-only `QTableView` with a small `QAbstractTableModel`, not item-by-item `QTableWidget` current-cell logic. Keep sorting disabled so the visible row number matches the preview dataframe row number and selection mapping stays simple. Keep the visible columns short and stable, with `frame_id` as the first column. Multi-row selection, Select All, and keyboard movement should not leave the table horizontally scrolled to the second column. Keep current-index normalisation/scrollbar anchoring inside the preview panel rather than duplicating it in page code. Normal mouse selection should not force the selected row into the vertical middle of the table; use ensure-visible scrolling only for programmatic navigation such as Up/Down cycling, playback, or focus-by-identity.
 
 When the Record Preview table has focus, Up and Down should cycle through frame rows. Down moves to the next frame and wraps from the last row to the first; Up moves to the previous frame and wraps from the first row to the last.
 
 Single-frame edits from Image Preview should feel immediate. Do not rebuild the full table after every small steering/speed adjustment unless an active speed/steering filter means the edited row may need to disappear. Prefer targeted row updates, queued/debounced JSONL writes that do not block clicking into the next frame, cached JSONL parsing for repeated same-session edits, and delayed plot refresh. When a queued edit commits after the user has selected another row, update the edited row in place without stealing the current selection.
 
 Bulk Edit should keep a setup-style `Select All Visible Frames` button inside the Bulk Edit panel so users can quickly select every currently displayed frame before applying one steering-only or speed-only edit.
+
+## Record Preview table model rule
+
+The Record Preview list should stay intentionally simple. The accepted V6.13 pattern is:
+
+- `QTableView` for the view;
+- one small read-only `QAbstractTableModel` for the preview rows;
+- `frame_id` as column 1;
+- no table sorting;
+- a short fixed column order: `frame_id`, `session`, `steering`, `throttle`, `mode`, `ts`;
+- row selection maps directly to the active preview dataframe row;
+- horizontal anchoring resets the scrollbar to the first column without vertically centring normal mouse selections.
+
+Do not reintroduce `QTableWidget` item-based mapping, per-cell current selection, or automatic column resizing during every selection change. Those behaviours caused intermittent horizontal jumps to later columns and made multi-select harder to reason about.
 
 ## Version display
 

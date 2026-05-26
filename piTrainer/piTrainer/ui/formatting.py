@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 
-FORMAT_VERSION = "0_6_12_validation_scroll_edit_responsiveness"
+FORMAT_VERSION = "0_6_13_simple_record_preview_model"
 
 
 @dataclass(frozen=True)

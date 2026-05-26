@@ -1,26 +1,97 @@
 from __future__ import annotations
 
+from typing import Any
+
 import pandas as pd
-from PySide6.QtCore import QItemSelectionModel, QSignalBlocker, QTimer, Qt
+from PySide6.QtCore import QAbstractTableModel, QModelIndex, QSignalBlocker, QTimer, Qt
 from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import (
     QAbstractItemView,
-    QHeaderView,
     QGroupBox,
+    QHeaderView,
     QLabel,
-    QTableWidget,
-    QTableWidgetItem,
+    QTableView,
     QVBoxLayout,
 )
+from PySide6.QtCore import QItemSelectionModel
 
 from ...services.data.preview_service import dataframe_preview_rows, preview_columns
 
 
-class CyclingPreviewTable(QTableWidget):
+class RecordPreviewModel(QAbstractTableModel):
+    """Small read-only model for the Record Preview table.
+
+    Keeping the table model simple avoids the QTableWidget current-cell side
+    effects that previously scrolled the view to later columns during multi-row
+    selection. The view row is the source DataFrame row because sorting is off.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.rows: list[dict[str, Any]] = []
+        self.columns: list[str] = []
+
+    def set_preview_rows(self, rows: list[dict[str, Any]], columns: list[str]) -> None:
+        self.beginResetModel()
+        self.rows = rows
+        self.columns = columns
+        self.endResetModel()
+
+    def rowCount(self, parent: QModelIndex | None = None) -> int:  # noqa: N802 - Qt API name
+        if parent is not None and parent.isValid():
+            return 0
+        return len(self.rows)
+
+    def columnCount(self, parent: QModelIndex | None = None) -> int:  # noqa: N802 - Qt API name
+        if parent is not None and parent.isValid():
+            return 0
+        return len(self.columns)
+
+    def data(self, index: QModelIndex, role: int = Qt.DisplayRole):  # noqa: N802 - Qt API name
+        if not index.isValid():
+            return None
+        row = index.row()
+        column = index.column()
+        if row < 0 or row >= len(self.rows) or column < 0 or column >= len(self.columns):
+            return None
+        column_name = self.columns[column]
+        value = self.rows[row].get(column_name, "")
+        if role == Qt.UserRole:
+            return row
+        if role not in (Qt.DisplayRole, Qt.ToolTipRole):
+            return None
+        if column_name in {"steering", "throttle"}:
+            try:
+                return f"{float(value):.3f}"
+            except (TypeError, ValueError):
+                return ""
+        return "" if value is None else str(value)
+
+    def headerData(self, section: int, orientation: Qt.Orientation, role: int = Qt.DisplayRole):  # noqa: N802 - Qt API name
+        if role != Qt.DisplayRole:
+            return None
+        if orientation == Qt.Horizontal:
+            if 0 <= section < len(self.columns):
+                return self.columns[section]
+            return None
+        return section + 1
+
+    def set_value(self, row: int, field_name: str, value: float) -> None:
+        if row < 0 or row >= len(self.rows):
+            return
+        self.rows[row][field_name] = value
+        if field_name not in self.columns:
+            return
+        column = self.columns.index(field_name)
+        model_index = self.index(row, column)
+        self.dataChanged.emit(model_index, model_index, [Qt.DisplayRole, Qt.ToolTipRole])
+
+
+class CyclingPreviewTable(QTableView):
     """Record table that keeps Up/Down navigation cycling through frame rows."""
 
     def __init__(self, owner: "PreviewPanel") -> None:
-        super().__init__(0, 0)
+        super().__init__()
         self.owner = owner
 
     def keyPressEvent(self, event: QKeyEvent) -> None:  # noqa: N802 - Qt API name
@@ -40,25 +111,30 @@ class PreviewPanel(QGroupBox):
         self.df = pd.DataFrame()
         self.selection_callback = selection_callback
         self.playback_state_callback = playback_state_callback
+        self._handling_selection = False
 
         self.summary_label = QLabel('Load sessions to preview recorded frames.')
         self.summary_label.setProperty('role', 'muted')
         self.summary_label.setWordWrap(True)
 
+        self.model = RecordPreviewModel()
         self.table = CyclingPreviewTable(self)
+        self.table.setModel(self.model)
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.table.setAlternatingRowColors(True)
         self.table.setWordWrap(False)
-        self.table.setSortingEnabled(True)
+        self.table.setSortingEnabled(False)
         self.table.setMinimumHeight(170)
         self.table.verticalHeader().setVisible(False)
         self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
         self.table.horizontalScrollBar().setTracking(True)
         self.table.setHorizontalScrollMode(QAbstractItemView.ScrollPerPixel)
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
-        self.table.itemSelectionChanged.connect(self._handle_selection_change)
+        self.table.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
+        self.table.selectionModel().selectionChanged.connect(lambda *_: self._handle_selection_change())
+        self.table.selectionModel().currentChanged.connect(lambda *_: self._handle_selection_change())
 
         self.autoplay_timer = QTimer(self)
         self.autoplay_timer.setInterval(250)
@@ -85,32 +161,37 @@ class PreviewPanel(QGroupBox):
         self.df = df.reset_index(drop=True).copy()
         rows = dataframe_preview_rows(self.df)
         columns = preview_columns(rows)
-        blocker = QSignalBlocker(self.table)
-        try:
-            self.table.clear()
-            self.table.setSortingEnabled(False)
-            self.table.setRowCount(len(rows))
-            self.table.setColumnCount(len(columns))
-            self.table.setHorizontalHeaderLabels(columns)
-            for row_idx, row in enumerate(rows):
-                for col_idx, col in enumerate(columns):
-                    value = row.get(col, '')
-                    item = QTableWidgetItem(str(value))
-                    item.setData(Qt.UserRole, row_idx)
-                    self.table.setItem(row_idx, col_idx, item)
-            self.table.resizeColumnsToContents()
-            self.table.setSortingEnabled(True)
-            if rows:
-                self._select_view_row(0, emit=False)
-        finally:
-            del blocker
+        self._with_blocked_selection(lambda: self._reset_model(rows, columns))
+        self._apply_column_widths()
         self._refresh_summary()
         if rows:
-            self._keep_first_column_visible()
+            self._select_view_row(0, emit=False, ensure_row_visible=False)
             self._handle_selection_change()
         elif self.selection_callback is not None:
             self.selection_callback(None)
         self._emit_playback_state()
+
+    def _reset_model(self, rows: list[dict[str, Any]], columns: list[str]) -> None:
+        self.model.set_preview_rows(rows, columns)
+        self.table.clearSelection()
+        if rows and columns:
+            first = self.model.index(0, 0)
+            self._set_current_index(first)
+
+    def _apply_column_widths(self) -> None:
+        if self.model.columnCount() <= 0:
+            return
+        widths = {
+            'frame_id': 125,
+            'session': 190,
+            'steering': 82,
+            'throttle': 82,
+            'mode': 92,
+            'ts': 170,
+        }
+        for column, column_name in enumerate(self.model.columns):
+            self.table.setColumnWidth(column, widths.get(column_name, 110))
+        self._schedule_first_column_visible()
 
     def selected_record(self):
         row = self.current_row()
@@ -129,103 +210,100 @@ class PreviewPanel(QGroupBox):
         selection = self.table.selectionModel()
         if selection is None:
             return []
-        rows: list[int] = []
-        for index in selection.selectedRows():
-            item = self.table.item(index.row(), 0)
-            source_row = item.data(Qt.UserRole) if item is not None else index.row()
-            try:
-                rows.append(int(source_row))
-            except (TypeError, ValueError):
-                rows.append(int(index.row()))
-        # Keep source order stable for delete/reporting, and de-duplicate row selections.
-        return sorted(dict.fromkeys(rows))
+        rows = [int(index.row()) for index in selection.selectedRows(0) if index.isValid()]
+        return sorted(dict.fromkeys(row for row in rows if 0 <= row < len(self.df)))
 
     def current_row(self) -> int:
-        item = self.table.currentItem()
-        if item is None:
-            rows = self.selected_source_rows()
-            return rows[0] if rows else -1
-        source_row = item.data(Qt.UserRole)
-        try:
-            return int(source_row)
-        except (TypeError, ValueError):
-            return item.row()
+        index = self.table.currentIndex()
+        if index.isValid():
+            return int(index.row())
+        rows = self.selected_source_rows()
+        return rows[0] if rows else -1
 
     def _current_view_row(self) -> int:
-        item = self.table.currentItem()
-        if item is not None:
-            return int(item.row())
-        rows = self.table.selectionModel().selectedRows() if self.table.selectionModel() is not None else []
-        return int(rows[0].row()) if rows else -1
+        return self.current_row()
 
     def _view_row_for_source_row(self, source_row: int) -> int:
-        for view_row in range(self.table.rowCount()):
-            item = self.table.item(view_row, 0)
-            if item is None:
-                continue
-            try:
-                if int(item.data(Qt.UserRole)) == int(source_row):
-                    return view_row
-            except (TypeError, ValueError):
-                continue
+        if 0 <= int(source_row) < self.model.rowCount():
+            return int(source_row)
         return -1
 
-    def _column_index(self, column_name: str) -> int:
-        for column in range(self.table.columnCount()):
-            item = self.table.horizontalHeaderItem(column)
-            if item is not None and item.text() == column_name:
-                return column
-        return -1
-
-    def _selection_no_update_flag(self):
-        selection_flag = getattr(QItemSelectionModel, 'NoUpdate', None)
-        if selection_flag is not None:
-            return selection_flag
-        selection_flags = getattr(QItemSelectionModel, 'SelectionFlag', None)
-        if selection_flags is not None:
-            return getattr(selection_flags, 'NoUpdate', None)
+    @staticmethod
+    def _selection_flag(name: str):
+        direct = getattr(QItemSelectionModel, name, None)
+        if direct is not None:
+            return direct
+        enum = getattr(QItemSelectionModel, 'SelectionFlag', None)
+        if enum is not None:
+            return getattr(enum, name, None)
         return None
 
-    def _set_current_cell_first_column(self, view_row: int) -> None:
-        if view_row < 0 or view_row >= self.table.rowCount() or self.table.columnCount() <= 0:
-            return
-        if self.table.currentRow() == view_row and self.table.currentColumn() == 0:
-            return
-        blocker = QSignalBlocker(self.table)
+    def _selection_flags(self, *names: str):
+        result = None
+        for name in names:
+            flag = self._selection_flag(name)
+            if flag is None:
+                continue
+            result = flag if result is None else result | flag
+        return result
+
+    def _with_blocked_selection(self, func) -> None:
+        selection_model = self.table.selectionModel()
+        table_blocker = QSignalBlocker(self.table)
+        selection_blocker = QSignalBlocker(selection_model) if selection_model is not None else None
         try:
-            no_update = self._selection_no_update_flag()
-            if no_update is not None:
+            func()
+        finally:
+            del table_blocker
+            if selection_blocker is not None:
+                del selection_blocker
+
+    def _set_current_index(self, index: QModelIndex, *, no_update: bool = True) -> None:
+        if not index.isValid():
+            return
+        selection_model = self.table.selectionModel()
+        if selection_model is not None and no_update:
+            flags = self._selection_flags('NoUpdate')
+            if flags is not None:
                 try:
-                    self.table.setCurrentCell(view_row, 0, no_update)
+                    selection_model.setCurrentIndex(index, flags)
                     return
                 except TypeError:
                     pass
-            if len(self.selected_source_rows()) <= 1:
-                self.table.setCurrentCell(view_row, 0)
-        finally:
-            del blocker
+        self.table.setCurrentIndex(index)
 
-    def _select_view_row(self, view_row: int, *, emit: bool = True) -> bool:
-        if view_row < 0 or view_row >= self.table.rowCount():
+    def _anchor_current_to_first_column(self) -> None:
+        if self.model.columnCount() <= 0:
+            return
+        current = self.table.currentIndex()
+        row = current.row() if current.isValid() else (self.selected_source_rows()[0] if self.selected_source_rows() else -1)
+        if row < 0 or row >= self.model.rowCount():
+            return
+        first_column_index = self.model.index(row, 0)
+        if not current.isValid() or current.column() != 0:
+            self._set_current_index(first_column_index, no_update=True)
+
+    def _select_view_row(self, view_row: int, *, emit: bool = True, ensure_row_visible: bool = True) -> bool:
+        if view_row < 0 or view_row >= self.model.rowCount():
             return False
-        blocker = QSignalBlocker(self.table)
-        try:
-            self.table.clearSelection()
-            self.table.selectRow(view_row)
-            no_update = self._selection_no_update_flag()
-            if no_update is not None:
-                try:
-                    self.table.setCurrentCell(view_row, 0, no_update)
-                except TypeError:
-                    self.table.setCurrentCell(view_row, 0)
-            else:
-                self.table.setCurrentCell(view_row, 0)
-        finally:
-            del blocker
-        self._keep_first_column_visible(ensure_row_visible=True)
+        selection_model = self.table.selectionModel()
+        if selection_model is None:
+            return False
+        index = self.model.index(view_row, 0)
+        flags = self._selection_flags('ClearAndSelect', 'Rows')
+        self._with_blocked_selection(lambda: self._select_index(selection_model, index, flags))
+        self._keep_first_column_visible(ensure_row_visible=ensure_row_visible)
         if emit:
             self._handle_selection_change()
         return True
+
+    def _select_index(self, selection_model, index: QModelIndex, flags) -> None:
+        if flags is not None:
+            selection_model.select(index, flags)
+        else:
+            self.table.clearSelection()
+            self.table.selectRow(index.row())
+        self._set_current_index(index, no_update=True)
 
     def select_record_identity(self, identity: tuple[str, str, str, str]) -> bool:
         if not identity:
@@ -244,12 +322,7 @@ class PreviewPanel(QGroupBox):
         *,
         preserve_selection: bool = False,
     ) -> bool:
-        """Update already visible row values without rebuilding the table.
-
-        When edits are committed from a debounce timer after the user has already
-        clicked another frame, preserve the current selection so the table does
-        not jump back to the older edited row.
-        """
+        """Update visible row values without rebuilding the table."""
         if not identity or self.df.empty:
             return False
         matched_source_rows: list[int] = []
@@ -264,52 +337,31 @@ class PreviewPanel(QGroupBox):
             for field_name, value in values.items():
                 if field_name in self.df.columns:
                     self.df.at[source_row, field_name] = float(value)
-            view_row = self._view_row_for_source_row(source_row)
-            if view_row < 0:
-                continue
-            for field_name, value in values.items():
-                column = self._column_index(field_name)
-                if column < 0:
-                    continue
-                item = self.table.item(view_row, column)
-                if item is None:
-                    item = QTableWidgetItem()
-                    item.setData(Qt.UserRole, source_row)
-                    self.table.setItem(view_row, column, item)
-                item.setText(f'{float(value):.3f}')
+                self.model.set_value(source_row, field_name, float(value))
 
         if not preserve_selection:
             view_row = self._view_row_for_source_row(matched_source_rows[0])
             if view_row >= 0:
-                self._set_current_cell_first_column(view_row)
+                self._select_view_row(view_row, emit=False, ensure_row_visible=False)
         self._refresh_summary()
         self._schedule_first_column_visible()
         self._emit_playback_state()
         return True
 
     def select_all_records(self) -> bool:
-        total = self.table.rowCount()
+        total = self.model.rowCount()
         if total <= 0:
             return False
-        blocker = QSignalBlocker(self.table)
-        try:
+        def select_all() -> None:
             self.table.selectAll()
-            no_update = self._selection_no_update_flag()
-            if no_update is not None:
-                try:
-                    self.table.setCurrentCell(0, 0, no_update)
-                except TypeError:
-                    self.table.setCurrentCell(0, 0)
-            else:
-                self.table.setCurrentCell(0, 0)
-        finally:
-            del blocker
-        self._keep_first_column_visible(ensure_row_visible=True)
+            self._set_current_index(self.model.index(0, 0), no_update=True)
+        self._with_blocked_selection(select_all)
+        self._keep_first_column_visible(ensure_row_visible=False)
         self._handle_selection_change()
         return True
 
     def select_adjacent_record(self, step: int) -> bool:
-        total = self.table.rowCount()
+        total = self.model.rowCount()
         if total <= 0:
             return False
         view_row = self._current_view_row()
@@ -317,7 +369,7 @@ class PreviewPanel(QGroupBox):
             target_row = 0 if step >= 0 else total - 1
         else:
             target_row = (view_row + int(step)) % total
-        return self._select_view_row(target_row)
+        return self._select_view_row(target_row, ensure_row_visible=True)
 
     def set_playback_fps(self, fps: float) -> None:
         safe_fps = max(0.5, float(fps))
@@ -343,7 +395,7 @@ class PreviewPanel(QGroupBox):
         self._emit_playback_state()
 
     def restart_autoplay(self) -> bool:
-        if self.table.rowCount() <= 0:
+        if self.model.rowCount() <= 0:
             self.stop_autoplay()
             return False
         if not self._select_view_row(0):
@@ -354,55 +406,58 @@ class PreviewPanel(QGroupBox):
         return bool(self.autoplay_timer.isActive())
 
     def total_rows(self) -> int:
-        return int(self.table.rowCount())
+        return int(self.model.rowCount())
 
     def _advance_autoplay(self) -> None:
-        total = self.table.rowCount()
+        total = self.model.rowCount()
         if total <= 1:
             self.stop_autoplay()
             return
         view_row = self._current_view_row()
         next_view_row = 0 if view_row < 0 else (view_row + 1) % total
-        self._select_view_row(next_view_row)
+        self._select_view_row(next_view_row, ensure_row_visible=True)
 
     def _keep_first_column_visible(self, *, ensure_row_visible: bool = False) -> None:
-        if self.table.columnCount() <= 0:
+        if self.model.columnCount() <= 0:
             return
-        view_row = self._current_view_row()
-        if view_row >= 0:
-            self._set_current_cell_first_column(view_row)
+        self._anchor_current_to_first_column()
         scrollbar = self.table.horizontalScrollBar()
         scrollbar.setValue(scrollbar.minimum())
-        if ensure_row_visible and view_row >= 0:
-            first_item = self.table.item(view_row, 0)
-            if first_item is not None:
-                self.table.scrollToItem(first_item, QAbstractItemView.EnsureVisible)
+        if ensure_row_visible:
+            view_row = self._current_view_row()
+            if 0 <= view_row < self.model.rowCount():
+                self.table.scrollTo(self.model.index(view_row, 0), QAbstractItemView.EnsureVisible)
                 scrollbar.setValue(scrollbar.minimum())
 
     def _schedule_first_column_visible(self) -> None:
-        # Qt may auto-scroll horizontally after selection, sorting, or resize.
+        # Qt may auto-scroll horizontally after selection, resize, or current-index changes.
         # Re-anchor the first column without vertically re-centring the selected row.
         for delay_ms in (0, 30, 90, 180):
             QTimer.singleShot(delay_ms, self._keep_first_column_visible)
 
     def _handle_selection_change(self) -> None:
-        self._schedule_first_column_visible()
-        if self.selection_callback is None:
+        if self._handling_selection:
             return
-        row = self.current_row()
-        if row < 0 or row >= len(self.df):
-            self.selection_callback(None)
+        self._handling_selection = True
+        try:
+            self._schedule_first_column_visible()
+            if self.selection_callback is None:
+                return
+            row = self.current_row()
+            if row < 0 or row >= len(self.df):
+                self.selection_callback(None)
+                self._refresh_summary()
+                self._emit_playback_state()
+                return
+            self.selection_callback(self.selected_record())
             self._refresh_summary()
             self._emit_playback_state()
-            return
-        self.selection_callback(self.selected_record())
-        self._refresh_summary()
-        self._emit_playback_state()
+        finally:
+            self._handling_selection = False
 
     def _refresh_summary(self) -> None:
         total = len(self.df)
         row = self.current_row()
-        view_row = self._current_view_row()
         if total == 0:
             self.summary_label.setText('No frames to preview. Load sessions or change the filter.')
             return
@@ -417,7 +472,7 @@ class PreviewPanel(QGroupBox):
         throttle = float(record.get('throttle', 0.0) or 0.0)
         selected_count = len(self.selected_source_rows())
         selected_note = f" {selected_count} row(s) selected." if selected_count > 1 else ""
-        display_row = view_row + 1 if view_row >= 0 else row + 1
+        display_row = row + 1
         self.summary_label.setText(
             f"Displaying {total} frame(s). Current: row {display_row}, session '{session}', frame '{frame_id}', mode '{mode}', steering {steering:.3f}, speed {throttle:.3f}.{selected_note}"
         )

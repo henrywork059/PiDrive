@@ -31,7 +31,7 @@ Preserve these accepted V6 behaviours:
 - PiSD V7 saved overlay metadata and overlay redraw support.
 - Manual-drive preprocessing support.
 - Training-start preflight fixes.
-- Record table sorting, optimised single-frame edit, multi-select soft-delete/hide, bulk selected-frame edit, and merge support.
+- Record Preview uses a simple read-only `QTableView`/`QAbstractTableModel` list with `frame_id` as the first column, no table sorting, optimised single-frame edit, multi-select soft-delete/hide, bulk selected-frame edit, and merge support.
 - Full-width splitter layout.
 - Horizontal scrollbars only when panel content is reduced too far.
 - Compact top guide banner.
@@ -56,6 +56,7 @@ Preserve these accepted V6 behaviours:
 - Keep Bulk Edit Selected Frames in `3 Review`; it edits only steering or only speed one at a time, has a Select All Visible Frames setup button, requires an overwrite checkbox plus a warning confirmation dialog, and must use the batch JSONL updater so each selected session metadata file is scanned once rather than once per selected frame.
 - Keep Merge Sessions in `3 Review`, collapsed by default.
 - Keep `frame_id` as the first visible Record Preview table column.
+- Keep Record Preview deliberately simple: use the read-only model/view table, keep sorting disabled, keep the visible columns short and stable, and do not reintroduce `QTableWidget` item-based current-cell logic.
 - Keep the Record Preview table horizontally anchored to the first column after multi-row selection; do not let Qt selection/current-cell behaviour scroll it to the second column, and do not force the selected row into the vertical centre on normal click/selection. Use ensure-visible scrolling only when keyboard/playback navigation needs it.
 - Keep Up/Down navigation cycling through Record Preview rows when the table has focus. Down moves to the next frame and wraps from the last row to the first; Up moves to the previous frame and wraps from the first row to the last.
 - Keep batch frame deletion as a soft-delete/hide action tied to the Data Control confirmation checkbox; do not physically remove JSONL rows or image files, and do not restore repeated confirmation popups for every delete.
