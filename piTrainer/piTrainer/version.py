@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 APP_NAME = "piTrainer"
-APP_VERSION = "0.6.17"
-PATCH_VERSION = "piTrainer_0_6_17"
+APP_VERSION = "0.6.18"
+PATCH_VERSION = "piTrainer_0_6_18"
 APP_TITLE = f"PiDrive {APP_NAME} {APP_VERSION}"
 APP_WORKFLOW_TITLE = f"{APP_TITLE} — Data → Preprocess → Train → Validate → Export"
 STATUS_VERSION_TEXT = f"Version {APP_VERSION} ({PATCH_VERSION})"

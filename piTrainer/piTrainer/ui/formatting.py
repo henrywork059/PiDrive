@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 
-FORMAT_VERSION = "0_6_17_training_random_rows_defaults"
+FORMAT_VERSION = "0_6_18_synthetic_ids_train_three_columns"
 
 
 @dataclass(frozen=True)
@@ -157,6 +157,11 @@ SPLITTER_PRESETS: Mapping[str, Mapping[str, Sequence[int]]] = {
         "sizes": (320, 1040),
         "stretch": (1, 3),
         "minimums": (260, 420),
+    },
+    "train_three_panel_workspace": {
+        "sizes": (320, 620, 480),
+        "stretch": (1, 2, 2),
+        "minimums": (260, 320, 300),
     },
     "preview_over_plot": {
         "sizes": (640, 230),

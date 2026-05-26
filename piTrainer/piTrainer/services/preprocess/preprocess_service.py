@@ -203,6 +203,51 @@ def _apply_straight_balance(df: pd.DataFrame, recipe: dict[str, object]) -> tupl
     }
 
 
+def _frame_id_series(df: pd.DataFrame) -> pd.Series:
+    """Return stable source frame identifiers for generated/synthetic rows."""
+    if df is None or df.empty:
+        return pd.Series(dtype=str)
+    if 'source_frame_id' in df.columns:
+        source = df['source_frame_id'].fillna('').astype(str).str.strip()
+    else:
+        source = pd.Series([''] * len(df), index=df.index, dtype=str)
+    if 'frame_id' in df.columns:
+        frame_ids = df['frame_id'].fillna('').astype(str).str.strip()
+        source = source.where(source.str.len().gt(0), frame_ids)
+    if 'frame_number' in df.columns:
+        frame_numbers = df['frame_number'].fillna('').astype(str).str.strip()
+        source = source.where(source.str.len().gt(0), frame_numbers.map(lambda value: f'frame_{value}' if value else ''))
+    fallback = pd.Series([f'row_{index + 1:06d}' for index in range(len(df))], index=df.index, dtype=str)
+    return source.where(source.str.len().gt(0), fallback)
+
+
+def _safe_id_part(value: object, default: str = 'frame') -> str:
+    cleaned = safe_filename(str(value or '').strip(), default=default)
+    return cleaned or default
+
+
+def _assign_synthetic_frame_ids(df: pd.DataFrame, variant: str) -> pd.DataFrame:
+    """Mark generated rows and give each one an explicit s_ frame id.
+
+    Augmented rows share the same image file as their source row, but they are
+    separate training examples. A distinct ``s_`` id makes that clear in tables,
+    logs, and saved preprocessed datasets without touching the source image path.
+    """
+    result = df.copy().reset_index(drop=True)
+    if result.empty:
+        return result
+    source_ids = _frame_id_series(result).reset_index(drop=True)
+    variant_part = _safe_id_part(variant, default='synthetic')
+    result['source_frame_id'] = source_ids
+    result['is_synthetic'] = True
+    result['synthetic_variant'] = variant
+    result['frame_id'] = [
+        f's_{_safe_id_part(source_id, default=f"row_{index + 1:06d}")}_{variant_part}_{index + 1:06d}'
+        for index, source_id in enumerate(source_ids)
+    ]
+    return result
+
+
 def _with_default_aug_columns(df: pd.DataFrame) -> pd.DataFrame:
     result = df.copy()
     for column, default_value in AUGMENT_DEFAULTS.items():
@@ -210,6 +255,12 @@ def _with_default_aug_columns(df: pd.DataFrame) -> pd.DataFrame:
             result[column] = default_value
         else:
             result[column] = result[column].fillna(default_value)
+    if 'is_synthetic' not in result.columns:
+        result['is_synthetic'] = False
+    if 'synthetic_variant' not in result.columns:
+        result['synthetic_variant'] = ''
+    if 'source_frame_id' not in result.columns and 'frame_id' in result.columns:
+        result['source_frame_id'] = result['frame_id'].fillna('').astype(str)
     return result
 
 
@@ -239,6 +290,7 @@ def _apply_turn_boost(df: pd.DataFrame, recipe: dict[str, object]) -> tuple[pd.D
     for copy_index in range(turn_copies):
         extra = turn_rows.copy()
         extra['aug_variant'] = f'turn_boost_{copy_index + 1}'
+        extra = _assign_synthetic_frame_ids(extra, f'turn_boost_{copy_index + 1}')
         pieces.append(extra)
     boosted = pd.concat(pieces, ignore_index=True)
     return boosted, {
@@ -274,7 +326,7 @@ def _horizontal_flip_copy(base: pd.DataFrame) -> pd.DataFrame:
     mirror_df['aug_flip_lr'] = True
     mirror_df['aug_variant'] = 'horizontal_flip'
     mirror_df['flip_steering_inverted'] = True
-    return mirror_df
+    return _assign_synthetic_frame_ids(mirror_df, 'horizontal_flip')
 
 
 def _build_augmented_dataset(filtered: pd.DataFrame, recipe: dict[str, object]) -> tuple[pd.DataFrame, dict[str, int]]:
@@ -305,6 +357,7 @@ def _build_augmented_dataset(filtered: pd.DataFrame, recipe: dict[str, object]) 
         for column, value in params.items():
             color_df[column] = value
         color_df['aug_variant'] = f'color_mild_{variant_index + 1}'
+        color_df = _assign_synthetic_frame_ids(color_df, f'color_mild_{variant_index + 1}')
         pieces.append(color_df)
         color_rows_added += int(len(color_df))
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QGridLayout, QGroupBox, QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QGroupBox, QLabel, QVBoxLayout, QWidget
 
 from ...services.data.overlay_service import apply_prediction_comparison_overlay
 from ...utils.image_utils import load_scaled_pixmap
@@ -14,7 +14,7 @@ class _FrameReviewCard(QWidget):
         self.title.setAlignment(Qt.AlignCenter)
         self.image = QLabel('No frame yet')
         self.image.setAlignment(Qt.AlignCenter)
-        self.image.setMinimumHeight(180)
+        self.image.setMinimumHeight(130)
         self.image.setWordWrap(True)
         self.meta = QLabel('')
         self.meta.setWordWrap(True)
@@ -82,12 +82,11 @@ class TrainEpochReviewPanel(QGroupBox):
         self.epoch_label.setWordWrap(True)
         self.best_card = _FrameReviewCard('Best-fit frame')
         self.worst_card = _FrameReviewCard('Worst-fit frame')
-        grid = QGridLayout()
-        grid.addWidget(self.best_card, 0, 0)
-        grid.addWidget(self.worst_card, 0, 1)
         layout = QVBoxLayout(self)
         layout.addWidget(self.epoch_label)
-        layout.addLayout(grid)
+        layout.addWidget(self.best_card)
+        layout.addWidget(self.worst_card)
+        layout.addStretch(1)
 
     def clear_review(self) -> None:
         self.epoch_label.setText('Best and worst-fit frames will appear during training.')

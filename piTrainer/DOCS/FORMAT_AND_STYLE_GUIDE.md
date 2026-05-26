@@ -122,6 +122,13 @@ Horizontal flip safety rule:
 - training and validation loaders must apply the image flip whenever `aug_flip_lr` is true;
 - validation/image preview must not show or score an unflipped image against an inverted steering label.
 
+Synthetic-row identity rule:
+
+- generated rows must not reuse the original source `frame_id`;
+- every synthetic row must have its own `frame_id` beginning with `s_`;
+- every synthetic row should keep `source_frame_id`, `is_synthetic=True`, and `synthetic_variant` metadata;
+- this applies to horizontal flip rows, colour-variant rows, and turning boost copies.
+
 ## Collapsible sections
 
 Only detailed settings and fine-detail data tools should be collapsed by default.
@@ -240,6 +247,17 @@ Forms should use the shared form layout behaviour:
 - spacing comes from the active density profile.
 
 Use `standardize_form_layout()` from `formatting.py` for new forms.
+
+
+## Train page layout
+
+The Train page should use a three-column workspace:
+
+```text
+[Training Workflow] | [Training History / Log] | [Epoch Frame Review]
+```
+
+The rightmost frame-review column keeps best/worst epoch frames visually separate from controls and loss curves. Frame review cards should be stacked vertically so the right column stays readable at normal laptop widths.
 
 
 ## Training device / GPU support

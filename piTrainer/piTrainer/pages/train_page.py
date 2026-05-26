@@ -71,15 +71,11 @@ class TrainPage(DockPage):
             ('Log', self.log_panel, 'Detailed training messages and errors.'),
         ], object_name='trainProgressTabs')
 
-        right_stack = self.make_vertical_splitter([
-            self.make_panel_frame('review', 'Epoch Frame Review', self.epoch_review_panel),
-            self.make_panel_frame('progress', 'Training History / Log', progress_stack),
-        ], object_name='right_stack', **splitter_args('preview_over_results'))
-
         workspace = self.make_horizontal_splitter([
             self.make_panel_frame('workflow_controls', 'Training Workflow', workflow_tabs),
-            right_stack,
-        ], object_name='main_workspace', **splitter_args('two_panel_workspace'))
+            self.make_panel_frame('progress', 'Training History / Log', progress_stack),
+            self.make_panel_frame('review', 'Epoch Frame Review', self.epoch_review_panel),
+        ], object_name='main_workspace', **splitter_args('train_three_panel_workspace'))
 
         self.set_workspace_widget(
             workspace,
