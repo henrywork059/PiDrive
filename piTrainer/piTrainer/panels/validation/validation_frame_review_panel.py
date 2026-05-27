@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 
 from ...ui.layout_widgets import CollapsibleSection
 
+from ...services.data.augmentation_service import truthy_value
 from ...services.data.overlay_service import apply_prediction_comparison_overlay
 from ...services.validation.validation_service import validation_preview_rows
 from ...utils.image_utils import load_scaled_pixmap
@@ -211,7 +212,8 @@ class ValidationFrameReviewPanel(QGroupBox):
             return
         target_width = max(260, self.image_label.width() - 14)
         target_height = max(180, self.image_label.height() - 14)
-        pixmap = load_scaled_pixmap(str(row.get('abs_image', '')), target_width, target_height)
+        flip_lr = truthy_value(row.get('aug_flip_lr', False), default=False)
+        pixmap = load_scaled_pixmap(str(row.get('abs_image', '')), target_width, target_height, flip_lr=flip_lr)
         if pixmap is None:
             self.image_label.clear()
             self.image_label.setText('Image not available')
@@ -226,9 +228,13 @@ class ValidationFrameReviewPanel(QGroupBox):
             )
             self.image_label.setText('')
             self.image_label.setPixmap(rendered)
+        source_frame_id = str(row.get('source_frame_id', '')).strip()
+        synthetic_variant = str(row.get('synthetic_variant', '')).strip()
+        warning = str(row.get('flip_label_warning', '')).strip()
         self.meta_label.setText(
             (
                 'Row {row_number} | Session: {session} | Mode: {mode} | Frame ID: {frame_id} | Frame No.: {frame_number}\n'
+                'Horizontal flip: {flip_note}{source_suffix}{variant_suffix}{warning_suffix}\n'
                 'Target Steer/Speed: {target_steering:.3f} / {target_speed:.3f} | '
                 'Pred Steer/Speed: {pred_steering:.3f} / {pred_speed:.3f} | '
                 'Combined error: {combined_error:.4f}'
@@ -238,6 +244,10 @@ class ValidationFrameReviewPanel(QGroupBox):
                 mode=str(row.get('mode', '')),
                 frame_id=str(row.get('frame_id', '')),
                 frame_number=str(row.get('frame_number', '')),
+                flip_note='Yes' if flip_lr else 'No',
+                source_suffix=f' | Source: {source_frame_id}' if source_frame_id else '',
+                variant_suffix=f' | Variant: {synthetic_variant}' if synthetic_variant else '',
+                warning_suffix=f' | WARNING: {warning}' if warning else '',
                 target_steering=float(row.get('target_steering', 0.0) or 0.0),
                 target_speed=float(row.get('target_speed', 0.0) or 0.0),
                 pred_steering=float(row.get('pred_steering', 0.0) or 0.0),

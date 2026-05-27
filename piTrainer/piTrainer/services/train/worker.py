@@ -7,6 +7,7 @@ import numpy as np
 from PySide6.QtCore import QThread, Signal
 
 from ...app_state import TrainConfig
+from ..data.augmentation_service import boolean_series, normalize_horizontal_flip_labels
 from .dataset_service import make_tf_dataset
 from .model_service import build_model, compile_model
 
@@ -36,7 +37,8 @@ class TrainingWorker(QThread):
             self._review_rows = None
             self._review_x = None
             return
-        review_df = self.train_df[self.train_df['abs_image'].astype(str).map(lambda p: Path(p).exists())].copy()
+        review_df = normalize_horizontal_flip_labels(self.train_df)
+        review_df = review_df[review_df['abs_image'].astype(str).map(lambda p: Path(p).exists())].copy()
         review_df['source_row_number'] = review_df.index.astype(int) + 1
         review_df = review_df.reset_index(drop=True)
         if review_df.empty:
@@ -48,10 +50,20 @@ class TrainingWorker(QThread):
             review_df = review_df.sample(n=sample_size, random_state=int(getattr(self.config, 'seed', 42) or 42)).reset_index(drop=True)
         from PIL import Image
 
+        flip_flags = (
+            boolean_series(review_df['aug_flip_lr'], default=False).tolist()
+            if 'aug_flip_lr' in review_df.columns
+            else [False] * len(review_df)
+        )
+        flip_left_right = getattr(getattr(Image, 'Transpose', Image), 'FLIP_LEFT_RIGHT')
+
         images = []
-        for path in review_df['abs_image'].astype(str):
+        for index, path in enumerate(review_df['abs_image'].astype(str)):
             with Image.open(path) as image:
-                image = image.convert('RGB').resize((self.config.img_w, self.config.img_h))
+                image = image.convert('RGB')
+                if flip_flags[index]:
+                    image = image.transpose(flip_left_right)
+                image = image.resize((self.config.img_w, self.config.img_h))
                 arr = np.asarray(image, dtype=np.float32) / 255.0
                 images.append(arr)
         self._review_rows = review_df
@@ -84,6 +96,11 @@ class TrainingWorker(QThread):
                 'abs_image': str(row.get('abs_image', '')),
                 'overlay_settings': row.get('overlay_settings') if isinstance(row.get('overlay_settings'), dict) else {},
                 'overlay_schema_version': str(row.get('overlay_schema_version', '')),
+                'aug_flip_lr': bool(row.get('aug_flip_lr', False)) if isinstance(row.get('aug_flip_lr', False), bool) else str(row.get('aug_flip_lr', '')).strip().lower() in {'1', 'true', 't', 'yes', 'y', 'on'},
+                'source_frame_id': str(row.get('source_frame_id', '')),
+                'synthetic_variant': str(row.get('synthetic_variant', row.get('aug_variant', ''))),
+                'flip_label_source': str(row.get('flip_label_source', '')),
+                'flip_label_warning': str(row.get('flip_label_warning', '')),
                 'steering_true': float(steering_true[idx]),
                 'steering_pred': float(steering_pred[idx]),
                 'throttle_true': float(throttle_true[idx]),

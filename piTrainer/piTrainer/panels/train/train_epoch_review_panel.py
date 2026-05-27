@@ -3,6 +3,7 @@ from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QGroupBox, QLabel, QVBoxLayout, QWidget
 
+from ...services.data.augmentation_service import truthy_value
 from ...services.data.overlay_service import apply_prediction_comparison_overlay
 from ...utils.image_utils import load_scaled_pixmap
 
@@ -31,7 +32,8 @@ class _FrameReviewCard(QWidget):
             self.meta.setText('')
             return
 
-        pixmap = load_scaled_pixmap(str(payload.get('abs_image', '')), 300, 200)
+        flip_lr = truthy_value(payload.get('aug_flip_lr', False), default=False)
+        pixmap = load_scaled_pixmap(str(payload.get('abs_image', '')), 300, 200, flip_lr=flip_lr)
         if pixmap is not None:
             rendered = apply_prediction_comparison_overlay(
                 pixmap,
@@ -51,12 +53,16 @@ class _FrameReviewCard(QWidget):
         frame_number = str(payload.get('frame_number', '')).strip() or '(none)'
         review_frame = int(payload.get('review_frame_number', 0) or 0)
         review_total = int(payload.get('review_total', 0) or 0)
+        source_frame_id = str(payload.get('source_frame_id', '')).strip()
+        synthetic_variant = str(payload.get('synthetic_variant', '')).strip()
+        warning = str(payload.get('flip_label_warning', '')).strip()
         self.meta.setText(
             (
                 'Session: {session}\n'
                 'Frame ID: {frame_id}\n'
                 'Frame No.: {frame_number}\n'
                 'Review frame: {review_frame}/{review_total}\n'
+                'Horizontal flip: {flip_note}{source_suffix}{variant_suffix}{warning_suffix}\n'
                 'Combined error: {combined_error:.4f}\n'
                 'Target Steer/Speed: {steering_true:.3f} / {throttle_true:.3f}\n'
                 'Pred Steer/Speed: {steering_pred:.3f} / {throttle_pred:.3f}'
@@ -66,6 +72,10 @@ class _FrameReviewCard(QWidget):
                 frame_number=frame_number,
                 review_frame=review_frame,
                 review_total=review_total,
+                flip_note='Yes' if flip_lr else 'No',
+                source_suffix=f' | Source: {source_frame_id}' if source_frame_id else '',
+                variant_suffix=f' | Variant: {synthetic_variant}' if synthetic_variant else '',
+                warning_suffix=f' | WARNING: {warning}' if warning else '',
                 combined_error=float(payload.get('combined_error', 0.0) or 0.0),
                 steering_true=float(payload.get('steering_true', 0.0) or 0.0),
                 steering_pred=float(payload.get('steering_pred', 0.0) or 0.0),

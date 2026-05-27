@@ -99,6 +99,11 @@ def run_validation(
         'modes': rows.get('mode', pd.Series([''] * len(rows))).astype(str).tolist(),
         'timestamps': rows.get('ts', pd.Series([''] * len(rows))).astype(str).tolist(),
         'abs_images': rows.get('abs_image', pd.Series([''] * len(rows))).astype(str).tolist(),
+        'aug_flip_lr': boolean_series(rows['aug_flip_lr'], default=False).tolist() if 'aug_flip_lr' in rows.columns else [False] * len(rows),
+        'source_frame_ids': rows.get('source_frame_id', pd.Series([''] * len(rows))).astype(str).tolist(),
+        'synthetic_variants': rows.get('synthetic_variant', rows.get('aug_variant', pd.Series([''] * len(rows)))).astype(str).tolist(),
+        'flip_label_sources': rows.get('flip_label_source', pd.Series([''] * len(rows))).astype(str).tolist(),
+        'flip_label_warnings': rows.get('flip_label_warning', pd.Series([''] * len(rows))).astype(str).tolist(),
         'overlay_settings': rows.get('overlay_settings', pd.Series([{} for _ in range(len(rows))])).tolist(),
         'overlay_schema_versions': rows.get('overlay_schema_version', pd.Series([''] * len(rows))).astype(str).tolist(),
         'steering_true': steering_true,
@@ -137,6 +142,11 @@ def validation_preview_rows(result: dict | None) -> list[dict]:
     modes = list(result.get('modes', []))
     timestamps = list(result.get('timestamps', []))
     abs_images = list(result.get('abs_images', []))
+    aug_flip_lr = list(result.get('aug_flip_lr', []))
+    source_frame_ids = list(result.get('source_frame_ids', []))
+    synthetic_variants = list(result.get('synthetic_variants', []))
+    flip_label_sources = list(result.get('flip_label_sources', []))
+    flip_label_warnings = list(result.get('flip_label_warnings', []))
     overlay_settings = list(result.get('overlay_settings', []))
     overlay_schema_versions = list(result.get('overlay_schema_versions', []))
     steering_true = np.asarray(result.get('steering_true', []))
@@ -155,6 +165,11 @@ def validation_preview_rows(result: dict | None) -> list[dict]:
                 'frame_number': str(frame_numbers[idx]) if idx < len(frame_numbers) else '',
                 'ts': str(timestamps[idx]) if idx < len(timestamps) else '',
                 'abs_image': str(abs_images[idx]) if idx < len(abs_images) else '',
+                'aug_flip_lr': bool(aug_flip_lr[idx]) if idx < len(aug_flip_lr) else False,
+                'source_frame_id': str(source_frame_ids[idx]) if idx < len(source_frame_ids) else '',
+                'synthetic_variant': str(synthetic_variants[idx]) if idx < len(synthetic_variants) else '',
+                'flip_label_source': str(flip_label_sources[idx]) if idx < len(flip_label_sources) else '',
+                'flip_label_warning': str(flip_label_warnings[idx]) if idx < len(flip_label_warnings) else '',
                 'overlay_settings': overlay_settings[idx] if idx < len(overlay_settings) and isinstance(overlay_settings[idx], dict) else {},
                 'overlay_schema_version': str(overlay_schema_versions[idx]) if idx < len(overlay_schema_versions) else '',
                 'target_steering': float(steering_true[idx]) if idx < len(steering_true) else 0.0,

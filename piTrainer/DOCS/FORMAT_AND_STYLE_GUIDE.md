@@ -123,8 +123,11 @@ Horizontal flip safety rule:
 - flipped rows must set `aug_flip_lr=True`;
 - flipped rows must invert `steering` from the original/source steering;
 - flipped rows must preserve `throttle`/speed;
+- training and validation loaders must apply the shared flip-label guard before using labels;
 - training and validation loaders must apply the image flip whenever `aug_flip_lr` is true;
-- validation/image preview must not show or score an unflipped image against an inverted steering label.
+- train epoch review and validation frame review must also display the flipped image when `aug_flip_lr` is true, so the preview image, label, prediction, and overlay all refer to the same orientation;
+- validation/image preview must not show or score an unflipped image against an inverted steering label;
+- older saved datasets missing `source_steering` should be repaired from a matching unflipped `source_frame_id` where possible, otherwise marked with a warning instead of silently guessed.
 
 Synthetic-row identity rule:
 
