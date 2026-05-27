@@ -1,10 +1,12 @@
 # piTrainer Format and Style Guide
 
-This document records the presentation decisions used by the V7 trainer UI. It is intended to stop future patches from styling individual tabs or panels differently by accident.
+This document records the presentation decisions used by the V8 trainer UI. It is intended to stop future patches from styling individual tabs or panels differently by accident.
 
-## V7 stable baseline note
+## V8 stable baseline note
 
-V7 (`piTrainer_0_7_0`) promotes the accepted V6 patch line through `piTrainer_0_6_20` into a new full baseline. Future patches should build forward from V7 as `0_7_x` without rolling back accepted data layout, preprocessing, training, validation, export, table, style, and soft-hide behaviours.
+V8 (`piTrainer_0_8_0`) promotes the accepted V7 patch line through `piTrainer_0_7_3` into the latest full baseline. Future patches should build forward from V8 as `0_8_x` without rolling back accepted data layout, preprocessing, training, validation, export, table, style, soft-hide, generated-data visibility, and startup version-gate behaviours.
+
+The previous V7 baseline (`piTrainer_0_7_0`) promoted accepted V6 work through `piTrainer_0_6_20`. V8 keeps that V6/V7 work and adds the accepted V7.1, V7.2, and V7.3 patch behaviours.
 
 ## Single source of truth
 
@@ -427,7 +429,7 @@ When making future UI patches:
 5. Keep `piTrainer/AGENTS.md` aligned with current baseline and anti-rollback rules when workflow rules change.
 6. Do not reset user data or runtime config casually.
 
-## Current V6 style decision summary
+## Current V8 style decision summary
 
 The trainer should look like a guided professional desktop workflow, not a dense engineering debug screen. Keep the path clear:
 
@@ -465,7 +467,7 @@ Startup implementation:
 piTrainer/piTrainer/security/version_gate.py
 ```
 
-Online manifest used by the V7.3 patch:
+Online manifest used by the V7.3/V8 release gate:
 
 ```text
 https://raw.githubusercontent.com/henrywork059/PiDrive/refs/heads/main/release_control/pitrainer_access.json
@@ -476,9 +478,9 @@ Expected manifest shape:
 ```json
 {
   "app": "PiTrainer",
-  "latest": "0.7.3",
-  "allowed_versions": ["0.7.3"],
-  "blocked_versions": ["0.7.0", "0.7.1", "0.7.2"],
+  "latest": "0.8.0",
+  "allowed_versions": ["0.8.0"],
+  "blocked_versions": ["0.7.0", "0.7.1", "0.7.2", "0.7.3"],
   "message": "This PiTrainer version is no longer enabled. Please update to the latest version.",
   "support_message": "Please contact the project owner for the newest PiTrainer build."
 }
@@ -487,3 +489,6 @@ Expected manifest shape:
 When the gate is enabled, the app checks this manifest before opening the main window. If the current `APP_VERSION` is blocked or is missing from a non-empty `allowed_versions` list, the app displays a clear blocking message and exits. Network access uses a short timeout and caches successful checks for the configured cache duration.
 
 For PyInstaller releases, make sure the config file is bundled or copied beside the executable, for example by adding the config folder as PyInstaller data or by shipping a `config/version_gate.json` folder next to `PiTrainer.exe`.
+
+For V8 packages, update the online manifest before testing or distributing the release so `allowed_versions` includes `0.8.0`. If the manifest still only allows `0.7.3`, the V8 app will correctly block itself at startup when the version gate is enabled.
+

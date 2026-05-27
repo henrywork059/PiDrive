@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 
-FORMAT_VERSION = "0_7_0_stable_v7_baseline"
+FORMAT_VERSION = "0_8_0_stable_v8_baseline"
 
 
 @dataclass(frozen=True)
