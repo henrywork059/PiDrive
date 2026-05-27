@@ -118,7 +118,6 @@
             <option value="arcade_mix">arcade_mix fallback</option>
           </select>
         </label>
-        <label>Turn Curve <input id="mtunTurnCurve" name="turn_curve" type="number" step="0.01" value="1.50" inputmode="decimal"></label>
         <label>Min Inside Speed <input id="mtunMinInsideSpeed" name="min_inside_speed" type="number" step="0.01" value="0.00" inputmode="decimal"></label>
         <label>Steer Mix <input id="mtunSteerMix" name="steer_mix" type="number" step="0.01" value="1.00" inputmode="decimal"></label>
         <label class="mtun-check"><input id="mtunAllowPivot" name="allow_pivot_turn" type="checkbox"> Allow pivot turn</label>
@@ -127,7 +126,7 @@
         <button id="mtunApplyMotor" class="mtun-button mtun-primary" type="button">Save motor tuning</button>
         <button id="mtunRefreshStatus" class="mtun-button" type="button">Refresh status</button>
       </div>
-      <p class="mtun-help">Turn Curve affects real motor output in <code>turn_rate</code> mode. The overlay is calibrated separately with the visual-only settings below and does not change the motor algorithm.</p>
+      <p class="mtun-help">In <code>turn_rate</code> mode, steering X now linearly controls turn tightness. The overlay is calibrated separately with the visual-only settings below and does not change the motor algorithm.</p>
     </section>
 
     <section class="mtun-panel mtun-overlay-settings-panel" id="motorTuningOverlaySettingsPanel">

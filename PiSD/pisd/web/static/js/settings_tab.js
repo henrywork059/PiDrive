@@ -21,7 +21,7 @@ function normaliseSettingsForUi(settings = {}) {
   next.motor.steer_mix = clampNumber(next.motor.steer_mix ?? 1.0, 0, 1.0, 1.0);
   next.motor.steering_mode = ['turn_rate', 'arcade_mix'].includes(String(next.motor.steering_mode || '').trim()) ? String(next.motor.steering_mode).trim() : 'turn_rate';
   delete next.motor.turn_gain;
-  next.motor.turn_curve = clampNumber(next.motor.turn_curve ?? 1.5, 0.1, 5.0, 1.5);
+  delete next.motor.turn_curve;
   next.motor.min_inside_speed = clampNumber(next.motor.min_inside_speed ?? 0.0, 0, 0.95, 0.0);
   next.motor.allow_pivot_turn = String(next.motor.allow_pivot_turn ?? false).toLowerCase() === 'true' || next.motor.allow_pivot_turn === true;
   next.motor.left_bias = clampNumber(next.motor.left_bias ?? 0.0, -0.35, 0.35, 0.0);

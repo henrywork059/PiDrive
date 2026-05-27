@@ -44,9 +44,9 @@ Included accepted work:
 - Hardware Manual Drive API commands require live safety and motor-output acknowledgement.
 - Manual Drive no longer overrides saved motor `steer_mix`; motor mixing is controlled by the motor settings.
 - Default motor steering mode is now `turn_rate`: left/right input controls curve tightness while up/down controls travel speed along that curve. The older `arcade_mix` behaviour remains selectable as a fallback.
-- The Manual Drive and AI Mode overlays are visual-only calibration layers. They are manually tuned to match the real camera view and real car motion instead of being driven by motor Turn Gain.
+- The Manual Drive and AI Mode overlays are visual-only calibration layers. They are manually tuned to match the real camera view and real car motion instead of being driven by motor tuning values.
 - New Motor Tuning page at `/motor-tuning` runs short straight/turn/custom timed commands through the same motor algorithm, then stops automatically.
-- Motor Tuning includes motor Turn Curve controls, a live camera-backed overlay preview, and separate visual overlay calibration controls so the drawn path can be tuned to match the real car motion.
+- Motor Tuning uses linear X steering, a live camera-backed overlay preview, and separate visual overlay calibration controls so the drawn path can be tuned to match the real car motion.
 - Dashboard is labelled as a legacy/development comparison shell, with stale speed limits raised to full-scale to avoid conflicting with current Manual Drive limits.
 - Default OV5647 camera profile code includes the attempted `03_request_awb_off_lock` request/PIL RGB visual profile and safe runtime migration. This still needs real Pi confirmation if colour does not match the earlier 03/91 diagnostic captures on a specific camera.
 
@@ -67,7 +67,7 @@ Use the page in this order:
 1. Lift the wheels or clear a safe test area, then tick both safety boxes before real motor output.
 2. Run a short Straight travel test to confirm speed and left/right balance.
 3. Run a short Turn test for left and right curves at a known speed and duration.
-4. Adjust motor `Turn Curve` only when the steering response curve itself feels wrong. Full steering now reaches the tightest non-pivot turn without `turn_gain`.
+4. Use the drag pad/timed tests knowing steering X is linear: `x = 0.5` gives a half-tight turn, and `x = 1.0` gives the tightest non-pivot turn.
 5. Adjust overlay values, especially `turn_rate_visual_scale` and `curve_response`, when the real car motion is correct but the drawn predicted path does not match the observed turn on the live camera frame.
 6. Save overlay tuning; the values are stored under `manual_drive.overlay` and are also recorded in screenshots/recordings for future piTrainer redraw.
 

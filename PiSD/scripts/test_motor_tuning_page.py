@@ -129,7 +129,7 @@ def check_source_contract() -> list[Result]:
 
 
 def check_timed_drive_simulation() -> list[Result]:
-    motor = MotorService({"steering_mode": "turn_rate", "turn_curve": 1.5}, hardware_enabled=False)
+    motor = MotorService({"steering_mode": "turn_rate"}, hardware_enabled=False)
     try:
         result = motor.run_timed_drive(steering=0.6, throttle=0.18, duration=0.05, label="test_motor_tuning")
         status = motor.status()

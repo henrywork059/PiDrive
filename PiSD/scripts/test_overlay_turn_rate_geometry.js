@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 
-// Validate that the browser overlay geometry keeps PiSD 0.8.1 visual overlay
+// Validate that the browser overlay geometry keeps PiSD 0.8.2 visual overlay
 // tuning separate from motor turn-rate settings without needing a real browser.
 global.window = global;
 require('../pisd/web/static/js/overlay_geometry.js');
@@ -31,7 +31,6 @@ function guide(steering, motorSettings = {}, overlaySettings = {}) {
     defaults: {},
     motorSettings: {
       steering_mode: 'turn_rate',
-      turn_curve: 1.5,
       ...motorSettings,
     },
   });
@@ -55,7 +54,7 @@ line(highVisualScale.end.x > lowVisualScale.end.x && Math.abs(highVisualScale.cu
 
 const gentleCurve = guide(0.45, { turn_curve: 0.7 }, { curve_response: 2.4 });
 const responsiveCurve = guide(0.45, { turn_curve: 2.4 }, { curve_response: 0.7 });
-line(responsiveCurve.end.x > gentleCurve.end.x && Math.abs(responsiveCurve.turnIntent) > Math.abs(gentleCurve.turnIntent), 'overlay.visual_curve_response', 'overlay curve_response, not motor Turn Curve, controls small-input visual response', { gentleEnd: gentleCurve.end, responsiveEnd: responsiveCurve.end, gentleTurn: gentleCurve.turnIntent, responsiveTurn: responsiveCurve.turnIntent });
+line(responsiveCurve.end.x > gentleCurve.end.x && Math.abs(responsiveCurve.turnIntent) > Math.abs(gentleCurve.turnIntent), 'overlay.visual_curve_response', 'overlay curve_response controls small-input visual response while legacy motor turn_curve is ignored', { gentleEnd: gentleCurve.end, responsiveEnd: responsiveCurve.end, gentleTurn: gentleCurve.turnIntent, responsiveTurn: responsiveCurve.turnIntent });
 
 const arcade = guide(1.0, { steering_mode: 'arcade_mix', steer_mix: 1.0 });
 line(arcade.steeringMode === 'arcade_mix' && Math.abs(arcade.turnIntent) > 0, 'overlay.arcade_mix.fallback', 'arcade_mix mode remains available for legacy visual comparison', { arcadeMode: arcade.steeringMode, arcadeEnd: arcade.end, arcadeTurn: arcade.turnIntent });

@@ -31,7 +31,6 @@
   const DEFAULT_MOTOR = {
     steering_mode: 'turn_rate',
     steer_mix: 1.0,
-    turn_curve: 1.5,
     min_inside_speed: 0.0,
     allow_pivot_turn: false,
   };
@@ -59,7 +58,6 @@
 
   const motorFormMap = {
     steering_mode: $('mtunSteeringMode'),
-    turn_curve: $('mtunTurnCurve'),
     min_inside_speed: $('mtunMinInsideSpeed'),
     steer_mix: $('mtunSteerMix'),
     allow_pivot_turn: $('mtunAllowPivot'),
@@ -150,7 +148,6 @@
     return {
       steering_mode: mode === 'arcade_mix' ? 'arcade_mix' : 'turn_rate',
       steer_mix: clamp(source.steer_mix, 0, 2, DEFAULT_MOTOR.steer_mix),
-      turn_curve: clamp(source.turn_curve, 0.05, 8, DEFAULT_MOTOR.turn_curve),
       min_inside_speed: clamp(source.min_inside_speed, 0, 0.99, DEFAULT_MOTOR.min_inside_speed),
       allow_pivot_turn: typeof source.allow_pivot_turn === 'string'
         ? ['true', '1', 'yes', 'on'].includes(source.allow_pivot_turn.trim().toLowerCase())
@@ -212,8 +209,7 @@
         right: clamp(throttle + motorSettings.steer_mix * steering, -1, 1, 0),
       };
     }
-    const turnIntent = Math.sign(steering) * Math.pow(Math.abs(steering), motorSettings.turn_curve);
-    const turnMag = clamp(Math.abs(turnIntent), 0, 1, 0);
+    const turnMag = clamp(Math.abs(steering), 0, 1, 0);
     if (turnMag <= 1e-6) return { left: throttle, right: throttle };
     if (motorSettings.allow_pivot_turn && Math.abs(throttle) < 1e-4) return steering > 0 ? { left: turnMag, right: -turnMag } : { left: -turnMag, right: turnMag };
     const insideFactor = motorSettings.allow_pivot_turn ? (1 - 2 * turnMag) : Math.max(motorSettings.min_inside_speed, 1 - turnMag);

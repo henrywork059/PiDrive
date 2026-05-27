@@ -141,7 +141,7 @@ Use this file to compare car setups and decide which direction multipliers or pi
 
 ## Manual Drive steering algorithm modes
 
-PiSD 0.7.1 changed the default steering interpretation for normal drive commands. PiSD 0.8.1 removes `turn_gain` from real motor steering and keeps overlay calibration visual-only/manual.
+PiSD 0.7.1 changed the default steering interpretation for normal drive commands. PiSD 0.8.1 removed `turn_gain` from real motor steering. PiSD 0.8.2 also removes motor `turn_curve`, so steering X linearly controls turn tightness while overlay calibration stays visual-only/manual.
 
 The old mode is still available as `arcade_mix`:
 
@@ -162,8 +162,8 @@ Y / throttle input = travel speed along that curve
 In `turn_rate` mode, steering no longer means "add speed to one motor and subtract from the other" directly. Instead, steering produces a unitless turn value:
 
 ```text
-turn = sign(steering) * abs(steering) ** turn_curve
-turn = clamp(turn, -1.0, 1.0)
+turn = steering
+turn_mag = abs(steering)
 ```
 
 Then the inside wheel is slowed while the outside wheel keeps the requested travel speed:
@@ -180,7 +180,6 @@ Available motor settings:
 | Setting | Meaning |
 |---|---|
 | `steering_mode` | `turn_rate` for the new curve/radius-feel control, or `arcade_mix` for the old mixer. |
-| `turn_curve` | Shapes the joystick response. Values above 1 make small steering gentler while full steering still reaches the tightest configured turn. |
 | `min_inside_speed` | Minimum inside-wheel factor in non-pivot mode. Use this if the inside wheel stopping makes the car drag or stall. |
 | `allow_pivot_turn` | Allows the inside wheel to reverse for very tight turns and zero-throttle pivoting. Default is `false`. |
 | `steer_mix` | Used by `arcade_mix` fallback mode. It is kept for compatibility and calibration comparisons. |
@@ -188,7 +187,7 @@ Available motor settings:
 
 ### Visual path overlay alignment
 
-The Manual Drive, AI Mode, and Motor Tuning path overlays now keep visual matching separate from motor tuning. The overlay uses the live steering command plus visual-only calibration values such as `curve_response`, `turn_rate_visual_scale`, `curvature_scale`, and projection/taper settings. Changing motor `Turn Curve` changes the real wheel-speed response, but it does not automatically change the drawn path.
+The Manual Drive, AI Mode, and Motor Tuning path overlays now keep visual matching separate from motor tuning. The overlay uses the live steering command plus visual-only calibration values such as `curve_response`, `turn_rate_visual_scale`, `curvature_scale`, and projection/taper settings. Changing overlay values changes only the drawn path; real motor steering stays linear.
 
 When `steering_mode` is switched back to `arcade_mix`, the overlay keeps the older wheelbase/tan-style visual fallback so legacy mixer comparisons still make sense.
 
@@ -221,7 +220,6 @@ The page separates two tuning jobs:
 
 1. Motor motion tuning
    - `steering_mode`
-   - `turn_curve`
    - `min_inside_speed`
    - `allow_pivot_turn`
    - `steer_mix` for the old `arcade_mix` fallback

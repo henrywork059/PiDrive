@@ -22,16 +22,15 @@
     perspective_depth: 0.92,
     turn_compression: 0.075,
     turn_width_taper: 0.08,
-    // PiSD_0_8_1: visual-only manual scaling. Motor turn_gain was removed and
-    // motor Turn Curve no longer drives the overlay; the user calibrates this
-    // number against the real camera view and real car motion.
+    // PiSD_0_8_2: visual-only manual scaling. Motor turn_gain and turn_curve
+    // are removed from real turn-rate steering; the user calibrates this number
+    // against the real camera view and real car motion.
     turn_rate_visual_scale: 2.2,
   };
 
   const DEFAULT_MOTOR = {
     steering_mode: 'turn_rate',
     steer_mix: 1.0,
-    turn_curve: 1.5,
     min_inside_speed: 0.0,
     allow_pivot_turn: false,
   };
@@ -71,7 +70,6 @@
     return {
       steering_mode: mode === 'arcade_mix' ? 'arcade_mix' : 'turn_rate',
       steer_mix: clamp(motorNumberSetting(motorSettings, 'steer_mix', DEFAULT_MOTOR.steer_mix), 0, 2, DEFAULT_MOTOR.steer_mix),
-      turn_curve: clamp(motorNumberSetting(motorSettings, 'turn_curve', DEFAULT_MOTOR.turn_curve), 0.05, 8, DEFAULT_MOTOR.turn_curve),
       min_inside_speed: clamp(motorNumberSetting(motorSettings, 'min_inside_speed', DEFAULT_MOTOR.min_inside_speed), 0, 0.99, DEFAULT_MOTOR.min_inside_speed),
       allow_pivot_turn: motorBoolSetting(motorSettings, 'allow_pivot_turn', DEFAULT_MOTOR.allow_pivot_turn),
     };
@@ -170,9 +168,9 @@
     const turnIntent = visualTurnIntent(visualSteering, settings, defaults);
     let curvature = 0;
     if (motor.steering_mode === 'turn_rate') {
-      // PiSD_0_8_1: overlay tuning is separated from motor tuning. Motor
-      // turn_curve changes real wheel mixing only; the overlay path is calibrated
-      // manually with visual-only curve_response and turn_rate_visual_scale.
+      // PiSD_0_8_2: overlay tuning is separated from motor tuning. Real motor
+      // turn-rate steering is linear; the overlay path is calibrated manually
+      // with visual-only curve_response and turn_rate_visual_scale.
       curvature = turnIntent * curvatureScale * curvatureGain * turnRateVisualScale;
     } else {
       // Fallback for the old arcade mixer. This preserves the previous visual
@@ -250,7 +248,6 @@
       turnIntent,
       steeringMode: motor.steering_mode,
       overlayCurveResponse: curveResponse,
-      motorTurnCurve: motor.turn_curve,
       movingReverse,
       speed,
     };

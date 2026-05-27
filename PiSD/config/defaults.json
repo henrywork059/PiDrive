@@ -49,7 +49,6 @@
     "right_bias": 0.0,
     "steer_mix": 1.0,
     "steering_mode": "turn_rate",
-    "turn_curve": 1.5,
     "min_inside_speed": 0.0,
     "allow_pivot_turn": false
   }
