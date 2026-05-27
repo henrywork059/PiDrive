@@ -162,9 +162,7 @@ class DataPage(DockPage):
             return pd.Series([], dtype=bool)
 
         def column_text(column: str) -> pd.Series:
-            if column in df.columns:
-                return df[column].fillna('').astype(str)
-            return pd.Series([''] * len(df), index=df.index, dtype=str)
+            return DataPage._column_text(df, column)
 
         session, frame_id, ts, abs_image = identity
         return (
@@ -186,7 +184,8 @@ class DataPage(DockPage):
     @staticmethod
     def _column_text(df: pd.DataFrame, column: str) -> pd.Series:
         if column in df.columns:
-            return df[column].fillna('').astype(str)
+            series = df[column]
+            return series.astype(object).where(series.notna(), '').astype(str)
         return pd.Series([''] * len(df), index=df.index, dtype=str)
 
     def _find_source_record_for_synthetic(self, record: dict) -> dict | None:
@@ -478,9 +477,7 @@ class DataPage(DockPage):
                 return
 
             def column_text(column: str) -> pd.Series:
-                if column in df.columns:
-                    return df[column].fillna('').astype(str)
-                return pd.Series([''] * len(df), index=df.index, dtype=str)
+                return self._column_text(df, column)
 
             row_keys = zip(
                 column_text('session'),
