@@ -251,8 +251,8 @@ Manual Drive now accepts keyboard control through the same `/api/control/manual`
 |---|---|
 | `Arrow Up` | Increase live throttle by `+0.05` once per press |
 | `Arrow Down` | Decrease live throttle by `-0.05` once per press |
-| Hold `Arrow Left` | Ramp steering toward `-1.00` at full scale in `0.5 s` |
-| Hold `Arrow Right` | Ramp steering toward `+1.00` at full scale in `0.5 s` |
+| Hold `Arrow Left` | Ramp steering toward `-1.00` at full scale in `0.8 s` |
+| Hold `Arrow Right` | Ramp steering toward `+1.00` at full scale in `0.8 s` |
 | `Space` | STOP motors and clear keyboard throttle/steering |
 
 The keyboard path keeps the same motor safety, intended-output display, recording labels, and linear X steering algorithm as pointer/drag control. It is ignored while the user is typing in inputs or editing the Manual visual tuning popup.

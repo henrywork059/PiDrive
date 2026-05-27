@@ -115,7 +115,7 @@ def check_source_contract() -> list[Result]:
         "Keyboard",
         "mdrvKeyboardStatus",
         "↑/↓ throttle ±0.05 per press",
-        "hold ←/→ steering ±1 in 0.5 s; release returns to 0",
+        "hold ←/→ steering ±1 in 0.8 s; release returns to 0",
         "Space STOP",
         "Motor start dead-zone",
         "Motor dead-zone kick",
@@ -340,8 +340,8 @@ def check_source_contract() -> list[Result]:
     ))
 
     keyboard_ok = (
-        all(token in template for token in ("mdrvKeyboardStatus", "↑/↓ throttle ±0.05 per press", "hold ←/→ steering ±1 in 0.5 s; release returns to 0", "Space STOP"))
-        and all(token in js for token in ("KEYBOARD_THROTTLE_STEP", "KEYBOARD_STEERING_FULL_SCALE_MS", "bindKeyboardDrive", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "requestAnimationFrame", "source: 'keyboard'"))
+        all(token in template for token in ("mdrvKeyboardStatus", "↑/↓ throttle ±0.05 per press", "hold ←/→ steering ±1 in 0.8 s; release returns to 0", "Space STOP"))
+        and all(token in js for token in ("KEYBOARD_THROTTLE_STEP", "KEYBOARD_STEERING_FULL_SCALE_MS", "800", "bindKeyboardDrive", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "requestAnimationFrame", "source: 'keyboard'"))
     )
     results.append(Result(
         "manual_drive.keyboard_control",

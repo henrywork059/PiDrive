@@ -30,7 +30,7 @@ Included accepted work:
 - Clear Start camera / Live stream / Stop camera / STOP motors / Refresh status behaviour.
 - Status-only refresh that does not start the camera or send motor commands.
 - Page-leave motor fail-safe stop.
-- Manual Drive now supports keyboard driving: ↑/↓ adjust live throttle by `0.05` per press, holding ←/→ ramps steering by full scale in `0.5 s`, and Space stops.
+- Manual Drive now supports keyboard driving: ↑/↓ adjust live throttle by `0.05` per press, holding ←/→ ramps steering by full scale in `0.8 s`, and Space stops.
 - Preview idle start, FPS estimate, frame-age display, stale-frame warning, and guarded preview metrics loop.
 - Recording/snapshot selected-folder details, safer download/delete button states, and hardened backend folder-id validation.
 - Manual Drive recordings include trainer-friendly `labels.jsonl` beside full `records.jsonl` metadata.
@@ -78,8 +78,8 @@ Manual Drive supports keyboard control after motor output is enabled and the bro
 ```text
 Arrow Up    throttle +0.05 per press
 Arrow Down  throttle -0.05 per press
-Hold Left   steering ramps toward -1.00 at full scale in 0.5 s
-Hold Right  steering ramps toward +1.00 at full scale in 0.5 s
+Hold Left   steering ramps toward -1.00 at full scale in 0.8 s
+Hold Right  steering ramps toward +1.00 at full scale in 0.8 s
 Space       STOP motors and clear keyboard throttle/steering
 ```
 

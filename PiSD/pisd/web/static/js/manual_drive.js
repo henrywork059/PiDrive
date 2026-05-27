@@ -139,9 +139,9 @@
 
   // PiSD_0_9_1: keyboard driving state. Up/Down adjust live throttle
   // by fixed steps; Left/Right ramp steering linearly while held, then
-  // release returns steering to centre in the same 0.5 s scale.
+  // release returns steering to centre in the same 0.8 s scale.
   const KEYBOARD_THROTTLE_STEP = 0.05;
-  const KEYBOARD_STEERING_FULL_SCALE_MS = 500;
+  const KEYBOARD_STEERING_FULL_SCALE_MS = 800;
   let keyboardThrottle = 0;
   let keyboardSteering = 0;
   let keyboardLeftHeld = false;
@@ -1466,7 +1466,7 @@
         stopAll('drive');
         setKeyboardStatus('Keyboard locked: enable motor output first.', 'locked');
       } else {
-        setKeyboardStatus('Keyboard ready. ↑/↓ throttle ±0.05; hold ←/→ steering ±1 per 0.5 s; release returns to 0; Space stop.', 'ready');
+        setKeyboardStatus('Keyboard ready. ↑/↓ throttle ±0.05; hold ←/→ steering ±1 per 0.8 s; release returns to 0; Space stop.', 'ready');
       }
     });
     preview?.addEventListener('load', () => {
@@ -1492,7 +1492,7 @@
   applyOverlayCalibration(overlaySettings, false);
   updateDriveOverlay(lastPayload, lastMotorOutput, 'stopped');
   updateLock();
-  setKeyboardStatus('Keyboard ready. ↑/↓ throttle ±0.05; hold ←/→ steering ±1 per 0.5 s; release returns to 0; Space stop.', 'ready');
+  setKeyboardStatus('Keyboard ready. ↑/↓ throttle ±0.05; hold ←/→ steering ±1 per 0.8 s; release returns to 0; Space stop.', 'ready');
   loadSettings();
   refreshRecordingItems();
 })();

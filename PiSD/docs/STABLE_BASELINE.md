@@ -35,7 +35,7 @@ This stable baseline should be used as the rollback point for future PiSD manual
 - AI Mode page at `/ai-mode`, model discovery/loading from `PiSD/models/`, and guarded safety limiter before motor output.
 - Retired Autopilot compatibility path points users to AI Mode instead of scripted movement.
 - Page-leave motor fail-safe stop.
-- Manual Drive supports keyboard control: ↑/↓ adjust live throttle by `0.05` per press, holding ←/→ ramps steering by full scale in `0.5 s`, and Space stops.
+- Manual Drive supports keyboard control: ↑/↓ adjust live throttle by `0.05` per press, holding ←/→ ramps steering by full scale in `0.8 s`, and Space stops.
 - Manual Drive no longer overrides saved motor `steer_mix` with a per-command `1.0` value.
 - AI steering-only mode keeps fixed throttle while driving straight.
 - AI motor-output enable is live/session-only and no longer persisted in `runtime_settings.json`.
