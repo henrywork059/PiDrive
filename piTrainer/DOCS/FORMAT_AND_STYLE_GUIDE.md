@@ -271,6 +271,18 @@ The Validation page should use a three-column workspace:
 The left column keeps model/dataset/run controls and the result summary. The middle column keeps validation plots and logs. The right column keeps frame-level validation review so users can inspect bad predictions without the preview pushing plots/logs down.
 
 
+
+## Export workflow and TensorFlow converter messages
+
+The Export page should report export success in user-facing terms, not by leaving raw TensorFlow converter internals in the PowerShell window. Expected export log behaviour:
+
+- list each created artifact with file type, full path, and size;
+- summarise non-fatal TensorFlow/Keras/TFLite converter chatter instead of displaying temporary SavedModel endpoint dumps;
+- keep the size-optimised TFLite option clear that it reduces model size while keeping float32 input/output for the current PiDrive runtime;
+- keep warnings/errors visible only when they affect the actual export result.
+
+The `.keras` file is the main retrain/reload artifact. The `.tflite` file is the deployment artifact. When size optimisation is enabled, the file name may still include `_int8`, but the current app should explain that PiDrive-compatible float32 input/output is intentional rather than an export failure.
+
 ## Training device / GPU support
 
 Training should default to `Auto (GPU if available)`. This lets TensorFlow use a compatible GPU when the installed TensorFlow build and drivers expose one, while continuing on CPU when no GPU is visible. `CPU only` should hide GPU devices before model/dataset creation when possible, and `GPU only` should fail early with a clear log message if TensorFlow cannot detect a GPU.

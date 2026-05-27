@@ -90,5 +90,10 @@ class ExportPage(DockPage):
             return
 
         for item in created:
-            self.log_panel.append_line(f'Created: {item}')
+            size_label = getattr(item, 'size_label', '')
+            suffix = f' ({size_label})' if size_label else ''
+            self.log_panel.append_line(f'Created {getattr(item, "kind", "artifact")}: {getattr(item, "path", item)}{suffix}')
+            for note in getattr(item, 'notes', ()): 
+                self.log_panel.append_line(f'  Note: {note}')
+        self.log_panel.append_line('Export finished. TensorFlow converter details are summarised above; non-fatal internal converter chatter is suppressed.')
         self.main_window.set_status_message('Export finished.')

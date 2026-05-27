@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 
-FORMAT_VERSION = "0_6_19_validation_three_columns"
+FORMAT_VERSION = "0_6_20_export_log_clarity"
 
 
 @dataclass(frozen=True)

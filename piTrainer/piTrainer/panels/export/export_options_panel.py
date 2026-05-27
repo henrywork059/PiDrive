@@ -22,8 +22,9 @@ class ExportOptionsPanel(QGroupBox):
         self.export_keras.setChecked(cfg.export_keras)
         self.export_tflite = QCheckBox("Export .tflite")
         self.export_tflite.setChecked(cfg.export_tflite)
-        self.quantize_int8 = QCheckBox("INT8 quantize TFLite")
+        self.quantize_int8 = QCheckBox("Reduce TFLite size (quantized, float I/O)")
         self.quantize_int8.setChecked(cfg.quantize_int8)
+        self.quantize_int8.setToolTip("Uses TensorFlow Lite size optimisation while keeping float32 input/output for the PiDrive runtime.")
 
         out_row = QWidget()
         out_layout = QHBoxLayout(out_row)
