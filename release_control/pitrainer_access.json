@@ -1,0 +1,14 @@
+{
+  "app": "PiTrainer",
+  "latest": "0.7.3",
+  "allowed_versions": [
+    "0.7.3"
+  ],
+  "blocked_versions": [
+    "0.7.0",
+    "0.7.1",
+    "0.7.2"
+  ],
+  "message": "This PiTrainer version is no longer enabled. Please update to the latest version.",
+  "support_message": "Please contact the project owner for the newest PiTrainer build."
+}
