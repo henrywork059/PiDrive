@@ -436,3 +436,15 @@ Load data -> Preprocess -> Train -> Validate -> Export
 ```
 
 Every tab and panel should support that flow with consistent sizing, clear grouping, readable spacing, colour roles that match the action meaning, slim splitter/scroll controls, and a visible next action.
+
+## V7.2 Data Review synthetic-row visibility
+
+Data Review is the raw-frame review/editor. Preprocess can create generated rows such as horizontal flips, colour variants, and turn-boost copies, and those rows stay available for Train and Validate. However, Record Preview should hide generated/synthetic rows by default so the Data page remains focused on original source frames.
+
+The accepted behaviour is:
+
+- generated rows keep trace metadata (`frame_id` starting with `s_`, `source_frame_id`, `is_synthetic=True`, and `synthetic_variant`);
+- Data Review hides those generated rows by default;
+- Train and Validate still use generated rows unless they have hidden/delete flags;
+- the Validation `Edit in Data` button redirects generated rows to the matching original source frame, usually by `source_frame_id`;
+- if no safe source frame can be found, the app should fail gracefully rather than editing a hidden generated copy silently.

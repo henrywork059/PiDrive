@@ -229,7 +229,8 @@ class PreprocessPage(DockPage):
         self._activate_preview_tab()
         message = (
             f"{message_prefix}: {summary['rows_after']} active row(s), including {summary['generated_rows']} synthetic row(s). "
-            f"Image size set to {recipe['image_width']}x{recipe['image_height']}. Train tab now uses the active preprocessed rows."
+            f"Image size set to {recipe['image_width']}x{recipe['image_height']}. Train tab uses all active preprocessed rows; "
+            "Data review hides generated rows by default and shows their original source frames for editing."
         )
         self.main_window.set_status_message(message)
         self.log_panel.append_line(message)

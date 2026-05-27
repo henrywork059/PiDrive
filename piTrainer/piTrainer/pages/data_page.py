@@ -22,6 +22,7 @@ from ..services.data.edit_service import update_frame_controls_batch, update_fra
 from ..services.data.filter_service import filter_preview_dataframe
 from ..services.data.merge_service import merge_sessions
 from ..services.data.record_loader_service import build_filtered_dataframe, load_records_dataframe
+from ..services.data.visibility_service import is_synthetic_record, without_synthetic_rows
 from ..services.data.session_service import list_sessions
 from ..services.data.stats_service import calculate_basic_stats
 from .dock_page import DockPage
@@ -34,6 +35,8 @@ class DataPage(DockPage):
         self.state = state
         self.main_window = main_window
         self.current_preview_source_df = pd.DataFrame()
+        self.last_focus_redirected_to_source = False
+        self.last_focus_source_frame_id = ''
         super().__init__('data')
 
         self.session_source_panel = SessionSourcePanel(self.state, self.refresh_sessions, self.load_selected_sessions)
@@ -174,6 +177,65 @@ class DataPage(DockPage):
             column_text('abs_image') == abs_image
         )
 
+
+    @staticmethod
+    def _review_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+        """Return Data-page review rows with generated/synthetic copies hidden by default."""
+        return without_synthetic_rows(df).reset_index(drop=True) if isinstance(df, pd.DataFrame) else pd.DataFrame()
+
+    @staticmethod
+    def _column_text(df: pd.DataFrame, column: str) -> pd.Series:
+        if column in df.columns:
+            return df[column].fillna('').astype(str)
+        return pd.Series([''] * len(df), index=df.index, dtype=str)
+
+    def _find_source_record_for_synthetic(self, record: dict) -> dict | None:
+        if not record or not is_synthetic_record(record):
+            return None
+        source_frame_id = str(record.get('source_frame_id', '') or '').strip()
+        if not source_frame_id:
+            return None
+        session = str(record.get('session', '') or '').strip()
+        abs_image = str(record.get('abs_image', '') or '').strip()
+        ts = str(record.get('ts', '') or '').strip()
+
+        candidates = [
+            self.current_preview_source_df,
+            self._review_dataframe(self.state.filtered_df),
+            self._review_dataframe(self.state.dataset_df),
+        ]
+        for df in candidates:
+            if not isinstance(df, pd.DataFrame) or df.empty or 'frame_id' not in df.columns:
+                continue
+            mask = self._column_text(df, 'frame_id').str.strip().eq(source_frame_id)
+            if session:
+                mask &= self._column_text(df, 'session').str.strip().eq(session)
+            if not mask.any() and abs_image:
+                # Some older rows may not have a stable source_frame_id. Fall back
+                # to the shared source image when it is in the same session.
+                mask = self._column_text(df, 'abs_image').str.strip().eq(abs_image)
+                if session:
+                    mask &= self._column_text(df, 'session').str.strip().eq(session)
+            if not mask.any() and ts:
+                relaxed = self._column_text(df, 'frame_id').str.strip().eq(source_frame_id)
+                relaxed &= self._column_text(df, 'ts').str.strip().eq(ts)
+                if session:
+                    relaxed &= self._column_text(df, 'session').str.strip().eq(session)
+                mask = relaxed
+            if mask.any():
+                return df.loc[mask].iloc[0].to_dict()
+        return None
+
+    def _focus_target_record(self, record: dict) -> dict:
+        self.last_focus_redirected_to_source = False
+        self.last_focus_source_frame_id = ''
+        source_record = self._find_source_record_for_synthetic(record)
+        if source_record:
+            self.last_focus_redirected_to_source = True
+            self.last_focus_source_frame_id = str(record.get('source_frame_id', '') or '')
+            return source_record
+        return record
+
     def refresh_sessions(self) -> None:
         self.state.available_sessions = list_sessions(self.state.records_root_path)
         self.session_source_panel.set_sessions(self.state.available_sessions)
@@ -195,7 +257,7 @@ class DataPage(DockPage):
         self.state.val_df = filtered.iloc[0:0].copy()
         self.state.model = None
         self.state.history = {}
-        self.current_preview_source_df = filtered.copy()
+        self.current_preview_source_df = self._review_dataframe(filtered)
 
         stats = calculate_basic_stats(filtered)
         self.stats_panel.set_stats(stats)
@@ -205,7 +267,8 @@ class DataPage(DockPage):
     def focus_record(self, record: dict | None) -> bool:
         if not record:
             return False
-        session = str(record.get('session', '')).strip()
+        target_record = self._focus_target_record(dict(record))
+        session = str(target_record.get('session', '')).strip()
         if not session:
             return False
 
@@ -215,8 +278,12 @@ class DataPage(DockPage):
         self.session_source_panel.set_selected_sessions([session])
         if need_reload:
             self._load_sessions([session])
+            if self.last_focus_redirected_to_source:
+                reloaded_target = self._find_source_record_for_synthetic(record)
+                if reloaded_target:
+                    target_record = reloaded_target
 
-        identity = self._record_identity(record)
+        identity = self._record_identity(target_record)
         self.filter_panel.reset()
         self.apply_preview_filter(select_identity=identity)
         found = self.preview_panel.select_record_identity(identity)
@@ -497,7 +564,7 @@ class DataPage(DockPage):
             QMessageBox.warning(self, f'Bulk {field_label.title()} Edit', '\n'.join(failed_messages[:8]))
 
     def refresh_from_state(self) -> None:
-        self.current_preview_source_df = self.state.filtered_df.copy()
+        self.current_preview_source_df = self._review_dataframe(self.state.filtered_df)
         self.stats_panel.set_stats(calculate_basic_stats(self.state.filtered_df))
         self.apply_preview_filter()
 

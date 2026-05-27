@@ -164,7 +164,12 @@ class MainWindow(QMainWindow):
         self.tabs.setCurrentIndex(0)
         ok = self.data_page.focus_record(record)
         if ok:
-            self.set_status_message('Opened the validation frame in the Data editor.')
+            if getattr(self.data_page, 'last_focus_redirected_to_source', False):
+                source_id = getattr(self.data_page, 'last_focus_source_frame_id', '')
+                suffix = f" source frame '{source_id}'" if source_id else ' original source frame'
+                self.set_status_message(f'Opened the generated validation row in Data by redirecting to{suffix}.')
+            else:
+                self.set_status_message('Opened the validation frame in the Data editor.')
         else:
             self.set_status_message('Could not open that validation frame in the Data editor.')
 

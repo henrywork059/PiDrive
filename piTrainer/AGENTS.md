@@ -93,3 +93,9 @@ For each patch:
 ## Verification wording
 
 Only claim checks that were actually run. Be clear about anything not tested, especially live PySide6 rendering, real PiSD import, or TensorFlow training.
+
+## V7.2 synthetic data visibility rule
+
+Preprocessed/generated rows are training data, not the default raw-data editing list. Keep generated rows hidden from the Data page Record Preview by default while preserving them in the active `filtered_df` for Train and Validate. Synthetic rows are identified by trace metadata such as `is_synthetic=True`, `frame_id` beginning with `s_`, or non-original augmentation variants. Do not remove them from training unless they also carry hidden/delete flags.
+
+When a validation review row or any future review/edit shortcut refers to a generated/synthetic row, `Edit in Data` should open the original source frame, using `source_frame_id` where available. Do not make users edit a hidden generated copy when the intended editable record is the original real frame.

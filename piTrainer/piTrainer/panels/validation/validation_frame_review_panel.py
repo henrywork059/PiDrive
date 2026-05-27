@@ -36,7 +36,7 @@ class ValidationFrameReviewPanel(QGroupBox):
         self.rows: list[dict] = []
 
         self.help_label = QLabel(
-            'Browse validated frames, filter bad predictions, and open a selected frame back in the Data tab for raw-label editing.'
+            'Browse validated frames, filter bad predictions, and open a selected frame back in the Data tab for raw-label editing. Generated validation rows open their original source frame.'
         )
         self.help_label.setWordWrap(True)
         self.help_label.setProperty('role', 'muted')
@@ -89,6 +89,7 @@ class ValidationFrameReviewPanel(QGroupBox):
         self.edit_button = QPushButton('Edit in Data')
         self.edit_button.setProperty('role', 'primary')
         self.edit_button.clicked.connect(self._edit_current_frame)
+        self.edit_button.setToolTip('Open the selected validation row in Data. If it is a generated/synthetic row, open the original source frame instead.')
 
         controls_widget = QWidget()
         top_controls = QGridLayout(controls_widget)
