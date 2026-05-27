@@ -290,6 +290,22 @@ def check_source_contract() -> list[Result]:
         {"status_index": status_index, "preview_index": preview_index},
     ))
 
+    steer_strength_removed_ok = (
+        "Steer strength" not in template
+        and 'id="mdrvSteer"' not in template
+        and 'id="mdrvSteerOut"' not in template
+        and "$('mdrvSteer')" not in js
+        and "mdrvSteerOut" not in js
+        and "steer_strength" not in js
+    )
+    results.append(Result(
+        "manual_drive.steer_strength_removed",
+        steer_strength_removed_ok,
+        PiSDErrorCodes.OK if steer_strength_removed_ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
+        "Manual Drive steering X is direct and no steer-strength slider/settings remain" if steer_strength_removed_ok else "Manual Drive still contains steer-strength scaling",
+        {},
+    ))
+
     snapshot_removed_ok = "mdrvSnapshot" not in template
     results.append(Result(
         "manual_drive.snapshot_button_removed",

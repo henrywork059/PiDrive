@@ -340,7 +340,7 @@ body.motor-tuning-page {
   .mtun-hero { flex-direction: column; }
   .mtun-status-strip { justify-content: flex-start; }
   .mtun-settings-grid, .mtun-overlay-grid, .mtun-output-row { grid-template-columns: 1fr; }
-  .mtun-overlay-preview, .mtun-overlay-preview svg { min-height: 300px; }
+  .mtun-overlay-preview, .mtun-overlay-preview svg { min-height: 200px; }
 }
 
 /* PiSD_0_8_1: align Motor Tuning with shared PiSD page/panel styling and
@@ -374,6 +374,14 @@ body.motor-tuning-page {
   padding: calc(.68rem * var(--pisd-ui-density-pad, .86));
 }
 
+.mtun-status-strip {
+  align-items: center;
+}
+
+.mtun-status-strip .mtun-back {
+  order: 0;
+}
+
 .mtun-summary { display: none; }
 .mtun-panel { padding: calc(.68rem * var(--pisd-ui-density-pad, .86)); }
 .mtun-button, .mtun-back { border-radius: 999px; }
@@ -392,8 +400,8 @@ body.motor-tuning-page {
 .mtun-overlay-preview {
   flex: 1 1 auto;
   aspect-ratio: var(--pisd-ui-preview-aspect, 16 / 9);
-  min-height: clamp(300px, 52vh, 680px);
-  max-height: min(72vh, 760px);
+  min-height: clamp(180px, 30vh, 360px);
+  max-height: min(46vh, 430px);
   background: #020617;
 }
 

@@ -8,7 +8,6 @@
   const DEFAULTS = {
     speed: 0.18,
     max_speed_limit: 1.0,
-    steer_strength: 1.0,
     drag_send_interval_ms: 90,
     recording_fps: 6,
     overlay: {
@@ -49,9 +48,7 @@
   const toggleLog = $('mdrvToggleLog');
   const arm = $('mdrvArm');
   const speed = $('mdrvSpeed');
-  const steer = $('mdrvSteer');
   const speedOut = $('mdrvSpeedOut');
-  const steerOut = $('mdrvSteerOut');
   const throttleOut = $('mdrvThrottleOut');
   const steeringOut = $('mdrvSteeringOut');
   const safetyText = $('mdrvSafetyText');
@@ -894,20 +891,14 @@
     const legacy = readLegacyPrefs();
     const serverManual = settings.manual_drive || {};
     const limit = clamp(serverManual.max_speed_limit || DEFAULTS.max_speed_limit, 0.1, 1.0, DEFAULTS.max_speed_limit);
-    const legacySteer = Number(legacy.steer);
-    const steerCandidate = (Number.isFinite(legacySteer) && legacySteer !== 0.9)
-      ? legacySteer
-      : (serverManual.steer_strength ?? DEFAULTS.steer_strength);
     const manual = {
       ...DEFAULTS,
       ...serverManual,
       max_speed_limit: limit,
       speed: clamp(legacy.speed || serverManual.speed || DEFAULTS.speed, 0.0, limit, DEFAULTS.speed),
-      steer_strength: clamp(steerCandidate, 0.0, 1.0, DEFAULTS.steer_strength),
       overlay: normaliseOverlaySettings(serverManual.overlay || DEFAULTS.overlay),
     };
     if (speed) { speed.max = String(manual.max_speed_limit); speed.value = manual.speed; }
-    if (steer) steer.value = manual.steer_strength;
     applyOverlayCalibration(manual.overlay, false);
     updateSliderLabels();
     if (window.PiSDPanelPresentation && settings.panel_presentation) window.PiSDPanelPresentation.apply(settings.panel_presentation);
@@ -918,13 +909,12 @@
     const manual_drive = {
       speed: clamp(speed?.value || DEFAULTS.speed, 0, limit, DEFAULTS.speed),
       max_speed_limit: limit,
-      steer_strength: clamp(steer?.value || DEFAULTS.steer_strength, 0, 1, DEFAULTS.steer_strength),
       drag_send_interval_ms: DEFAULTS.drag_send_interval_ms,
       recording_fps: clamp(readRuntimeLocal().manual_drive?.recording_fps || DEFAULTS.recording_fps, 0.2, 30, DEFAULTS.recording_fps),
       overlay: normaliseOverlaySettings(overlaySettings),
     };
     writeRuntimeLocal({ manual_drive });
-    localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify({ speed: String(manual_drive.speed), steer: String(manual_drive.steer_strength) }));
+    localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify({ speed: String(manual_drive.speed) }));
     try {
       await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ manual_drive }) });
     } catch (_err) {}
@@ -1002,13 +992,11 @@
   function updateSliderLabels() {
     const limit = maxSpeedLimit();
     if (speed) { speed.max = String(limit); if (Number(speed.value) > limit) speed.value = String(limit); }
-    if (steer) { steer.max = '1.0'; if (Number(steer.value) > 1) steer.value = '1.0'; }
     if (speedOut) speedOut.textContent = currentSpeed().toFixed(2);
-    if (steerOut) steerOut.textContent = currentSteer().toFixed(2);
   }
 
   function currentSpeed() { return clamp(speed?.value || DEFAULTS.speed, 0, maxSpeedLimit(), DEFAULTS.speed); }
-  function currentSteer() { return clamp(steer?.value || DEFAULTS.steer_strength, 0, 1, DEFAULTS.steer_strength); }
+  function currentSteer() { return 1.0; }
 
   function updateLock() {
     const enabled = Boolean(arm?.checked);
@@ -1023,7 +1011,7 @@
     const clampedY = clamp(normY, -1, 1, 0);
     knob?.style.setProperty('--knob-left', `${(clampedX + 1) * 50}%`);
     knob?.style.setProperty('--knob-top', `${(clampedY + 1) * 50}%`);
-    if (steeringOut) steeringOut.textContent = (clampedX * currentSteer()).toFixed(2);
+    if (steeringOut) steeringOut.textContent = clampedX.toFixed(2);
     if (throttleOut) throttleOut.textContent = (-clampedY * currentSpeed()).toFixed(2);
     return { x: clampedX, y: clampedY };
   }
@@ -1036,7 +1024,7 @@
     const y = ((event.clientY - rect.top) / safeHeight - 0.5) * 2;
     const norm = setKnob(x, y);
     return {
-      steering: clamp(norm.x * currentSteer(), -1, 1, 0),
+      steering: clamp(norm.x, -1, 1, 0),
       throttle: clamp(-norm.y * currentSpeed(), -1, 1, 0),
       safety_ack: Boolean(arm?.checked),
       enable_motor_output: Boolean(arm?.checked),
@@ -1257,8 +1245,7 @@
     window.addEventListener('pagehide', () => { stopPreviewMetricsLoop(); sendFailSafeStop('pagehide'); });
     window.addEventListener('beforeunload', () => sendFailSafeStop('beforeunload'));
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') { stopPreviewMetricsLoop(); sendFailSafeStop('visibility-hidden'); } else if (currentPreviewMode === 'live' || currentPreviewMode === 'snapshot') { startPreviewMetricsLoop(); } });
-    speed?.addEventListener('input', () => { updateSliderLabels(); persistManualSettings(); setKnob(lastPayload.steering / Math.max(0.001, currentSteer()), -lastPayload.throttle / Math.max(0.001, currentSpeed())); });
-    steer?.addEventListener('input', () => { updateSliderLabels(); persistManualSettings(); setKnob(lastPayload.steering / Math.max(0.001, currentSteer()), -lastPayload.throttle / Math.max(0.001, currentSpeed())); });
+    speed?.addEventListener('input', () => { updateSliderLabels(); persistManualSettings(); setKnob(lastPayload.steering, -lastPayload.throttle / Math.max(0.001, currentSpeed())); });
     bindPad();
   }
 

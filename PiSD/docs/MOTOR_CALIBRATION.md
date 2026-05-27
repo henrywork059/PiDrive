@@ -188,7 +188,7 @@ Available motor settings:
 
 ### Intended output vs hardware output
 
-PiSD 0.8.3 separates the output values shown to the driver from the signed PWM values sent to the motor driver.
+PiSD 0.8.3 separates the output values shown to the driver from the signed PWM values sent to the motor driver. PiSD 0.8.4 keeps Manual Drive steering direct: drag-pad X is the steering value and no steer-strength multiplier is used.
 
 - `last_intended_left` / `last_intended_right` are vehicle-motion intent values. Forward travel should show both sides as positive, even if one physical motor has `left_direction` or `right_direction` set to `-1`.
 - `last_left` / `last_right` remain the hardware-applied values after direction multipliers. These are useful for wiring diagnostics.

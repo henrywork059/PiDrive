@@ -122,13 +122,33 @@ def check_source_contract() -> list[Result]:
     sources = {"template": template, "css": css, "js": js}
     missing = {name: [token for token in tokens if token not in sources[name]] for name, tokens in required.items()}
     missing = {name: tokens for name, tokens in missing.items() if tokens}
-    return [Result(
+    results = [Result(
         "motor_tuning.source_contract",
         not missing,
         PiSDErrorCodes.OK if not missing else PiSDErrorCodes.TEST_GUI_ASSET_FAILED,
         "motor tuning source contract passed" if not missing else "motor tuning source missing required tokens",
         {"missing": missing},
     )]
+    hero_index = template.find("mtun-kicker")
+    back_index = template.find("Back to Front Page")
+    nav_index = template.find("mtun-status-strip")
+    compact_preview_ok = "min-height: clamp(180px, 30vh, 360px)" in css and "max-height: min(46vh, 430px)" in css
+    back_nav_ok = nav_index >= 0 and back_index > nav_index and back_index > hero_index
+    results.append(Result(
+        "motor_tuning.back_link_in_header_actions",
+        back_nav_ok,
+        PiSDErrorCodes.OK if back_nav_ok else PiSDErrorCodes.TEST_GUI_ASSET_FAILED,
+        "Back to Front Page is in the header action/status area" if back_nav_ok else "Back link is still placed inside the title block",
+        {"hero_index": hero_index, "nav_index": nav_index, "back_index": back_index},
+    ))
+    results.append(Result(
+        "motor_tuning.preview_compact",
+        compact_preview_ok,
+        PiSDErrorCodes.OK if compact_preview_ok else PiSDErrorCodes.TEST_GUI_ASSET_FAILED,
+        "live camera overlay preview height is capped to a compact calibration size" if compact_preview_ok else "live preview height cap is missing or too large",
+        {},
+    ))
+    return results
 
 
 def check_timed_drive_simulation() -> list[Result]:

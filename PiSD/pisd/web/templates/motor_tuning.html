@@ -15,16 +15,16 @@
   <main class="mtun-shell" id="motorTuningShell">
     <section class="mtun-hero">
       <div>
-        <a href="/" class="mtun-back">← Back to Front Page</a>
         <p class="mtun-kicker">PiSD calibration</p>
         <h1>Motor tuning</h1>
         <p class="mtun-summary">Run short, timed movement tests and tune the visual road overlay so the predicted path matches the real car turning motion.</p>
       </div>
-      <div class="mtun-status-strip" aria-label="Current PiSD status">
+      <nav class="mtun-status-strip" aria-label="Motor tuning navigation and current PiSD status">
+        <a href="/" class="pisd-front-link mtun-back">Back to Front Page</a>
         <span id="mtunGlobalCode" class="mtun-code">{{ initial_status.code }}</span>
         <span>Version <strong>{{ initial_status.version }}</strong></span>
         <span>Motor <strong id="mtunMotorAdapter">{{ initial_status.motor.adapter }}</strong></span>
-      </div>
+      </nav>
     </section>
 
     <section class="mtun-panel mtun-safety-panel" id="motorTuningSafetyPanel">

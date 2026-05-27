@@ -28,7 +28,7 @@ function normaliseSettingsForUi(settings = {}) {
   next.motor.right_bias = clampNumber(next.motor.right_bias ?? 0.0, -0.35, 0.35, 0.0);
   next.manual_drive.max_speed_limit = clampNumber(next.manual_drive.max_speed_limit ?? 1.0, 0.1, 1.0, 1.0);
   next.manual_drive.speed = clampNumber(next.manual_drive.speed ?? 0.18, 0, next.manual_drive.max_speed_limit, 0.18);
-  next.manual_drive.steer_strength = clampNumber(next.manual_drive.steer_strength ?? 1.0, 0, 1.0, 1.0);
+  delete next.manual_drive.steer_strength;
   next.manual_drive.recording_fps = clampNumber(next.manual_drive.recording_fps ?? 6, 0.2, 30, 6);
   return next;
 }

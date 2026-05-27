@@ -900,7 +900,7 @@ After applying this patch, check that the Manual Drive page allows full normaliz
 
 ```text
 Manual speed slider max = 1.0
-Steer strength slider max = 1.0
+Manual Drive has no steer-strength slider; drag-pad X directly maps to steering X
 Motor left/right max speed settings can be set to 1.0
 ```
 
@@ -937,8 +937,8 @@ python3 scripts/run_standard_validation.py --skip-api --skip-camera --skip-motor
 
 On the Pi browser, hard refresh `/manual-drive` and check:
 
-1. `Steer strength` slider can reach `1.0` on Manual Drive.
-2. `Steer strength` in `/settings` can reach `1.0` and reset defaults uses `1.0`.
+1. Manual Drive has no `Steer strength` slider; drag-pad X directly maps to steering X.
+2. `/settings` has no `Steer strength` control; legacy `steer_strength` is ignored by settings normalisation.
 3. `Start camera` starts the camera service without pretending to be the live-stream button.
 4. `Live stream` starts/switches the preview to `/video_feed`.
 5. Top-bar `Refresh status` visibly updates the compact status line and refreshes snapshot mode if the preview is not in live-stream mode.

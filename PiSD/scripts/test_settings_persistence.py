@@ -60,6 +60,8 @@ def static_checks() -> bool:
     settings_html = (ROOT / 'pisd/web/templates/settings_tab.html').read_text(encoding='utf-8')
     ok &= line('name="steering_mode"' in settings_html and 'turn_rate' in settings_html and 'arcade_mix' in settings_html, PiSDErrorCodes.OK if 'name="steering_mode"' in settings_html else PiSDErrorCodes.TEST_SETTINGS_PERSISTENCE_FAILED, 'settings_tab.steering_mode', 'motor steering mode setting is exposed')
     ok &= line('turn_gain' not in settings_html and 'turn_curve' not in settings_html and 'min_inside_speed' in settings_html, PiSDErrorCodes.OK if ('turn_gain' not in settings_html and 'turn_curve' not in settings_html) else PiSDErrorCodes.TEST_SETTINGS_PERSISTENCE_FAILED, 'settings_tab.turn_rate_tuning', 'linear turn-rate motor settings are exposed without removed turn_gain/turn_curve')
+    ok &= line('steer_strength' not in html and 'Steer strength' not in html and "$('mdrvSteer')" not in js and 'mdrvSteerOut' not in js, PiSDErrorCodes.OK if ('steer_strength' not in html and 'Steer strength' not in html and "$('mdrvSteer')" not in js and 'mdrvSteerOut' not in js) else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED, 'manual_drive.no_steer_strength', 'Manual Drive no longer scales steering X with a steer-strength slider')
+    ok &= line('name="steer_strength"' not in settings_html and 'Steer strength' not in settings_html, PiSDErrorCodes.OK if ('name="steer_strength"' not in settings_html and 'Steer strength' not in settings_html) else PiSDErrorCodes.TEST_SETTINGS_PERSISTENCE_FAILED, 'settings_tab.no_steer_strength', 'Settings page no longer exposes steer_strength')
     return ok
 
 
@@ -98,6 +100,8 @@ def manager_checks() -> bool:
             'settings.manager.turn_rate_motor_settings',
             'linear turn-rate motor settings are saved and legacy turn_gain/turn_curve are ignored',
         )
+        legacy_saved, legacy_settings, legacy_report = mgr.save({'manual_drive': {'steer_strength': 0.25, 'speed': 0.19}})
+        ok &= line(legacy_saved and 'steer_strength' not in legacy_settings['manual_drive'] and legacy_settings['manual_drive']['speed'] == 0.19, PiSDErrorCodes.OK if legacy_saved else legacy_report.code, 'settings.manager.legacy_steer_strength_ignored', 'legacy manual steer_strength is ignored and removed')
         ai_saved, ai_settings, ai_report = mgr.save({'ai_mode': {'motor_output_enabled': True, 'fixed_throttle': 0.44}})
         ok &= line(ai_saved and ai_settings['ai_mode']['motor_output_enabled'] is False and ai_settings['ai_mode']['fixed_throttle'] == 0.44, PiSDErrorCodes.OK if ai_saved else ai_report.code, 'settings.manager.ai_motor_enable_session_only', 'AI motor output enable is not persisted')
         mgr2 = SettingsManager(path, {'camera': {'width': 426}, 'motor': {'steer_mix': 1.0}})
@@ -140,7 +144,7 @@ def api_checks(base_url: str) -> bool:
     ok &= line(status == 200 and payload.get('code') == PiSDErrorCodes.OK, payload.get('code', 'PISD-API-002'), 'api.settings.get', 'settings endpoint loaded')
     test_payload = {'manual_drive': {'speed': 0.21, 'steer_strength': 0.33, 'overlay': {'enabled': True, 'opacity': 0.75}}, 'panel_presentation': {'theme': 'dark', 'density': 'compact'}}
     status, payload = http_json('POST', f'{base_url}/api/settings/apply', test_payload)
-    ok &= line(status == 200 and payload.get('code') == PiSDErrorCodes.OK, payload.get('code', 'PISD-API-002'), 'api.settings.apply', 'settings saved and applied')
+    ok &= line(status == 200 and payload.get('code') == PiSDErrorCodes.OK and 'steer_strength' not in payload.get('settings', {}).get('manual_drive', {}), payload.get('code', 'PISD-API-002'), 'api.settings.apply', 'settings saved and legacy steer_strength ignored')
     status, payload = http_json('POST', f'{base_url}/api/settings', {'bad_group': {}})
     ok &= line(status >= 400 and payload.get('code') == PiSDErrorCodes.SETTINGS_INVALID_PAYLOAD, payload.get('code', 'PISD-API-002'), 'api.settings.bad_payload', 'bad settings rejected')
     return ok

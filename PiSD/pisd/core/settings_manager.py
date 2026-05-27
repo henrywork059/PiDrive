@@ -19,7 +19,6 @@ DEFAULT_RUNTIME_SETTINGS: dict[str, Any] = {
     "manual_drive": {
         "speed": 0.18,
         "max_speed_limit": 1.0,
-        "steer_strength": 1.0,
         "drag_send_interval_ms": 90,
         "preview_mode": "live",
         "recording_fps": 6.0,
@@ -310,12 +309,13 @@ class SettingsManager:
         motor["allow_pivot_turn"] = str(motor.get("allow_pivot_turn", motor_defaults.get("allow_pivot_turn", False))).lower() in {"true", "1", "yes", "on"}
 
         manual = merged.setdefault("manual_drive", {})
-        for key in ("speed", "steer_strength"):
-            try:
-                upper = 1.0
-                manual[key] = max(0.0, min(upper, float(manual.get(key, self.defaults["manual_drive"][key]))))
-            except Exception:
-                manual[key] = self.defaults["manual_drive"][key]
+        # PiSD_0_8_4: manual steering X is now always direct/linear.
+        # Legacy saved steer_strength is ignored and removed from normalised settings.
+        manual.pop("steer_strength", None)
+        try:
+            manual["speed"] = max(0.0, min(1.0, float(manual.get("speed", self.defaults["manual_drive"].get("speed", 0.18)))))
+        except Exception:
+            manual["speed"] = self.defaults["manual_drive"].get("speed", 0.18)
         try:
             manual["max_speed_limit"] = max(0.1, min(1.0, float(manual.get("max_speed_limit", 1.0))))
         except Exception:
