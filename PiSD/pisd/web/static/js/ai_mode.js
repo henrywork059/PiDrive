@@ -6,7 +6,7 @@
     'aiOverlayToggle', 'aiOverlayMode', 'aiOverlayCurveLabel', 'aiOverlayCar', 'aiOverlaySurface', 'aiOverlayPathWide', 'aiOverlayPathGuide', 'aiOverlayPath',
     'aiOverlayEndpoint', 'aiOverlayStartPoint', 'aiOverlayThrottleFill', 'aiOverlaySteeringFill', 'aiOverlayThrottleValue', 'aiOverlaySteeringValue',
     'aiOverlayRawSteering', 'aiOverlayRawThrottle', 'aiOverlayLeftValue', 'aiOverlayRightValue',
-    'aiRefreshModels', 'aiModelSelect', 'aiLoadModel', 'aiPredictOnce', 'aiDeleteModel', 'aiModelUploadFile', 'aiUploadModel', 'aiUploadHint', 'aiSelectedModel', 'aiBackend', 'aiInputShape', 'aiOutputNames', 'aiPiTrainerCompatible', 'aiModelsDir',
+    'aiRefreshModels', 'aiModelSelect', 'aiLoadModel', 'aiPredictOnce', 'aiDeleteModel', 'aiModelUploadFile', 'aiUploadModel', 'aiUploadHint', 'aiSelectedModel', 'aiBackend', 'aiInputShape', 'aiOutputNames', 'aiPiTrainerCompatible', 'aiRuntimeSupport', 'aiLoadError', 'aiModelsDir',
     'aiSafetyAck', 'aiEnableMotor', 'aiOutputMode', 'aiMaxThrottle', 'aiMaxThrottleOut', 'aiMaxSteering', 'aiMaxSteeringOut',
     'aiFixedThrottle', 'aiFixedThrottleOut', 'aiUpdateHz', 'aiUpdateHzOut', 'aiSteerSmooth', 'aiSteerSmoothOut', 'aiThrottleSmooth',
     'aiThrottleSmoothOut', 'aiSaveConfig', 'aiStartPreview', 'aiStartDrive', 'aiStop', 'aiStopAll', 'aiRawSteering', 'aiRawThrottle',
@@ -294,7 +294,24 @@
     if (els.aiRunMode) els.aiRunMode.textContent = ai.mode || 'idle';
     if (els.aiModelReady) els.aiModelReady.textContent = ai.model_ready ? 'ready' : (ai.model_loaded ? 'loaded' : 'not loaded');
     if (els.aiSelectedModel) els.aiSelectedModel.textContent = ai.model_id || 'none';
-    if (els.aiBackend) els.aiBackend.textContent = ai.backend || 'none';
+    if (els.aiBackend) {
+      const backend = ai.backend || 'none';
+      const detail = ai.backend_detail || '';
+      els.aiBackend.textContent = detail && detail !== backend ? `${backend} (${detail})` : backend;
+    }
+    if (els.aiRuntimeSupport) {
+      const runtime = ai.runtime_support || {};
+      const bits = [];
+      bits.push(runtime.tflite ? 'TFLite OK' : 'TFLite missing');
+      bits.push(runtime.keras ? 'Keras OK' : 'Keras missing');
+      els.aiRuntimeSupport.textContent = bits.join(' / ');
+      els.aiRuntimeSupport.dataset.state = runtime.tflite || runtime.keras ? 'ok' : 'missing';
+    }
+    if (els.aiLoadError) {
+      const message = ai.last_error || '';
+      els.aiLoadError.textContent = message || 'none';
+      els.aiLoadError.dataset.state = message ? 'error' : 'ok';
+    }
     if (els.aiModelsDir) els.aiModelsDir.textContent = ai.models_dir || 'models';
     const input = ai.input_size || {};
     if (els.aiInputShape) els.aiInputShape.textContent = input.width ? `${input.width} × ${input.height}` : '-';

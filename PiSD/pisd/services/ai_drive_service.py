@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import atexit
+import importlib.util
 import json
 import math
 import re
@@ -43,6 +44,8 @@ class AIDriveService:
         self._model_id = ""
         self._model_path: Path | None = None
         self._backend = "none"
+        self._backend_detail = ""
+        self._pending_backend_detail = ""
         self._model: Any = None
         self._input_details: Any = None
         self._output_details: Any = None
@@ -110,6 +113,8 @@ class AIDriveService:
                 "model_loaded": bool(self._model_loaded),
                 "model_ready": bool(self._model_ready),
                 "backend": self._backend,
+                "backend_detail": self._backend_detail,
+                "runtime_support": self.runtime_diagnostics(),
                 "input_size": {"width": self._input_size[0], "height": self._input_size[1]},
                 "input_dtype": self._input_dtype_name,
                 "output_names": list(self._output_names),
@@ -136,6 +141,30 @@ class AIDriveService:
             }
         data.update(self.errors.status_fields(limit=5))
         return data
+
+    @staticmethod
+    def _module_available(module_name: str) -> bool:
+        try:
+            return importlib.util.find_spec(module_name) is not None
+        except Exception:
+            return False
+
+    def runtime_diagnostics(self) -> dict[str, Any]:
+        """Return import-level AI runtime support visible to the UI/status log.
+
+        This does not load a model. It only tells the user whether this Python
+        environment appears to have a runnable backend for each model family.
+        """
+        tflite_runtime = self._module_available("tflite_runtime.interpreter")
+        ai_edge_litert = self._module_available("ai_edge_litert.interpreter")
+        tensorflow = self._module_available("tensorflow")
+        return {
+            "tflite_runtime": bool(tflite_runtime),
+            "ai_edge_litert": bool(ai_edge_litert),
+            "tensorflow": bool(tensorflow),
+            "tflite": bool(tflite_runtime or ai_edge_litert or tensorflow),
+            "keras": bool(tensorflow),
+        }
 
     def list_models(self) -> dict[str, Any]:
         self.models_dir.mkdir(parents=True, exist_ok=True)
@@ -262,7 +291,8 @@ class AIDriveService:
             self._input_details = None
             self._output_details = None
             self._output_names = []
-            self._backend = "selected"
+            self._backend = "loading"
+            self._backend_detail = ""
             self._model_loaded = False
             self._model_ready = False
             self._settings["model_id"] = safe_id
@@ -284,10 +314,19 @@ class AIDriveService:
                 report = self._record_error(PiSDErrorCodes.AI_MODEL_LOAD_FAILED, "Unsupported AI model extension.", context={"model_id": safe_id})
                 return report_payload(False, report, ai=self.status())
         except Exception as exc:
+            with self._lock:
+                self._model = None
+                self._input_details = None
+                self._output_details = None
+                self._output_names = []
+                self._backend = "load_failed"
+                self._backend_detail = ""
+                self._model_loaded = False
+                self._model_ready = False
             report = self._record_error(
                 PiSDErrorCodes.AI_MODEL_LOAD_FAILED,
                 f"Failed to load AI model: {exc}",
-                context={"model_id": safe_id, "path": str(model_path)},
+                context={"model_id": safe_id, "path": str(model_path), "runtime_support": self.runtime_diagnostics()},
                 exc=exc,
             )
             return report_payload(False, report, ai=self.status())
@@ -298,13 +337,34 @@ class AIDriveService:
             self._last_error_code = PiSDErrorCodes.OK
         return ok_payload("AI model loaded.", ai=self.status())
 
+    def _ensure_model_ready_for_run(self) -> dict[str, Any] | None:
+        with self._lock:
+            if self._model_ready:
+                return None
+            candidate = str(self._model_id or self._settings.get("model_id", "") or "").strip()
+        if candidate:
+            result = self.load_model(candidate)
+            if not result.get("ok"):
+                return result
+            return None
+        report = self._record_error(
+            PiSDErrorCodes.AI_MODEL_NOT_LOADED,
+            "No runnable AI model is loaded. Select a model and click Load model first.",
+            severity="warning",
+            context={"runtime_support": self.runtime_diagnostics()},
+        )
+        return report_payload(False, report, ai=self.status())
+
     def start(self, camera_service: Any, motor_service: Any, *, mode: Any = "preview", safety_ack: Any = False, enable_motor_output: Any = False) -> dict[str, Any]:
+        load_result = self._ensure_model_ready_for_run()
+        if load_result is not None:
+            return load_result
         requested_mode = str(mode or "preview").strip().lower()
         if requested_mode not in {"preview", "drive"}:
             requested_mode = "preview"
         with self._lock:
             if not self._model_ready:
-                report = self._record_error(PiSDErrorCodes.AI_MODEL_NOT_LOADED, "AI mode cannot start because no runnable model is loaded.", severity="warning")
+                report = self._record_error(PiSDErrorCodes.AI_MODEL_NOT_LOADED, "AI mode cannot start because no runnable model is loaded.", severity="warning", context={"runtime_support": self.runtime_diagnostics()})
                 return report_payload(False, report, ai=self.status())
             if self._thread and self._thread.is_alive():
                 report = self._record_error(PiSDErrorCodes.AI_RUNTIME_FAILED, "AI mode is already running.", severity="warning")
@@ -352,9 +412,9 @@ class AIDriveService:
         return ok_payload("AI mode stopped.", ai=self.status())
 
     def predict_once(self, camera_service: Any, motor_service: Any | None = None, *, drive: bool = False) -> dict[str, Any]:
-        if not self._model_ready:
-            report = self._record_error(PiSDErrorCodes.AI_MODEL_NOT_LOADED, "No runnable AI model is loaded.", severity="warning")
-            return report_payload(False, report, ai=self.status())
+        load_result = self._ensure_model_ready_for_run()
+        if load_result is not None:
+            return load_result
         try:
             frame = self._get_frame(camera_service)
             started = time.perf_counter()
@@ -422,6 +482,7 @@ class AIDriveService:
         self._output_details = None
         self._output_names = []
         self._backend = "none"
+        self._backend_detail = ""
         self._model_loaded = False
         self._model_ready = False
         self._last_raw = {"steering": 0.0, "throttle": 0.0}
@@ -471,17 +532,34 @@ class AIDriveService:
 
     def _load_tflite(self, model_path: Path) -> None:
         interpreter_cls = None
+        backend_detail = ""
+        import_errors: list[str] = []
         try:
             from tflite_runtime.interpreter import Interpreter  # type: ignore
 
             interpreter_cls = Interpreter
-        except Exception:
+            backend_detail = "tflite_runtime"
+        except Exception as exc:
+            import_errors.append(f"tflite_runtime: {type(exc).__name__}: {exc}")
+        if interpreter_cls is None:
+            try:
+                from ai_edge_litert.interpreter import Interpreter  # type: ignore
+
+                interpreter_cls = Interpreter
+                backend_detail = "ai_edge_litert"
+            except Exception as exc:
+                import_errors.append(f"ai_edge_litert: {type(exc).__name__}: {exc}")
+        if interpreter_cls is None:
             try:
                 import tensorflow as tf  # type: ignore
 
                 interpreter_cls = tf.lite.Interpreter
+                backend_detail = "tensorflow.lite"
             except Exception as exc:
-                raise RuntimeError("TFLite runtime is not installed. Install tflite-runtime or TensorFlow Lite support.") from exc
+                import_errors.append(f"tensorflow: {type(exc).__name__}: {exc}")
+        if interpreter_cls is None:
+            raise RuntimeError("TFLite runtime is not installed. Install a TFLite runtime backend, then reload the model. Import attempts: " + "; ".join(import_errors))
+        self._pending_backend_detail = backend_detail
         interpreter = interpreter_cls(model_path=str(model_path))
         interpreter.allocate_tensors()
         input_details = interpreter.get_input_details()
@@ -500,6 +578,7 @@ class AIDriveService:
             self._output_details = output_details
             self._output_names = output_names
             self._backend = "tflite"
+            self._backend_detail = getattr(self, "_pending_backend_detail", "") or "tflite"
 
     def _load_keras(self, model_path: Path) -> None:
         try:
@@ -518,6 +597,7 @@ class AIDriveService:
             self._model = model
             self._output_names = output_names
             self._backend = "tensorflow.keras"
+            self._backend_detail = "tensorflow.keras"
 
     def _get_frame(self, camera_service: Any) -> bytes:
         try:

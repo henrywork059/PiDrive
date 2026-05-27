@@ -71,6 +71,16 @@ def main() -> int:
     )
     results.append(Result("ai_service.pitrainer_output_parser", parser_ok, PiSDErrorCodes.OK if parser_ok else PiSDErrorCodes.TEST_AI_MODE_FAILED, "piTrainer dict/list/two-value model outputs map to steering/throttle" if parser_ok else "piTrainer model output parser failed", {"dict": [dict_steering, dict_throttle], "list": [list_steering, list_throttle], "array": [array_steering, array_throttle]}))
 
+
+    runtime = service.runtime_diagnostics()
+    runtime_ok = {"tflite_runtime", "ai_edge_litert", "tensorflow", "tflite", "keras"}.issubset(set(runtime))
+    results.append(Result("ai_service.runtime_diagnostics", runtime_ok, PiSDErrorCodes.OK if runtime_ok else PiSDErrorCodes.TEST_AI_MODE_FAILED, "AI runtime diagnostics expose TFLite/Keras backend availability" if runtime_ok else "AI runtime diagnostics missing expected keys", {"runtime": runtime}))
+
+    load_failed = service.load_model("dummy.tflite")
+    failed_status = load_failed.get("ai") or {}
+    failed_ok = (not load_failed.get("ok")) and failed_status.get("backend") == "load_failed" and isinstance(failed_status.get("runtime_support"), dict)
+    results.append(Result("ai_service.load_failure_diagnostics", failed_ok, PiSDErrorCodes.OK if failed_ok else PiSDErrorCodes.TEST_AI_MODE_FAILED, "failed model load keeps selected id and reports load_failed backend plus runtime diagnostics" if failed_ok else "failed model load did not expose diagnostics", {"response": load_failed}))
+
     unsafe = service.load_model("../bad.tflite")
     unsafe_ok = unsafe.get("code") == PiSDErrorCodes.AI_MODEL_NOT_FOUND
     results.append(Result("ai_service.reject_unsafe_model_id", unsafe_ok, PiSDErrorCodes.OK if unsafe_ok else PiSDErrorCodes.TEST_AI_MODE_FAILED, "unsafe model id rejected" if unsafe_ok else "unsafe model id was not rejected", {"response": unsafe}))

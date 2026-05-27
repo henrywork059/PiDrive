@@ -400,3 +400,14 @@ body[data-pisd-card-accent="strong"] .ai-intro-panel {
   font-size: .72rem;
   line-height: 1.3;
 }
+
+
+#aiRuntimeSupport[data-state="missing"],
+#aiLoadError[data-state="error"] {
+  color: #fecaca;
+}
+
+#aiRuntimeSupport[data-state="ok"],
+#aiLoadError[data-state="ok"] {
+  color: #bbf7d0;
+}

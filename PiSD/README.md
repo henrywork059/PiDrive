@@ -108,9 +108,17 @@ Supported model file discovery currently includes:
 .tflite, .keras, .h5, .onnx, .pt
 ```
 
-Runtime inference is implemented for piTrainer-exported `.tflite` models when `tflite_runtime` or TensorFlow Lite support is installed, and for piTrainer-exported `.keras`/`.h5` models when TensorFlow is installed. PiSD reads piTrainer's named `steering` and `throttle` outputs, including Keras dict/list outputs and TFLite one-tensor or two-tensor outputs. `.onnx` and `.pt` files are listed so the UI can see them, but they are not runnable until a future backend is added.
+Runtime inference is implemented for piTrainer-exported `.tflite` models when a TFLite runtime backend is installed, and for piTrainer-exported `.keras`/`.h5` models when TensorFlow is installed. PiSD reads piTrainer's named `steering` and `throttle` outputs, including Keras dict/list outputs and TFLite one-tensor or two-tensor outputs. `.onnx` and `.pt` files are listed so the UI can see them, but they are not runnable until a future backend is added.
 
-The **Load trained model** panel can upload a model from the browser to `PiSD/models/` and can delete a selected model from the Pi. Upload uses a safe filename and appends a timestamp if the same filename already exists.
+The TFLite loader tries these Python backends in order:
+
+```text
+tflite_runtime.interpreter
+ai_edge_litert.interpreter
+tensorflow.lite.Interpreter
+```
+
+The **Load trained model** panel can upload a model from the browser to `PiSD/models/` and can delete a selected model from the Pi. Upload uses a safe filename and appends a timestamp if the same filename already exists. The panel also shows runtime diagnostics. If `Backend` shows `load_failed` or `Runtime` shows `TFLite missing`, install a compatible TFLite backend in the same Python environment that runs PiSD, restart PiSD, and click **Load model** again.
 
 AI reverse steering policy remains **same sign**: when throttle is negative, PiSD does not flip the steering value. The current road-guide overlay does not draw reverse motion.
 
