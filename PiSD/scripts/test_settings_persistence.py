@@ -54,7 +54,8 @@ def static_checks() -> bool:
     js = (ROOT / 'pisd/web/static/js/manual_drive.js').read_text(encoding='utf-8')
     ok &= line('mdrvDragPad' in html and 'mdrvDragKnob' in html, PiSDErrorCodes.OK if 'mdrvDragPad' in html else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED, 'manual_drive.drag_pad_markup', 'drag pad markup present')
     ok &= line('/api/settings' in js and 'pointerdown' in js and 'pointermove' in js, PiSDErrorCodes.OK if '/api/settings' in js else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED, 'manual_drive.drag_pad_logic', 'drag pad and settings logic present')
-    ok &= line('mdrvOverlayLengthScale' in html and 'mdrvOverlayTurnRateVisualScale' in html and 'persistOverlaySettingsSoon' in js and 'normaliseOverlaySettings' in js, PiSDErrorCodes.OK if 'mdrvOverlayLengthScale' in html else PiSDErrorCodes.TEST_SETTINGS_PERSISTENCE_FAILED, 'manual_drive.overlay_settings', 'overlay calibration settings are present and persisted')
+    reduced_overlay_html = all(token in html for token in ('mdrvOverlayTurnRateVisualScale', 'mdrvOverlayLengthScale', 'mdrvOverlayPathWidth', 'mdrvOverlayBaseY', 'mdrvOverlayHorizonY', 'mdrvOverlayPerspectiveScale', 'mdrvOverlayOpacity', 'Overlay calibration — 7 controls', 'Shape', 'Camera alignment', 'Visibility')) and all(legacy not in html for legacy in ('mdrvOverlayCurveScale', 'mdrvOverlaySampleCount', 'mdrvOverlayWheelbase', 'mdrvOverlayMaxSteerRad', 'mdrvOverlayCurveResponse', 'mdrvOverlayCurvatureScale', 'mdrvOverlayCurvatureLimit', 'mdrvOverlayEntryBlendStart', 'mdrvOverlayRoadHalfWidth', 'mdrvOverlayCameraOffset', 'mdrvOverlayNearClip', 'mdrvOverlayPerspectiveDepth', 'mdrvOverlayTurnCompression', 'mdrvOverlayTurnWidthTaper'))
+    ok &= line(reduced_overlay_html and 'persistOverlaySettingsSoon' in js and 'normaliseOverlaySettings' in js and 'OVERLAY_CONTROL_LIMITS' in js, PiSDErrorCodes.OK if reduced_overlay_html else PiSDErrorCodes.TEST_SETTINGS_PERSISTENCE_FAILED, 'manual_drive.overlay_settings', 'overlay calibration settings are reduced to seven bounded visual controls and persisted')
     stjs = (ROOT / 'pisd/web/static/js/settings_tab.js').read_text(encoding='utf-8')
     ok &= line('/api/settings/apply' in stjs and 'panel_presentation' in stjs, PiSDErrorCodes.OK if '/api/settings/apply' in stjs else PiSDErrorCodes.TEST_SETTINGS_PERSISTENCE_FAILED, 'settings_tab.backend_apply', 'settings tab saves and applies backend settings')
     settings_html = (ROOT / 'pisd/web/templates/settings_tab.html').read_text(encoding='utf-8')
@@ -77,16 +78,17 @@ def manager_checks() -> bool:
         ok &= line(saved and settings['manual_drive']['speed'] == 0.22, PiSDErrorCodes.OK if saved else report.code, 'settings.manager.save', 'settings saved')
         overlay = settings['manual_drive']['overlay']
         ok &= line(
-            overlay['path_length_scale'] == 9
-            and overlay['curve_strength'] == 0.1
+            set(overlay.keys()) == {'enabled', 'turn_rate_visual_scale', 'path_length_scale', 'path_width_scale', 'base_y', 'horizon_y', 'perspective_scale', 'opacity'}
+            and overlay['path_length_scale'] == 2.5
             and overlay['opacity'] == 0.94
-            and overlay['path_width_scale'] == 1.4
-            and overlay['sample_count'] == 128
+            and overlay['path_width_scale'] == 1.2
             and overlay['perspective_scale'] == 105
-            and overlay['turn_rate_visual_scale'] == 3.1,
+            and overlay['turn_rate_visual_scale'] == 3.1
+            and 'curve_strength' not in overlay
+            and 'sample_count' not in overlay,
             PiSDErrorCodes.OK,
-            'settings.manager.overlay_unclamped',
-            'overlay calibration numbers are preserved without old slider clamps',
+            'settings.manager.overlay_reduced_keys',
+            'overlay calibration persists only the seven bounded user-facing visual controls and prunes legacy advanced keys',
         )
         motor_saved, motor_settings, motor_report = mgr.save({'motor': {'steering_mode': 'turn_rate', 'turn_gain': 1.25, 'turn_curve': 1.8, 'min_inside_speed': 0.2, 'allow_pivot_turn': True, 'start_deadzone': 0.24, 'start_kick_seconds': 0.11}})
         motor = motor_settings['motor']

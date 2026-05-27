@@ -468,8 +468,8 @@ body[data-pisd-theme="light"] .mdrv-file-controls select { color: #0f172a; backg
 }
 
 .mdrv-overlay-settings-card {
-  width: min(1100px, 96vw);
-  max-height: min(88vh, 850px);
+  width: min(760px, 96vw);
+  max-height: min(88vh, 760px);
   overflow: auto;
   border: 1px solid rgba(56, 189, 248, .28);
   border-radius: 22px;
@@ -497,6 +497,38 @@ body[data-pisd-theme="light"] .mdrv-file-controls select { color: #0f172a; backg
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: .75rem;
   margin-top: .8rem;
+}
+
+.mdrv-overlay-settings-grid-compact {
+  grid-template-columns: 1fr;
+}
+
+.mdrv-overlay-settings-grid-reduced {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+}
+
+.mdrv-overlay-visibility-fieldset {
+  grid-column: 1 / -1;
+}
+
+.mdrv-overlay-calibration-guide {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: .45rem;
+  margin-top: .75rem;
+}
+
+.mdrv-overlay-calibration-guide span {
+  border: 1px solid rgba(56, 189, 248, .20);
+  border-radius: 999px;
+  background: rgba(2, 132, 199, .10);
+  color: #bae6fd;
+  font-size: .68rem;
+  font-weight: 850;
+  letter-spacing: .02em;
+  padding: .35rem .48rem;
+  text-align: center;
 }
 
 .mdrv-overlay-settings-grid fieldset {
@@ -590,12 +622,14 @@ body[data-pisd-theme="light"] .mdrv-file-controls select { color: #0f172a; backg
 @media (max-width: 900px) {
   .mdrv-drive-debug-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .mdrv-overlay-settings-grid { grid-template-columns: 1fr; }
+  .mdrv-overlay-visibility-fieldset { grid-column: auto; }
 }
 
 @media (max-width: 480px) {
   .mdrv-overlay-settings-grid label { grid-template-columns: 1fr; }
   .mdrv-overlay-calibration { align-items: flex-start; flex-direction: column; }
   .mdrv-overlay-settings-actions { align-items: stretch; flex-direction: column; }
+  .mdrv-overlay-calibration-guide { grid-template-columns: 1fr; }
 }
 
 /* 0.4.9 Manual Drive preview truth/debugging.

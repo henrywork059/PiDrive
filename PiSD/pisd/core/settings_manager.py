@@ -24,33 +24,16 @@ DEFAULT_RUNTIME_SETTINGS: dict[str, Any] = {
         "recording_fps": 6.0,
         "overlay": {
             "enabled": True,
+            # PiSD_0_8_9: reduced Manual Drive overlay calibration controls. These are
+            # the only user-facing/persisted visual controls; the renderer keeps
+            # internal geometry constants for stability.
+            "turn_rate_visual_scale": 2.2,
             "path_length_scale": 1.0,
-            # PiSD_0_5_9: road-style overlay defaults. The two road-edge
-            # lines converge near the horizon when straight and bend at
-            # different rates when steering, while remaining visual-only.
-            "curve_strength": 3.35,
-            "opacity": 0.94,
             "path_width_scale": 0.34,
-            # PiSD_0_6_6: advanced visual-only overlay tuning. Values are
-            # intentionally preserved as typed instead of clamped to the old
-            # slider ranges; the browser renderer applies local safety guards.
-            "sample_count": 56,
-            "wheelbase": 0.32,
-            "max_steer_rad": 0.62,
-            "curve_response": 1.05,
-            "curvature_scale": 0.52,
-            "curvature_limit": 2.25,
-            "entry_blend_start": 0.76,
-            "road_half_width": 0.41,
             "base_y": 96,
             "horizon_y": 31,
-            "camera_forward_offset": 0.26,
-            "near_clip": 0.19,
             "perspective_scale": 64,
-            "perspective_depth": 0.92,
-            "turn_compression": 0.075,
-            "turn_width_taper": 0.08,
-            "turn_rate_visual_scale": 2.2,
+            "opacity": 0.94,
         },
     },
     "ai_mode": {
@@ -331,45 +314,42 @@ class SettingsManager:
         except Exception:
             manual["recording_fps"] = self.defaults["manual_drive"].get("recording_fps", 6.0)
 
-        # PiSD_0_6_6: preserve Manual Drive overlay calibration without the
-        # old slider clamps. These values tune the visual predicted path only;
-        # they do not change actual motor output. The browser renderer still
-        # applies internal safety guards for SVG/performance-critical values,
-        # but persisted user numbers are no longer forced back into the old
-        # min/max range.
+        # PiSD_0_8_9: Manual Drive overlay calibration is intentionally small and bounded.
+        # Older runtime files may contain many legacy/internal visual keys. Keep
+        # compatibility by reading them when useful, but save back only the seven
+        # user-facing visual controls plus the enabled flag.
         overlay_defaults = self.defaults["manual_drive"].get("overlay", {})
-        overlay = manual.get("overlay") if isinstance(manual.get("overlay"), dict) else {}
-        manual["overlay"] = overlay
-        overlay["enabled"] = str(overlay.get("enabled", overlay_defaults.get("enabled", True))).lower() not in {"false", "0", "no", "off"}
-        # PiSD_0_5_9: migrate only known uncustomised overlay presentation
-        # defaults. User-tuned overlay calibration remains untouched. This lets
-        # the new road-edge overlay presentation appear after upgrading from
-        # the original 0.4.7, 0.5.7, or 0.5.8 presentation defaults.
-        try:
-            old_default_sets = (
-                {"path_length_scale": 1.0, "curve_strength": 1.0, "opacity": 0.92, "path_width_scale": 1.0},
-                {"path_length_scale": 1.0, "curve_strength": 1.45, "opacity": 0.95, "path_width_scale": 0.72},
-                {"path_length_scale": 1.0, "curve_strength": 1.95, "opacity": 0.96, "path_width_scale": 0.55},
-                {"path_length_scale": 1.0, "curve_strength": 2.45, "opacity": 0.94, "path_width_scale": 0.40},
-            )
-            for old_defaults in old_default_sets:
-                if all(abs(float(overlay.get(k, old_defaults[k])) - v) <= 0.001 for k, v in old_defaults.items()):
-                    overlay.update({
-                        "path_length_scale": overlay_defaults.get("path_length_scale", 1.0),
-                        "curve_strength": overlay_defaults.get("curve_strength", 3.35),
-                        "opacity": overlay_defaults.get("opacity", 0.94),
-                        "path_width_scale": overlay_defaults.get("path_width_scale", 0.34),
-                    })
-                    break
-        except Exception:
-            pass
+        overlay_source = manual.get("overlay") if isinstance(manual.get("overlay"), dict) else {}
+        overlay: dict[str, Any] = {}
+        overlay["enabled"] = str(overlay_source.get("enabled", overlay_defaults.get("enabled", True))).lower() not in {"false", "0", "no", "off"}
+        legacy_tightness = overlay_source.get("turn_rate_visual_scale")
+        if legacy_tightness is None and "curve_strength" in overlay_source:
+            try:
+                legacy_tightness = float(overlay_source.get("curve_strength", 3.35)) / 3.35 * float(overlay_defaults.get("turn_rate_visual_scale", 2.2))
+            except Exception:
+                legacy_tightness = overlay_defaults.get("turn_rate_visual_scale", 2.2)
+        overlay_limits = {
+            "turn_rate_visual_scale": (0.10, 6.00),
+            "path_length_scale": (0.35, 2.50),
+            "path_width_scale": (0.05, 1.20),
+            "base_y": (55.0, 115.0),
+            "horizon_y": (5.0, 80.0),
+            "perspective_scale": (0.0, 140.0),
+            "opacity": (0.05, 1.0),
+        }
         for key, default in overlay_defaults.items():
             if key == "enabled":
                 continue
+            raw_value = legacy_tightness if key == "turn_rate_visual_scale" and legacy_tightness is not None else overlay_source.get(key, default)
             try:
-                overlay[key] = float(overlay.get(key, default))
+                value = float(raw_value)
             except Exception:
-                overlay[key] = default
+                value = float(default)
+            lower, upper = overlay_limits.get(key, (-1e9, 1e9))
+            overlay[key] = max(lower, min(upper, value))
+        if overlay.get("base_y", 96.0) <= overlay.get("horizon_y", 31.0) + 6.0:
+            overlay["base_y"] = min(overlay_limits["base_y"][1], overlay.get("horizon_y", 31.0) + 6.0)
+        manual["overlay"] = overlay
 
         ai = merged.setdefault("ai_mode", {})
         ai_defaults = self.defaults.get("ai_mode", {})

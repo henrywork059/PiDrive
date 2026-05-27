@@ -12,27 +12,15 @@
     recording_fps: 6,
     overlay: {
       enabled: true,
+      // PiSD_0_8_9: reduced Manual Drive overlay calibration controls.
+      // These values are visual-only and do not change real motor output or AI labels.
+      turn_rate_visual_scale: 2.2,
       path_length_scale: 1.0,
-      // PiSD_0_5_9: road-edge guide defaults. Visual-only; no motor output change. reverse guide hidden.
-      curve_strength: 3.35,
-      opacity: 0.94,
       path_width_scale: 0.34,
-      sample_count: 56,
-      wheelbase: 0.32,
-      max_steer_rad: 0.62,
-      curve_response: 1.05,
-      curvature_scale: 0.52,
-      curvature_limit: 2.25,
-      entry_blend_start: 0.76,
-      road_half_width: 0.41,
       base_y: 96,
       horizon_y: 31,
-      camera_forward_offset: 0.26,
-      near_clip: 0.19,
       perspective_scale: 64,
-      perspective_depth: 0.92,
-      turn_compression: 0.075,
-      turn_width_taper: 0.08,
+      opacity: 0.94,
     },
   };
   const DEFAULT_MOTOR_SETTINGS = {
@@ -106,26 +94,12 @@
   const overlaySettingsReset = $('mdrvOverlaySettingsReset');
   const overlaySettingsStatus = $('mdrvOverlaySettingsStatus');
   const overlayLengthScale = $('mdrvOverlayLengthScale');
-  const overlayCurveScale = $('mdrvOverlayCurveScale');
-  const overlayOpacity = $('mdrvOverlayOpacity');
+  const overlayTurnRateVisualScale = $('mdrvOverlayTurnRateVisualScale');
   const overlayPathWidth = $('mdrvOverlayPathWidth');
-  const overlaySampleCount = $('mdrvOverlaySampleCount');
-  const overlayWheelbase = $('mdrvOverlayWheelbase');
-  const overlayMaxSteerRad = $('mdrvOverlayMaxSteerRad');
-  const overlayCurveResponse = $('mdrvOverlayCurveResponse');
-  const overlayCurvatureScale = $('mdrvOverlayCurvatureScale');
-  const overlayCurvatureLimit = $('mdrvOverlayCurvatureLimit');
-  const overlayEntryBlendStart = $('mdrvOverlayEntryBlendStart');
-  const overlayRoadHalfWidth = $('mdrvOverlayRoadHalfWidth');
   const overlayBaseY = $('mdrvOverlayBaseY');
   const overlayHorizonY = $('mdrvOverlayHorizonY');
-  const overlayCameraOffset = $('mdrvOverlayCameraOffset');
-  const overlayNearClip = $('mdrvOverlayNearClip');
   const overlayPerspectiveScale = $('mdrvOverlayPerspectiveScale');
-  const overlayPerspectiveDepth = $('mdrvOverlayPerspectiveDepth');
-  const overlayTurnCompression = $('mdrvOverlayTurnCompression');
-  const overlayTurnWidthTaper = $('mdrvOverlayTurnWidthTaper');
-  const overlayTurnRateVisualScale = $('mdrvOverlayTurnRateVisualScale');
+  const overlayOpacity = $('mdrvOverlayOpacity');
   let dragging = false;
   let lastSentAt = 0;
   const STOP_COMMAND = { steering: 0, throttle: 0 };
@@ -153,28 +127,23 @@
   let lastPreviewImageLoadAt = 0;
 
   const OVERLAY_CONTROL_BINDINGS = [
+    ['turn_rate_visual_scale', overlayTurnRateVisualScale],
     ['path_length_scale', overlayLengthScale],
-    ['curve_strength', overlayCurveScale],
-    ['opacity', overlayOpacity],
     ['path_width_scale', overlayPathWidth],
-    ['sample_count', overlaySampleCount],
-    ['wheelbase', overlayWheelbase],
-    ['max_steer_rad', overlayMaxSteerRad],
-    ['curve_response', overlayCurveResponse],
-    ['curvature_scale', overlayCurvatureScale],
-    ['curvature_limit', overlayCurvatureLimit],
-    ['entry_blend_start', overlayEntryBlendStart],
-    ['road_half_width', overlayRoadHalfWidth],
     ['base_y', overlayBaseY],
     ['horizon_y', overlayHorizonY],
-    ['camera_forward_offset', overlayCameraOffset],
-    ['near_clip', overlayNearClip],
     ['perspective_scale', overlayPerspectiveScale],
-    ['perspective_depth', overlayPerspectiveDepth],
-    ['turn_compression', overlayTurnCompression],
-    ['turn_width_taper', overlayTurnWidthTaper],
-    ['turn_rate_visual_scale', overlayTurnRateVisualScale],
+    ['opacity', overlayOpacity],
   ];
+  const OVERLAY_CONTROL_LIMITS = {
+    turn_rate_visual_scale: [0.10, 6.00],
+    path_length_scale: [0.35, 2.50],
+    path_width_scale: [0.05, 1.20],
+    base_y: [55, 115],
+    horizon_y: [5, 80],
+    perspective_scale: [0, 140],
+    opacity: [0.05, 1.00],
+  };
 
   function isOk(code) { return String(code || '').startsWith('PISD-OK'); }
   function clamp(value, min, max, fallback = 0) {
@@ -504,14 +473,28 @@
     return Number.isFinite(n) ? n : fallback;
   }
 
+  function boundedOverlayValue(key, value, fallback) {
+    const number = overlayNumber(value, fallback);
+    const limits = OVERLAY_CONTROL_LIMITS[key];
+    if (!limits) return number;
+    return clamp(number, limits[0], limits[1], fallback);
+  }
+
   function normaliseOverlaySettings(raw = {}) {
     const source = raw && typeof raw === 'object' ? raw : {};
     const next = {
       enabled: String(source.enabled ?? DEFAULTS.overlay.enabled).toLowerCase() !== 'false' && !['0', 'no', 'off'].includes(String(source.enabled ?? DEFAULTS.overlay.enabled).toLowerCase()),
     };
+    const legacyTightness = source.turn_rate_visual_scale ?? (
+      source.curve_strength !== undefined
+        ? (overlayNumber(source.curve_strength, 3.35) / 3.35) * DEFAULTS.overlay.turn_rate_visual_scale
+        : undefined
+    );
     for (const [key] of OVERLAY_CONTROL_BINDINGS) {
-      next[key] = overlayNumber(source[key] ?? DEFAULTS.overlay[key], DEFAULTS.overlay[key]);
+      const value = key === 'turn_rate_visual_scale' && legacyTightness !== undefined ? legacyTightness : source[key];
+      next[key] = boundedOverlayValue(key, value ?? DEFAULTS.overlay[key], DEFAULTS.overlay[key]);
     }
+    if (next.base_y <= next.horizon_y + 6) next.base_y = Math.min(OVERLAY_CONTROL_LIMITS.base_y[1], next.horizon_y + 6);
     return next;
   }
 
@@ -537,7 +520,7 @@
     updateDriveOverlay(lastPayload, lastMotorOutput, lastOverlaySource);
     if (persist) {
       persistOverlaySettingsSoon();
-      setOverlaySettingsStatus('Applied and queued to save');
+      setOverlaySettingsStatus('Applied 7 visual-only controls and queued to save');
     }
   }
 
@@ -546,7 +529,7 @@
     for (const [key, control] of OVERLAY_CONTROL_BINDINGS) {
       if (!control) continue;
       const n = Number(control.value);
-      next[key] = Number.isFinite(n) ? n : DEFAULTS.overlay[key];
+      next[key] = boundedOverlayValue(key, Number.isFinite(n) ? n : DEFAULTS.overlay[key], DEFAULTS.overlay[key]);
     }
     return normaliseOverlaySettings(next);
   }
@@ -560,8 +543,8 @@
     writeOverlayControls();
     overlaySettingsPopup.hidden = false;
     document.body.classList.add('mdrv-overlay-settings-open-body');
-    setOverlaySettingsStatus('Ready');
-    window.setTimeout(() => overlayLengthScale?.focus?.(), 0);
+    setOverlaySettingsStatus('Ready - tune shape, then camera alignment, then opacity');
+    window.setTimeout(() => overlayTurnRateVisualScale?.focus?.(), 0);
   }
 
   function closeOverlaySettingsPopup() {
