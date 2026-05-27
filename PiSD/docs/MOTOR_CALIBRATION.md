@@ -242,3 +242,17 @@ This reset does not remove the backend motor behaviour:
 - `/api/motor/tune-run` remains available for a future rebuilt UI or direct API checks.
 
 Use Manual Drive and backend tests while the new tuning layout is being designed.
+
+## PiSD 0.9.0 Manual Drive keyboard control
+
+Manual Drive now accepts keyboard control through the same `/api/control/manual` path as the drag pad after the motor-output safety checkbox is enabled:
+
+| Key | Behaviour |
+|---|---|
+| `Arrow Up` | Increase live throttle by `+0.05` once per press |
+| `Arrow Down` | Decrease live throttle by `-0.05` once per press |
+| Hold `Arrow Left` | Ramp steering toward `-1.00` at full scale in `0.5 s` |
+| Hold `Arrow Right` | Ramp steering toward `+1.00` at full scale in `0.5 s` |
+| `Space` | STOP motors and clear keyboard throttle/steering |
+
+The keyboard path keeps the same motor safety, intended-output display, recording labels, and linear X steering algorithm as pointer/drag control. It is ignored while the user is typing in inputs or editing the Manual visual tuning popup.

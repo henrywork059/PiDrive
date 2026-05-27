@@ -686,3 +686,34 @@ body[data-pisd-theme="light"] .mdrv-file-controls select { color: #0f172a; backg
   outline: 1px solid rgba(56, 189, 248, .32);
   outline-offset: -2px;
 }
+
+/* 0.9.0 keyboard driving controls. */
+.mdrv-keyboard-hint {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: .22rem;
+  margin: .42rem 0;
+  padding: .42rem .52rem;
+  border: 1px solid rgba(56, 189, 248, .32);
+  border-radius: 12px;
+  background: rgba(14, 116, 144, .16);
+  color: var(--mdrv-muted);
+  font-size: .74rem;
+  line-height: 1.25;
+}
+.mdrv-keyboard-hint strong {
+  color: var(--mdrv-text);
+  font-size: .78rem;
+}
+.mdrv-keyboard-status {
+  margin: .28rem 0 .42rem;
+  color: var(--mdrv-muted);
+  font-size: .75rem;
+  line-height: 1.3;
+}
+.mdrv-keyboard-status[data-state="active"] { color: #bfdbfe; }
+.mdrv-keyboard-status[data-state="locked"] { color: #fecaca; }
+body[data-pisd-theme="light"] .mdrv-keyboard-hint {
+  background: rgba(224, 242, 254, .72);
+  border-color: rgba(14, 116, 144, .24);
+}

@@ -112,6 +112,11 @@ def check_source_contract() -> list[Result]:
         "Road guide",
         "road-style guide",
         "mdrvArm",
+        "Keyboard",
+        "mdrvKeyboardStatus",
+        "↑/↓ throttle ±0.05 per press",
+        "hold ←/→ steering ±1 in 0.5 s",
+        "Space STOP",
         "Overlay calibration — 7 controls",
         "7 visual-only overlay controls",
         "Shape",
@@ -166,7 +171,7 @@ def check_source_contract() -> list[Result]:
         "does not start the camera, restart preview, or send motor commands",
         "STOP motors",
     ]
-    required_css = [".mdrv-shell", ".mdrv-panel", ".mdrv-status-panel", ".mdrv-preview-frame", ".mdrv-drag-pad", ".mdrv-big-stop", ".mdrv-drag-knob", "width: 28px", ".mdrv-recording-indicator", ".mdrv-capture-notice", ".mdrv-overlay-toggle", ".mdrv-drive-overlay", ".mdrv-overlay-path", ".mdrv-overlay-path-wide", ".mdrv-overlay-endpoint", "road-guide overlay", "marker-end: url(#mdrvOverlayArrow)", ".mdrv-drive-debug-panel", ".mdrv-overlay-calibration", ".mdrv-overlay-settings-grid-reduced", ".mdrv-overlay-calibration-guide", "data-overlay-source", "data-preview-state", "Preview stale", "@media (max-width: 1100px)"]
+    required_css = [".mdrv-shell", ".mdrv-panel", ".mdrv-status-panel", ".mdrv-preview-frame", ".mdrv-drag-pad", ".mdrv-big-stop", ".mdrv-drag-knob", "width: 28px", ".mdrv-recording-indicator", ".mdrv-capture-notice", ".mdrv-overlay-toggle", ".mdrv-drive-overlay", ".mdrv-overlay-path", ".mdrv-overlay-path-wide", ".mdrv-overlay-endpoint", "road-guide overlay", "marker-end: url(#mdrvOverlayArrow)", ".mdrv-drive-debug-panel", ".mdrv-keyboard-hint", ".mdrv-keyboard-status", ".mdrv-overlay-calibration", ".mdrv-overlay-settings-grid-reduced", ".mdrv-overlay-calibration-guide", "data-overlay-source", "data-preview-state", "Preview stale", "@media (max-width: 1100px)"]
     required_unified_css = [
         "PiSD 0.3.3 manual-drive semantic layout recovery",
         "body.manual-drive-page .mdrv-shell",
@@ -268,6 +273,17 @@ def check_source_contract() -> list[Result]:
         "sendBeacon",
         "keepalive",
         "Status refreshed without touching camera preview or motor command",
+        "KEYBOARD_THROTTLE_STEP",
+        "KEYBOARD_STEERING_FULL_SCALE_MS",
+        "bindKeyboardDrive",
+        "keyboardThrottle",
+        "keyboardSteering",
+        "ArrowUp",
+        "ArrowDown",
+        "ArrowLeft",
+        "ArrowRight",
+        "requestAnimationFrame",
+        "source: 'keyboard'",
     ]
     missing = {
         "template": [token for token in required_template if token not in template],
@@ -310,6 +326,18 @@ def check_source_contract() -> list[Result]:
         steer_strength_removed_ok,
         PiSDErrorCodes.OK if steer_strength_removed_ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
         "Manual Drive steering X is direct and no steer-strength slider/settings remain" if steer_strength_removed_ok else "Manual Drive still contains steer-strength scaling",
+        {},
+    ))
+
+    keyboard_ok = (
+        all(token in template for token in ("mdrvKeyboardStatus", "↑/↓ throttle ±0.05 per press", "hold ←/→ steering ±1 in 0.5 s", "Space STOP"))
+        and all(token in js for token in ("KEYBOARD_THROTTLE_STEP", "KEYBOARD_STEERING_FULL_SCALE_MS", "bindKeyboardDrive", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "requestAnimationFrame", "source: 'keyboard'"))
+    )
+    results.append(Result(
+        "manual_drive.keyboard_control",
+        keyboard_ok,
+        PiSDErrorCodes.OK if keyboard_ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
+        "Manual Drive supports keyboard control: ↑/↓ throttle steps, held ←/→ steering ramp, and Space stop" if keyboard_ok else "Manual Drive keyboard control contract is missing",
         {},
     ))
 

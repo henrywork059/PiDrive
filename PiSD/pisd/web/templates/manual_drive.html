@@ -131,6 +131,13 @@
         <div class="mdrv-drag-label right">Right</div>
       </div>
       <div class="mdrv-pad-readout"><span>Steering <strong id="mdrvSteeringOut">0.00</strong></span><span>Throttle <strong id="mdrvThrottleOut">0.00</strong></span></div>
+      <div class="mdrv-keyboard-hint" aria-label="Keyboard driving controls">
+        <strong>Keyboard</strong>
+        <span>↑/↓ throttle ±0.05 per press</span>
+        <span>hold ←/→ steering ±1 in 0.5 s</span>
+        <span>Space STOP</span>
+      </div>
+      <p id="mdrvKeyboardStatus" class="mdrv-keyboard-status" role="status" aria-live="polite">Keyboard ready. Enable motor output first.</p>
       <div class="mdrv-slider-grid mdrv-slider-grid-single">
         <label>Speed <input id="mdrvSpeed" type="range" min="0.08" max="1.0" step="0.01" value="0.18"><output id="mdrvSpeedOut">0.18</output></label>
       </div>
@@ -178,7 +185,7 @@
           </div>
         </div>
       </div>
-      <p id="mdrvSafetyText" class="mdrv-warning">Drag pad is locked until motor output is enabled. Releasing the pad sends STOP.</p>
+      <p id="mdrvSafetyText" class="mdrv-warning">Drag pad and keyboard control are locked until motor output is enabled. Releasing the pad sends STOP.</p>
       <button id="mdrvStopPad" class="mdrv-button mdrv-danger mdrv-full-stop" title="Stop motor output only. Camera/live preview is not stopped.">STOP motors</button>
     </section>
 

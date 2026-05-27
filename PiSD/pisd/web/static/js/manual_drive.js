@@ -40,6 +40,7 @@
   const throttleOut = $('mdrvThrottleOut');
   const steeringOut = $('mdrvSteeringOut');
   const safetyText = $('mdrvSafetyText');
+  const keyboardStatus = $('mdrvKeyboardStatus');
   const pad = $('mdrvDragPad');
   const knob = $('mdrvDragKnob');
   const recordButton = $('mdrvRecordToggle');
@@ -125,6 +126,17 @@
   let lastPreviewFps = null;
   let lastPreviewStats = null;
   let lastPreviewImageLoadAt = 0;
+
+  // PiSD_0_9_0: keyboard driving state. Up/Down adjust live throttle
+  // by fixed steps; Left/Right ramp steering linearly while held.
+  const KEYBOARD_THROTTLE_STEP = 0.05;
+  const KEYBOARD_STEERING_FULL_SCALE_MS = 500;
+  let keyboardThrottle = 0;
+  let keyboardSteering = 0;
+  let keyboardLeftHeld = false;
+  let keyboardRightHeld = false;
+  let keyboardLoopHandle = 0;
+  let keyboardLastFrameAt = 0;
 
   const OVERLAY_CONTROL_BINDINGS = [
     ['turn_rate_visual_scale', overlayTurnRateVisualScale],
@@ -976,14 +988,26 @@
       : 'Drag pad is locked until motor output is enabled. STOP is always active.';
   }
 
-  function setKnob(normX, normY) {
+  function setPadReadouts(steering, throttle) {
+    if (steeringOut) steeringOut.textContent = clamp(steering, -1, 1, 0).toFixed(2);
+    if (throttleOut) throttleOut.textContent = clamp(throttle, -1, 1, 0).toFixed(2);
+  }
+
+  function setKnob(normX, normY, displayThrottle = null) {
     const clampedX = clamp(normX, -1, 1, 0);
     const clampedY = clamp(normY, -1, 1, 0);
     knob?.style.setProperty('--knob-left', `${(clampedX + 1) * 50}%`);
     knob?.style.setProperty('--knob-top', `${(clampedY + 1) * 50}%`);
-    if (steeringOut) steeringOut.textContent = clampedX.toFixed(2);
-    if (throttleOut) throttleOut.textContent = (-clampedY * currentSpeed()).toFixed(2);
+    setPadReadouts(clampedX, displayThrottle === null ? -clampedY * currentSpeed() : displayThrottle);
     return { x: clampedX, y: clampedY };
+  }
+
+  function setKnobForCommand(steering, throttle) {
+    const limit = Math.max(0.001, maxSpeedLimit());
+    const safeSteering = clamp(steering, -1, 1, 0);
+    const safeThrottle = clamp(throttle, -limit, limit, 0);
+    setKnob(safeSteering, clamp(-safeThrottle / limit, -1, 1, 0), safeThrottle);
+    return { steering: safeSteering, throttle: safeThrottle };
   }
 
   function payloadFromPointer(event) {
@@ -1018,6 +1042,126 @@
       renderMotorSignalsFromApiResponse(result.payload, payload, 'live status');
     }
     catch (err) { writeLog('manual drag failed', { ok: false, code: 'PISD-API-002', message: String(err) }); }
+  }
+
+  function keyboardControlBlocked() {
+    if (overlaySettingsPopup && !overlaySettingsPopup.hidden) return true;
+    const active = document.activeElement;
+    if (!active || active === document.body || active === document.documentElement || active === pad || active === arm) return false;
+    const tag = String(active.tagName || '').toLowerCase();
+    if (tag === 'input') {
+      const type = String(active.type || '').toLowerCase();
+      return !['checkbox', 'button', 'submit', 'reset'].includes(type);
+    }
+    if (['select', 'textarea'].includes(tag)) return true;
+    return Boolean(active.isContentEditable);
+  }
+
+  function setKeyboardStatus(message, state = 'ready') {
+    if (!keyboardStatus) return;
+    keyboardStatus.textContent = message;
+    keyboardStatus.dataset.state = state;
+  }
+
+  function keyboardPayload() {
+    const command = setKnobForCommand(keyboardSteering, keyboardThrottle);
+    return {
+      steering: command.steering,
+      throttle: command.throttle,
+      safety_ack: Boolean(arm?.checked),
+      enable_motor_output: Boolean(arm?.checked),
+      source: 'keyboard',
+    };
+  }
+
+  function sendKeyboardManual(force = false) {
+    const payload = keyboardPayload();
+    if (!arm?.checked) {
+      updateLock();
+      setKeyboardStatus('Keyboard locked: enable motor output first.', 'locked');
+      setCode('drive', 'PISD-MOT-008');
+      return;
+    }
+    setKeyboardStatus(`Keyboard S ${formatSigned(payload.steering)} / T ${formatSigned(payload.throttle)}`, 'active');
+    sendManual(payload, force);
+  }
+
+  function stopKeyboardSteeringLoop() {
+    if (keyboardLoopHandle) cancelAnimationFrame(keyboardLoopHandle);
+    keyboardLoopHandle = 0;
+    keyboardLastFrameAt = 0;
+  }
+
+  function runKeyboardSteeringLoop(now) {
+    const direction = (keyboardRightHeld ? 1 : 0) - (keyboardLeftHeld ? 1 : 0);
+    if (!direction) {
+      stopKeyboardSteeringLoop();
+      return;
+    }
+    if (!keyboardLastFrameAt) keyboardLastFrameAt = now;
+    const deltaMs = Math.max(0, now - keyboardLastFrameAt);
+    keyboardLastFrameAt = now;
+    const unitsPerMs = 1 / KEYBOARD_STEERING_FULL_SCALE_MS;
+    keyboardSteering = clamp(keyboardSteering + direction * deltaMs * unitsPerMs, -1, 1, 0);
+    sendKeyboardManual(false);
+    keyboardLoopHandle = requestAnimationFrame(runKeyboardSteeringLoop);
+  }
+
+  function startKeyboardSteeringLoop() {
+    if (keyboardLoopHandle) return;
+    keyboardLastFrameAt = 0;
+    keyboardLoopHandle = requestAnimationFrame(runKeyboardSteeringLoop);
+  }
+
+  async function resetKeyboardControl(reason = 'keyboard stop') {
+    keyboardThrottle = 0;
+    keyboardSteering = 0;
+    keyboardLeftHeld = false;
+    keyboardRightHeld = false;
+    stopKeyboardSteeringLoop();
+    setKnobForCommand(0, 0);
+    setKeyboardStatus('Keyboard stopped. Use ↑/↓ for throttle, hold ←/→ for steering.', 'ready');
+    await stopAll('drive');
+  }
+
+  function bindKeyboardDrive() {
+    document.addEventListener('keydown', event => {
+      if (keyboardControlBlocked()) return;
+      const key = event.key;
+      if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(key)) return;
+      event.preventDefault();
+      if (key === ' ') {
+        if (!event.repeat) resetKeyboardControl('keyboard-space');
+        return;
+      }
+      if (key === 'ArrowUp' || key === 'ArrowDown') {
+        if (event.repeat) return;
+        const delta = key === 'ArrowUp' ? KEYBOARD_THROTTLE_STEP : -KEYBOARD_THROTTLE_STEP;
+        keyboardThrottle = clamp(keyboardThrottle + delta, -maxSpeedLimit(), maxSpeedLimit(), 0);
+        sendKeyboardManual(true);
+        return;
+      }
+      if (key === 'ArrowLeft') {
+        keyboardLeftHeld = true;
+        startKeyboardSteeringLoop();
+        return;
+      }
+      if (key === 'ArrowRight') {
+        keyboardRightHeld = true;
+        startKeyboardSteeringLoop();
+      }
+    }, { passive: false });
+
+    document.addEventListener('keyup', event => {
+      if (event.key === 'ArrowLeft') keyboardLeftHeld = false;
+      if (event.key === 'ArrowRight') keyboardRightHeld = false;
+      if (!keyboardLeftHeld && !keyboardRightHeld) {
+        stopKeyboardSteeringLoop();
+        if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+          setKeyboardStatus(`Keyboard S ${formatSigned(keyboardSteering)} / T ${formatSigned(keyboardThrottle)}`, 'ready');
+        }
+      }
+    });
   }
 
   async function stopAll(target = 'stop') {
@@ -1204,7 +1348,20 @@
       if (hidden) logPanel.removeAttribute('hidden'); else logPanel?.setAttribute('hidden', '');
       toggleLog.textContent = hidden ? 'Hide action log' : 'Show action log';
     });
-    arm?.addEventListener('change', () => { updateLock(); if (!arm?.checked) stopAll('drive'); });
+    arm?.addEventListener('change', () => {
+      updateLock();
+      if (!arm?.checked) {
+        keyboardThrottle = 0;
+        keyboardSteering = 0;
+        keyboardLeftHeld = false;
+        keyboardRightHeld = false;
+        stopKeyboardSteeringLoop();
+        stopAll('drive');
+        setKeyboardStatus('Keyboard locked: enable motor output first.', 'locked');
+      } else {
+        setKeyboardStatus('Keyboard ready. ↑/↓ throttle ±0.05; hold ←/→ steering ±1 per 0.5 s; Space stop.', 'ready');
+      }
+    });
     preview?.addEventListener('load', () => {
       lastPreviewImageLoadAt = Date.now();
       if (currentPreviewMode !== 'idle') updatePreviewDebug({ mode: currentPreviewMode, cameraRunning: true, frameAgeMs: 0, fps: lastPreviewFps, loopActive: Boolean(previewMetricsTimer), state: 'active' });
@@ -1215,8 +1372,9 @@
     window.addEventListener('pagehide', () => { stopPreviewMetricsLoop(); sendFailSafeStop('pagehide'); });
     window.addEventListener('beforeunload', () => sendFailSafeStop('beforeunload'));
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') { stopPreviewMetricsLoop(); sendFailSafeStop('visibility-hidden'); } else if (currentPreviewMode === 'live' || currentPreviewMode === 'snapshot') { startPreviewMetricsLoop(); } });
-    speed?.addEventListener('input', () => { updateSliderLabels(); persistManualSettings(); setKnob(lastPayload.steering, -lastPayload.throttle / Math.max(0.001, currentSpeed())); });
+    speed?.addEventListener('input', () => { updateSliderLabels(); persistManualSettings(); setKnobForCommand(lastPayload.steering, lastPayload.throttle); });
     bindPad();
+    bindKeyboardDrive();
   }
 
   setPreviewIdle('Preview idle. Press Start camera or Live stream.');
@@ -1227,6 +1385,7 @@
   applyOverlayCalibration(overlaySettings, false);
   updateDriveOverlay(lastPayload, lastMotorOutput, 'stopped');
   updateLock();
+  setKeyboardStatus('Keyboard ready. ↑/↓ throttle ±0.05; hold ←/→ steering ±1 per 0.5 s; Space stop.', 'ready');
   loadSettings();
   refreshRecordingItems();
 })();

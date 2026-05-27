@@ -1,18 +1,18 @@
 # PiSD
 
-`PiSD_0_8_0` full stable v8 package — current stable rollback baseline for future PiSD work.
+`PiSD_0_9_0` full stable v9 package — current stable rollback baseline for future PiSD work.
 
 PiSD is a clean sandbox under `PiDrive/PiSD` for rebuilding and testing PiServer GUI and runtime functions from square one.
 
 It is intentionally separate from the existing `PiServer/` folder. PiSD may refer to PiServer code for behaviour patterns, but PiServer files must not be overwritten by PiSD experiments.
 
-Future bug-fix patches after this package should use `PiSD_0_8_x_patch` naming unless a newer stable line is promoted.
+Future bug-fix patches after this package should use `PiSD_0_9_x_patch` naming unless a newer stable line is promoted.
 
 ## Current version
 
-`PiSD_0_8_0` — full stable package built from `PiSD_0_7_0` plus accepted patches `0_7_1` through `0_7_3`.
+`PiSD_0_9_0` — full stable package built from `PiSD_0_8_0` plus accepted patches `0_8_1` through `0_8_11`, plus Manual Drive keyboard control.
 
-Use `PiSD_0_8_0` as the rollback point for future PiSD work unless a newer stable line is promoted.
+Use `PiSD_0_9_0` as the rollback point for future PiSD work unless a newer stable line is promoted.
 
 Included accepted work:
 
@@ -25,11 +25,12 @@ Included accepted work:
 - Reverse-motion overlay drawing hidden; reverse steering policy remains same-sign.
 - Overlay settings now use numeric inputs in a popup instead of sliders/drop-down controls.
 - Overlay values are no longer clamped back to old slider ranges when typed or saved.
-- Additional overlay tuning values are exposed for sampling, wheelbase, steering response, curvature, width, projection, depth, and turn taper.
-- Screenshots and continuous recordings include current overlay settings for future piTrainer redraw.
+- Manual Drive overlay tuning is reduced to seven visual-only controls, and the values are accepted without old UI min/max caps.
+- Screenshots and continuous recordings include `overlay_settings.json` and `overlay_settings_history.jsonl` for future piTrainer redraw.
 - Clear Start camera / Live stream / Stop camera / STOP motors / Refresh status behaviour.
 - Status-only refresh that does not start the camera or send motor commands.
 - Page-leave motor fail-safe stop.
+- Manual Drive now supports keyboard driving: ↑/↓ adjust live throttle by `0.05` per press, holding ←/→ ramps steering by full scale in `0.5 s`, and Space stops.
 - Preview idle start, FPS estimate, frame-age display, stale-frame warning, and guarded preview metrics loop.
 - Recording/snapshot selected-folder details, safer download/delete button states, and hardened backend folder-id validation.
 - Manual Drive recordings include trainer-friendly `labels.jsonl` beside full `records.jsonl` metadata.
@@ -69,6 +70,20 @@ The backend pieces remain available for the next design:
 - Overlay calibration remains visual-only and separate from motor output.
 
 Until the new tuning page is rebuilt, use Manual Drive and backend/API checks for live car testing.
+
+## Manual Drive keyboard control
+
+Manual Drive supports keyboard control after motor output is enabled and the browser focus is not inside an input field:
+
+```text
+Arrow Up    throttle +0.05 per press
+Arrow Down  throttle -0.05 per press
+Hold Left   steering ramps toward -1.00 at full scale in 0.5 s
+Hold Right  steering ramps toward +1.00 at full scale in 0.5 s
+Space       STOP motors and clear keyboard throttle/steering
+```
+
+Keyboard commands use the same `/api/control/manual` path as the drag pad, so they keep the same safety acknowledgement, intended-output display, recording labels, and linear X steering behaviour.
 
 ## AI Mode workflow
 
@@ -143,9 +158,9 @@ Use `records.jsonl` only for full debug metadata, filtering, or advanced trainin
 
 ## Stable baseline notes
 
-`PiSD_0_8_0` is the stable rollback baseline before future `0_8_x` patches.
+`PiSD_0_9_0` is the stable rollback baseline before future `0_9_x` patches.
 
-It includes the tested service foundation from earlier baselines plus the accepted v6, v7, and v8 Manual Drive, recording, overlay, AI Mode, steering algorithm, motor tuning, safety-policy, and validation cleanup patch lines.
+It includes the tested service foundation from earlier baselines plus the accepted v6, v7, v8, and v9 Manual Drive, recording, overlay, AI Mode, steering algorithm, motor tuning, keyboard-control, safety-policy, and validation cleanup patch lines.
 
 Real wheel direction is intentionally configurable through settings because different cars may be wired differently. Use lifted-wheel motor channel tests before driving on the floor.
 
@@ -176,7 +191,7 @@ From the PiDrive root:
 
 ```bash
 cd ~/PiDrive
-unzip -o PiSD_0_8_0.zip
+unzip -o PiSD_0_9_0.zip
 cd ~/PiDrive/PiSD
 python3 -m pip install --break-system-packages -r requirements.txt
 python3 PiSD.py --host 0.0.0.0 --port 5050 --hardware
@@ -218,4 +233,4 @@ python3 scripts/test_motor_channels.py --hardware
 - Dashboard remains a labelled legacy/development comparison shell; Manual Drive and AI Mode are the active control pages.
 - Shared API/status helper logic is still duplicated across some frontend files and can be centralised later.
 - piTrainer still needs a matching update to redraw the overlay from saved `overlay_settings` metadata.
-- Camera setting source-of-truth is still duplicated between backend defaults, service dataclass, UI forms, and diagnostic scripts. If the OV5647 colour still does not match the earlier 03/91 diagnostic result on real hardware, that should be a future `0_8_x` camera patch.
+- Camera setting source-of-truth is still duplicated between backend defaults, service dataclass, UI forms, and diagnostic scripts. If the OV5647 colour still does not match the earlier 03/91 diagnostic result on real hardware, that should be a future `0_9_x` camera patch.
