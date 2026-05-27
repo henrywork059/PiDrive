@@ -197,7 +197,7 @@ The Manual Drive live overlay and Motor Tuning readout use the intended values, 
 
 ### Visual path overlay alignment
 
-The Manual Drive and AI Mode path overlays keep visual matching separate from motor tuning. From PiSD 0.8.9, the Manual Drive `Manual visual tuning` popup exposes only seven bounded user-facing visual controls: `turn_rate_visual_scale`, `path_length_scale`, `path_width_scale`, `base_y`, `horizon_y`, `perspective_scale`, and `opacity`. Deeper geometry values are internal renderer defaults. Changing overlay values changes only the drawn path; real motor steering stays linear.
+The Manual Drive and AI Mode path overlays keep visual matching separate from motor tuning. From PiSD 0.8.10, the Manual Drive `Manual visual tuning` popup exposes only seven user-facing visual controls without the earlier user-facing min/max caps: `turn_rate_visual_scale`, `path_length_scale`, `path_width_scale`, `base_y`, `horizon_y`, `perspective_scale`, and `opacity`. Deeper geometry values are internal renderer defaults. Changing overlay values changes only the drawn path; real motor steering stays linear.
 
 Recommended Manual Drive overlay calibration order:
 

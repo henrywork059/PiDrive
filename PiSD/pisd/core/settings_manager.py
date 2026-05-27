@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
+import math
 from pathlib import Path
 from threading import RLock
 from typing import Any
@@ -24,9 +25,11 @@ DEFAULT_RUNTIME_SETTINGS: dict[str, Any] = {
         "recording_fps": 6.0,
         "overlay": {
             "enabled": True,
-            # PiSD_0_8_9: reduced Manual Drive overlay calibration controls. These are
+            # PiSD_0_8_10: reduced Manual Drive overlay calibration controls. These are
             # the only user-facing/persisted visual controls; the renderer keeps
-            # internal geometry constants for stability.
+            # internal geometry constants for stability. User-facing min/max caps
+            # are intentionally not persisted here so manual visual matching can
+            # go beyond earlier safe ranges when needed.
             "turn_rate_visual_scale": 2.2,
             "path_length_scale": 1.0,
             "path_width_scale": 0.34,
@@ -314,10 +317,12 @@ class SettingsManager:
         except Exception:
             manual["recording_fps"] = self.defaults["manual_drive"].get("recording_fps", 6.0)
 
-        # PiSD_0_8_9: Manual Drive overlay calibration is intentionally small and bounded.
-        # Older runtime files may contain many legacy/internal visual keys. Keep
-        # compatibility by reading them when useful, but save back only the seven
-        # user-facing visual controls plus the enabled flag.
+        # PiSD_0_8_10: Manual Drive overlay calibration is intentionally small but no
+        # longer capped by earlier UI min/max limits. Older runtime files may
+        # contain many legacy/internal visual keys. Keep compatibility by reading
+        # them when useful, but save back only the seven user-facing visual
+        # controls plus the enabled flag. Non-finite values still fall back to
+        # defaults so invalid input cannot poison runtime_settings.json.
         overlay_defaults = self.defaults["manual_drive"].get("overlay", {})
         overlay_source = manual.get("overlay") if isinstance(manual.get("overlay"), dict) else {}
         overlay: dict[str, Any] = {}
@@ -328,15 +333,6 @@ class SettingsManager:
                 legacy_tightness = float(overlay_source.get("curve_strength", 3.35)) / 3.35 * float(overlay_defaults.get("turn_rate_visual_scale", 2.2))
             except Exception:
                 legacy_tightness = overlay_defaults.get("turn_rate_visual_scale", 2.2)
-        overlay_limits = {
-            "turn_rate_visual_scale": (0.10, 6.00),
-            "path_length_scale": (0.35, 2.50),
-            "path_width_scale": (0.05, 1.20),
-            "base_y": (55.0, 115.0),
-            "horizon_y": (5.0, 80.0),
-            "perspective_scale": (0.0, 140.0),
-            "opacity": (0.05, 1.0),
-        }
         for key, default in overlay_defaults.items():
             if key == "enabled":
                 continue
@@ -345,10 +341,7 @@ class SettingsManager:
                 value = float(raw_value)
             except Exception:
                 value = float(default)
-            lower, upper = overlay_limits.get(key, (-1e9, 1e9))
-            overlay[key] = max(lower, min(upper, value))
-        if overlay.get("base_y", 96.0) <= overlay.get("horizon_y", 31.0) + 6.0:
-            overlay["base_y"] = min(overlay_limits["base_y"][1], overlay.get("horizon_y", 31.0) + 6.0)
+            overlay[key] = value if math.isfinite(value) else float(default)
         manual["overlay"] = overlay
 
         ai = merged.setdefault("ai_mode", {})

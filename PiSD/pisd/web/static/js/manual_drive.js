@@ -12,7 +12,7 @@
     recording_fps: 6,
     overlay: {
       enabled: true,
-      // PiSD_0_8_9: reduced Manual Drive overlay calibration controls.
+      // PiSD_0_8_10: reduced Manual Drive overlay calibration controls without user-facing min/max caps.
       // These values are visual-only and do not change real motor output or AI labels.
       turn_rate_visual_scale: 2.2,
       path_length_scale: 1.0,
@@ -135,16 +135,6 @@
     ['perspective_scale', overlayPerspectiveScale],
     ['opacity', overlayOpacity],
   ];
-  const OVERLAY_CONTROL_LIMITS = {
-    turn_rate_visual_scale: [0.10, 6.00],
-    path_length_scale: [0.35, 2.50],
-    path_width_scale: [0.05, 1.20],
-    base_y: [55, 115],
-    horizon_y: [5, 80],
-    perspective_scale: [0, 140],
-    opacity: [0.05, 1.00],
-  };
-
   function isOk(code) { return String(code || '').startsWith('PISD-OK'); }
   function clamp(value, min, max, fallback = 0) {
     const n = Number(value);
@@ -473,11 +463,9 @@
     return Number.isFinite(n) ? n : fallback;
   }
 
-  function boundedOverlayValue(key, value, fallback) {
+  function finiteOverlayValue(value, fallback) {
     const number = overlayNumber(value, fallback);
-    const limits = OVERLAY_CONTROL_LIMITS[key];
-    if (!limits) return number;
-    return clamp(number, limits[0], limits[1], fallback);
+    return Number.isFinite(number) ? number : fallback;
   }
 
   function normaliseOverlaySettings(raw = {}) {
@@ -492,9 +480,8 @@
     );
     for (const [key] of OVERLAY_CONTROL_BINDINGS) {
       const value = key === 'turn_rate_visual_scale' && legacyTightness !== undefined ? legacyTightness : source[key];
-      next[key] = boundedOverlayValue(key, value ?? DEFAULTS.overlay[key], DEFAULTS.overlay[key]);
+      next[key] = finiteOverlayValue(value ?? DEFAULTS.overlay[key], DEFAULTS.overlay[key]);
     }
-    if (next.base_y <= next.horizon_y + 6) next.base_y = Math.min(OVERLAY_CONTROL_LIMITS.base_y[1], next.horizon_y + 6);
     return next;
   }
 
@@ -529,7 +516,7 @@
     for (const [key, control] of OVERLAY_CONTROL_BINDINGS) {
       if (!control) continue;
       const n = Number(control.value);
-      next[key] = boundedOverlayValue(key, Number.isFinite(n) ? n : DEFAULTS.overlay[key], DEFAULTS.overlay[key]);
+      next[key] = finiteOverlayValue(Number.isFinite(n) ? n : DEFAULTS.overlay[key], DEFAULTS.overlay[key]);
     }
     return normaliseOverlaySettings(next);
   }
