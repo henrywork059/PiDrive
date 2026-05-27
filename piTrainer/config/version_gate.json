@@ -1,0 +1,7 @@
+{
+  "enabled": true,
+  "manifest_url": "https://raw.githubusercontent.com/henrywork059/PiDrive/refs/heads/main/release_control/pitrainer_access.json",
+  "timeout_seconds": 4,
+  "fail_closed": true,
+  "cache_hours": 12
+}

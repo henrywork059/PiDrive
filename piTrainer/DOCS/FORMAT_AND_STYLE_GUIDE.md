@@ -448,3 +448,42 @@ The accepted behaviour is:
 - Train and Validate still use generated rows unless they have hidden/delete flags;
 - the Validation `Edit in Data` button redirects generated rows to the matching original source frame, usually by `source_frame_id`;
 - if no safe source frame can be found, the app should fail gracefully rather than editing a hidden generated copy silently.
+
+## V7.3 startup version access gate
+
+PiTrainer can be release-controlled by a small public JSON manifest hosted in the PiDrive GitHub repo. This is a soft version gate for packed releases, not strong copy protection. It is designed to let the project owner disable old builds by editing one online manifest file.
+
+Local config:
+
+```text
+piTrainer/config/version_gate.json
+```
+
+Startup implementation:
+
+```text
+piTrainer/piTrainer/security/version_gate.py
+```
+
+Online manifest used by the V7.3 patch:
+
+```text
+https://raw.githubusercontent.com/henrywork059/PiDrive/refs/heads/main/release_control/pitrainer_access.json
+```
+
+Expected manifest shape:
+
+```json
+{
+  "app": "PiTrainer",
+  "latest": "0.7.3",
+  "allowed_versions": ["0.7.3"],
+  "blocked_versions": ["0.7.0", "0.7.1", "0.7.2"],
+  "message": "This PiTrainer version is no longer enabled. Please update to the latest version.",
+  "support_message": "Please contact the project owner for the newest PiTrainer build."
+}
+```
+
+When the gate is enabled, the app checks this manifest before opening the main window. If the current `APP_VERSION` is blocked or is missing from a non-empty `allowed_versions` list, the app displays a clear blocking message and exits. Network access uses a short timeout and caches successful checks for the configured cache duration.
+
+For PyInstaller releases, make sure the config file is bundled or copied beside the executable, for example by adding the config folder as PyInstaller data or by shipping a `config/version_gate.json` folder next to `PiTrainer.exe`.
