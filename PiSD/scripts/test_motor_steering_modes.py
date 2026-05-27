@@ -55,6 +55,28 @@ def main() -> int:
     finally:
         close_motor(motor)
 
+
+    motor = MotorService({"steering_mode": "turn_rate", "right_direction": -1}, hardware_enabled=False)
+    try:
+        left, right = motor.update(steering=0.0, throttle=0.40)
+        status = motor.status()
+        ok &= line(
+            abs(left - 0.40) < 1e-9
+            and abs(right + 0.40) < 1e-9
+            and abs(status.get("last_intended_left", 0.0) - 0.40) < 1e-9
+            and abs(status.get("last_intended_right", 0.0) - 0.40) < 1e-9,
+            "motor.intent_output.forward_positive",
+            "logical intended outputs stay positive for forward travel even when hardware direction flips one side",
+            {
+                "hardware_left": left,
+                "hardware_right": right,
+                "intended_left": status.get("last_intended_left"),
+                "intended_right": status.get("last_intended_right"),
+            },
+        )
+    finally:
+        close_motor(motor)
+
     motor = MotorService({"steering_mode": "arcade_mix", "steer_mix": 1.0}, hardware_enabled=False)
     try:
         left, right = motor.update(steering=1.0, throttle=0.40)

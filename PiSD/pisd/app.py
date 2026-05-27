@@ -806,7 +806,20 @@ def create_app(hardware_enabled: bool = False):
                 throttle=safe_throttle,
             )
             report = motor_service.errors.latest() if motor_service.last_error else None
-            return jsonify(report_payload(True, report, "Manual motor command applied.", left=left, right=right, motor=motor_service.status(), manual_speed_limit=speed_limit))
+            motor_status = motor_service.status()
+            return jsonify(report_payload(
+                True,
+                report,
+                "Manual motor command applied.",
+                left=left,
+                right=right,
+                left_intended=motor_status.get("last_intended_left", left),
+                right_intended=motor_status.get("last_intended_right", right),
+                left_hardware=left,
+                right_hardware=right,
+                motor=motor_status,
+                manual_speed_limit=speed_limit,
+            ))
         except Exception as exc:
             report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"Manual control API failed: {exc}", exc=exc)
             return jsonify(report_payload(False, report)), 500

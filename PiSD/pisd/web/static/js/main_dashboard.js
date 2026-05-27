@@ -91,8 +91,8 @@ function updateDriveOverlay(source = {}) {
   const command = source.last_command || source.command || source;
   const throttle = clampUnit(command.throttle ?? source.throttle ?? 0);
   const steering = clampUnit(command.steering ?? source.steering ?? 0);
-  const left = clampUnit(source.last_left ?? source.left ?? 0);
-  const right = clampUnit(source.last_right ?? source.right ?? 0);
+  const left = clampUnit(source.last_intended_left ?? source.left_intended ?? source.intended_left ?? source.last_left ?? source.left ?? 0);
+  const right = clampUnit(source.last_intended_right ?? source.right_intended ?? source.intended_right ?? source.last_right ?? source.right ?? 0);
   const turnDeg = steering * 28;
   const moving = Math.abs(throttle) >= 0.02;
 

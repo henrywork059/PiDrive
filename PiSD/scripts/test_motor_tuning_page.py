@@ -102,6 +102,7 @@ def check_source_contract() -> list[Result]:
             "mtunOverlayCurveResponse",
             "mtunApplyMotor",
             "mtunApplyOverlay",
+            "Intended motor output",
         ],
         "css": [".mtun-shell", ".mtun-panel", ".mtun-overlay-preview", ".mtun-camera-preview", ".mtun-overlay-edge", "@media (max-width: 1180px)"],
         "js": [
@@ -114,6 +115,8 @@ def check_source_contract() -> list[Result]:
             "runTimed",
             "saveOverlaySettings",
             "saveMotorSettings",
+            "intendedOutputFrom",
+            "left_intended",
         ],
     }
     sources = {"template": template, "css": css, "js": js}
@@ -134,7 +137,7 @@ def check_timed_drive_simulation() -> list[Result]:
         result = motor.run_timed_drive(steering=0.6, throttle=0.18, duration=0.05, label="test_motor_tuning")
         status = motor.status()
         stopped = abs(float(status.get("last_left", 0.0))) < 1e-9 and abs(float(status.get("last_right", 0.0))) < 1e-9
-        ok = bool(result.get("ok")) and stopped and result.get("left", 0) > result.get("right", 0)
+        ok = bool(result.get("ok")) and stopped and result.get("left_intended", 0) > result.get("right_intended", 0)
         return [Result(
             "motor_tuning.timed_drive_simulation",
             ok,

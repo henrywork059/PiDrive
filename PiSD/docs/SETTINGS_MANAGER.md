@@ -18,7 +18,7 @@ The backend accepts these top-level groups:
 
 - `camera` — camera settings passed to `CameraService.apply_settings()`.
 - `motor` — motor settings passed to `MotorService.apply_settings()`.
-  PiSD 0.8.2 motor settings include `steering_mode`, `min_inside_speed`, and `allow_pivot_turn` for the linear turn-rate steering algorithm, while keeping `steer_mix` for `arcade_mix` fallback mode. Legacy persisted `turn_gain` and `turn_curve` values are ignored for compatibility.
+  PiSD 0.8.2 motor settings include `steering_mode`, `min_inside_speed`, and `allow_pivot_turn` for the linear turn-rate steering algorithm, while keeping `steer_mix` for `arcade_mix` fallback mode. Legacy persisted `turn_gain` and `turn_curve` values are ignored for compatibility. PiSD 0.8.3 motor status separates intended vehicle-motion outputs from hardware-signed outputs after left/right direction multipliers.
 - `manual_drive` — manual drive defaults such as drag-pad speed and steer strength.
 - `panel_presentation` — shared visual style used by all pages.
 - `safety` — GUI safety defaults.

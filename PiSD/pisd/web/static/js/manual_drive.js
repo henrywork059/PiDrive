@@ -434,12 +434,16 @@
     };
   }
 
-  function normaliseMotorOutput(output = STOP_OUTPUT) {
-    const source = output && typeof output === 'object' ? output : STOP_OUTPUT;
+  function intendedMotorOutputFrom(source = STOP_OUTPUT) {
+    const data = source && typeof source === 'object' ? source : STOP_OUTPUT;
     return {
-      left: clamp(source.left ?? 0, -1, 1, 0),
-      right: clamp(source.right ?? 0, -1, 1, 0),
+      left: clamp(data.left_intended ?? data.intended_left ?? data.last_intended_left ?? data.left ?? data.last_left ?? 0, -1, 1, 0),
+      right: clamp(data.right_intended ?? data.intended_right ?? data.last_intended_right ?? data.right ?? data.last_right ?? 0, -1, 1, 0),
     };
+  }
+
+  function normaliseMotorOutput(output = STOP_OUTPUT) {
+    return intendedMotorOutputFrom(output);
   }
 
   function driveStateIsMoving(command = lastPayload, output = lastMotorOutput) {
@@ -493,7 +497,7 @@
     const right = Number(output?.right || 0);
     const source = renderOverlayDebug({ steering, throttle }, { left, right }, sourceHint);
     if (intentOut) intentOut.textContent = `S ${formatSigned(steering)} / T ${formatSigned(throttle)}`;
-    if (motorOut) motorOut.textContent = `L ${formatSigned(left)} / R ${formatSigned(right)}`;
+    if (motorOut) motorOut.textContent = `Intent L ${formatSigned(left)} / R ${formatSigned(right)}`;
     updateDriveOverlay({ steering, throttle, steer_mix: command?.steer_mix ?? 1.0 }, { left, right }, source);
   }
 
@@ -724,7 +728,7 @@
     const motor = status?.motor || {};
     const hasServerCommand = motor.last_command && typeof motor.last_command === 'object';
     let command = hasServerCommand ? motor.last_command : lastPayload;
-    const output = { left: motor.last_left ?? lastMotorOutput.left, right: motor.last_right ?? lastMotorOutput.right };
+    const output = intendedMotorOutputFrom(motor);
     if (!hasServerCommand && Math.abs(Number(output.left || 0)) < 0.02 && Math.abs(Number(output.right || 0)) < 0.02) {
       command = STOP_COMMAND;
     }
@@ -735,10 +739,16 @@
     const motor = payload?.motor || {};
     updateOverlayMotorSettings(motor);
     const command = motor.last_command || fallbackCommand || lastPayload;
-    const output = {
-      left: payload?.left ?? motor.last_left ?? lastMotorOutput.left,
-      right: payload?.right ?? motor.last_right ?? lastMotorOutput.right,
-    };
+    const output = intendedMotorOutputFrom({
+      left_intended: payload?.left_intended,
+      right_intended: payload?.right_intended,
+      last_intended_left: motor.last_intended_left,
+      last_intended_right: motor.last_intended_right,
+      left: payload?.left,
+      right: payload?.right,
+      last_left: motor.last_left,
+      last_right: motor.last_right,
+    });
     setDriveState(command, output, sourceHint);
   }
 

@@ -677,8 +677,12 @@ class RecordingService:
             "throttle": float(last_command.get("throttle", 0.0) or 0.0),
             "steer_mix": float(last_command.get("steer_mix", motor_status.get("steer_mix", 1.0)) or 1.0),
             "motor_outputs": {
-                "left": float(motor_status.get("last_left", 0.0) or 0.0),
-                "right": float(motor_status.get("last_right", 0.0) or 0.0),
+                # Trainer-facing vehicle intent: positive means forward motion for that side.
+                "left": float(motor_status.get("last_intended_left", motor_status.get("last_left", 0.0)) or 0.0),
+                "right": float(motor_status.get("last_intended_right", motor_status.get("last_right", 0.0)) or 0.0),
+                # Hardware diagnostics after left/right_direction have been applied.
+                "left_hardware": float(motor_status.get("last_left", 0.0) or 0.0),
+                "right_hardware": float(motor_status.get("last_right", 0.0) or 0.0),
             },
             "motor_tuning": {
                 "left_bias": motor_status.get("left_bias"),

@@ -216,9 +216,17 @@
     return steering > 0 ? { left: throttle, right: throttle * insideFactor } : { left: throttle * insideFactor, right: throttle };
   }
 
+  function intendedOutputFrom(source = {}) {
+    const data = source && typeof source === 'object' ? source : {};
+    return {
+      left: clamp(data.left_intended ?? data.intended_left ?? data.last_intended_left ?? data.left ?? data.last_left ?? 0, -1, 1, 0),
+      right: clamp(data.right_intended ?? data.intended_right ?? data.last_intended_right ?? data.right ?? data.last_right ?? 0, -1, 1, 0),
+    };
+  }
+
   function updateReadouts() {
     controls.commandReadout.textContent = `steering ${fmt(lastCommand.steering)} / throttle ${fmt(lastCommand.throttle)}`;
-    controls.motorReadout.textContent = `left ${fmt(lastMotorOutput.left)} / right ${fmt(lastMotorOutput.right)}`;
+    controls.motorReadout.textContent = `intent left ${fmt(lastMotorOutput.left)} / right ${fmt(lastMotorOutput.right)}`;
   }
 
   function commandLabel(command) {
@@ -303,8 +311,8 @@
       const { payload } = await api('POST', '/api/motor/tune-run', body);
       setCode('motion', payload.code || 'PISD-OK-000');
       const tuning = payload.tuning || {};
-      if (tuning.left !== undefined && tuning.right !== undefined) {
-        lastMotorOutput = { left: Number(tuning.left) || 0, right: Number(tuning.right) || 0 };
+      if (tuning.left_intended !== undefined || tuning.right_intended !== undefined || tuning.left !== undefined || tuning.right !== undefined) {
+        lastMotorOutput = intendedOutputFrom(tuning);
         updateReadouts();
       }
       if (payload.motor) {

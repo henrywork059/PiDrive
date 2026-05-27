@@ -299,12 +299,12 @@ def check_source_contract() -> list[Result]:
         {},
     ))
 
-    signals_ok = all(token in template for token in ("mdrvIntentOut", "mdrvMotorOut")) and "renderMotorSignalsFromApiResponse" in js
+    signals_ok = all(token in template for token in ("mdrvIntentOut", "mdrvMotorOut", "Intent out")) and all(token in js for token in ("renderMotorSignalsFromApiResponse", "intendedMotorOutputFrom", "last_intended_left"))
     results.append(Result(
         "manual_drive.status_motor_signals",
         signals_ok,
         PiSDErrorCodes.OK if signals_ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
-        "status strip shows intended steering/throttle and actual left/right motor output" if signals_ok else "manual drive motor signal readouts are missing",
+        "status strip shows intended steering/throttle and intended left/right motor output" if signals_ok else "manual drive motor signal readouts are missing",
         {},
     ))
 

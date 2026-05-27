@@ -31,7 +31,7 @@
       <div class="mtun-panel-head"><div><p class="mtun-label">Safety</p><h2>Arm timed tests</h2></div><span class="mtun-code" data-code-for="safety">PISD-OK-000</span></div>
       <label class="mtun-arm"><input id="mtunSafetyAck" type="checkbox"><span>Wheels are lifted / area is clear.</span></label>
       <label class="mtun-arm"><input id="mtunEnableMotor" type="checkbox"><span>Enable real motor output for timed tuning runs.</span></label>
-      <p class="mtun-help">On real hardware, both boxes are required before any non-zero motor command is accepted. In simulation mode, tests still show the calculated left/right output and always stop after the selected seconds.</p>
+      <p class="mtun-help">On real hardware, both boxes are required before any non-zero motor command is accepted. In simulation mode, tests still show the calculated intended left/right output and always stop after the selected seconds.</p>
       <button id="mtunStopAll" class="mtun-button mtun-danger" type="button">STOP motors</button>
     </section>
 
@@ -75,7 +75,7 @@
       </div>
       <div class="mtun-output-row">
         <div><span>Command</span><strong id="mtunCommandReadout">steering +0.00 / throttle +0.00</strong></div>
-        <div><span>Motor output</span><strong id="mtunMotorReadout">left +0.00 / right +0.00</strong></div>
+        <div><span>Intended motor output</span><strong id="mtunMotorReadout">left +0.00 / right +0.00</strong></div>
         <div><span>Overlay match note</span><strong id="mtunMatchNote">Adjust overlay after each physical test.</strong></div>
       </div>
     </section>

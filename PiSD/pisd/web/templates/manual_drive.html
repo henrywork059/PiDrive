@@ -35,14 +35,14 @@
         <span>FPS <strong id="mdrvCameraFps">{{ initial_status.camera.measured_capture_fps if initial_status.camera.measured_capture_fps is defined else 'n/a' }}</strong></span>
         <span>Rec <strong id="mdrvRecordingState">{{ 'on' if initial_status.recording.running else 'off' }}</strong></span>
         <span>Cmd <strong id="mdrvIntentOut">S 0.00 / T 0.00</strong></span>
-        <span>Out <strong id="mdrvMotorOut">L 0.00 / R 0.00</strong></span>
+        <span>Intent out <strong id="mdrvMotorOut">L +0.00 / R +0.00</strong></span>
       </div>
       <div class="mdrv-drive-debug-panel" id="mdrvDriveDebugPanel" aria-label="Live drive overlay and preview debugging values">
         <span>Overlay source <strong id="mdrvOverlayDebugSource">stopped</strong></span>
         <span>Steering <strong id="mdrvOverlayDebugSteering">+0.00</strong></span>
         <span>Throttle <strong id="mdrvOverlayDebugThrottle">+0.00</strong></span>
-        <span>Left motor <strong id="mdrvOverlayDebugLeft">+0.00</strong></span>
-        <span>Right motor <strong id="mdrvOverlayDebugRight">+0.00</strong></span>
+        <span>Left intent <strong id="mdrvOverlayDebugLeft">+0.00</strong></span>
+        <span>Right intent <strong id="mdrvOverlayDebugRight">+0.00</strong></span>
         <span>Preview mode <strong id="mdrvPreviewModeDebug">idle</strong></span>
         <span>Camera running <strong id="mdrvPreviewCameraDebug">unknown</strong></span>
         <span>Frame age <strong id="mdrvPreviewAgeDebug">n/a</strong></span>

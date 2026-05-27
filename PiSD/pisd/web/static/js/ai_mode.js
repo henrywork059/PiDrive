@@ -269,8 +269,8 @@
     const throttle = clamp(safe.throttle ?? 0, -1, 1, 0);
     const rawSteering = clamp(raw.steering ?? 0, -1, 1, 0);
     const rawThrottle = clamp(raw.throttle ?? 0, -1, 1, 0);
-    const left = clamp(motor.left ?? 0, -1, 1, 0);
-    const right = clamp(motor.right ?? 0, -1, 1, 0);
+    const left = clamp(motor.left_intended ?? motor.intended_left ?? motor.last_intended_left ?? motor.left ?? 0, -1, 1, 0);
+    const right = clamp(motor.right_intended ?? motor.intended_right ?? motor.last_intended_right ?? motor.right ?? 0, -1, 1, 0);
     const source = ai.running ? (ai.mode === 'drive' ? 'ai-drive' : 'ai-preview') : (ai.model_ready ? 'ai-ready' : 'ai-stopped');
     if (els.aiPreviewFrame) els.aiPreviewFrame.dataset.overlaySource = source;
     if (els.aiOverlayMode) els.aiOverlayMode.textContent = driveModeText(throttle, steering);
@@ -306,8 +306,10 @@
       const safety = ai.safety_layer || {};
       els.aiReverseSteeringPolicy.textContent = safety.reverse_steering_policy === 'same_sign' ? 'same sign' : (safety.reverse_steering_policy || 'same sign');
     }
-    if (els.aiLeftMotor) els.aiLeftMotor.textContent = fmt(motor.left);
-    if (els.aiRightMotor) els.aiRightMotor.textContent = fmt(motor.right);
+    const motorLeftIntent = motor.left_intended ?? motor.intended_left ?? motor.last_intended_left ?? motor.left;
+    const motorRightIntent = motor.right_intended ?? motor.intended_right ?? motor.last_intended_right ?? motor.right;
+    if (els.aiLeftMotor) els.aiLeftMotor.textContent = fmt(motorLeftIntent);
+    if (els.aiRightMotor) els.aiRightMotor.textContent = fmt(motorRightIntent);
     if (els.aiInferenceMs) els.aiInferenceMs.textContent = `${fmt(ai.last_inference_ms, 1)} ms`;
     if (els.aiLoopHz) els.aiLoopHz.textContent = `${fmt(ai.loop_hz, 1)} Hz`;
     if (ai.settings) renderConfig(ai.settings);

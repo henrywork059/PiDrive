@@ -185,6 +185,16 @@ Available motor settings:
 | `steer_mix` | Used by `arcade_mix` fallback mode. It is kept for compatibility and calibration comparisons. |
 
 
+
+### Intended output vs hardware output
+
+PiSD 0.8.3 separates the output values shown to the driver from the signed PWM values sent to the motor driver.
+
+- `last_intended_left` / `last_intended_right` are vehicle-motion intent values. Forward travel should show both sides as positive, even if one physical motor has `left_direction` or `right_direction` set to `-1`.
+- `last_left` / `last_right` remain the hardware-applied values after direction multipliers. These are useful for wiring diagnostics.
+
+The Manual Drive live overlay and Motor Tuning readout use the intended values, because they should describe how the car is intended to move. Hardware diagnostics remain available in the full motor status.
+
 ### Visual path overlay alignment
 
 The Manual Drive, AI Mode, and Motor Tuning path overlays now keep visual matching separate from motor tuning. The overlay uses the live steering command plus visual-only calibration values such as `curve_response`, `turn_rate_visual_scale`, `curvature_scale`, and projection/taper settings. Changing overlay values changes only the drawn path; real motor steering stays linear.

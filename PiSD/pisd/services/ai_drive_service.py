@@ -263,12 +263,16 @@ class AIDriveService:
             inference_ms = (time.perf_counter() - started) * 1000.0
             safe = self.apply_safety(raw_steering, raw_throttle)
             left = right = 0.0
+            left_intended = right_intended = 0.0
             if drive and motor_service is not None:
                 left, right = motor_service.update(steering=safe["steering"], throttle=safe["throttle"])
+                motor_status = motor_service.status()
+                left_intended = float(motor_status.get("last_intended_left", left) or 0.0)
+                right_intended = float(motor_status.get("last_intended_right", right) or 0.0)
             with self._lock:
                 self._last_raw = {"steering": float(raw_steering), "throttle": float(raw_throttle)}
                 self._last_safe = {"steering": float(safe["steering"]), "throttle": float(safe["throttle"])}
-                self._last_motor = {"left": float(left), "right": float(right)}
+                self._last_motor = {"left": float(left_intended), "right": float(right_intended), "left_hardware": float(left), "right_hardware": float(right)}
                 self._last_prediction_at = _utc_now()
                 self._last_inference_ms = float(inference_ms)
                 self._last_error = ""

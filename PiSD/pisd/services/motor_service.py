@@ -205,6 +205,11 @@ class MotorService:
         self.hardware_enabled = bool(hardware_enabled and GPIO_AVAILABLE)
         self.last_left = 0.0
         self.last_right = 0.0
+        # Logical/intended output is the vehicle-motion value before hardware direction
+        # multipliers are applied. It should read positive on both sides for forward
+        # travel even when a saved left/right_direction flips one physical motor.
+        self.last_intended_left = 0.0
+        self.last_intended_right = 0.0
         self.last_command: dict[str, Any] = {}
         self.last_error = ""
         self.last_error_code = PiSDErrorCodes.OK
@@ -263,6 +268,10 @@ class MotorService:
                     "adapter": "rpigpio" if self.hardware_enabled else "simulation",
                     "last_left": float(self.last_left),
                     "last_right": float(self.last_right),
+                    "last_intended_left": float(self.last_intended_left),
+                    "last_intended_right": float(self.last_intended_right),
+                    "last_hardware_left": float(self.last_left),
+                    "last_hardware_right": float(self.last_right),
                     "last_command": dict(self.last_command),
                     "last_error": str(self.last_error),
                     "last_error_code": str(self.last_error_code),
@@ -295,10 +304,13 @@ class MotorService:
         label_text = str(label or "motor_tuning_drive").strip()[:80] or "motor_tuning_drive"
 
         left = right = 0.0
+        left_intended = right_intended = 0.0
         started_at = time.time()
         try:
             left, right = self.update(steering=requested_steering, throttle=requested_throttle)
             with self._lock:
+                left_intended = self.last_intended_left
+                right_intended = self.last_intended_right
                 self.last_command.update({
                     "mode": "motor_tuning_timed_drive",
                     "label": label_text,
@@ -308,7 +320,8 @@ class MotorService:
             if not self.hardware_enabled:
                 print(
                     f"[PiSD MOTOR TUNE SIM] label={label_text} steering={requested_steering:+.2f} "
-                    f"throttle={requested_throttle:+.2f} left={left:+.2f} right={right:+.2f} duration={duration_s:.2f}s"
+                    f"throttle={requested_throttle:+.2f} hardware_left={left:+.2f} hardware_right={right:+.2f} "
+                    f"intended_left={left_intended:+.2f} intended_right={right_intended:+.2f} duration={duration_s:.2f}s"
                 )
             time.sleep(duration_s)
             ok = True
@@ -326,6 +339,10 @@ class MotorService:
             "duration": duration_s,
             "left": left,
             "right": right,
+            "left_intended": float(left_intended),
+            "right_intended": float(right_intended),
+            "left_hardware": left,
+            "right_hardware": right,
             "hardware_output_enabled": bool(self.hardware_enabled),
             "motor": status,
         }
@@ -380,9 +397,13 @@ class MotorService:
             if side_name == "left":
                 self.last_left = effective_speed
                 self.last_right = 0.0
+                self.last_intended_left = requested_speed * direction_value
+                self.last_intended_right = 0.0
             else:
                 self.last_left = 0.0
                 self.last_right = effective_speed
+                self.last_intended_left = 0.0
+                self.last_intended_right = requested_speed * direction_value
             self.last_command = {
                 "mode": "motor_channel_test",
                 "side": side_name,
@@ -390,8 +411,13 @@ class MotorService:
                 "direction_label": "direction_1" if direction_value > 0 else "direction_2",
                 "speed": requested_speed,
                 "effective_speed": effective_speed,
+                "intended_speed": requested_speed * direction_value,
                 "duration": duration_s,
                 "apply_config_direction": bool(apply_config_direction),
+                "left_intended": self.last_intended_left,
+                "right_intended": self.last_intended_right,
+                "left_hardware": self.last_left,
+                "right_hardware": self.last_right,
                 "timestamp": time.time(),
             }
             if not ok:
@@ -453,7 +479,7 @@ class MotorService:
             steering = clamp_float(steering, -1.0, 1.0, 0.0)
             throttle = clamp_float(throttle, -1.0, 1.0, 0.0)
             mix = self.config.steer_mix if steer_mix is None else clamp_float(steer_mix, 0.0, 1.0, self.config.steer_mix)
-            left, right = self._map_drive_locked(steering, throttle, mix)
+            left, right, left_intended, right_intended = self._map_drive_locked(steering, throttle, mix)
             left_ok = self.left.set_speed(left)
             right_ok = self.right.set_speed(right)
             if not left_ok or not right_ok:
@@ -464,6 +490,8 @@ class MotorService:
                 )
             self.last_left = left
             self.last_right = right
+            self.last_intended_left = left_intended
+            self.last_intended_right = right_intended
             self.last_command = {
                 "steering": steering,
                 "throttle": throttle,
@@ -471,6 +499,10 @@ class MotorService:
                 "steering_mode": self.config.steering_mode,
                 "min_inside_speed": self.config.min_inside_speed,
                 "allow_pivot_turn": self.config.allow_pivot_turn,
+                "left_intended": left_intended,
+                "right_intended": right_intended,
+                "left_hardware": left,
+                "right_hardware": right,
                 "timestamp": time.time(),
             }
         if not self.hardware_enabled:
@@ -495,15 +527,21 @@ class MotorService:
                 except Exception as exc:
                     self._record(PiSDErrorCodes.MOTOR_CLOSE_FAILED, f"GPIO cleanup failed: {exc}", exc=exc)
 
-    def _map_drive_locked(self, steering: float, throttle: float, steer_mix: float) -> tuple[float, float]:
+    def _map_drive_locked(self, steering: float, throttle: float, steer_mix: float) -> tuple[float, float, float, float]:
+        left_intended, right_intended = self._map_drive_intended_locked(steering, throttle, steer_mix)
+        left_hardware = self._apply_hardware_direction(left_intended, self.config.left_direction)
+        right_hardware = self._apply_hardware_direction(right_intended, self.config.right_direction)
+        return left_hardware, right_hardware, left_intended, right_intended
+
+    def _map_drive_intended_locked(self, steering: float, throttle: float, steer_mix: float) -> tuple[float, float]:
         steering *= -1.0 if self.config.steering_direction < 0 else 1.0
         if self.config.steering_mode == "arcade_mix":
             left = throttle - steer_mix * steering
             right = throttle + steer_mix * steering
         else:
             left, right = self._map_turn_rate_locked(steering, throttle)
-        left = self._apply_tuning(left, self.config.left_max_speed, self.config.left_bias, self.config.left_direction)
-        right = self._apply_tuning(right, self.config.right_max_speed, self.config.right_bias, self.config.right_direction)
+        left = self._apply_logical_tuning(left, self.config.left_max_speed, self.config.left_bias)
+        right = self._apply_logical_tuning(right, self.config.right_max_speed, self.config.right_bias)
         return left, right
 
     def _map_turn_rate_locked(self, steering: float, throttle: float) -> tuple[float, float]:
@@ -539,18 +577,24 @@ class MotorService:
         # Left curve: right/outside wheel keeps requested speed, left/inside wheel slows.
         return speed * inside_factor, speed
 
-    def _apply_tuning(self, value: float, max_speed: float, bias: float, direction: int) -> float:
+    def _apply_logical_tuning(self, value: float, max_speed: float, bias: float) -> float:
         value = clamp_float(value, -1.0, 1.0, 0.0)
         if abs(value) > 1e-4 and abs(bias) > 1e-4:
             value += (1.0 if value > 0 else -1.0) * bias
         value = clamp_float(value, -1.0, 1.0, 0.0)
         value *= clamp_float(max_speed, 0.0, 1.0, 1.0)
+        return clamp_float(value, -1.0, 1.0, 0.0)
+
+    def _apply_hardware_direction(self, value: float, direction: int) -> float:
+        value = clamp_float(value, -1.0, 1.0, 0.0)
         value *= -1.0 if direction < 0 else 1.0
         return clamp_float(value, -1.0, 1.0, 0.0)
 
     def _stop_locked(self) -> None:
         self.last_left = 0.0
         self.last_right = 0.0
+        self.last_intended_left = 0.0
+        self.last_intended_right = 0.0
         self.last_command = {
             "steering": 0.0,
             "throttle": 0.0,
@@ -558,6 +602,10 @@ class MotorService:
             "steering_mode": self.config.steering_mode,
             "min_inside_speed": self.config.min_inside_speed,
             "allow_pivot_turn": self.config.allow_pivot_turn,
+            "left_intended": 0.0,
+            "right_intended": 0.0,
+            "left_hardware": 0.0,
+            "right_hardware": 0.0,
             "timestamp": time.time(),
         }
         left_ok = self.left.stop()
@@ -581,6 +629,7 @@ class MotorService:
             print(
                 f"[PiSD MOTOR SIM] steering={steering:+.2f} throttle={throttle:+.2f} "
                 f"mode={self.config.steering_mode} mix={steer_mix:.2f} "
-                f"left={left:+.2f} right={right:+.2f}"
+                f"hardware_left={left:+.2f} hardware_right={right:+.2f} "
+                f"intended_left={self.last_intended_left:+.2f} intended_right={self.last_intended_right:+.2f}"
             )
             self._last_sim_log_at = now
