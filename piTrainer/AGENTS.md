@@ -99,3 +99,22 @@ Only claim checks that were actually run. Be clear about anything not tested, es
 Preprocessed/generated rows are training data, not the default raw-data editing list. Keep generated rows hidden from the Data page Record Preview by default while preserving them in the active `filtered_df` for Train and Validate. Synthetic rows are identified by trace metadata such as `is_synthetic=True`, `frame_id` beginning with `s_`, or non-original augmentation variants. Do not remove them from training unless they also carry hidden/delete flags.
 
 When a validation review row or any future review/edit shortcut refers to a generated/synthetic row, `Edit in Data` should open the original source frame, using `source_frame_id` where available. Do not make users edit a hidden generated copy when the intended editable record is the original real frame.
+
+## V7.3 version access manifest rule
+
+PiTrainer now has a startup version gate controlled by `piTrainer/config/version_gate.json` and implemented in `piTrainer/piTrainer/security/version_gate.py`. Keep this as a soft release-control check, not as a real secret system. The app checks the online manifest before showing the main window when the gate is enabled.
+
+Current manifest URL:
+
+```text
+https://raw.githubusercontent.com/henrywork059/PiDrive/refs/heads/main/release_control/pitrainer_access.json
+```
+
+Preserve these behaviours unless the user asks otherwise:
+
+- `enabled=true` and `fail_closed=true` for release builds that should be controlled by the online manifest.
+- The current `APP_VERSION` must be in the manifest `allowed_versions` list and must not be in `blocked_versions`.
+- Network checks must have a short timeout so the app does not hang on startup.
+- A recent cache may allow startup only when the online check is temporarily unavailable and the cached manifest still allows the same app version.
+- Do not put private tokens, GitHub credentials, or real secrets in the app.
+- Keep the startup failure user-readable through a dialog before the app exits.
