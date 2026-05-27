@@ -102,9 +102,11 @@ def check_source_contract() -> list[Result]:
             "mtunOverlayCurveResponse",
             "mtunApplyMotor",
             "mtunApplyOverlay",
+            "mtunStartDeadzone",
+            "mtunStartKickSeconds",
             "Intended motor output",
         ],
-        "css": [".mtun-shell", ".mtun-panel", ".mtun-overlay-preview", ".mtun-camera-preview", ".mtun-overlay-edge", "@media (max-width: 1180px)"],
+        "css": [".mtun-shell", ".mtun-panel", ".mtun-overlay-preview", ".mtun-camera-preview", ".mtun-overlay-edge", "grid-template-columns: repeat(2, minmax(0, 1fr))", "marker-end: url(#mtunOverlayArrow)", "@media (max-width: 1180px)"],
         "js": [
             "motorTuningInitialStatus",
             "/api/motor/tune-run",
@@ -117,6 +119,8 @@ def check_source_contract() -> list[Result]:
             "saveMotorSettings",
             "intendedOutputFrom",
             "left_intended",
+            "start_deadzone",
+            "start_kick_seconds",
         ],
     }
     sources = {"template": template, "css": css, "js": js}
@@ -132,7 +136,9 @@ def check_source_contract() -> list[Result]:
     hero_index = template.find("mtun-kicker")
     back_index = template.find("Back to Front Page")
     nav_index = template.find("mtun-status-strip")
-    compact_preview_ok = "min-height: clamp(180px, 30vh, 360px)" in css and "max-height: min(46vh, 430px)" in css
+    compact_preview_ok = "min-height: clamp(160px, 24vh, 300px)" in css and "max-height: min(34vh, 320px)" in css
+    equal_columns_ok = "grid-template-columns: repeat(2, minmax(0, 1fr))" in css
+    manual_overlay_style_ok = all(token in css for token in ("rgba(236, 253, 245, .96)", "marker-end: url(#mtunOverlayArrow)", "drop-shadow(0 0 4px rgba(34, 197, 94, .42))"))
     back_nav_ok = nav_index >= 0 and back_index > nav_index and back_index > hero_index
     results.append(Result(
         "motor_tuning.back_link_in_header_actions",
@@ -148,11 +154,25 @@ def check_source_contract() -> list[Result]:
         "live camera overlay preview height is capped to a compact calibration size" if compact_preview_ok else "live preview height cap is missing or too large",
         {},
     ))
+    results.append(Result(
+        "motor_tuning.equal_columns",
+        equal_columns_ok,
+        PiSDErrorCodes.OK if equal_columns_ok else PiSDErrorCodes.TEST_GUI_ASSET_FAILED,
+        "Motor Tuning shell uses two equal halves on desktop" if equal_columns_ok else "Motor Tuning shell is not using two equal halves",
+        {},
+    ))
+    results.append(Result(
+        "motor_tuning.manual_overlay_style",
+        manual_overlay_style_ok,
+        PiSDErrorCodes.OK if manual_overlay_style_ok else PiSDErrorCodes.TEST_GUI_ASSET_FAILED,
+        "Motor Tuning overlay uses the same green road-edge and blue centre-arrow style as Manual Drive" if manual_overlay_style_ok else "Motor Tuning overlay style does not match Manual Drive",
+        {},
+    ))
     return results
 
 
 def check_timed_drive_simulation() -> list[Result]:
-    motor = MotorService({"steering_mode": "turn_rate"}, hardware_enabled=False)
+    motor = MotorService({"steering_mode": "turn_rate", "start_deadzone": 0.25, "start_kick_seconds": 0.03}, hardware_enabled=False)
     try:
         result = motor.run_timed_drive(steering=0.6, throttle=0.18, duration=0.05, label="test_motor_tuning")
         status = motor.status()

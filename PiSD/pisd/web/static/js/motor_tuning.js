@@ -33,6 +33,8 @@
     steer_mix: 1.0,
     min_inside_speed: 0.0,
     allow_pivot_turn: false,
+    start_deadzone: 0.0,
+    start_kick_seconds: 0.12,
   };
 
   const controls = {
@@ -44,6 +46,7 @@
     commandReadout: $('mtunCommandReadout'),
     motorReadout: $('mtunMotorReadout'),
     matchNote: $('mtunMatchNote'),
+    overlayPreview: $('mtunOverlayPreview'),
     overlaySurface: $('mtunOverlaySurface'),
     overlayLeft: $('mtunOverlayLeft'),
     overlayRight: $('mtunOverlayRight'),
@@ -60,6 +63,8 @@
     steering_mode: $('mtunSteeringMode'),
     min_inside_speed: $('mtunMinInsideSpeed'),
     steer_mix: $('mtunSteerMix'),
+    start_deadzone: $('mtunStartDeadzone'),
+    start_kick_seconds: $('mtunStartKickSeconds'),
     allow_pivot_turn: $('mtunAllowPivot'),
   };
 
@@ -149,6 +154,8 @@
       steering_mode: mode === 'arcade_mix' ? 'arcade_mix' : 'turn_rate',
       steer_mix: clamp(source.steer_mix, 0, 2, DEFAULT_MOTOR.steer_mix),
       min_inside_speed: clamp(source.min_inside_speed, 0, 0.99, DEFAULT_MOTOR.min_inside_speed),
+      start_deadzone: clamp(source.start_deadzone, 0, 0.95, DEFAULT_MOTOR.start_deadzone),
+      start_kick_seconds: clamp(source.start_kick_seconds, 0, 0.75, DEFAULT_MOTOR.start_kick_seconds),
       allow_pivot_turn: typeof source.allow_pivot_turn === 'string'
         ? ['true', '1', 'yes', 'on'].includes(source.allow_pivot_turn.trim().toLowerCase())
         : Boolean(source.allow_pivot_turn ?? DEFAULT_MOTOR.allow_pivot_turn),
@@ -226,7 +233,8 @@
 
   function updateReadouts() {
     controls.commandReadout.textContent = `steering ${fmt(lastCommand.steering)} / throttle ${fmt(lastCommand.throttle)}`;
-    controls.motorReadout.textContent = `intent left ${fmt(lastMotorOutput.left)} / right ${fmt(lastMotorOutput.right)}`;
+    const startHint = motorSettings.start_deadzone > 0 ? ` · start kick ${fmt(motorSettings.start_deadzone)} for ${Number(motorSettings.start_kick_seconds || 0).toFixed(2)}s` : '';
+    controls.motorReadout.textContent = `intent left ${fmt(lastMotorOutput.left)} / right ${fmt(lastMotorOutput.right)}${startHint}`;
   }
 
   function commandLabel(command) {
@@ -249,32 +257,49 @@
     }) : null;
     if (!geometry) return;
     const opacity = clamp(overlaySettings.opacity, 0, 1, DEFAULT_OVERLAY.opacity);
+    const widthScale = Math.max(0.05, Math.abs(Number(overlaySettings.path_width_scale || 1)));
+    const movingForward = lastCommand.throttle >= 0.02;
+    const movingReverse = lastCommand.throttle < -0.02;
+    const steeringAbs = Math.abs(lastCommand.steering);
+    const edgeOpacity = movingReverse ? 0 : (movingForward || steeringAbs >= 0.02 ? opacity : Math.max(0.12, opacity * 0.26));
+    const centerOpacity = movingReverse ? 0 : (movingForward ? Math.max(0.18, opacity * 0.34) : Math.max(0.08, opacity * 0.16));
     if (controls.overlaySurface) {
       controls.overlaySurface.setAttribute('d', geometry.surfacePath || '');
-      controls.overlaySurface.style.opacity = String(Math.max(0.10, opacity * 0.42));
+      controls.overlaySurface.style.opacity = movingReverse ? '0' : (movingForward ? String(Math.max(0.16, opacity * 0.36)) : String(Math.max(0.04, opacity * 0.10)));
     }
     if (controls.overlayLeft) {
       controls.overlayLeft.setAttribute('d', geometry.leftPath || '');
-      controls.overlayLeft.style.opacity = String(opacity);
+      controls.overlayLeft.style.opacity = String(edgeOpacity);
+      controls.overlayLeft.style.strokeDasharray = 'none';
+      controls.overlayLeft.style.strokeWidth = String(2.25 * widthScale);
     }
     if (controls.overlayRight) {
       controls.overlayRight.setAttribute('d', geometry.rightPath || '');
-      controls.overlayRight.style.opacity = String(opacity);
+      controls.overlayRight.style.opacity = String(edgeOpacity);
+      controls.overlayRight.style.strokeDasharray = 'none';
+      controls.overlayRight.style.strokeWidth = String(2.25 * widthScale);
     }
     if (controls.overlayCenter) {
       controls.overlayCenter.setAttribute('d', geometry.centerPath || '');
-      controls.overlayCenter.style.opacity = String(Math.max(0.12, opacity * 0.42));
+      controls.overlayCenter.style.opacity = String(centerOpacity);
+      controls.overlayCenter.style.strokeDasharray = movingForward ? 'none' : '6 8';
+      controls.overlayCenter.style.strokeWidth = String((1.15 + Math.abs(lastCommand.throttle) * 0.38) * widthScale);
     }
     if (controls.overlayStart && geometry.start) {
       controls.overlayStart.setAttribute('cx', geometry.start.x.toFixed(2));
       controls.overlayStart.setAttribute('cy', geometry.start.y.toFixed(2));
+      controls.overlayStart.style.opacity = String(centerOpacity);
     }
     if (controls.overlayEnd && geometry.end) {
       controls.overlayEnd.setAttribute('cx', geometry.end.x.toFixed(2));
       controls.overlayEnd.setAttribute('cy', geometry.end.y.toFixed(2));
+      controls.overlayEnd.style.opacity = String(centerOpacity);
     }
+    if (controls.overlayPreview) controls.overlayPreview.dataset.overlayMotion = movingForward ? 'forward' : (movingReverse ? 'reverse' : 'stopped');
     if (controls.overlayLabel) controls.overlayLabel.textContent = commandLabel(lastCommand);
-    if (controls.overlayMeta) controls.overlayMeta.textContent = `visual-only · turn ${Math.abs(Number(geometry.turnIntent || 0)).toFixed(2)} · curve ${Number(geometry.curve || 0).toFixed(2)}`;
+    if (controls.overlayMeta) {
+      controls.overlayMeta.textContent = movingReverse ? 'reverse · guide hidden' : `visual-only · turn ${Math.abs(Number(geometry.turnIntent || 0)).toFixed(2)} · curve ${Number(geometry.curve || 0).toFixed(2)}`;
+    }
   }
 
   function straightCommand(reverse = false) {

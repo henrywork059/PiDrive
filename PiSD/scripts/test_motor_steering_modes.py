@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import sys
+import time
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -73,6 +74,27 @@ def main() -> int:
                 "intended_left": status.get("last_intended_left"),
                 "intended_right": status.get("last_intended_right"),
             },
+        )
+    finally:
+        close_motor(motor)
+
+
+    motor = MotorService({"steering_mode": "turn_rate", "start_deadzone": 0.25, "start_kick_seconds": 0.04}, hardware_enabled=False)
+    try:
+        left, right = motor.update(steering=0.0, throttle=0.12)
+        immediate = motor.status()
+        time.sleep(0.07)
+        settled = motor.status()
+        ok &= line(
+            abs(left - 0.12) < 1e-9
+            and abs(right - 0.12) < 1e-9
+            and abs(immediate.get("last_left", 0.0) - 0.25) < 1e-9
+            and abs(immediate.get("last_right", 0.0) - 0.25) < 1e-9
+            and abs(settled.get("last_left", 0.0) - 0.12) < 1e-9
+            and abs(settled.get("last_right", 0.0) - 0.12) < 1e-9,
+            "motor.start_deadzone_kick",
+            "low static-start output briefly kicks to the configured dead-zone then settles back to the requested output",
+            {"returned_left": left, "returned_right": right, "immediate": immediate.get("last_command"), "settled": settled.get("last_command")},
         )
     finally:
         close_motor(motor)

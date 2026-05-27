@@ -60,6 +60,8 @@ class MotorConfig:
     steering_mode: str = "turn_rate"
     min_inside_speed: float = 0.0
     allow_pivot_turn: bool = False
+    start_deadzone: float = 0.0
+    start_kick_seconds: float = 0.12
 
     def apply(self, data: dict[str, Any] | None) -> None:
         if not isinstance(data, dict):
@@ -88,6 +90,8 @@ class MotorConfig:
         # PiSD_0_8_2: legacy turn_gain and turn_curve values are intentionally ignored.
         # Steering X now maps linearly to turn tightness: |x| = inside-wheel slowdown.
         self.min_inside_speed = clamp_float(data.get("min_inside_speed", self.min_inside_speed), 0.0, 0.95, self.min_inside_speed)
+        self.start_deadzone = clamp_float(data.get("start_deadzone", self.start_deadzone), 0.0, 0.95, self.start_deadzone)
+        self.start_kick_seconds = clamp_float(data.get("start_kick_seconds", self.start_kick_seconds), 0.0, 0.75, self.start_kick_seconds)
         raw_pivot = data.get("allow_pivot_turn", self.allow_pivot_turn)
         if isinstance(raw_pivot, str):
             self.allow_pivot_turn = raw_pivot.strip().lower() in {"true", "1", "yes", "on"}
@@ -110,6 +114,8 @@ class MotorConfig:
             "steering_mode": str(self.steering_mode),
             "min_inside_speed": float(self.min_inside_speed),
             "allow_pivot_turn": bool(self.allow_pivot_turn),
+            "start_deadzone": float(self.start_deadzone),
+            "start_kick_seconds": float(self.start_kick_seconds),
         }
 
 
@@ -211,6 +217,8 @@ class MotorService:
         self.last_intended_left = 0.0
         self.last_intended_right = 0.0
         self.last_command: dict[str, Any] = {}
+        self._start_kick_timer: threading.Timer | None = None
+        self._start_kick_token = 0
         self.last_error = ""
         self.last_error_code = PiSDErrorCodes.OK
         self.errors = ErrorReporter("motor")
@@ -480,16 +488,30 @@ class MotorService:
             throttle = clamp_float(throttle, -1.0, 1.0, 0.0)
             mix = self.config.steer_mix if steer_mix is None else clamp_float(steer_mix, 0.0, 1.0, self.config.steer_mix)
             left, right, left_intended, right_intended = self._map_drive_locked(steering, throttle, mix)
-            left_ok = self.left.set_speed(left)
-            right_ok = self.right.set_speed(right)
+            previous_left_intended = self.last_intended_left
+            previous_right_intended = self.last_intended_right
+            kick_left, kick_right, kick_active = self._start_kick_outputs_locked(
+                left,
+                right,
+                left_intended,
+                right_intended,
+                previous_left_intended,
+                previous_right_intended,
+            )
+            output_left = kick_left if kick_active else left
+            output_right = kick_right if kick_active else right
+
+            self._cancel_start_kick_locked()
+            left_ok = self.left.set_speed(output_left)
+            right_ok = self.right.set_speed(output_right)
             if not left_ok or not right_ok:
                 self._record(
                     PiSDErrorCodes.MOTOR_OUTPUT_FAILED,
                     "Motor output command failed; last command retained for diagnosis.",
-                    context={"left_ok": left_ok, "right_ok": right_ok, "left": left, "right": right},
+                    context={"left_ok": left_ok, "right_ok": right_ok, "left": output_left, "right": output_right, "target_left": left, "target_right": right},
                 )
-            self.last_left = left
-            self.last_right = right
+            self.last_left = output_left
+            self.last_right = output_right
             self.last_intended_left = left_intended
             self.last_intended_right = right_intended
             self.last_command = {
@@ -499,14 +521,29 @@ class MotorService:
                 "steering_mode": self.config.steering_mode,
                 "min_inside_speed": self.config.min_inside_speed,
                 "allow_pivot_turn": self.config.allow_pivot_turn,
+                "start_deadzone": self.config.start_deadzone,
+                "start_kick_seconds": self.config.start_kick_seconds,
+                "start_kick_active": bool(kick_active),
                 "left_intended": left_intended,
                 "right_intended": right_intended,
-                "left_hardware": left,
-                "right_hardware": right,
+                "left_hardware": output_left,
+                "right_hardware": output_right,
+                "left_hardware_target": left,
+                "right_hardware_target": right,
                 "timestamp": time.time(),
             }
+            if kick_active and self.config.start_kick_seconds > 0.0:
+                self._start_kick_token += 1
+                token = self._start_kick_token
+                self._start_kick_timer = threading.Timer(
+                    self.config.start_kick_seconds,
+                    self._finish_start_kick,
+                    args=(token, left, right, left_intended, right_intended),
+                )
+                self._start_kick_timer.daemon = True
+                self._start_kick_timer.start()
         if not self.hardware_enabled:
-            self._log_sim_command(steering, throttle, mix, left, right)
+            self._log_sim_command(steering, throttle, mix, output_left, output_right)
         return left, right
 
     def stop(self) -> None:
@@ -590,7 +627,76 @@ class MotorService:
         value *= -1.0 if direction < 0 else 1.0
         return clamp_float(value, -1.0, 1.0, 0.0)
 
+    def _start_kick_outputs_locked(
+        self,
+        left: float,
+        right: float,
+        left_intended: float,
+        right_intended: float,
+        previous_left_intended: float,
+        previous_right_intended: float,
+    ) -> tuple[float, float, bool]:
+        """Return hardware outputs with a brief static-start dead-zone kick when needed.
+
+        The kick is applied only when a wheel was logically stopped and is now
+        asked to move below the configured start-deadzone. The public/intended
+        values remain the requested vehicle-motion values; only the hardware PWM
+        is temporarily raised so static friction can be overcome.
+        """
+        threshold = clamp_float(self.config.start_deadzone, 0.0, 0.95, 0.0)
+        if threshold <= 1e-6 or self.config.start_kick_seconds <= 1e-6:
+            return left, right, False
+
+        def kick_one(target: float, intended: float, previous_intended: float) -> tuple[float, bool]:
+            target = clamp_float(target, -1.0, 1.0, 0.0)
+            starting_from_static = abs(previous_intended) <= 1e-4 and abs(intended) > 1e-4
+            needs_kick = starting_from_static and 1e-4 < abs(target) < threshold
+            if not needs_kick:
+                return target, False
+            return (1.0 if target > 0 else -1.0) * threshold, True
+
+        kick_left, left_active = kick_one(left, left_intended, previous_left_intended)
+        kick_right, right_active = kick_one(right, right_intended, previous_right_intended)
+        return kick_left, kick_right, bool(left_active or right_active)
+
+    def _cancel_start_kick_locked(self) -> None:
+        if self._start_kick_timer is not None:
+            try:
+                self._start_kick_timer.cancel()
+            except Exception:
+                pass
+        self._start_kick_timer = None
+        self._start_kick_token += 1
+
+    def _finish_start_kick(self, token: int, left: float, right: float, left_intended: float, right_intended: float) -> None:
+        with self._lock:
+            if token != self._start_kick_token:
+                return
+            left_ok = self.left.set_speed(left)
+            right_ok = self.right.set_speed(right)
+            if not left_ok or not right_ok:
+                self._record(
+                    PiSDErrorCodes.MOTOR_OUTPUT_FAILED,
+                    "Motor start dead-zone kick finished but target output command failed.",
+                    context={"left_ok": left_ok, "right_ok": right_ok, "left": left, "right": right},
+                )
+            self.last_left = left
+            self.last_right = right
+            self.last_intended_left = left_intended
+            self.last_intended_right = right_intended
+            self._start_kick_timer = None
+            if isinstance(self.last_command, dict):
+                self.last_command.update({
+                    "start_kick_active": False,
+                    "left_hardware": left,
+                    "right_hardware": right,
+                    "left_hardware_target": left,
+                    "right_hardware_target": right,
+                    "start_kick_finished_at": time.time(),
+                })
+
     def _stop_locked(self) -> None:
+        self._cancel_start_kick_locked()
         self.last_left = 0.0
         self.last_right = 0.0
         self.last_intended_left = 0.0
@@ -602,6 +708,9 @@ class MotorService:
             "steering_mode": self.config.steering_mode,
             "min_inside_speed": self.config.min_inside_speed,
             "allow_pivot_turn": self.config.allow_pivot_turn,
+            "start_deadzone": self.config.start_deadzone,
+            "start_kick_seconds": self.config.start_kick_seconds,
+            "start_kick_active": False,
             "left_intended": 0.0,
             "right_intended": 0.0,
             "left_hardware": 0.0,

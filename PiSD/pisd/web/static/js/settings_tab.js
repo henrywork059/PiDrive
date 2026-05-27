@@ -26,6 +26,8 @@ function normaliseSettingsForUi(settings = {}) {
   next.motor.allow_pivot_turn = String(next.motor.allow_pivot_turn ?? false).toLowerCase() === 'true' || next.motor.allow_pivot_turn === true;
   next.motor.left_bias = clampNumber(next.motor.left_bias ?? 0.0, -0.35, 0.35, 0.0);
   next.motor.right_bias = clampNumber(next.motor.right_bias ?? 0.0, -0.35, 0.35, 0.0);
+  next.motor.start_deadzone = clampNumber(next.motor.start_deadzone ?? 0.0, 0, 0.95, 0.0);
+  next.motor.start_kick_seconds = clampNumber(next.motor.start_kick_seconds ?? 0.12, 0, 0.75, 0.12);
   next.manual_drive.max_speed_limit = clampNumber(next.manual_drive.max_speed_limit ?? 1.0, 0.1, 1.0, 1.0);
   next.manual_drive.speed = clampNumber(next.manual_drive.speed ?? 0.18, 0, next.manual_drive.max_speed_limit, 0.18);
   delete next.manual_drive.steer_strength;

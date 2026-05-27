@@ -50,6 +50,8 @@
     "steer_mix": 1.0,
     "steering_mode": "turn_rate",
     "min_inside_speed": 0.0,
-    "allow_pivot_turn": false
+    "allow_pivot_turn": false,
+    "start_deadzone": 0.0,
+    "start_kick_seconds": 0.12
   }
 }

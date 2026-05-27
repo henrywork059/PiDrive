@@ -301,6 +301,8 @@ class SettingsManager:
         motor["steering_mode"] = steering_mode if steering_mode in {"turn_rate", "arcade_mix"} else motor_defaults.get("steering_mode", "turn_rate")
         for key, lower, upper, default in (
             ("min_inside_speed", 0.0, 0.95, motor_defaults.get("min_inside_speed", 0.0)),
+            ("start_deadzone", 0.0, 0.95, motor_defaults.get("start_deadzone", 0.0)),
+            ("start_kick_seconds", 0.0, 0.75, motor_defaults.get("start_kick_seconds", 0.12)),
         ):
             try:
                 motor[key] = max(lower, min(upper, float(motor.get(key, default))))

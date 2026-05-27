@@ -445,3 +445,125 @@ body[data-pisd-theme="light"] .mtun-overlay-preview,
 body[data-pisd-theme="light"] .mtun-console {
   background: rgba(15, 23, 42, .08);
 }
+
+/* PiSD_0_8_5: equal two-column tuning layout, compact live preview, and
+   Manual-Drive-matched overlay styling for the calibration preview. */
+.mtun-shell {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+
+.mtun-overlay-preview {
+  min-height: clamp(160px, 24vh, 300px);
+  max-height: min(34vh, 320px);
+}
+
+.mtun-overlay-preview::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 10%;
+  width: min(68%, 560px);
+  height: 78%;
+  transform: translateX(-50%);
+  z-index: 1;
+  pointer-events: none;
+  border: 0;
+  border-radius: 2rem 2rem 1rem 1rem;
+  background:
+    linear-gradient(180deg, rgba(14, 165, 233, .05), transparent 24%, transparent 100%),
+    radial-gradient(ellipse at 50% 8%, rgba(255, 255, 255, .10), transparent 42%);
+}
+
+.mtun-overlay-preview::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 10%;
+  width: min(12%, 70px);
+  height: 78%;
+  transform: translateX(-50%);
+  z-index: 1;
+  pointer-events: none;
+  opacity: .18;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .18), rgba(255, 255, 255, .04));
+  clip-path: polygon(38% 0, 62% 0, 52% 100%, 48% 100%);
+}
+
+.mtun-overlay-svg {
+  inset: auto;
+  left: 50%;
+  top: 10%;
+  width: min(68%, 560px);
+  height: 78%;
+  transform: translateX(-50%);
+  overflow: visible;
+}
+
+.mtun-overlay-svg marker path {
+  fill: rgba(56, 189, 248, .98);
+  stroke: rgba(240, 249, 255, .98);
+  stroke-width: .9;
+  paint-order: stroke fill;
+  filter: drop-shadow(0 0 3px rgba(56, 189, 248, .75));
+}
+
+.mtun-overlay-surface,
+.mtun-overlay-edge,
+.mtun-overlay-center {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  transition: opacity 120ms ease, stroke-width 120ms ease, stroke-dasharray 120ms ease, filter 120ms ease;
+}
+
+.mtun-overlay-surface {
+  fill: url(#mtunRoadFill);
+  stroke: rgba(224, 242, 254, .22);
+  stroke-width: .42;
+  opacity: .30;
+  filter: drop-shadow(0 0 10px rgba(14, 165, 233, .36));
+}
+
+.mtun-overlay-edge {
+  stroke: rgba(236, 253, 245, .96);
+  stroke-width: 1.15;
+  opacity: .92;
+  filter: drop-shadow(0 0 4px rgba(34, 197, 94, .42));
+}
+
+.mtun-overlay-center {
+  stroke: rgba(56, 189, 248, .78);
+  stroke-width: .72;
+  marker-end: url(#mtunOverlayArrow);
+  filter: drop-shadow(0 0 4px rgba(56, 189, 248, .58));
+  opacity: .56;
+}
+
+.mtun-overlay-dot {
+  fill: rgba(255, 255, 255, .92);
+  stroke: rgba(14, 165, 233, .96);
+  stroke-width: 1.0;
+  filter: drop-shadow(0 0 6px rgba(56, 189, 248, .70));
+}
+
+.mtun-overlay-dot.end { fill: rgba(34, 197, 94, .96); }
+
+.mtun-overlay-preview[data-overlay-motion="reverse"] .mtun-overlay-surface,
+.mtun-overlay-preview[data-overlay-motion="reverse"] .mtun-overlay-edge,
+.mtun-overlay-preview[data-overlay-motion="reverse"] .mtun-overlay-center,
+.mtun-overlay-preview[data-overlay-motion="reverse"] .mtun-overlay-dot,
+.mtun-overlay-preview[data-overlay-motion="reverse"] .mtun-overlay-svg marker path {
+  opacity: 0 !important;
+}
+
+.mtun-overlay-preview[data-overlay-motion="stopped"] .mtun-overlay-surface,
+.mtun-overlay-preview[data-overlay-motion="stopped"] .mtun-overlay-edge,
+.mtun-overlay-preview[data-overlay-motion="stopped"] .mtun-overlay-center {
+  opacity: .16;
+}
+
+@media (max-width: 1180px) {
+  .mtun-shell { grid-template-columns: 1fr; }
+}
