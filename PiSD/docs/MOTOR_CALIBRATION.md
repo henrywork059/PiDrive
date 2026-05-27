@@ -222,30 +222,15 @@ Expected behaviour with default `turn_rate` mode:
 | `PISD-MOT-009` | motor channel test output command failed |
 | `PISD-TEST-007` | motor channel test script detected a failed step |
 
-## PiSD 0.7.3 Motor Tuning page
+## PiSD 0.8.7 Motor Tuning page reset
 
-`/motor-tuning` is the preferred page for matching the visual overlay to the real car motion.
+`/motor-tuning` has been cleared in patch `0_8_7` so the calibration workflow can be rebuilt from a clean layout. The previous page panels for safety arming, timed motion, live preview, motor settings, overlay settings, and logs are no longer rendered.
 
-The page separates two tuning jobs:
+This reset does not remove the backend motor behaviour:
 
-1. Motor motion tuning
-   - `steering_mode`
-   - `min_inside_speed`
-   - `allow_pivot_turn`
-   - `steer_mix` for the old `arcade_mix` fallback
+- Linear X steering remains active in `MotorService`.
+- The start dead-zone kick remains a hardware-output aid and does not change intended steering/throttle labels.
+- Overlay tuning remains separate from real motor output.
+- `/api/motor/tune-run` remains available for a future rebuilt UI or direct API checks.
 
-2. Visual overlay matching
-   - `turn_rate_visual_scale` is the main visual match control.
-   - Increase it when the real car turns tighter than the drawn overlay.
-   - Decrease it when the drawn overlay turns tighter than the real car.
-   - Projection/width/curve settings remain visual-only and are stored under `manual_drive.overlay`.
-
-The page provides three safe timed tests:
-
-- Straight travel: run a selected speed for selected seconds.
-- Turn test: run left/right at selected speed, turn amount, and seconds.
-- Custom command: run exact steering/throttle values for selected seconds.
-
-All timed tuning runs call `/api/motor/tune-run`. That endpoint uses the same `MotorService.update()` path used by Manual Drive and AI Mode, then stops the motors after the requested duration. On real hardware, non-zero motion still requires `safety_ack=true` and `enable_motor_output=true` in the request.
-
-This page should be used to tune the actual turning behaviour first, then adjust the overlay until the visual predicted path matches the observed physical path.
+Use Manual Drive and backend tests while the new tuning layout is being designed.

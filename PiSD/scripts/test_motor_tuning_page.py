@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Validate PiSD Motor Tuning page and timed tuning motor command.
+"""Validate the reset PiSD Motor Tuning page.
 
-The static checks do not move motors. The service check runs in simulation mode
-and verifies that the new timed-drive helper always stops after the requested
-short duration.
+Patch 0.8.7 intentionally removes all rendered tuning panels so the page can be
+rebuilt from a clean layout. Backend motor tuning APIs are still checked when the
+optional Flask/runtime dependencies are available and --static-only is not used.
 """
 
 from __future__ import annotations
@@ -19,15 +19,13 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from pisd.app import create_app  # noqa: E402
 from pisd.core.errors import PiSDErrorCodes  # noqa: E402
-from pisd.services.motor_service import MotorService  # noqa: E402
 
 WEB_ROOT = PROJECT_ROOT / "pisd" / "web"
 TEMPLATE = WEB_ROOT / "templates" / "motor_tuning.html"
 CSS = WEB_ROOT / "static" / "css" / "motor_tuning.css"
+LAYOUT_CSS = WEB_ROOT / "static" / "css" / "pisd_layout_system.css"
 JS = WEB_ROOT / "static" / "js" / "motor_tuning.js"
-OVERLAY_JS = WEB_ROOT / "static" / "js" / "overlay_geometry.js"
 OUTPUT_DIR = PROJECT_ROOT / "test_outputs" / "motor_tuning_page"
 SUMMARY_PATH = OUTPUT_DIR / "summary.json"
 
@@ -55,7 +53,7 @@ def emit(result: Result) -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Validate PiSD Motor Tuning page.")
+    parser = argparse.ArgumentParser(description="Validate PiSD Motor Tuning reset page.")
     parser.add_argument("--static-only", action="store_true", help="Skip Flask route and service checks.")
     parser.add_argument("--output", default=str(SUMMARY_PATH), help="Summary JSON output path.")
     return parser.parse_args()
@@ -63,7 +61,7 @@ def parse_args() -> argparse.Namespace:
 
 def check_files() -> list[Result]:
     results: list[Result] = []
-    for name, path in {"template": TEMPLATE, "css": CSS, "js": JS, "overlay_js": OVERLAY_JS}.items():
+    for name, path in {"template": TEMPLATE, "css": CSS, "layout_css": LAYOUT_CSS, "js": JS}.items():
         ok = path.exists() and path.stat().st_size > 0
         results.append(Result(
             f"motor_tuning.file.{name}",
@@ -75,103 +73,99 @@ def check_files() -> list[Result]:
     return results
 
 
-def check_source_contract() -> list[Result]:
+def check_reset_contract() -> list[Result]:
     try:
         template = TEMPLATE.read_text(encoding="utf-8")
         css = CSS.read_text(encoding="utf-8")
+        layout_css = LAYOUT_CSS.read_text(encoding="utf-8")
         js = JS.read_text(encoding="utf-8")
     except Exception as exc:
-        return [Result("motor_tuning.source_contract", False, PiSDErrorCodes.TEST_GUI_ASSET_FAILED, f"failed to read files: {exc}")]
+        return [Result("motor_tuning.reset_contract", False, PiSDErrorCodes.TEST_GUI_ASSET_FAILED, f"failed to read files: {exc}")]
 
     required = {
         "template": [
             "PiSD Motor Tuning",
             "Back to Front Page",
             "motorTuningInitialStatus",
-            "mtunSafetyAck",
-            "mtunEnableMotor",
-            "mtunStraightSpeed",
-            "mtunRunStraightForward",
-            "mtunTurnDirection",
-            "mtunRunTurn",
-            "mtunCustomSteering",
-            "mtunOverlaySurface",
-            "mtunCameraPreview",
-            "mtunStartCamera",
-            "mtunOverlayTurnRateVisualScale",
-            "mtunOverlayCurveResponse",
-            "mtunApplyMotor",
-            "mtunApplyOverlay",
-            "mtunStartDeadzone",
-            "mtunStartKickSeconds",
-            "Intended motor output",
+            "mtun-empty-state",
+            "Motor tuning panels removed",
+            "Safety, timed motion, live preview, overlay controls, motor settings, and log panels have been removed",
         ],
-        "css": [".mtun-shell", ".mtun-panel", ".mtun-overlay-preview", ".mtun-camera-preview", ".mtun-overlay-edge", "grid-template-columns: repeat(2, minmax(0, 1fr))", "marker-end: url(#mtunOverlayArrow)", "@media (max-width: 1180px)"],
-        "js": [
-            "motorTuningInitialStatus",
-            "/api/motor/tune-run",
-            "/api/settings/apply",
-            "/api/control/stop",
-            "roadGuideGeometry",
-            "startLiveCamera",
-            "runTimed",
-            "saveOverlaySettings",
-            "saveMotorSettings",
-            "intendedOutputFrom",
-            "left_intended",
-            "start_deadzone",
-            "start_kick_seconds",
+        "css": [
+            ".mtun-shell",
+            ".mtun-hero",
+            ".mtun-empty-state",
+            "grid-template-columns: minmax(0, 1fr)",
         ],
+        "layout_css": [
+            "PiSD_0_8_7 Motor Tuning reset",
+            "body.motor-tuning-page .mtun-shell",
+            "grid-template-columns: minmax(0, 1fr)",
+        ],
+        "js": ["motorTuningInitialStatus", "mtunGlobalCode", "mtunMotorAdapter"],
     }
-    sources = {"template": template, "css": css, "js": js}
+    sources = {"template": template, "css": css, "layout_css": layout_css, "js": js}
     missing = {name: [token for token in tokens if token not in sources[name]] for name, tokens in required.items()}
     missing = {name: tokens for name, tokens in missing.items() if tokens}
+
+    removed_tokens = [
+        "mtunSafetyAck",
+        "mtunEnableMotor",
+        "mtunStraightSpeed",
+        "mtunRunStraightForward",
+        "mtunTurnDirection",
+        "mtunRunTurn",
+        "mtunCustomSteering",
+        "mtunOverlaySurface",
+        "mtunCameraPreview",
+        "mtunStartCamera",
+        "mtunOverlayTurnRateVisualScale",
+        "mtunApplyMotor",
+        "mtunApplyOverlay",
+        "mtunLog",
+        "mtun-panel",
+        "overlay_geometry.js",
+    ]
+    still_present = [token for token in removed_tokens if token in template]
+
+    old_layout_tokens = ["preview safety", "preview motion", "#motorTuningOverlayPanel", "#motorTuningSafetyPanel"]
+    old_layout_present = [token for token in old_layout_tokens if token in layout_css]
+
     results = [Result(
-        "motor_tuning.source_contract",
+        "motor_tuning.reset_contract",
         not missing,
         PiSDErrorCodes.OK if not missing else PiSDErrorCodes.TEST_GUI_ASSET_FAILED,
-        "motor tuning source contract passed" if not missing else "motor tuning source missing required tokens",
+        "reset page source contract passed" if not missing else "reset page source missing required tokens",
         {"missing": missing},
     )]
-    hero_index = template.find("mtun-kicker")
-    back_index = template.find("Back to Front Page")
-    nav_index = template.find("mtun-status-strip")
-    compact_preview_ok = "min-height: clamp(160px, 24vh, 300px)" in css and "max-height: min(34vh, 320px)" in css
-    equal_columns_ok = "grid-template-columns: repeat(2, minmax(0, 1fr))" in css
-    manual_overlay_style_ok = all(token in css for token in ("rgba(236, 253, 245, .96)", "marker-end: url(#mtunOverlayArrow)", "drop-shadow(0 0 4px rgba(34, 197, 94, .42))"))
-    back_nav_ok = nav_index >= 0 and back_index > nav_index and back_index > hero_index
     results.append(Result(
-        "motor_tuning.back_link_in_header_actions",
-        back_nav_ok,
-        PiSDErrorCodes.OK if back_nav_ok else PiSDErrorCodes.TEST_GUI_ASSET_FAILED,
-        "Back to Front Page is in the header action/status area" if back_nav_ok else "Back link is still placed inside the title block",
-        {"hero_index": hero_index, "nav_index": nav_index, "back_index": back_index},
+        "motor_tuning.panels_removed",
+        not still_present,
+        PiSDErrorCodes.OK if not still_present else PiSDErrorCodes.TEST_GUI_ASSET_FAILED,
+        "old Motor Tuning panels and control IDs are not rendered" if not still_present else "old Motor Tuning panel/control IDs are still present",
+        {"still_present": still_present},
     ))
     results.append(Result(
-        "motor_tuning.preview_compact",
-        compact_preview_ok,
-        PiSDErrorCodes.OK if compact_preview_ok else PiSDErrorCodes.TEST_GUI_ASSET_FAILED,
-        "live camera overlay preview height is capped to a compact calibration size" if compact_preview_ok else "live preview height cap is missing or too large",
-        {},
-    ))
-    results.append(Result(
-        "motor_tuning.equal_columns",
-        equal_columns_ok,
-        PiSDErrorCodes.OK if equal_columns_ok else PiSDErrorCodes.TEST_GUI_ASSET_FAILED,
-        "Motor Tuning shell uses two equal halves on desktop" if equal_columns_ok else "Motor Tuning shell is not using two equal halves",
-        {},
-    ))
-    results.append(Result(
-        "motor_tuning.manual_overlay_style",
-        manual_overlay_style_ok,
-        PiSDErrorCodes.OK if manual_overlay_style_ok else PiSDErrorCodes.TEST_GUI_ASSET_FAILED,
-        "Motor Tuning overlay uses the same green road-edge and blue centre-arrow style as Manual Drive" if manual_overlay_style_ok else "Motor Tuning overlay style does not match Manual Drive",
-        {},
+        "motor_tuning.layout_reset",
+        not old_layout_present,
+        PiSDErrorCodes.OK if not old_layout_present else PiSDErrorCodes.TEST_GUI_ASSET_FAILED,
+        "layout override no longer assigns removed panel grid areas" if not old_layout_present else "layout CSS still references removed tuning panels",
+        {"old_layout_present": old_layout_present},
     ))
     return results
 
 
 def check_timed_drive_simulation() -> list[Result]:
+    try:
+        from pisd.services.motor_service import MotorService
+    except Exception as exc:
+        return [Result(
+            "motor_tuning.timed_drive_simulation",
+            False,
+            PiSDErrorCodes.TEST_IMPORT_FAILED,
+            f"MotorService import failed: {exc}",
+            {"exception_type": type(exc).__name__},
+        )]
     motor = MotorService({"steering_mode": "turn_rate", "start_deadzone": 0.25, "start_kick_seconds": 0.03}, hardware_enabled=False)
     try:
         result = motor.run_timed_drive(steering=0.6, throttle=0.18, duration=0.05, label="test_motor_tuning")
@@ -182,7 +176,7 @@ def check_timed_drive_simulation() -> list[Result]:
             "motor_tuning.timed_drive_simulation",
             ok,
             PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_MOTOR_CHANNEL_FAILED,
-            "timed drive uses turn-rate mapping and stops" if ok else "timed drive did not map/stop as expected",
+            "timed drive backend remains available and stops" if ok else "timed drive backend did not map/stop as expected",
             {"result": result, "last_left": status.get("last_left"), "last_right": status.get("last_right")},
         )]
     finally:
@@ -190,16 +184,26 @@ def check_timed_drive_simulation() -> list[Result]:
 
 
 def check_routes() -> list[Result]:
+    try:
+        from pisd.app import create_app
+    except Exception as exc:
+        return [Result(
+            "motor_tuning.route.import",
+            False,
+            PiSDErrorCodes.TEST_IMPORT_FAILED,
+            f"Flask app import failed: {exc}",
+            {"exception_type": type(exc).__name__},
+        )]
     app = create_app(hardware_enabled=False)
     client = app.test_client()
     results: list[Result] = []
     response = client.get("/motor-tuning")
-    ok = response.status_code == 200 and b"PiSD Motor Tuning" in response.data and b"mtunRunTurn" in response.data
+    ok = response.status_code == 200 and b"PiSD Motor Tuning" in response.data and b"Motor tuning panels removed" in response.data and b"mtunRunTurn" not in response.data
     results.append(Result(
         "motor_tuning.route.page",
         ok,
         PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_GUI_ASSET_FAILED,
-        "/motor-tuning renders" if ok else f"/motor-tuning failed status={response.status_code}",
+        "/motor-tuning reset page renders" if ok else f"/motor-tuning reset page failed status={response.status_code}",
         {"status": response.status_code},
     ))
     response = client.post("/api/motor/tune-run", json={"steering": 0.5, "throttle": 0.12, "duration": 0.05, "label": "route_test"})
@@ -209,7 +213,7 @@ def check_routes() -> list[Result]:
         "motor_tuning.route.tune_run",
         ok,
         PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_API_SCHEMA_FAILED,
-        "/api/motor/tune-run completes in simulation" if ok else "/api/motor/tune-run failed",
+        "/api/motor/tune-run remains available in simulation" if ok else "/api/motor/tune-run failed",
         {"status": response.status_code, "payload_code": payload.get("code")},
     ))
     return results
@@ -219,7 +223,7 @@ def main() -> int:
     args = parse_args()
     results: list[Result] = []
     results.extend(check_files())
-    results.extend(check_source_contract())
+    results.extend(check_reset_contract())
     if not args.static_only:
         results.extend(check_timed_drive_simulation())
         results.extend(check_routes())

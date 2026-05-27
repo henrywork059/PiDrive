@@ -149,7 +149,7 @@ def create_app(hardware_enabled: bool = False):
             "front_page": {"path": "/", "purpose": "Mode selection landing page."},
             "manual_drive": {"path": "/manual-drive", "purpose": "Simple user driving page with camera preview, status, STOP, manual pad, and training-data recording."},
             "ai_mode": {"path": "/ai-mode", "purpose": "AI model loading, preview prediction, and guarded AI drive mode."},
-            "motor_tuning": {"path": "/motor-tuning", "purpose": "Timed straight/turn motor calibration with matching visual overlay tuning."},
+            "motor_tuning": {"path": "/motor-tuning", "purpose": "Cleared calibration workspace prepared for a rebuilt motor tuning layout."},
             "settings_tab": {"path": "/settings", "purpose": "Settings tab for camera/motor/system API checks."},
             "main_dashboard": {"path": "/dashboard", "purpose": "Legacy/development dashboard shell kept for bench comparison; Manual Drive and AI Mode are the current driving pages."},
             "panel_presentation": {"path": "/panel-presentation", "purpose": "Browser-local panel presentation settings that apply across pages."},
