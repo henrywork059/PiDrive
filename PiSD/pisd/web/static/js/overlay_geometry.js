@@ -22,16 +22,15 @@
     perspective_depth: 0.92,
     turn_compression: 0.075,
     turn_width_taper: 0.08,
-    // PiSD_0_7_2: maps the unitless turn_rate motor command to visual ground-plane curvature.
-    // This keeps Turn Gain / Turn Curve aligned with the overlay without making the
-    // displayed path too flat after dropping the older wheelbase/tan-only mapping.
+    // PiSD_0_8_1: visual-only manual scaling. Motor turn_gain was removed and
+    // motor Turn Curve no longer drives the overlay; the user calibrates this
+    // number against the real camera view and real car motion.
     turn_rate_visual_scale: 2.2,
   };
 
   const DEFAULT_MOTOR = {
     steering_mode: 'turn_rate',
     steer_mix: 1.0,
-    turn_gain: 0.75,
     turn_curve: 1.5,
     min_inside_speed: 0.0,
     allow_pivot_turn: false,
@@ -72,18 +71,18 @@
     return {
       steering_mode: mode === 'arcade_mix' ? 'arcade_mix' : 'turn_rate',
       steer_mix: clamp(motorNumberSetting(motorSettings, 'steer_mix', DEFAULT_MOTOR.steer_mix), 0, 2, DEFAULT_MOTOR.steer_mix),
-      turn_gain: clamp(motorNumberSetting(motorSettings, 'turn_gain', DEFAULT_MOTOR.turn_gain), 0, 5, DEFAULT_MOTOR.turn_gain),
       turn_curve: clamp(motorNumberSetting(motorSettings, 'turn_curve', DEFAULT_MOTOR.turn_curve), 0.05, 8, DEFAULT_MOTOR.turn_curve),
       min_inside_speed: clamp(motorNumberSetting(motorSettings, 'min_inside_speed', DEFAULT_MOTOR.min_inside_speed), 0, 0.99, DEFAULT_MOTOR.min_inside_speed),
       allow_pivot_turn: motorBoolSetting(motorSettings, 'allow_pivot_turn', DEFAULT_MOTOR.allow_pivot_turn),
     };
   }
 
-  function turnRateIntent(steering, motor) {
+  function visualTurnIntent(steering, settings = {}, defaults = DEFAULT_OVERLAY) {
     const safeSteering = clamp(steering, -1, 1, 0);
     if (Math.abs(safeSteering) <= 1e-6) return 0;
-    const shaped = Math.pow(Math.abs(safeSteering), motor.turn_curve);
-    return clamp(Math.sign(safeSteering) * shaped * motor.turn_gain, -1, 1, 0);
+    const response = clamp(numberSetting(settings, defaults, 'curve_response'), 0.2, 4.0, DEFAULT_OVERLAY.curve_response);
+    const shaped = Math.pow(Math.abs(safeSteering), response);
+    return clamp(Math.sign(safeSteering) * shaped, -1, 1, 0);
   }
 
   function appendCurveSegments(points, commands) {
@@ -168,12 +167,12 @@
     const motor = normaliseMotorSettings(options.motorSettings || {});
     const visualSteering = safeSteering;
     const curvatureGain = (Number.isFinite(curveStrength) && DEFAULT_OVERLAY.curve_strength !== 0) ? curveStrength / DEFAULT_OVERLAY.curve_strength : 1.0;
-    const turnIntent = turnRateIntent(visualSteering, motor);
+    const turnIntent = visualTurnIntent(visualSteering, settings, defaults);
     let curvature = 0;
     if (motor.steering_mode === 'turn_rate') {
-      // PiSD_0_7_2: mirror MotorService turn_rate semantics. Steering now means
-      // unitless path tightness, not a wheel-angle proxy, so Turn Gain and Turn
-      // Curve must shape the overlay in the same way they shape motor output.
+      // PiSD_0_8_1: overlay tuning is separated from motor tuning. Motor
+      // turn_curve changes real wheel mixing only; the overlay path is calibrated
+      // manually with visual-only curve_response and turn_rate_visual_scale.
       curvature = turnIntent * curvatureScale * curvatureGain * turnRateVisualScale;
     } else {
       // Fallback for the old arcade mixer. This preserves the previous visual
@@ -250,8 +249,8 @@
       curve: curvature * curveStrength,
       turnIntent,
       steeringMode: motor.steering_mode,
-      turnGain: motor.turn_gain,
-      turnCurve: motor.turn_curve,
+      overlayCurveResponse: curveResponse,
+      motorTurnCurve: motor.turn_curve,
       movingReverse,
       speed,
     };
@@ -264,6 +263,7 @@
     roadBoundaryPath,
     roadGuideGeometry,
     normaliseMotorSettings,
-    turnRateIntent,
+    visualTurnIntent,
+    turnRateIntent: visualTurnIntent,
   };
 })();

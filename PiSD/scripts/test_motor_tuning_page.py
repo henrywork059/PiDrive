@@ -96,18 +96,21 @@ def check_source_contract() -> list[Result]:
             "mtunRunTurn",
             "mtunCustomSteering",
             "mtunOverlaySurface",
+            "mtunCameraPreview",
+            "mtunStartCamera",
             "mtunOverlayTurnRateVisualScale",
+            "mtunOverlayCurveResponse",
             "mtunApplyMotor",
             "mtunApplyOverlay",
         ],
-        "css": [".mtun-shell", ".mtun-panel", ".mtun-overlay-preview", ".mtun-overlay-edge", "@media (max-width: 1180px)"],
+        "css": [".mtun-shell", ".mtun-panel", ".mtun-overlay-preview", ".mtun-camera-preview", ".mtun-overlay-edge", "@media (max-width: 1180px)"],
         "js": [
             "motorTuningInitialStatus",
             "/api/motor/tune-run",
             "/api/settings/apply",
             "/api/control/stop",
             "roadGuideGeometry",
-            "turnRateIntent",
+            "startLiveCamera",
             "runTimed",
             "saveOverlaySettings",
             "saveMotorSettings",
@@ -126,7 +129,7 @@ def check_source_contract() -> list[Result]:
 
 
 def check_timed_drive_simulation() -> list[Result]:
-    motor = MotorService({"steering_mode": "turn_rate", "turn_gain": 0.75, "turn_curve": 1.5}, hardware_enabled=False)
+    motor = MotorService({"steering_mode": "turn_rate", "turn_curve": 1.5}, hardware_enabled=False)
     try:
         result = motor.run_timed_drive(steering=0.6, throttle=0.18, duration=0.05, label="test_motor_tuning")
         status = motor.status()

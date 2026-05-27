@@ -58,7 +58,6 @@ class MotorConfig:
     right_bias: float = 0.0
     steer_mix: float = 1.0
     steering_mode: str = "turn_rate"
-    turn_gain: float = 0.75
     turn_curve: float = 1.5
     min_inside_speed: float = 0.0
     allow_pivot_turn: bool = False
@@ -87,7 +86,9 @@ class MotorConfig:
         self.steer_mix = clamp_float(data.get("steer_mix", self.steer_mix), 0.0, 1.0, self.steer_mix)
         steering_mode = str(data.get("steering_mode", self.steering_mode) or self.steering_mode).strip().lower()
         self.steering_mode = steering_mode if steering_mode in {"turn_rate", "arcade_mix"} else self.steering_mode
-        self.turn_gain = clamp_float(data.get("turn_gain", self.turn_gain), 0.0, 2.0, self.turn_gain)
+        # PiSD_0_8_1: legacy turn_gain values are intentionally ignored.
+        # Steering tightness now always spans straight to the tightest non-pivot
+        # turn; turn_curve is the only turn-rate response shaping value.
         self.turn_curve = clamp_float(data.get("turn_curve", self.turn_curve), 0.1, 5.0, self.turn_curve)
         self.min_inside_speed = clamp_float(data.get("min_inside_speed", self.min_inside_speed), 0.0, 0.95, self.min_inside_speed)
         raw_pivot = data.get("allow_pivot_turn", self.allow_pivot_turn)
@@ -110,7 +111,6 @@ class MotorConfig:
             "right_bias": float(self.right_bias),
             "steer_mix": float(self.steer_mix),
             "steering_mode": str(self.steering_mode),
-            "turn_gain": float(self.turn_gain),
             "turn_curve": float(self.turn_curve),
             "min_inside_speed": float(self.min_inside_speed),
             "allow_pivot_turn": bool(self.allow_pivot_turn),
@@ -289,7 +289,7 @@ class MotorService:
         """Run a normal differential-drive command for a short timed tuning test.
 
         This uses the same ``update`` path as Manual Drive and AI Mode, so it
-        respects steering_mode, Turn Gain, Turn Curve, motor direction, bias,
+        respects steering_mode, Turn Curve, motor direction, bias,
         and max-speed settings. It always requests a stop in ``finally`` so a
         tuning run cannot leave the last command latched after the delay.
         """
@@ -473,7 +473,6 @@ class MotorService:
                 "throttle": throttle,
                 "steer_mix": mix,
                 "steering_mode": self.config.steering_mode,
-                "turn_gain": self.config.turn_gain,
                 "turn_curve": self.config.turn_curve,
                 "min_inside_speed": self.config.min_inside_speed,
                 "allow_pivot_turn": self.config.allow_pivot_turn,
@@ -523,9 +522,12 @@ class MotorService:
         """
         speed = clamp_float(throttle, -1.0, 1.0, 0.0)
         steer = clamp_float(steering, -1.0, 1.0, 0.0)
-        gain = clamp_float(self.config.turn_gain, 0.0, 2.0, 0.75)
         curve = clamp_float(self.config.turn_curve, 0.1, 5.0, 1.5)
-        turn_mag = clamp_float((abs(steer) ** curve) * gain, 0.0, 1.0, 0.0)
+        # PiSD_0_8_1: remove turn_gain from real motor steering.
+        # Full steering (|steer| == 1) now always reaches the configured tightest
+        # turn-rate command. With the default min_inside_speed=0, the inside wheel
+        # stops and the outside wheel keeps the requested travel speed.
+        turn_mag = clamp_float(abs(steer) ** curve, 0.0, 1.0, 0.0)
         if turn_mag <= 1e-6:
             return speed, speed
 
@@ -561,7 +563,6 @@ class MotorService:
             "throttle": 0.0,
             "steer_mix": self.config.steer_mix,
             "steering_mode": self.config.steering_mode,
-            "turn_gain": self.config.turn_gain,
             "turn_curve": self.config.turn_curve,
             "min_inside_speed": self.config.min_inside_speed,
             "allow_pivot_turn": self.config.allow_pivot_turn,
@@ -587,7 +588,7 @@ class MotorService:
         if now - self._last_sim_log_at >= 0.35:
             print(
                 f"[PiSD MOTOR SIM] steering={steering:+.2f} throttle={throttle:+.2f} "
-                f"mode={self.config.steering_mode} mix={steer_mix:.2f} turn_gain={self.config.turn_gain:.2f} "
+                f"mode={self.config.steering_mode} mix={steer_mix:.2f} turn_curve={self.config.turn_curve:.2f} "
                 f"left={left:+.2f} right={right:+.2f}"
             )
             self._last_sim_log_at = now

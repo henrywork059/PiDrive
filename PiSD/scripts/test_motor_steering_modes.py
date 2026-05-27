@@ -33,12 +33,12 @@ def close_motor(motor: MotorService) -> None:
 def main() -> int:
     ok = True
 
-    motor = MotorService({"steering_mode": "turn_rate", "turn_gain": 0.75, "turn_curve": 1.5}, hardware_enabled=False)
+    motor = MotorService({"steering_mode": "turn_rate", "turn_curve": 1.5}, hardware_enabled=False)
     try:
         left, right = motor.update(steering=1.0, throttle=0.40)
-        ok &= line(left > right >= 0.0, "motor.turn_rate.right_curve", "right curve slows the right/inside wheel without reversing", {"left": left, "right": right})
+        ok &= line(abs(left - 0.40) < 1e-9 and abs(right) < 1e-9, "motor.turn_rate.right_curve", "full right steering stops the right/inside wheel without turn_gain", {"left": left, "right": right})
         left, right = motor.update(steering=-1.0, throttle=0.40)
-        ok &= line(right > left >= 0.0, "motor.turn_rate.left_curve", "left curve slows the left/inside wheel without reversing", {"left": left, "right": right})
+        ok &= line(abs(right - 0.40) < 1e-9 and abs(left) < 1e-9, "motor.turn_rate.left_curve", "full left steering stops the left/inside wheel without turn_gain", {"left": left, "right": right})
         left, right = motor.update(steering=0.0, throttle=0.40)
         ok &= line(abs(left - 0.40) < 1e-9 and abs(right - 0.40) < 1e-9, "motor.turn_rate.straight", "straight command keeps both wheels equal", {"left": left, "right": right})
         left, right = motor.update(steering=1.0, throttle=0.0)
@@ -46,7 +46,7 @@ def main() -> int:
     finally:
         close_motor(motor)
 
-    motor = MotorService({"steering_mode": "turn_rate", "turn_gain": 0.75, "turn_curve": 1.5, "allow_pivot_turn": True}, hardware_enabled=False)
+    motor = MotorService({"steering_mode": "turn_rate", "turn_curve": 1.5, "allow_pivot_turn": True}, hardware_enabled=False)
     try:
         left, right = motor.update(steering=1.0, throttle=0.0)
         ok &= line(left > 0.0 and right < 0.0, "motor.turn_rate.pivot_optional", "optional pivot mode can still spin in place when explicitly enabled", {"left": left, "right": right})

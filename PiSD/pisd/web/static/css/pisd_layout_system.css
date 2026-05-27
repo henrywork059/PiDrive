@@ -40,7 +40,8 @@ body[data-pisd-layout-system="strict-responsive"] {
 .md-shell,
 .pp-shell,
 .pt-shell,
-.mdrv-shell {
+.mdrv-shell,
+.mtun-shell {
   width: min(var(--pisd-layout-page-max), calc(100vw - (2 * var(--pisd-layout-page-gutter)))) !important;
   max-width: min(var(--pisd-layout-page-max), calc(100vw - (2 * var(--pisd-layout-page-gutter)))) !important;
   margin-inline: auto !important;
@@ -53,7 +54,7 @@ body[data-pisd-layout-system="strict-responsive"] {
 :is(.fp-hero, .fp-mode-card, .fp-quick-actions,
     .st-card, .card, .md-panel, .pp-card, .pp-preview-panel,
     .pt-control-panel, .pt-control-section, .pt-panel,
-    .mdrv-panel) {
+    .mdrv-panel, .mtun-hero, .mtun-panel) {
   min-width: 0 !important;
   max-width: 100% !important;
   padding: var(--pisd-layout-panel-pad) !important;
@@ -61,28 +62,28 @@ body[data-pisd-layout-system="strict-responsive"] {
   overflow: hidden !important;
 }
 
-:is(.st-card-head, .card-header, .md-panel-head, .pp-card-head, .pt-panel-head, .mdrv-panel-head) {
+:is(.st-card-head, .card-header, .md-panel-head, .pp-card-head, .pt-panel-head, .mdrv-panel-head, .mtun-panel-head) {
   min-width: 0 !important;
   gap: 0.48rem !important;
 }
 
-:is(.st-form-grid, .form-grid, .md-form-grid, .pp-control-grid) {
+:is(.st-form-grid, .form-grid, .md-form-grid, .pp-control-grid, .mtun-settings-grid, .mtun-overlay-grid) {
   display: grid !important;
   grid-template-columns: repeat(auto-fit, var(--pisd-layout-form-min)) !important;
   gap: 0.52rem !important;
 }
 
-:is(.st-form-grid, .form-grid, .md-form-grid, .pp-control-grid) label {
+:is(.st-form-grid, .form-grid, .md-form-grid, .pp-control-grid, .mtun-settings-grid, .mtun-overlay-grid) label {
   min-width: 0 !important;
 }
 
 /* Compact topbars on every page. They should give space back to content. */
-:is(.st-topbar, .mdrv-topbar, .topbar, .md-topbar, .pp-topbar, .pt-hero) {
+:is(.st-topbar, .mdrv-topbar, .topbar, .md-topbar, .pp-topbar, .pt-hero, .mtun-hero) {
   min-height: var(--pisd-layout-topbar-min) !important;
   padding: 0.34rem 0.62rem !important;
 }
 
-:is(.st-subtitle, .subtitle, .md-subtitle, .pp-subtitle, .pt-summary, .fp-summary) {
+:is(.st-subtitle, .subtitle, .md-subtitle, .pp-subtitle, .pt-summary, .fp-summary, .mtun-summary) {
   display: none !important;
 }
 
@@ -120,7 +121,8 @@ body.front-page .fp-quick-actions {
    directly below status in the main column. Manual Control and Safety are in
    the right control column. Phone/tablet portrait stacks in the same semantic
    order. */
-body.manual-drive-page .mdrv-shell {
+body.manual-drive-page .mdrv-shell,
+.mtun-shell {
   display: grid !important;
   grid-template-columns:
     minmax(var(--pisd-layout-preview-min), 1fr)
@@ -313,7 +315,8 @@ body.panel-testing-page .pt-control-panel {
 
 /* Medium screens: keep main relations, reduce column counts. */
 @media (max-width: 1099px) {
-  body.manual-drive-page .mdrv-shell {
+  body.manual-drive-page .mdrv-shell,
+.mtun-shell {
     grid-template-columns: minmax(0, 1fr) minmax(280px, 0.48fr) !important;
     grid-template-areas:
       "status status"
@@ -366,7 +369,7 @@ body.panel-testing-page .pt-control-panel {
     --pisd-layout-page-gutter: 6px;
     --pisd-layout-gap: 7px;
   }
-  :is(.st-topbar, .mdrv-topbar, .topbar, .md-topbar, .pp-topbar, .pt-hero) {
+  :is(.st-topbar, .mdrv-topbar, .topbar, .md-topbar, .pp-topbar, .pt-hero, .mtun-hero) {
     position: static !important;
     flex-direction: column !important;
     align-items: flex-start !important;
@@ -379,7 +382,8 @@ body.panel-testing-page .pt-control-panel {
   body.panel-presentation-page .pp-shell,
   body.panel-presentation-page .pp-panel-grid,
   body.panel-testing-page .pt-shell,
-  body.manual-drive-page .mdrv-shell {
+  body.manual-drive-page .mdrv-shell,
+.mtun-shell {
     grid-template-columns: 1fr !important;
   }
   body.settings-page .st-grid,
@@ -387,7 +391,8 @@ body.panel-testing-page .pt-control-panel {
   body.dashboard-page .md-shell {
     grid-template-areas: none !important;
   }
-  body.manual-drive-page .mdrv-shell {
+  body.manual-drive-page .mdrv-shell,
+.mtun-shell {
     grid-template-areas:
       "status"
       "preview"
@@ -439,4 +444,32 @@ body.panel-testing-page .pt-control-panel {
   }
   body.manual-drive-page .mdrv-panel-head { margin-bottom: 0.34rem !important; }
   body.manual-drive-page .mdrv-compact-actions { gap: 0.28rem !important; }
+}
+
+
+/* PiSD_0_8_1 Motor Tuning: align with shared two-column responsive layout. */
+body.motor-tuning-page .mtun-shell {
+  display: grid !important;
+  grid-template-columns: minmax(var(--pisd-layout-preview-min), 1fr) minmax(var(--pisd-layout-control-min), min(var(--pisd-layout-control-ideal), var(--pisd-layout-control-max))) !important;
+  grid-template-areas:
+    "hero hero"
+    "preview safety"
+    "preview motion"
+    "motor overlay"
+    "log log" !important;
+  grid-auto-flow: row !important;
+  grid-auto-rows: min-content !important;
+}
+body.motor-tuning-page .mtun-hero { grid-area: hero !important; grid-column: 1 / -1 !important; }
+body.motor-tuning-page #motorTuningOverlayPanel { grid-area: preview !important; align-self: stretch !important; display: flex !important; flex-direction: column !important; }
+body.motor-tuning-page #motorTuningSafetyPanel { grid-area: safety !important; }
+body.motor-tuning-page #motorTuningMotionPanel { grid-area: motion !important; }
+body.motor-tuning-page #motorTuningSettingsPanel { grid-area: motor !important; }
+body.motor-tuning-page #motorTuningOverlaySettingsPanel { grid-area: overlay !important; }
+body.motor-tuning-page #motorTuningLogPanel { grid-area: log !important; grid-column: 1 / -1 !important; }
+@media (max-width: 1100px) {
+  body.motor-tuning-page .mtun-shell {
+    grid-template-columns: 1fr !important;
+    grid-template-areas: "hero" "preview" "safety" "motion" "motor" "overlay" "log" !important;
+  }
 }

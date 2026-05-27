@@ -5,9 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>PiSD Motor Tuning</title>
   <link rel="stylesheet" href="{{ static_asset('css/panel_presentation_global.css') }}">
-  <link rel="stylesheet" href="{{ static_asset('css/pisd_design_system.css') }}">
-  <link rel="stylesheet" href="{{ static_asset('css/unified_layout.css') }}">
   <link rel="stylesheet" href="{{ static_asset('css/motor_tuning.css') }}">
+  <link rel="stylesheet" href="{{ static_asset('css/unified_layout.css') }}">
+  <link rel="stylesheet" href="{{ static_asset('css/pisd_design_system.css') }}">
+  <link rel="stylesheet" href="{{ static_asset('css/pisd_layout_system.css') }}">
   <script src="{{ static_asset('js/panel_presentation_global.js') }}" defer></script>
 </head>
 <body class="motor-tuning-page">
@@ -79,10 +80,11 @@
       </div>
     </section>
 
-    <section class="mtun-panel mtun-preview-panel" id="motorTuningOverlayPanel">
-      <div class="mtun-panel-head"><div><p class="mtun-label">Visual match</p><h2>Overlay preview</h2></div><span class="mtun-code" data-code-for="overlay">PISD-OK-000</span></div>
-      <div id="mtunOverlayPreview" class="mtun-overlay-preview" aria-label="Motor tuning overlay preview">
-        <svg id="mtunOverlaySvg" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="Predicted path overlay">
+    <section class="mtun-panel mtun-preview-panel" id="motorTuningOverlayPanel" data-panel-role="preview" data-panel-h-weight="2" data-panel-v-weight="2">
+      <div class="mtun-panel-head"><div><p class="mtun-label">Live visual match</p><h2>Camera frame + overlay</h2></div><span class="mtun-code" data-code-for="overlay">PISD-OK-000</span></div>
+      <div id="mtunOverlayPreview" class="mtun-overlay-preview" aria-label="Motor tuning live camera overlay preview">
+        <img id="mtunCameraPreview" class="mtun-camera-preview" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720'%3E%3Crect width='1280' height='720' fill='%23020617'/%3E%3Ctext x='640' y='340' fill='%2394a3b8' font-family='Arial,sans-serif' font-size='42' text-anchor='middle'%3EMotor tuning preview%3C/text%3E%3Ctext x='640' y='398' fill='%2364748b' font-family='Arial,sans-serif' font-size='26' text-anchor='middle'%3EStarting camera stream...%3C/text%3E%3C/svg%3E" alt="Live camera frame for overlay calibration" data-preview-mode="idle">
+        <svg id="mtunOverlaySvg" class="mtun-overlay-svg" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="Predicted path overlay">
           <defs>
             <linearGradient id="mtunRoadFill" x1="0" y1="1" x2="0" y2="0">
               <stop offset="0" stop-color="rgba(56, 189, 248, .50)"></stop>
@@ -98,7 +100,13 @@
         </svg>
         <div class="mtun-overlay-hud"><strong id="mtunOverlayLabel">straight preview</strong><span id="mtunOverlayMeta">turn 0.00 · curve 0.00</span></div>
       </div>
-      <p class="mtun-help">Use the latest real motion test as the reference: if the real car turns tighter than the drawn path, increase visual tightness; if the drawn path is too tight, reduce it.</p>
+      <div class="mtun-row mtun-camera-actions">
+        <button id="mtunStartCamera" class="mtun-button mtun-primary" type="button">Start camera + live</button>
+        <button id="mtunSnapshotCamera" class="mtun-button" type="button">Snapshot frame</button>
+        <button id="mtunStopCamera" class="mtun-button" type="button">Stop camera only</button>
+      </div>
+      <p id="mtunCameraNotice" class="mtun-help">Live preview is used only for visual calibration. Motor tests still require the safety arm controls above.</p>
+      <p class="mtun-help">Use the real camera frame and latest physical motion test as the reference: if the real car turns tighter than the drawn path, increase visual tightness; if the drawn path is too tight, reduce it.</p>
     </section>
 
     <section class="mtun-panel mtun-settings-panel" id="motorTuningSettingsPanel">
@@ -110,7 +118,6 @@
             <option value="arcade_mix">arcade_mix fallback</option>
           </select>
         </label>
-        <label>Turn Gain <input id="mtunTurnGain" name="turn_gain" type="number" step="0.01" value="0.75" inputmode="decimal"></label>
         <label>Turn Curve <input id="mtunTurnCurve" name="turn_curve" type="number" step="0.01" value="1.50" inputmode="decimal"></label>
         <label>Min Inside Speed <input id="mtunMinInsideSpeed" name="min_inside_speed" type="number" step="0.01" value="0.00" inputmode="decimal"></label>
         <label>Steer Mix <input id="mtunSteerMix" name="steer_mix" type="number" step="0.01" value="1.00" inputmode="decimal"></label>
@@ -120,14 +127,15 @@
         <button id="mtunApplyMotor" class="mtun-button mtun-primary" type="button">Save motor tuning</button>
         <button id="mtunRefreshStatus" class="mtun-button" type="button">Refresh status</button>
       </div>
-      <p class="mtun-help">Turn Gain and Turn Curve affect real motor output in <code>turn_rate</code> mode. The overlay preview uses the same values plus the visual-only settings below.</p>
+      <p class="mtun-help">Turn Curve affects real motor output in <code>turn_rate</code> mode. The overlay is calibrated separately with the visual-only settings below and does not change the motor algorithm.</p>
     </section>
 
     <section class="mtun-panel mtun-overlay-settings-panel" id="motorTuningOverlaySettingsPanel">
       <div class="mtun-panel-head"><div><p class="mtun-label">Overlay calibration</p><h2>Match visual path to real motion</h2></div><span class="mtun-code" data-code-for="overlay-settings">PISD-OK-000</span></div>
       <form id="mtunOverlayForm" class="mtun-overlay-grid">
-        <label>Turn-rate visual scale <small>Main match control for turning radius</small><input id="mtunOverlayTurnRateVisualScale" name="turn_rate_visual_scale" type="number" step="0.05" value="2.2" inputmode="decimal"></label>
-        <label>Curve strength <small>General curve response</small><input id="mtunOverlayCurveStrength" name="curve_strength" type="number" step="0.05" value="3.35" inputmode="decimal"></label>
+        <label>Turn-rate visual scale <small>Main manual match for turning radius</small><input id="mtunOverlayTurnRateVisualScale" name="turn_rate_visual_scale" type="number" step="0.05" value="2.2" inputmode="decimal"></label>
+        <label>Visual curve response <small>Overlay-only steering exponent</small><input id="mtunOverlayCurveResponse" name="curve_response" type="number" step="0.01" value="1.05" inputmode="decimal"></label>
+        <label>Curve strength <small>General visual curve response</small><input id="mtunOverlayCurveStrength" name="curve_strength" type="number" step="0.05" value="3.35" inputmode="decimal"></label>
         <label>Curvature scale <small>Base curve multiplier</small><input id="mtunOverlayCurvatureScale" name="curvature_scale" type="number" step="0.01" value="0.52" inputmode="decimal"></label>
         <label>Curvature limit <small>Maximum visual bend</small><input id="mtunOverlayCurvatureLimit" name="curvature_limit" type="number" step="0.05" value="2.25" inputmode="decimal"></label>
         <label>Path length scale <small>Forward reach</small><input id="mtunOverlayPathLengthScale" name="path_length_scale" type="number" step="0.05" value="1.00" inputmode="decimal"></label>

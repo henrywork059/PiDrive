@@ -26,7 +26,6 @@
   const DEFAULT_MOTOR_SETTINGS = {
     steering_mode: 'turn_rate',
     steer_mix: 1.0,
-    turn_gain: 0.75,
     turn_curve: 1.5,
     min_inside_speed: 0.0,
     allow_pivot_turn: false,
@@ -54,7 +53,6 @@
     return {
       steering_mode: mode === 'arcade_mix' ? 'arcade_mix' : 'turn_rate',
       steer_mix: clamp(source.steer_mix, 0, 2, DEFAULT_MOTOR_SETTINGS.steer_mix),
-      turn_gain: clamp(source.turn_gain, 0, 5, DEFAULT_MOTOR_SETTINGS.turn_gain),
       turn_curve: clamp(source.turn_curve, 0.05, 8, DEFAULT_MOTOR_SETTINGS.turn_curve),
       min_inside_speed: clamp(source.min_inside_speed, 0, 0.99, DEFAULT_MOTOR_SETTINGS.min_inside_speed),
       allow_pivot_turn: allowPivot,

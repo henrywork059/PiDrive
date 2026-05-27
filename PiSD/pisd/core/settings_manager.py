@@ -293,10 +293,13 @@ class SettingsManager:
         except Exception:
             motor["steer_mix"] = self.defaults.get("motor", {}).get("steer_mix", 1.0)
         motor_defaults = self.defaults.get("motor", {})
+        # PiSD_0_8_1: remove legacy turn_gain from persisted runtime state.
+        # Existing files may still contain it, but it no longer affects motors or
+        # overlay drawing and should not be surfaced back to the UI.
+        motor.pop("turn_gain", None)
         steering_mode = str(motor.get("steering_mode", motor_defaults.get("steering_mode", "turn_rate")) or "turn_rate").strip().lower()
         motor["steering_mode"] = steering_mode if steering_mode in {"turn_rate", "arcade_mix"} else motor_defaults.get("steering_mode", "turn_rate")
         for key, lower, upper, default in (
-            ("turn_gain", 0.0, 2.0, motor_defaults.get("turn_gain", 0.75)),
             ("turn_curve", 0.1, 5.0, motor_defaults.get("turn_curve", 1.5)),
             ("min_inside_speed", 0.0, 0.95, motor_defaults.get("min_inside_speed", 0.0)),
         ):

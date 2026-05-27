@@ -148,7 +148,7 @@
             </div>
             <button id="mdrvOverlaySettingsClose" class="mdrv-button" type="button" aria-label="Close overlay settings">Close</button>
           </div>
-          <p class="mdrv-overlay-calibration-note">These settings change only the preview overlay, not the motor output. In turn_rate steering mode, the overlay also reads the saved motor Turn Gain and Turn Curve so the visual path follows the same curve-tightness meaning as the motors. Number fields are not limited by the old slider ranges; invalid values fall back to defaults and the renderer still uses internal safety guards so the SVG cannot break the page.</p>
+          <p class="mdrv-overlay-calibration-note">These settings change only the preview overlay, not the motor output. The overlay is now calibrated manually against the real camera view and real car motion; motor Turn Curve does not automatically change the visual path. Number fields are not limited by the old slider ranges; invalid values fall back to defaults and the renderer still uses internal safety guards so the SVG cannot break the page.</p>
           <div class="mdrv-overlay-settings-grid">
             <fieldset>
               <legend>Path shape</legend>
@@ -163,7 +163,7 @@
               <label><span>Max steer rad<small>Maximum visual steering angle</small></span><input id="mdrvOverlayMaxSteerRad" type="number" step="0.01" value="0.62" inputmode="decimal"></label>
               <label><span>Curve response<small>Input shaping exponent</small></span><input id="mdrvOverlayCurveResponse" type="number" step="0.01" value="1.05" inputmode="decimal"></label>
               <label><span>Curvature scale<small>Base visual curve multiplier</small></span><input id="mdrvOverlayCurvatureScale" type="number" step="0.01" value="0.52" inputmode="decimal"></label>
-              <label><span>Turn-rate visual scale<small>Maps Turn Gain to overlay tightness</small></span><input id="mdrvOverlayTurnRateVisualScale" type="number" step="0.05" value="2.2" inputmode="decimal"></label>
+              <label><span>Turn-rate visual scale<small>Manual match for overlay tightness</small></span><input id="mdrvOverlayTurnRateVisualScale" type="number" step="0.05" value="2.2" inputmode="decimal"></label>
               <label><span>Curvature limit<small>Safety limit for extreme turns</small></span><input id="mdrvOverlayCurvatureLimit" type="number" step="0.05" value="2.25" inputmode="decimal"></label>
               <label><span>Entry blend start<small>Lower = softer curve entry</small></span><input id="mdrvOverlayEntryBlendStart" type="number" step="0.01" value="0.76" inputmode="decimal"></label>
             </fieldset>

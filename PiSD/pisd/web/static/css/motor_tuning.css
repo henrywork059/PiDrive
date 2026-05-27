@@ -342,3 +342,98 @@ body.motor-tuning-page {
   .mtun-settings-grid, .mtun-overlay-grid, .mtun-output-row { grid-template-columns: 1fr; }
   .mtun-overlay-preview, .mtun-overlay-preview svg { min-height: 300px; }
 }
+
+/* PiSD_0_8_1: align Motor Tuning with shared PiSD page/panel styling and
+   draw the visual calibration overlay directly over the live camera frame. */
+:root {
+  --mtun-bg: var(--pisd-page-bg, #07101d);
+  --mtun-panel: var(--pisd-panel-bg, rgba(15, 23, 42, .94));
+  --mtun-panel-2: var(--pisd-panel-bg-2, rgba(20, 30, 48, .96));
+  --mtun-border: var(--pisd-panel-line, rgba(148, 163, 184, .24));
+  --mtun-text: var(--pisd-text, #e5eefc);
+  --mtun-muted: var(--pisd-muted, #98adc9);
+  --mtun-primary: var(--pisd-blue, #38bdf8);
+  --mtun-danger: var(--pisd-red, #fb7185);
+  --mtun-ok: var(--pisd-green, #bbf7d0);
+}
+
+body.motor-tuning-page {
+  background: radial-gradient(circle at top left, rgba(56, 189, 248, .10), transparent 28rem), linear-gradient(180deg, var(--pisd-page-bg, #07101d), var(--pisd-page-bg-soft, #0b1220));
+}
+
+.mtun-hero,
+.mtun-panel {
+  background: var(--pisd-panel-bg, rgba(15, 23, 42, .94));
+  border-color: var(--pisd-panel-line, rgba(148, 163, 184, .26));
+  border-radius: var(--pisd-ui-radius, 14px);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, var(--pisd-ui-shadow-alpha, .18));
+}
+
+.mtun-hero {
+  align-items: center;
+  padding: calc(.68rem * var(--pisd-ui-density-pad, .86));
+}
+
+.mtun-summary { display: none; }
+.mtun-panel { padding: calc(.68rem * var(--pisd-ui-density-pad, .86)); }
+.mtun-button, .mtun-back { border-radius: 999px; }
+.mtun-primary { background: rgba(14, 165, 233, .24); border-color: rgba(56, 189, 248, .52); }
+.mtun-danger { background: rgba(127, 29, 29, .72); border-color: rgba(251, 113, 133, .54); color: #ffe4e6; }
+
+.mtun-code:not(.fail),
+.mtun-code[data-state="ok"] {
+  border-color: rgba(34, 197, 94, .38);
+  background: rgba(20, 83, 45, .24);
+  color: var(--pisd-green, #bbf7d0);
+}
+
+.mtun-preview-panel { min-height: 0; }
+
+.mtun-overlay-preview {
+  flex: 1 1 auto;
+  aspect-ratio: var(--pisd-ui-preview-aspect, 16 / 9);
+  min-height: clamp(300px, 52vh, 680px);
+  max-height: min(72vh, 760px);
+  background: #020617;
+}
+
+.mtun-camera-preview,
+.mtun-overlay-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.mtun-camera-preview {
+  z-index: 0;
+  display: block;
+  object-fit: var(--pisd-ui-preview-fit, contain);
+  background: #020617;
+}
+
+.mtun-overlay-svg {
+  z-index: 2;
+  min-height: 0;
+  pointer-events: none;
+}
+
+.mtun-overlay-hud { z-index: 3; }
+
+.mtun-camera-preview[data-preview-mode="idle"] { opacity: .72; }
+.mtun-camera-preview[data-preview-mode="starting"] { opacity: .82; }
+.mtun-camera-preview[data-preview-mode="live"],
+.mtun-camera-preview[data-preview-mode="snapshot"] { opacity: 1; }
+
+.mtun-camera-actions { margin-top: .62rem; }
+
+body[data-pisd-theme="light"] .mtun-panel,
+body[data-pisd-theme="light"] .mtun-hero {
+  background: rgba(255, 255, 255, .88);
+  color: #0f172a;
+}
+
+body[data-pisd-theme="light"] .mtun-overlay-preview,
+body[data-pisd-theme="light"] .mtun-console {
+  background: rgba(15, 23, 42, .08);
+}

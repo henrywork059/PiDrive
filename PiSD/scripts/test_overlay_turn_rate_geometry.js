@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 'use strict';
 
-// Validate that the browser overlay geometry mirrors the PiSD 0.7.x turn-rate
-// steering semantics without needing a real browser.
+// Validate that the browser overlay geometry keeps PiSD 0.8.1 visual overlay
+// tuning separate from motor turn-rate settings without needing a real browser.
 global.window = global;
 require('../pisd/web/static/js/overlay_geometry.js');
 
@@ -31,7 +31,6 @@ function guide(steering, motorSettings = {}, overlaySettings = {}) {
     defaults: {},
     motorSettings: {
       steering_mode: 'turn_rate',
-      turn_gain: 0.75,
       turn_curve: 1.5,
       ...motorSettings,
     },
@@ -50,13 +49,13 @@ line(Math.abs(straight.turnIntent) < 1e-9 && straight.steeringMode === 'turn_rat
 line(right.turnIntent > 0 && right.end.x > straight.end.x, 'overlay.turn_rate.right_curve', 'positive steering bends the path right on screen', { straightEnd: straight.end, rightEnd: right.end, rightTurnIntent: right.turnIntent });
 line(left.turnIntent < 0 && left.end.x < straight.end.x, 'overlay.turn_rate.left_curve', 'negative steering bends the path left on screen', { straightEnd: straight.end, leftEnd: left.end, leftTurnIntent: left.turnIntent });
 
-const lowGain = guide(1.0, { turn_gain: 0.35 });
-const highGain = guide(1.0, { turn_gain: 1.35 });
-line(highGain.end.x > lowGain.end.x && Math.abs(highGain.turnIntent) > Math.abs(lowGain.turnIntent), 'overlay.turn_rate.gain', 'higher Turn Gain produces a tighter visual curve', { lowEnd: lowGain.end, highEnd: highGain.end, lowTurn: lowGain.turnIntent, highTurn: highGain.turnIntent });
+const lowVisualScale = guide(1.0, {}, { turn_rate_visual_scale: 1.1 });
+const highVisualScale = guide(1.0, {}, { turn_rate_visual_scale: 3.4 });
+line(highVisualScale.end.x > lowVisualScale.end.x && Math.abs(highVisualScale.curve) > Math.abs(lowVisualScale.curve), 'overlay.visual_scale', 'higher visual scale produces a tighter overlay curve without motor turn_gain', { lowEnd: lowVisualScale.end, highEnd: highVisualScale.end, lowCurve: lowVisualScale.curve, highCurve: highVisualScale.curve });
 
-const gentleCurve = guide(0.45, { turn_curve: 2.4 });
-const responsiveCurve = guide(0.45, { turn_curve: 0.7 });
-line(responsiveCurve.end.x > gentleCurve.end.x && Math.abs(responsiveCurve.turnIntent) > Math.abs(gentleCurve.turnIntent), 'overlay.turn_rate.curve_exponent', 'lower Turn Curve exponent gives stronger small-input visual response', { gentleEnd: gentleCurve.end, responsiveEnd: responsiveCurve.end, gentleTurn: gentleCurve.turnIntent, responsiveTurn: responsiveCurve.turnIntent });
+const gentleCurve = guide(0.45, { turn_curve: 0.7 }, { curve_response: 2.4 });
+const responsiveCurve = guide(0.45, { turn_curve: 2.4 }, { curve_response: 0.7 });
+line(responsiveCurve.end.x > gentleCurve.end.x && Math.abs(responsiveCurve.turnIntent) > Math.abs(gentleCurve.turnIntent), 'overlay.visual_curve_response', 'overlay curve_response, not motor Turn Curve, controls small-input visual response', { gentleEnd: gentleCurve.end, responsiveEnd: responsiveCurve.end, gentleTurn: gentleCurve.turnIntent, responsiveTurn: responsiveCurve.turnIntent });
 
 const arcade = guide(1.0, { steering_mode: 'arcade_mix', steer_mix: 1.0 });
 line(arcade.steeringMode === 'arcade_mix' && Math.abs(arcade.turnIntent) > 0, 'overlay.arcade_mix.fallback', 'arcade_mix mode remains available for legacy visual comparison', { arcadeMode: arcade.steeringMode, arcadeEnd: arcade.end, arcadeTurn: arcade.turnIntent });

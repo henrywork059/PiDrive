@@ -59,7 +59,7 @@ def static_checks() -> bool:
     ok &= line('/api/settings/apply' in stjs and 'panel_presentation' in stjs, PiSDErrorCodes.OK if '/api/settings/apply' in stjs else PiSDErrorCodes.TEST_SETTINGS_PERSISTENCE_FAILED, 'settings_tab.backend_apply', 'settings tab saves and applies backend settings')
     settings_html = (ROOT / 'pisd/web/templates/settings_tab.html').read_text(encoding='utf-8')
     ok &= line('name="steering_mode"' in settings_html and 'turn_rate' in settings_html and 'arcade_mix' in settings_html, PiSDErrorCodes.OK if 'name="steering_mode"' in settings_html else PiSDErrorCodes.TEST_SETTINGS_PERSISTENCE_FAILED, 'settings_tab.steering_mode', 'motor steering mode setting is exposed')
-    ok &= line('turn_gain' in settings_html and 'turn_curve' in settings_html and 'min_inside_speed' in settings_html, PiSDErrorCodes.OK if 'turn_gain' in settings_html else PiSDErrorCodes.TEST_SETTINGS_PERSISTENCE_FAILED, 'settings_tab.turn_rate_tuning', 'turn-rate tuning values are exposed')
+    ok &= line('turn_gain' not in settings_html and 'turn_curve' in settings_html and 'min_inside_speed' in settings_html, PiSDErrorCodes.OK if 'turn_gain' not in settings_html else PiSDErrorCodes.TEST_SETTINGS_PERSISTENCE_FAILED, 'settings_tab.turn_rate_tuning', 'turn-rate tuning values are exposed without removed turn_gain')
     return ok
 
 
@@ -90,13 +90,13 @@ def manager_checks() -> bool:
         ok &= line(
             motor_saved
             and motor['steering_mode'] == 'turn_rate'
-            and motor['turn_gain'] == 1.25
+            and 'turn_gain' not in motor
             and motor['turn_curve'] == 1.8
             and motor['min_inside_speed'] == 0.2
             and motor['allow_pivot_turn'] is True,
             PiSDErrorCodes.OK if motor_saved else motor_report.code,
             'settings.manager.turn_rate_motor_settings',
-            'turn-rate motor settings are saved and normalised',
+            'turn-rate motor settings are saved and legacy turn_gain is ignored',
         )
         ai_saved, ai_settings, ai_report = mgr.save({'ai_mode': {'motor_output_enabled': True, 'fixed_throttle': 0.44}})
         ok &= line(ai_saved and ai_settings['ai_mode']['motor_output_enabled'] is False and ai_settings['ai_mode']['fixed_throttle'] == 0.44, PiSDErrorCodes.OK if ai_saved else ai_report.code, 'settings.manager.ai_motor_enable_session_only', 'AI motor output enable is not persisted')

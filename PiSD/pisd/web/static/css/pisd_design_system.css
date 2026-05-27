@@ -58,7 +58,8 @@ body {
 .topbar,
 .md-topbar,
 .pp-topbar,
-.pt-hero {
+.pt-hero,
+.mtun-hero {
   min-height: var(--pisd-topbar-h) !important;
   padding: 0.34rem 0.62rem !important;
   gap: 0.45rem !important;
@@ -71,7 +72,8 @@ body {
 .topbar h1,
 .md-topbar h1,
 .pp-topbar h1,
-.pt-hero h1 {
+.pt-hero h1,
+.mtun-hero h1 {
   font-size: clamp(1.02rem, 1.55vw, 1.34rem) !important;
   line-height: 1.05 !important;
   margin: 0 !important;
@@ -80,7 +82,8 @@ body {
 .subtitle,
 .md-subtitle,
 .pp-subtitle,
-.pt-summary { display: none !important; }
+.pt-summary,
+.mtun-summary { display: none !important; }
 
 /* Shared panel and controls. */
 .st-card,
@@ -94,7 +97,9 @@ body {
 .pt-panel,
 .fp-hero,
 .fp-mode-card,
-.fp-quick-actions {
+.fp-quick-actions,
+.mtun-hero,
+.mtun-panel {
   min-width: 0 !important;
   border: 1px solid var(--pisd-panel-line) !important;
   border-radius: var(--pisd-ui-radius, 14px) !important;
@@ -107,7 +112,8 @@ body {
 .card-header,
 .md-panel-head,
 .pp-card-head,
-.pt-panel-head {
+.pt-panel-head,
+.mtun-panel-head {
   display: flex !important;
   align-items: flex-start !important;
   justify-content: space-between !important;
@@ -124,7 +130,9 @@ body {
 .pp-panel-label,
 .pt-kicker,
 .fp-kicker,
-.fp-card-label {
+.fp-card-label,
+.mtun-kicker,
+.mtun-label {
   color: var(--pisd-blue) !important;
   font-size: 0.55rem !important;
   letter-spacing: 0.13em !important;
@@ -138,7 +146,8 @@ body {
 .pp-card h2,
 .pp-preview-panel h2,
 .pt-panel h2,
-.pt-control-section h2 {
+.pt-control-section h2,
+.mtun-panel h2 {
   font-size: clamp(0.95rem, 1.2vw, 1.08rem) !important;
   line-height: 1.12 !important;
   margin: 0 !important;
@@ -152,7 +161,9 @@ body {
 .pp-button,
 .pt-button,
 .pt-link-button,
-.fp-button {
+.fp-button,
+.mtun-button,
+.mtun-back {
   min-height: calc(31px * var(--pisd-ui-button-scale, 0.92)) !important;
   border-radius: 999px !important;
   padding: calc(0.36rem * var(--pisd-ui-button-scale, 0.92)) calc(0.64rem * var(--pisd-ui-button-scale, 0.92)) !important;
@@ -170,7 +181,8 @@ body {
 .md-panel-code,
 .pp-code-pill,
 .pt-code-pill,
-.fp-code {
+.fp-code,
+.mtun-code {
   min-height: 26px !important;
   border-radius: 999px !important;
   border: 1px solid rgba(34, 197, 94, 0.38) !important;
@@ -189,7 +201,8 @@ body {
 .md-drive-stop,
 .pp-danger,
 .pt-button-danger,
-.fp-danger {
+.fp-danger,
+.mtun-danger {
   background: rgba(127, 29, 29, 0.72) !important;
   border-color: rgba(251, 113, 133, 0.54) !important;
   color: #ffe4e6 !important;
@@ -202,7 +215,8 @@ body {
 .md-shell,
 .pp-shell,
 .pt-shell,
-.mdrv-shell {
+.mdrv-shell,
+.mtun-shell {
   width: min(var(--pisd-page-max), calc(100% - 14px)) !important;
   margin: 0 auto !important;
   padding: var(--pisd-page-pad) 0 !important;
@@ -213,7 +227,8 @@ body {
 /* Manual Drive locked semantic layout.
    Wide/PC/iPad: status is directly above camera in the main column;
    drag pad/control stays in the right column; stop is below controls. */
-body.manual-drive-page .mdrv-shell {
+body.manual-drive-page .mdrv-shell,
+.mtun-shell {
   --manual-preview-min: minmax(540px, 1fr);
   --manual-control-width: var(--pisd-control-column);
   display: grid !important;
@@ -410,7 +425,8 @@ body[data-pisd-adaptive-panels="true"] .pt-shell {
 
 @media (max-width: 1180px) {
   :root { --pisd-control-column: clamp(280px, 31vw, 360px); }
-  body.manual-drive-page .mdrv-shell {
+  body.manual-drive-page .mdrv-shell,
+.mtun-shell {
     grid-template-columns: minmax(0, 1fr) minmax(280px, 0.64fr) !important;
     grid-template-areas:
       "status drive"
@@ -460,10 +476,12 @@ body[data-pisd-adaptive-panels="true"] .pt-shell {
   .md-shell,
   .pp-shell,
   .pt-shell,
-  body.manual-drive-page .mdrv-shell {
+  body.manual-drive-page .mdrv-shell,
+.mtun-shell {
     grid-template-columns: 1fr !important;
   }
-  body.manual-drive-page .mdrv-shell {
+  body.manual-drive-page .mdrv-shell,
+.mtun-shell {
     grid-template-areas:
       "status"
       "preview"
@@ -520,7 +538,8 @@ body[data-pisd-adaptive-panels="true"] .pt-shell {
   --pisd-control-column: clamp(300px, 27vw, 390px);
 }
 
-body.manual-drive-page .mdrv-shell {
+body.manual-drive-page .mdrv-shell,
+.mtun-shell {
   display: grid !important;
   grid-template-columns: minmax(520px, 1fr) var(--pisd-control-column) !important;
   grid-template-areas:
@@ -583,7 +602,8 @@ body.manual-drive-page .mdrv-compact-actions {
 }
 
 @media (max-width: 1180px) {
-  body.manual-drive-page .mdrv-shell {
+  body.manual-drive-page .mdrv-shell,
+.mtun-shell {
     grid-template-columns: minmax(0, 1fr) clamp(280px, 34vw, 350px) !important;
     grid-template-areas:
       "status drive"
@@ -597,7 +617,8 @@ body.manual-drive-page .mdrv-compact-actions {
 }
 
 @media (max-width: 900px) {
-  body.manual-drive-page .mdrv-shell {
+  body.manual-drive-page .mdrv-shell,
+.mtun-shell {
     grid-template-columns: 1fr !important;
     grid-template-areas:
       "status"

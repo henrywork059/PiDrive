@@ -31,7 +31,6 @@
   const DEFAULT_MOTOR = {
     steering_mode: 'turn_rate',
     steer_mix: 1.0,
-    turn_gain: 0.75,
     turn_curve: 1.5,
     min_inside_speed: 0.0,
     allow_pivot_turn: false,
@@ -54,11 +53,12 @@
     overlayEnd: $('mtunOverlayEnd'),
     overlayLabel: $('mtunOverlayLabel'),
     overlayMeta: $('mtunOverlayMeta'),
+    cameraPreview: $('mtunCameraPreview'),
+    cameraNotice: $('mtunCameraNotice'),
   };
 
   const motorFormMap = {
     steering_mode: $('mtunSteeringMode'),
-    turn_gain: $('mtunTurnGain'),
     turn_curve: $('mtunTurnCurve'),
     min_inside_speed: $('mtunMinInsideSpeed'),
     steer_mix: $('mtunSteerMix'),
@@ -67,6 +67,7 @@
 
   const overlayFormMap = {
     turn_rate_visual_scale: $('mtunOverlayTurnRateVisualScale'),
+    curve_response: $('mtunOverlayCurveResponse'),
     curve_strength: $('mtunOverlayCurveStrength'),
     curvature_scale: $('mtunOverlayCurvatureScale'),
     curvature_limit: $('mtunOverlayCurvatureLimit'),
@@ -149,7 +150,6 @@
     return {
       steering_mode: mode === 'arcade_mix' ? 'arcade_mix' : 'turn_rate',
       steer_mix: clamp(source.steer_mix, 0, 2, DEFAULT_MOTOR.steer_mix),
-      turn_gain: clamp(source.turn_gain, 0, 5, DEFAULT_MOTOR.turn_gain),
       turn_curve: clamp(source.turn_curve, 0.05, 8, DEFAULT_MOTOR.turn_curve),
       min_inside_speed: clamp(source.min_inside_speed, 0, 0.99, DEFAULT_MOTOR.min_inside_speed),
       allow_pivot_turn: typeof source.allow_pivot_turn === 'string'
@@ -212,7 +212,7 @@
         right: clamp(throttle + motorSettings.steer_mix * steering, -1, 1, 0),
       };
     }
-    const turnIntent = overlayGeometry?.turnRateIntent ? overlayGeometry.turnRateIntent(steering, motorSettings) : Math.sign(steering) * Math.pow(Math.abs(steering), motorSettings.turn_curve) * motorSettings.turn_gain;
+    const turnIntent = Math.sign(steering) * Math.pow(Math.abs(steering), motorSettings.turn_curve);
     const turnMag = clamp(Math.abs(turnIntent), 0, 1, 0);
     if (turnMag <= 1e-6) return { left: throttle, right: throttle };
     if (motorSettings.allow_pivot_turn && Math.abs(throttle) < 1e-4) return steering > 0 ? { left: turnMag, right: -turnMag } : { left: -turnMag, right: turnMag };
@@ -270,7 +270,7 @@
       controls.overlayEnd.setAttribute('cy', geometry.end.y.toFixed(2));
     }
     if (controls.overlayLabel) controls.overlayLabel.textContent = commandLabel(lastCommand);
-    if (controls.overlayMeta) controls.overlayMeta.textContent = `mode ${geometry.steeringMode || motorSettings.steering_mode} · turn ${Math.abs(Number(geometry.turnIntent || 0)).toFixed(2)} · curve ${Number(geometry.curve || 0).toFixed(2)}`;
+    if (controls.overlayMeta) controls.overlayMeta.textContent = `visual-only · turn ${Math.abs(Number(geometry.turnIntent || 0)).toFixed(2)} · curve ${Number(geometry.curve || 0).toFixed(2)}`;
   }
 
   function straightCommand(reverse = false) {
@@ -392,6 +392,46 @@
     }
   }
 
+  function setCameraPreview(mode, src, message) {
+    if (controls.cameraPreview) {
+      controls.cameraPreview.dataset.previewMode = mode;
+      if (src) controls.cameraPreview.src = src;
+    }
+    if (controls.cameraNotice && message) controls.cameraNotice.textContent = message;
+  }
+
+  async function startLiveCamera() {
+    setCameraPreview('starting', '', 'Starting camera and live stream for overlay calibration...');
+    try {
+      await api('POST', '/api/camera/start', {});
+      setCameraPreview('live', `/video_feed?t=${Date.now()}`, 'Live camera stream is running under the overlay. Match the drawn path to the real motion.');
+      setCode('overlay', 'PISD-OK-000');
+    } catch (error) {
+      showLog('startLiveCamera', { ok: false, code: 'PISD-API-002', message: String(error) });
+      setCameraPreview('error', '', 'Camera live stream failed to start. Check camera service log.');
+      setCode('overlay', 'PISD-API-002');
+    }
+  }
+
+  async function snapshotCamera() {
+    try {
+      setCameraPreview('snapshot', `/api/camera/frame.jpg?t=${Date.now()}`, 'Snapshot frame loaded under the overlay. Use Live for continuous matching.');
+      setCode('overlay', 'PISD-OK-000');
+    } catch (error) {
+      showLog('snapshotCamera', { ok: false, code: 'PISD-API-002', message: String(error) });
+    }
+  }
+
+  async function stopCameraOnly() {
+    try {
+      await api('POST', '/api/camera/stop', {});
+      setCameraPreview('idle', '', 'Camera stopped. Overlay tuning values remain available for static adjustment.');
+      setCode('overlay', 'PISD-OK-000');
+    } catch (error) {
+      showLog('stopCameraOnly', { ok: false, code: 'PISD-API-002', message: String(error) });
+    }
+  }
+
   function bind() {
     $('mtunRunStraightForward')?.addEventListener('click', () => runTimed(straightCommand(false)));
     $('mtunRunStraightReverse')?.addEventListener('click', () => runTimed(straightCommand(true)));
@@ -401,6 +441,9 @@
     $('mtunApplyOverlay')?.addEventListener('click', saveOverlaySettings);
     $('mtunRefreshStatus')?.addEventListener('click', refreshStatus);
     $('mtunStopAll')?.addEventListener('click', stopAll);
+    $('mtunStartCamera')?.addEventListener('click', startLiveCamera);
+    $('mtunSnapshotCamera')?.addEventListener('click', snapshotCamera);
+    $('mtunStopCamera')?.addEventListener('click', stopCameraOnly);
     $('mtunResetOverlay')?.addEventListener('click', () => {
       overlaySettings = normaliseOverlay(DEFAULT_OVERLAY);
       fillOverlayForm();
@@ -424,4 +467,5 @@
   bind();
   drawOverlay({ steering: -0.45, throttle: 0.18 });
   refreshStatus();
+  startLiveCamera();
 })();
