@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 
-FORMAT_VERSION = "0_6_20_export_log_clarity"
+FORMAT_VERSION = "0_7_0_stable_v7_baseline"
 
 
 @dataclass(frozen=True)

@@ -1,6 +1,10 @@
 # piTrainer Format and Style Guide
 
-This document records the presentation decisions used by the V6 trainer UI. It is intended to stop future patches from styling individual tabs or panels differently by accident.
+This document records the presentation decisions used by the V7 trainer UI. It is intended to stop future patches from styling individual tabs or panels differently by accident.
+
+## V7 stable baseline note
+
+V7 (`piTrainer_0_7_0`) promotes the accepted V6 patch line through `piTrainer_0_6_20` into a new full baseline. Future patches should build forward from V7 as `0_7_x` without rolling back accepted data layout, preprocessing, training, validation, export, table, style, and soft-hide behaviours.
 
 ## Single source of truth
 

@@ -10,8 +10,8 @@ Use this file when an AI coding assistant continues piTrainer work inside the Pi
 
 ## Current baseline and version line
 
-- Latest accepted full baseline: `piTrainer_0_6_0` / V6.
-- Future patch-only zips should build forward as `piTrainer_0_6_1_patch.zip`, `piTrainer_0_6_2_patch.zip`, and so on.
+- Latest accepted full baseline: `piTrainer_0_7_0` / V7.
+- Future patch-only zips should build forward as `piTrainer_0_7_1_patch.zip`, `piTrainer_0_7_2_patch.zip`, and so on.
 - Patch zips must include only changed/new files plus patch notes.
 - Patch notes belong in `piTrainer/PATCH_NOTES/`.
 
@@ -23,9 +23,9 @@ Before editing, inspect:
 2. The latest piTrainer patch note.
 3. The previous three piTrainer patch notes when available.
 
-Do not restore older copies of files by accident. Do not remove accepted V6 behaviour unless the user explicitly asks.
+Do not restore older copies of files by accident. Do not remove accepted V7 behaviour unless the user explicitly asks.
 
-Preserve these accepted V6 behaviours:
+Preserve these accepted V7 behaviours:
 
 - PiSD V7 `labels.jsonl` and `records.jsonl` support.
 - PiSD V7 saved overlay metadata and overlay redraw support.
@@ -63,7 +63,7 @@ Preserve these accepted V6 behaviours:
 - Keep compact banner guide labels free from the old `Show:` prefix.
 - Keep Browse/location-picking and other prerequisite setup buttons yellow-forward amber, not brown.
 - Keep green for main actions, including `nextStep` and `primary` action roles.
-- Keep scrollbars readable but still slim; V6.6 uses about 30% thicker scrollbars than V6.5 after user review.
+- Keep scrollbars readable but still slim; V7 preserves the V6.6 scrollbar sizing: about 30% thicker than V6.5 after user review.
 - Keep splitter handles slim so they do not dominate narrow panels.
 - Keep the Edit Steering slider and bulk steering slider fill centred on neutral steering instead of filling from the left edge.
 - Hidden/deleted frames must remain traceable in `labels.jsonl` / `records.jsonl` using hidden flags, and must be excluded from active dataframes, preprocessing, training, and validation. Validation pages must import and use the shared `without_hidden_rows()` guard.
