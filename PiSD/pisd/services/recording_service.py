@@ -16,6 +16,19 @@ from typing import Any, Callable
 from pisd.core.errors import ErrorReport, ErrorReporter, PiSDErrorCodes, ok_payload, report_payload
 from pisd.core.value_utils import clamp_float
 
+OVERLAY_SCHEMA_VERSION = "PiSD_0_8_8_overlay_settings_v2"
+OVERLAY_REDUCED_KEYS = {
+    "enabled",
+    "turn_rate_visual_scale",
+    "path_length_scale",
+    "path_width_scale",
+    "base_y",
+    "horizon_y",
+    "perspective_scale",
+    "opacity",
+}
+OVERLAY_SETTINGS_FILENAME = "overlay_settings.json"
+OVERLAY_SETTINGS_HISTORY_FILENAME = "overlay_settings_history.jsonl"
 
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
@@ -127,10 +140,12 @@ class RecordingService:
                     "records_file": str((session_dir / "records.jsonl").relative_to(self.project_root)),
                     "labels_file": str((session_dir / "labels.jsonl").relative_to(self.project_root)),
                     "manifest_file": str((session_dir / "manifest.json").relative_to(self.project_root)),
+                    "overlay_settings_file": str((session_dir / OVERLAY_SETTINGS_FILENAME).relative_to(self.project_root)),
+                    "overlay_settings_history_file": str((session_dir / OVERLAY_SETTINGS_HISTORY_FILENAME).relative_to(self.project_root)),
                     "frame_count": 0,
                     "overlay_settings": overlay_snapshot,
                     "overlay_settings_source": "manual_drive_runtime_overlay",
-                    "overlay_schema_version": "PiSD_0_6_7_overlay_settings_v1",
+                    "overlay_schema_version": OVERLAY_SCHEMA_VERSION,
                     "schema": {
                         "frame_id": "unique stable frame id",
                         "frame_index": "1-based session order",
@@ -142,6 +157,7 @@ class RecordingService:
                         "throttle": "last manual throttle command if available",
                         "motor_outputs": "left/right effective motor outputs",
                         "overlay_settings": "Manual Drive visual path overlay settings at save time for trainer redraw",
+                        "overlay_settings_file": "session-level overlay_settings.json for trainer apps to reuse the same visual calibration",
                     },
                     "training_labels_schema": {
                         "frame": "relative frame path used by trainers",
@@ -149,6 +165,7 @@ class RecordingService:
                         "throttle": "manual throttle label in -1..1",
                         "timestamp_utc": "save time for traceability",
                         "overlay_settings": "Manual Drive visual path overlay settings at save time for trainer redraw",
+                        "overlay_settings_file": "session-level overlay_settings.json for trainer apps to reuse the same visual calibration",
                     },
                 }
                 self._write_json(session_dir / "manifest.json", manifest)
@@ -168,11 +185,13 @@ class RecordingService:
                 "records_file": str(session_dir / "records.jsonl"),
                 "labels_file": str(session_dir / "labels.jsonl"),
                 "manifest_file": str(session_dir / "manifest.json"),
+                "overlay_settings_file": str(session_dir / OVERLAY_SETTINGS_FILENAME),
+                "overlay_settings_history_file": str(session_dir / OVERLAY_SETTINGS_HISTORY_FILENAME),
                 "started_at_utc": now.isoformat(),
                 "record_fps": record_fps,
                 "overlay_settings": overlay_snapshot,
                 "overlay_settings_source": "manual_drive_runtime_overlay",
-                "overlay_schema_version": "PiSD_0_6_7_overlay_settings_v1",
+                "overlay_schema_version": OVERLAY_SCHEMA_VERSION,
             }
             self._frame_count = 0
             self._last_saved_record = {}
@@ -268,8 +287,18 @@ class RecordingService:
                         "last_saved_record": record,
                         "updated_at_utc": record["saved_at_utc"],
                         "overlay_settings": record.get("overlay_settings", {}),
+                        "overlay_settings_file": record.get("overlay_settings_file", session.get("overlay_settings_file", "")),
+                        "overlay_settings_history_file": record.get("overlay_settings_history_file", session.get("overlay_settings_history_file", "")),
                         "overlay_settings_source": record.get("overlay_settings_source", "manual_drive_runtime_overlay"),
-                        "overlay_schema_version": record.get("overlay_schema_version", "PiSD_0_6_7_overlay_settings_v1"),
+                        "overlay_schema_version": record.get("overlay_schema_version", OVERLAY_SCHEMA_VERSION),
+                        "training_data": {
+                            "format": "behavioural_cloning_jsonl",
+                            "labels_file": session.get("labels_file", ""),
+                            "label_fields": ["frame", "steering", "throttle", "timestamp_utc", "overlay_settings", "overlay_settings_file"],
+                            "overlay_settings_file": record.get("overlay_settings_file", session.get("overlay_settings_file", "")),
+                            "overlay_settings_history_file": record.get("overlay_settings_history_file", session.get("overlay_settings_history_file", "")),
+                            "overlay_schema_version": record.get("overlay_schema_version", OVERLAY_SCHEMA_VERSION),
+                        },
                         "capture_folder_policy": "All manual single captures for the same day are saved in this one folder.",
                     },
                 )
@@ -475,6 +504,8 @@ class RecordingService:
             "records_file": str(records_file.relative_to(self.project_root)).replace("\\", "/") if records_file.exists() else "",
             "labels_file": str((folder / "labels.jsonl").relative_to(self.project_root)).replace("\\", "/") if (folder / "labels.jsonl").exists() else "",
             "manifest_file": str(manifest_file.relative_to(self.project_root)).replace("\\", "/") if manifest_file.exists() else "",
+            "overlay_settings_file": str((folder / OVERLAY_SETTINGS_FILENAME).relative_to(self.project_root)).replace("\\", "/") if (folder / OVERLAY_SETTINGS_FILENAME).exists() else "",
+            "overlay_settings_history_file": str((folder / OVERLAY_SETTINGS_HISTORY_FILENAME).relative_to(self.project_root)).replace("\\", "/") if (folder / OVERLAY_SETTINGS_HISTORY_FILENAME).exists() else "",
             "frame_count": int(frame_count),
             "bytes": int(byte_count),
             "modified_at_utc": datetime.fromtimestamp(latest_mtime, timezone.utc).isoformat(),
@@ -492,29 +523,44 @@ class RecordingService:
             pass
 
     def _json_safe_overlay_settings(self, value: Any) -> dict[str, Any]:
-        """Return a JSON-safe overlay settings snapshot without clamping user tuning values.
+        """Return the reduced Manual Drive overlay metadata snapshot.
 
         Overlay settings are visual/training metadata, not motor-safety inputs.
-        Preserve finite typed numbers and simple scalar values so piTrainer can
-        redraw the same guide later, but discard unserialisable values.
+        PiSD 0.8.8 records only the seven user-facing visual controls plus the
+        enabled flag. Older advanced/internal keys are pruned so recordings and
+        trainer labels do not keep carrying the old oversized overlay schema.
         """
         if not isinstance(value, dict):
             return {}
+        source = dict(value)
+        if "turn_rate_visual_scale" not in source and "curve_strength" in source:
+            try:
+                source["turn_rate_visual_scale"] = float(source.get("curve_strength", 3.35)) / 3.35 * 2.2
+            except Exception:
+                source["turn_rate_visual_scale"] = 2.2
         cleaned: dict[str, Any] = {}
-        for key, item in value.items():
-            key_text = str(key)
-            if isinstance(item, bool) or item is None or isinstance(item, str):
-                cleaned[key_text] = item
-            elif isinstance(item, int):
-                cleaned[key_text] = item
-            elif isinstance(item, float):
-                if math.isfinite(item):
-                    cleaned[key_text] = item
+        for key in (
+            "enabled",
+            "turn_rate_visual_scale",
+            "path_length_scale",
+            "path_width_scale",
+            "base_y",
+            "horizon_y",
+            "perspective_scale",
+            "opacity",
+        ):
+            if key not in source:
+                continue
+            item = source[key]
+            if key == "enabled":
+                cleaned[key] = str(item).lower() not in {"false", "0", "no", "off"}
+            elif isinstance(item, (int, float)) and math.isfinite(float(item)):
+                cleaned[key] = item
             else:
                 try:
                     numeric = float(item)
                     if math.isfinite(numeric):
-                        cleaned[key_text] = numeric
+                        cleaned[key] = numeric
                 except Exception:
                     continue
         return cleaned
@@ -541,6 +587,74 @@ class RecordingService:
         if session_overlay:
             return session_overlay
         return {}
+
+    def _session_relative(self, session: dict[str, Any], path: Path) -> str:
+        try:
+            return str(path.relative_to(Path(session["session_dir"]))).replace("\\", "/")
+        except Exception:
+            return path.name
+
+    def _project_relative(self, path: Path) -> str:
+        try:
+            return str(path.relative_to(self.project_root)).replace("\\", "/")
+        except Exception:
+            return str(path).replace("\\", "/")
+
+    def _overlay_sidecar_paths(self, session: dict[str, Any]) -> tuple[Path, Path]:
+        session_dir = Path(session["session_dir"])
+        settings_path = Path(session.get("overlay_settings_file") or (session_dir / OVERLAY_SETTINGS_FILENAME))
+        history_path = Path(session.get("overlay_settings_history_file") or (session_dir / OVERLAY_SETTINGS_HISTORY_FILENAME))
+        return settings_path, history_path
+
+    def _write_overlay_settings_sidecar_locked(
+        self,
+        session: dict[str, Any],
+        overlay_snapshot: dict[str, Any],
+        *,
+        frame_id: str,
+        frame_index: int,
+        saved_at_utc: str,
+        relative_file: str,
+    ) -> tuple[Path, Path]:
+        """Write session-level overlay metadata for training apps.
+
+        `records.jsonl` and `labels.jsonl` keep a copy of the overlay settings per
+        frame.  The sidecar JSON file gives piTrainer/other tools a stable, easy
+        file to load when the user wants to apply the same Manual Drive visual
+        calibration to a whole recording or snapshot folder.  The history JSONL
+        file records changes across frames if the user retunes during a session.
+        """
+        settings_path, history_path = self._overlay_sidecar_paths(session)
+        settings_path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "overlay_schema_version": OVERLAY_SCHEMA_VERSION,
+            "overlay_settings_source": "manual_drive_runtime_overlay",
+            "overlay_settings": overlay_snapshot,
+            "user_facing_controls": sorted(OVERLAY_REDUCED_KEYS),
+            "visual_only": True,
+            "applies_to": "manual_drive_camera_overlay",
+            "trainer_hint": "Load this file to redraw the Manual Drive intended-path overlay with the same visual calibration used during capture/recording.",
+            "session_id": session.get("session_id", ""),
+            "session_label": session.get("label", ""),
+            "capture_type": session.get("capture_type", "recording_session"),
+            "latest_frame_id": frame_id,
+            "latest_frame_index": int(frame_index),
+            "latest_relative_file": relative_file,
+            "updated_at_utc": saved_at_utc,
+        }
+        self._write_json(settings_path, payload)
+        history_entry = {
+            "timestamp_utc": saved_at_utc,
+            "frame_id": frame_id,
+            "frame_index": int(frame_index),
+            "relative_file": relative_file,
+            "overlay_schema_version": OVERLAY_SCHEMA_VERSION,
+            "overlay_settings_source": "manual_drive_runtime_overlay",
+            "overlay_settings": overlay_snapshot,
+        }
+        with history_path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(history_entry, sort_keys=True) + "\n")
+        return settings_path, history_path
 
     def _record_loop(self, camera_service: Any, motor_service: Any, record_fps: float) -> None:
         interval = 1.0 / max(0.2, record_fps)
@@ -615,6 +729,8 @@ class RecordingService:
             "records_file": str(records_file),
             "labels_file": str(session_dir / "labels.jsonl"),
             "manifest_file": str(manifest_file),
+            "overlay_settings_file": str(session_dir / OVERLAY_SETTINGS_FILENAME),
+            "overlay_settings_history_file": str(session_dir / OVERLAY_SETTINGS_HISTORY_FILENAME),
             "started_at_utc": now.isoformat(),
             "record_fps": 0,
             "capture_type": "single_capture_daily_folder",
@@ -652,10 +768,19 @@ class RecordingService:
         frames_dir.mkdir(parents=True, exist_ok=True)
         frame_path = frames_dir / filename
         frame_path.write_bytes(frame)
+        relative_file = str(frame_path.relative_to(self.project_root)).replace("\\", "/")
         camera_status = camera_service.get_config()
         motor_status = motor_service.status()
         last_command = motor_status.get("last_command") or {}
         overlay_snapshot = self._current_overlay_settings(overlay_settings, session=session)
+        overlay_settings_file, overlay_settings_history_file = self._write_overlay_settings_sidecar_locked(
+            session,
+            overlay_snapshot,
+            frame_id=frame_id,
+            frame_index=frame_index,
+            saved_at_utc=saved_at.isoformat(),
+            relative_file=relative_file,
+        )
         record = {
             "frame_id": frame_id,
             "frame_index": int(frame_index),
@@ -667,7 +792,7 @@ class RecordingService:
             "source_frame_at": source_frame_at,
             "source_frame_bytes": int(byte_count),
             "file": str(frame_path),
-            "relative_file": str(frame_path.relative_to(self.project_root)),
+            "relative_file": relative_file,
             "session_id": session["session_id"],
             "session_label": session.get("label", ""),
             "camera_settings": camera_status,
@@ -694,8 +819,11 @@ class RecordingService:
                 "steering_direction": motor_status.get("steering_direction"),
             },
             "overlay_settings": overlay_snapshot,
+            "overlay_settings_file": self._project_relative(overlay_settings_file),
+            "overlay_settings_file_session_relative": self._session_relative(session, overlay_settings_file),
+            "overlay_settings_history_file": self._project_relative(overlay_settings_history_file),
             "overlay_settings_source": "manual_drive_runtime_overlay",
-            "overlay_schema_version": "PiSD_0_6_7_overlay_settings_v1",
+            "overlay_schema_version": OVERLAY_SCHEMA_VERSION,
         }
         # PiSD_0_5_2: write a compact trainer-friendly label beside the full
         # trace record. The full records.jsonl remains the source for debugging,
@@ -710,6 +838,8 @@ class RecordingService:
             "source_frame_seq": record["source_frame_seq"],
             "session_id": record["session_id"],
             "overlay_settings": overlay_snapshot,
+            "overlay_settings_file": self._session_relative(session, overlay_settings_file),
+            "overlay_settings_history_file": self._session_relative(session, overlay_settings_history_file),
             "overlay_schema_version": record["overlay_schema_version"],
         }
         record["training_label"] = training_label
@@ -720,6 +850,8 @@ class RecordingService:
             handle.write(json.dumps(training_label, sort_keys=True) + "\n")
         if self._active_session and self._active_session.get("session_id") == session.get("session_id"):
             self._active_session["overlay_settings"] = overlay_snapshot
+            self._active_session["overlay_settings_file"] = str(overlay_settings_file)
+            self._active_session["overlay_settings_history_file"] = str(overlay_settings_history_file)
             self._active_session["overlay_settings_source"] = record["overlay_settings_source"]
             self._active_session["overlay_schema_version"] = record["overlay_schema_version"]
         self._last_saved_record = record
@@ -737,18 +869,22 @@ class RecordingService:
             "records_file": str(Path(self._active_session["records_file"])),
             "labels_file": str(Path(self._active_session.get("labels_file") or manifest_file.with_name("labels.jsonl"))),
             "manifest_file": str(manifest_file),
+            "overlay_settings_file": str(Path(self._active_session.get("overlay_settings_file") or session_dir / OVERLAY_SETTINGS_FILENAME)),
+            "overlay_settings_history_file": str(Path(self._active_session.get("overlay_settings_history_file") or session_dir / OVERLAY_SETTINGS_HISTORY_FILENAME)),
             "frame_count": int(self._frame_count),
             "last_saved_record": self._last_saved_record,
             "overlay_settings": self._last_saved_record.get("overlay_settings") or self._active_session.get("overlay_settings", {}),
             "overlay_settings_source": self._last_saved_record.get("overlay_settings_source") or self._active_session.get("overlay_settings_source", "manual_drive_runtime_overlay"),
-            "overlay_schema_version": self._last_saved_record.get("overlay_schema_version") or self._active_session.get("overlay_schema_version", "PiSD_0_6_7_overlay_settings_v1"),
+            "overlay_schema_version": self._last_saved_record.get("overlay_schema_version") or self._active_session.get("overlay_schema_version", OVERLAY_SCHEMA_VERSION),
             "ended_at_utc": "" if open_session else _utc_now().isoformat(),
             "running": bool(open_session),
             "training_data": {
                 "format": "behavioural_cloning_jsonl",
                 "labels_file": str(Path(self._active_session.get("labels_file") or manifest_file.with_name("labels.jsonl"))),
-                "label_fields": ["frame", "steering", "throttle", "timestamp_utc", "overlay_settings"],
-                "overlay_schema_version": "PiSD_0_6_7_overlay_settings_v1",
+                "label_fields": ["frame", "steering", "throttle", "timestamp_utc", "overlay_settings", "overlay_settings_file"],
+                "overlay_settings_file": str(Path(self._active_session.get("overlay_settings_file") or session_dir / OVERLAY_SETTINGS_FILENAME)),
+                "overlay_settings_history_file": str(Path(self._active_session.get("overlay_settings_history_file") or session_dir / OVERLAY_SETTINGS_HISTORY_FILENAME)),
+                "overlay_schema_version": OVERLAY_SCHEMA_VERSION,
             },
         }
         self._write_json(manifest_file, manifest)

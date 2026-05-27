@@ -199,6 +199,8 @@ The Manual Drive live overlay and Motor Tuning readout use the intended values, 
 
 The Manual Drive and AI Mode path overlays keep visual matching separate from motor tuning. From PiSD 0.8.10, the Manual Drive `Manual visual tuning` popup exposes only seven user-facing visual controls without the earlier user-facing min/max caps: `turn_rate_visual_scale`, `path_length_scale`, `path_width_scale`, `base_y`, `horizon_y`, `perspective_scale`, and `opacity`. Deeper geometry values are internal renderer defaults. Changing overlay values changes only the drawn path; real motor steering stays linear.
 
+From PiSD 0.8.11, each Manual Drive recording folder and each snapshot/day folder also saves `overlay_settings.json` plus `overlay_settings_history.jsonl`. Training tools can load `overlay_settings.json` to redraw the Manual Drive overlay with the same visual calibration used during recording. Per-frame copies remain in `records.jsonl` and `labels.jsonl` for cases where the overlay was retuned during a session.
+
 Recommended Manual Drive overlay calibration order:
 
 1. Use `Turn tightness`, `Path length`, and `Path width` to match the guide shape to the car path.
