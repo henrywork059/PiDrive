@@ -76,6 +76,7 @@ Preserve these accepted V8 behaviours:
 - Keep the Train page as a three-column workspace: left `Training Workflow`, middle `Training History / Log`, and right `Epoch Frame Review`. Do not move frame review back above the history/log stack unless the user asks.
 - Keep the Validation page as a three-column workspace: left `Validation Workflow`, middle `Validation Plot / Log`, and right `Validation Frame Review`. Do not return frame review to a vertical stack above/below plot/log unless the user asks.
 
+- Keep Export Workflow tabs ordered as `1 Export`, `2 Status`, with `Export Actions` above `Export Options` so the green `Export Selected Artifacts` button is visible first.
 - Keep Export page output user-readable. TensorFlow/Keras/TFLite may print temporary SavedModel endpoint details, C++ converter warnings, and quantization diagnostics even when export succeeds; export code should capture/summarise this chatter, log created artifact paths and sizes, and clearly state that the size-optimised TFLite file keeps float32 input/output for PiDrive runtime compatibility.
 
 ## Packaging checklist
