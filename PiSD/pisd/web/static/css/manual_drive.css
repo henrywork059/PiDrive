@@ -717,3 +717,22 @@ body[data-pisd-theme="light"] .mdrv-keyboard-hint {
   background: rgba(224, 242, 254, .72);
   border-color: rgba(14, 116, 144, .24);
 }
+
+/* 0.9.1 Manual Drive motor-start tuning popup. */
+.mdrv-motor-start-calibration {
+  border-color: rgba(251, 191, 36, .28);
+  background: rgba(120, 53, 15, .14);
+}
+.mdrv-motor-start-calibration .mdrv-button {
+  border-color: rgba(251, 191, 36, .36);
+}
+.mdrv-motor-start-settings-grid fieldset {
+  border-color: rgba(251, 191, 36, .22);
+}
+.mdrv-motor-start-settings-grid legend {
+  color: #fde68a;
+}
+body[data-pisd-theme="light"] .mdrv-motor-start-calibration {
+  background: rgba(254, 243, 199, .72);
+  border-color: rgba(180, 83, 9, .24);
+}

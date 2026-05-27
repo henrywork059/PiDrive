@@ -28,6 +28,8 @@
     steer_mix: 1.0,
     min_inside_speed: 0.0,
     allow_pivot_turn: false,
+    start_deadzone: 0.0,
+    start_kick_seconds: 0.12,
   };
   const globalCode = $('mdrvGlobalCode');
   const preview = $('mdrvPreview');
@@ -101,6 +103,14 @@
   const overlayHorizonY = $('mdrvOverlayHorizonY');
   const overlayPerspectiveScale = $('mdrvOverlayPerspectiveScale');
   const overlayOpacity = $('mdrvOverlayOpacity');
+  const motorStartSettingsOpen = $('mdrvMotorStartSettingsOpen');
+  const motorStartSettingsPopup = $('mdrvMotorStartSettingsPopup');
+  const motorStartSettingsClose = $('mdrvMotorStartSettingsClose');
+  const motorStartSettingsApply = $('mdrvMotorStartSettingsApply');
+  const motorStartSettingsReset = $('mdrvMotorStartSettingsReset');
+  const motorStartSettingsStatus = $('mdrvMotorStartSettingsStatus');
+  const startDeadzoneInput = $('mdrvStartDeadzone');
+  const startKickSecondsInput = $('mdrvStartKickSeconds');
   let dragging = false;
   let lastSentAt = 0;
   const STOP_COMMAND = { steering: 0, throttle: 0 };
@@ -127,8 +137,9 @@
   let lastPreviewStats = null;
   let lastPreviewImageLoadAt = 0;
 
-  // PiSD_0_9_0: keyboard driving state. Up/Down adjust live throttle
-  // by fixed steps; Left/Right ramp steering linearly while held.
+  // PiSD_0_9_1: keyboard driving state. Up/Down adjust live throttle
+  // by fixed steps; Left/Right ramp steering linearly while held, then
+  // release returns steering to centre in the same 0.5 s scale.
   const KEYBOARD_THROTTLE_STEP = 0.05;
   const KEYBOARD_STEERING_FULL_SCALE_MS = 500;
   let keyboardThrottle = 0;
@@ -147,6 +158,10 @@
     ['perspective_scale', overlayPerspectiveScale],
     ['opacity', overlayOpacity],
   ];
+  const MOTOR_START_CONTROL_BINDINGS = [
+    ['start_deadzone', startDeadzoneInput],
+    ['start_kick_seconds', startKickSecondsInput],
+  ];
   function isOk(code) { return String(code || '').startsWith('PISD-OK'); }
   function clamp(value, min, max, fallback = 0) {
     const n = Number(value);
@@ -163,6 +178,8 @@
       steer_mix: clamp(source.steer_mix, 0, 2, DEFAULT_MOTOR_SETTINGS.steer_mix),
       min_inside_speed: clamp(source.min_inside_speed, 0, 0.99, DEFAULT_MOTOR_SETTINGS.min_inside_speed),
       allow_pivot_turn: allowPivot,
+      start_deadzone: clamp(source.start_deadzone, 0, 0.95, DEFAULT_MOTOR_SETTINGS.start_deadzone),
+      start_kick_seconds: clamp(source.start_kick_seconds, 0, 0.75, DEFAULT_MOTOR_SETTINGS.start_kick_seconds),
     };
   }
   function updateOverlayMotorSettings(motor = {}) {
@@ -553,6 +570,69 @@
     overlaySettingsOpen?.focus?.();
   }
 
+  function normaliseMotorStartSettings(raw = {}) {
+    const source = raw && typeof raw === 'object' ? raw : {};
+    return {
+      start_deadzone: clamp(source.start_deadzone, 0, 0.95, DEFAULT_MOTOR_SETTINGS.start_deadzone),
+      start_kick_seconds: clamp(source.start_kick_seconds, 0, 0.75, DEFAULT_MOTOR_SETTINGS.start_kick_seconds),
+    };
+  }
+
+  function setMotorStartSettingsStatus(message) {
+    if (motorStartSettingsStatus) motorStartSettingsStatus.textContent = message;
+  }
+
+  function writeMotorStartControls(settings = latestMotorSettings) {
+    const values = normaliseMotorStartSettings(settings);
+    for (const [key, control] of MOTOR_START_CONTROL_BINDINGS) {
+      if (control) control.value = String(values[key]);
+    }
+  }
+
+  function readMotorStartSettingsFromControls() {
+    return normaliseMotorStartSettings({
+      start_deadzone: startDeadzoneInput?.value,
+      start_kick_seconds: startKickSecondsInput?.value,
+    });
+  }
+
+  function openMotorStartSettingsPopup() {
+    if (!motorStartSettingsPopup) return;
+    writeMotorStartControls();
+    motorStartSettingsPopup.hidden = false;
+    document.body.classList.add('mdrv-overlay-settings-open-body');
+    setMotorStartSettingsStatus('Ready - set dead-zone and kick time, then apply');
+    window.setTimeout(() => startDeadzoneInput?.focus?.(), 0);
+  }
+
+  function closeMotorStartSettingsPopup() {
+    if (!motorStartSettingsPopup) return;
+    motorStartSettingsPopup.hidden = true;
+    document.body.classList.remove('mdrv-overlay-settings-open-body');
+    motorStartSettingsOpen?.focus?.();
+  }
+
+  async function applyMotorStartSettings(settings = readMotorStartSettingsFromControls()) {
+    const motorStart = normaliseMotorStartSettings(settings);
+    const existingMotor = readRuntimeLocal().motor || {};
+    const motorPayload = { ...existingMotor, ...motorStart };
+    setMotorStartSettingsStatus('Applying motor start tuning...');
+    try {
+      const { payload } = await api('POST', '/api/motor/apply', motorPayload, 'drive');
+      const config = payload?.config || payload?.motor || motorPayload;
+      latestMotorSettings = normaliseMotorOverlaySettings({ ...latestMotorSettings, ...config });
+      writeMotorStartControls(latestMotorSettings);
+      if (payload?.settings) localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(payload.settings));
+      else writeRuntimeLocal({ motor: { ...(readRuntimeLocal().motor || {}), ...latestMotorSettings } });
+      setMotorStartSettingsStatus(`Saved start kick: dead-zone ${Number(latestMotorSettings.start_deadzone).toFixed(2)}, ${Number(latestMotorSettings.start_kick_seconds).toFixed(2)} s`);
+      setShortStatus('Motor start dead-zone tuning saved. Motor output was stopped while applying settings.', payload?.code || 'PISD-OK-000');
+      await refreshStatus();
+    } catch (err) {
+      setMotorStartSettingsStatus(`Apply failed: ${String(err)}`);
+      writeLog('motor start tuning apply failed', { ok: false, code: 'PISD-API-002', message: String(err) });
+    }
+  }
+
   function setSignedFill(element, value) {
     if (!element) return;
     const number = clamp(value, -1, 1, 0);
@@ -872,6 +952,8 @@
     } catch (_err) {}
     const legacy = readLegacyPrefs();
     const serverManual = settings.manual_drive || {};
+    latestMotorSettings = normaliseMotorOverlaySettings({ ...DEFAULT_MOTOR_SETTINGS, ...(settings.motor || {}) });
+    writeMotorStartControls(latestMotorSettings);
     const limit = clamp(serverManual.max_speed_limit || DEFAULTS.max_speed_limit, 0.1, 1.0, DEFAULTS.max_speed_limit);
     const manual = {
       ...DEFAULTS,
@@ -1045,7 +1127,7 @@
   }
 
   function keyboardControlBlocked() {
-    if (overlaySettingsPopup && !overlaySettingsPopup.hidden) return true;
+    if ((overlaySettingsPopup && !overlaySettingsPopup.hidden) || (motorStartSettingsPopup && !motorStartSettingsPopup.hidden)) return true;
     const active = document.activeElement;
     if (!active || active === document.body || active === document.documentElement || active === pad || active === arm) return false;
     const tag = String(active.tagName || '').toLowerCase();
@@ -1094,17 +1176,25 @@
 
   function runKeyboardSteeringLoop(now) {
     const direction = (keyboardRightHeld ? 1 : 0) - (keyboardLeftHeld ? 1 : 0);
-    if (!direction) {
-      stopKeyboardSteeringLoop();
-      return;
-    }
     if (!keyboardLastFrameAt) keyboardLastFrameAt = now;
     const deltaMs = Math.max(0, now - keyboardLastFrameAt);
     keyboardLastFrameAt = now;
     const unitsPerMs = 1 / KEYBOARD_STEERING_FULL_SCALE_MS;
-    keyboardSteering = clamp(keyboardSteering + direction * deltaMs * unitsPerMs, -1, 1, 0);
-    sendKeyboardManual(false);
-    keyboardLoopHandle = requestAnimationFrame(runKeyboardSteeringLoop);
+    if (direction) {
+      keyboardSteering = clamp(keyboardSteering + direction * deltaMs * unitsPerMs, -1, 1, 0);
+    } else {
+      const returnStep = deltaMs * unitsPerMs;
+      if (Math.abs(keyboardSteering) <= returnStep) keyboardSteering = 0;
+      else keyboardSteering -= Math.sign(keyboardSteering) * returnStep;
+    }
+    const centred = !direction && Math.abs(keyboardSteering) <= 1e-4;
+    sendKeyboardManual(centred);
+    if (direction || !centred) {
+      keyboardLoopHandle = requestAnimationFrame(runKeyboardSteeringLoop);
+    } else {
+      stopKeyboardSteeringLoop();
+      setKeyboardStatus(`Keyboard S ${formatSigned(0)} / T ${formatSigned(keyboardThrottle)}`, 'ready');
+    }
   }
 
   function startKeyboardSteeringLoop() {
@@ -1120,7 +1210,7 @@
     keyboardRightHeld = false;
     stopKeyboardSteeringLoop();
     setKnobForCommand(0, 0);
-    setKeyboardStatus('Keyboard stopped. Use ↑/↓ for throttle, hold ←/→ for steering.', 'ready');
+    setKeyboardStatus('Keyboard stopped. Use ↑/↓ for throttle, hold ←/→ for steering; release returns to centre.', 'ready');
     await stopAll('drive');
   }
 
@@ -1155,11 +1245,9 @@
     document.addEventListener('keyup', event => {
       if (event.key === 'ArrowLeft') keyboardLeftHeld = false;
       if (event.key === 'ArrowRight') keyboardRightHeld = false;
-      if (!keyboardLeftHeld && !keyboardRightHeld) {
-        stopKeyboardSteeringLoop();
-        if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-          setKeyboardStatus(`Keyboard S ${formatSigned(keyboardSteering)} / T ${formatSigned(keyboardThrottle)}`, 'ready');
-        }
+      if ((event.key === 'ArrowLeft' || event.key === 'ArrowRight') && !keyboardLeftHeld && !keyboardRightHeld) {
+        setKeyboardStatus('Keyboard steering returning to centre...', 'active');
+        startKeyboardSteeringLoop();
       }
     });
   }
@@ -1312,13 +1400,32 @@
     const applyOverlayNumberInput = () => {
       applyOverlayCalibration(readOverlayCalibrationFromControls(), true);
     };
+    motorStartSettingsOpen?.addEventListener('click', openMotorStartSettingsPopup);
+    motorStartSettingsClose?.addEventListener('click', closeMotorStartSettingsPopup);
+    motorStartSettingsPopup?.addEventListener('click', event => {
+      if (event.target === motorStartSettingsPopup) closeMotorStartSettingsPopup();
+    });
+    motorStartSettingsApply?.addEventListener('click', () => applyMotorStartSettings(readMotorStartSettingsFromControls()));
+    motorStartSettingsReset?.addEventListener('click', () => applyMotorStartSettings({ start_deadzone: 0.0, start_kick_seconds: DEFAULT_MOTOR_SETTINGS.start_kick_seconds }));
+    for (const [, control] of MOTOR_START_CONTROL_BINDINGS) {
+      control?.addEventListener('change', () => setMotorStartSettingsStatus('Edited; press Apply motor start tuning'));
+      control?.addEventListener('keydown', event => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          applyMotorStartSettings(readMotorStartSettingsFromControls());
+          event.target?.blur?.();
+        }
+      });
+    }
     overlaySettingsOpen?.addEventListener('click', openOverlaySettingsPopup);
     overlaySettingsClose?.addEventListener('click', closeOverlaySettingsPopup);
     overlaySettingsPopup?.addEventListener('click', event => {
       if (event.target === overlaySettingsPopup) closeOverlaySettingsPopup();
     });
     document.addEventListener('keydown', event => {
-      if (event.key === 'Escape' && overlaySettingsPopup && !overlaySettingsPopup.hidden) closeOverlaySettingsPopup();
+      if (event.key !== 'Escape') return;
+      if (motorStartSettingsPopup && !motorStartSettingsPopup.hidden) closeMotorStartSettingsPopup();
+      if (overlaySettingsPopup && !overlaySettingsPopup.hidden) closeOverlaySettingsPopup();
     });
     overlaySettingsApply?.addEventListener('click', applyOverlayNumberInput);
     overlaySettingsReset?.addEventListener('click', () => {
@@ -1359,7 +1466,7 @@
         stopAll('drive');
         setKeyboardStatus('Keyboard locked: enable motor output first.', 'locked');
       } else {
-        setKeyboardStatus('Keyboard ready. ↑/↓ throttle ±0.05; hold ←/→ steering ±1 per 0.5 s; Space stop.', 'ready');
+        setKeyboardStatus('Keyboard ready. ↑/↓ throttle ±0.05; hold ←/→ steering ±1 per 0.5 s; release returns to 0; Space stop.', 'ready');
       }
     });
     preview?.addEventListener('load', () => {
@@ -1385,7 +1492,7 @@
   applyOverlayCalibration(overlaySettings, false);
   updateDriveOverlay(lastPayload, lastMotorOutput, 'stopped');
   updateLock();
-  setKeyboardStatus('Keyboard ready. ↑/↓ throttle ±0.05; hold ←/→ steering ±1 per 0.5 s; Space stop.', 'ready');
+  setKeyboardStatus('Keyboard ready. ↑/↓ throttle ±0.05; hold ←/→ steering ±1 per 0.5 s; release returns to 0; Space stop.', 'ready');
   loadSettings();
   refreshRecordingItems();
 })();

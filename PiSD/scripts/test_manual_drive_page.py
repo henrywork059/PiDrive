@@ -115,8 +115,13 @@ def check_source_contract() -> list[Result]:
         "Keyboard",
         "mdrvKeyboardStatus",
         "↑/↓ throttle ±0.05 per press",
-        "hold ←/→ steering ±1 in 0.5 s",
+        "hold ←/→ steering ±1 in 0.5 s; release returns to 0",
         "Space STOP",
+        "Motor start dead-zone",
+        "Motor dead-zone kick",
+        "Start dead-zone",
+        "Kick seconds",
+        "Apply motor start tuning",
         "Overlay calibration — 7 controls",
         "7 visual-only overlay controls",
         "Shape",
@@ -171,7 +176,7 @@ def check_source_contract() -> list[Result]:
         "does not start the camera, restart preview, or send motor commands",
         "STOP motors",
     ]
-    required_css = [".mdrv-shell", ".mdrv-panel", ".mdrv-status-panel", ".mdrv-preview-frame", ".mdrv-drag-pad", ".mdrv-big-stop", ".mdrv-drag-knob", "width: 28px", ".mdrv-recording-indicator", ".mdrv-capture-notice", ".mdrv-overlay-toggle", ".mdrv-drive-overlay", ".mdrv-overlay-path", ".mdrv-overlay-path-wide", ".mdrv-overlay-endpoint", "road-guide overlay", "marker-end: url(#mdrvOverlayArrow)", ".mdrv-drive-debug-panel", ".mdrv-keyboard-hint", ".mdrv-keyboard-status", ".mdrv-overlay-calibration", ".mdrv-overlay-settings-grid-reduced", ".mdrv-overlay-calibration-guide", "data-overlay-source", "data-preview-state", "Preview stale", "@media (max-width: 1100px)"]
+    required_css = [".mdrv-shell", ".mdrv-panel", ".mdrv-status-panel", ".mdrv-preview-frame", ".mdrv-drag-pad", ".mdrv-big-stop", ".mdrv-drag-knob", "width: 28px", ".mdrv-recording-indicator", ".mdrv-capture-notice", ".mdrv-overlay-toggle", ".mdrv-drive-overlay", ".mdrv-overlay-path", ".mdrv-overlay-path-wide", ".mdrv-overlay-endpoint", "road-guide overlay", "marker-end: url(#mdrvOverlayArrow)", ".mdrv-drive-debug-panel", ".mdrv-keyboard-hint", ".mdrv-keyboard-status", ".mdrv-overlay-calibration", ".mdrv-overlay-settings-grid-reduced", ".mdrv-overlay-calibration-guide", ".mdrv-motor-start-calibration", "data-overlay-source", "data-preview-state", "Preview stale", "@media (max-width: 1100px)"]
     required_unified_css = [
         "PiSD 0.3.3 manual-drive semantic layout recovery",
         "body.manual-drive-page .mdrv-shell",
@@ -284,6 +289,11 @@ def check_source_contract() -> list[Result]:
         "ArrowRight",
         "requestAnimationFrame",
         "source: 'keyboard'",
+        "release returns steering to centre",
+        "start_deadzone",
+        "start_kick_seconds",
+        "/api/motor/apply",
+        "mdrvMotorStartSettingsOpen",
     ]
     missing = {
         "template": [token for token in required_template if token not in template],
@@ -330,14 +340,27 @@ def check_source_contract() -> list[Result]:
     ))
 
     keyboard_ok = (
-        all(token in template for token in ("mdrvKeyboardStatus", "↑/↓ throttle ±0.05 per press", "hold ←/→ steering ±1 in 0.5 s", "Space STOP"))
+        all(token in template for token in ("mdrvKeyboardStatus", "↑/↓ throttle ±0.05 per press", "hold ←/→ steering ±1 in 0.5 s; release returns to 0", "Space STOP"))
         and all(token in js for token in ("KEYBOARD_THROTTLE_STEP", "KEYBOARD_STEERING_FULL_SCALE_MS", "bindKeyboardDrive", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "requestAnimationFrame", "source: 'keyboard'"))
     )
     results.append(Result(
         "manual_drive.keyboard_control",
         keyboard_ok,
         PiSDErrorCodes.OK if keyboard_ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
-        "Manual Drive supports keyboard control: ↑/↓ throttle steps, held ←/→ steering ramp, and Space stop" if keyboard_ok else "Manual Drive keyboard control contract is missing",
+        "Manual Drive supports keyboard control: ↑/↓ throttle steps, held ←/→ steering ramp, release-to-centre, and Space stop" if keyboard_ok else "Manual Drive keyboard control contract is missing",
+        {},
+    ))
+
+    motor_start_tuning_ok = (
+        all(token in template for token in ("mdrvMotorStartSettingsOpen", "Motor dead-zone kick", "mdrvStartDeadzone", "mdrvStartKickSeconds", "Apply motor start tuning"))
+        and all(token in js for token in ("normaliseMotorStartSettings", "applyMotorStartSettings", "start_deadzone", "start_kick_seconds", "/api/motor/apply"))
+        and ".mdrv-motor-start-calibration" in css
+    )
+    results.append(Result(
+        "manual_drive.motor_start_tuning_popup",
+        motor_start_tuning_ok,
+        PiSDErrorCodes.OK if motor_start_tuning_ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
+        "Manual Drive has a motor start dead-zone popup that applies start_deadzone/start_kick_seconds" if motor_start_tuning_ok else "Manual Drive motor start tuning popup is missing",
         {},
     ))
 
