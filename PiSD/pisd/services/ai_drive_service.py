@@ -530,6 +530,36 @@ class AIDriveService:
             return path, safe_id, report
         return path, safe_id, None
 
+    @staticmethod
+    def _detail_shape_list(detail: dict[str, Any]) -> list[int]:
+        """Return a plain Python shape list from a TensorFlow Lite tensor detail.
+
+        TFLite runtimes commonly expose ``detail["shape"]`` as a NumPy array.
+        NumPy arrays cannot be used with boolean fallback expressions such as
+        ``detail.get("shape") or []`` because multi-value arrays have no single
+        truth value.  Keep this conversion explicit so loading piTrainer-exported
+        .tflite models does not fail before inference starts.
+        """
+        raw_shape = detail.get("shape")
+        if raw_shape is None:
+            return []
+        try:
+            return [int(value) for value in list(raw_shape)]
+        except Exception:
+            try:
+                return [int(raw_shape)]
+            except Exception:
+                return []
+
+    @staticmethod
+    def _dtype_name(value: Any, fallback: str = "float32") -> str:
+        try:
+            import numpy as np
+
+            return str(np.dtype(value).name)
+        except Exception:
+            return str(value or fallback)
+
     def _load_tflite(self, model_path: Path) -> None:
         interpreter_cls = None
         backend_detail = ""
@@ -566,12 +596,12 @@ class AIDriveService:
         output_details = interpreter.get_output_details()
         if not input_details or not output_details:
             raise RuntimeError("TFLite model did not expose input/output tensors.")
-        shape = list(input_details[0].get("shape") or [])
+        shape = self._detail_shape_list(input_details[0])
         if len(shape) >= 4:
             # usually NHWC: [1, height, width, channels]
             self._input_size = (int(shape[2] or 160), int(shape[1] or 120))
-        self._input_dtype_name = str(input_details[0].get("dtype", "float32"))
-        output_names = [str(item.get("name") or item.get("index") or "") for item in output_details]
+        self._input_dtype_name = self._dtype_name(input_details[0].get("dtype", "float32"))
+        output_names = [str(item.get("name") if item.get("name") is not None else item.get("index", "")) for item in output_details]
         with self._lock:
             self._model = interpreter
             self._input_details = input_details
@@ -589,7 +619,7 @@ class AIDriveService:
         input_shape = getattr(model, "input_shape", None)
         if isinstance(input_shape, list):
             input_shape = input_shape[0]
-        if input_shape and len(input_shape) >= 4:
+        if input_shape is not None and len(input_shape) >= 4:
             self._input_size = (int(input_shape[2] or 160), int(input_shape[1] or 120))
         self._input_dtype_name = "float32"
         output_names = [str(name) for name in (getattr(model, "output_names", None) or [])]

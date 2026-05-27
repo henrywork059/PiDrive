@@ -71,6 +71,19 @@ def main() -> int:
     )
     results.append(Result("ai_service.pitrainer_output_parser", parser_ok, PiSDErrorCodes.OK if parser_ok else PiSDErrorCodes.TEST_AI_MODE_FAILED, "piTrainer dict/list/two-value model outputs map to steering/throttle" if parser_ok else "piTrainer model output parser failed", {"dict": [dict_steering, dict_throttle], "list": [list_steering, list_throttle], "array": [array_steering, array_throttle]}))
 
+    try:
+        import numpy as np
+
+        shape = service._detail_shape_list({"shape": np.array([1, 120, 160, 3], dtype=np.int32)})
+        dtype_name = service._dtype_name(np.float32)
+        detail_ok = shape == [1, 120, 160, 3] and dtype_name == "float32"
+        detail_message = "TFLite NumPy tensor details convert without ambiguous truth-value checks"
+    except Exception as exc:
+        detail_ok = False
+        detail_message = f"TFLite tensor detail conversion failed: {exc}"
+        shape = []
+        dtype_name = ""
+    results.append(Result("ai_service.tflite_tensor_detail_conversion", detail_ok, PiSDErrorCodes.OK if detail_ok else PiSDErrorCodes.TEST_AI_MODE_FAILED, detail_message, {"shape": shape, "dtype_name": dtype_name}))
 
     runtime = service.runtime_diagnostics()
     runtime_ok = {"tflite_runtime", "ai_edge_litert", "tensorflow", "tflite", "keras"}.issubset(set(runtime))
