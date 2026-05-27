@@ -77,6 +77,15 @@ def check_source_contract() -> Result:
             "aiModeInitialStatus",
             "aiModelSelect",
             "aiLoadModel",
+            "aiUploadModel",
+            "aiDeleteModel",
+            "aiModelUploadFile",
+            "aiOutputNames",
+            "aiPiTrainerCompatible",
+            "Upload model to Pi",
+            "Delete selected",
+            "piTrainer export",
+            "steering</code> and <code>throttle",
             "aiSafetyAck",
             "aiEnableMotor",
             "aiStartPreview",
@@ -99,6 +108,13 @@ def check_source_contract() -> Result:
             "aiModeInitialStatus",
             "/api/ai/models",
             "/api/ai/load-model",
+            "/api/ai/upload-model",
+            "/api/ai/delete-model",
+            "uploadModel",
+            "deleteSelectedModel",
+            "FormData",
+            "aiOutputNames",
+            "aiPiTrainerCompatible",
             "/api/ai/start",
             "/api/ai/stop",
             "/api/ai/config",
@@ -143,6 +159,10 @@ def check_routes(hardware: bool) -> list[Result]:
         response = client.get(path)
         ok = response.status_code == 200 and marker in response.data
         checks.append(Result(label, ok, PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_AI_MODE_FAILED, f"{path} loaded" if ok else f"{path} returned {response.status_code}", {"http_status": response.status_code}))
+    upload_missing = client.post("/api/ai/upload-model", data={})
+    ok = upload_missing.status_code == 400 and b"No AI model file" in upload_missing.data
+    checks.append(Result("ai_mode.api.upload_requires_file", ok, PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_AI_MODE_FAILED, "AI upload rejects missing file" if ok else "AI upload did not reject missing file", {"http_status": upload_missing.status_code, "body": upload_missing.get_data(as_text=True)[:240]}))
+
     start_unloaded = client.post("/api/ai/start", json={"mode": "drive", "safety_ack": True, "enable_motor_output": False})
     ok = start_unloaded.status_code in {400, 409} and b"PISD-AI-003" in start_unloaded.data
     checks.append(Result("ai_mode.api.drive_requires_model", ok, PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_AI_MODE_FAILED, "AI drive is blocked when no model is loaded" if ok else "AI drive was not safely blocked without a model", {"http_status": start_unloaded.status_code, "body": start_unloaded.get_data(as_text=True)[:240]}))

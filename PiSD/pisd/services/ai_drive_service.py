@@ -3,6 +3,8 @@ from __future__ import annotations
 import atexit
 import json
 import math
+import re
+import shutil
 import threading
 import time
 from datetime import datetime, timezone
@@ -46,6 +48,7 @@ class AIDriveService:
         self._output_details: Any = None
         self._input_size = (160, 120)  # width, height fallback
         self._input_dtype_name = "float32"
+        self._output_names: list[str] = []
         self._model_loaded = False
         self._model_ready = False
         self._running = False
@@ -109,6 +112,8 @@ class AIDriveService:
                 "backend": self._backend,
                 "input_size": {"width": self._input_size[0], "height": self._input_size[1]},
                 "input_dtype": self._input_dtype_name,
+                "output_names": list(self._output_names),
+                "piTrainer_export_compatible": self._backend in {"tflite", "tensorflow.keras"},
                 "settings": dict(self._settings),
                 "last_raw_prediction": dict(self._last_raw),
                 "last_safe_command": dict(self._last_safe),
@@ -152,6 +157,99 @@ class AIDriveService:
                 continue
         return ok_payload("AI model list loaded.", models=models, supported_extensions=sorted(MODEL_EXTENSIONS), models_dir=str(self.models_dir))
 
+    def upload_model(self, filename: Any, file_obj: Any) -> dict[str, Any]:
+        """Save an uploaded model file into PiSD/models with a safe filename.
+
+        piTrainer currently exports .keras and .tflite artifacts. This method also
+        keeps the existing extension allow-list for future/backward-compatible
+        models while preventing uploaded filenames from escaping the models
+        folder.
+        """
+        original = str(filename or "").strip()
+        safe_name = self._safe_upload_filename(original)
+        if not safe_name:
+            report = self._record_error(
+                PiSDErrorCodes.AI_MODEL_LOAD_FAILED,
+                "Uploaded model filename was missing or unsafe.",
+                severity="warning",
+                context={"filename": original},
+            )
+            return report_payload(False, report, ai=self.status())
+        suffix = Path(safe_name).suffix.lower()
+        if suffix not in MODEL_EXTENSIONS:
+            report = self._record_error(
+                PiSDErrorCodes.AI_MODEL_LOAD_FAILED,
+                "Uploaded model extension is not supported.",
+                severity="warning",
+                context={"filename": original, "safe_name": safe_name, "supported_extensions": sorted(MODEL_EXTENSIONS)},
+            )
+            return report_payload(False, report, ai=self.status())
+        self.models_dir.mkdir(parents=True, exist_ok=True)
+        target = self._dedupe_upload_path(self.models_dir / safe_name)
+        root = self.models_dir.resolve()
+        try:
+            resolved = target.resolve()
+            resolved.relative_to(root)
+            with resolved.open("wb") as handle:
+                shutil.copyfileobj(file_obj, handle)
+            if resolved.stat().st_size <= 0:
+                resolved.unlink(missing_ok=True)
+                raise RuntimeError("uploaded file was empty")
+            model_id = str(resolved.relative_to(root)).replace("\\", "/")
+            return ok_payload(
+                "AI model uploaded.",
+                model={
+                    "id": model_id,
+                    "name": resolved.name,
+                    "extension": resolved.suffix.lower(),
+                    "bytes": int(resolved.stat().st_size),
+                    "relative_path": str(resolved.relative_to(self.project_root)).replace("\\", "/"),
+                },
+                models=self.list_models().get("models", []),
+                supported_extensions=sorted(MODEL_EXTENSIONS),
+                ai=self.status(),
+            )
+        except Exception as exc:
+            report = self._record_error(
+                PiSDErrorCodes.AI_MODEL_LOAD_FAILED,
+                f"Failed to save uploaded AI model: {exc}",
+                context={"filename": original, "target": str(target)},
+                exc=exc,
+            )
+            return report_payload(False, report, ai=self.status())
+
+    def delete_model(self, model_id: Any) -> dict[str, Any]:
+        model_path, safe_id, report = self._resolve_model(model_id)
+        if report is not None:
+            return report_payload(False, report, ai=self.status())
+        unloaded = False
+        try:
+            with self._lock:
+                was_selected = safe_id == self._model_id
+            if was_selected:
+                self.stop(stop_motors=False)
+            model_path.unlink()
+            if was_selected:
+                with self._lock:
+                    self._clear_loaded_model_locked()
+                    self._settings["model_id"] = ""
+                    unloaded = True
+            return ok_payload(
+                "AI model deleted.",
+                deleted_model_id=safe_id,
+                unloaded_selected_model=unloaded,
+                models=self.list_models().get("models", []),
+                ai=self.status(),
+            )
+        except Exception as exc:
+            report = self._record_error(
+                PiSDErrorCodes.AI_MODEL_LOAD_FAILED,
+                f"Failed to delete AI model: {exc}",
+                context={"model_id": safe_id, "path": str(model_path)},
+                exc=exc,
+            )
+            return report_payload(False, report, ai=self.status())
+
     def load_model(self, model_id: Any) -> dict[str, Any]:
         model_path, safe_id, report = self._resolve_model(model_id)
         if report is not None:
@@ -163,6 +261,7 @@ class AIDriveService:
             self._model = None
             self._input_details = None
             self._output_details = None
+            self._output_names = []
             self._backend = "selected"
             self._model_loaded = False
             self._model_ready = False
@@ -315,6 +414,44 @@ class AIDriveService:
         except Exception:
             pass
 
+    def _clear_loaded_model_locked(self) -> None:
+        self._model_id = ""
+        self._model_path = None
+        self._model = None
+        self._input_details = None
+        self._output_details = None
+        self._output_names = []
+        self._backend = "none"
+        self._model_loaded = False
+        self._model_ready = False
+        self._last_raw = {"steering": 0.0, "throttle": 0.0}
+        self._last_safe = {"steering": 0.0, "throttle": 0.0}
+        self._last_motor = {"left": 0.0, "right": 0.0}
+
+    @staticmethod
+    def _safe_upload_filename(filename: str) -> str:
+        name = Path(str(filename or "").replace("\\", "/")).name.strip()
+        if not name:
+            return ""
+        stem = Path(name).stem
+        suffix = Path(name).suffix.lower()
+        safe_stem = re.sub(r"[^A-Za-z0-9._-]+", "_", stem).strip("._-")
+        if not safe_stem or suffix not in MODEL_EXTENSIONS:
+            return ""
+        return f"{safe_stem}{suffix}"
+
+    @staticmethod
+    def _dedupe_upload_path(path: Path) -> Path:
+        if not path.exists():
+            return path
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        candidate = path.with_name(f"{path.stem}_{stamp}{path.suffix}")
+        counter = 2
+        while candidate.exists():
+            candidate = path.with_name(f"{path.stem}_{stamp}_{counter}{path.suffix}")
+            counter += 1
+        return candidate
+
     def _resolve_model(self, model_id: Any) -> tuple[Path, str, ErrorReport | None]:
         raw = str(model_id or "").strip().replace("\\", "/")
         if not raw or raw.startswith("/") or ".." in Path(raw).parts:
@@ -356,10 +493,12 @@ class AIDriveService:
             # usually NHWC: [1, height, width, channels]
             self._input_size = (int(shape[2] or 160), int(shape[1] or 120))
         self._input_dtype_name = str(input_details[0].get("dtype", "float32"))
+        output_names = [str(item.get("name") or item.get("index") or "") for item in output_details]
         with self._lock:
             self._model = interpreter
             self._input_details = input_details
             self._output_details = output_details
+            self._output_names = output_names
             self._backend = "tflite"
 
     def _load_keras(self, model_path: Path) -> None:
@@ -374,8 +513,10 @@ class AIDriveService:
         if input_shape and len(input_shape) >= 4:
             self._input_size = (int(input_shape[2] or 160), int(input_shape[1] or 120))
         self._input_dtype_name = "float32"
+        output_names = [str(name) for name in (getattr(model, "output_names", None) or [])]
         with self._lock:
             self._model = model
+            self._output_names = output_names
             self._backend = "tensorflow.keras"
 
     def _get_frame(self, camera_service: Any) -> bytes:
@@ -396,43 +537,117 @@ class AIDriveService:
 
         image = Image.open(BytesIO(frame)).convert("RGB")
         image = image.resize(self._input_size)
-        array = np.asarray(image)
+        array = np.asarray(image).astype("float32") / 255.0
         with self._lock:
-            dtype_text = self._input_dtype_name
             backend = self._backend
-        if "uint8" in dtype_text:
-            array = array.astype("uint8")
-        else:
-            array = array.astype("float32") / 255.0
         return np.expand_dims(array, axis=0), backend
 
-    def _predict_from_jpeg(self, frame: bytes) -> tuple[float, float]:
+    @staticmethod
+    def _coerce_tflite_input(tensor: Any, input_detail: dict[str, Any]) -> Any:
         import numpy as np
 
+        dtype = input_detail.get("dtype", tensor.dtype)
+        if np.issubdtype(dtype, np.floating):
+            return tensor.astype(dtype)
+        q_scale, q_zero = input_detail.get("quantization", (0.0, 0)) or (0.0, 0)
+        if q_scale and float(q_scale) > 0.0:
+            quantized = np.round((tensor / float(q_scale)) + float(q_zero))
+        elif np.dtype(dtype) == np.dtype("uint8"):
+            quantized = np.round(tensor * 255.0)
+        else:
+            quantized = np.round(tensor)
+        info = np.iinfo(dtype)
+        return np.clip(quantized, info.min, info.max).astype(dtype)
+
+    @staticmethod
+    def _first_scalar(value: Any) -> float | None:
+        import numpy as np
+
+        try:
+            values = np.asarray(value).reshape(-1).astype("float32")
+        except Exception:
+            return None
+        if values.size <= 0:
+            return None
+        scalar = float(values[0])
+        return scalar if math.isfinite(scalar) else None
+
+    def _commands_from_prediction_output(self, output: Any, output_names: list[str] | None = None) -> tuple[float, float]:
+        """Return steering/throttle from piTrainer Keras/TFLite output shapes.
+
+        piTrainer's current CNN exports two named outputs: ``steering`` and
+        ``throttle``. Keras may return those as a dict, a list/tuple, or a
+        two-column array depending on backend and model format. TFLite may expose
+        either one two-value tensor or two separate output tensors. This parser
+        accepts all of those forms so PiSD can run models exported by piTrainer.
+        """
+        import numpy as np
+
+        steering: float | None = None
+        throttle: float | None = None
+
+        if isinstance(output, dict):
+            lowered = {str(key).lower(): value for key, value in output.items()}
+            for key, value in lowered.items():
+                if steering is None and "steer" in key:
+                    steering = self._first_scalar(value)
+                if throttle is None and ("throttle" in key or "throt" in key):
+                    throttle = self._first_scalar(value)
+            if steering is None and "0" in lowered:
+                steering = self._first_scalar(lowered["0"])
+            if throttle is None and "1" in lowered:
+                throttle = self._first_scalar(lowered["1"])
+        elif isinstance(output, (list, tuple)):
+            names = [str(name).lower() for name in (output_names or [])]
+            for index, value in enumerate(output):
+                name = names[index] if index < len(names) else ""
+                if steering is None and "steer" in name:
+                    steering = self._first_scalar(value)
+                if throttle is None and ("throttle" in name or "throt" in name):
+                    throttle = self._first_scalar(value)
+            if steering is None or throttle is None:
+                if len(output) == 1:
+                    values = np.asarray(output[0]).reshape(-1).astype("float32")
+                    if steering is None and values.size >= 1:
+                        steering = float(values[0])
+                    if throttle is None and values.size >= 2:
+                        throttle = float(values[1])
+                else:
+                    if steering is None and len(output) >= 1:
+                        steering = self._first_scalar(output[0])
+                    if throttle is None and len(output) >= 2:
+                        throttle = self._first_scalar(output[1])
+        else:
+            values = np.asarray(output).reshape(-1).astype("float32")
+            if values.size >= 1:
+                steering = float(values[0])
+            if values.size >= 2:
+                throttle = float(values[1])
+
+        if steering is None or not math.isfinite(float(steering)):
+            steering = 0.0
+        if throttle is None or not math.isfinite(float(throttle)):
+            throttle = 0.0
+        return clamp_float(steering, -1.0, 1.0, 0.0), clamp_float(throttle, -1.0, 1.0, 0.0)
+
+    def _predict_from_jpeg(self, frame: bytes) -> tuple[float, float]:
         tensor, backend = self._prepare_input(frame)
         with self._lock:
             model = self._model
             input_details = self._input_details
             output_details = self._output_details
+            output_names = list(self._output_names)
         if backend == "tflite":
-            input_index = input_details[0]["index"]
-            model.set_tensor(input_index, tensor.astype(input_details[0].get("dtype", tensor.dtype)))
+            input_detail = input_details[0]
+            input_index = input_detail["index"]
+            model.set_tensor(input_index, self._coerce_tflite_input(tensor, input_detail))
             model.invoke()
-            output = model.get_tensor(output_details[0]["index"])
-        elif backend == "tensorflow.keras":
+            outputs = [model.get_tensor(detail["index"]) for detail in output_details]
+            return self._commands_from_prediction_output(outputs, output_names)
+        if backend == "tensorflow.keras":
             output = model.predict(tensor, verbose=0)
-        else:
-            raise RuntimeError(f"Unsupported AI inference backend: {backend}")
-        values = np.asarray(output).reshape(-1).astype("float32")
-        if values.size <= 0:
-            raise RuntimeError("AI model returned no output values.")
-        steering = float(values[0])
-        throttle = float(values[1]) if values.size >= 2 else 0.0
-        if not math.isfinite(steering):
-            steering = 0.0
-        if not math.isfinite(throttle):
-            throttle = 0.0
-        return clamp_float(steering, -1.0, 1.0, 0.0), clamp_float(throttle, -1.0, 1.0, 0.0)
+            return self._commands_from_prediction_output(output, output_names)
+        raise RuntimeError(f"Unsupported AI inference backend: {backend}")
 
     def _run_loop(self, camera_service: Any, motor_service: Any, drive: bool) -> None:
         last_tick = time.perf_counter()

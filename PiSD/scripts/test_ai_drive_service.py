@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import io
 import json
 import shutil
 import sys
@@ -50,6 +51,25 @@ def main() -> int:
     listed = service.list_models()
     list_ok = listed.get("code") == PiSDErrorCodes.OK and any(item.get("id") == "dummy.tflite" for item in listed.get("models", []))
     results.append(Result("ai_service.list_models", list_ok, PiSDErrorCodes.OK if list_ok else PiSDErrorCodes.TEST_AI_MODE_FAILED, "models folder lists supported model files" if list_ok else "model listing failed", {"listed": listed}))
+
+    uploaded = service.upload_model("piTrainer export.keras", io.BytesIO(b"fake keras bytes"))
+    uploaded_id = ((uploaded.get("model") or {}).get("id") or "")
+    upload_ok = uploaded.get("ok") and uploaded_id.endswith(".keras") and "/" not in uploaded_id
+    results.append(Result("ai_service.upload_model", upload_ok, PiSDErrorCodes.OK if upload_ok else PiSDErrorCodes.TEST_AI_MODE_FAILED, "uploaded piTrainer-style model file is saved with a safe id" if upload_ok else "model upload failed", {"response": uploaded}))
+
+    deleted = service.delete_model(uploaded_id)
+    delete_ok = deleted.get("ok") and deleted.get("deleted_model_id") == uploaded_id and not (models / uploaded_id).exists()
+    results.append(Result("ai_service.delete_model", delete_ok, PiSDErrorCodes.OK if delete_ok else PiSDErrorCodes.TEST_AI_MODE_FAILED, "selected model can be deleted from PiSD/models" if delete_ok else "model delete failed", {"response": deleted}))
+
+    dict_steering, dict_throttle = service._commands_from_prediction_output({"steering": [[0.42]], "throttle": [[0.18]]})
+    list_steering, list_throttle = service._commands_from_prediction_output([[[0.31]], [[0.27]]], ["serving_default_steering:0", "serving_default_throttle:0"])
+    array_steering, array_throttle = service._commands_from_prediction_output([[0.25, 0.35]])
+    parser_ok = (
+        abs(dict_steering - 0.42) < 1e-6 and abs(dict_throttle - 0.18) < 1e-6
+        and abs(list_steering - 0.31) < 1e-6 and abs(list_throttle - 0.27) < 1e-6
+        and abs(array_steering - 0.25) < 1e-6 and abs(array_throttle - 0.35) < 1e-6
+    )
+    results.append(Result("ai_service.pitrainer_output_parser", parser_ok, PiSDErrorCodes.OK if parser_ok else PiSDErrorCodes.TEST_AI_MODE_FAILED, "piTrainer dict/list/two-value model outputs map to steering/throttle" if parser_ok else "piTrainer model output parser failed", {"dict": [dict_steering, dict_throttle], "list": [list_steering, list_throttle], "array": [array_steering, array_throttle]}))
 
     unsafe = service.load_model("../bad.tflite")
     unsafe_ok = unsafe.get("code") == PiSDErrorCodes.AI_MODEL_NOT_FOUND

@@ -97,7 +97,7 @@ recordings/.../frames + records.jsonl + labels.jsonl
         ↓
 train/export model on PC or trainer tool
         ↓
-copy model into PiSD/models/
+upload/copy model into PiSD/models/
         ↓
 AI Mode loads model → predicts steering/throttle → safety limiter → motor service
 ```
@@ -108,7 +108,9 @@ Supported model file discovery currently includes:
 .tflite, .keras, .h5, .onnx, .pt
 ```
 
-Runtime inference is implemented first for `.tflite` when `tflite_runtime` or TensorFlow Lite support is installed, and for `.keras`/`.h5` when TensorFlow is installed. `.onnx` and `.pt` files are listed so the UI can see them, but they are not runnable until a future backend is added.
+Runtime inference is implemented for piTrainer-exported `.tflite` models when `tflite_runtime` or TensorFlow Lite support is installed, and for piTrainer-exported `.keras`/`.h5` models when TensorFlow is installed. PiSD reads piTrainer's named `steering` and `throttle` outputs, including Keras dict/list outputs and TFLite one-tensor or two-tensor outputs. `.onnx` and `.pt` files are listed so the UI can see them, but they are not runnable until a future backend is added.
+
+The **Load trained model** panel can upload a model from the browser to `PiSD/models/` and can delete a selected model from the Pi. Upload uses a safe filename and appends a timestamp if the same filename already exists.
 
 AI reverse steering policy remains **same sign**: when throttle is negative, PiSD does not flip the steering value. The current road-guide overlay does not draw reverse motion.
 

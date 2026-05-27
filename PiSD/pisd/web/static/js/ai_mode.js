@@ -6,7 +6,7 @@
     'aiOverlayToggle', 'aiOverlayMode', 'aiOverlayCurveLabel', 'aiOverlayCar', 'aiOverlaySurface', 'aiOverlayPathWide', 'aiOverlayPathGuide', 'aiOverlayPath',
     'aiOverlayEndpoint', 'aiOverlayStartPoint', 'aiOverlayThrottleFill', 'aiOverlaySteeringFill', 'aiOverlayThrottleValue', 'aiOverlaySteeringValue',
     'aiOverlayRawSteering', 'aiOverlayRawThrottle', 'aiOverlayLeftValue', 'aiOverlayRightValue',
-    'aiRefreshModels', 'aiModelSelect', 'aiLoadModel', 'aiPredictOnce', 'aiSelectedModel', 'aiBackend', 'aiInputShape', 'aiModelsDir',
+    'aiRefreshModels', 'aiModelSelect', 'aiLoadModel', 'aiPredictOnce', 'aiDeleteModel', 'aiModelUploadFile', 'aiUploadModel', 'aiUploadHint', 'aiSelectedModel', 'aiBackend', 'aiInputShape', 'aiOutputNames', 'aiPiTrainerCompatible', 'aiModelsDir',
     'aiSafetyAck', 'aiEnableMotor', 'aiOutputMode', 'aiMaxThrottle', 'aiMaxThrottleOut', 'aiMaxSteering', 'aiMaxSteeringOut',
     'aiFixedThrottle', 'aiFixedThrottleOut', 'aiUpdateHz', 'aiUpdateHzOut', 'aiSteerSmooth', 'aiSteerSmoothOut', 'aiThrottleSmooth',
     'aiThrottleSmoothOut', 'aiSaveConfig', 'aiStartPreview', 'aiStartDrive', 'aiStop', 'aiStopAll', 'aiRawSteering', 'aiRawThrottle',
@@ -298,6 +298,8 @@
     if (els.aiModelsDir) els.aiModelsDir.textContent = ai.models_dir || 'models';
     const input = ai.input_size || {};
     if (els.aiInputShape) els.aiInputShape.textContent = input.width ? `${input.width} × ${input.height}` : '-';
+    if (els.aiOutputNames) els.aiOutputNames.textContent = (ai.output_names || []).length ? (ai.output_names || []).join(', ') : '-';
+    if (els.aiPiTrainerCompatible) els.aiPiTrainerCompatible.textContent = ai.piTrainer_export_compatible ? 'yes' : (ai.model_ready ? 'unknown' : 'not loaded');
     if (els.aiRawSteering) els.aiRawSteering.textContent = fmt(raw.steering);
     if (els.aiRawThrottle) els.aiRawThrottle.textContent = fmt(raw.throttle);
     if (els.aiSafeSteering) els.aiSafeSteering.textContent = fmt(safe.steering);
@@ -404,6 +406,51 @@
     }
   }
 
+  async function uploadModel() {
+    const file = els.aiModelUploadFile?.files?.[0];
+    if (!file) {
+      log('Choose a piTrainer .keras or .tflite model file first.');
+      return;
+    }
+    const form = new FormData();
+    form.append('model', file, file.name);
+    try {
+      const response = await fetch('/api/ai/upload-model', { method: 'POST', body: form });
+      const data = await response.json().catch(() => ({ ok: false, message: `HTTP ${response.status}` }));
+      if (!response.ok || !data.ok) {
+        const err = new Error(data.message || 'Model upload failed.');
+        err.payload = data;
+        throw err;
+      }
+      log('Model uploaded.', data.model || {});
+      await refreshModels();
+      if (els.aiModelSelect && data.model?.id) els.aiModelSelect.value = data.model.id;
+      if (els.aiModelUploadFile) els.aiModelUploadFile.value = '';
+      renderAI(data.ai || lastAIStatus || {});
+    } catch (err) {
+      log(err.message, err.payload || {});
+    }
+  }
+
+  async function deleteSelectedModel() {
+    const modelId = els.aiModelSelect?.value || '';
+    if (!modelId) {
+      log('No model selected to delete.');
+      return;
+    }
+    const ok = window.confirm(`Delete model from PiSD/models?\n\n${modelId}`);
+    if (!ok) return;
+    try {
+      const data = await api('/api/ai/delete-model', { method: 'POST', body: { model_id: modelId } });
+      log('Model deleted.', { deleted_model_id: data.deleted_model_id, unloaded_selected_model: data.unloaded_selected_model });
+      await refreshModels();
+      renderAI(data.ai || {});
+    } catch (err) {
+      renderAI((err.payload || {}).ai || lastAIStatus || {});
+      log(err.message, err.payload || {});
+    }
+  }
+
   async function startAI(mode) {
     const safetyAck = Boolean(els.aiSafetyAck?.checked);
     const enableMotorOutput = Boolean(els.aiEnableMotor?.checked);
@@ -472,6 +519,8 @@
     els.aiRefreshModels?.addEventListener('click', refreshModels);
     els.aiLoadModel?.addEventListener('click', loadModel);
     els.aiPredictOnce?.addEventListener('click', predictOnce);
+    els.aiUploadModel?.addEventListener('click', uploadModel);
+    els.aiDeleteModel?.addEventListener('click', deleteSelectedModel);
     els.aiSaveConfig?.addEventListener('click', saveConfig);
     els.aiStartPreview?.addEventListener('click', () => startAI('preview'));
     els.aiStartDrive?.addEventListener('click', () => startAI('drive'));

@@ -182,6 +182,8 @@ def create_app(hardware_enabled: bool = False):
                 {"method": "POST", "path": "/api/recording/delete", "purpose": "Delete a selected recording or snapshot folder."},
                 {"method": "GET", "path": "/api/ai/status", "purpose": "Read AI mode, model, prediction, and safety status."},
                 {"method": "GET", "path": "/api/ai/models", "purpose": "List trained model files under PiSD/models."},
+                {"method": "POST", "path": "/api/ai/upload-model", "purpose": "Upload a piTrainer-exported model file into PiSD/models."},
+                {"method": "POST", "path": "/api/ai/delete-model", "purpose": "Delete a selected model file from PiSD/models."},
                 {"method": "POST", "path": "/api/ai/config", "purpose": "Save AI safety/config limits."},
                 {"method": "POST", "path": "/api/ai/load-model", "purpose": "Load a trained AI model."},
                 {"method": "POST", "path": "/api/ai/start", "purpose": "Start AI preview-only or guarded AI drive loop."},
@@ -626,6 +628,37 @@ def create_app(hardware_enabled: bool = False):
             return jsonify(ai_drive_service.list_models())
         except Exception as exc:
             report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"AI model list API failed: {exc}", exc=exc)
+            return jsonify(report_payload(False, report)), 500
+
+    @app.post("/api/ai/upload-model")
+    def api_ai_upload_model():
+        try:
+            uploaded = request.files.get("model")
+            if uploaded is None or not uploaded.filename:
+                report = APP_ERRORS.report(
+                    PiSDErrorCodes.AI_MODEL_LOAD_FAILED,
+                    "No AI model file was uploaded.",
+                    severity="warning",
+                )
+                return jsonify(report_payload(False, report, ai=ai_drive_service.status())), 400
+            result = ai_drive_service.upload_model(uploaded.filename, uploaded.stream)
+            return jsonify(result), 201 if result.get("ok") else 400
+        except Exception as exc:
+            report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"AI upload-model API failed: {exc}", exc=exc)
+            return jsonify(report_payload(False, report)), 500
+
+    @app.post("/api/ai/delete-model")
+    def api_ai_delete_model():
+        data, json_error = get_json_payload()
+        if json_error is not None:
+            return jsonify(report_payload(False, json_error)), 400
+        try:
+            result = ai_drive_service.delete_model(data.get("model_id") or data.get("id") or "")
+            if result.get("ok") and result.get("unloaded_selected_model"):
+                settings_manager.save({"ai_mode": {**(settings_manager.get().get("ai_mode") or {}), "model_id": ""}})
+            return jsonify(result), 200 if result.get("ok") else 404
+        except Exception as exc:
+            report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"AI delete-model API failed: {exc}", exc=exc)
             return jsonify(report_payload(False, report)), 500
 
     @app.post("/api/ai/config")

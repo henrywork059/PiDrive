@@ -379,3 +379,24 @@ body[data-pisd-card-accent="strong"] .ai-intro-panel {
   .ai-overlay-wheel-row { max-width: calc(100% - .9rem); top: 2.95rem; }
   .ai-camera-head-actions { justify-content: flex-start; }
 }
+
+/* PiSD_0_9_3: model upload/delete controls for piTrainer-exported artifacts. */
+.ai-upload-field {
+  margin-top: .55rem;
+}
+
+.ai-upload-field input[type="file"] {
+  min-height: 2.3rem;
+  cursor: pointer;
+}
+
+.ai-upload-actions {
+  margin-top: .45rem;
+}
+
+.ai-upload-hint {
+  flex: 1 1 180px;
+  color: var(--mdrv-muted, #94a9c5);
+  font-size: .72rem;
+  line-height: 1.3;
+}

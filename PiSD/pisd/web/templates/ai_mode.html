@@ -120,6 +120,7 @@
           </div>
           <button id="aiRefreshModels" class="mdrv-button ai-button ai-button-secondary">Refresh models</button>
         </div>
+        <p class="ai-note">Upload a <code>.keras</code> or <code>.tflite</code> model exported from piTrainer, then load it for preview/drive. PiSD reads piTrainer's named <code>steering</code> and <code>throttle</code> outputs.</p>
         <label class="ai-field">
           <span>Model file in PiSD/models</span>
           <select id="aiModelSelect"></select>
@@ -127,12 +128,23 @@
         <div class="ai-button-row">
           <button id="aiLoadModel" class="mdrv-button mdrv-primary ai-button ai-button-primary">Load model</button>
           <button id="aiPredictOnce" class="mdrv-button ai-button ai-button-secondary">Predict once</button>
+          <button id="aiDeleteModel" class="mdrv-button mdrv-danger ai-button ai-button-danger" type="button">Delete selected</button>
+        </div>
+        <label class="ai-field ai-upload-field">
+          <span>Upload model to Pi</span>
+          <input id="aiModelUploadFile" type="file" accept=".tflite,.keras,.h5,.onnx,.pt">
+        </label>
+        <div class="ai-button-row ai-upload-actions">
+          <button id="aiUploadModel" class="mdrv-button ai-button ai-button-secondary" type="button">Upload model</button>
+          <span id="aiUploadHint" class="ai-upload-hint">Supported: .keras, .tflite, .h5, .onnx, .pt. Runtime support is built in for piTrainer .keras/.tflite models.</span>
         </div>
         <dl class="ai-readout-grid">
           <div><dt>Selected</dt><dd id="aiSelectedModel">none</dd></div>
           <div><dt>Backend</dt><dd id="aiBackend">none</dd></div>
           <div><dt>Input</dt><dd id="aiInputShape">-</dd></div>
+          <div><dt>Outputs</dt><dd id="aiOutputNames">-</dd></div>
           <div><dt>Models dir</dt><dd id="aiModelsDir">models</dd></div>
+          <div><dt>piTrainer export</dt><dd id="aiPiTrainerCompatible">not loaded</dd></div>
         </dl>
       </section>
 
