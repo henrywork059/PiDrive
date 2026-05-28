@@ -79,7 +79,7 @@ class TrainPage(DockPage):
 
         self.set_workspace_widget(
             workspace,
-            step='3 of 5',
+            step='3 of 6',
             title='Train',
             summary='Prepare the split, start model training, and watch epoch examples plus the live log.',
             next_step='Start Training',

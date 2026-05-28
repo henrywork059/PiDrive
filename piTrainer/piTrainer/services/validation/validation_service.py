@@ -3,10 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
-
-from ...ui.theme import theme_color
 import pandas as pd
 
+from ...ui.theme import theme_color
 from ..data.augmentation_service import boolean_series, normalize_horizontal_flip_labels
 
 
@@ -54,6 +53,117 @@ def _prepare_inputs(dataset_df: pd.DataFrame, img_h: int, img_w: int, max_rows: 
     return rows, x, steering_true, throttle_true
 
 
+def _prediction_arrays(predictions) -> tuple[np.ndarray, np.ndarray]:
+    if isinstance(predictions, dict):
+        steering_pred = np.asarray(predictions.get('steering')).reshape(-1)
+        throttle_pred = np.asarray(predictions.get('throttle')).reshape(-1)
+    elif isinstance(predictions, (list, tuple)) and len(predictions) >= 2:
+        steering_pred = np.asarray(predictions[0]).reshape(-1)
+        throttle_pred = np.asarray(predictions[1]).reshape(-1)
+    else:
+        pred = np.asarray(predictions)
+        if pred.ndim == 2 and pred.shape[1] >= 2:
+            steering_pred = pred[:, 0].reshape(-1)
+            throttle_pred = pred[:, 1].reshape(-1)
+        else:
+            raise ValueError('Unsupported model prediction output shape for validation.')
+    return steering_pred.astype(np.float32), throttle_pred.astype(np.float32)
+
+
+def _series_text(rows: pd.DataFrame, column: str, default='') -> list[str]:
+    if column not in rows.columns:
+        return [str(default)] * len(rows)
+    series = rows[column].astype(object).where(rows[column].notna(), default)
+    return series.astype(str).tolist()
+
+
+def _prediction_range(values: np.ndarray) -> dict[str, float]:
+    if values.size == 0:
+        return {'min': 0.0, 'max': 0.0, 'mean': 0.0}
+    return {
+        'min': float(np.min(values)),
+        'max': float(np.max(values)),
+        'mean': float(np.mean(values)),
+    }
+
+
+def _build_validation_result(
+    *,
+    rows: pd.DataFrame,
+    steering_true: np.ndarray,
+    throttle_true: np.ndarray,
+    steering_pred: np.ndarray,
+    throttle_pred: np.ndarray,
+    dataset_name: str,
+    model_kind: str,
+    model_path: str = '',
+    prediction_backend: str = '',
+    backend_notes: list[str] | tuple[str, ...] = (),
+) -> dict:
+    steering_pred = np.asarray(steering_pred, dtype=np.float32).reshape(-1)
+    throttle_pred = np.asarray(throttle_pred, dtype=np.float32).reshape(-1)
+    steering_true = np.asarray(steering_true, dtype=np.float32).reshape(-1)
+    throttle_true = np.asarray(throttle_true, dtype=np.float32).reshape(-1)
+    total = min(len(rows), len(steering_true), len(throttle_true), len(steering_pred), len(throttle_pred))
+    if total <= 0:
+        raise ValueError('No predictions were produced for validation.')
+
+    rows = rows.head(total).reset_index(drop=True)
+    steering_true = steering_true[:total]
+    throttle_true = throttle_true[:total]
+    steering_pred = steering_pred[:total]
+    throttle_pred = throttle_pred[:total]
+
+    steering_error = steering_pred - steering_true
+    throttle_error = throttle_pred - throttle_true
+    combined_error = np.abs(steering_error) + np.abs(throttle_error)
+
+    frame_number_series = rows.get(
+        'frame_number',
+        rows.get('frame_no', rows.get('source_row_number', pd.Series(range(1, len(rows) + 1)))),
+    )
+    synthetic_series = rows.get('synthetic_variant', rows.get('aug_variant', pd.Series([''] * len(rows))))
+
+    return {
+        'rows_used': int(len(rows)),
+        'dataset_name': dataset_name,
+        'model_kind': model_kind,
+        'model_path': str(model_path or ''),
+        'prediction_backend': str(prediction_backend or ''),
+        'backend_notes': list(dict.fromkeys(str(note) for note in backend_notes if str(note).strip())),
+        'prediction_ranges': {
+            'steering': _prediction_range(steering_pred),
+            'speed': _prediction_range(throttle_pred),
+        },
+        'frame_ids': _series_text(rows, 'frame_id'),
+        'frame_numbers': frame_number_series.astype(object).where(frame_number_series.notna(), '').astype(str).tolist(),
+        'sessions': _series_text(rows, 'session'),
+        'modes': _series_text(rows, 'mode'),
+        'timestamps': _series_text(rows, 'ts'),
+        'abs_images': _series_text(rows, 'abs_image'),
+        'aug_flip_lr': boolean_series(rows['aug_flip_lr'], default=False).tolist() if 'aug_flip_lr' in rows.columns else [False] * len(rows),
+        'source_frame_ids': _series_text(rows, 'source_frame_id'),
+        'synthetic_variants': synthetic_series.astype(object).where(synthetic_series.notna(), '').astype(str).tolist(),
+        'flip_label_sources': _series_text(rows, 'flip_label_source'),
+        'flip_label_warnings': _series_text(rows, 'flip_label_warning'),
+        'overlay_settings': rows.get('overlay_settings', pd.Series([{} for _ in range(len(rows))])).tolist(),
+        'overlay_schema_versions': _series_text(rows, 'overlay_schema_version'),
+        'steering_true': steering_true,
+        'throttle_true': throttle_true,
+        'steering_pred': steering_pred,
+        'throttle_pred': throttle_pred,
+        'steering_error': steering_error,
+        'throttle_error': throttle_error,
+        'combined_error': combined_error,
+        'steering_mae': float(np.mean(np.abs(steering_error))),
+        'throttle_mae': float(np.mean(np.abs(throttle_error))),
+        'steering_rmse': float(np.sqrt(np.mean(np.square(steering_error)))),
+        'throttle_rmse': float(np.sqrt(np.mean(np.square(throttle_error)))),
+        'steering_bias': float(np.mean(steering_error)),
+        'throttle_bias': float(np.mean(throttle_error)),
+    }
+
+
 def run_validation(
     dataset_df: pd.DataFrame,
     train_config,
@@ -72,63 +182,253 @@ def run_validation(
     )
 
     predictions = model.predict(x, batch_size=max(1, int(batch_size)), verbose=0)
-    if isinstance(predictions, dict):
-        steering_pred = np.asarray(predictions.get('steering')).reshape(-1)
-        throttle_pred = np.asarray(predictions.get('throttle')).reshape(-1)
-    elif isinstance(predictions, (list, tuple)) and len(predictions) >= 2:
-        steering_pred = np.asarray(predictions[0]).reshape(-1)
-        throttle_pred = np.asarray(predictions[1]).reshape(-1)
+    steering_pred, throttle_pred = _prediction_arrays(predictions)
+    return _build_validation_result(
+        rows=rows,
+        steering_true=steering_true,
+        throttle_true=throttle_true,
+        steering_pred=steering_pred,
+        throttle_pred=throttle_pred,
+        dataset_name='validation',
+        model_kind=model_source,
+        model_path=model_path,
+        prediction_backend='Keras model.predict',
+    )
+
+
+def _load_tflite_interpreter(tflite_path: str):
+    chosen = Path(tflite_path).expanduser()
+    if not chosen.exists():
+        raise FileNotFoundError(f'TFLite model file not found: {chosen}')
+    try:
+        import tensorflow as tf
+
+        return tf.lite.Interpreter(model_path=str(chosen)), 'tensorflow.lite.Interpreter'
+    except Exception as tf_exc:
+        try:
+            from tflite_runtime.interpreter import Interpreter
+
+            return Interpreter(model_path=str(chosen)), 'tflite_runtime.Interpreter'
+        except Exception as rt_exc:
+            raise RuntimeError(
+                'Could not load a TFLite interpreter. Install TensorFlow or tflite-runtime. '
+                f'TensorFlow error: {tf_exc}; tflite-runtime error: {rt_exc}'
+            ) from rt_exc
+
+
+def _quantize_input(sample: np.ndarray, input_detail: dict) -> np.ndarray:
+    dtype = input_detail.get('dtype', np.float32)
+    sample = np.asarray(sample, dtype=np.float32)
+    if np.issubdtype(dtype, np.floating):
+        return sample.astype(dtype)
+
+    scale, zero_point = input_detail.get('quantization', (0.0, 0))
+    scale = float(scale or 0.0)
+    zero_point = int(zero_point or 0)
+    if scale <= 0.0:
+        raise ValueError('TFLite model has integer input but no valid quantization scale.')
+    quantized = np.rint(sample / scale + zero_point)
+    info = np.iinfo(dtype)
+    return np.clip(quantized, info.min, info.max).astype(dtype)
+
+
+def _dequantize_output(output: np.ndarray, output_detail: dict) -> np.ndarray:
+    dtype = output_detail.get('dtype', output.dtype)
+    output = np.asarray(output)
+    if np.issubdtype(dtype, np.floating):
+        return output.astype(np.float32)
+
+    scale, zero_point = output_detail.get('quantization', (0.0, 0))
+    scale = float(scale or 0.0)
+    zero_point = int(zero_point or 0)
+    if scale <= 0.0:
+        return output.astype(np.float32)
+    return (output.astype(np.float32) - float(zero_point)) * scale
+
+
+def _looks_like_output(name: str, needle: str) -> bool:
+    text = str(name or '').lower()
+    return needle in text
+
+
+def _split_tflite_outputs(outputs: list[np.ndarray], output_details: list[dict]) -> tuple[np.ndarray, np.ndarray, list[str]]:
+    notes: list[str] = []
+    if not outputs:
+        raise ValueError('The TFLite model produced no output tensors.')
+
+    flat_outputs = [np.asarray(output, dtype=np.float32).reshape((np.asarray(output).shape[0], -1)) for output in outputs]
+    if len(flat_outputs) == 1:
+        pred = flat_outputs[0]
+        if pred.shape[1] < 2:
+            raise ValueError(f'TFLite single-output tensor must have at least 2 values per row, got shape {pred.shape}.')
+        return pred[:, 0].reshape(-1), pred[:, 1].reshape(-1), notes
+
+    steering_index = None
+    throttle_index = None
+    for index, detail in enumerate(output_details):
+        name = str(detail.get('name', ''))
+        if steering_index is None and _looks_like_output(name, 'steering'):
+            steering_index = index
+        if throttle_index is None and (_looks_like_output(name, 'throttle') or _looks_like_output(name, 'speed')):
+            throttle_index = index
+
+    if steering_index is None or throttle_index is None:
+        steering_index = 0
+        throttle_index = 1
+        names = ', '.join(str(detail.get('name', f'output_{idx}')) for idx, detail in enumerate(output_details[:2]))
+        notes.append(
+            'TFLite output tensor names did not clearly identify steering/throttle; '
+            f'used output order [steering, speed] from: {names}'
+        )
+
+    if steering_index >= len(flat_outputs) or throttle_index >= len(flat_outputs):
+        raise ValueError('Could not map TFLite output tensors to steering and speed.')
+    return flat_outputs[steering_index].reshape(-1), flat_outputs[throttle_index].reshape(-1), notes
+
+
+def _resize_tflite_input_if_needed(interpreter, input_detail: dict, sample_shape: tuple[int, ...]) -> None:
+    index = int(input_detail['index'])
+    current_shape = tuple(int(value) for value in input_detail.get('shape', []))
+    if current_shape == sample_shape:
+        return
+    signature = tuple(int(value) for value in input_detail.get('shape_signature', []))
+    batch_is_dynamic = bool(signature and signature[0] == -1)
+    if not batch_is_dynamic and len(current_shape) == len(sample_shape) and current_shape[1:] == sample_shape[1:] and current_shape[0] == sample_shape[0]:
+        return
+    try:
+        interpreter.resize_tensor_input(index, sample_shape, strict=False)
+        interpreter.allocate_tensors()
+    except Exception as exc:
+        raise ValueError(
+            f'TFLite input shape {current_shape} could not be resized to {sample_shape}. '
+            'Check that the exported model image size matches the trainer image size.'
+        ) from exc
+
+
+def _run_tflite_predictions(interpreter, x: np.ndarray, requested_batch_size: int) -> tuple[np.ndarray, np.ndarray, list[str], str]:
+    interpreter.allocate_tensors()
+    input_details = interpreter.get_input_details()
+    output_details = interpreter.get_output_details()
+    if len(input_details) != 1:
+        raise ValueError(f'Expected a single image input tensor, found {len(input_details)} input tensors.')
+
+    input_detail = input_details[0]
+    input_shape = tuple(int(value) for value in input_detail.get('shape', []))
+    if len(input_shape) != 4:
+        raise ValueError(f'Expected TFLite image input shape [batch, height, width, channels], got {input_shape}.')
+    if tuple(input_shape[1:]) != tuple(x.shape[1:]):
+        raise ValueError(
+            f'TFLite input image size {input_shape[1:]} does not match prepared validation images {tuple(x.shape[1:])}. '
+            'Check the Train image width/height used before export.'
+        )
+
+    shape_signature = tuple(int(value) for value in input_detail.get('shape_signature', []))
+    dynamic_batch = bool(shape_signature and shape_signature[0] == -1)
+    fixed_batch = max(1, int(input_shape[0] or 1))
+    if dynamic_batch:
+        chunk_size = max(1, int(requested_batch_size or 1))
     else:
-        pred = np.asarray(predictions)
-        if pred.ndim == 2 and pred.shape[1] >= 2:
-            steering_pred = pred[:, 0].reshape(-1)
-            throttle_pred = pred[:, 1].reshape(-1)
-        else:
-            raise ValueError('Unsupported model prediction output shape for validation.')
+        chunk_size = 1 if fixed_batch == 1 else fixed_batch
 
-    steering_error = steering_pred - steering_true
-    throttle_error = throttle_pred - throttle_true
-    combined_error = np.abs(steering_error) + np.abs(throttle_error)
+    backend_notes = [
+        f"Input tensor: name={input_detail.get('name', '')}, shape={tuple(input_shape)}, dtype={getattr(input_detail.get('dtype', ''), '__name__', input_detail.get('dtype', ''))}",
+        'Dynamic batch enabled for TFLite validation.' if dynamic_batch else 'Fixed-shape TFLite input; validated with safe fixed-batch execution.',
+    ]
+    output_summaries = []
+    for idx, detail in enumerate(output_details):
+        output_summaries.append(
+            f"output[{idx}] name={detail.get('name', '')}, shape={tuple(int(v) for v in detail.get('shape', []))}, dtype={getattr(detail.get('dtype', ''), '__name__', detail.get('dtype', ''))}"
+        )
+    if output_summaries:
+        backend_notes.append('Output tensors: ' + '; '.join(output_summaries))
 
-    return {
-        'rows_used': int(len(rows)),
-        'dataset_name': 'validation',
-        'frame_ids': rows.get('frame_id', pd.Series(range(len(rows)))).astype(str).tolist(),
-        'frame_numbers': rows.get('frame_number', rows.get('frame_no', rows.get('source_row_number', pd.Series(range(1, len(rows) + 1))))).astype(str).tolist(),
-        'sessions': rows.get('session', pd.Series([''] * len(rows))).astype(str).tolist(),
-        'modes': rows.get('mode', pd.Series([''] * len(rows))).astype(str).tolist(),
-        'timestamps': rows.get('ts', pd.Series([''] * len(rows))).astype(str).tolist(),
-        'abs_images': rows.get('abs_image', pd.Series([''] * len(rows))).astype(str).tolist(),
-        'aug_flip_lr': boolean_series(rows['aug_flip_lr'], default=False).tolist() if 'aug_flip_lr' in rows.columns else [False] * len(rows),
-        'source_frame_ids': rows.get('source_frame_id', pd.Series([''] * len(rows))).astype(str).tolist(),
-        'synthetic_variants': rows.get('synthetic_variant', rows.get('aug_variant', pd.Series([''] * len(rows)))).astype(str).tolist(),
-        'flip_label_sources': rows.get('flip_label_source', pd.Series([''] * len(rows))).astype(str).tolist(),
-        'flip_label_warnings': rows.get('flip_label_warning', pd.Series([''] * len(rows))).astype(str).tolist(),
-        'overlay_settings': rows.get('overlay_settings', pd.Series([{} for _ in range(len(rows))])).tolist(),
-        'overlay_schema_versions': rows.get('overlay_schema_version', pd.Series([''] * len(rows))).astype(str).tolist(),
-        'steering_true': steering_true,
-        'throttle_true': throttle_true,
-        'steering_pred': steering_pred,
-        'throttle_pred': throttle_pred,
-        'steering_error': steering_error,
-        'throttle_error': throttle_error,
-        'combined_error': combined_error,
-        'steering_mae': float(np.mean(np.abs(steering_error))),
-        'throttle_mae': float(np.mean(np.abs(throttle_error))),
-        'steering_rmse': float(np.sqrt(np.mean(np.square(steering_error)))),
-        'throttle_rmse': float(np.sqrt(np.mean(np.square(throttle_error)))),
-        'steering_bias': float(np.mean(steering_error)),
-        'throttle_bias': float(np.mean(throttle_error)),
-    }
+    steering_chunks: list[np.ndarray] = []
+    throttle_chunks: list[np.ndarray] = []
+    mapping_notes: list[str] = []
+    for start in range(0, len(x), chunk_size):
+        chunk = x[start:start + chunk_size]
+        real_count = len(chunk)
+        if not dynamic_batch and fixed_batch > 1 and real_count < fixed_batch:
+            pad_count = fixed_batch - real_count
+            chunk = np.concatenate([chunk, np.repeat(chunk[-1:], pad_count, axis=0)], axis=0)
+
+        _resize_tflite_input_if_needed(interpreter, input_detail, tuple(chunk.shape))
+        input_detail = interpreter.get_input_details()[0]
+        output_details = interpreter.get_output_details()
+        interpreter.set_tensor(int(input_detail['index']), _quantize_input(chunk, input_detail))
+        interpreter.invoke()
+        outputs = [_dequantize_output(interpreter.get_tensor(int(detail['index'])), detail) for detail in output_details]
+        steering_pred, throttle_pred, notes = _split_tflite_outputs(outputs, output_details)
+        steering_chunks.append(steering_pred[:real_count])
+        throttle_chunks.append(throttle_pred[:real_count])
+        mapping_notes.extend(notes)
+
+    backend_notes.extend(dict.fromkeys(mapping_notes))
+    return np.concatenate(steering_chunks), np.concatenate(throttle_chunks), backend_notes, 'TFLite Interpreter'
+
+
+def run_tflite_validation(
+    dataset_df: pd.DataFrame,
+    train_config,
+    tflite_path: str,
+    batch_size: int,
+    max_rows: int,
+) -> dict:
+    interpreter, backend_name = _load_tflite_interpreter(tflite_path)
+    rows, x, steering_true, throttle_true = _prepare_inputs(
+        dataset_df,
+        img_h=int(getattr(train_config, 'img_h', 120)),
+        img_w=int(getattr(train_config, 'img_w', 160)),
+        max_rows=int(max_rows),
+    )
+    steering_pred, throttle_pred, backend_notes, prediction_backend = _run_tflite_predictions(
+        interpreter,
+        x,
+        requested_batch_size=max(1, int(batch_size)),
+    )
+    backend_notes.insert(0, f'Interpreter backend: {backend_name}')
+    return _build_validation_result(
+        rows=rows,
+        steering_true=steering_true,
+        throttle_true=throttle_true,
+        steering_pred=steering_pred,
+        throttle_pred=throttle_pred,
+        dataset_name='export_validation',
+        model_kind='Exported TFLite model',
+        model_path=str(Path(tflite_path).expanduser()),
+        prediction_backend=prediction_backend,
+        backend_notes=backend_notes,
+    )
+
+
+def _range_text(values: dict[str, float]) -> str:
+    return f"min={values.get('min', 0.0):.4f}, max={values.get('max', 0.0):.4f}, mean={values.get('mean', 0.0):.4f}"
 
 
 def build_validation_summary_text(result: dict) -> str:
-    return (
-        f"Rows used: {result['rows_used']}\n"
-        f"Steering MAE / RMSE / Bias: {result['steering_mae']:.4f} / {result['steering_rmse']:.4f} / {result['steering_bias']:.4f}\n"
-        f"Speed MAE / RMSE / Bias: {result['throttle_mae']:.4f} / {result['throttle_rmse']:.4f} / {result['throttle_bias']:.4f}\n"
-        'Use the plot panel and frame-review panel to inspect prediction agreement, bad frames, and overlay differences.'
-    )
+    lines = []
+    model_kind = str(result.get('model_kind', '')).strip()
+    model_path = str(result.get('model_path', '')).strip()
+    prediction_backend = str(result.get('prediction_backend', '')).strip()
+    if model_kind or model_path:
+        path_suffix = f" — {model_path}" if model_path else ''
+        lines.append(f"Model source: {model_kind}{path_suffix}")
+    if prediction_backend:
+        lines.append(f"Prediction backend: {prediction_backend}")
+    lines.extend([
+        f"Rows used: {result['rows_used']}",
+        f"Steering MAE / RMSE / Bias: {result['steering_mae']:.4f} / {result['steering_rmse']:.4f} / {result['steering_bias']:.4f}",
+        f"Speed MAE / RMSE / Bias: {result['throttle_mae']:.4f} / {result['throttle_rmse']:.4f} / {result['throttle_bias']:.4f}",
+    ])
+    ranges = result.get('prediction_ranges', {}) if isinstance(result.get('prediction_ranges', {}), dict) else {}
+    if ranges:
+        lines.append(f"Prediction range — steering: {_range_text(ranges.get('steering', {}))} | speed: {_range_text(ranges.get('speed', {}))}")
+    notes = result.get('backend_notes', []) or []
+    if notes:
+        lines.append('Backend notes:')
+        lines.extend(f"- {note}" for note in notes[:5])
+    lines.append('Use the plot panel and frame-review panel to inspect prediction agreement, bad frames, and overlay differences.')
+    return '\n'.join(lines)
 
 
 def validation_preview_rows(result: dict | None) -> list[dict]:

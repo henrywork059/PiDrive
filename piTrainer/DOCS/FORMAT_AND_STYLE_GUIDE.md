@@ -29,7 +29,7 @@ Use these files first when changing spacing, font size, margins, splitter widths
 The programme follows a left-to-right workflow:
 
 ```text
-1 Data -> 2 Preprocess -> 3 Train -> 4 Validate -> 5 Export
+1 Data -> 2 Preprocess -> 3 Train -> 4 Validate -> 5 Export -> 6 Export Validation
 ```
 
 Each page should use a full-width splitter workspace. Visible sections should fill the window width. Users should change proportions by dragging splitter handles, not by pulling hidden right-side dock areas open.
@@ -82,7 +82,7 @@ The page banner should stay compact. It should explain the current page, but it 
 
 Expected banner format:
 
-- left: page number and page name, for example `1 of 5  Data`;
+- left: page number and page name, for example `1 of 6  Data`;
 - below/near it: one short purpose sentence;
 - right: compact green guide button, for example `Load Selected`.
 
@@ -279,9 +279,27 @@ The Validation page should use a three-column workspace:
 
 The left column keeps model/dataset/run controls and the result summary. The middle column keeps validation plots and logs. The right column keeps frame-level validation review so users can inspect bad predictions without the preview pushing plots/logs down.
 
+## Export Validation page layout
+
+The Export Validation page should sit directly after Export as the final workflow page. It should use the same three-column validation format:
+
+```text
+[Export Validation Workflow] | [Export Validation Plot / Log] | [Export Validation Frame Review]
+```
+
+This page is specifically for diagnosing exported deployment behaviour. It must load a `.tflite` file through a real TensorFlow Lite interpreter, not through the in-memory Keras model, and it should show prediction output ranges so narrow steering/speed output can be compared against normal model validation. The Export page should link the newest created `.tflite` path into Export Validation when an export succeeds, while still allowing the user to browse to another deployed `.tflite` file manually.
+
 
 
 ## Export workflow and TensorFlow converter messages
+
+The Export page should make the action button immediately visible. Keep the `Export Workflow` tabs ordered as:
+
+```text
+1 Export | 2 Status
+```
+
+The `1 Export` tab should contain `Export Actions` above `Export Options`, so the green `Export Selected Artifacts` button is visible before status/detail panels. The model readiness summary should remain available in `2 Status`, but it should not be the first thing users see on the final workflow page.
 
 The Export page should report export success in user-facing terms, not by leaving raw TensorFlow converter internals in the PowerShell window. Expected export log behaviour:
 
@@ -434,7 +452,7 @@ When making future UI patches:
 The trainer should look like a guided professional desktop workflow, not a dense engineering debug screen. Keep the path clear:
 
 ```text
-Load data -> Preprocess -> Train -> Validate -> Export
+Load data -> Preprocess -> Train -> Validate -> Export -> Export Validation
 ```
 
 Every tab and panel should support that flow with consistent sizing, clear grouping, readable spacing, colour roles that match the action meaning, slim splitter/scroll controls, and a visible next action.

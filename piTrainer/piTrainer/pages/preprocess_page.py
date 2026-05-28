@@ -85,7 +85,7 @@ class PreprocessPage(DockPage):
 
         self.set_workspace_widget(
             workspace,
-            step='2 of 5',
+            step='2 of 6',
             title='Preprocess',
             summary='Use Auto for the normal path, or open Settings for filters, balancing, augmentation, and image size.',
             next_step='Auto Preprocess',

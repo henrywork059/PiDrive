@@ -132,7 +132,7 @@ class DataPage(DockPage):
 
         self.set_workspace_widget(
             workspace,
-            step='1 of 5',
+            step='1 of 6',
             title='Data',
             summary='Load sessions, manage bad frames, review labels, and confirm the V7 overlay before preparing a dataset.',
             next_step='Load Selected',

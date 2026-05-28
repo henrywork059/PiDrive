@@ -78,6 +78,7 @@ Preserve these accepted V8 behaviours:
 
 - Keep Export Workflow tabs ordered as `1 Export`, `2 Status`, with `Export Actions` above `Export Options` so the green `Export Selected Artifacts` button is visible first.
 - Keep Export page output user-readable. TensorFlow/Keras/TFLite may print temporary SavedModel endpoint details, C++ converter warnings, and quantization diagnostics even when export succeeds; export code should capture/summarise this chatter, log created artifact paths and sizes, and clearly state that the size-optimised TFLite file keeps float32 input/output for PiDrive runtime compatibility.
+- Keep Export Validation directly after Export as the final workflow page. It must load the exported `.tflite` file through a real TFLite interpreter, use the same dataset/plot/frame-review format as Validation, and show prediction output ranges so narrow exported-model output can be diagnosed against normal model validation.
 
 ## Packaging checklist
 

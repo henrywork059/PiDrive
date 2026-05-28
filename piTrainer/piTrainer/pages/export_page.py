@@ -30,17 +30,17 @@ class ExportPage(DockPage):
 
         workflow_tabs = make_workflow_tabs([
             (
-                '1 Status',
-                make_scrollable_stack([
-                    ('Model Status', self.model_status_panel, True),
-                ], object_name='exportStatusWorkflowScrollArea', intro='Confirm that a trained model is ready before exporting.'),
-            ),
-            (
-                '2 Export',
+                '1 Export',
                 make_scrollable_stack([
                     ('Export Actions', self.actions_panel, True),
                     ('Export Options', self.options_panel, True),
-                ], object_name='exportRunWorkflowScrollArea', intro='Choose the output folder and artifact types, then export once the model is ready.'),
+                ], object_name='exportRunWorkflowScrollArea', intro='Choose the output folder and artifact types, then use the green export button.'),
+            ),
+            (
+                '2 Status',
+                make_scrollable_stack([
+                    ('Model Status', self.model_status_panel, True),
+                ], object_name='exportStatusWorkflowScrollArea', intro='Confirm that a trained model is ready before exporting.'),
             ),
         ], object_name='exportWorkflowTabs')
 
@@ -51,15 +51,15 @@ class ExportPage(DockPage):
 
         self.set_workspace_widget(
             workspace,
-            step='5 of 5',
+            step='5 of 6',
             title='Export',
-            summary='Confirm a trained model is ready, choose artifact options, and export deployment files.',
+            summary='Export deployment files first, with model readiness still available in the Status tab.',
             next_step='Export Artifacts',
             next_callback=lambda: self.reveal_widget(
                 self.actions_panel.export_btn,
                 message='Focused the green Export Selected Artifacts button.'
             ),
-            next_tooltip='Click to focus the green Export Selected Artifacts button in Export Workflow > Export > Export Actions.',
+            next_tooltip='Click to focus the green Export Selected Artifacts button in Export Workflow > 1 Export > Export Actions.',
         )
 
     def refresh_from_state(self) -> None:
@@ -89,11 +89,22 @@ class ExportPage(DockPage):
             self.main_window.set_status_message('Export failed.')
             return
 
+        latest_tflite_path = ''
         for item in created:
             size_label = getattr(item, 'size_label', '')
             suffix = f' ({size_label})' if size_label else ''
-            self.log_panel.append_line(f'Created {getattr(item, "kind", "artifact")}: {getattr(item, "path", item)}{suffix}')
+            kind = getattr(item, "kind", "artifact")
+            path = getattr(item, "path", item)
+            self.log_panel.append_line(f'Created {kind}: {path}{suffix}')
+            if str(kind).lower() == '.tflite' or str(path).lower().endswith('.tflite'):
+                latest_tflite_path = str(path)
             for note in getattr(item, 'notes', ()): 
                 self.log_panel.append_line(f'  Note: {note}')
+        if latest_tflite_path:
+            self.state.last_exported_tflite_path = latest_tflite_path
+            export_validation_page = getattr(self.main_window, 'export_validation_page', None)
+            if export_validation_page is not None:
+                export_validation_page.set_exported_tflite_path(latest_tflite_path)
+            self.log_panel.append_line(f'Linked exported TFLite model to Export Validation: {latest_tflite_path}')
         self.log_panel.append_line('Export finished. TensorFlow converter details are summarised above; non-fatal internal converter chatter is suppressed.')
-        self.main_window.set_status_message('Export finished.')
+        self.main_window.set_status_message('Export finished. Next: open 6 Export Validation.')

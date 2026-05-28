@@ -63,6 +63,7 @@ class AppState:
     last_saved_model_path: str = ''
     last_saved_preprocess_path: str = ''
     last_saved_preprocess_settings_path: str = ''
+    last_exported_tflite_path: str = ''
 
     @property
     def records_root_path(self) -> Path:

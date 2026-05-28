@@ -70,7 +70,7 @@ class ValidationPage(DockPage):
 
         self.set_workspace_widget(
             workspace,
-            step='4 of 5',
+            step='4 of 6',
             title='Validate',
             summary='Run the model on validation data, inspect frames, and send bad labels back to Data if needed.',
             next_step='Run Validation',
