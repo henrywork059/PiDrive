@@ -107,13 +107,66 @@ def save_keras_model(model, out_path: Path) -> ExportArtifact:
     return ExportArtifact(str(out_path), ".keras", out_path.stat().st_size, notes)
 
 
+def _model_output_by_name(model, names: tuple[str, ...]):
+    outputs = getattr(model, 'output', None)
+    if isinstance(outputs, dict):
+        for name in names:
+            if name in outputs:
+                return outputs[name]
+
+    output_names = list(getattr(model, 'output_names', []) or [])
+    output_tensors = list(getattr(model, 'outputs', []) or [])
+    for wanted in names:
+        for index, output_name in enumerate(output_names):
+            if wanted.lower() in str(output_name).lower() and index < len(output_tensors):
+                return output_tensors[index]
+
+    for tensor in output_tensors:
+        tensor_name = str(getattr(tensor, 'name', '') or '').lower()
+        if any(wanted.lower() in tensor_name for wanted in names):
+            return tensor
+    return None
+
+
+def _ordered_tflite_export_model(model):
+    """Return a TFLite export wrapper with one stable [steering, throttle] output.
+
+    Keras dict-output models can become unnamed multi-output tensors after TFLite
+    conversion, and the tensor order is not safe to assume in the car runtime.
+    The wrapper keeps the trained network unchanged but joins the two regression
+    heads into one explicit 2-value tensor so output[0] is steering and output[1]
+    is throttle/speed for every new TFLite export.
+    """
+
+    import tensorflow as tf
+
+    steering = _model_output_by_name(model, ('steering', 'steer'))
+    throttle = _model_output_by_name(model, ('throttle', 'speed'))
+    if steering is None or throttle is None:
+        output_tensors = list(getattr(model, 'outputs', []) or [])
+        if len(output_tensors) >= 2:
+            steering = steering or output_tensors[0]
+            throttle = throttle or output_tensors[1]
+    if steering is None or throttle is None:
+        raise ValueError(
+            'Could not identify steering and throttle outputs for ordered TFLite export. '
+            'Expected model outputs named steering/throttle or at least two output tensors.'
+        )
+
+    steering = tf.keras.layers.Reshape((1,), name='ordered_steering_scalar')(steering)
+    throttle = tf.keras.layers.Reshape((1,), name='ordered_throttle_scalar')(throttle)
+    ordered_output = tf.keras.layers.Concatenate(name='steering_throttle')([steering, throttle])
+    return tf.keras.Model(inputs=model.inputs, outputs=ordered_output, name=f'{model.name}_ordered_tflite')
+
+
 def export_tflite_model(model, out_path: Path, quantize: bool, representative_ds=None) -> ExportArtifact:
     import tensorflow as tf
 
     _configure_tensorflow_export_logging(tf)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with _quiet_tensorflow_export() as captured:
-        converter = tf.lite.TFLiteConverter.from_keras_model(model)
+        tflite_model = _ordered_tflite_export_model(model)
+        converter = tf.lite.TFLiteConverter.from_keras_model(tflite_model)
         if quantize:
             converter.optimizations = [tf.lite.Optimize.DEFAULT]
             if representative_ds is not None:
@@ -129,6 +182,7 @@ def export_tflite_model(model, out_path: Path, quantize: bool, representative_ds
         tflite_bytes = converter.convert()
     out_path.write_bytes(tflite_bytes)
     notes = list(_summarize_capture(captured))
+    notes.append('TFLite output is forced to one ordered tensor: [steering, throttle/speed].')
     if quantize:
         notes.append("Created size-optimised TFLite file; model input/output remain float32 for the current PiDrive runtime.")
     else:

@@ -251,18 +251,43 @@ def _looks_like_output(name: str, needle: str) -> bool:
     return needle in text
 
 
-def _split_tflite_outputs(outputs: list[np.ndarray], output_details: list[dict]) -> tuple[np.ndarray, np.ndarray, list[str]]:
+def _first_column(values: np.ndarray) -> np.ndarray:
+    arr = np.asarray(values, dtype=np.float32)
+    if arr.ndim == 0:
+        return arr.reshape(1)
+    if arr.ndim == 1:
+        return arr.reshape(-1)
+    return arr.reshape((arr.shape[0], -1))[:, 0].reshape(-1)
+
+
+def _mapping_error(
+    steering_candidate: np.ndarray,
+    throttle_candidate: np.ndarray,
+    steering_true: np.ndarray | None,
+    throttle_true: np.ndarray | None,
+) -> float | None:
+    if steering_true is None or throttle_true is None:
+        return None
+    steering_candidate = np.asarray(steering_candidate, dtype=np.float32).reshape(-1)
+    throttle_candidate = np.asarray(throttle_candidate, dtype=np.float32).reshape(-1)
+    steering_true = np.asarray(steering_true, dtype=np.float32).reshape(-1)
+    throttle_true = np.asarray(throttle_true, dtype=np.float32).reshape(-1)
+    total = min(len(steering_candidate), len(throttle_candidate), len(steering_true), len(throttle_true))
+    if total <= 0:
+        return None
+    return float(
+        np.mean(np.abs(steering_candidate[:total] - steering_true[:total]))
+        + np.mean(np.abs(throttle_candidate[:total] - throttle_true[:total]))
+    )
+
+
+def _choose_tflite_output_mapping(
+    flat_outputs: list[np.ndarray],
+    output_details: list[dict],
+    steering_true: np.ndarray | None,
+    throttle_true: np.ndarray | None,
+) -> tuple[int, int, list[str]]:
     notes: list[str] = []
-    if not outputs:
-        raise ValueError('The TFLite model produced no output tensors.')
-
-    flat_outputs = [np.asarray(output, dtype=np.float32).reshape((np.asarray(output).shape[0], -1)) for output in outputs]
-    if len(flat_outputs) == 1:
-        pred = flat_outputs[0]
-        if pred.shape[1] < 2:
-            raise ValueError(f'TFLite single-output tensor must have at least 2 values per row, got shape {pred.shape}.')
-        return pred[:, 0].reshape(-1), pred[:, 1].reshape(-1), notes
-
     steering_index = None
     throttle_index = None
     for index, detail in enumerate(output_details):
@@ -272,18 +297,75 @@ def _split_tflite_outputs(outputs: list[np.ndarray], output_details: list[dict])
         if throttle_index is None and (_looks_like_output(name, 'throttle') or _looks_like_output(name, 'speed')):
             throttle_index = index
 
-    if steering_index is None or throttle_index is None:
-        steering_index = 0
-        throttle_index = 1
-        names = ', '.join(str(detail.get('name', f'output_{idx}')) for idx, detail in enumerate(output_details[:2]))
-        notes.append(
-            'TFLite output tensor names did not clearly identify steering/throttle; '
-            f'used output order [steering, speed] from: {names}'
-        )
+    if steering_index is not None and throttle_index is not None and steering_index != throttle_index:
+        notes.append(f'TFLite output mapping from tensor names: steering=output[{steering_index}], speed=output[{throttle_index}].')
+        return steering_index, throttle_index, notes
 
+    best: tuple[float, int, int] | None = None
+    for steer_idx in range(len(flat_outputs)):
+        for speed_idx in range(len(flat_outputs)):
+            if steer_idx == speed_idx:
+                continue
+            error = _mapping_error(
+                _first_column(flat_outputs[steer_idx]),
+                _first_column(flat_outputs[speed_idx]),
+                steering_true,
+                throttle_true,
+            )
+            if error is None:
+                continue
+            if best is None or error < best[0]:
+                best = (error, steer_idx, speed_idx)
+
+    if best is not None:
+        _error, steering_index, throttle_index = best
+        if (steering_index, throttle_index) != (0, 1):
+            notes.append(
+                'Auto-mapped unnamed TFLite outputs using validation labels: '
+                f'steering=output[{steering_index}], speed=output[{throttle_index}]. '
+                'This usually means an older multi-output TFLite export has tensor order different from the car-side assumption; re-export the model with this patch.'
+            )
+        else:
+            notes.append(
+                'Auto-mapped unnamed TFLite outputs using validation labels: steering=output[0], speed=output[1].'
+            )
+        return steering_index, throttle_index, notes
+
+    if len(flat_outputs) < 2:
+        raise ValueError('Could not map TFLite output tensors to steering and speed.')
+    names = ', '.join(str(detail.get('name', f'output_{idx}')) for idx, detail in enumerate(output_details[:2]))
+    notes.append(
+        'TFLite output tensor names did not clearly identify steering/throttle and validation-label auto mapping was unavailable; '
+        f'used fallback output order [steering, speed] from: {names}'
+    )
+    return 0, 1, notes
+
+
+def _split_tflite_outputs(
+    outputs: list[np.ndarray],
+    output_details: list[dict],
+    steering_true: np.ndarray | None = None,
+    throttle_true: np.ndarray | None = None,
+) -> tuple[np.ndarray, np.ndarray, list[str]]:
+    notes: list[str] = []
+    if not outputs:
+        raise ValueError('The TFLite model produced no output tensors.')
+
+    flat_outputs = [np.asarray(output, dtype=np.float32).reshape((np.asarray(output).shape[0], -1)) for output in outputs]
+    if len(flat_outputs) == 1:
+        pred = flat_outputs[0]
+        if pred.shape[1] < 2:
+            raise ValueError(f'TFLite single-output tensor must have at least 2 values per row, got shape {pred.shape}.')
+        notes.append('TFLite output is a single ordered tensor; using value[0]=steering and value[1]=speed.')
+        return pred[:, 0].reshape(-1), pred[:, 1].reshape(-1), notes
+
+    steering_index, throttle_index, mapping_notes = _choose_tflite_output_mapping(
+        flat_outputs, output_details, steering_true, throttle_true
+    )
+    notes.extend(mapping_notes)
     if steering_index >= len(flat_outputs) or throttle_index >= len(flat_outputs):
         raise ValueError('Could not map TFLite output tensors to steering and speed.')
-    return flat_outputs[steering_index].reshape(-1), flat_outputs[throttle_index].reshape(-1), notes
+    return _first_column(flat_outputs[steering_index]), _first_column(flat_outputs[throttle_index]), notes
 
 
 def _resize_tflite_input_if_needed(interpreter, input_detail: dict, sample_shape: tuple[int, ...]) -> None:
@@ -305,7 +387,13 @@ def _resize_tflite_input_if_needed(interpreter, input_detail: dict, sample_shape
         ) from exc
 
 
-def _run_tflite_predictions(interpreter, x: np.ndarray, requested_batch_size: int) -> tuple[np.ndarray, np.ndarray, list[str], str]:
+def _run_tflite_predictions(
+    interpreter,
+    x: np.ndarray,
+    steering_true: np.ndarray,
+    throttle_true: np.ndarray,
+    requested_batch_size: int,
+) -> tuple[np.ndarray, np.ndarray, list[str], str]:
     interpreter.allocate_tensors()
     input_details = interpreter.get_input_details()
     output_details = interpreter.get_output_details()
@@ -342,9 +430,8 @@ def _run_tflite_predictions(interpreter, x: np.ndarray, requested_batch_size: in
     if output_summaries:
         backend_notes.append('Output tensors: ' + '; '.join(output_summaries))
 
-    steering_chunks: list[np.ndarray] = []
-    throttle_chunks: list[np.ndarray] = []
-    mapping_notes: list[str] = []
+    output_chunks: list[list[np.ndarray]] | None = None
+    latest_output_details = output_details
     for start in range(0, len(x), chunk_size):
         chunk = x[start:start + chunk_size]
         real_count = len(chunk)
@@ -354,17 +441,25 @@ def _run_tflite_predictions(interpreter, x: np.ndarray, requested_batch_size: in
 
         _resize_tflite_input_if_needed(interpreter, input_detail, tuple(chunk.shape))
         input_detail = interpreter.get_input_details()[0]
-        output_details = interpreter.get_output_details()
+        latest_output_details = interpreter.get_output_details()
         interpreter.set_tensor(int(input_detail['index']), _quantize_input(chunk, input_detail))
         interpreter.invoke()
-        outputs = [_dequantize_output(interpreter.get_tensor(int(detail['index'])), detail) for detail in output_details]
-        steering_pred, throttle_pred, notes = _split_tflite_outputs(outputs, output_details)
-        steering_chunks.append(steering_pred[:real_count])
-        throttle_chunks.append(throttle_pred[:real_count])
-        mapping_notes.extend(notes)
+        outputs = [_dequantize_output(interpreter.get_tensor(int(detail['index'])), detail) for detail in latest_output_details]
+        if output_chunks is None:
+            output_chunks = [[] for _ in outputs]
+        if len(outputs) != len(output_chunks):
+            raise ValueError('TFLite output tensor count changed during validation.')
+        for index, output in enumerate(outputs):
+            output_chunks[index].append(np.asarray(output)[:real_count])
 
+    if output_chunks is None:
+        raise ValueError('No TFLite prediction chunks were produced.')
+    combined_outputs = [np.concatenate(chunks, axis=0) for chunks in output_chunks]
+    steering_pred, throttle_pred, mapping_notes = _split_tflite_outputs(
+        combined_outputs, latest_output_details, steering_true=steering_true, throttle_true=throttle_true
+    )
     backend_notes.extend(dict.fromkeys(mapping_notes))
-    return np.concatenate(steering_chunks), np.concatenate(throttle_chunks), backend_notes, 'TFLite Interpreter'
+    return steering_pred, throttle_pred, backend_notes, 'TFLite Interpreter'
 
 
 def run_tflite_validation(
@@ -384,6 +479,8 @@ def run_tflite_validation(
     steering_pred, throttle_pred, backend_notes, prediction_backend = _run_tflite_predictions(
         interpreter,
         x,
+        steering_true=steering_true,
+        throttle_true=throttle_true,
         requested_batch_size=max(1, int(batch_size)),
     )
     backend_notes.insert(0, f'Interpreter backend: {backend_name}')
