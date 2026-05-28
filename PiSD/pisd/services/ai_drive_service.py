@@ -6,6 +6,7 @@ import json
 import math
 import re
 import shutil
+import sys
 import threading
 import time
 from datetime import datetime, timezone
@@ -56,6 +57,9 @@ class AIDriveService:
         self._model_ready = False
         self._running = False
         self._mode = "idle"  # idle | preview | drive
+        self._drive_output_enabled = False
+        self._last_frame_seq = 0
+        self._loop_consecutive_failures = 0
         self._last_raw = {"steering": 0.0, "throttle": 0.0}
         self._last_safe = {"steering": 0.0, "throttle": 0.0}
         self._last_motor = {"left": 0.0, "right": 0.0}
@@ -108,6 +112,9 @@ class AIDriveService:
                 "models_dir": str(self.models_dir),
                 "running": bool(self._running and self._thread and self._thread.is_alive()),
                 "mode": self._mode,
+                "drive_output_enabled": bool(self._drive_output_enabled),
+                "last_frame_seq": int(self._last_frame_seq),
+                "loop_consecutive_failures": int(self._loop_consecutive_failures),
                 "model_id": self._model_id,
                 "model_path": str(self._model_path or ""),
                 "model_loaded": bool(self._model_loaded),
@@ -154,16 +161,39 @@ class AIDriveService:
 
         This does not load a model. It only tells the user whether this Python
         environment appears to have a runnable backend for each model family.
+        PiSD_0_9_9 also returns copy/paste install guidance so a Pi that can see
+        an uploaded .tflite file but cannot load it tells the user exactly how to
+        install the missing runtime in the same Python environment.
         """
         tflite_runtime = self._module_available("tflite_runtime.interpreter")
         ai_edge_litert = self._module_available("ai_edge_litert.interpreter")
         tensorflow = self._module_available("tensorflow")
+        tflite_ok = bool(tflite_runtime or ai_edge_litert or tensorflow)
+        keras_ok = bool(tensorflow)
+        install_commands = [
+            "cd ~/PiDrive/PiSD",
+            "python3 scripts/install_ai_runtime.py --runtime tflite-runtime",
+            "python3 scripts/check_ai_runtime.py",
+        ]
+        fallback_commands = [
+            "cd ~/PiDrive/PiSD",
+            "python3 scripts/install_ai_runtime.py --runtime ai-edge-litert",
+            "python3 scripts/check_ai_runtime.py",
+        ]
         return {
             "tflite_runtime": bool(tflite_runtime),
             "ai_edge_litert": bool(ai_edge_litert),
             "tensorflow": bool(tensorflow),
-            "tflite": bool(tflite_runtime or ai_edge_litert or tensorflow),
-            "keras": bool(tensorflow),
+            "tflite": tflite_ok,
+            "keras": keras_ok,
+            "python_executable": sys.executable,
+            "install_script": "scripts/install_ai_runtime.py",
+            "check_script": "scripts/check_ai_runtime.py",
+            "recommended_runtime": "tflite-runtime",
+            "fallback_runtime": "ai-edge-litert",
+            "install_commands": install_commands,
+            "fallback_install_commands": fallback_commands,
+            "install_message": "TFLite runtime is missing in this Python environment. Install tflite-runtime on the Pi, restart PiSD, then load the model again." if not tflite_ok else "TFLite runtime is available.",
         }
 
     def list_models(self) -> dict[str, Any]:
@@ -376,8 +406,14 @@ class AIDriveService:
                 if motor_service.hardware_enabled and not bool(enable_motor_output):
                     report = self._record_error(PiSDErrorCodes.AI_UNARMED, "AI drive refused because motor output was not enabled.", severity="warning")
                     return report_payload(False, report, ai=self.status())
+            try:
+                camera_service.start()
+            except Exception:
+                pass
             self._stop_event.clear()
             self._mode = requested_mode
+            self._drive_output_enabled = bool(requested_mode == "drive")
+            self._loop_consecutive_failures = 0
             self._running = True
             self._thread = threading.Thread(
                 target=self._run_loop,
@@ -398,6 +434,8 @@ class AIDriveService:
             self._running = False
             self._thread = None
             self._mode = "idle"
+            self._drive_output_enabled = False
+            self._loop_consecutive_failures = 0
             self._last_raw = {"steering": 0.0, "throttle": 0.0}
             self._last_safe = {"steering": 0.0, "throttle": 0.0}
             self._last_loop_hz = 0.0
@@ -588,7 +626,13 @@ class AIDriveService:
             except Exception as exc:
                 import_errors.append(f"tensorflow: {type(exc).__name__}: {exc}")
         if interpreter_cls is None:
-            raise RuntimeError("TFLite runtime is not installed. Install a TFLite runtime backend, then reload the model. Import attempts: " + "; ".join(import_errors))
+            raise RuntimeError(
+                "TFLite runtime is not installed in the Python environment running PiSD. "
+                "Run: cd ~/PiDrive/PiSD && python3 scripts/install_ai_runtime.py --runtime tflite-runtime; "
+                "then restart PiSD and click Load model again. "
+                "If that package is unavailable on this Pi, run: python3 scripts/install_ai_runtime.py --runtime ai-edge-litert. "
+                "Import attempts: " + "; ".join(import_errors)
+            )
         self._pending_backend_detail = backend_detail
         interpreter = interpreter_cls(model_path=str(model_path))
         interpreter.allocate_tensors()
@@ -630,14 +674,41 @@ class AIDriveService:
             self._backend_detail = "tensorflow.keras"
 
     def _get_frame(self, camera_service: Any) -> bytes:
+        """Return a camera JPEG for AI inference with a short warm-up/retry window.
+
+        Earlier AI drive builds asked the camera for one frame with a 1 s timeout
+        and stopped the AI loop on the first miss.  On the Pi, Picamera2 may need
+        slightly longer after Start AI Drive, so a single early empty frame could
+        make AI mode look as if it was running but not responding.  Keep the
+        camera start idempotent, wait for a newer frame when possible, and allow
+        a small retry window before reporting a real camera-frame failure.
+        """
         try:
             camera_service.start()
         except Exception:
             pass
-        frame, _seq, _source_frame_at, _byte_count = camera_service.wait_for_jpeg_frame(timeout=1.0)
-        if not frame:
-            raise RuntimeError("No camera frame available for AI inference.")
-        return frame
+
+        deadline = time.monotonic() + 3.0
+        last_seq = None
+        with self._lock:
+            if self._last_frame_seq > 0:
+                last_seq = int(self._last_frame_seq)
+        frame = None
+        seq = 0
+        source_frame_at = ""
+        byte_count = 0
+        while time.monotonic() < deadline:
+            try:
+                remaining = max(0.15, min(0.8, deadline - time.monotonic()))
+                frame, seq, source_frame_at, byte_count = camera_service.wait_for_jpeg_frame(last_seq=last_seq, timeout=remaining)
+            except TypeError:
+                frame, seq, source_frame_at, byte_count = camera_service.wait_for_jpeg_frame(timeout=0.8)
+            if frame:
+                with self._lock:
+                    self._last_frame_seq = int(seq or self._last_frame_seq or 0)
+                return frame
+            time.sleep(0.05)
+        raise RuntimeError(f"No camera frame available for AI inference after camera warm-up. last_seq={seq}, bytes={byte_count}, at={source_frame_at}")
 
     def _prepare_input(self, frame: bytes) -> Any:
         from io import BytesIO
@@ -668,6 +739,33 @@ class AIDriveService:
             quantized = np.round(tensor)
         info = np.iinfo(dtype)
         return np.clip(quantized, info.min, info.max).astype(dtype)
+
+    @staticmethod
+    def _dequantize_tflite_output(tensor: Any, output_detail: dict[str, Any]) -> Any:
+        """Convert quantized TFLite output tensors back to float model values.
+
+        piTrainer can export int8 TFLite models.  In that case the interpreter
+        returns integer tensors and the real steering/throttle values are stored
+        through the tensor quantization scale/zero-point.  Without this step the
+        AI safety layer sees raw integer codes rather than the trained [-1, 1]
+        command values, making the live AI output appear wrong or unresponsive.
+        """
+        import numpy as np
+
+        array = np.asarray(tensor)
+        dtype = output_detail.get("dtype", array.dtype)
+        if np.issubdtype(dtype, np.floating):
+            return array.astype("float32")
+        q_scale, q_zero = output_detail.get("quantization", (0.0, 0)) or (0.0, 0)
+        try:
+            scale = float(q_scale or 0.0)
+            zero = float(q_zero or 0.0)
+        except Exception:
+            scale = 0.0
+            zero = 0.0
+        if scale > 0.0:
+            return (array.astype("float32") - zero) * scale
+        return array.astype("float32")
 
     @staticmethod
     def _first_scalar(value: Any) -> float | None:
@@ -752,7 +850,7 @@ class AIDriveService:
             input_index = input_detail["index"]
             model.set_tensor(input_index, self._coerce_tflite_input(tensor, input_detail))
             model.invoke()
-            outputs = [model.get_tensor(detail["index"]) for detail in output_details]
+            outputs = [self._dequantize_tflite_output(model.get_tensor(detail["index"]), detail) for detail in output_details]
             return self._commands_from_prediction_output(outputs, output_names)
         if backend == "tensorflow.keras":
             output = model.predict(tensor, verbose=0)
@@ -761,17 +859,25 @@ class AIDriveService:
 
     def _run_loop(self, camera_service: Any, motor_service: Any, drive: bool) -> None:
         last_tick = time.perf_counter()
+        max_failures = 5
         try:
             while not self._stop_event.is_set():
                 started = time.perf_counter()
                 result = self.predict_once(camera_service, motor_service, drive=drive)
-                if not result.get("ok"):
-                    break
                 elapsed = time.perf_counter() - started
+                interval = 1.0 / max(1.0, float(self._settings.get("update_hz", 8.0)))
+                if not result.get("ok"):
+                    with self._lock:
+                        self._loop_consecutive_failures += 1
+                        failures = int(self._loop_consecutive_failures)
+                    if failures >= max_failures:
+                        break
+                    time.sleep(max(0.08, interval - elapsed))
+                    continue
                 with self._lock:
+                    self._loop_consecutive_failures = 0
                     self._last_loop_hz = 1.0 / max(0.001, time.perf_counter() - last_tick)
                 last_tick = time.perf_counter()
-                interval = 1.0 / max(1.0, float(self._settings.get("update_hz", 8.0)))
                 time.sleep(max(0.0, interval - elapsed))
         except Exception as exc:
             self._record_error(PiSDErrorCodes.AI_RUNTIME_FAILED, f"AI runtime loop failed: {exc}", exc=exc)
@@ -784,6 +890,7 @@ class AIDriveService:
             with self._lock:
                 self._running = False
                 self._mode = "idle"
+                self._drive_output_enabled = False
                 self._thread = None
                 if drive:
                     self._last_motor = {"left": 0.0, "right": 0.0}

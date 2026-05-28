@@ -30,3 +30,12 @@ black>=24.0,<26.0
 # Prefer apt packages for Picamera2/libcamera on the Pi, for example:
 #   sudo apt update
 #   sudo apt install -y python3-picamera2 python3-libcamera python3-opencv
+
+# AI model runtime note:
+# .tflite AI driving models need a TFLite interpreter installed on the Pi.
+# This is optional here because wheel availability depends on Python/OS/CPU.
+# Use the helper scripts after installing the normal requirements:
+#   python3 scripts/install_ai_runtime.py --runtime tflite-runtime
+#   python3 scripts/check_ai_runtime.py
+# Fallback on supported 64-bit Pi OS/Python combinations:
+#   python3 scripts/install_ai_runtime.py --runtime ai-edge-litert

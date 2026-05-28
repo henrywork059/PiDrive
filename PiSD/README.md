@@ -117,7 +117,22 @@ ai_edge_litert.interpreter
 tensorflow.lite.Interpreter
 ```
 
-The **Load trained model** panel can upload a model from the browser to `PiSD/models/` and can delete a selected model from the Pi. Upload uses a safe filename and appends a timestamp if the same filename already exists. The panel also shows runtime diagnostics. If `Backend` shows `load_failed` or `Runtime` shows `TFLite missing`, install a compatible TFLite backend in the same Python environment that runs PiSD, restart PiSD, and click **Load model** again.
+The **Load trained model** panel can upload a model from the browser to `PiSD/models/` and can delete a selected model from the Pi. Upload uses a safe filename and appends a timestamp if the same filename already exists. The panel also shows runtime diagnostics. If `Backend` shows `load_failed` or `Runtime` shows `TFLite missing`, install a compatible TFLite backend in the same Python environment that runs PiSD, restart PiSD, and click **Load model** again. PiSD includes helper commands for this:
+
+```bash
+cd ~/PiDrive/PiSD
+python3 scripts/install_ai_runtime.py --runtime tflite-runtime
+python3 scripts/check_ai_runtime.py
+```
+
+If `tflite-runtime` is unavailable on that Pi/Python combination, try:
+
+```bash
+python3 scripts/install_ai_runtime.py --runtime ai-edge-litert
+python3 scripts/check_ai_runtime.py
+```
+
+See `docs/AI_RUNTIME_SETUP.md` for the full runtime setup note.
 
 AI reverse steering policy remains **same sign**: when throttle is negative, PiSD does not flip the steering value. The current road-guide overlay does not draw reverse motion.
 

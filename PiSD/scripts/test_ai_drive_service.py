@@ -84,10 +84,35 @@ def main() -> int:
         shape = []
         dtype_name = ""
     results.append(Result("ai_service.tflite_tensor_detail_conversion", detail_ok, PiSDErrorCodes.OK if detail_ok else PiSDErrorCodes.TEST_AI_MODE_FAILED, detail_message, {"shape": shape, "dtype_name": dtype_name}))
+    try:
+        import numpy as np
+
+        deq = service._dequantize_tflite_output(np.array([[178]], dtype=np.uint8), {"dtype": np.uint8, "quantization": (0.01, 128)})
+        deq_ok = abs(float(np.asarray(deq).reshape(-1)[0]) - 0.5) < 1e-6
+        deq_message = "quantized TFLite output tensors dequantize before steering/throttle parsing"
+    except Exception as exc:
+        deq_ok = False
+        deq_message = f"TFLite output dequantization failed: {exc}"
+        deq = []
+    results.append(Result("ai_service.tflite_output_dequantization", deq_ok, PiSDErrorCodes.OK if deq_ok else PiSDErrorCodes.TEST_AI_MODE_FAILED, deq_message, {"dequantized": str(deq)}))
+
 
     runtime = service.runtime_diagnostics()
-    runtime_ok = {"tflite_runtime", "ai_edge_litert", "tensorflow", "tflite", "keras"}.issubset(set(runtime))
-    results.append(Result("ai_service.runtime_diagnostics", runtime_ok, PiSDErrorCodes.OK if runtime_ok else PiSDErrorCodes.TEST_AI_MODE_FAILED, "AI runtime diagnostics expose TFLite/Keras backend availability" if runtime_ok else "AI runtime diagnostics missing expected keys", {"runtime": runtime}))
+    expected_runtime_keys = {
+        "tflite_runtime",
+        "ai_edge_litert",
+        "tensorflow",
+        "tflite",
+        "keras",
+        "python_executable",
+        "install_script",
+        "check_script",
+        "install_commands",
+        "fallback_install_commands",
+        "install_message",
+    }
+    runtime_ok = expected_runtime_keys.issubset(set(runtime)) and any("install_ai_runtime.py" in str(item) for item in runtime.get("install_commands", []))
+    results.append(Result("ai_service.runtime_diagnostics", runtime_ok, PiSDErrorCodes.OK if runtime_ok else PiSDErrorCodes.TEST_AI_MODE_FAILED, "AI runtime diagnostics expose TFLite/Keras availability and install guidance" if runtime_ok else "AI runtime diagnostics missing expected keys", {"runtime": runtime}))
 
     load_failed = service.load_model("dummy.tflite")
     failed_status = load_failed.get("ai") or {}

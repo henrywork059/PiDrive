@@ -270,6 +270,34 @@
   font-size: .74rem;
 }
 
+
+.ai-runtime-help {
+  margin-top: .55rem;
+  border: 1px solid rgba(251, 191, 36, .34);
+  border-radius: calc(var(--pisd-ui-radius, 14px) * .65);
+  padding: .52rem;
+  background: rgba(120, 53, 15, .22);
+  color: #fde68a;
+  font-size: .78rem;
+  line-height: 1.35;
+}
+
+.ai-runtime-help[hidden] {
+  display: none !important;
+}
+
+.ai-runtime-help pre {
+  margin: .35rem 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  border: 1px solid rgba(251, 191, 36, .24);
+  border-radius: calc(var(--pisd-ui-radius, 14px) * .52);
+  padding: .44rem;
+  background: rgba(2, 6, 23, .50);
+  color: #fef3c7;
+  font-size: .72rem;
+}
+
 body[data-pisd-theme="light"] .ai-field input,
 body[data-pisd-theme="light"] .ai-field select,
 body[data-pisd-theme="light"] .ai-preview-box,

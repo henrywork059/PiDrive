@@ -121,6 +121,7 @@
           <button id="aiRefreshModels" class="mdrv-button ai-button ai-button-secondary">Refresh models</button>
         </div>
         <p class="ai-note">Upload a <code>.keras</code> or <code>.tflite</code> model exported from piTrainer, then load it for preview/drive. PiSD reads piTrainer's named <code>steering</code> and <code>throttle</code> outputs.</p>
+        <p class="ai-note ai-runtime-note">For Pi driving, <code>.tflite</code> models need a TFLite runtime installed in the same Python environment that runs PiSD. If Runtime shows <strong>TFLite missing</strong>, run the shown install command on that Pi and restart PiSD.</p>
         <label class="ai-field">
           <span>Model file in PiSD/models</span>
           <select id="aiModelSelect"></select>
@@ -148,6 +149,12 @@
           <div><dt>Runtime</dt><dd id="aiRuntimeSupport">checking</dd></div>
           <div><dt>Last load/error</dt><dd id="aiLoadError">none</dd></div>
         </dl>
+        <div id="aiRuntimeHelp" class="ai-runtime-help" hidden>
+          <strong>TFLite install help</strong>
+          <pre id="aiRuntimeHelpCommands">cd ~/PiDrive/PiSD
+python3 scripts/install_ai_runtime.py --runtime tflite-runtime
+python3 scripts/check_ai_runtime.py</pre>
+        </div>
       </section>
 
       <section class="mdrv-panel ai-panel" id="aiSafetyPanel">
@@ -198,6 +205,8 @@
           <div><dt>Right motor</dt><dd id="aiRightMotor">0.00</dd></div>
           <div><dt>Inference</dt><dd id="aiInferenceMs">0 ms</dd></div>
           <div><dt>Loop</dt><dd id="aiLoopHz">0 Hz</dd></div>
+          <div><dt>Drive output</dt><dd id="aiDriveOutputState">off</dd></div>
+          <div><dt>Frame seq</dt><dd id="aiFrameSeq">0</dd></div>
         </dl>
       </section>
 

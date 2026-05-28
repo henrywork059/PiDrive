@@ -6,11 +6,11 @@
     'aiOverlayToggle', 'aiOverlayMode', 'aiOverlayCurveLabel', 'aiOverlayCar', 'aiOverlaySurface', 'aiOverlayPathWide', 'aiOverlayPathGuide', 'aiOverlayPath',
     'aiOverlayEndpoint', 'aiOverlayStartPoint', 'aiOverlayThrottleFill', 'aiOverlaySteeringFill', 'aiOverlayThrottleValue', 'aiOverlaySteeringValue',
     'aiOverlayRawSteering', 'aiOverlayRawThrottle', 'aiOverlayLeftValue', 'aiOverlayRightValue',
-    'aiRefreshModels', 'aiModelSelect', 'aiLoadModel', 'aiPredictOnce', 'aiDeleteModel', 'aiModelUploadFile', 'aiUploadModel', 'aiUploadHint', 'aiSelectedModel', 'aiBackend', 'aiInputShape', 'aiOutputNames', 'aiPiTrainerCompatible', 'aiRuntimeSupport', 'aiLoadError', 'aiModelsDir',
+    'aiRefreshModels', 'aiModelSelect', 'aiLoadModel', 'aiPredictOnce', 'aiDeleteModel', 'aiModelUploadFile', 'aiUploadModel', 'aiUploadHint', 'aiSelectedModel', 'aiBackend', 'aiInputShape', 'aiOutputNames', 'aiPiTrainerCompatible', 'aiRuntimeSupport', 'aiRuntimeHelp', 'aiRuntimeHelpCommands', 'aiLoadError', 'aiModelsDir',
     'aiSafetyAck', 'aiEnableMotor', 'aiOutputMode', 'aiMaxThrottle', 'aiMaxThrottleOut', 'aiMaxSteering', 'aiMaxSteeringOut',
     'aiFixedThrottle', 'aiFixedThrottleOut', 'aiUpdateHz', 'aiUpdateHzOut', 'aiSteerSmooth', 'aiSteerSmoothOut', 'aiThrottleSmooth',
     'aiThrottleSmoothOut', 'aiSaveConfig', 'aiStartPreview', 'aiStartDrive', 'aiStop', 'aiStopAll', 'aiRawSteering', 'aiRawThrottle',
-    'aiSafeSteering', 'aiSafeThrottle', 'aiLeftMotor', 'aiRightMotor', 'aiInferenceMs', 'aiLoopHz', 'aiRefreshStatus', 'aiLog'
+    'aiSafeSteering', 'aiSafeThrottle', 'aiLeftMotor', 'aiRightMotor', 'aiInferenceMs', 'aiLoopHz', 'aiDriveOutputState', 'aiFrameSeq', 'aiRefreshStatus', 'aiLog'
   ];
   ids.forEach((id) => { els[id] = document.getElementById(id); });
 
@@ -299,13 +299,23 @@
       const detail = ai.backend_detail || '';
       els.aiBackend.textContent = detail && detail !== backend ? `${backend} (${detail})` : backend;
     }
+    const runtime = ai.runtime_support || {};
     if (els.aiRuntimeSupport) {
-      const runtime = ai.runtime_support || {};
       const bits = [];
       bits.push(runtime.tflite ? 'TFLite OK' : 'TFLite missing');
       bits.push(runtime.keras ? 'Keras OK' : 'Keras missing');
       els.aiRuntimeSupport.textContent = bits.join(' / ');
       els.aiRuntimeSupport.dataset.state = runtime.tflite || runtime.keras ? 'ok' : 'missing';
+    }
+    if (els.aiRuntimeHelp) {
+      const showHelp = !runtime.tflite;
+      els.aiRuntimeHelp.hidden = !showHelp;
+      if (els.aiRuntimeHelpCommands) {
+        const commands = Array.isArray(runtime.install_commands) && runtime.install_commands.length
+          ? runtime.install_commands
+          : ['cd ~/PiDrive/PiSD', 'python3 scripts/install_ai_runtime.py --runtime tflite-runtime', 'python3 scripts/check_ai_runtime.py'];
+        els.aiRuntimeHelpCommands.textContent = commands.join('\n');
+      }
     }
     if (els.aiLoadError) {
       const message = ai.last_error || '';
@@ -331,6 +341,8 @@
     if (els.aiRightMotor) els.aiRightMotor.textContent = fmt(motorRightIntent);
     if (els.aiInferenceMs) els.aiInferenceMs.textContent = `${fmt(ai.last_inference_ms, 1)} ms`;
     if (els.aiLoopHz) els.aiLoopHz.textContent = `${fmt(ai.loop_hz, 1)} Hz`;
+    if (els.aiDriveOutputState) els.aiDriveOutputState.textContent = ai.drive_output_enabled ? 'armed' : 'off';
+    if (els.aiFrameSeq) els.aiFrameSeq.textContent = String(ai.last_frame_seq ?? 0);
     if (ai.settings) renderConfig(ai.settings);
     updateAIOverlay(ai);
   }
