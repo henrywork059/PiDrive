@@ -46,7 +46,7 @@ DEFAULT_RUNTIME_SETTINGS: dict[str, Any] = {
         "fixed_throttle": 0.16,
         "steering_smoothing": 0.35,
         "throttle_smoothing": 0.25,
-        "update_hz": 8.0,
+        "update_hz": 12.0,
         "command_timeout_s": 0.75,
         "output_mode": "steering_and_throttle",
         "preview_only_by_default": True,
@@ -356,7 +356,7 @@ class SettingsManager:
             ("fixed_throttle", 0.0, 1.0, ai_defaults.get("fixed_throttle", 0.16)),
             ("steering_smoothing", 0.0, 1.0, ai_defaults.get("steering_smoothing", 0.35)),
             ("throttle_smoothing", 0.0, 1.0, ai_defaults.get("throttle_smoothing", 0.25)),
-            ("update_hz", 1.0, 20.0, ai_defaults.get("update_hz", 8.0)),
+            ("update_hz", 1.0, 60.0, ai_defaults.get("update_hz", 12.0)),
             ("command_timeout_s", 0.2, 3.0, ai_defaults.get("command_timeout_s", 0.75)),
         ):
             try:

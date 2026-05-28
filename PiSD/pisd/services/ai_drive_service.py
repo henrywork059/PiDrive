@@ -95,7 +95,7 @@ class AIDriveService:
                 "fixed_throttle": clamp_float(data.get("fixed_throttle", self._settings.get("fixed_throttle", 0.16)), 0.0, 1.0, 0.16),
                 "steering_smoothing": clamp_float(data.get("steering_smoothing", self._settings.get("steering_smoothing", 0.35)), 0.0, 1.0, 0.35),
                 "throttle_smoothing": clamp_float(data.get("throttle_smoothing", self._settings.get("throttle_smoothing", 0.25)), 0.0, 1.0, 0.25),
-                "update_hz": clamp_float(data.get("update_hz", self._settings.get("update_hz", 8.0)), 1.0, 20.0, 8.0),
+                "update_hz": clamp_float(data.get("update_hz", self._settings.get("update_hz", 12.0)), 1.0, 60.0, 12.0),
                 "command_timeout_s": clamp_float(data.get("command_timeout_s", self._settings.get("command_timeout_s", 0.75)), 0.2, 3.0, 0.75),
                 "output_mode": str(data.get("output_mode", self._settings.get("output_mode", "steering_and_throttle")) or "steering_and_throttle"),
                 "preview_only_by_default": str(data.get("preview_only_by_default", self._settings.get("preview_only_by_default", True))).lower() not in {"false", "0", "no", "off"},
@@ -674,40 +674,52 @@ class AIDriveService:
             self._backend_detail = "tensorflow.keras"
 
     def _get_frame(self, camera_service: Any) -> bytes:
-        """Return a camera JPEG for AI inference with a short warm-up/retry window.
+        """Return the latest camera JPEG for AI inference without forcing a new frame.
 
-        Earlier AI drive builds asked the camera for one frame with a 1 s timeout
-        and stopped the AI loop on the first miss.  On the Pi, Picamera2 may need
-        slightly longer after Start AI Drive, so a single early empty frame could
-        make AI mode look as if it was running but not responding.  Keep the
-        camera start idempotent, wait for a newer frame when possible, and allow
-        a small retry window before reporting a real camera-frame failure.
+        PiSD 0.9.10 changes the AI loop from "wait for a newer camera frame on
+        every inference" to "use the latest available frame immediately, waiting
+        only when no frame has arrived yet".  The previous behaviour made the AI
+        motor-control update rate effectively limited by camera frame delivery or
+        by a timeout/retry path, so the user-set Update Hz could feel ignored even
+        when TFLite inference itself was fast.  Reusing the latest cached frame is
+        acceptable for control: it keeps the motors refreshed at the requested
+        rate while the camera continues to update independently.
         """
         try:
             camera_service.start()
         except Exception:
             pass
 
-        deadline = time.monotonic() + 3.0
-        last_seq = None
-        with self._lock:
-            if self._last_frame_seq > 0:
-                last_seq = int(self._last_frame_seq)
         frame = None
         seq = 0
         source_frame_at = ""
         byte_count = 0
+
+        try:
+            frame, seq, source_frame_at, byte_count = camera_service.get_jpeg_frame_info()
+        except Exception:
+            frame = None
+
+        if frame is not None:
+            with self._lock:
+                self._last_frame_seq = int(seq or 0)
+                self._last_frame_at = str(source_frame_at or "")
+                self._last_frame_bytes = int(byte_count or len(frame) or 0)
+            return frame
+
+        deadline = time.monotonic() + 1.2
         while time.monotonic() < deadline:
             try:
-                remaining = max(0.15, min(0.8, deadline - time.monotonic()))
-                frame, seq, source_frame_at, byte_count = camera_service.wait_for_jpeg_frame(last_seq=last_seq, timeout=remaining)
+                frame, seq, source_frame_at, byte_count = camera_service.wait_for_jpeg_frame(timeout=0.25)
             except TypeError:
-                frame, seq, source_frame_at, byte_count = camera_service.wait_for_jpeg_frame(timeout=0.8)
-            if frame:
+                frame, seq, source_frame_at, byte_count = camera_service.wait_for_jpeg_frame(timeout=0.25)
+            if frame is not None:
                 with self._lock:
-                    self._last_frame_seq = int(seq or self._last_frame_seq or 0)
+                    self._last_frame_seq = int(seq or 0)
+                    self._last_frame_at = str(source_frame_at or "")
+                    self._last_frame_bytes = int(byte_count or len(frame) or 0)
                 return frame
-            time.sleep(0.05)
+            time.sleep(0.01)
         raise RuntimeError(f"No camera frame available for AI inference after camera warm-up. last_seq={seq}, bytes={byte_count}, at={source_frame_at}")
 
     def _prepare_input(self, frame: bytes) -> Any:
@@ -865,7 +877,7 @@ class AIDriveService:
                 started = time.perf_counter()
                 result = self.predict_once(camera_service, motor_service, drive=drive)
                 elapsed = time.perf_counter() - started
-                interval = 1.0 / max(1.0, float(self._settings.get("update_hz", 8.0)))
+                interval = 1.0 / max(1.0, float(self._settings.get("update_hz", 12.0)))
                 if not result.get("ok"):
                     with self._lock:
                         self._loop_consecutive_failures += 1

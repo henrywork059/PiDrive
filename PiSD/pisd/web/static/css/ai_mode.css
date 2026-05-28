@@ -439,3 +439,21 @@ body[data-pisd-card-accent="strong"] .ai-intro-panel {
 #aiLoadError[data-state="ok"] {
   color: #bbf7d0;
 }
+
+/* PiSD_0_9_10: keep camera, AI run, and recording controls with the preview. */
+.ai-preview-run-actions {
+  margin-top: .6rem;
+  padding-top: .6rem;
+  border-top: 1px solid rgba(148, 163, 184, .16);
+  justify-content: flex-start;
+}
+
+.ai-camera-head-actions {
+  flex-wrap: wrap;
+  gap: .42rem;
+}
+
+.ai-camera-head-actions .mdrv-recording-indicator {
+  align-self: center;
+  white-space: nowrap;
+}

@@ -10,9 +10,9 @@ Future bug-fix patches after this package should use `PiSD_0_9_x_patch` naming u
 
 ## Current version
 
-`PiSD_0_9_0` — full stable package built from `PiSD_0_8_0` plus accepted patches `0_8_1` through `0_8_11`, plus Manual Drive keyboard control.
+`PiSD_0_9_10` patch line built forward from the `PiSD_0_9_0` stable package. The latest patch improves AI control-loop update timing, raises the AI update-rate limit to 60 Hz, keeps AI run controls beside the camera preview, combines Start camera and Live stream, and adds AI Mode recording/snapshot controls.
 
-Use `PiSD_0_9_0` as the rollback point for future PiSD work unless a newer stable line is promoted.
+Use `PiSD_0_9_0` as the rollback point for future PiSD work unless a newer stable line is promoted; apply `0_9_x` patches forward from it.
 
 Included accepted work:
 
@@ -27,7 +27,7 @@ Included accepted work:
 - Overlay values are no longer clamped back to old slider ranges when typed or saved.
 - Manual Drive overlay tuning is reduced to seven visual-only controls, and the values are accepted without old UI min/max caps.
 - Screenshots and continuous recordings include `overlay_settings.json` and `overlay_settings_history.jsonl` for future piTrainer redraw.
-- Clear Start camera / Live stream / Stop camera / STOP motors / Refresh status behaviour.
+- Clear combined Start camera + live stream / Stop camera / STOP motors / Refresh status behaviour.
 - Status-only refresh that does not start the camera or send motor commands.
 - Page-leave motor fail-safe stop.
 - Manual Drive now supports keyboard driving: ↑/↓ adjust live throttle by `0.05` per press, holding ←/→ ramps steering by full scale in `0.8 s`, and Space stops.
@@ -37,8 +37,9 @@ Included accepted work:
 - AI Mode page at `/ai-mode`, replacing the earlier scripted Autopilot foundation.
 - Legacy `/autopilot` path is retained only as a retired compatibility/redirect path to AI Mode.
 - AI Mode model listing/loading from `PiSD/models/` and a guarded safety layer between AI predictions and motor output.
-- AI Mode max throttle and fixed throttle controls allow full-scale `1.00`.
-- AI Mode preview reuses the Manual Drive preview-frame design and draws the road-guide overlay from the model prediction after the safety limiter.
+- AI Mode can save snapshots and start/stop recording through the shared recording service, using the same recording folder format as Manual Drive.
+- AI Mode max throttle and fixed throttle controls allow full-scale `1.00`; Update Hz can be set up to `60` when the Pi/model can keep up.
+- AI Mode preview reuses the Manual Drive preview-frame design, keeps Start AI preview / Start AI drive / Stop AI beside the camera view, and draws the road-guide overlay from the model prediction after the safety limiter.
 - AI steering-only mode keeps fixed throttle while driving straight.
 - AI motor-output enable is live/session-only and is not persisted across reloads.
 - Manual Drive backend now enforces the saved max speed limit in `/api/control/manual`.

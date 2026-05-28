@@ -137,6 +137,11 @@ def main() -> int:
     reverse_ok = abs(reverse_safe["steering"] - 0.45) < 1e-6 and abs(reverse_safe["throttle"] + 0.6) < 1e-6
     results.append(Result("ai_service.reverse_steering_same_sign", reverse_ok, PiSDErrorCodes.OK if reverse_ok else PiSDErrorCodes.TEST_AI_MODE_FAILED, "reverse throttle keeps the same steering sign before motor output" if reverse_ok else "reverse throttle unexpectedly inverted steering", {"safe": reverse_safe}))
 
+    rate_service = AIDriveService(OUTPUT_ROOT, {"update_hz": 120.0})
+    rate_status = rate_service.status()
+    rate_ok = abs(float((rate_status.get("settings") or {}).get("update_hz", 0.0)) - 60.0) < 1e-6
+    results.append(Result("ai_service.update_hz_max_60", rate_ok, PiSDErrorCodes.OK if rate_ok else PiSDErrorCodes.TEST_AI_MODE_FAILED, "AI update rate is allowed up to 60 Hz and clamps higher values safely" if rate_ok else "AI update rate did not clamp at 60 Hz", {"settings": rate_status.get("settings")}))
+
     steering_only_service = AIDriveService(OUTPUT_ROOT, {"output_mode": "steering_only", "fixed_throttle": 0.33, "max_throttle": 1.0, "steering_smoothing": 0.0, "throttle_smoothing": 0.0})
     straight_safe = steering_only_service.apply_safety(0.0, 0.0)
     steering_only_ok = abs(straight_safe["throttle"] - 0.33) < 1e-6

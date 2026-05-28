@@ -2,7 +2,7 @@
   const initial = JSON.parse(document.getElementById('aiModeInitialStatus')?.textContent || '{}');
   const els = {};
   const ids = [
-    'aiGlobalCode', 'aiRunMode', 'aiModelReady', 'aiPreviewFrame', 'aiPreviewImage', 'aiPreviewCaption', 'aiStartCamera', 'aiSnapshot', 'aiLive', 'aiStopCamera',
+    'aiGlobalCode', 'aiRunMode', 'aiModelReady', 'aiPreviewFrame', 'aiPreviewImage', 'aiPreviewCaption', 'aiSnapshot', 'aiSaveSnapshot', 'aiLive', 'aiRecordToggle', 'aiRecordingState', 'aiStopCamera',
     'aiOverlayToggle', 'aiOverlayMode', 'aiOverlayCurveLabel', 'aiOverlayCar', 'aiOverlaySurface', 'aiOverlayPathWide', 'aiOverlayPathGuide', 'aiOverlayPath',
     'aiOverlayEndpoint', 'aiOverlayStartPoint', 'aiOverlayThrottleFill', 'aiOverlaySteeringFill', 'aiOverlayThrottleValue', 'aiOverlaySteeringValue',
     'aiOverlayRawSteering', 'aiOverlayRawThrottle', 'aiOverlayLeftValue', 'aiOverlayRightValue',
@@ -14,7 +14,7 @@
   ];
   ids.forEach((id) => { els[id] = document.getElementById(id); });
 
-  const IDLE_PREVIEW_SRC = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720'%3E%3Crect width='1280' height='720' fill='%23020617'/%3E%3Ctext x='640' y='340' fill='%2394a3b8' font-family='Arial,sans-serif' font-size='42' text-anchor='middle'%3EAI preview idle%3C/text%3E%3Ctext x='640' y='398' fill='%2364748b' font-family='Arial,sans-serif' font-size='26' text-anchor='middle'%3EStart camera / live, then run AI preview%3C/text%3E%3C/svg%3E";
+  const IDLE_PREVIEW_SRC = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720'%3E%3Crect width='1280' height='720' fill='%23020617'/%3E%3Ctext x='640' y='340' fill='%2394a3b8' font-family='Arial,sans-serif' font-size='42' text-anchor='middle'%3EAI preview idle%3C/text%3E%3Ctext x='640' y='398' fill='%2364748b' font-family='Arial,sans-serif' font-size='26' text-anchor='middle'%3EStart live, then run AI preview%3C/text%3E%3C/svg%3E";
   const AI_OVERLAY_SETTINGS = {
     path_length_scale: 1.0,
     // PiSD_0_5_9: mirror Manual Drive's road-edge overlay guide.
@@ -32,6 +32,7 @@
 
   let statusTimer = null;
   let aiRunning = false;
+  let recordingRunning = Boolean(initial.recording?.running);
   let overlayEnabled = true;
   let lastAIStatus = initial.ai_mode || {};
   let aiMotorEnableInitialised = false;
@@ -99,7 +100,7 @@
       max_throttle: Number(els.aiMaxThrottle?.value || 0.22),
       max_steering: Number(els.aiMaxSteering?.value || 0.70),
       fixed_throttle: Number(els.aiFixedThrottle?.value || 0.16),
-      update_hz: Number(els.aiUpdateHz?.value || 8),
+      update_hz: Number(els.aiUpdateHz?.value || 12),
       steering_smoothing: Number(els.aiSteerSmooth?.value || 0.35),
       throttle_smoothing: Number(els.aiThrottleSmooth?.value || 0.25),
     };
@@ -122,7 +123,7 @@
     setRange('aiMaxThrottle', 'aiMaxThrottleOut', config.max_throttle ?? 0.22);
     setRange('aiMaxSteering', 'aiMaxSteeringOut', config.max_steering ?? 0.70);
     setRange('aiFixedThrottle', 'aiFixedThrottleOut', config.fixed_throttle ?? 0.16);
-    setRange('aiUpdateHz', 'aiUpdateHzOut', config.update_hz ?? 8, 0);
+    setRange('aiUpdateHz', 'aiUpdateHzOut', config.update_hz ?? 12, 0);
     setRange('aiSteerSmooth', 'aiSteerSmoothOut', config.steering_smoothing ?? 0.35);
     setRange('aiThrottleSmooth', 'aiThrottleSmoothOut', config.throttle_smoothing ?? 0.25);
   }
@@ -347,11 +348,24 @@
     updateAIOverlay(ai);
   }
 
+  function renderRecording(recording = {}) {
+    recordingRunning = Boolean(recording.running);
+    if (els.aiRecordingState) {
+      els.aiRecordingState.dataset.recording = recordingRunning ? 'on' : 'off';
+      els.aiRecordingState.textContent = recordingRunning ? `REC on ${Number(recording.frame_count || 0)} frames` : 'REC off';
+    }
+    if (els.aiRecordToggle) {
+      els.aiRecordToggle.textContent = recordingRunning ? 'Stop recording' : 'Start recording';
+      els.aiRecordToggle.classList.toggle('mdrv-recording-on', recordingRunning);
+    }
+  }
+
   async function refreshStatus() {
     try {
       const data = await api('/api/ai/status');
       updateOverlayMotorSettings(data.motor || {});
       renderAI(data.ai || {});
+      renderRecording(data.recording || {});
       if (els.aiGlobalCode) els.aiGlobalCode.textContent = data.code || 'PISD-OK-000';
       return data;
     } catch (err) {
@@ -395,6 +409,11 @@
       els[id].max = '1.0';
       els[id].step = '0.01';
     });
+    if (els.aiUpdateHz) {
+      els.aiUpdateHz.min = '1';
+      els.aiUpdateHz.max = '60';
+      els.aiUpdateHz.step = '1';
+    }
   }
 
   function setPreview(mode, src = '') {
@@ -409,7 +428,7 @@
         ? 'Snapshot preview loaded. Run AI preview/predict once to update the AI model overlay.'
         : mode === 'error'
           ? 'Preview error.'
-          : 'Preview is idle. Start camera/live first, then use AI preview to see the model-predicted safe path overlay before enabling AI drive.';
+          : 'Preview is idle. Start live first, then use AI preview to see the model-predicted safe path overlay before enabling AI drive.';
   }
 
   async function saveConfig() {
@@ -523,6 +542,38 @@
     }
   }
 
+  async function saveAISnapshot() {
+    try {
+      await api('/api/camera/start', { method: 'POST', body: {} }).catch(() => null);
+      const data = await api('/api/recording/capture', { method: 'POST', body: { label: 'ai_mode_capture' } });
+      renderRecording(data.recording || {});
+      setPreview('snapshot', `/api/camera/frame.jpg?t=${Date.now()}`);
+      log('AI snapshot saved.', data.record || data.recording || {});
+    } catch (err) {
+      log(err.message, err.payload || {});
+    }
+  }
+
+  async function toggleAIRecording() {
+    try {
+      if (recordingRunning) {
+        const data = await api('/api/recording/stop', { method: 'POST', body: {} });
+        renderRecording(data.recording || {});
+        log('AI recording stopped.', data.stopped_session || data.recording || {});
+      } else {
+        await api('/api/camera/start', { method: 'POST', body: {} }).catch(() => null);
+        const fps = clamp(Number(els.aiUpdateHz?.value || 12), 0.2, 30, 12);
+        const data = await api('/api/recording/start', { method: 'POST', body: { label: 'ai_mode', fps } });
+        renderRecording(data.recording || {});
+        log('AI recording started.', data.recording?.active_session || data.recording || {});
+      }
+      await refreshStatus();
+    } catch (err) {
+      renderRecording((err.payload || {}).recording || {});
+      log(err.message, err.payload || {});
+    }
+  }
+
   function startStatusLoop() {
     if (statusTimer) return;
     statusTimer = setInterval(async () => {
@@ -531,7 +582,7 @@
         clearInterval(statusTimer);
         statusTimer = null;
       }
-    }, 750);
+    }, 250);
   }
 
   function wireRanges() {
@@ -556,8 +607,9 @@
     els.aiStop?.addEventListener('click', stopAI);
     els.aiStopAll?.addEventListener('click', async () => { await stopAI(); await api('/api/control/stop', { method: 'POST', body: {} }).catch(() => null); });
     els.aiRefreshStatus?.addEventListener('click', refreshStatus);
-    els.aiStartCamera?.addEventListener('click', async () => { await api('/api/camera/start', { method: 'POST', body: {} }).catch((err) => log(err.message, err.payload)); setPreview('snapshot', `/api/camera/frame.jpg?t=${Date.now()}`); });
     els.aiSnapshot?.addEventListener('click', () => setPreview('snapshot', `/api/camera/frame.jpg?t=${Date.now()}`));
+    els.aiSaveSnapshot?.addEventListener('click', saveAISnapshot);
+    els.aiRecordToggle?.addEventListener('click', toggleAIRecording);
     els.aiLive?.addEventListener('click', async () => { await api('/api/camera/start', { method: 'POST', body: {} }).catch((err) => log(err.message, err.payload)); setPreview('live', `/video_feed?t=${Date.now()}`); });
     els.aiStopCamera?.addEventListener('click', async () => { await api('/api/camera/stop', { method: 'POST', body: {} }).catch((err) => log(err.message, err.payload)); setPreview('idle', ''); });
     window.addEventListener('pagehide', () => { if (aiRunning) navigator.sendBeacon?.('/api/ai/stop', new Blob([JSON.stringify({})], { type: 'application/json' })); });
@@ -569,6 +621,7 @@
   setOverlayEnabled(true);
   updateOverlayMotorSettings(initial.motor || {});
   renderAI((initial.ai_mode || {}));
+  renderRecording(initial.recording || {});
   wireRanges();
   bind();
   refreshModels().then(() => refreshStatus());

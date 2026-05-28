@@ -38,7 +38,7 @@
         <span class="mdrv-code" data-code-for="ai">PISD-OK-000</span>
       </div>
       <p class="ai-summary">Load a trained model from <code>PiSD/models/</code>. Manual Drive recordings save <code>labels.jsonl</code> so training can map camera frames to steering and throttle.</p>
-      <p class="ai-note">The safety layer always sits between AI prediction and motor output. Max throttle and fixed throttle can now be set up to <strong>1.00</strong>, matching Manual Drive’s full-scale range.</p>
+      <p class="ai-note">The safety layer always sits between AI prediction and motor output. Max throttle and fixed throttle can be set up to <strong>1.00</strong>, and AI control update rate can now be set up to <strong>60 Hz</strong> when the Pi can keep up.</p>
       {% if legacy_autopilot_alias %}
       <p class="ai-warning">The old scripted Autopilot page has been replaced. This page is AI model based and does not run scripted profiles.</p>
       {% endif %}
@@ -53,14 +53,16 @@
           </div>
           <div class="mdrv-camera-head-actions ai-camera-head-actions">
             <button id="aiOverlayToggle" class="mdrv-button mdrv-overlay-toggle" type="button" aria-pressed="true" title="Show or hide the AI model path overlay drawn from the safe AI steering/throttle command.">Overlay: On</button>
-            <button id="aiStartCamera" class="mdrv-button ai-button">Start camera</button>
-            <button id="aiSnapshot" class="mdrv-button ai-button">Snapshot</button>
-            <button id="aiLive" class="mdrv-button ai-button">Live stream</button>
+            <button id="aiLive" class="mdrv-button ai-button">Start camera + live stream</button>
+            <button id="aiSnapshot" class="mdrv-button ai-button ai-button-secondary" type="button">Refresh frame</button>
+            <button id="aiSaveSnapshot" class="mdrv-button ai-button ai-button-secondary" type="button">Save snapshot</button>
+            <button id="aiRecordToggle" class="mdrv-button ai-button ai-button-secondary" type="button">Start recording</button>
+            <span id="aiRecordingState" class="mdrv-recording-indicator" data-recording="off">REC off</span>
             <button id="aiStopCamera" class="mdrv-button ai-button ai-button-secondary">Stop camera</button>
           </div>
         </div>
         <div id="aiPreviewFrame" class="mdrv-preview-frame ai-preview-frame mdrv-overlay-enabled" data-preview-mode="idle" data-preview-state="idle" data-overlay-source="ai-stopped" data-overlay-motion="stopped">
-          <img id="aiPreviewImage" alt="AI camera preview" data-preview-mode="idle" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720'%3E%3Crect width='1280' height='720' fill='%23020617'/%3E%3Ctext x='640' y='340' fill='%2394a3b8' font-family='Arial,sans-serif' font-size='42' text-anchor='middle'%3EAI preview idle%3C/text%3E%3Ctext x='640' y='398' fill='%2364748b' font-family='Arial,sans-serif' font-size='26' text-anchor='middle'%3EStart camera / live, then run AI preview%3C/text%3E%3C/svg%3E" />
+          <img id="aiPreviewImage" alt="AI camera preview" data-preview-mode="idle" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720'%3E%3Crect width='1280' height='720' fill='%23020617'/%3E%3Ctext x='640' y='340' fill='%2394a3b8' font-family='Arial,sans-serif' font-size='42' text-anchor='middle'%3EAI preview idle%3C/text%3E%3Ctext x='640' y='398' fill='%2364748b' font-family='Arial,sans-serif' font-size='26' text-anchor='middle'%3EStart live, then run AI preview%3C/text%3E%3C/svg%3E" />
           <div id="aiDriveOverlay" class="mdrv-drive-overlay ai-drive-overlay" aria-live="polite">
             <div class="mdrv-overlay-hud mdrv-overlay-hud-top ai-overlay-hud">
               <span>AI road guide</span>
@@ -109,7 +111,12 @@
             </div>
           </div>
         </div>
-        <p id="aiPreviewCaption" class="mdrv-capture-notice ai-preview-caption" role="status" aria-live="polite">Preview is idle. Start camera/live first, then use AI preview to see the model-predicted road guide overlay before enabling AI drive.</p>
+        <p id="aiPreviewCaption" class="mdrv-capture-notice ai-preview-caption" role="status" aria-live="polite">Preview is idle. Start live first, then use AI preview to see the model-predicted road guide overlay before enabling AI drive.</p>
+        <div class="ai-button-row ai-run-buttons ai-preview-run-actions" aria-label="AI run controls">
+          <button id="aiStartPreview" class="mdrv-button mdrv-primary ai-button ai-button-primary">Start AI preview</button>
+          <button id="aiStartDrive" class="mdrv-button mdrv-danger ai-button ai-button-danger">Start AI drive</button>
+          <button id="aiStop" class="mdrv-button ai-button ai-button-secondary">Stop AI</button>
+        </div>
       </section>
 
       <section class="mdrv-panel ai-panel" id="aiModelPanel">
@@ -174,7 +181,7 @@ python3 scripts/check_ai_runtime.py</pre>
           <label class="ai-field"><span>Max throttle</span><input id="aiMaxThrottle" type="range" min="0" max="1.0" step="0.01"><output id="aiMaxThrottleOut">0.22</output></label>
           <label class="ai-field"><span>Max steering</span><input id="aiMaxSteering" type="range" min="0" max="1" step="0.01"><output id="aiMaxSteeringOut">0.70</output></label>
           <label class="ai-field"><span>Fixed throttle</span><input id="aiFixedThrottle" type="range" min="0" max="1.0" step="0.01"><output id="aiFixedThrottleOut">0.16</output></label>
-          <label class="ai-field"><span>Update Hz</span><input id="aiUpdateHz" type="range" min="1" max="20" step="1"><output id="aiUpdateHzOut">8</output></label>
+          <label class="ai-field"><span>Update Hz</span><input id="aiUpdateHz" type="range" min="1" max="60" step="1"><output id="aiUpdateHzOut">12</output></label>
           <label class="ai-field"><span>Steering smoothing</span><input id="aiSteerSmooth" type="range" min="0" max="1" step="0.05"><output id="aiSteerSmoothOut">0.35</output></label>
           <label class="ai-field"><span>Throttle smoothing</span><input id="aiThrottleSmooth" type="range" min="0" max="1" step="0.05"><output id="aiThrottleSmoothOut">0.25</output></label>
         </div>
@@ -189,12 +196,7 @@ python3 scripts/check_ai_runtime.py</pre>
           </div>
           <span class="mdrv-code" data-code-for="run">PISD-OK-000</span>
         </div>
-        <p class="ai-note">Use <strong>Start AI preview</strong> first. <strong>Start AI drive</strong> is blocked until a runnable model is loaded and the safety layer is armed.</p>
-        <div class="ai-button-row ai-run-buttons">
-          <button id="aiStartPreview" class="mdrv-button mdrv-primary ai-button ai-button-primary">Start AI preview</button>
-          <button id="aiStartDrive" class="mdrv-button mdrv-danger ai-button ai-button-danger">Start AI drive</button>
-          <button id="aiStop" class="mdrv-button ai-button ai-button-secondary">Stop AI</button>
-        </div>
+        <p class="ai-note">Use the AI run buttons under the camera preview. <strong>Start AI drive</strong> is blocked until a runnable model is loaded and the safety layer is armed.</p>
         <dl class="ai-readout-grid ai-readout-large">
           <div><dt>Raw steering</dt><dd id="aiRawSteering">0.00</dd></div>
           <div><dt>Raw throttle</dt><dd id="aiRawThrottle">0.00</dd></div>
