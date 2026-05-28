@@ -46,7 +46,7 @@ Included accepted work:
 - Manual Drive no longer overrides saved motor `steer_mix`; motor mixing is controlled by the motor settings.
 - Default motor steering mode is now `turn_rate`: left/right input controls curve tightness while up/down controls travel speed along that curve. The older `arcade_mix` behaviour remains selectable as a fallback.
 - The Manual Drive and AI Mode overlays are visual-only calibration layers. They are manually tuned to match the real camera view and real car motion instead of being driven by motor tuning values.
-- Motor Tuning at `/motor-tuning` has been cleared in patch `0_8_7` so the calibration workflow can be rebuilt from a clean page. The backend motor service, linear X steering, start dead-zone kick, and overlay settings remain available for the next design.
+- Motor Tuning at `/motor-tuning` has been cleared in patch `0_8_7` so the calibration workflow can be rebuilt from a clean page. The backend motor service, linear X steering, and overlay settings remain available for the next design.
 - Dashboard is labelled as a legacy/development comparison shell, with stale speed limits raised to full-scale to avoid conflicting with current Manual Drive limits.
 - Default OV5647 camera profile code includes the attempted `03_request_awb_off_lock` request/PIL RGB visual profile and safe runtime migration. This still needs real Pi confirmation if colour does not match the earlier 03/91 diagnostic captures on a specific camera.
 
@@ -66,7 +66,6 @@ The backend pieces remain available for the next design:
 
 - `/api/motor/tune-run` still runs a timed command through the normal motor steering algorithm and stops in a `finally` path.
 - Linear X steering remains active in `MotorService`: `x = 0.5` gives a half-tight turn and `x = 1.0` gives the tightest non-pivot turn.
-- Motor start dead-zone kick settings remain in the motor settings schema.
 - Overlay calibration remains visual-only and separate from motor output.
 
 Until the new tuning page is rebuilt, use Manual Drive and backend/API checks for live car testing.

@@ -237,7 +237,6 @@ Expected behaviour with default `turn_rate` mode:
 This reset does not remove the backend motor behaviour:
 
 - Linear X steering remains active in `MotorService`.
-- The start dead-zone kick remains a hardware-output aid and does not change intended steering/throttle labels.
 - Overlay tuning remains separate from real motor output.
 - `/api/motor/tune-run` remains available for a future rebuilt UI or direct API checks.
 

@@ -166,7 +166,7 @@ def check_timed_drive_simulation() -> list[Result]:
             f"MotorService import failed: {exc}",
             {"exception_type": type(exc).__name__},
         )]
-    motor = MotorService({"steering_mode": "turn_rate", "start_deadzone": 0.25, "start_kick_seconds": 0.03}, hardware_enabled=False)
+    motor = MotorService({"steering_mode": "turn_rate"}, hardware_enabled=False)
     try:
         result = motor.run_timed_drive(steering=0.6, throttle=0.18, duration=0.05, label="test_motor_tuning")
         status = motor.status()

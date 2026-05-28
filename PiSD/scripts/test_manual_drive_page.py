@@ -117,11 +117,6 @@ def check_source_contract() -> list[Result]:
         "↑/↓ throttle ±0.05 per press",
         "hold ←/→ steering ±1 in 0.8 s; release returns to 0",
         "Space STOP",
-        "Motor start dead-zone",
-        "Motor dead-zone kick",
-        "Start dead-zone",
-        "Kick seconds",
-        "Apply motor start tuning",
         "Overlay calibration — 7 controls",
         "7 visual-only overlay controls",
         "Shape",
@@ -176,7 +171,7 @@ def check_source_contract() -> list[Result]:
         "does not start the camera, restart preview, or send motor commands",
         "STOP motors",
     ]
-    required_css = [".mdrv-shell", ".mdrv-panel", ".mdrv-status-panel", ".mdrv-preview-frame", ".mdrv-drag-pad", ".mdrv-big-stop", ".mdrv-drag-knob", "width: 28px", ".mdrv-recording-indicator", ".mdrv-capture-notice", ".mdrv-overlay-toggle", ".mdrv-drive-overlay", ".mdrv-overlay-path", ".mdrv-overlay-path-wide", ".mdrv-overlay-endpoint", "road-guide overlay", "marker-end: url(#mdrvOverlayArrow)", ".mdrv-drive-debug-panel", ".mdrv-keyboard-hint", ".mdrv-keyboard-status", ".mdrv-overlay-calibration", ".mdrv-overlay-settings-grid-reduced", ".mdrv-overlay-calibration-guide", ".mdrv-motor-start-calibration", "data-overlay-source", "data-preview-state", "Preview stale", "@media (max-width: 1100px)"]
+    required_css = [".mdrv-shell", ".mdrv-panel", ".mdrv-status-panel", ".mdrv-preview-frame", ".mdrv-drag-pad", ".mdrv-big-stop", ".mdrv-drag-knob", "width: 28px", ".mdrv-recording-indicator", ".mdrv-capture-notice", ".mdrv-overlay-toggle", ".mdrv-drive-overlay", ".mdrv-overlay-path", ".mdrv-overlay-path-wide", ".mdrv-overlay-endpoint", "road-guide overlay", "marker-end: url(#mdrvOverlayArrow)", ".mdrv-drive-debug-panel", ".mdrv-keyboard-hint", ".mdrv-keyboard-status", ".mdrv-overlay-calibration", ".mdrv-overlay-settings-grid-reduced", ".mdrv-overlay-calibration-guide", "data-overlay-source", "data-preview-state", "Preview stale", "@media (max-width: 1100px)"]
     required_unified_css = [
         "PiSD 0.3.3 manual-drive semantic layout recovery",
         "body.manual-drive-page .mdrv-shell",
@@ -290,10 +285,6 @@ def check_source_contract() -> list[Result]:
         "requestAnimationFrame",
         "source: 'keyboard'",
         "release returns steering to centre",
-        "start_deadzone",
-        "start_kick_seconds",
-        "/api/motor/apply",
-        "mdrvMotorStartSettingsOpen",
     ]
     missing = {
         "template": [token for token in required_template if token not in template],
@@ -351,16 +342,16 @@ def check_source_contract() -> list[Result]:
         {},
     ))
 
-    motor_start_tuning_ok = (
-        all(token in template for token in ("mdrvMotorStartSettingsOpen", "Motor dead-zone kick", "mdrvStartDeadzone", "mdrvStartKickSeconds", "Apply motor start tuning"))
-        and all(token in js for token in ("normaliseMotorStartSettings", "applyMotorStartSettings", "start_deadzone", "start_kick_seconds", "/api/motor/apply"))
-        and ".mdrv-motor-start-calibration" in css
+    motor_start_removed_ok = (
+        all(token not in template for token in ("mdrvMotorStartSettingsOpen", "Motor dead-zone kick", "mdrvStartDeadzone", "mdrvStartKickSeconds", "Apply motor start tuning"))
+        and all(token not in js for token in ("normaliseMotorStartSettings", "applyMotorStartSettings", "start_deadzone", "start_kick_seconds"))
+        and ".mdrv-motor-start-calibration" not in css
     )
     results.append(Result(
-        "manual_drive.motor_start_tuning_popup",
-        motor_start_tuning_ok,
-        PiSDErrorCodes.OK if motor_start_tuning_ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
-        "Manual Drive has a motor start dead-zone popup that applies start_deadzone/start_kick_seconds" if motor_start_tuning_ok else "Manual Drive motor start tuning popup is missing",
+        "manual_drive.motor_start_tuning_removed",
+        motor_start_removed_ok,
+        PiSDErrorCodes.OK if motor_start_removed_ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
+        "Manual Drive no longer exposes motor start dead-zone/kick controls" if motor_start_removed_ok else "Manual Drive still contains motor start dead-zone/kick UI or logic",
         {},
     ))
 

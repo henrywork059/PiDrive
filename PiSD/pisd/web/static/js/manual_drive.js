@@ -28,8 +28,6 @@
     steer_mix: 1.0,
     min_inside_speed: 0.0,
     allow_pivot_turn: false,
-    start_deadzone: 0.0,
-    start_kick_seconds: 0.12,
   };
   const globalCode = $('mdrvGlobalCode');
   const preview = $('mdrvPreview');
@@ -103,14 +101,6 @@
   const overlayHorizonY = $('mdrvOverlayHorizonY');
   const overlayPerspectiveScale = $('mdrvOverlayPerspectiveScale');
   const overlayOpacity = $('mdrvOverlayOpacity');
-  const motorStartSettingsOpen = $('mdrvMotorStartSettingsOpen');
-  const motorStartSettingsPopup = $('mdrvMotorStartSettingsPopup');
-  const motorStartSettingsClose = $('mdrvMotorStartSettingsClose');
-  const motorStartSettingsApply = $('mdrvMotorStartSettingsApply');
-  const motorStartSettingsReset = $('mdrvMotorStartSettingsReset');
-  const motorStartSettingsStatus = $('mdrvMotorStartSettingsStatus');
-  const startDeadzoneInput = $('mdrvStartDeadzone');
-  const startKickSecondsInput = $('mdrvStartKickSeconds');
   let dragging = false;
   let lastSentAt = 0;
   const STOP_COMMAND = { steering: 0, throttle: 0 };
@@ -158,10 +148,6 @@
     ['perspective_scale', overlayPerspectiveScale],
     ['opacity', overlayOpacity],
   ];
-  const MOTOR_START_CONTROL_BINDINGS = [
-    ['start_deadzone', startDeadzoneInput],
-    ['start_kick_seconds', startKickSecondsInput],
-  ];
   function isOk(code) { return String(code || '').startsWith('PISD-OK'); }
   function clamp(value, min, max, fallback = 0) {
     const n = Number(value);
@@ -178,8 +164,6 @@
       steer_mix: clamp(source.steer_mix, 0, 2, DEFAULT_MOTOR_SETTINGS.steer_mix),
       min_inside_speed: clamp(source.min_inside_speed, 0, 0.99, DEFAULT_MOTOR_SETTINGS.min_inside_speed),
       allow_pivot_turn: allowPivot,
-      start_deadzone: clamp(source.start_deadzone, 0, 0.95, DEFAULT_MOTOR_SETTINGS.start_deadzone),
-      start_kick_seconds: clamp(source.start_kick_seconds, 0, 0.75, DEFAULT_MOTOR_SETTINGS.start_kick_seconds),
     };
   }
   function updateOverlayMotorSettings(motor = {}) {
@@ -568,69 +552,6 @@
     overlaySettingsPopup.hidden = true;
     document.body.classList.remove('mdrv-overlay-settings-open-body');
     overlaySettingsOpen?.focus?.();
-  }
-
-  function normaliseMotorStartSettings(raw = {}) {
-    const source = raw && typeof raw === 'object' ? raw : {};
-    return {
-      start_deadzone: clamp(source.start_deadzone, 0, 0.95, DEFAULT_MOTOR_SETTINGS.start_deadzone),
-      start_kick_seconds: clamp(source.start_kick_seconds, 0, 0.75, DEFAULT_MOTOR_SETTINGS.start_kick_seconds),
-    };
-  }
-
-  function setMotorStartSettingsStatus(message) {
-    if (motorStartSettingsStatus) motorStartSettingsStatus.textContent = message;
-  }
-
-  function writeMotorStartControls(settings = latestMotorSettings) {
-    const values = normaliseMotorStartSettings(settings);
-    for (const [key, control] of MOTOR_START_CONTROL_BINDINGS) {
-      if (control) control.value = String(values[key]);
-    }
-  }
-
-  function readMotorStartSettingsFromControls() {
-    return normaliseMotorStartSettings({
-      start_deadzone: startDeadzoneInput?.value,
-      start_kick_seconds: startKickSecondsInput?.value,
-    });
-  }
-
-  function openMotorStartSettingsPopup() {
-    if (!motorStartSettingsPopup) return;
-    writeMotorStartControls();
-    motorStartSettingsPopup.hidden = false;
-    document.body.classList.add('mdrv-overlay-settings-open-body');
-    setMotorStartSettingsStatus('Ready - set dead-zone and kick time, then apply');
-    window.setTimeout(() => startDeadzoneInput?.focus?.(), 0);
-  }
-
-  function closeMotorStartSettingsPopup() {
-    if (!motorStartSettingsPopup) return;
-    motorStartSettingsPopup.hidden = true;
-    document.body.classList.remove('mdrv-overlay-settings-open-body');
-    motorStartSettingsOpen?.focus?.();
-  }
-
-  async function applyMotorStartSettings(settings = readMotorStartSettingsFromControls()) {
-    const motorStart = normaliseMotorStartSettings(settings);
-    const existingMotor = readRuntimeLocal().motor || {};
-    const motorPayload = { ...existingMotor, ...motorStart };
-    setMotorStartSettingsStatus('Applying motor start tuning...');
-    try {
-      const { payload } = await api('POST', '/api/motor/apply', motorPayload, 'drive');
-      const config = payload?.config || payload?.motor || motorPayload;
-      latestMotorSettings = normaliseMotorOverlaySettings({ ...latestMotorSettings, ...config });
-      writeMotorStartControls(latestMotorSettings);
-      if (payload?.settings) localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(payload.settings));
-      else writeRuntimeLocal({ motor: { ...(readRuntimeLocal().motor || {}), ...latestMotorSettings } });
-      setMotorStartSettingsStatus(`Saved start kick: dead-zone ${Number(latestMotorSettings.start_deadzone).toFixed(2)}, ${Number(latestMotorSettings.start_kick_seconds).toFixed(2)} s`);
-      setShortStatus('Motor start dead-zone tuning saved. Motor output was stopped while applying settings.', payload?.code || 'PISD-OK-000');
-      await refreshStatus();
-    } catch (err) {
-      setMotorStartSettingsStatus(`Apply failed: ${String(err)}`);
-      writeLog('motor start tuning apply failed', { ok: false, code: 'PISD-API-002', message: String(err) });
-    }
   }
 
   function setSignedFill(element, value) {
@@ -1400,23 +1321,6 @@
     const applyOverlayNumberInput = () => {
       applyOverlayCalibration(readOverlayCalibrationFromControls(), true);
     };
-    motorStartSettingsOpen?.addEventListener('click', openMotorStartSettingsPopup);
-    motorStartSettingsClose?.addEventListener('click', closeMotorStartSettingsPopup);
-    motorStartSettingsPopup?.addEventListener('click', event => {
-      if (event.target === motorStartSettingsPopup) closeMotorStartSettingsPopup();
-    });
-    motorStartSettingsApply?.addEventListener('click', () => applyMotorStartSettings(readMotorStartSettingsFromControls()));
-    motorStartSettingsReset?.addEventListener('click', () => applyMotorStartSettings({ start_deadzone: 0.0, start_kick_seconds: DEFAULT_MOTOR_SETTINGS.start_kick_seconds }));
-    for (const [, control] of MOTOR_START_CONTROL_BINDINGS) {
-      control?.addEventListener('change', () => setMotorStartSettingsStatus('Edited; press Apply motor start tuning'));
-      control?.addEventListener('keydown', event => {
-        if (event.key === 'Enter') {
-          event.preventDefault();
-          applyMotorStartSettings(readMotorStartSettingsFromControls());
-          event.target?.blur?.();
-        }
-      });
-    }
     overlaySettingsOpen?.addEventListener('click', openOverlaySettingsPopup);
     overlaySettingsClose?.addEventListener('click', closeOverlaySettingsPopup);
     overlaySettingsPopup?.addEventListener('click', event => {
@@ -1424,7 +1328,6 @@
     });
     document.addEventListener('keydown', event => {
       if (event.key !== 'Escape') return;
-      if (motorStartSettingsPopup && !motorStartSettingsPopup.hidden) closeMotorStartSettingsPopup();
       if (overlaySettingsPopup && !overlaySettingsPopup.hidden) closeOverlaySettingsPopup();
     });
     overlaySettingsApply?.addEventListener('click', applyOverlayNumberInput);

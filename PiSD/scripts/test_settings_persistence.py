@@ -61,7 +61,7 @@ def static_checks() -> bool:
     settings_html = (ROOT / 'pisd/web/templates/settings_tab.html').read_text(encoding='utf-8')
     ok &= line('name="steering_mode"' in settings_html and 'turn_rate' in settings_html and 'arcade_mix' in settings_html, PiSDErrorCodes.OK if 'name="steering_mode"' in settings_html else PiSDErrorCodes.TEST_SETTINGS_PERSISTENCE_FAILED, 'settings_tab.steering_mode', 'motor steering mode setting is exposed')
     ok &= line('turn_gain' not in settings_html and 'turn_curve' not in settings_html and 'min_inside_speed' in settings_html, PiSDErrorCodes.OK if ('turn_gain' not in settings_html and 'turn_curve' not in settings_html) else PiSDErrorCodes.TEST_SETTINGS_PERSISTENCE_FAILED, 'settings_tab.turn_rate_tuning', 'linear turn-rate motor settings are exposed without removed turn_gain/turn_curve')
-    ok &= line('name="start_deadzone"' in settings_html and 'name="start_kick_seconds"' in settings_html and 'start_deadzone' in stjs and 'start_kick_seconds' in stjs, PiSDErrorCodes.OK if ('name="start_deadzone"' in settings_html and 'start_deadzone' in stjs) else PiSDErrorCodes.TEST_SETTINGS_PERSISTENCE_FAILED, 'settings_tab.start_deadzone_tuning', 'motor start dead-zone and kick duration settings are exposed and normalised')
+    ok &= line('name="start_deadzone"' not in settings_html and 'name="start_kick_seconds"' not in settings_html and 'start_deadzone' not in stjs and 'start_kick_seconds' not in stjs, PiSDErrorCodes.OK if ('name="start_deadzone"' not in settings_html and 'start_deadzone' not in stjs) else PiSDErrorCodes.TEST_SETTINGS_PERSISTENCE_FAILED, 'settings_tab.no_start_deadzone', 'motor start dead-zone/kick tuning is removed from the settings UI')
     ok &= line('steer_strength' not in html and 'Steer strength' not in html and "$('mdrvSteer')" not in js and 'mdrvSteerOut' not in js, PiSDErrorCodes.OK if ('steer_strength' not in html and 'Steer strength' not in html and "$('mdrvSteer')" not in js and 'mdrvSteerOut' not in js) else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED, 'manual_drive.no_steer_strength', 'Manual Drive no longer scales steering X with a steer-strength slider')
     ok &= line('name="steer_strength"' not in settings_html and 'Steer strength' not in settings_html, PiSDErrorCodes.OK if ('name="steer_strength"' not in settings_html and 'Steer strength' not in settings_html) else PiSDErrorCodes.TEST_SETTINGS_PERSISTENCE_FAILED, 'settings_tab.no_steer_strength', 'Settings page no longer exposes steer_strength')
     return ok
@@ -99,11 +99,11 @@ def manager_checks() -> bool:
             and 'turn_curve' not in motor
             and motor['min_inside_speed'] == 0.2
             and motor['allow_pivot_turn'] is True
-            and motor['start_deadzone'] == 0.24
-            and motor['start_kick_seconds'] == 0.11,
+            and 'start_deadzone' not in motor
+            and 'start_kick_seconds' not in motor,
             PiSDErrorCodes.OK if motor_saved else motor_report.code,
             'settings.manager.turn_rate_motor_settings',
-            'linear turn-rate motor settings and start dead-zone kick values are saved while legacy turn_gain/turn_curve are ignored',
+            'linear turn-rate motor settings are saved while legacy turn_gain/turn_curve and removed start-dead-zone keys are ignored',
         )
         legacy_saved, legacy_settings, legacy_report = mgr.save({'manual_drive': {'steer_strength': 0.25, 'speed': 0.19}})
         ok &= line(legacy_saved and 'steer_strength' not in legacy_settings['manual_drive'] and legacy_settings['manual_drive']['speed'] == 0.19, PiSDErrorCodes.OK if legacy_saved else legacy_report.code, 'settings.manager.legacy_steer_strength_ignored', 'legacy manual steer_strength is ignored and removed')

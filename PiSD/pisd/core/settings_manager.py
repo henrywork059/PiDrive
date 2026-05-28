@@ -283,12 +283,13 @@ class SettingsManager:
         # these keys should not affect motors or be surfaced back to the UI.
         motor.pop("turn_gain", None)
         motor.pop("turn_curve", None)
+        # PiSD_0_9_7: remove motor start dead-zone/kick tuning from persisted runtime state.
+        motor.pop("start_deadzone", None)
+        motor.pop("start_kick_seconds", None)
         steering_mode = str(motor.get("steering_mode", motor_defaults.get("steering_mode", "turn_rate")) or "turn_rate").strip().lower()
         motor["steering_mode"] = steering_mode if steering_mode in {"turn_rate", "arcade_mix"} else motor_defaults.get("steering_mode", "turn_rate")
         for key, lower, upper, default in (
             ("min_inside_speed", 0.0, 0.95, motor_defaults.get("min_inside_speed", 0.0)),
-            ("start_deadzone", 0.0, 0.95, motor_defaults.get("start_deadzone", 0.0)),
-            ("start_kick_seconds", 0.0, 0.75, motor_defaults.get("start_kick_seconds", 0.12)),
         ):
             try:
                 motor[key] = max(lower, min(upper, float(motor.get(key, default))))

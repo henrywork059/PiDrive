@@ -42,7 +42,7 @@ This stable baseline should be used as the rollback point for future PiSD manual
 - Dashboard is labelled as a legacy/development comparison shell.
 - Default motor steering mode is now `turn_rate`, where left/right input controls curve tightness and up/down controls travel speed along that curve. The older `arcade_mix` mixer remains selectable as a fallback.
 - Manual Drive and AI Mode overlays are visual-only calibration layers. In patches after this stable baseline, overlay matching is tuned manually against real camera frames and real motion instead of following motor Turn Gain.
-- `/motor-tuning` is intentionally reset to a clean placeholder after `0_8_7`; backend timed test and start-dead-zone logic remain available for the next rebuild.
+- `/motor-tuning` is intentionally reset to a clean placeholder after `0_8_7`; backend timed test logic remains available for the next rebuild.
 
 ## Confirmed service status from earlier user Pi hardware logs
 
