@@ -1048,7 +1048,10 @@
   }
 
   function keyboardControlBlocked() {
-    if ((overlaySettingsPopup && !overlaySettingsPopup.hidden) || (motorStartSettingsPopup && !motorStartSettingsPopup.hidden)) return true;
+    // PiSD_0_9_8: the removed motor-start popup must not be referenced here.
+    // A stale undeclared popup variable would throw on every keydown and could
+    // leave browser-side keyboard steering state inconsistent on the Pi.
+    if (overlaySettingsPopup && !overlaySettingsPopup.hidden) return true;
     const active = document.activeElement;
     if (!active || active === document.body || active === document.documentElement || active === pad || active === arm) return false;
     const tag = String(active.tagName || '').toLowerCase();
@@ -1124,6 +1127,16 @@
     keyboardLoopHandle = requestAnimationFrame(runKeyboardSteeringLoop);
   }
 
+  function releaseKeyboardSteeringToCentre(reason = 'keyboard release') {
+    const hadHeldKey = keyboardLeftHeld || keyboardRightHeld;
+    keyboardLeftHeld = false;
+    keyboardRightHeld = false;
+    if (hadHeldKey || Math.abs(keyboardSteering) > 1e-4) {
+      setKeyboardStatus(`${reason}: steering returning to centre over 0.8 s...`, 'active');
+      startKeyboardSteeringLoop();
+    }
+  }
+
   async function resetKeyboardControl(reason = 'keyboard stop') {
     keyboardThrottle = 0;
     keyboardSteering = 0;
@@ -1164,12 +1177,19 @@
     }, { passive: false });
 
     document.addEventListener('keyup', event => {
+      if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+      event.preventDefault();
       if (event.key === 'ArrowLeft') keyboardLeftHeld = false;
       if (event.key === 'ArrowRight') keyboardRightHeld = false;
-      if ((event.key === 'ArrowLeft' || event.key === 'ArrowRight') && !keyboardLeftHeld && !keyboardRightHeld) {
-        setKeyboardStatus('Keyboard steering returning to centre...', 'active');
-        startKeyboardSteeringLoop();
-      }
+      if (!keyboardLeftHeld && !keyboardRightHeld) releaseKeyboardSteeringToCentre('Keyboard release');
+    }, { passive: false });
+
+    window.addEventListener('blur', () => {
+      releaseKeyboardSteeringToCentre('Window lost focus');
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) releaseKeyboardSteeringToCentre('Page hidden');
     });
   }
 

@@ -285,6 +285,9 @@ def check_source_contract() -> list[Result]:
         "requestAnimationFrame",
         "source: 'keyboard'",
         "release returns steering to centre",
+        "releaseKeyboardSteeringToCentre",
+        "Window lost focus",
+        "visibilitychange",
     ]
     missing = {
         "template": [token for token in required_template if token not in template],
@@ -332,7 +335,7 @@ def check_source_contract() -> list[Result]:
 
     keyboard_ok = (
         all(token in template for token in ("mdrvKeyboardStatus", "↑/↓ throttle ±0.05 per press", "hold ←/→ steering ±1 in 0.8 s; release returns to 0", "Space STOP"))
-        and all(token in js for token in ("KEYBOARD_THROTTLE_STEP", "KEYBOARD_STEERING_FULL_SCALE_MS", "800", "bindKeyboardDrive", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "requestAnimationFrame", "source: 'keyboard'"))
+        and all(token in js for token in ("KEYBOARD_THROTTLE_STEP", "KEYBOARD_STEERING_FULL_SCALE_MS", "800", "bindKeyboardDrive", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "requestAnimationFrame", "source: 'keyboard'", "releaseKeyboardSteeringToCentre", "Window lost focus", "visibilitychange"))
     )
     results.append(Result(
         "manual_drive.keyboard_control",
@@ -344,7 +347,7 @@ def check_source_contract() -> list[Result]:
 
     motor_start_removed_ok = (
         all(token not in template for token in ("mdrvMotorStartSettingsOpen", "Motor dead-zone kick", "mdrvStartDeadzone", "mdrvStartKickSeconds", "Apply motor start tuning"))
-        and all(token not in js for token in ("normaliseMotorStartSettings", "applyMotorStartSettings", "start_deadzone", "start_kick_seconds"))
+        and all(token not in js for token in ("normaliseMotorStartSettings", "applyMotorStartSettings", "start_deadzone", "start_kick_seconds", "motorStartSettingsPopup"))
         and ".mdrv-motor-start-calibration" not in css
     )
     results.append(Result(
