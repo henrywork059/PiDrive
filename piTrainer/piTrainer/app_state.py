@@ -61,6 +61,7 @@ class AppState:
     last_error: str = ''
     preprocess_recipe: dict[str, Any] = field(default_factory=dict)
     last_saved_model_path: str = ''
+    trained_model_out_dir: str = ''
     last_saved_preprocess_path: str = ''
     last_saved_preprocess_settings_path: str = ''
     last_exported_tflite_path: str = ''

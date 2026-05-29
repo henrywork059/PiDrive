@@ -40,6 +40,7 @@ class TrainPage(DockPage):
             start_callback=self.start_training,
             stop_callback=self.stop_training,
             save_model_callback=self.save_trained_model,
+            default_save_dir=str(self.state.out_dir_path),
         )
         self.history_panel = TrainHistoryPanel()
         self.epoch_review_panel = TrainEpochReviewPanel()
@@ -229,13 +230,28 @@ class TrainPage(DockPage):
             self.log_panel.append_line('No trained model available to save yet.')
             self.main_window.set_status_message('No trained model available to save.')
             return
-        out_dir = ensure_dir(self.state.out_dir_path)
+
+        save_dir_text = self.control_panel.model_save_dir(str(self.state.out_dir_path))
+        try:
+            out_dir = ensure_dir(Path(save_dir_text).expanduser().resolve())
+        except Exception as exc:
+            self.log_panel.append_line(f'Could not create trained-model save folder: {save_dir_text} ({exc})')
+            self.main_window.set_status_message('Could not create trained-model save folder.')
+            return
+
+        self.state.trained_model_out_dir = str(out_dir)
+        self.control_panel.set_model_save_dir(str(out_dir))
         base_name = safe_filename(self.state.export_config.base_name or 'picar_model', default='picar_model')
         candidate = out_dir / f'{base_name}_trained.keras'
         if candidate.exists():
             stamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             candidate = out_dir / f'{base_name}_trained_{stamp}.keras'
-        save_keras_model(self.state.model, candidate)
+        try:
+            save_keras_model(self.state.model, candidate)
+        except Exception as exc:
+            self.log_panel.append_line(f'Could not save trained model to {candidate}: {exc}')
+            self.main_window.set_status_message('Could not save trained model.')
+            return
         self.state.last_saved_model_path = str(candidate)
         self.log_panel.append_line(f'Saved trained model: {candidate}')
         self.main_window.validation_page.config_panel.set_saved_model_path(str(candidate))
