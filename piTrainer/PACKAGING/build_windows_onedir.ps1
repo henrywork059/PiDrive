@@ -61,15 +61,53 @@ cd /d "%~dp0"
 start "" "%~dp0PiTrainer.exe"
 "@ | Set-Content -Path $RunBat -Encoding ASCII
 
+function New-ZipWithRetry {
+    param(
+        [Parameter(Mandatory = $true)][string]$SourcePath,
+        [Parameter(Mandatory = $true)][string]$DestinationPath,
+        [int]$Attempts = 8,
+        [int]$DelaySeconds = 4
+    )
+
+    for ($Attempt = 1; $Attempt -le $Attempts; $Attempt++) {
+        try {
+            if (Test-Path $DestinationPath) { Remove-Item $DestinationPath -Force -ErrorAction SilentlyContinue }
+            if ($Attempt -gt 1) {
+                Write-Host "Retrying zip creation ($Attempt/$Attempts)..." -ForegroundColor Yellow
+            }
+            Compress-Archive -Path $SourcePath -DestinationPath $DestinationPath -Force -ErrorAction Stop
+            return $true
+        } catch {
+            $Message = $_.Exception.Message
+            if ($Attempt -lt $Attempts) {
+                Write-Warning "Zip creation failed because a build file may still be locked. Waiting $DelaySeconds seconds. Details: $Message"
+                Start-Sleep -Seconds $DelaySeconds
+            } else {
+                Write-Warning "Zip creation failed after $Attempts attempts. The EXE folder is still usable. Details: $Message"
+                return $false
+            }
+        }
+    }
+    return $false
+}
+
 $ZipPath = Join-Path $DistPath "PiTrainer_win_onedir.zip"
-if (Test-Path $ZipPath) { Remove-Item $ZipPath -Force }
-Compress-Archive -Path $AppDir -DestinationPath $ZipPath -Force
+Write-Host "Creating transfer zip. If Windows/antivirus still has build files locked, this step will retry..." -ForegroundColor Cyan
+$ZipCreated = New-ZipWithRetry -SourcePath $AppDir -DestinationPath $ZipPath
 
 Write-Host "" 
 Write-Host "Build complete." -ForegroundColor Green
 Write-Host "App folder: $AppDir"
 Write-Host "Launcher:   $ExePath"
-Write-Host "Zip file:   $ZipPath"
+if ($ZipCreated -and (Test-Path $ZipPath)) {
+    Write-Host "Zip file:   $ZipPath"
+} else {
+    Write-Host "Zip file:   not created because Windows kept a file locked. Close Explorer/antivirus scan if needed and rerun the script, or copy the app folder directly." -ForegroundColor Yellow
+}
 Write-Host "" 
 Write-Host "For normal use, open dist_exe\PiTrainer\PiTrainer.exe or Run_PiTrainer.bat." -ForegroundColor Green
-Write-Host "For sharing/copying, send dist_exe\PiTrainer_win_onedir.zip." -ForegroundColor Green
+if ($ZipCreated -and (Test-Path $ZipPath)) {
+    Write-Host "For sharing/copying, send dist_exe\PiTrainer_win_onedir.zip." -ForegroundColor Green
+} else {
+    Write-Host "For sharing/copying right now, copy the whole dist_exe\PiTrainer folder." -ForegroundColor Yellow
+}

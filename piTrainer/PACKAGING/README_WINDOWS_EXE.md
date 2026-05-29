@@ -64,6 +64,17 @@ To keep the build smaller:
 4. Zip the output folder for transfer.
 5. Do not enable UPX for this project; TensorFlow/PySide DLLs are safer uncompressed.
 
+
+## If zip creation says a file is locked
+
+PyInstaller may finish the app folder before Windows, File Explorer, or antivirus releases every file. If `Compress-Archive` reports that `_internal\base_library.zip` or another build file is being used by another process, the app folder is already usable:
+
+```text
+dist_exe\PiTrainer\PiTrainer.exe
+```
+
+The build script retries zip creation automatically. If the zip still cannot be made, close any Explorer window opened inside `dist_exe`, wait a few seconds, and rerun the build script. You can also copy the whole `dist_exe\PiTrainer` folder directly without using the zip.
+
 ## Console build for debugging
 
 For a console window during debugging:
