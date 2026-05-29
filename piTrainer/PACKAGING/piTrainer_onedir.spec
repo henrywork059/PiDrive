@@ -69,8 +69,41 @@ hiddenimports = [
     "unittest.runner",
     "unittest.suite",
     "unittest.util",
+    # TensorFlow/Keras modules used by the Train page are imported dynamically.
+    # Keep these explicit so the frozen app can open and still train, not only view data.
+    "tensorflow",
+    "tensorflow.keras",
+    "tensorflow.keras.callbacks",
+    "tensorflow.keras.layers",
+    "tensorflow.keras.losses",
+    "tensorflow.keras.models",
+    "tensorflow.keras.optimizers",
+    "tensorflow.keras.utils",
+    "tensorflow.lite",
+    "tensorflow.lite.python.interpreter",
+    "keras",
+    "keras.src",
+    "keras.src.backend",
+    "keras.src.backend.tensorflow",
+    "keras.src.backend.tensorflow.core",
+    "keras.src.backend.tensorflow.trainer",
+    "keras.src.callbacks",
+    "keras.src.layers",
+    "keras.src.losses",
+    "keras.src.models",
+    "keras.src.ops",
+    "keras.src.optimizers",
+    "keras.src.saving",
+    "keras.src.utils",
 ]
 hiddenimports += safe_collect_submodules("matplotlib.backends")
+hiddenimports += safe_collect_submodules("keras.src.backend.tensorflow")
+hiddenimports += safe_collect_submodules("keras.src.callbacks")
+hiddenimports += safe_collect_submodules("keras.src.layers")
+hiddenimports += safe_collect_submodules("keras.src.losses")
+hiddenimports += safe_collect_submodules("keras.src.models")
+hiddenimports += safe_collect_submodules("keras.src.optimizers")
+hiddenimports += safe_collect_submodules("keras.src.saving")
 
 # These are not used by piTrainer and are common causes of extra size.
 excludes = [
@@ -96,7 +129,14 @@ excludes = [
     "matplotlib.tests",
     "tensorflow.examples",
     "tensorflow_estimator",
+    "keras.src.backend.torch",
+    "keras.src.backend.jax",
 ]
+
+runtime_hooks = []
+train_runtime_hook = ROOT / "PACKAGING" / "rthook_pitrainer_training_env.py"
+if train_runtime_hook.exists():
+    runtime_hooks.append(str(train_runtime_hook))
 
 analysis = Analysis(
     [str(ROOT / "main.py")],
@@ -106,7 +146,7 @@ analysis = Analysis(
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=[],
+    runtime_hooks=runtime_hooks,
     excludes=excludes,
     noarchive=False,
     optimize=1,

@@ -105,3 +105,20 @@ If the version gate is enabled, make sure the online manifest allows the current
 ## Expected size
 
 Because piTrainer includes TensorFlow and PySide6, the unzipped folder can still be large. The goal of this setup is not a tiny app; the goal is a smaller launcher, faster startup, and fewer one-file extraction problems.
+
+
+## Training starts in Python but fails in the EXE
+
+The frozen EXE needs the TensorFlow/Keras training backend modules included at
+build time. The packaging spec now pins the Keras backend to TensorFlow and adds
+the dynamic Keras/TensorFlow modules used by the Train page. Rebuild after
+applying this patch.
+
+For a more detailed runtime traceback, build a console copy:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\PACKAGING\build_windows_onedir.ps1 -Console
+.\dist_exe\PiTrainer\PiTrainer.exe
+```
+
+If training still fails, copy the Train page log and the console traceback.

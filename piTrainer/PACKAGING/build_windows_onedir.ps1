@@ -37,6 +37,10 @@ if (-not $SkipInstall) {
 }
 
 $env:PITRAINER_CONSOLE = if ($Console) { "1" } else { "0" }
+$env:KERAS_BACKEND = "tensorflow"
+$env:TF_CPP_MIN_LOG_LEVEL = "2"
+$env:TF_ENABLE_ONEDNN_OPTS = "0"
+$env:MPLBACKEND = "QtAgg"
 
 $DistPath = Join-Path $ProjectRoot "dist_exe"
 $WorkPath = Join-Path $ProjectRoot "build_exe"
