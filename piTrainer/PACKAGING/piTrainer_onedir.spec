@@ -95,6 +95,20 @@ hiddenimports = [
     "keras.src.optimizers",
     "keras.src.saving",
     "keras.src.utils",
+    "keras.src.trainers",
+    "keras.src.trainers.data_adapters",
+    "keras.src.metrics",
+    "keras.src.regularizers",
+    "keras.src.initializers",
+    "keras.src.constraints",
+    "keras.src.activations",
+    "keras.src.dtype_policies",
+    "keras.src.tree",
+    "keras.src.backend.common",
+    "tensorflow.python.data.ops.dataset_ops",
+    "tensorflow.python.ops.image_ops_impl",
+    "tensorflow.python.ops.gen_image_ops",
+    "tensorflow.python.framework.ops",
 ]
 hiddenimports += safe_collect_submodules("matplotlib.backends")
 hiddenimports += safe_collect_submodules("keras.src.backend.tensorflow")
@@ -104,6 +118,16 @@ hiddenimports += safe_collect_submodules("keras.src.losses")
 hiddenimports += safe_collect_submodules("keras.src.models")
 hiddenimports += safe_collect_submodules("keras.src.optimizers")
 hiddenimports += safe_collect_submodules("keras.src.saving")
+hiddenimports += safe_collect_submodules("keras.src.backend.common")
+hiddenimports += safe_collect_submodules("keras.src.tree")
+hiddenimports += safe_collect_submodules("keras.src.dtype_policies")
+hiddenimports += safe_collect_submodules("keras.src.activations")
+hiddenimports += safe_collect_submodules("keras.src.constraints")
+hiddenimports += safe_collect_submodules("keras.src.initializers")
+hiddenimports += safe_collect_submodules("keras.src.regularizers")
+hiddenimports += safe_collect_submodules("keras.src.metrics")
+hiddenimports += safe_collect_submodules("keras.src.trainers.data_adapters")
+hiddenimports += safe_collect_submodules("keras.src.trainers")
 
 # These are not used by piTrainer and are common causes of extra size.
 excludes = [
