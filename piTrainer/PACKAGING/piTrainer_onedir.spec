@@ -59,6 +59,16 @@ hiddenimports = [
     "matplotlib.backends.backend_qtagg",
     "PySide6.QtSvg",
     "PySide6.QtPrintSupport",
+    # Required indirectly by pyparsing.testing, which matplotlib imports during startup.
+    # Do not exclude it or the frozen EXE fails before the main window opens.
+    "unittest",
+    "unittest.case",
+    "unittest.loader",
+    "unittest.mock",
+    "unittest.result",
+    "unittest.runner",
+    "unittest.suite",
+    "unittest.util",
 ]
 hiddenimports += safe_collect_submodules("matplotlib.backends")
 
@@ -67,7 +77,6 @@ excludes = [
     "tkinter",
     "tcl",
     "tk",
-    "unittest",
     "doctest",
     "pdb",
     "pytest",

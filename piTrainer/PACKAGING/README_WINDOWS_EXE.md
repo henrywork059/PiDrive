@@ -65,6 +65,13 @@ To keep the build smaller:
 5. Do not enable UPX for this project; TensorFlow/PySide DLLs are safer uncompressed.
 
 
+## If the EXE says `No module named unittest`
+
+This means an older packaging spec excluded Python's standard-library `unittest` package too aggressively. Matplotlib imports `pyparsing`, and `pyparsing.testing` imports `unittest` during startup, so the frozen app needs `unittest` even though piTrainer does not use unit tests directly.
+
+Apply patch `0.8.12` or later, then rebuild the one-folder EXE.
+
+
 ## If zip creation says a file is locked
 
 PyInstaller may finish the app folder before Windows, File Explorer, or antivirus releases every file. If `Compress-Archive` reports that `_internal\base_library.zip` or another build file is being used by another process, the app folder is already usable:
