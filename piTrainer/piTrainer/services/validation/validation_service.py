@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 
 from ...ui.theme import theme_color
+from ...utils.tf_log_utils import quiet_tensorflow_output
 from ..data.augmentation_service import boolean_series, normalize_horizontal_flip_labels
 
 
@@ -201,14 +202,16 @@ def _load_tflite_interpreter(tflite_path: str):
     if not chosen.exists():
         raise FileNotFoundError(f'TFLite model file not found: {chosen}')
     try:
-        import tensorflow as tf
+        with quiet_tensorflow_output():
+            import tensorflow as tf
 
-        return tf.lite.Interpreter(model_path=str(chosen)), 'tensorflow.lite.Interpreter'
+            return tf.lite.Interpreter(model_path=str(chosen)), 'tensorflow.lite.Interpreter'
     except Exception as tf_exc:
         try:
-            from tflite_runtime.interpreter import Interpreter
+            with quiet_tensorflow_output():
+                from tflite_runtime.interpreter import Interpreter
 
-            return Interpreter(model_path=str(chosen)), 'tflite_runtime.Interpreter'
+                return Interpreter(model_path=str(chosen)), 'tflite_runtime.Interpreter'
         except Exception as rt_exc:
             raise RuntimeError(
                 'Could not load a TFLite interpreter. Install TensorFlow or tflite-runtime. '
@@ -378,8 +381,9 @@ def _resize_tflite_input_if_needed(interpreter, input_detail: dict, sample_shape
     if not batch_is_dynamic and len(current_shape) == len(sample_shape) and current_shape[1:] == sample_shape[1:] and current_shape[0] == sample_shape[0]:
         return
     try:
-        interpreter.resize_tensor_input(index, sample_shape, strict=False)
-        interpreter.allocate_tensors()
+        with quiet_tensorflow_output():
+            interpreter.resize_tensor_input(index, sample_shape, strict=False)
+            interpreter.allocate_tensors()
     except Exception as exc:
         raise ValueError(
             f'TFLite input shape {current_shape} could not be resized to {sample_shape}. '
@@ -394,7 +398,8 @@ def _run_tflite_predictions(
     throttle_true: np.ndarray,
     requested_batch_size: int,
 ) -> tuple[np.ndarray, np.ndarray, list[str], str]:
-    interpreter.allocate_tensors()
+    with quiet_tensorflow_output():
+        interpreter.allocate_tensors()
     input_details = interpreter.get_input_details()
     output_details = interpreter.get_output_details()
     if len(input_details) != 1:

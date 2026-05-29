@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from dataclasses import dataclass, field
-import io
-import os
 from pathlib import Path
-import warnings
 
 from ...app_state import ExportConfig, TrainConfig
 from ...utils.path_utils import ensure_dir, safe_filename
+from ...utils.tf_log_utils import CapturedTensorFlowOutput, quiet_tensorflow_output
 from ..train.dataset_service import make_tf_dataset
 
 
@@ -32,39 +29,12 @@ class ExportArtifact:
             size /= 1024.0
 
 
-@dataclass
-class _CapturedExportOutput:
-    stdout: str = ""
-    stderr: str = ""
-    warnings: list[str] = field(default_factory=list)
 
 
-@contextmanager
-def _quiet_tensorflow_export() -> _CapturedExportOutput:
-    """Capture TensorFlow/Keras converter chatter so the app log stays readable.
+def _quiet_tensorflow_export() -> CapturedTensorFlowOutput:
+    """Capture TensorFlow/Keras converter chatter so the app log stays readable."""
 
-    TensorFlow Lite conversion may print temporary SavedModel endpoints and low-level
-    converter warnings even when export succeeds. Those messages are useful for
-    debugging but confusing in normal classroom/runtime export use, so piTrainer
-    captures them and returns a short summary instead of dumping them to the console.
-    """
-
-    captured = _CapturedExportOutput()
-    stdout_buffer = io.StringIO()
-    stderr_buffer = io.StringIO()
-    old_tf_level = os.environ.get("TF_CPP_MIN_LOG_LEVEL")
-    os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
-    with warnings.catch_warnings(record=True) as warning_records:
-        warnings.simplefilter("always")
-        with redirect_stdout(stdout_buffer), redirect_stderr(stderr_buffer):
-            yield captured
-        captured.warnings = [str(item.message) for item in warning_records]
-    captured.stdout = stdout_buffer.getvalue().strip()
-    captured.stderr = stderr_buffer.getvalue().strip()
-    if old_tf_level is None:
-        os.environ.pop("TF_CPP_MIN_LOG_LEVEL", None)
-    else:
-        os.environ["TF_CPP_MIN_LOG_LEVEL"] = old_tf_level
+    return quiet_tensorflow_output()
 
 
 def _configure_tensorflow_export_logging(tf) -> None:
@@ -80,7 +50,7 @@ def _configure_tensorflow_export_logging(tf) -> None:
         pass
 
 
-def _summarize_capture(captured: _CapturedExportOutput) -> tuple[str, ...]:
+def _summarize_capture(captured: CapturedTensorFlowOutput) -> tuple[str, ...]:
     notes: list[str] = []
     combined = "\n".join(part for part in (captured.stdout, captured.stderr) if part)
     warning_text = "\n".join(captured.warnings)
@@ -160,7 +130,8 @@ def _ordered_tflite_export_model(model):
 
 
 def export_tflite_model(model, out_path: Path, quantize: bool, representative_ds=None) -> ExportArtifact:
-    import tensorflow as tf
+    with _quiet_tensorflow_export() as import_capture:
+        import tensorflow as tf
 
     _configure_tensorflow_export_logging(tf)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -181,7 +152,8 @@ def export_tflite_model(model, out_path: Path, quantize: bool, representative_ds
             ]
         tflite_bytes = converter.convert()
     out_path.write_bytes(tflite_bytes)
-    notes = list(_summarize_capture(captured))
+    notes = list(_summarize_capture(import_capture))
+    notes.extend(_summarize_capture(captured))
     notes.append('TFLite output is forced to one ordered tensor: [steering, throttle/speed].')
     if quantize:
         notes.append("Created size-optimised TFLite file; model input/output remain float32 for the current PiDrive runtime.")
