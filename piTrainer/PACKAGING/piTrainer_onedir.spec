@@ -18,7 +18,7 @@ from pathlib import Path
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules, copy_metadata
 
 
-ROOT = Path(SPECPATH).parent.parent.resolve()  # type: ignore[name-defined]
+ROOT = Path(SPECPATH).parent.resolve()  # type: ignore[name-defined]
 CONSOLE = os.environ.get("PITRAINER_CONSOLE", "0") == "1"
 
 
