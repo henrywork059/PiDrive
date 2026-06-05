@@ -10,6 +10,10 @@ PREVIEW_COLUMN_ORDER = [
     "session",
     "steering",
     "throttle",
+    "pred_steering",
+    "pred_throttle",
+    "steering_diff",
+    "speed_diff",
     "mode",
     "ts",
 ]

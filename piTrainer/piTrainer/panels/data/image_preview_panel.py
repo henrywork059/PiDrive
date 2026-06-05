@@ -7,7 +7,7 @@ from PySide6.QtGui import QKeyEvent, QMouseEvent, QPixmap
 from PySide6.QtWidgets import QGroupBox, QHBoxLayout, QLabel, QSlider, QVBoxLayout, QWidget
 
 from ...services.data.augmentation_service import truthy_value
-from ...services.data.overlay_service import apply_overlays, clip_speed, clip_steering, drive_values_from_point
+from ...services.data.overlay_service import apply_overlays, apply_prediction_comparison_overlay, clip_speed, clip_steering, drive_values_from_point
 from ...utils.image_utils import load_scaled_pixmap
 from ...ui.layout_widgets import CollapsibleSection
 from ...ui.sliders import CenteredFillSlider
@@ -256,17 +256,34 @@ class ImagePreviewPanel(QGroupBox):
         self.steering_value_label.setText(f'{steering:.3f}')
         self.speed_value_label.setText(f'{speed:.3f}')
 
+    @staticmethod
+    def _has_deployed_output(record: dict[str, Any]) -> bool:
+        return (
+            isinstance(record, dict)
+            and 'pred_steering' in record
+            and ('pred_throttle' in record or 'pred_speed' in record)
+        )
+
     def _update_overlay_meta_label(self, record: dict[str, Any]) -> None:
         settings = record.get('overlay_settings') if isinstance(record, dict) else {}
         has_settings = bool(settings) if isinstance(settings, dict) else False
         schema = str(record.get('overlay_schema_version', '') if isinstance(record, dict) else '').strip()
         source = str(record.get('overlay_settings_source', '') if isinstance(record, dict) else '').strip()
+        prediction_suffix = ''
+        if self._has_deployed_output(record):
+            try:
+                prediction_suffix = (
+                    f" | AI {float(record.get('pred_steering', 0.0) or 0.0):.3f}"
+                    f"/{float(record.get('pred_throttle', record.get('pred_speed', 0.0)) or 0.0):.3f}"
+                )
+            except (TypeError, ValueError):
+                prediction_suffix = ' | AI output loaded'
         if has_settings:
             count = len(settings)
             suffix = f' | {source}' if source else ''
-            self.overlay_meta_label.setText(f'Overlay metadata: PiSD road settings loaded ({count} value(s)) | {schema or "no schema"}{suffix}')
+            self.overlay_meta_label.setText(f'Overlay metadata: PiSD road settings loaded ({count} value(s)) | {schema or "no schema"}{suffix}{prediction_suffix}')
         else:
-            self.overlay_meta_label.setText('Overlay metadata: using PiSD V7 defaults')
+            self.overlay_meta_label.setText(f'Overlay metadata: using PiSD V7 defaults{prediction_suffix}')
 
     def _schedule_render_preview(self) -> None:
         if self.current_record is not None:
@@ -288,7 +305,17 @@ class ImagePreviewPanel(QGroupBox):
             self.image_label.setText('Image not available')
             return
 
-        rendered = apply_overlays(pixmap, record, self.overlay_options)
+        if self._has_deployed_output(record):
+            rendered = apply_prediction_comparison_overlay(
+                pixmap,
+                steering_true=float(record.get('steering', 0.0) or 0.0),
+                speed_true=float(record.get('throttle', 0.0) or 0.0),
+                steering_pred=float(record.get('pred_steering', 0.0) or 0.0),
+                speed_pred=float(record.get('pred_throttle', record.get('pred_speed', 0.0)) or 0.0),
+                overlay_settings=record.get('overlay_settings') if isinstance(record.get('overlay_settings'), dict) else {},
+            )
+        else:
+            rendered = apply_overlays(pixmap, record, self.overlay_options)
         self.image_label.setText('')
         self.image_label.set_display_pixmap(rendered)
 

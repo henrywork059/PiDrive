@@ -34,6 +34,10 @@ class RecordPreviewModel(QAbstractTableModel):
         'session': 'Session',
         'steering': 'Steering',
         'throttle': 'Speed',
+        'pred_steering': 'AI Steering',
+        'pred_throttle': 'AI Speed',
+        'steering_diff': 'Steer Diff',
+        'speed_diff': 'Speed Diff',
         'mode': 'Mode',
         'ts': 'Time',
         'abs_image': 'Image path',
@@ -109,7 +113,7 @@ class RecordPreviewModel(QAbstractTableModel):
     def _sort_key(self, value: Any, column_name: str):
         if value is None or value == '':
             return (1, ())
-        if column_name in {'steering', 'throttle'}:
+        if column_name in {'steering', 'throttle', 'pred_steering', 'pred_throttle', 'steering_diff', 'speed_diff'}:
             try:
                 return (0, 0, float(value))
             except (TypeError, ValueError):
@@ -141,7 +145,7 @@ class RecordPreviewModel(QAbstractTableModel):
             return self.source_row(row)
         if role not in (Qt.DisplayRole, Qt.ToolTipRole):
             return None
-        if column_name in {"steering", "throttle"}:
+        if column_name in {"steering", "throttle", "pred_steering", "pred_throttle", "steering_diff", "speed_diff"}:
             try:
                 return f"{float(value):.3f}"
             except (TypeError, ValueError):
@@ -276,6 +280,10 @@ class PreviewPanel(QGroupBox):
             'session': 190,
             'steering': 82,
             'throttle': 82,
+            'pred_steering': 96,
+            'pred_throttle': 88,
+            'steering_diff': 88,
+            'speed_diff': 88,
             'mode': 92,
             'ts': 170,
         }
@@ -475,6 +483,14 @@ class PreviewPanel(QGroupBox):
         self._refresh_summary()
         self._schedule_first_column_visible()
         self._emit_playback_state()
+        return True
+
+    def sort_by_column_desc(self, column_name: str) -> bool:
+        if column_name not in self.model.columns:
+            return False
+        column = self.model.columns.index(column_name)
+        self.table.sortByColumn(column, Qt.DescendingOrder)
+        self._schedule_first_column_visible()
         return True
 
     def select_all_records(self) -> bool:
