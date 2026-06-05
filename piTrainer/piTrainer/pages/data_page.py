@@ -3,7 +3,7 @@ from __future__ import annotations
 import pandas as pd
 from pathlib import Path
 from PySide6.QtCore import QTimer
-from PySide6.QtWidgets import QMessageBox, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QApplication, QMessageBox, QVBoxLayout, QWidget
 
 from ..app_state import AppState
 from ..panels.data.bulk_edit_panel import BulkEditPanel
@@ -507,8 +507,47 @@ class DataPage(DockPage):
         }.items():
             self._update_record_field_in_loaded_data(identity, field_name, float(value))
 
+    @staticmethod
+    def _identity_series_for_df(df: pd.DataFrame) -> pd.Series:
+        if not isinstance(df, pd.DataFrame) or df.empty:
+            return pd.Series([], dtype=object)
+
+        def column_text(column: str) -> pd.Series:
+            return DataPage._column_text(df, column)
+
+        return pd.Series(
+            list(zip(
+                column_text('session'),
+                column_text('frame_id'),
+                column_text('ts'),
+                column_text('abs_image'),
+            )),
+            index=df.index,
+            dtype=object,
+        )
+
+    def _apply_prediction_map_to_dataframe(
+        self,
+        df: pd.DataFrame,
+        prediction_map: dict[tuple[str, str, str, str], dict[str, float]],
+    ) -> None:
+        if not isinstance(df, pd.DataFrame) or df.empty or not prediction_map:
+            return
+        for field_name in ('pred_steering', 'pred_throttle', 'steering_diff', 'speed_diff'):
+            if field_name not in df.columns:
+                df[field_name] = pd.NA
+        keys = self._identity_series_for_df(df)
+        for index, identity in keys.items():
+            values = prediction_map.get(identity)
+            if not values:
+                continue
+            for field_name, value in values.items():
+                df.at[index, field_name] = float(value)
+
     def _merge_deploy_predictions(self, deploy_rows: list[dict]) -> list[tuple[str, str, str, str]]:
+        prediction_map: dict[tuple[str, str, str, str], dict[str, float]] = {}
         updated_identities: list[tuple[str, str, str, str]] = []
+        seen: set[tuple[str, str, str, str]] = set()
         for row in deploy_rows:
             identity = self._record_identity(row)
             if not any(identity):
@@ -517,14 +556,20 @@ class DataPage(DockPage):
             pred_throttle = float(row.get('pred_throttle', row.get('pred_speed', 0.0)) or 0.0)
             steering_diff = float(row.get('steering_diff', abs(pred_steering - float(row.get('target_steering', 0.0) or 0.0))) or 0.0)
             speed_diff = float(row.get('speed_diff', abs(pred_throttle - float(row.get('target_speed', 0.0) or 0.0))) or 0.0)
-            self._set_record_prediction_fields(
-                identity,
-                pred_steering=pred_steering,
-                pred_throttle=pred_throttle,
-                steering_diff=steering_diff,
-                speed_diff=speed_diff,
-            )
-            updated_identities.append(identity)
+            prediction_map[identity] = {
+                'pred_steering': pred_steering,
+                'pred_throttle': pred_throttle,
+                'steering_diff': steering_diff,
+                'speed_diff': speed_diff,
+            }
+            if identity not in seen:
+                updated_identities.append(identity)
+                seen.add(identity)
+
+        if prediction_map:
+            for df_attr in ['dataset_df', 'filtered_df']:
+                self._apply_prediction_map_to_dataframe(getattr(self.state, df_attr), prediction_map)
+            self._apply_prediction_map_to_dataframe(self.current_preview_source_df, prediction_map)
         return updated_identities
 
     def deploy_model_to_visible_frames(self) -> None:
@@ -533,6 +578,12 @@ class DataPage(DockPage):
         if visible_df.empty:
             QMessageBox.information(self, 'Deploy Model', 'No visible frames. Load a session or loosen the filter first.')
             return
+
+        requested_rows = len(visible_df)
+        max_rows = self.model_deploy_panel.max_rows()
+        target_rows = min(requested_rows, max_rows) if max_rows and max_rows > 0 else requested_rows
+        self.main_window.set_status_message(f'Deploying model to {target_rows} visible frame(s)...')
+        QApplication.processEvents()
 
         try:
             result = run_model_deploy(
@@ -558,6 +609,7 @@ class DataPage(DockPage):
         updated_identities = self._merge_deploy_predictions(deploy_rows)
         first_identity = updated_identities[0] if updated_identities else None
         self.apply_preview_filter(select_identity=first_identity)
+        self.preview_panel.focus_table_for_keyboard()
         source = str(result.get('model_source', self.model_deploy_panel.model_source()) or self.model_deploy_panel.model_source())
         self.main_window.set_status_message(f'Deployed {len(updated_identities)} frame(s) using {source}.')
 
@@ -565,12 +617,14 @@ class DataPage(DockPage):
         if not self.preview_panel.sort_by_column_desc('steering_diff'):
             QMessageBox.information(self, 'Sort Diff', 'Deploy a model first to show steering differences.')
             return
+        self.preview_panel.focus_table_for_keyboard()
         self.main_window.set_status_message('Sorted by largest steering difference.')
 
     def sort_by_speed_diff(self) -> None:
         if not self.preview_panel.sort_by_column_desc('speed_diff'):
             QMessageBox.information(self, 'Sort Diff', 'Deploy a model first to show speed differences.')
             return
+        self.preview_panel.focus_table_for_keyboard()
         self.main_window.set_status_message('Sorted by largest speed difference.')
 
     def apply_deployed_outputs_to_selected(self) -> None:
@@ -628,6 +682,7 @@ class DataPage(DockPage):
         self.stats_panel.set_stats(calculate_basic_stats(self.state.filtered_df))
         first_identity = self._record_identity(updated_records[0]) if updated_records else None
         self.apply_preview_filter(select_identity=first_identity)
+        self.preview_panel.focus_table_for_keyboard()
         self.main_window.on_dataset_loaded()
 
         failed_messages = list(result.get('failed_messages', []))

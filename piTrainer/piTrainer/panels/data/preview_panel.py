@@ -491,7 +491,19 @@ class PreviewPanel(QGroupBox):
         column = self.model.columns.index(column_name)
         self.table.sortByColumn(column, Qt.DescendingOrder)
         self._schedule_first_column_visible()
+        self.focus_table_for_keyboard()
         return True
+
+    def focus_table_for_keyboard(self) -> None:
+        """Return keyboard focus to the Records table after external actions.
+
+        Buttons in the Deploy/Review panels keep focus after they are clicked, so
+        plain Up/Down key presses can be consumed by those controls instead of
+        cycling frames.  Refocusing the table keeps frame navigation available
+        without forcing the user to click the table again.
+        """
+        self._anchor_current_to_first_column()
+        self.table.setFocus(Qt.OtherFocusReason)
 
     def select_all_records(self) -> bool:
         total = self.model.rowCount()
