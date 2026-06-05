@@ -8,7 +8,7 @@ from ...ui.layout_widgets import CollapsibleSection, standardize_form_layout
 
 class TrainConfigPanel(QGroupBox):
     def __init__(self, state: AppState) -> None:
-        super().__init__("Training Config")
+        super().__init__("Config")
         self.state = state
         cfg = self.state.train_config
 
@@ -31,25 +31,25 @@ class TrainConfigPanel(QGroupBox):
         self.l2_reg = QDoubleSpinBox(); self.l2_reg.setRange(0.0, 0.1); self.l2_reg.setDecimals(5); self.l2_reg.setSingleStep(0.0005); self.l2_reg.setValue(float(getattr(cfg, 'l2_reg', 0.0) or 0.0))
         self.review_sample_count = QSpinBox(); self.review_sample_count.setRange(4, 256); self.review_sample_count.setSingleStep(4); self.review_sample_count.setValue(int(getattr(cfg, 'review_sample_count', 24) or 24))
         self.compute_device = QComboBox(); self.compute_device.addItems(['Auto (GPU if available)', 'CPU only', 'GPU only']); self.compute_device.setCurrentText(str(getattr(cfg, 'compute_device', 'Auto (GPU if available)') or 'Auto (GPU if available)'))
-        self.compute_device.setToolTip('Auto uses TensorFlow GPU acceleration when the installed TensorFlow build can see a GPU. CPU only hides GPUs for safer compatibility. GPU only fails early if no GPU is available.')
+        self.compute_device.setToolTip('Auto uses GPU only when TensorFlow can see one. CPU only is safest.')
 
-        self.early_stopping = QCheckBox('Enable early stopping'); self.early_stopping.setChecked(getattr(cfg, 'early_stopping', True))
+        self.early_stopping = QCheckBox('Early stopping'); self.early_stopping.setChecked(getattr(cfg, 'early_stopping', True))
         self.early_stopping_patience = QSpinBox(); self.early_stopping_patience.setRange(1, 100); self.early_stopping_patience.setValue(getattr(cfg, 'early_stopping_patience', 4))
-        self.reduce_lr = QCheckBox('Reduce learning rate on plateau'); self.reduce_lr.setChecked(getattr(cfg, 'reduce_lr_on_plateau', True))
+        self.reduce_lr = QCheckBox('Reduce LR on plateau'); self.reduce_lr.setChecked(getattr(cfg, 'reduce_lr_on_plateau', True))
         self.reduce_lr_patience = QSpinBox(); self.reduce_lr_patience.setRange(1, 100); self.reduce_lr_patience.setValue(getattr(cfg, 'reduce_lr_patience', 2))
         self.reduce_lr_factor = QDoubleSpinBox(); self.reduce_lr_factor.setRange(0.05, 0.95); self.reduce_lr_factor.setDecimals(2); self.reduce_lr_factor.setSingleStep(0.05); self.reduce_lr_factor.setValue(getattr(cfg, 'reduce_lr_factor', 0.5))
 
-        self.only_manual = QCheckBox("Use only manual-mode rows when possible"); self.only_manual.setChecked(cfg.only_manual)
-        self.augment = QCheckBox("Enable light image augmentation"); self.augment.setChecked(cfg.augment)
-        self.shuffle = QCheckBox("Shuffle training rows"); self.shuffle.setChecked(cfg.shuffle)
+        self.only_manual = QCheckBox("Prefer manual rows"); self.only_manual.setChecked(cfg.only_manual)
+        self.augment = QCheckBox("Light augmentation"); self.augment.setChecked(cfg.augment)
+        self.shuffle = QCheckBox("Shuffle rows"); self.shuffle.setChecked(cfg.shuffle)
 
         layout = QVBoxLayout(self)
         layout.setSpacing(8)
-        layout.addWidget(CollapsibleSection('Input Size + Split', self._input_split_section(), expanded=True))
+        layout.addWidget(CollapsibleSection('Input + Split', self._input_split_section(), expanded=True))
         layout.addWidget(CollapsibleSection('Model + Loss', self._model_loss_section(), expanded=False))
-        layout.addWidget(CollapsibleSection('Training Schedule', self._schedule_section(), expanded=True))
-        layout.addWidget(CollapsibleSection('Device + Review Options', self._device_review_section(), expanded=True))
-        layout.addWidget(CollapsibleSection('Advanced Dataset Options', self._review_options_section(), expanded=False))
+        layout.addWidget(CollapsibleSection('Schedule', self._schedule_section(), expanded=True))
+        layout.addWidget(CollapsibleSection('Device + Review', self._device_review_section(), expanded=True))
+        layout.addWidget(CollapsibleSection('Dataset Options', self._review_options_section(), expanded=False))
         layout.addStretch(1)
 
         self.early_stopping.toggled.connect(self._update_enabled_state)
@@ -78,7 +78,7 @@ class TrainConfigPanel(QGroupBox):
         form.addRow("Dropout rate", self.dropout_rate)
         form.addRow("Steering loss weight", self.steering_loss_weight)
         form.addRow("Speed loss weight", self.throttle_loss_weight)
-        form.addRow("Gradient clipnorm", self.clipnorm)
+        form.addRow("Gradient clip norm", self.clipnorm)
         form.addRow("L2 regularization", self.l2_reg)
         return widget
 
@@ -88,7 +88,7 @@ class TrainConfigPanel(QGroupBox):
         form.addRow("Epochs", self.epochs)
         form.addRow("Learning rate", self.learning_rate)
         form.addRow(self.early_stopping)
-        form.addRow("Early-stop patience", self.early_stopping_patience)
+        form.addRow("Early stop patience", self.early_stopping_patience)
         form.addRow(self.reduce_lr)
         form.addRow("LR patience", self.reduce_lr_patience)
         form.addRow("LR factor", self.reduce_lr_factor)
@@ -96,7 +96,7 @@ class TrainConfigPanel(QGroupBox):
 
     def _device_review_section(self) -> QWidget:
         widget, form = self._section_form()
-        note = QLabel('Leave this on Auto. TensorFlow will use a GPU when a compatible GPU build/driver is available, otherwise it will continue on CPU.')
+        note = QLabel('Leave on Auto unless you need CPU-only or GPU-only testing.')
         note.setWordWrap(True)
         note.setProperty('role', 'muted')
         form.addRow(note)

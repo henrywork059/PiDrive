@@ -45,40 +45,40 @@ class ValidationPage(DockPage):
             (
                 '1 Run',
                 make_scrollable_stack([
-                    ('Validation Actions', self.actions_panel, True),
-                    ('Validation Config', self.config_panel, True),
-                ], object_name='validationRunWorkflowScrollArea', intro='Choose the model source and dataset, then run validation to inspect prediction error.'),
+                    ('Actions', self.actions_panel, True),
+                    ('Settings', self.config_panel, True),
+                ], object_name='validationRunWorkflowScrollArea', intro='Choose model source and dataset, then run validation.'),
             ),
             (
-                '2 Results',
+                '2 Summary',
                 make_scrollable_stack([
-                    ('Validation Summary', self.summary_panel, True),
-                ], object_name='validationStatusWorkflowScrollArea', intro='Read the result summary here after validation finishes.'),
+                    ('Summary', self.summary_panel, True),
+                ], object_name='validationStatusWorkflowScrollArea', intro='Review errors and metrics after validation.'),
             ),
         ], object_name='validationWorkflowTabs')
 
         result_tabs = make_workflow_tabs([
-            ('1 Plot', self.plot_panel, 'Validation error plot.'),
-            ('2 Log', self.log_panel, 'Validation messages and errors.'),
+            ('1 Plot', self.plot_panel, 'Prediction error plot.'),
+            ('2 Log', self.log_panel, 'Messages and errors.'),
         ], object_name='validationResultTabs')
 
         workspace = self.make_horizontal_splitter([
-            self.make_panel_frame('workflow_controls', 'Validation Workflow', workflow_tabs),
-            self.make_panel_frame('results', 'Validation Plot / Log', result_tabs),
-            self.make_panel_frame('frame_review', 'Validation Frame Review', self.frame_review_panel),
+            self.make_panel_frame('workflow_controls', 'Validate Workflow', workflow_tabs),
+            self.make_panel_frame('results', 'Validate Output', result_tabs),
+            self.make_panel_frame('frame_review', 'Frame Review', self.frame_review_panel),
         ], object_name='main_workspace', **splitter_args('validation_three_panel_workspace'))
 
         self.set_workspace_widget(
             workspace,
             step='4 of 6',
             title='Validate',
-            summary='Run the model on validation data, inspect frames, and send bad labels back to Data if needed.',
+            summary='Run validation, inspect frames, and send bad labels back to Data if needed.',
             next_step='Run Validation',
             next_callback=lambda: self.reveal_widget(
                 self.actions_panel.run_button,
                 message='Focused the green Run Validation button.'
             ),
-            next_tooltip='Click to focus the green Run Validation button in Validation Workflow > Run > Validation Actions.',
+            next_tooltip='Focus Run Validation in 1 Run.',
         )
 
     def refresh_from_state(self) -> None:
@@ -96,7 +96,7 @@ class ValidationPage(DockPage):
             self.plot_panel.set_result(self.last_result)
             self.frame_review_panel.set_result(self.last_result)
         else:
-            self.summary_panel.set_result_text('No validation run yet. Choose a model source and click Run Validation.')
+            self.summary_panel.set_result_text('No validation yet. Choose a model source and run validation.')
             self.plot_panel.set_result(None)
             self.frame_review_panel.set_result(None)
 

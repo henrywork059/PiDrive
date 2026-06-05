@@ -7,11 +7,11 @@ from PySide6.QtWidgets import QGroupBox, QLabel, QVBoxLayout
 
 class PreprocessSummaryPanel(QGroupBox):
     def __init__(self) -> None:
-        super().__init__('Source Summary')
-        self.info_label = QLabel('Load sessions on the Data tab to start preprocessing.')
+        super().__init__('Source')
+        self.info_label = QLabel('Load sessions on Data to start preprocessing.')
         self.info_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
         self.info_label.setWordWrap(True)
-        self.preview_label = QLabel('No preview calculated yet.')
+        self.preview_label = QLabel('No preview yet.')
         self.preview_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
         self.preview_label.setWordWrap(True)
         self.preview_label.setProperty('role', 'muted')
@@ -37,7 +37,7 @@ class PreprocessSummaryPanel(QGroupBox):
 
         if dataset_df.empty:
             self.info_label.setText(
-                'No dataset loaded yet. Use the Data tab to choose a record root and load one or more sessions.'
+                'No dataset loaded. Use Data to choose a records root and load sessions.'
             )
             return
 
@@ -55,9 +55,9 @@ class PreprocessSummaryPanel(QGroupBox):
             synthetic_rows = int(filtered_df['aug_variant'].fillna('original').astype(str).ne('original').sum())
 
         save_line = (
-            f'Last saved preprocess data: {last_saved_preprocess_path}'
+            f'Last saved data: {last_saved_preprocess_path}'
             if last_saved_preprocess_path
-            else 'Last saved preprocess data: not saved yet'
+            else 'Last saved data: not saved yet'
         )
         self.info_label.setText(
             (
@@ -85,7 +85,7 @@ class PreprocessSummaryPanel(QGroupBox):
 
     def set_preview_counts(self, summary: dict[str, float | int | str]) -> None:
         self.preview_label.setText(
-            'Preview -> rows: {rows_after}/{rows_before} | dedup removed: {duplicate_rows_removed} | '
+            'Preview: rows: {rows_after}/{rows_before} | dedup removed: {duplicate_rows_removed} | '
             'stride kept: {rows_after_stride}/{rows_after_dedup} | '
             'straight kept: {straight_rows_after_balance}/{straight_rows_before_balance} | '
             'turn boost added: {turn_rows_added} | generated: {generated_rows} '

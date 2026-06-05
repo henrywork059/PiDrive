@@ -136,13 +136,13 @@ class MainWindow(QMainWindow):
 
     def show_shortcuts(self) -> None:
         lines = [
-            'Ctrl+1..Ctrl+6 -> Switch pages: Data, Preprocess, Train, Validate, Export, TFLite Check',
+            'Ctrl+1..Ctrl+6 -> Switch pages',
             'Ctrl+Tab / Ctrl+Shift+Tab -> Next / previous page',
             'F5 -> Refresh sessions',
             'Ctrl+L -> Load selected sessions',
             'Ctrl+A -> Select all sessions',
             'Ctrl+Shift+A -> Clear selected sessions',
-            'Delete -> Hide selected frames after Confirm hide actions is ticked',
+            'Delete -> Hide selected frames after Confirm Hide is ticked',
             'Ctrl+P -> Prepare split',
             'Ctrl+R -> Start training',
             'Esc -> Stop training',

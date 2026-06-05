@@ -26,12 +26,12 @@ class DataPlotPanel(QGroupBox):
     ]
 
     def __init__(self) -> None:
-        super().__init__('Data Plot')
+        super().__init__('Plot')
         self.df = pd.DataFrame()
         self._current_sessions: list[str] = []
 
         help_label = QLabel(
-            'Explore the filtered data with multiple plot types: timeline, histograms, scatter, and distribution charts.'
+            'Review filtered data with timeline, histogram, scatter, and distribution plots.'
         )
         help_label.setProperty('role', 'muted')
         help_label.setWordWrap(True)
@@ -43,7 +43,7 @@ class DataPlotPanel(QGroupBox):
         self.plot_type_combo.addItems(self.PLOT_TYPES)
         self.plot_type_combo.currentIndexChanged.connect(self.refresh_plot)
 
-        self.summary_label = QLabel('Load sessions to see session plots and statistics.')
+        self.summary_label = QLabel('Load sessions to see plots and stats.')
         self.summary_label.setWordWrap(True)
 
         self.figure = Figure(figsize=(6.0, 3.8), tight_layout=True)
@@ -60,7 +60,7 @@ class DataPlotPanel(QGroupBox):
         controls_layout.addWidget(self.summary_label)
 
         layout = QVBoxLayout(self)
-        layout.addWidget(CollapsibleSection('Plot Controls + Summary', controls_widget, expanded=False))
+        layout.addWidget(CollapsibleSection('Controls + Summary', controls_widget, expanded=False))
         layout.addWidget(self.canvas, 1)
 
         self._set_combo_items([])
@@ -95,7 +95,7 @@ class DataPlotPanel(QGroupBox):
         render_plot(ax, plot_df, plot_type, session_name)
 
         if plot_df.empty:
-            self.summary_label.setText('No plotted frames. Load sessions or relax the current filter.')
+            self.summary_label.setText('No plotted frames. Load sessions or relax the filter.')
             self.canvas.draw_idle()
             return
 

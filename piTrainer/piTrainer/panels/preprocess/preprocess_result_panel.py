@@ -8,7 +8,7 @@ class PreprocessResultPanel(QGroupBox):
         super().__init__('Preprocess Preview')
         self.text = QPlainTextEdit()
         self.text.setReadOnly(True)
-        self.text.setPlaceholderText('Preview and auto-preprocess results will appear here.')
+        self.text.setPlaceholderText('Preprocess preview and results appear here.')
         self.text.setLineWrapMode(QPlainTextEdit.WidgetWidth)
 
         layout = QVBoxLayout(self)

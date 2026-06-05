@@ -7,7 +7,7 @@ from ...ui.layout_widgets import standardize_form_layout
 
 class SplitSummaryPanel(QGroupBox):
     def __init__(self) -> None:
-        super().__init__("Split Summary")
+        super().__init__("Split")
         self.total_rows = QLabel("0")
         self.train_rows = QLabel("0")
         self.val_rows = QLabel("0")
@@ -19,7 +19,7 @@ class SplitSummaryPanel(QGroupBox):
         layout = standardize_form_layout(QFormLayout(self))
         layout.addRow("Loaded rows", self.total_rows)
         layout.addRow("Train rows", self.train_rows)
-        layout.addRow("Validation rows", self.val_rows)
+        layout.addRow("Val rows", self.val_rows)
         layout.addRow("Sessions", self.sessions)
         layout.addRow("Model ready", self.model_ready)
 

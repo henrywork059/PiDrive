@@ -22,11 +22,11 @@ class PreprocessFilterPanel(QGroupBox):
     SOURCE_ITEMS = ['Loaded dataset (all rows)', 'Current filtered rows']
 
     def __init__(self, state: AppState) -> None:
-        super().__init__('Preprocess Filters')
+        super().__init__('Filters')
         self.state = state
 
         help_label = QLabel(
-            'Choose the source rows for preprocessing. Leave the advanced filters collapsed unless you need to thin, range-filter, or rebalance the dataset.'
+            'Choose source rows for preprocessing. Use advanced filters only when needed.'
         )
         help_label.setWordWrap(True)
         help_label.setProperty('role', 'muted')
@@ -37,18 +37,18 @@ class PreprocessFilterPanel(QGroupBox):
         self.mode_combo = QComboBox()
         self.mode_combo.addItems(self.MODE_ITEMS)
 
-        self.require_images = QCheckBox('Keep only rows with existing image files')
+        self.require_images = QCheckBox('Require image files')
         self.require_images.setChecked(True)
 
-        self.drop_duplicate_images = QCheckBox('Drop duplicate image paths')
+        self.drop_duplicate_images = QCheckBox('Drop duplicate images')
         self.drop_duplicate_images.setChecked(False)
 
         self.frame_stride = QSpinBox()
         self.frame_stride.setRange(1, 60)
         self.frame_stride.setValue(1)
-        self.frame_stride.setToolTip('Keep every Nth row after filtering to reduce dense consecutive frames.')
+        self.frame_stride.setToolTip('Keep every Nth row after filtering.')
 
-        self.enable_steering_range = QCheckBox('Filter steering range')
+        self.enable_steering_range = QCheckBox('Steering range')
         self.steering_min = QDoubleSpinBox()
         self.steering_max = QDoubleSpinBox()
         for widget in (self.steering_min, self.steering_max):
@@ -58,7 +58,7 @@ class PreprocessFilterPanel(QGroupBox):
         self.steering_min.setValue(-1.0)
         self.steering_max.setValue(1.0)
 
-        self.enable_speed_range = QCheckBox('Filter speed range')
+        self.enable_speed_range = QCheckBox('Speed range')
         self.speed_min = QDoubleSpinBox()
         self.speed_max = QDoubleSpinBox()
         for widget in (self.speed_min, self.speed_max):
@@ -68,7 +68,7 @@ class PreprocessFilterPanel(QGroupBox):
         self.speed_min.setValue(-1.0)
         self.speed_max.setValue(1.0)
 
-        self.balance_straight = QCheckBox('Balance near-zero steering rows')
+        self.balance_straight = QCheckBox('Balance straight rows')
         self.straight_threshold = QDoubleSpinBox()
         self.straight_threshold.setRange(0.001, 1.0)
         self.straight_threshold.setDecimals(3)
@@ -88,10 +88,10 @@ class PreprocessFilterPanel(QGroupBox):
         layout = QVBoxLayout(self)
         layout.setSpacing(8)
         layout.addWidget(help_label)
-        layout.addWidget(CollapsibleSection('Source + Mode', self._source_section(), expanded=True))
-        layout.addWidget(CollapsibleSection('Advanced: Frame Thinning', self._thinning_section(), expanded=False))
-        layout.addWidget(CollapsibleSection('Advanced: Steering + Speed Ranges', self._range_section(), expanded=False))
-        layout.addWidget(CollapsibleSection('Advanced: Straight-row Balancing', self._balance_section(), expanded=False))
+        layout.addWidget(CollapsibleSection('Source', self._source_section(), expanded=True))
+        layout.addWidget(CollapsibleSection('Frame Thinning', self._thinning_section(), expanded=False))
+        layout.addWidget(CollapsibleSection('Value Ranges', self._range_section(), expanded=False))
+        layout.addWidget(CollapsibleSection('Straight Balance', self._balance_section(), expanded=False))
         layout.addStretch(1)
 
         self.enable_steering_range.toggled.connect(self._update_enabled_state)
@@ -117,7 +117,7 @@ class PreprocessFilterPanel(QGroupBox):
     def _thinning_section(self) -> QWidget:
         widget, form = self._section_form()
         form.addRow(self.drop_duplicate_images)
-        form.addRow('Keep every Nth row', self.frame_stride)
+        form.addRow('Frame stride', self.frame_stride)
         return widget
 
     def _range_section(self) -> QWidget:
@@ -131,7 +131,7 @@ class PreprocessFilterPanel(QGroupBox):
     def _balance_section(self) -> QWidget:
         widget, form = self._section_form()
         form.addRow(self.balance_straight)
-        form.addRow('Threshold / keep ratio', self._straight_row)
+        form.addRow('Threshold / keep', self._straight_row)
         return widget
 
     def _make_range_row(self, left, right) -> QWidget:

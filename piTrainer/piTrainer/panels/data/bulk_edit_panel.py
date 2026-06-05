@@ -35,13 +35,12 @@ class BulkEditPanel(QGroupBox):
         self._selected_count = 0
 
         help_label = QLabel(
-            'Select rows, then apply one steering or speed value. '
-            'Bulk edits overwrite labels after confirmation.'
+            'Select rows, then overwrite steering or speed.'
         )
         help_label.setProperty('role', 'muted')
         help_label.setWordWrap(True)
 
-        self.selected_label = QLabel('Selected frames: 0')
+        self.selected_label = QLabel('Selected: 0')
         self.selected_label.setProperty('role', 'summaryLine')
 
         self.select_all_btn = QPushButton('Select Visible')
@@ -49,9 +48,9 @@ class BulkEditPanel(QGroupBox):
         self.select_all_btn.setToolTip('Select every visible row before bulk editing.')
         self.select_all_btn.clicked.connect(self._select_all_visible_frames)
 
-        self.confirm_bulk_check = QCheckBox('Confirm label overwrite')
+        self.confirm_bulk_check = QCheckBox('Confirm Overwrite')
         self.confirm_bulk_check.setToolTip(
-            'Required before bulk edits. A final warning appears before writing.'
+            'Required before bulk edits. A final warning appears before saving.'
         )
         self.confirm_bulk_check.toggled.connect(self._update_button_state)
 
@@ -67,7 +66,7 @@ class BulkEditPanel(QGroupBox):
         self.steering_spin.setValue(0.0)
         self.steering_spin.valueChanged.connect(self._on_steering_spin_changed)
 
-        self.apply_steering_btn = QPushButton('Apply Steering')
+        self.apply_steering_btn = QPushButton('Set Steering')
         self.apply_steering_btn.setProperty('role', 'primary')
         self.apply_steering_btn.setToolTip('Overwrite steering for selected rows only.')
         self.apply_steering_btn.clicked.connect(self._apply_steering)
@@ -84,9 +83,9 @@ class BulkEditPanel(QGroupBox):
         self.speed_spin.setValue(0.0)
         self.speed_spin.valueChanged.connect(self._on_speed_spin_changed)
 
-        self.apply_speed_btn = QPushButton('Apply Speed')
+        self.apply_speed_btn = QPushButton('Set Speed')
         self.apply_speed_btn.setProperty('role', 'primary')
-        self.apply_speed_btn.setToolTip('Overwrite speed/throttle for selected rows only.')
+        self.apply_speed_btn.setToolTip('Overwrite speed for selected rows only.')
         self.apply_speed_btn.clicked.connect(self._apply_speed)
 
         steering_row = QHBoxLayout()
@@ -114,7 +113,7 @@ class BulkEditPanel(QGroupBox):
     def set_selected_count(self, count: int) -> None:
         self._selected_count = max(0, int(count))
         noun = 'frame' if self._selected_count == 1 else 'frames'
-        self.selected_label.setText(f'Selected frames: {self._selected_count} {noun}')
+        self.selected_label.setText(f'Selected: {self._selected_count} {noun}')
         self._update_button_state()
 
     def bulk_edit_confirmed(self) -> bool:

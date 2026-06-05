@@ -6,29 +6,28 @@ from PySide6.QtWidgets import QCheckBox, QGroupBox, QHBoxLayout, QLabel, QPushBu
 
 class DataControlPanel(QGroupBox):
     def __init__(self, delete_frame_callback, recover_last_callback, recover_all_callback) -> None:
-        super().__init__("Hide/Recover")
+        super().__init__("Hide & Recover")
         self.delete_frame_callback = delete_frame_callback
         self.recover_last_callback = recover_last_callback
         self.recover_all_callback = recover_all_callback
 
         help_label = QLabel(
-            "Hide selected frames from training, or recover hidden frames. "
-            "Hidden rows and images stay on disk until permanent cleanup."
+            "Hide selected frames from training, or recover hidden ones. "
+            "Hidden files stay until permanent cleanup."
         )
         help_label.setProperty('role', 'muted')
         help_label.setWordWrap(True)
 
-        self.confirm_delete_check = QCheckBox("Confirm hide actions")
+        self.confirm_delete_check = QCheckBox("Confirm Hide")
         self.confirm_delete_check.setToolTip(
-            "Required before Hide Selected writes hidden_from_training flags. "
-            "Rows and images are kept."
+            "Required before hiding rows. Images stay on disk."
         )
 
         self.delete_btn = QPushButton("Hide Selected")
         self.delete_btn.setProperty('role', 'danger')
         self.delete_btn.clicked.connect(self.delete_frame_callback)
 
-        recover_label = QLabel("Recover")
+        recover_label = QLabel("Recover hidden")
         recover_label.setProperty('role', 'sectionLabel')
 
         self.recover_count_spin = QSpinBox()
@@ -37,7 +36,7 @@ class DataControlPanel(QGroupBox):
         self.recover_count_spin.setAlignment(Qt.AlignRight)
         self.recover_count_spin.setToolTip("Recover the most recently hidden frames.")
 
-        recover_last_btn = QPushButton("Recover Last X")
+        recover_last_btn = QPushButton("Recover Last")
         recover_last_btn.setProperty('role', 'secondary')
         recover_last_btn.clicked.connect(self.recover_last_callback)
 

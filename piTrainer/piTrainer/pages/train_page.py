@@ -55,15 +55,15 @@ class TrainPage(DockPage):
             (
                 '1 Setup',
                 make_scrollable_stack([
-                    ('Split Summary', self.split_summary_panel, True),
-                    ('Training Controls', self.control_panel, True),
-                ], object_name='trainSetupWorkflowScrollArea', intro='Prepare the split, start training, then watch the frame review and history/log tabs.'),
+                    ('Split', self.split_summary_panel, True),
+                    ('Controls', self.control_panel, True),
+                ], object_name='trainSetupWorkflowScrollArea', intro='Prepare the split, start training, then review progress.'),
             ),
             (
                 '2 Config',
                 make_scrollable_stack([
-                    ('Training Config', self.config_panel, False),
-                ], object_name='trainConfigWorkflowScrollArea', intro='Change model and schedule settings here. Keep defaults unless you are intentionally experimenting.'),
+                    ('Config', self.config_panel, False),
+                ], object_name='trainConfigWorkflowScrollArea', intro='Change model and schedule settings only when needed.'),
             ),
         ], object_name='trainWorkflowTabs')
 
@@ -73,22 +73,22 @@ class TrainPage(DockPage):
         ], object_name='trainProgressTabs')
 
         workspace = self.make_horizontal_splitter([
-            self.make_panel_frame('workflow_controls', 'Training Workflow', workflow_tabs),
-            self.make_panel_frame('progress', 'Training History / Log', progress_stack),
-            self.make_panel_frame('review', 'Epoch Frame Review', self.epoch_review_panel),
+            self.make_panel_frame('workflow_controls', 'Train Workflow', workflow_tabs),
+            self.make_panel_frame('progress', 'Train Output', progress_stack),
+            self.make_panel_frame('review', 'Frame Review', self.epoch_review_panel),
         ], object_name='main_workspace', **splitter_args('train_three_panel_workspace'))
 
         self.set_workspace_widget(
             workspace,
             step='3 of 6',
             title='Train',
-            summary='Prepare the split, start model training, and watch epoch examples plus the live log.',
+            summary='Prepare the split, start training, and review examples plus the live log.',
             next_step='Start Training',
             next_callback=lambda: self.reveal_widget(
                 self.control_panel.start_btn,
                 message='Focused the green Start Training button.'
             ),
-            next_tooltip='Click to focus the green Start Training button in Training Workflow > Setup > Training Controls.',
+            next_tooltip='Focus Start Training in 1 Setup.',
         )
 
     def set_model_save_dir(self, folder: str) -> None:

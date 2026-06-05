@@ -8,7 +8,7 @@ class OverlayControlPanel(QGroupBox):
         super().__init__('Overlays')
         self.change_callback = change_callback
 
-        help_label = QLabel('Choose overlay guides for the preview frame. The PiSD V7 road guide uses saved settings from labels.jsonl/manifest.')
+        help_label = QLabel('Choose preview overlays. PiSD road guide uses saved label/manifest settings.')
         help_label.setProperty('role', 'muted')
         help_label.setWordWrap(True)
 

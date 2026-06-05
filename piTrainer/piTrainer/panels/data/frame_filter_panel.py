@@ -40,16 +40,16 @@ class FrameFilterPanel(QGroupBox):
         self.steering_min_spin = self._build_range_spinbox()
         self.steering_max_spin = self._build_range_spinbox(1.0)
 
-        apply_btn = QPushButton("Apply Filter")
+        apply_btn = QPushButton("Apply")
         apply_btn.setProperty('role', 'primary')
         apply_btn.clicked.connect(self.apply_callback)
-        clear_btn = QPushButton("Clear Filter")
+        clear_btn = QPushButton("Clear")
         clear_btn.setProperty('role', 'secondary')
         clear_btn.clicked.connect(self.clear_callback)
 
         form = QVBoxLayout(self)
         help_label = QLabel(
-            "Show only rows matching text, mode, speed, or steering."
+            "Show rows matching text, mode, speed, or steering."
         )
         help_label.setProperty('role', 'muted')
         help_label.setWordWrap(True)

@@ -21,7 +21,7 @@ from ...ui.layout_widgets import CollapsibleSection, standardize_form_layout
 
 class ValidationConfigPanel(QGroupBox):
     def __init__(self, state: AppState) -> None:
-        super().__init__('Validation Config')
+        super().__init__('Settings')
         self.state = state
 
         self.model_source_combo = QComboBox()
@@ -31,7 +31,7 @@ class ValidationConfigPanel(QGroupBox):
         self.dataset_source_combo.addItems(['Validation split', 'Current filtered rows', 'Training split'])
 
         self.model_path_edit = QLineEdit()
-        self.model_path_edit.setPlaceholderText('Optional: browse to a saved .keras or .h5 model file')
+        self.model_path_edit.setPlaceholderText('Optional .keras/.h5 model path')
 
         self.batch_spin = QSpinBox()
         self.batch_spin.setRange(1, 512)
@@ -42,7 +42,7 @@ class ValidationConfigPanel(QGroupBox):
         self.max_rows_spin.setSpecialValueText('All rows')
         self.max_rows_spin.setValue(0)
 
-        helper = QPushButton('Use current export folder')
+        helper = QPushButton('Use Latest Export')
         helper.clicked.connect(self.fill_from_export_dir)
 
         helper_widget = QWidget()
@@ -52,19 +52,19 @@ class ValidationConfigPanel(QGroupBox):
         helper_row.addStretch(1)
 
         model_widget, model_form = self._section_form()
-        model_form.addRow('Model Source', self.model_source_combo)
-        model_form.addRow('Model File', self.model_path_edit)
+        model_form.addRow('Source', self.model_source_combo)
+        model_form.addRow('Model file', self.model_path_edit)
         model_form.addRow(helper_widget)
 
         dataset_widget, dataset_form = self._section_form()
-        dataset_form.addRow('Dataset Source', self.dataset_source_combo)
-        dataset_form.addRow('Batch Size', self.batch_spin)
-        dataset_form.addRow('Max Rows', self.max_rows_spin)
+        dataset_form.addRow('Dataset', self.dataset_source_combo)
+        dataset_form.addRow('Batch size', self.batch_spin)
+        dataset_form.addRow('Max rows', self.max_rows_spin)
 
         layout = QVBoxLayout(self)
         layout.setSpacing(8)
-        layout.addWidget(CollapsibleSection('Model Source', model_widget, expanded=True))
-        layout.addWidget(CollapsibleSection('Dataset + Run Limits', dataset_widget, expanded=True))
+        layout.addWidget(CollapsibleSection('Source', model_widget, expanded=True))
+        layout.addWidget(CollapsibleSection('Dataset + Limits', dataset_widget, expanded=True))
         layout.addStretch(1)
 
     def _section_form(self) -> tuple[QWidget, QFormLayout]:

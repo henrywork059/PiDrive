@@ -21,11 +21,11 @@ from ...ui.layout_widgets import CollapsibleSection, standardize_form_layout
 
 class ExportValidationConfigPanel(QGroupBox):
     def __init__(self, state: AppState) -> None:
-        super().__init__('Check Settings')
+        super().__init__('Settings')
         self.state = state
 
         self.tflite_path_edit = QLineEdit()
-        self.tflite_path_edit.setPlaceholderText('Exported .tflite model path')
+        self.tflite_path_edit.setPlaceholderText('.tflite model path')
 
         self.dataset_source_combo = QComboBox()
         self.dataset_source_combo.addItems(['Validation split', 'Current filtered rows', 'Training split'])
@@ -33,14 +33,14 @@ class ExportValidationConfigPanel(QGroupBox):
         self.batch_spin = QSpinBox()
         self.batch_spin.setRange(1, 512)
         self.batch_spin.setValue(max(1, int(getattr(self.state.train_config, 'batch_size', 32))))
-        self.batch_spin.setToolTip('Used when the interpreter supports dynamic batches; fixed-batch models run one frame at a time.')
+        self.batch_spin.setToolTip('Used for dynamic-batch models. Fixed-batch models run one frame at a time.')
 
         self.max_rows_spin = QSpinBox()
         self.max_rows_spin.setRange(0, 1000000)
         self.max_rows_spin.setSpecialValueText('All rows')
         self.max_rows_spin.setValue(0)
 
-        helper = QPushButton('Use Latest Export')
+        helper = QPushButton('Use Latest')
         helper.clicked.connect(self.fill_from_export_dir)
 
         helper_widget = QWidget()
@@ -50,7 +50,7 @@ class ExportValidationConfigPanel(QGroupBox):
         helper_row.addStretch(1)
 
         model_widget, model_form = self._section_form()
-        model_form.addRow('TFLite model', self.tflite_path_edit)
+        model_form.addRow('Model file', self.tflite_path_edit)
         model_form.addRow(helper_widget)
 
         dataset_widget, dataset_form = self._section_form()
@@ -60,8 +60,8 @@ class ExportValidationConfigPanel(QGroupBox):
 
         layout = QVBoxLayout(self)
         layout.setSpacing(8)
-        layout.addWidget(CollapsibleSection('TFLite model', model_widget, expanded=True))
-        layout.addWidget(CollapsibleSection('Dataset + limits', dataset_widget, expanded=True))
+        layout.addWidget(CollapsibleSection('Model file', model_widget, expanded=True))
+        layout.addWidget(CollapsibleSection('Dataset + Limits', dataset_widget, expanded=True))
         layout.addStretch(1)
 
         if getattr(self.state, 'last_exported_tflite_path', ''):
@@ -77,7 +77,7 @@ class ExportValidationConfigPanel(QGroupBox):
     def browse_model_file(self, parent) -> None:
         path, _ = QFileDialog.getOpenFileName(
             parent,
-            'Choose exported TFLite model',
+            'Choose TFLite model',
             str(Path(self.state.export_config.out_dir).expanduser()),
             'TFLite Models (*.tflite);;All Files (*)',
         )

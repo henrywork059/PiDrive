@@ -45,40 +45,40 @@ class ExportValidationPage(DockPage):
             (
                 '1 Run',
                 make_scrollable_stack([
-                    ('Check Actions', self.actions_panel, True),
-                    ('Check Settings', self.config_panel, True),
-                ], object_name='exportValidationRunWorkflowScrollArea', intro='Choose the exported .tflite file and dataset, then run the check.'),
+                    ('Actions', self.actions_panel, True),
+                    ('Settings', self.config_panel, True),
+                ], object_name='exportValidationRunWorkflowScrollArea', intro='Choose the .tflite file and dataset, then run the check.'),
             ),
             (
-                '2 Results',
+                '2 Summary',
                 make_scrollable_stack([
-                    ('Check Summary', self.summary_panel, True),
-                ], object_name='exportValidationStatusWorkflowScrollArea', intro='Review TFLite errors and output ranges.'),
+                    ('Summary', self.summary_panel, True),
+                ], object_name='exportValidationStatusWorkflowScrollArea', intro='Review errors and output ranges.'),
             ),
         ], object_name='exportValidationWorkflowTabs')
 
         result_tabs = make_workflow_tabs([
-            ('1 Plot', self.plot_panel, 'TFLite prediction error plot.'),
-            ('2 Log', self.log_panel, 'TFLite interpreter messages and errors.'),
+            ('1 Plot', self.plot_panel, 'Prediction error plot.'),
+            ('2 Log', self.log_panel, 'Interpreter messages and errors.'),
         ], object_name='exportValidationResultTabs')
 
         workspace = self.make_horizontal_splitter([
-            self.make_panel_frame('workflow_controls', 'TFLite Check Workflow', workflow_tabs),
-            self.make_panel_frame('results', 'TFLite Plot / Log', result_tabs),
-            self.make_panel_frame('frame_review', 'TFLite Frame Review', self.frame_review_panel),
+            self.make_panel_frame('workflow_controls', 'TFLite Workflow', workflow_tabs),
+            self.make_panel_frame('results', 'TFLite Output', result_tabs),
+            self.make_panel_frame('frame_review', 'Frame Review', self.frame_review_panel),
         ], object_name='main_workspace', **splitter_args('validation_three_panel_workspace'))
 
         self.set_workspace_widget(
             workspace,
             step='6 of 6',
             title='TFLite Check',
-            summary='Check the exported TFLite model against trainer data before copying it to the car.',
+            summary='Check exported TFLite predictions before copying the model to the car.',
             next_step='Run Check',
             next_callback=lambda: self.reveal_widget(
                 self.actions_panel.run_button,
                 message='Focused the green Run Check button.'
             ),
-            next_tooltip='Focus Run Check in TFLite Check Workflow > 1 Run.',
+            next_tooltip='Focus Run Check in 1 Run.',
         )
 
     def refresh_from_state(self) -> None:
@@ -95,7 +95,7 @@ class ExportValidationPage(DockPage):
             self.plot_panel.set_result(self.last_result)
             self.frame_review_panel.set_result(self.last_result)
         else:
-            self.summary_panel.set_result_text('No TFLite check yet. Choose a .tflite file and click Run Check.')
+            self.summary_panel.set_result_text('No TFLite check yet. Choose a .tflite file and run the check.')
             self.plot_panel.set_result(None)
             self.frame_review_panel.set_result(None)
 

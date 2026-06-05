@@ -83,27 +83,27 @@ class DataPage(DockPage):
                 '1 Load',
                 make_scrollable_stack([
                     ('Session Source', self.session_source_panel, True),
-                ], object_name='dataLoadWorkflowScrollArea', intro='Start here: choose a PiSD/piTrainer records root, scan sessions, select sessions, then load them.'),
+                ], object_name='dataLoadWorkflowScrollArea', intro='Choose a records root, scan sessions, select sessions, then load.'),
             ),
             (
-                '2 Hide/Recover',
+                '2 Hide & Recover',
                 make_scrollable_stack([
-                    ('Hide/Recover', self.data_control_panel, True),
-                ], object_name='dataDeleteRecoverWorkflowScrollArea', intro='Hide bad frames from training, or recover hidden frames.'),
+                    ('Hide & Recover', self.data_control_panel, True),
+                ], object_name='dataDeleteRecoverWorkflowScrollArea', intro='Hide bad frames or recover hidden ones.'),
             ),
             (
                 '3 Filter',
                 make_scrollable_stack([
                     ('Filter', self.filter_panel, True),
-                ], object_name='dataFilterWorkflowScrollArea', intro='Filter loaded frames by text, mode, speed, or steering.'),
+                ], object_name='dataFilterWorkflowScrollArea', intro='Filter by text, mode, speed, or steering.'),
             ),
             (
                 '4 Review',
                 make_scrollable_stack([
-                    ('Bulk Edit', self.bulk_edit_panel, True, 'Apply one steering or speed value to selected rows.'),
+                    ('Bulk Edit', self.bulk_edit_panel, True, 'Overwrite steering or speed for selected rows.'),
                     ('Merge Sessions', self.merge_sessions_panel, False),
                     ('Overlays', self.overlay_panel, False),
-                ], object_name='dataReviewWorkflowScrollArea', intro='Review labels, edit selected frames, merge sessions, and check overlays.'),
+                ], object_name='dataReviewWorkflowScrollArea', intro='Edit labels, merge sessions, and check overlays.'),
             ),
         ], object_name='dataWorkflowTabs')
 
@@ -111,7 +111,7 @@ class DataPage(DockPage):
             (
                 '1 Records',
                 self.preview_panel,
-                'Inspect, select, and hide frame rows.',
+                'Inspect and select frame rows.',
             ),
             (
                 '2 Stats',
@@ -119,7 +119,7 @@ class DataPage(DockPage):
                 'Check dataset totals and label spread.',
             ),
             (
-                '3 Plot',
+                '3 Plots',
                 self.plot_panel,
                 'Review steering, speed, mode, and session plots.',
             ),
@@ -136,20 +136,20 @@ class DataPage(DockPage):
         workspace = self.make_horizontal_splitter([
             self.make_panel_frame('workflow_controls', 'Data Workflow', workflow_tabs),
             self.make_panel_frame('record_review', 'Data Review', review_tabs),
-            self.make_panel_frame('image_preview', 'Image Preview + Playback', visual_review),
+            self.make_panel_frame('image_preview', 'Image + Playback', visual_review),
         ], object_name='main_workspace', **splitter_args('three_panel_workspace'))
 
         self.set_workspace_widget(
             workspace,
             step='1 of 6',
             title='Data',
-            summary='Load sessions, hide/recover frames, filter rows, review labels, and check overlays before preprocessing.',
+            summary='Load sessions, hide/recover rows, filter, review labels, and check overlays.',
             next_step='Load Selected',
             next_callback=lambda: self.reveal_widget(
                 self.session_source_panel.load_btn,
                 message='Focused the green Load Selected button.'
             ),
-            next_tooltip='Focus Load Selected in Data Workflow > 1 Load.',
+            next_tooltip='Focus Load Selected in 1 Load.',
         )
 
     @staticmethod
@@ -317,7 +317,7 @@ class DataPage(DockPage):
         confirm = QMessageBox.question(
             self,
             'Merge Sessions',
-            'Create a new merged session by copying records and images from the selected sessions?'
+            'Create one merged session from the selected sessions?'
             + f"\n\nSource sessions: {', '.join(selected)}"
             + f"\nTarget session: {merged_name}",
         )
@@ -522,7 +522,7 @@ class DataPage(DockPage):
             QMessageBox.information(
                 self,
                 'Bulk Edit',
-                'Tick "Confirm label overwrite" before applying a bulk edit.',
+                'Tick "Confirm Overwrite" before bulk editing.',
             )
             return
 
@@ -531,8 +531,7 @@ class DataPage(DockPage):
             self,
             f'Confirm Bulk {field_label.title()} Edit',
             f'This will overwrite {field_label} for {count} selected frame(s) with {value:.3f}.\n\n'
-            'Only this field will be changed. The other control value will be kept from each existing row.\n'
-            'This writes to session labels.jsonl/records.jsonl and is not automatically undoable. Continue?',
+            'The other control value stays unchanged. This cannot be undone in piTrainer. Continue?',
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No,
         )
@@ -651,7 +650,7 @@ class DataPage(DockPage):
                 f"Recovered {recovered_count} hidden frame(s) with {metadata_rows_changed} metadata row(s) changed."
             )
             return
-        QMessageBox.information(self, 'Recover Hidden Frames', '\n'.join(failed_messages[:8]) if failed_messages else 'No hidden frames were recovered.')
+        QMessageBox.information(self, 'Recover Frames', '\n'.join(failed_messages[:8]) if failed_messages else 'No hidden frames were recovered.')
         self.main_window.set_status_message('No hidden frames were recovered.')
 
     def recover_all_hidden_frames(self) -> None:
@@ -674,19 +673,19 @@ class DataPage(DockPage):
         self.preview_panel.stop_autoplay()
         sessions = self._active_session_names_for_visibility_actions()
         if not sessions:
-            QMessageBox.information(self, 'Permanent Cleanup', 'Load or select a session before permanent cleanup.')
+            QMessageBox.information(self, 'Permanent Delete', 'Load or select a session first.')
             return
 
         confirm = QMessageBox.warning(
             self,
-            'Permanently Delete Hidden Frames?',
-            'This permanently removes hidden JSONL rows from the loaded/selected sessions and deletes unreferenced image files.\n\n'
-            'This cannot be recovered from inside piTrainer. Continue?',
+            'Delete Hidden Frames Permanently?',
+            'This permanently deletes hidden rows and unreferenced image files from the loaded/selected sessions.\n\n'
+            'This cannot be undone. Continue?',
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No,
         )
         if confirm != QMessageBox.Yes:
-            self.main_window.set_status_message('Permanent cleanup cancelled.')
+            self.main_window.set_status_message('Permanent delete cancelled.')
             return
 
         result = purge_hidden_frames(self.state.records_root_path, sessions)
@@ -698,17 +697,17 @@ class DataPage(DockPage):
 
         if purged_count:
             self._reload_loaded_sessions_after_visibility_change(
-                f"Permanent cleanup: {purged_count} hidden frame(s), {rows_removed} metadata row(s), {image_files_deleted} image file(s)."
+                f"Permanent delete: {purged_count} hidden frame(s), {rows_removed} metadata row(s), {image_files_deleted} image file(s)."
             )
             if skipped_files:
                 QMessageBox.information(
                     self,
-                    'Permanent Cleanup',
-                    'Cleanup finished, but some files were kept:\n' + '\n'.join(skipped_files[:8]),
+                    'Permanent Delete',
+                    'Delete finished, but some files were kept:\n' + '\n'.join(skipped_files[:8]),
                 )
             return
-        QMessageBox.information(self, 'Permanent Cleanup', '\n'.join(failed_messages[:8]) if failed_messages else 'No hidden frames were permanently deleted.')
-        self.main_window.set_status_message('No hidden frames were permanently deleted.')
+        QMessageBox.information(self, 'Permanent Delete', '\n'.join(failed_messages[:8]) if failed_messages else 'No hidden frames were deleted permanently.')
+        self.main_window.set_status_message('No hidden frames were deleted permanently.')
 
     def delete_selected_frame(self) -> None:
         self.preview_panel.stop_autoplay()
@@ -720,8 +719,8 @@ class DataPage(DockPage):
             QMessageBox.information(
                 self,
                 'Hide Selected',
-                'Tick "Confirm hide actions" in Data Workflow > 2 Hide/Recover before hiding frames. '
-                'After it is ticked, Hide Selected will hide rows without this popup each time.',
+                'Tick "Confirm Hide" in 2 Hide & Recover before hiding frames. '
+                'Images stay on disk.',
             )
             return
 

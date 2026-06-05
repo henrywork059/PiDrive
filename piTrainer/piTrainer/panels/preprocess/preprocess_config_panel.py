@@ -18,11 +18,11 @@ from ...ui.layout_widgets import CollapsibleSection, standardize_form_layout
 
 class PreprocessConfigPanel(QGroupBox):
     def __init__(self, state: AppState) -> None:
-        super().__init__('Preprocess Recipe')
+        super().__init__('Recipe')
         self.state = state
 
         help_label = QLabel(
-            'Recommended defaults now add one horizontal flip copy for every active frame. Open the advanced sections only when you intentionally need turning boost or mild camera-variant augmentation.'
+            'Recommended defaults add one horizontal flip for every active frame. Use advanced options only when needed.'
         )
         help_label.setWordWrap(True)
         help_label.setProperty('role', 'muted')
@@ -37,12 +37,12 @@ class PreprocessConfigPanel(QGroupBox):
         self.turn_copies.setRange(1, 8)
         self.turn_copies.setValue(1)
 
-        self.mirror_enabled = QCheckBox('Add one horizontal flip copy for every row')
+        self.mirror_enabled = QCheckBox('Add horizontal flip copy')
         self.mirror_enabled.setChecked(True)
         self.color_variants = QSpinBox()
         self.color_variants.setRange(0, 4)
         self.color_variants.setValue(0)
-        self.color_variants.setToolTip('Adds mild exposure / white-balance variants only.')
+        self.color_variants.setToolTip('Adds mild exposure / white-balance variants.')
 
         self.image_h = QSpinBox()
         self.image_h.setRange(32, 1080)
@@ -54,9 +54,9 @@ class PreprocessConfigPanel(QGroupBox):
         layout = QVBoxLayout(self)
         layout.setSpacing(8)
         layout.addWidget(help_label)
-        layout.addWidget(CollapsibleSection('Output Image Size', self._size_section(), expanded=True))
-        layout.addWidget(CollapsibleSection('Advanced: Turning Boost', self._turning_section(), expanded=False))
-        layout.addWidget(CollapsibleSection('Default augmentation: Horizontal Flip + Advanced Color', self._variant_section(), expanded=False))
+        layout.addWidget(CollapsibleSection('Image Size', self._size_section(), expanded=True))
+        layout.addWidget(CollapsibleSection('Turn Boost', self._turning_section(), expanded=False))
+        layout.addWidget(CollapsibleSection('Augmentation', self._variant_section(), expanded=False))
         layout.addStretch(1)
 
         self.turn_boost.toggled.connect(self._update_enabled_state)
@@ -73,19 +73,19 @@ class PreprocessConfigPanel(QGroupBox):
     def _turning_section(self) -> QWidget:
         widget, form = self._section_form()
         form.addRow(self.turn_boost)
-        form.addRow('Turn threshold / extra copies', self.turn_row)
+        form.addRow('Threshold / copies', self.turn_row)
         return widget
 
     def _variant_section(self) -> QWidget:
         widget, form = self._section_form()
         form.addRow(self.mirror_enabled)
-        form.addRow('Mild exposure / WB variants', self.color_variants)
+        form.addRow('Color variants', self.color_variants)
         return widget
 
     def _size_section(self) -> QWidget:
         widget, form = self._section_form()
-        form.addRow('Output image height', self.image_h)
-        form.addRow('Output image width', self.image_w)
+        form.addRow('Image height', self.image_h)
+        form.addRow('Image width', self.image_w)
         return widget
 
     def _make_range_row(self, left, right) -> QWidget:

@@ -17,15 +17,15 @@ class MergeSessionsPanel(QGroupBox):
 
         self.name_edit = QLineEdit()
         self.name_edit.setPlaceholderText('merged_session_name')
-        self.load_after_merge_check = QCheckBox('Load merged session after merge')
+        self.load_after_merge_check = QCheckBox('Load after merge')
         self.load_after_merge_check.setChecked(True)
 
-        merge_btn = QPushButton('Merge Selected Sessions')
+        merge_btn = QPushButton('Merge Selected')
         merge_btn.setProperty('role', 'primary')
         merge_btn.clicked.connect(self._on_merge_clicked)
 
         name_row = QHBoxLayout()
-        name_row.addWidget(QLabel('New session name'))
+        name_row.addWidget(QLabel('Session name'))
         name_row.addWidget(self.name_edit, 1)
 
         layout = QVBoxLayout(self)

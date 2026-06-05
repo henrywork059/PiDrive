@@ -7,7 +7,7 @@ from ...ui.layout_widgets import standardize_form_layout
 
 class DatasetStatsPanel(QGroupBox):
     def __init__(self) -> None:
-        super().__init__("Dataset Stats")
+        super().__init__("Stats")
         self.labels = {
             "rows": QLabel("0"),
             "sessions": QLabel("0"),
@@ -23,8 +23,8 @@ class DatasetStatsPanel(QGroupBox):
         layout.addRow("Sessions", self.labels["sessions"])
         layout.addRow("Steering mean", self.labels["steer_mean"])
         layout.addRow("Steering std", self.labels["steer_std"])
-        layout.addRow("Throttle mean", self.labels["thr_mean"])
-        layout.addRow("Throttle std", self.labels["thr_std"])
+        layout.addRow("Speed mean", self.labels["thr_mean"])
+        layout.addRow("Speed std", self.labels["thr_std"])
 
     def set_stats(self, stats: dict) -> None:
         self.labels["rows"].setText(str(stats.get("rows", 0)))

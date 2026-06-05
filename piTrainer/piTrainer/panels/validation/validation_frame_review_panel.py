@@ -29,14 +29,14 @@ from ...utils.image_utils import load_scaled_pixmap
 
 class ValidationFrameReviewPanel(QGroupBox):
     def __init__(self, edit_in_data_callback=None) -> None:
-        super().__init__('Validation Frame Review')
+        super().__init__('Frame Review')
         self.edit_in_data_callback = edit_in_data_callback
         self.result: dict | None = None
         self.all_rows: list[dict] = []
         self.rows: list[dict] = []
 
         self.help_label = QLabel(
-            'Browse validated frames, filter bad predictions, and open a selected frame back in the Data tab for raw-label editing. Generated validation rows open their original source frame.'
+            'Review validated frames, filter high errors, and open the source frame in Data for label edits.'
         )
         self.help_label.setWordWrap(True)
         self.help_label.setProperty('role', 'muted')
@@ -66,7 +66,7 @@ class ValidationFrameReviewPanel(QGroupBox):
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
         self.table.itemSelectionChanged.connect(self._refresh_preview)
 
-        self.image_label = QLabel('No validation frame selected.')
+        self.image_label = QLabel('No frame selected.')
         self.image_label.setAlignment(Qt.AlignCenter)
         self.image_label.setMinimumHeight(180)
         self.image_label.setWordWrap(True)
@@ -89,7 +89,7 @@ class ValidationFrameReviewPanel(QGroupBox):
         self.edit_button = QPushButton('Edit in Data')
         self.edit_button.setProperty('role', 'primary')
         self.edit_button.clicked.connect(self._edit_current_frame)
-        self.edit_button.setToolTip('Open the selected validation row in Data. If it is a generated/synthetic row, open the original source frame instead.')
+        self.edit_button.setToolTip('Open the selected row in Data. Synthetic rows open their source frame.')
 
         controls_widget = QWidget()
         top_controls = QGridLayout(controls_widget)
@@ -121,7 +121,7 @@ class ValidationFrameReviewPanel(QGroupBox):
         splitter.setStretchFactor(1, 2)
 
         layout = QVBoxLayout(self)
-        layout.addWidget(CollapsibleSection('Frame Filter + Sorting', controls_widget, expanded=False))
+        layout.addWidget(CollapsibleSection('Filter + Sort', controls_widget, expanded=False))
         layout.addWidget(self.help_label)
         layout.addWidget(splitter, 1)
 
@@ -164,7 +164,7 @@ class ValidationFrameReviewPanel(QGroupBox):
             'row_number', 'session', 'frame_id', 'frame_number', 'mode',
             'target_steering', 'pred_steering', 'target_speed', 'pred_speed', 'combined_error',
         ]
-        headers = ['Row', 'Session', 'Frame ID', 'Frame No.', 'Mode', 'Target Str', 'Pred Str', 'Target Spd', 'Pred Spd', 'Error']
+        headers = ['Row', 'Session', 'Frame ID', 'Frame No.', 'Mode', 'True Steer', 'Pred Steer', 'True Speed', 'Pred Speed', 'Error']
         self.table.clear()
         self.table.setRowCount(len(self.rows))
         self.table.setColumnCount(len(columns))
@@ -182,8 +182,8 @@ class ValidationFrameReviewPanel(QGroupBox):
             self.table.selectRow(0)
         else:
             self.image_label.clear()
-            self.image_label.setText('No validation frame selected.')
-            self.meta_label.setText('Run validation to populate frame overlays or loosen the bad-frame filter.')
+            self.image_label.setText('No frame selected.')
+            self.meta_label.setText('Run validation or loosen the bad-frame filter.')
 
     def _select_best(self) -> None:
         if not self.rows:
@@ -208,7 +208,7 @@ class ValidationFrameReviewPanel(QGroupBox):
         row = self.selected_row()
         if row is None:
             self.image_label.clear()
-            self.image_label.setText('Select a validation row to preview it.')
+            self.image_label.setText('Select a row to preview it.')
             self.meta_label.setText('')
             return
         target_width = max(260, self.image_label.width() - 14)
@@ -217,7 +217,7 @@ class ValidationFrameReviewPanel(QGroupBox):
         pixmap = load_scaled_pixmap(str(row.get('abs_image', '')), target_width, target_height, flip_lr=flip_lr)
         if pixmap is None:
             self.image_label.clear()
-            self.image_label.setText('Image not available')
+            self.image_label.setText('Image unavailable')
         else:
             rendered = apply_prediction_comparison_overlay(
                 pixmap,

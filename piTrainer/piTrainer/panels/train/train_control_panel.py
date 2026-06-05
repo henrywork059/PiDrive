@@ -22,7 +22,7 @@ class TrainControlPanel(QGroupBox):
     SETTINGS_KEY = 'train/last_model_save_dir'
 
     def __init__(self, prepare_callback, start_callback, stop_callback, save_model_callback, default_save_dir: str = '') -> None:
-        super().__init__("Training Controls")
+        super().__init__("Controls")
         self.prepare_btn = QPushButton("Prepare Split")
         self.prepare_btn.setProperty('role', 'amber')
         self.prepare_btn.clicked.connect(prepare_callback)
@@ -33,13 +33,13 @@ class TrainControlPanel(QGroupBox):
         self.stop_btn.setProperty('role', 'danger')
         self.stop_btn.clicked.connect(stop_callback)
         self.stop_btn.setEnabled(False)
-        self.save_model_btn = QPushButton('Save Trained Model')
+        self.save_model_btn = QPushButton('Save Model')
         self.save_model_btn.setProperty('role', 'secondary')
         self.save_model_btn.clicked.connect(save_model_callback)
 
         self.save_dir_edit = QLineEdit(self._restore_last_model_save_dir() or str(default_save_dir or ''))
-        self.save_dir_edit.setPlaceholderText('Choose where Save Trained Model writes the .keras file')
-        self.browse_save_dir_btn = QPushButton('Browse...')
+        self.save_dir_edit.setPlaceholderText('Folder for saved .keras model')
+        self.browse_save_dir_btn = QPushButton('Browse')
         self.browse_save_dir_btn.setProperty('role', 'amber')
         self.browse_save_dir_btn.clicked.connect(self._browse_model_save_dir)
 
@@ -53,7 +53,7 @@ class TrainControlPanel(QGroupBox):
         save_form = QFormLayout(save_form_widget)
         save_form.setContentsMargins(0, 0, 0, 0)
         standardize_form_layout(save_form)
-        save_form.addRow('Trained model save folder', save_dir_widget)
+        save_form.addRow('Model save folder', save_dir_widget)
 
         self.progress = QProgressBar(); self.progress.setRange(0, 100); self.progress.setValue(0)
 
@@ -84,7 +84,7 @@ class TrainControlPanel(QGroupBox):
         return str(Path.home())
 
     def _browse_model_save_dir(self) -> None:
-        folder = QFileDialog.getExistingDirectory(self, 'Choose trained model save directory', self._dialog_start_dir())
+        folder = QFileDialog.getExistingDirectory(self, 'Choose model save folder', self._dialog_start_dir())
         if folder:
             self.set_model_save_dir(folder)
 

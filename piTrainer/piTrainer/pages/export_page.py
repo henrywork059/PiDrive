@@ -32,14 +32,14 @@ class ExportPage(DockPage):
             (
                 '1 Export',
                 make_scrollable_stack([
-                    ('Export Actions', self.actions_panel, True),
-                    ('Export Options', self.options_panel, True),
-                ], object_name='exportRunWorkflowScrollArea', intro='Choose the output folder and artifact types, then use the green export button.'),
+                    ('Actions', self.actions_panel, True),
+                    ('Options', self.options_panel, True),
+                ], object_name='exportRunWorkflowScrollArea', intro='Choose output folder and file types, then export.'),
             ),
             (
                 '2 Status',
                 make_scrollable_stack([
-                    ('Model Status', self.model_status_panel, True),
+                    ('Model', self.model_status_panel, True),
                 ], object_name='exportStatusWorkflowScrollArea', intro='Confirm that a trained model is ready before exporting.'),
             ),
         ], object_name='exportWorkflowTabs')
@@ -53,13 +53,13 @@ class ExportPage(DockPage):
             workspace,
             step='5 of 6',
             title='Export',
-            summary='Export deployment files first, with model readiness still available in the Status tab.',
-            next_step='Export Artifacts',
+            summary='Export deployment files and check model readiness.',
+            next_step='Export',
             next_callback=lambda: self.reveal_widget(
                 self.actions_panel.export_btn,
                 message='Focused the green Export button.'
             ),
-            next_tooltip='Focus Export in Export Workflow > 1 Export.',
+            next_tooltip='Focus Export in 1 Export.',
         )
 
     def set_output_dir(self, folder: str) -> None:

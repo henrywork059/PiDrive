@@ -60,42 +60,42 @@ class PreprocessPage(DockPage):
             (
                 '1 Auto',
                 make_scrollable_stack([
-                    ('Source Summary', self.summary_panel, True),
-                    ('Actions', self.actions_panel, True),
-                ], object_name='preprocessAutoWorkflowScrollArea', intro='Check the source summary, then run Auto Preprocess.'),
+                    ('Source', self.summary_panel, True),
+                    ('Auto', self.actions_panel, True),
+                ], object_name='preprocessAutoWorkflowScrollArea', intro='Check source rows, then run Auto Preprocess.'),
                 'Recommended workflow for most preprocessing runs.',
             ),
             (
                 '2 Settings',
                 make_scrollable_stack([
-                    ('Source Filters', self.filter_panel, True),
-                    ('Recipe + Image Size', self.config_panel, True),
+                    ('Filters', self.filter_panel, True),
+                    ('Recipe', self.config_panel, True),
                 ], object_name='preprocessSettingsWorkflowScrollArea', intro='Optional filters, balancing, augmentation, and image size.'),
                 'Optional filters and image settings.',
             ),
         ], object_name='preprocessWorkflowTabs')
 
         self.output_tabs = make_workflow_tabs([
-            ('1 Preview', self.result_panel, 'Preview row counts and applied preprocessing results.'),
+            ('1 Preview', self.result_panel, 'Preview row counts and preprocessing results.'),
             ('2 Log', self.log_panel, 'Detailed preprocessing messages.'),
         ], object_name='preprocessOutputTabs')
 
         workspace = self.make_horizontal_splitter([
             self.make_panel_frame('workflow_controls', 'Preprocess Workflow', workflow_tabs),
-            self.make_panel_frame('result', 'Preprocess Review', self.output_tabs),
+            self.make_panel_frame('result', 'Preprocess Output', self.output_tabs),
         ], object_name='main_workspace', **splitter_args('two_panel_workspace'))
 
         self.set_workspace_widget(
             workspace,
             step='2 of 6',
             title='Preprocess',
-            summary='Use Auto for the normal path, or open Settings for filters, balancing, augmentation, and image size.',
+            summary='Use Auto for the normal path, or Settings for filters, balancing, augmentation, and image size.',
             next_step='Auto Preprocess',
             next_callback=lambda: self.reveal_widget(
                 self.actions_panel.apply_btn,
                 message='Focused the green Auto Preprocess button.'
             ),
-            next_tooltip='Focus Auto Preprocess in Preprocess Workflow > 1 Auto.',
+            next_tooltip='Focus Auto Preprocess in 1 Auto.',
         )
 
     def _activate_preview_tab(self) -> None:
@@ -159,7 +159,7 @@ class PreprocessPage(DockPage):
 
     def use_recommended_defaults(self) -> None:
         self._set_recommended_defaults()
-        self.preview_recipe(message_prefix='Recommended defaults loaded and previewed')
+        self.preview_recipe(message_prefix='Defaults loaded and previewed')
 
     def auto_preprocess(self) -> None:
         self._set_recommended_defaults()
@@ -178,7 +178,7 @@ class PreprocessPage(DockPage):
             return
         self.apply_recipe(source_df=source_df, message_prefix='Auto preprocessing complete')
 
-    def preview_recipe(self, *, message_prefix: str = 'Preprocess preview ready') -> None:
+    def preview_recipe(self, *, message_prefix: str = 'Preview ready') -> None:
         source_df = self._source_df()
         recipe = self.current_recipe()
         result_df, summary = apply_preprocessing_recipe(source_df, recipe)
@@ -191,7 +191,7 @@ class PreprocessPage(DockPage):
             f"{message_prefix} -> {summary['rows_after']} active row(s), generated {summary['generated_rows']} synthetic row(s)."
         )
 
-    def apply_recipe(self, *, source_df: pd.DataFrame | None = None, message_prefix: str = 'Confirmed preprocessing') -> None:
+    def apply_recipe(self, *, source_df: pd.DataFrame | None = None, message_prefix: str = 'Preprocess applied') -> None:
         if source_df is None:
             source_df = self._source_df()
         if source_df.empty:

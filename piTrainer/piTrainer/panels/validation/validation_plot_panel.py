@@ -16,11 +16,11 @@ class ValidationPlotPanel(QGroupBox):
     ]
 
     def __init__(self) -> None:
-        super().__init__('Validation Plot')
+        super().__init__('Plot')
         self.result: dict | None = None
 
         self.help_label = QLabel(
-            'Review the trained model with scatter, error, and sample-trace plots for steering and speed.'
+            'Review steering/speed scatter, error, and trace plots.'
         )
         self.help_label.setWordWrap(True)
 
@@ -28,7 +28,7 @@ class ValidationPlotPanel(QGroupBox):
         self.plot_type_combo.addItems(self.PLOT_TYPES)
         self.plot_type_combo.currentIndexChanged.connect(self.refresh_plot)
 
-        self.summary_label = QLabel('No validation results yet.')
+        self.summary_label = QLabel('No results yet.')
         self.summary_label.setWordWrap(True)
 
         self.figure = Figure(figsize=(6.2, 4.0), tight_layout=True)
@@ -53,7 +53,7 @@ class ValidationPlotPanel(QGroupBox):
         ax = self.figure.add_subplot(111)
         plot_type = self.plot_type_combo.currentText() or self.PLOT_TYPES[0]
         if not self.result:
-            self.summary_label.setText('No validation results yet. Run validation to populate this panel.')
+            self.summary_label.setText('No results yet. Run validation to populate this panel.')
             ax.set_axis_off()
             self.canvas.draw_idle()
             return

@@ -8,7 +8,7 @@ from ...ui.layout_widgets import CollapsibleSection, standardize_form_layout
 
 class ExportOptionsPanel(QGroupBox):
     def __init__(self, state: AppState) -> None:
-        super().__init__("Export Options")
+        super().__init__("Options")
         self.state = state
         cfg = self.state.export_config
 
@@ -22,9 +22,9 @@ class ExportOptionsPanel(QGroupBox):
         self.export_keras.setChecked(cfg.export_keras)
         self.export_tflite = QCheckBox("Export .tflite")
         self.export_tflite.setChecked(cfg.export_tflite)
-        self.quantize_int8 = QCheckBox("Reduce TFLite size (quantized, float I/O)")
+        self.quantize_int8 = QCheckBox("Quantize TFLite (float I/O)")
         self.quantize_int8.setChecked(cfg.quantize_int8)
-        self.quantize_int8.setToolTip("Uses TensorFlow Lite size optimisation while keeping float32 input/output for the PiDrive runtime.")
+        self.quantize_int8.setToolTip("Reduces TFLite size while keeping float32 input/output.")
 
         out_row = QWidget()
         out_layout = QHBoxLayout(out_row)
@@ -36,8 +36,8 @@ class ExportOptionsPanel(QGroupBox):
         destination_form = QFormLayout(destination_widget)
         destination_form.setContentsMargins(0, 0, 0, 0)
         standardize_form_layout(destination_form)
-        destination_form.addRow("Output directory", out_row)
-        destination_form.addRow("Base file name", self.base_name)
+        destination_form.addRow("Output folder", out_row)
+        destination_form.addRow("File name", self.base_name)
 
         artifact_widget = QWidget()
         artifact_layout = QVBoxLayout(artifact_widget)

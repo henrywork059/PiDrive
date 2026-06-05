@@ -20,13 +20,29 @@ from ...services.data.preview_service import dataframe_preview_rows, preview_col
 
 
 class RecordPreviewModel(QAbstractTableModel):
-    """Small read-only model for the Record Preview table.
+    """Small read-only model for the Records table.
 
     Keeping the table model simple avoids item-based current-cell side effects
     that previously scrolled the view to later columns during multi-row
     selection. The model keeps an explicit source-row mapping so header sorting
     does not break selection, preview, bulk edit, or hide/delete operations.
     """
+
+    HEADER_LABELS = {
+        'frame_id': 'Frame',
+        'frame_number': 'Frame No.',
+        'session': 'Session',
+        'steering': 'Steering',
+        'throttle': 'Speed',
+        'mode': 'Mode',
+        'ts': 'Time',
+        'abs_image': 'Image path',
+        'image_path': 'Image',
+        'source_frame_id': 'Source',
+        'synthetic_variant': 'Variant',
+        'aug_flip_lr': 'Flip',
+        'hidden_from_training': 'Hidden',
+    }
 
     def __init__(self) -> None:
         super().__init__()
@@ -137,7 +153,8 @@ class RecordPreviewModel(QAbstractTableModel):
             return None
         if orientation == Qt.Horizontal:
             if 0 <= section < len(self.columns):
-                return self.columns[section]
+                column = self.columns[section]
+                return self.HEADER_LABELS.get(column, column)
             return None
         return section + 1
 

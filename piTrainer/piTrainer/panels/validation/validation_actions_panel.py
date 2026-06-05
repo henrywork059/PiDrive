@@ -7,12 +7,12 @@ from ...ui.layout_widgets import style_next_step_button
 
 class ValidationActionsPanel(QGroupBox):
     def __init__(self, browse_model_callback, validate_callback, clear_callback) -> None:
-        super().__init__('Validation Actions')
-        self.browse_button = QPushButton('Browse Model...')
+        super().__init__('Actions')
+        self.browse_button = QPushButton('Browse')
         self.browse_button.setProperty('role', 'amber')
         self.run_button = QPushButton('Run Validation')
         style_next_step_button(self.run_button, 'Run Validation')
-        self.clear_button = QPushButton('Clear Results')
+        self.clear_button = QPushButton('Clear')
         self.clear_button.setProperty('role', 'secondary')
 
         self.browse_button.clicked.connect(browse_model_callback)
