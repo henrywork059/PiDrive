@@ -13,6 +13,7 @@ from ..panels.data.dataset_stats_panel import DatasetStatsPanel
 from ..panels.data.frame_filter_panel import FrameFilterPanel
 from ..panels.data.image_preview_panel import ImagePreviewPanel
 from ..panels.data.merge_sessions_panel import MergeSessionsPanel
+from ..panels.data.model_deploy_panel import ModelDeployPanel
 from ..panels.data.overlay_control_panel import OverlayControlPanel
 from ..panels.data.playback_control_panel import PlaybackControlPanel
 from ..panels.data.preview_panel import PreviewPanel
@@ -21,6 +22,7 @@ from ..services.data.delete_service import hide_frames_from_training, purge_hidd
 from ..services.data.edit_service import update_frame_controls_batch, update_frame_controls_many
 from ..services.data.filter_service import filter_preview_dataframe
 from ..services.data.merge_service import merge_sessions
+from ..services.data.model_deploy_service import run_model_deploy
 from ..services.data.record_loader_service import build_filtered_dataframe, load_records_dataframe
 from ..services.data.visibility_service import is_synthetic_record, without_synthetic_rows
 from ..services.data.session_service import list_sessions
@@ -72,6 +74,13 @@ class DataPage(DockPage):
             recover_last_callback=self.recover_last_hidden_frames,
             recover_all_callback=self.recover_all_hidden_frames,
         )
+        self.model_deploy_panel = ModelDeployPanel(
+            self.state,
+            deploy_callback=self.deploy_model_to_visible_frames,
+            apply_selected_callback=self.apply_deployed_outputs_to_selected,
+            sort_steering_diff_callback=self.sort_by_steering_diff,
+            sort_speed_diff_callback=self.sort_by_speed_diff,
+        )
         self.build_default_layout()
         self.restore_layout()
         self.preview_panel.set_playback_fps(self.playback_panel.playback_fps())
@@ -105,6 +114,12 @@ class DataPage(DockPage):
                     ('Merge Sessions', self.merge_sessions_panel, False),
                     ('Overlays', self.overlay_panel, False),
                 ], object_name='dataReviewWorkflowScrollArea', intro='Edit labels, merge sessions, and check overlays.'),
+            ),
+            (
+                '5 Deploy',
+                make_scrollable_stack([
+                    ('Model Deploy', self.model_deploy_panel, True),
+                ], object_name='dataDeployWorkflowScrollArea', intro='Run model output on visible frames and compare labels.'),
             ),
         ], object_name='dataWorkflowTabs')
 
@@ -144,7 +159,7 @@ class DataPage(DockPage):
             workspace,
             step='1 of 6',
             title='Data',
-            summary='Load sessions, hide/recover rows, filter, review labels, and check overlays.',
+            summary='Load sessions, hide/recover rows, filter, review labels, deploy models, and check overlays.',
             next_step='Load Selected',
             next_callback=lambda: self.reveal_widget(
                 self.session_source_panel.load_btn,
@@ -356,6 +371,11 @@ class DataPage(DockPage):
         if select_identity:
             self.preview_panel.select_record_identity(select_identity)
         self.plot_panel.set_dataframe(filtered_preview)
+        if hasattr(self, 'model_deploy_panel'):
+            prediction_count = 0
+            if 'pred_steering' in filtered_preview.columns and ('pred_throttle' in filtered_preview.columns or 'pred_speed' in filtered_preview.columns):
+                prediction_count = int(pd.to_numeric(filtered_preview.get('pred_steering'), errors='coerce').notna().sum())
+            self.model_deploy_panel.set_prediction_count(prediction_count)
         if filtered_preview.empty:
             self.image_preview_panel.clear_preview()
         self.main_window.set_status_message(f'Displaying {len(filtered_preview)} preview frame(s).')
@@ -375,6 +395,8 @@ class DataPage(DockPage):
     def on_preview_record_selected(self, record) -> None:
         selected_count = len(self.preview_panel.selected_records())
         self.bulk_edit_panel.set_selected_count(selected_count)
+        if hasattr(self, 'model_deploy_panel'):
+            self.model_deploy_panel.set_selected_count(selected_count)
         if not record:
             self.image_preview_panel.clear_preview()
             return
@@ -414,6 +436,17 @@ class DataPage(DockPage):
             throttle = float(edited_record.get('throttle', 0.0) or 0.0)
             self._update_record_field_in_loaded_data(identity, 'steering', steering)
             self._update_record_field_in_loaded_data(identity, 'throttle', throttle)
+            pred_steering = self._prediction_value(edited_record, 'pred_steering')
+            pred_throttle = self._prediction_value(edited_record, 'pred_throttle')
+            if pred_steering is not None and pred_throttle is not None:
+                self._set_record_prediction_fields(
+                    identity,
+                    pred_steering=pred_steering,
+                    pred_throttle=pred_throttle,
+                    steering_diff=abs(pred_steering - steering),
+                    speed_diff=abs(pred_throttle - throttle),
+                )
+                needs_filter_rebuild = True
             needs_filter_rebuild = needs_filter_rebuild or self._single_edit_needs_filter_rebuild(steering=steering, throttle=throttle)
 
         self.stats_panel.set_stats(calculate_basic_stats(self.state.filtered_df))
@@ -442,6 +475,173 @@ class DataPage(DockPage):
         )
         if failed_messages:
             QMessageBox.warning(self, 'Edit Frame Data', '\n'.join(failed_messages[:8]))
+
+    @staticmethod
+    def _prediction_value(record: dict, key: str) -> float | None:
+        value = record.get(key)
+        if value is None and key == 'pred_throttle':
+            value = record.get('pred_speed')
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _has_deployed_prediction(record: dict) -> bool:
+        return DataPage._prediction_value(record, 'pred_steering') is not None and DataPage._prediction_value(record, 'pred_throttle') is not None
+
+    def _set_record_prediction_fields(
+        self,
+        identity: tuple[str, str, str, str],
+        *,
+        pred_steering: float,
+        pred_throttle: float,
+        steering_diff: float,
+        speed_diff: float,
+    ) -> None:
+        for field_name, value in {
+            'pred_steering': pred_steering,
+            'pred_throttle': pred_throttle,
+            'steering_diff': steering_diff,
+            'speed_diff': speed_diff,
+        }.items():
+            self._update_record_field_in_loaded_data(identity, field_name, float(value))
+
+    def _merge_deploy_predictions(self, deploy_rows: list[dict]) -> list[tuple[str, str, str, str]]:
+        updated_identities: list[tuple[str, str, str, str]] = []
+        for row in deploy_rows:
+            identity = self._record_identity(row)
+            if not any(identity):
+                continue
+            pred_steering = float(row.get('pred_steering', 0.0) or 0.0)
+            pred_throttle = float(row.get('pred_throttle', row.get('pred_speed', 0.0)) or 0.0)
+            steering_diff = float(row.get('steering_diff', abs(pred_steering - float(row.get('target_steering', 0.0) or 0.0))) or 0.0)
+            speed_diff = float(row.get('speed_diff', abs(pred_throttle - float(row.get('target_speed', 0.0) or 0.0))) or 0.0)
+            self._set_record_prediction_fields(
+                identity,
+                pred_steering=pred_steering,
+                pred_throttle=pred_throttle,
+                steering_diff=steering_diff,
+                speed_diff=speed_diff,
+            )
+            updated_identities.append(identity)
+        return updated_identities
+
+    def deploy_model_to_visible_frames(self) -> None:
+        self.preview_panel.stop_autoplay()
+        visible_df = self.preview_panel.df.copy()
+        if visible_df.empty:
+            QMessageBox.information(self, 'Deploy Model', 'No visible frames. Load a session or loosen the filter first.')
+            return
+
+        try:
+            result = run_model_deploy(
+                visible_df,
+                self.state.train_config,
+                self.state.model,
+                model_source=self.model_deploy_panel.model_source(),
+                model_path=self.model_deploy_panel.model_path(),
+                batch_size=self.model_deploy_panel.batch_size(),
+                max_rows=self.model_deploy_panel.max_rows(),
+            )
+        except Exception as exc:
+            QMessageBox.warning(self, 'Deploy Model', f'Model deploy failed:\n{exc}')
+            self.main_window.set_status_message('Model deploy failed.')
+            return
+
+        deploy_rows = list(result.get('deploy_rows', []))
+        if not deploy_rows:
+            QMessageBox.information(self, 'Deploy Model', 'No model outputs were produced.')
+            self.main_window.set_status_message('No model outputs were produced.')
+            return
+
+        updated_identities = self._merge_deploy_predictions(deploy_rows)
+        first_identity = updated_identities[0] if updated_identities else None
+        self.apply_preview_filter(select_identity=first_identity)
+        source = str(result.get('model_source', self.model_deploy_panel.model_source()) or self.model_deploy_panel.model_source())
+        self.main_window.set_status_message(f'Deployed {len(updated_identities)} frame(s) using {source}.')
+
+    def sort_by_steering_diff(self) -> None:
+        if not self.preview_panel.sort_by_column_desc('steering_diff'):
+            QMessageBox.information(self, 'Sort Diff', 'Deploy a model first to show steering differences.')
+            return
+        self.main_window.set_status_message('Sorted by largest steering difference.')
+
+    def sort_by_speed_diff(self) -> None:
+        if not self.preview_panel.sort_by_column_desc('speed_diff'):
+            QMessageBox.information(self, 'Sort Diff', 'Deploy a model first to show speed differences.')
+            return
+        self.main_window.set_status_message('Sorted by largest speed difference.')
+
+    def apply_deployed_outputs_to_selected(self) -> None:
+        self.preview_panel.stop_autoplay()
+        records = self.preview_panel.selected_records()
+        eligible = [dict(record) for record in records if self._has_deployed_prediction(record)]
+        if not eligible:
+            QMessageBox.information(self, 'Apply AI Output', 'Select rows with deployed AI output first.')
+            return
+        if not self.model_deploy_panel.apply_confirmed():
+            QMessageBox.information(self, 'Apply AI Output', 'Tick "Confirm Apply" before overwriting selected labels.')
+            return
+
+        confirm = QMessageBox.warning(
+            self,
+            'Apply AI Output?',
+            f'This overwrites steering and speed labels for {len(eligible)} selected frame(s) using deployed AI output.\n\nContinue?',
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if confirm != QMessageBox.Yes:
+            self.main_window.set_status_message('Apply AI output cancelled.')
+            return
+
+        update_records: list[dict] = []
+        for record in eligible:
+            pred_steering = float(self._prediction_value(record, 'pred_steering') or 0.0)
+            pred_throttle = float(self._prediction_value(record, 'pred_throttle') or 0.0)
+            updated = dict(record)
+            updated['steering'] = pred_steering
+            updated['throttle'] = pred_throttle
+            update_records.append(updated)
+
+        result = update_frame_controls_many(self.state.records_root_path, update_records)
+        matched_key_set = {tuple(key) for key in result.get('matched_keys', [])}
+        updated_records = [
+            record for record in update_records
+            if self._bulk_edit_target_key(record) in matched_key_set
+        ]
+
+        for record in updated_records:
+            identity = self._record_identity(record)
+            pred_steering = float(record.get('steering', 0.0) or 0.0)
+            pred_throttle = float(record.get('throttle', 0.0) or 0.0)
+            self._update_record_field_in_loaded_data(identity, 'steering', pred_steering)
+            self._update_record_field_in_loaded_data(identity, 'throttle', pred_throttle)
+            self._set_record_prediction_fields(
+                identity,
+                pred_steering=pred_steering,
+                pred_throttle=pred_throttle,
+                steering_diff=0.0,
+                speed_diff=0.0,
+            )
+
+        self.stats_panel.set_stats(calculate_basic_stats(self.state.filtered_df))
+        first_identity = self._record_identity(updated_records[0]) if updated_records else None
+        self.apply_preview_filter(select_identity=first_identity)
+        self.main_window.on_dataset_loaded()
+
+        failed_messages = list(result.get('failed_messages', []))
+        updated_count = int(result.get('updated_count', 0) or 0)
+        rows_changed = int(result.get('metadata_rows_changed', 0) or 0)
+        if updated_count:
+            self.main_window.set_status_message(
+                f'Applied AI output to {updated_count} selected frame(s); {rows_changed} metadata row(s) changed.'
+                + (f' {len(failed_messages)} failed.' if failed_messages else '')
+            )
+        else:
+            self.main_window.set_status_message('No AI output was applied.')
+        if failed_messages:
+            QMessageBox.warning(self, 'Apply AI Output', '\n'.join(failed_messages[:8]))
 
     def schedule_plot_refresh_from_preview(self) -> None:
         self.single_edit_plot_timer.start()
