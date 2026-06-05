@@ -27,7 +27,7 @@ class BulkEditPanel(QGroupBox):
         apply_speed_callback: Callable[[float], None],
         select_all_callback: Callable[[], None] | None = None,
     ) -> None:
-        super().__init__('Bulk Edit Selected Frames')
+        super().__init__('Bulk Edit')
         self.apply_steering_callback = apply_steering_callback
         self.apply_speed_callback = apply_speed_callback
         self.select_all_callback = select_all_callback
@@ -35,8 +35,8 @@ class BulkEditPanel(QGroupBox):
         self._selected_count = 0
 
         help_label = QLabel(
-            'Select multiple rows in Record Preview, then apply one value at a time. '
-            'Bulk edits overwrite the selected frame labels in labels.jsonl/records.jsonl after a warning confirmation.'
+            'Select rows, then apply one steering or speed value. '
+            'Bulk edits overwrite labels after confirmation.'
         )
         help_label.setProperty('role', 'muted')
         help_label.setWordWrap(True)
@@ -44,14 +44,14 @@ class BulkEditPanel(QGroupBox):
         self.selected_label = QLabel('Selected frames: 0')
         self.selected_label.setProperty('role', 'summaryLine')
 
-        self.select_all_btn = QPushButton('Select All Visible Frames')
+        self.select_all_btn = QPushButton('Select Visible')
         self.select_all_btn.setProperty('role', 'amber')
-        self.select_all_btn.setToolTip('Select every currently visible Record Preview row before applying a bulk edit.')
+        self.select_all_btn.setToolTip('Select every visible row before bulk editing.')
         self.select_all_btn.clicked.connect(self._select_all_visible_frames)
 
-        self.confirm_bulk_check = QCheckBox('I understand this will overwrite selected frame labels')
+        self.confirm_bulk_check = QCheckBox('Confirm label overwrite')
         self.confirm_bulk_check.setToolTip(
-            'Required before bulk steering/speed edits can be applied. A final warning dialog still appears before writing.'
+            'Required before bulk edits. A final warning appears before writing.'
         )
         self.confirm_bulk_check.toggled.connect(self._update_button_state)
 
@@ -67,9 +67,9 @@ class BulkEditPanel(QGroupBox):
         self.steering_spin.setValue(0.0)
         self.steering_spin.valueChanged.connect(self._on_steering_spin_changed)
 
-        self.apply_steering_btn = QPushButton('Apply Steering Only')
+        self.apply_steering_btn = QPushButton('Apply Steering')
         self.apply_steering_btn.setProperty('role', 'primary')
-        self.apply_steering_btn.setToolTip('Overwrite only steering for the selected Record Preview rows.')
+        self.apply_steering_btn.setToolTip('Overwrite steering for selected rows only.')
         self.apply_steering_btn.clicked.connect(self._apply_steering)
 
         self.speed_slider = QSlider(Qt.Horizontal)
@@ -84,9 +84,9 @@ class BulkEditPanel(QGroupBox):
         self.speed_spin.setValue(0.0)
         self.speed_spin.valueChanged.connect(self._on_speed_spin_changed)
 
-        self.apply_speed_btn = QPushButton('Apply Speed Only')
+        self.apply_speed_btn = QPushButton('Apply Speed')
         self.apply_speed_btn.setProperty('role', 'primary')
-        self.apply_speed_btn.setToolTip('Overwrite only speed/throttle for the selected Record Preview rows.')
+        self.apply_speed_btn.setToolTip('Overwrite speed/throttle for selected rows only.')
         self.apply_speed_btn.clicked.connect(self._apply_speed)
 
         steering_row = QHBoxLayout()

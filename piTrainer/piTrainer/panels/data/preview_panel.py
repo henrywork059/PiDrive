@@ -173,7 +173,7 @@ class CyclingPreviewTable(QTableView):
 
 class PreviewPanel(QGroupBox):
     def __init__(self, selection_callback=None, playback_state_callback=None) -> None:
-        super().__init__('Record Preview')
+        super().__init__('Records')
         self.df = pd.DataFrame()
         self.selection_callback = selection_callback
         self.playback_state_callback = playback_state_callback
@@ -181,7 +181,7 @@ class PreviewPanel(QGroupBox):
         self._restore_after_sort_rows: list[int] = []
         self._restore_after_sort_current_row = -1
 
-        self.summary_label = QLabel('Load sessions to preview recorded frames.')
+        self.summary_label = QLabel('Load sessions to show frames.')
         self.summary_label.setProperty('role', 'muted')
         self.summary_label.setWordWrap(True)
 

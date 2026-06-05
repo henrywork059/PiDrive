@@ -61,13 +61,13 @@ class SessionSourcePanel(QGroupBox):
         self._rows: list[SessionSourceRowWidget] = []
 
         help_label = QLabel(
-            'Choose the records root, scan for sessions, then select one or more sessions to load.'
+            'Choose a records root, refresh sessions, select sessions, then load.'
         )
         help_label.setProperty('role', 'muted')
         help_label.setWordWrap(True)
 
         self.path_edit = QLineEdit(self._restore_last_root() or self.state.records_root)
-        self.path_edit.setPlaceholderText('Folder containing session folders and records.jsonl files')
+        self.path_edit.setPlaceholderText('Records root folder')
         self.path_edit.editingFinished.connect(self._apply_path_only)
 
         browse_btn = QPushButton('Browse')
@@ -202,9 +202,9 @@ class SessionSourcePanel(QGroupBox):
         total = len(self._rows)
         selected = len(self.selected_sessions())
         if not root:
-            self.summary_label.setText('Choose a records root folder to find sessions.')
+            self.summary_label.setText('Choose a records root to find sessions.')
             return
         if total == 0:
-            self.summary_label.setText(f"Root: {root} | No sessions found yet.")
+            self.summary_label.setText(f"Root: {root} | No sessions found.")
             return
-        self.summary_label.setText(f"Root: {root} | Sessions found: {total} | Selected: {selected}")
+        self.summary_label.setText(f"Root: {root} | Found: {total} | Selected: {selected}")

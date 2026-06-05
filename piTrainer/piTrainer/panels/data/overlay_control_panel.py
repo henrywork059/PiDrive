@@ -5,19 +5,19 @@ from PySide6.QtWidgets import QCheckBox, QGroupBox, QLabel, QPushButton, QVBoxLa
 
 class OverlayControlPanel(QGroupBox):
     def __init__(self, change_callback) -> None:
-        super().__init__('Overlay Controls')
+        super().__init__('Overlays')
         self.change_callback = change_callback
 
-        help_label = QLabel('Choose which driving values to draw on top of the preview frame. PiSD V7 road guide redraws the saved overlay settings from labels.jsonl/manifest. Legacy path and Drive Arrow remain optional debug views.')
+        help_label = QLabel('Choose overlay guides for the preview frame. The PiSD V7 road guide uses saved settings from labels.jsonl/manifest.')
         help_label.setProperty('role', 'muted')
         help_label.setWordWrap(True)
 
-        self.path_preview_cb = QCheckBox('Display PiSD V7 road guide')
-        self.legacy_path_preview_cb = QCheckBox('Display legacy trainer path (debug)')
-        self.speed_vertical_cb = QCheckBox('Display speed as vertical bar')
-        self.steering_horizontal_cb = QCheckBox('Display steering as horizontal bar')
-        self.steering_arc_cb = QCheckBox('Display steering as semi-circle bar')
-        self.drive_arrow_cb = QCheckBox('Display drive arrow (optional debug)')
+        self.path_preview_cb = QCheckBox('PiSD V7 road guide')
+        self.legacy_path_preview_cb = QCheckBox('Legacy path (debug)')
+        self.speed_vertical_cb = QCheckBox('Speed bar')
+        self.steering_horizontal_cb = QCheckBox('Steering bar')
+        self.steering_arc_cb = QCheckBox('Steering arc')
+        self.drive_arrow_cb = QCheckBox('Drive arrow (debug)')
 
         self.path_preview_cb.setChecked(True)
 
@@ -31,7 +31,7 @@ class OverlayControlPanel(QGroupBox):
         ]:
             checkbox.toggled.connect(self._emit_change)
 
-        reset_btn = QPushButton('Clear Overlays')
+        reset_btn = QPushButton('Clear')
         reset_btn.clicked.connect(self.reset)
 
         layout = QVBoxLayout(self)

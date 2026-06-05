@@ -18,38 +18,38 @@ from PySide6.QtWidgets import (
 
 class FrameFilterPanel(QGroupBox):
     def __init__(self, apply_callback, clear_callback) -> None:
-        super().__init__("Frame Filter")
+        super().__init__("Filter")
         self.apply_callback = apply_callback
         self.clear_callback = clear_callback
 
         self.text_edit = QLineEdit()
-        self.text_edit.setPlaceholderText("Search session / frame_id / mode / ts")
+        self.text_edit.setPlaceholderText("Search session, frame ID, mode, time")
         self.text_edit.returnPressed.connect(self.apply_callback)
 
         self.mode_combo = QComboBox()
-        self.mode_combo.addItems(["All Modes", "manual", "auto", "train", "user"])
+        self.mode_combo.addItems(["All modes", "manual", "auto", "train", "user"])
         self.mode_combo.currentIndexChanged.connect(lambda *_: self.apply_callback())
 
-        self.speed_checkbox = QCheckBox("Use speed range")
+        self.speed_checkbox = QCheckBox("Speed range")
         self.speed_checkbox.toggled.connect(self._handle_range_toggle)
         self.speed_min_spin = self._build_range_spinbox()
         self.speed_max_spin = self._build_range_spinbox(1.0)
 
-        self.steering_checkbox = QCheckBox("Use steering range")
+        self.steering_checkbox = QCheckBox("Steering range")
         self.steering_checkbox.toggled.connect(self._handle_range_toggle)
         self.steering_min_spin = self._build_range_spinbox()
         self.steering_max_spin = self._build_range_spinbox(1.0)
 
-        apply_btn = QPushButton("Apply")
+        apply_btn = QPushButton("Apply Filter")
         apply_btn.setProperty('role', 'primary')
         apply_btn.clicked.connect(self.apply_callback)
-        clear_btn = QPushButton("Clear")
+        clear_btn = QPushButton("Clear Filter")
         clear_btn.setProperty('role', 'secondary')
         clear_btn.clicked.connect(self.clear_callback)
 
         form = QVBoxLayout(self)
         help_label = QLabel(
-            "Filter the loaded frames by text, mode, speed, or steering before previewing, deleting, or training."
+            "Show only rows matching text, mode, speed, or steering."
         )
         help_label.setProperty('role', 'muted')
         help_label.setWordWrap(True)
@@ -120,7 +120,7 @@ class FrameFilterPanel(QGroupBox):
 
     def selected_mode(self) -> str:
         value = self.mode_combo.currentText().strip()
-        return "" if value == "All Modes" else value
+        return "" if value == "All modes" else value
 
     def speed_filter_enabled(self) -> bool:
         return self.speed_checkbox.isChecked()

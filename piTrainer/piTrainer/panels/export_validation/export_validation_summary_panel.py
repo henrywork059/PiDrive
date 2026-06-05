@@ -6,7 +6,7 @@ from PySide6.QtWidgets import QGroupBox, QLabel, QVBoxLayout
 
 class ExportValidationSummaryPanel(QGroupBox):
     def __init__(self) -> None:
-        super().__init__('Export Validation Summary')
+        super().__init__('Check Summary')
         self.model_label = QLabel('TFLite model: none selected.')
         self.model_label.setProperty('role', 'summaryLine')
         self.model_label.setWordWrap(True)
@@ -15,7 +15,7 @@ class ExportValidationSummaryPanel(QGroupBox):
         self.dataset_label.setProperty('role', 'summaryLine')
         self.dataset_label.setWordWrap(True)
         self.dataset_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        self.result_label = QLabel('No export validation run yet.')
+        self.result_label = QLabel('No TFLite check yet.')
         self.result_label.setProperty('role', 'summaryBlock')
         self.result_label.setWordWrap(True)
         self.result_label.setTextInteractionFlags(Qt.TextSelectableByMouse)

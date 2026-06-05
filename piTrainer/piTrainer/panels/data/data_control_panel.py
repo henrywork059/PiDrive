@@ -6,49 +6,49 @@ from PySide6.QtWidgets import QCheckBox, QGroupBox, QHBoxLayout, QLabel, QPushBu
 
 class DataControlPanel(QGroupBox):
     def __init__(self, delete_frame_callback, recover_last_callback, recover_all_callback) -> None:
-        super().__init__("Delete and Recover")
+        super().__init__("Hide/Recover")
         self.delete_frame_callback = delete_frame_callback
         self.recover_last_callback = recover_last_callback
         self.recover_all_callback = recover_all_callback
 
         help_label = QLabel(
-            "Hide selected frame rows from training, or recover previously hidden rows. "
-            "Hide is a soft delete: JSONL rows and image files are kept until hidden data is permanently cleaned."
+            "Hide selected frames from training, or recover hidden frames. "
+            "Hidden rows and images stay on disk until permanent cleanup."
         )
         help_label.setProperty('role', 'muted')
         help_label.setWordWrap(True)
 
-        self.confirm_delete_check = QCheckBox("I confirm frame hide/delete actions")
+        self.confirm_delete_check = QCheckBox("Confirm hide actions")
         self.confirm_delete_check.setToolTip(
-            "Required before Delete/Hide will add hidden_from_training flags. "
-            "Rows and image files are kept for traceability, and repeated confirmation popups are skipped."
+            "Required before Hide Selected writes hidden_from_training flags. "
+            "Rows and images are kept."
         )
 
-        self.delete_btn = QPushButton("Delete / Hide Selected Frame(s)")
+        self.delete_btn = QPushButton("Hide Selected")
         self.delete_btn.setProperty('role', 'danger')
         self.delete_btn.clicked.connect(self.delete_frame_callback)
 
-        recover_label = QLabel("Recover hidden frames")
+        recover_label = QLabel("Recover")
         recover_label.setProperty('role', 'sectionLabel')
 
         self.recover_count_spin = QSpinBox()
         self.recover_count_spin.setRange(1, 999999)
         self.recover_count_spin.setValue(1)
         self.recover_count_spin.setAlignment(Qt.AlignRight)
-        self.recover_count_spin.setToolTip("Number of most-recently hidden frames to unhide.")
+        self.recover_count_spin.setToolTip("Recover the most recently hidden frames.")
 
-        recover_last_btn = QPushButton("Recover Last")
+        recover_last_btn = QPushButton("Recover Last X")
         recover_last_btn.setProperty('role', 'secondary')
         recover_last_btn.clicked.connect(self.recover_last_callback)
 
-        recover_all_btn = QPushButton("Recover All Hidden Frames")
+        recover_all_btn = QPushButton("Recover All")
         recover_all_btn.setProperty('role', 'secondary')
         recover_all_btn.clicked.connect(self.recover_all_callback)
 
         recover_last_row = QHBoxLayout()
         recover_last_row.addWidget(QLabel("Last"))
         recover_last_row.addWidget(self.recover_count_spin)
-        recover_last_row.addWidget(QLabel("frame(s)"))
+        recover_last_row.addWidget(QLabel("frames"))
         recover_last_row.addStretch(1)
         recover_last_row.addWidget(recover_last_btn)
 

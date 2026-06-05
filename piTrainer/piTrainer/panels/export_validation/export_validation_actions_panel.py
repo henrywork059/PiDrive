@@ -7,11 +7,11 @@ from ...ui.layout_widgets import style_next_step_button
 
 class ExportValidationActionsPanel(QGroupBox):
     def __init__(self, browse_model_callback, validate_callback, clear_callback) -> None:
-        super().__init__('Export Validation Actions')
-        self.browse_button = QPushButton('Browse TFLite Model...')
+        super().__init__('TFLite Check')
+        self.browse_button = QPushButton('Browse TFLite...')
         self.browse_button.setProperty('role', 'amber')
-        self.run_button = QPushButton('Run Export Validation')
-        style_next_step_button(self.run_button, 'Run Export Validation')
+        self.run_button = QPushButton('Run Check')
+        style_next_step_button(self.run_button, 'Run Check')
         self.clear_button = QPushButton('Clear Results')
         self.clear_button.setProperty('role', 'secondary')
 

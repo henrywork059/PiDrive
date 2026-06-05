@@ -61,8 +61,8 @@ class PreprocessPage(DockPage):
                 '1 Auto',
                 make_scrollable_stack([
                     ('Source Summary', self.summary_panel, True),
-                    ('Quick Preprocess', self.actions_panel, True),
-                ], object_name='preprocessAutoWorkflowScrollArea', intro='Fast path: check the source summary, then run the green auto preprocess action.'),
+                    ('Actions', self.actions_panel, True),
+                ], object_name='preprocessAutoWorkflowScrollArea', intro='Check the source summary, then run Auto Preprocess.'),
                 'Recommended workflow for most preprocessing runs.',
             ),
             (
@@ -70,8 +70,8 @@ class PreprocessPage(DockPage):
                 make_scrollable_stack([
                     ('Source Filters', self.filter_panel, True),
                     ('Recipe + Image Size', self.config_panel, True),
-                ], object_name='preprocessSettingsWorkflowScrollArea', intro='Optional custom controls. The more advanced the setting, the deeper it is collapsed.'),
-                'Optional filters, balancing, augmentation, and image-size settings.',
+                ], object_name='preprocessSettingsWorkflowScrollArea', intro='Optional filters, balancing, augmentation, and image size.'),
+                'Optional filters and image settings.',
             ),
         ], object_name='preprocessWorkflowTabs')
 
@@ -93,9 +93,9 @@ class PreprocessPage(DockPage):
             next_step='Auto Preprocess',
             next_callback=lambda: self.reveal_widget(
                 self.actions_panel.apply_btn,
-                message='Focused the green Auto Preprocess Active Data button.'
+                message='Focused the green Auto Preprocess button.'
             ),
-            next_tooltip='Click to focus the green Auto Preprocess Active Data button in Preprocess Workflow > Auto.',
+            next_tooltip='Focus Auto Preprocess in Preprocess Workflow > 1 Auto.',
         )
 
     def _activate_preview_tab(self) -> None:

@@ -17,51 +17,51 @@ class PreprocessActionsPanel(QGroupBox):
         defaults_callback,
         auto_callback,
     ) -> None:
-        super().__init__('Quick Preprocess')
+        super().__init__('Actions')
 
         guide = QLabel(
-            'Most users can click Auto Preprocess after loading sessions. Recommended defaults add one horizontal flip copy for every active frame.'
+            'After loading sessions, click Auto Preprocess. Defaults add one horizontal flip copy per frame.'
         )
         guide.setWordWrap(True)
         guide.setProperty('role', 'hint')
 
-        self.auto_btn = QPushButton('Auto Preprocess Active Data')
-        style_next_step_button(self.auto_btn, 'Auto Preprocess Active Data')
-        self.auto_btn.setToolTip('Load recommended defaults, add horizontal flip copies, and immediately make the active training dataset.')
+        self.auto_btn = QPushButton('Auto Preprocess')
+        style_next_step_button(self.auto_btn, 'Auto Preprocess')
+        self.auto_btn.setToolTip('Load defaults, add horizontal flips, and make the active training dataset.')
         self.auto_btn.clicked.connect(auto_callback)
 
         # Keep the historical attribute used by the page banner, but point it to
         # the new one-click main action.
         self.apply_btn = self.auto_btn
 
-        default_btn = QPushButton('Use Recommended Defaults')
+        default_btn = QPushButton('Recommended Defaults')
         default_btn.setProperty('role', 'amber')
-        default_btn.setToolTip('Reset the recipe to safe defaults, including one horizontal flip copy per row, then preview the result before applying.')
+        default_btn.setToolTip('Reset to safe defaults and preview the result.')
         default_btn.clicked.connect(defaults_callback)
 
-        preview_btn = QPushButton('Preview Current Recipe')
+        preview_btn = QPushButton('Preview Recipe')
         preview_btn.setProperty('role', 'amber')
         preview_btn.setToolTip('Check row counts before applying custom settings.')
         preview_btn.clicked.connect(preview_callback)
 
-        self.confirm_btn = QPushButton('Confirm Current Recipe')
+        self.confirm_btn = QPushButton('Apply Recipe')
         self.confirm_btn.setProperty('role', 'primary')
-        self.confirm_btn.setToolTip('Apply the current Settings tab recipe to the active training dataset.')
+        self.confirm_btn.setToolTip('Apply the current recipe to the active training dataset.')
         self.confirm_btn.clicked.connect(apply_callback)
 
-        reset_btn = QPushButton('Reset Preprocess')
+        reset_btn = QPushButton('Reset')
         reset_btn.setProperty('role', 'secondary')
         reset_btn.clicked.connect(reset_callback)
 
-        save_settings_btn = QPushButton('Save Preprocess Settings')
+        save_settings_btn = QPushButton('Save Settings')
         save_settings_btn.setProperty('role', 'secondary')
         save_settings_btn.clicked.connect(save_settings_callback)
 
-        save_data_btn = QPushButton('Save Preprocessed Data')
+        save_data_btn = QPushButton('Save Data')
         save_data_btn.setProperty('role', 'secondary')
         save_data_btn.clicked.connect(save_data_callback)
 
-        sync_btn = QPushButton('Sync Image Size to Train Tab')
+        sync_btn = QPushButton('Sync Image Size')
         sync_btn.setProperty('role', 'amber')
         sync_btn.clicked.connect(sync_callback)
 
@@ -83,5 +83,5 @@ class PreprocessActionsPanel(QGroupBox):
         layout.addLayout(setup_row)
         layout.addWidget(self.auto_btn)
         layout.addWidget(self.confirm_btn)
-        layout.addWidget(CollapsibleSection('Save + maintenance', maintenance, expanded=False))
+        layout.addWidget(CollapsibleSection('Save + tools', maintenance, expanded=False))
         layout.addStretch(1)

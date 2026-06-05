@@ -32,7 +32,7 @@ class ExportValidationPage(DockPage):
         )
         self.plot_panel = ValidationPlotPanel()
         self.frame_review_panel = ValidationFrameReviewPanel(edit_in_data_callback=self.main_window.open_validation_frame_in_data_editor)
-        self.log_panel = LogPanel('Export Validation Log')
+        self.log_panel = LogPanel('TFLite Check Log')
 
         self.build_default_layout()
         self.restore_layout()
@@ -45,40 +45,40 @@ class ExportValidationPage(DockPage):
             (
                 '1 Run',
                 make_scrollable_stack([
-                    ('Export Validation Actions', self.actions_panel, True),
-                    ('Export Validation Config', self.config_panel, True),
-                ], object_name='exportValidationRunWorkflowScrollArea', intro='Choose the exported .tflite file and dataset, then run validation through a real TFLite interpreter.'),
+                    ('Check Actions', self.actions_panel, True),
+                    ('Check Settings', self.config_panel, True),
+                ], object_name='exportValidationRunWorkflowScrollArea', intro='Choose the exported .tflite file and dataset, then run the check.'),
             ),
             (
                 '2 Results',
                 make_scrollable_stack([
-                    ('Export Validation Summary', self.summary_panel, True),
-                ], object_name='exportValidationStatusWorkflowScrollArea', intro='Read TFLite prediction errors and output range here after export validation finishes.'),
+                    ('Check Summary', self.summary_panel, True),
+                ], object_name='exportValidationStatusWorkflowScrollArea', intro='Review TFLite errors and output ranges.'),
             ),
         ], object_name='exportValidationWorkflowTabs')
 
         result_tabs = make_workflow_tabs([
-            ('1 Plot', self.plot_panel, 'Exported TFLite prediction error plot.'),
+            ('1 Plot', self.plot_panel, 'TFLite prediction error plot.'),
             ('2 Log', self.log_panel, 'TFLite interpreter messages and errors.'),
         ], object_name='exportValidationResultTabs')
 
         workspace = self.make_horizontal_splitter([
-            self.make_panel_frame('workflow_controls', 'Export Validation Workflow', workflow_tabs),
-            self.make_panel_frame('results', 'Export Validation Plot / Log', result_tabs),
-            self.make_panel_frame('frame_review', 'Export Validation Frame Review', self.frame_review_panel),
+            self.make_panel_frame('workflow_controls', 'TFLite Check Workflow', workflow_tabs),
+            self.make_panel_frame('results', 'TFLite Plot / Log', result_tabs),
+            self.make_panel_frame('frame_review', 'TFLite Frame Review', self.frame_review_panel),
         ], object_name='main_workspace', **splitter_args('validation_three_panel_workspace'))
 
         self.set_workspace_widget(
             workspace,
             step='6 of 6',
-            title='Export Validation',
-            summary='Validate the exported TFLite file itself, so trainer-side results can be compared with the model loaded on the car.',
-            next_step='Run Export Validation',
+            title='TFLite Check',
+            summary='Check the exported TFLite model against trainer data before copying it to the car.',
+            next_step='Run Check',
             next_callback=lambda: self.reveal_widget(
                 self.actions_panel.run_button,
-                message='Focused the green Run Export Validation button.'
+                message='Focused the green Run Check button.'
             ),
-            next_tooltip='Click to focus the green Run Export Validation button in Export Validation Workflow > Run > Export Validation Actions.',
+            next_tooltip='Focus Run Check in TFLite Check Workflow > 1 Run.',
         )
 
     def refresh_from_state(self) -> None:
@@ -95,7 +95,7 @@ class ExportValidationPage(DockPage):
             self.plot_panel.set_result(self.last_result)
             self.frame_review_panel.set_result(self.last_result)
         else:
-            self.summary_panel.set_result_text('No export validation run yet. Choose the exported .tflite file and click Run Export Validation.')
+            self.summary_panel.set_result_text('No TFLite check yet. Choose a .tflite file and click Run Check.')
             self.plot_panel.set_result(None)
             self.frame_review_panel.set_result(None)
 
@@ -118,7 +118,7 @@ class ExportValidationPage(DockPage):
     def validate_export(self) -> None:
         dataset_df = self._selected_dataset()
         if dataset_df.empty:
-            message = 'No rows available for the selected export-validation dataset.'
+            message = 'No rows available for the selected check dataset.'
             self.log_panel.append_line(message)
             self.main_window.set_status_message(message)
             return
@@ -132,7 +132,7 @@ class ExportValidationPage(DockPage):
             return
 
         self.log_panel.append_line(
-            f'Running exported TFLite validation on {len(dataset_df)} row(s) using {tflite_path}...'
+            f'Running TFLite check on {len(dataset_df)} row(s): {tflite_path}...'
         )
         try:
             result = run_tflite_validation(
@@ -143,9 +143,9 @@ class ExportValidationPage(DockPage):
                 max_rows=self.config_panel.max_rows(),
             )
         except Exception as exc:
-            message = f'Export validation failed: {exc}'
+            message = f'TFLite check failed: {exc}'
             self.log_panel.append_line(message)
-            self.main_window.set_status_message('Export validation failed.')
+            self.main_window.set_status_message('TFLite check failed.')
             return
 
         self.last_result = result
@@ -153,7 +153,7 @@ class ExportValidationPage(DockPage):
         self.plot_panel.set_result(result)
         self.frame_review_panel.set_result(result)
         self.log_panel.append_line(
-            'Export validation complete: '
+            'TFLite check complete: '
             f"rows={result['rows_used']}, steering_mae={result['steering_mae']:.4f}, speed_mae={result['throttle_mae']:.4f}"
         )
         ranges = result.get('prediction_ranges', {}) if isinstance(result.get('prediction_ranges', {}), dict) else {}
@@ -167,13 +167,13 @@ class ExportValidationPage(DockPage):
             )
         for note in result.get('backend_notes', [])[:6]:
             self.log_panel.append_line(f'  Note: {note}')
-        self.main_window.set_status_message('Export validation complete.')
+        self.main_window.set_status_message('TFLite check complete.')
         self.refresh_from_state()
 
     def clear_results(self) -> None:
         self.last_result = None
         self.plot_panel.set_result(None)
         self.frame_review_panel.set_result(None)
-        self.summary_panel.set_result_text('Export validation results cleared.')
+        self.summary_panel.set_result_text('TFLite check results cleared.')
         self.log_panel.clear()
-        self.main_window.set_status_message('Export validation results cleared.')
+        self.main_window.set_status_message('TFLite check results cleared.')

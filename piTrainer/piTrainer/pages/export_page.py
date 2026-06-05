@@ -57,9 +57,9 @@ class ExportPage(DockPage):
             next_step='Export Artifacts',
             next_callback=lambda: self.reveal_widget(
                 self.actions_panel.export_btn,
-                message='Focused the green Export Selected Artifacts button.'
+                message='Focused the green Export button.'
             ),
-            next_tooltip='Click to focus the green Export Selected Artifacts button in Export Workflow > 1 Export > Export Actions.',
+            next_tooltip='Focus Export in Export Workflow > 1 Export.',
         )
 
     def set_output_dir(self, folder: str) -> None:
@@ -108,6 +108,6 @@ class ExportPage(DockPage):
             export_validation_page = getattr(self.main_window, 'export_validation_page', None)
             if export_validation_page is not None:
                 export_validation_page.set_exported_tflite_path(latest_tflite_path)
-            self.log_panel.append_line(f'Linked exported TFLite model to Export Validation: {latest_tflite_path}')
+            self.log_panel.append_line(f'Linked exported TFLite model to TFLite Check: {latest_tflite_path}')
         self.log_panel.append_line('Export finished. TensorFlow converter details are summarised above; non-fatal internal converter chatter is suppressed.')
-        self.main_window.set_status_message('Export finished. Next: open 6 Export Validation.')
+        self.main_window.set_status_message('Export finished. Next: 6 TFLite Check.')

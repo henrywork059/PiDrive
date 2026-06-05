@@ -16,13 +16,13 @@ MAX_PLAYBACK_FPS = 250.0
 
 class PlaybackControlPanel(QGroupBox):
     def __init__(self, play_callback, stop_callback, restart_callback, speed_change_callback) -> None:
-        super().__init__('Playback Control')
+        super().__init__('Playback')
         self.play_callback = play_callback
         self.stop_callback = stop_callback
         self.restart_callback = restart_callback
         self.speed_change_callback = speed_change_callback
 
-        help_label = QLabel('Playback controls for the filtered frame list displayed in Data Review.')
+        help_label = QLabel('Play the visible frame list.')
         help_label.setProperty('role', 'muted')
         help_label.setWordWrap(True)
 
@@ -46,7 +46,7 @@ class PlaybackControlPanel(QGroupBox):
         controls_row.addWidget(self.stop_btn)
         controls_row.addWidget(self.restart_btn)
 
-        speed_label = QLabel('Speed (frames/sec)')
+        speed_label = QLabel('FPS')
         self.speed_spin = QDoubleSpinBox()
         self.speed_spin.setRange(0.5, MAX_PLAYBACK_FPS)
         self.speed_spin.setSingleStep(1.0)

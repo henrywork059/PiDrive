@@ -21,11 +21,11 @@ from ...ui.layout_widgets import CollapsibleSection, standardize_form_layout
 
 class ExportValidationConfigPanel(QGroupBox):
     def __init__(self, state: AppState) -> None:
-        super().__init__('Export Validation Config')
+        super().__init__('Check Settings')
         self.state = state
 
         self.tflite_path_edit = QLineEdit()
-        self.tflite_path_edit.setPlaceholderText('Browse to the exported .tflite model that will be copied to the car')
+        self.tflite_path_edit.setPlaceholderText('Exported .tflite model path')
 
         self.dataset_source_combo = QComboBox()
         self.dataset_source_combo.addItems(['Validation split', 'Current filtered rows', 'Training split'])
@@ -33,14 +33,14 @@ class ExportValidationConfigPanel(QGroupBox):
         self.batch_spin = QSpinBox()
         self.batch_spin.setRange(1, 512)
         self.batch_spin.setValue(max(1, int(getattr(self.state.train_config, 'batch_size', 32))))
-        self.batch_spin.setToolTip('Used when the TFLite interpreter supports dynamic batches. Fixed batch-1 models are validated safely one frame at a time.')
+        self.batch_spin.setToolTip('Used when the interpreter supports dynamic batches; fixed-batch models run one frame at a time.')
 
         self.max_rows_spin = QSpinBox()
         self.max_rows_spin.setRange(0, 1000000)
         self.max_rows_spin.setSpecialValueText('All rows')
         self.max_rows_spin.setValue(0)
 
-        helper = QPushButton('Use last/newest TFLite export')
+        helper = QPushButton('Use Latest Export')
         helper.clicked.connect(self.fill_from_export_dir)
 
         helper_widget = QWidget()
@@ -50,18 +50,18 @@ class ExportValidationConfigPanel(QGroupBox):
         helper_row.addStretch(1)
 
         model_widget, model_form = self._section_form()
-        model_form.addRow('TFLite Model', self.tflite_path_edit)
+        model_form.addRow('TFLite model', self.tflite_path_edit)
         model_form.addRow(helper_widget)
 
         dataset_widget, dataset_form = self._section_form()
-        dataset_form.addRow('Dataset Source', self.dataset_source_combo)
-        dataset_form.addRow('Batch Size', self.batch_spin)
-        dataset_form.addRow('Max Rows', self.max_rows_spin)
+        dataset_form.addRow('Dataset', self.dataset_source_combo)
+        dataset_form.addRow('Batch size', self.batch_spin)
+        dataset_form.addRow('Max rows', self.max_rows_spin)
 
         layout = QVBoxLayout(self)
         layout.setSpacing(8)
-        layout.addWidget(CollapsibleSection('TFLite Model Source', model_widget, expanded=True))
-        layout.addWidget(CollapsibleSection('Dataset + Run Limits', dataset_widget, expanded=True))
+        layout.addWidget(CollapsibleSection('TFLite model', model_widget, expanded=True))
+        layout.addWidget(CollapsibleSection('Dataset + limits', dataset_widget, expanded=True))
         layout.addStretch(1)
 
         if getattr(self.state, 'last_exported_tflite_path', ''):

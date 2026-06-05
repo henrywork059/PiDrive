@@ -48,13 +48,13 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.train_page, '3 Train')
         self.tabs.addTab(self.validation_page, '4 Validate')
         self.tabs.addTab(self.export_page, '5 Export')
-        self.tabs.addTab(self.export_validation_page, '6 Export Validation')
-        self.tabs.setTabToolTip(0, 'Load PiSD/piTrainer sessions and review frames with overlays.')
-        self.tabs.setTabToolTip(1, 'Filter, balance, resize, and preview the active dataset.')
-        self.tabs.setTabToolTip(2, 'Prepare the split, configure training, and review training progress.')
-        self.tabs.setTabToolTip(3, 'Validate a trained or saved model and inspect best/worst frames.')
-        self.tabs.setTabToolTip(4, 'Export the trained model and deployment artifacts.')
-        self.tabs.setTabToolTip(5, 'Validate the exported TFLite file with the same dataset review format.')
+        self.tabs.addTab(self.export_validation_page, '6 TFLite Check')
+        self.tabs.setTabToolTip(0, 'Load sessions, review frames, and manage labels.')
+        self.tabs.setTabToolTip(1, 'Filter, balance, resize, and preview data.')
+        self.tabs.setTabToolTip(2, 'Split data, train, and review progress.')
+        self.tabs.setTabToolTip(3, 'Validate a model and inspect errors.')
+        self.tabs.setTabToolTip(4, 'Export model files for deployment.')
+        self.tabs.setTabToolTip(5, 'Check the exported TFLite model.')
 
         self.setCentralWidget(self.tabs)
 
@@ -66,7 +66,7 @@ class MainWindow(QMainWindow):
         self.status.addPermanentWidget(self.version_label)
         self.setStatusBar(self.status)
         self.set_status_message(
-            f'Ready — {STATUS_VERSION_TEXT}. Follow the green action buttons from 1 Data through 6 Export Validation. Drag splitter handles to adjust panel proportions.'
+            f'Ready — {STATUS_VERSION_TEXT}. Follow the green buttons from 1 Data to 6 TFLite Check. Drag splitters to resize panels.'
         )
         self._apply_responsive_density()
 
@@ -136,18 +136,18 @@ class MainWindow(QMainWindow):
 
     def show_shortcuts(self) -> None:
         lines = [
-            'Ctrl+1 / Ctrl+2 / Ctrl+3 / Ctrl+4 / Ctrl+5 / Ctrl+6 -> Switch to 1 Data / 2 Preprocess / 3 Train / 4 Validate / 5 Export / 6 Export Validation',
-            'Ctrl+Tab / Ctrl+Shift+Tab -> Next / Previous page',
+            'Ctrl+1..Ctrl+6 -> Switch pages: Data, Preprocess, Train, Validate, Export, TFLite Check',
+            'Ctrl+Tab / Ctrl+Shift+Tab -> Next / previous page',
             'F5 -> Refresh sessions',
             'Ctrl+L -> Load selected sessions',
             'Ctrl+A -> Select all sessions',
             'Ctrl+Shift+A -> Clear selected sessions',
-            'Delete -> Hide selected frame row(s) from training after the Data Control checkbox is ticked',
+            'Delete -> Hide selected frames after Confirm hide actions is ticked',
             'Ctrl+P -> Prepare split',
             'Ctrl+R -> Start training',
             'Esc -> Stop training',
             'Ctrl+E -> Export model',
-            'Ctrl+Shift+E -> Run Export Validation on selected TFLite model',
+            'Ctrl+Shift+E -> Run TFLite Check',
             'Ctrl+Shift+R -> Reset current page layout',
             'F1 -> Open this shortcut list',
         ]
@@ -205,7 +205,7 @@ class MainWindow(QMainWindow):
         self.export_page.refresh_from_state()
         self.export_validation_page.refresh_from_state()
         self.set_status_message(
-            f'Loaded {len(self.state.filtered_df)} usable records from {len(self.state.selected_sessions)} session(s). Next: open 2 Preprocess or 3 Train.'
+            f'Loaded {len(self.state.filtered_df)} usable records from {len(self.state.selected_sessions)} session(s). Next: 2 Preprocess or 3 Train.'
         )
 
     def on_training_finished(self) -> None:
