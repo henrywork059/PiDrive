@@ -189,6 +189,7 @@ class PreviewPanel(QGroupBox):
         self.model.layoutAboutToBeChanged.connect(self._capture_selection_before_sort)
         self.model.layoutChanged.connect(self._restore_selection_after_sort)
         self.table = CyclingPreviewTable(self)
+        self.table.setObjectName('recordPreviewTable')
         self.table.setModel(self.model)
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.ExtendedSelection)
@@ -483,7 +484,7 @@ class PreviewPanel(QGroupBox):
         return self._select_view_row(target_row, ensure_row_visible=True)
 
     def set_playback_fps(self, fps: float) -> None:
-        safe_fps = max(0.5, float(fps))
+        safe_fps = min(250.0, max(0.5, float(fps)))
         interval_ms = max(1, int(round(1000.0 / safe_fps)))
         self.autoplay_timer.setInterval(interval_ms)
         self._emit_playback_state()

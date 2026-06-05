@@ -208,7 +208,7 @@ def build_stylesheet(density: str = "comfortable") -> str:
         background: @COLOR_WARNING_ACTIVE@;
         color: @COLOR_TEXT_ON_WARNING@;
     }
-    QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox, QListWidget, QTextEdit, QPlainTextEdit, QTableWidget {
+    QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox, QListWidget, QTextEdit, QPlainTextEdit, QTableWidget, QTableView {
         min-height: @INPUT_MIN@px;
         background: @COLOR_BG_INPUT@;
         color: @COLOR_TEXT_SECONDARY@;
@@ -217,7 +217,7 @@ def build_stylesheet(density: str = "comfortable") -> str:
         selection-background-color: @COLOR_SELECTION@;
         selection-color: @COLOR_TEXT_ON_DARK@;
     }
-    QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus, QTextEdit:focus, QPlainTextEdit:focus, QTableWidget:focus, QListWidget:focus {
+    QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus, QTextEdit:focus, QPlainTextEdit:focus, QTableWidget:focus, QTableView:focus, QListWidget:focus {
         border: 1px solid @COLOR_INFO@;
     }
     QPlainTextEdit {
@@ -225,18 +225,32 @@ def build_stylesheet(density: str = "comfortable") -> str:
         font-family: Consolas, 'Cascadia Mono', monospace;
         border-radius: 9px;
     }
-    QTableWidget {
+    QTableWidget, QTableView {
         gridline-color: @COLOR_BORDER_SUBTLE@;
         alternate-background-color: @COLOR_TABLE_ALT@;
         background: @COLOR_BG_INPUT@;
         border-radius: 9px;
     }
-    QTableWidget::item {
+    QTableWidget::item, QTableView::item {
         padding: 5px;
     }
-    QTableWidget::item:selected, QListWidget::item:selected {
+    QTableWidget::item:selected, QTableView::item:selected, QListWidget::item:selected {
         background: @COLOR_SELECTION@;
         color: @COLOR_TEXT_ON_DARK@;
+    }
+    QTableView#recordPreviewTable {
+        alternate-background-color: @COLOR_BG_PANEL_LIFT@;
+        selection-background-color: @COLOR_WARNING@;
+        selection-color: @COLOR_TEXT_ON_WARNING@;
+    }
+    QTableView#recordPreviewTable::item {
+        border-bottom: 1px solid @COLOR_BORDER_SUBTLE@;
+    }
+    QTableView#recordPreviewTable::item:selected {
+        background: @COLOR_WARNING@;
+        color: @COLOR_TEXT_ON_WARNING@;
+        border: 1px solid @COLOR_WARNING_BORDER@;
+        font-weight: 900;
     }
     #sessionListWidget {
         padding: 7px;

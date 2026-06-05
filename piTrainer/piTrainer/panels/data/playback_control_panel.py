@@ -11,6 +11,9 @@ from PySide6.QtWidgets import (
 )
 
 
+MAX_PLAYBACK_FPS = 250.0
+
+
 class PlaybackControlPanel(QGroupBox):
     def __init__(self, play_callback, stop_callback, restart_callback, speed_change_callback) -> None:
         super().__init__('Playback Control')
@@ -45,7 +48,7 @@ class PlaybackControlPanel(QGroupBox):
 
         speed_label = QLabel('Speed (frames/sec)')
         self.speed_spin = QDoubleSpinBox()
-        self.speed_spin.setRange(0.5, 100.0)
+        self.speed_spin.setRange(0.5, MAX_PLAYBACK_FPS)
         self.speed_spin.setSingleStep(1.0)
         self.speed_spin.setDecimals(1)
         self.speed_spin.setValue(4.0)

@@ -91,6 +91,9 @@ class TrainPage(DockPage):
             next_tooltip='Click to focus the green Start Training button in Training Workflow > Setup > Training Controls.',
         )
 
+    def set_model_save_dir(self, folder: str) -> None:
+        self.control_panel.set_model_save_dir(folder)
+
     def refresh_from_state(self) -> None:
         self.split_summary_panel.set_counts(
             total_rows=len(self.state.filtered_df),

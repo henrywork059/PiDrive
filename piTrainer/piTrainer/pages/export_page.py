@@ -62,6 +62,9 @@ class ExportPage(DockPage):
             next_tooltip='Click to focus the green Export Selected Artifacts button in Export Workflow > 1 Export > Export Actions.',
         )
 
+    def set_output_dir(self, folder: str) -> None:
+        self.options_panel.set_output_dir(folder)
+
     def refresh_from_state(self) -> None:
         model_ready = self.state.model is not None
         history_len = len(self.state.history.get('loss', [])) if self.state.history else 0

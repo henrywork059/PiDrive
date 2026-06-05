@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import QApplication, QLabel, QMainWindow, QMessageBox, QStatusBar, QTabWidget
@@ -11,6 +13,7 @@ from .pages.export_validation_page import ExportValidationPage
 from .pages.preprocess_page import PreprocessPage
 from .pages.train_page import TrainPage
 from .pages.validation_page import ValidationPage
+from .services.data.session_service import resolve_session_dir
 from .ui.formatting import apply_standard_widget_format, density_for_width
 from .ui.styles import build_stylesheet
 from .version import APP_WORKFLOW_TITLE, STATUS_VERSION_TEXT
@@ -150,6 +153,48 @@ class MainWindow(QMainWindow):
 
     def set_status_message(self, message: str) -> None:
         self.status.showMessage(message, 5000)
+
+    def _loaded_session_working_dir(self) -> Path | None:
+        """Return the save/output folder that should follow the loaded data.
+
+        For the normal single-session workflow, preprocessing outputs, saved
+        trained models, and exported artifacts should all write back into the
+        loaded session folder. If the user intentionally loads multiple sessions,
+        there is no single session folder, so use the selected records root as a
+        safe common working folder instead of silently choosing one session.
+        """
+
+        selected = [str(session).strip() for session in self.state.selected_sessions if str(session).strip()]
+        if len(selected) == 1:
+            return resolve_session_dir(self.state.records_root_path, selected[0])
+        if selected:
+            return self.state.records_root_path
+        return None
+
+    def sync_working_folder_from_loaded_sessions(self) -> None:
+        working_dir = self._loaded_session_working_dir()
+        if working_dir is None:
+            return
+        working_dir = working_dir.expanduser().resolve()
+        working_dir_text = str(working_dir)
+
+        # state.out_dir_path is derived from export_config.out_dir, so updating
+        # this one value keeps preprocess save/settings and export save paths in
+        # the same loaded-session working folder.
+        self.state.export_config.out_dir = working_dir_text
+        self.state.trained_model_out_dir = working_dir_text
+
+        preprocess_page = getattr(self, 'preprocess_page', None)
+        if preprocess_page is not None and hasattr(preprocess_page, 'on_working_folder_changed'):
+            preprocess_page.on_working_folder_changed(working_dir)
+
+        train_page = getattr(self, 'train_page', None)
+        if train_page is not None and hasattr(train_page, 'set_model_save_dir'):
+            train_page.set_model_save_dir(working_dir_text)
+
+        export_page = getattr(self, 'export_page', None)
+        if export_page is not None and hasattr(export_page, 'set_output_dir'):
+            export_page.set_output_dir(working_dir_text)
 
     def on_dataset_loaded(self) -> None:
         self.preprocess_page.refresh_from_state()

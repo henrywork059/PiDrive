@@ -58,6 +58,11 @@ class ExportOptionsPanel(QGroupBox):
         if folder:
             self.out_dir.setText(folder)
 
+    def set_output_dir(self, folder: str) -> None:
+        cleaned = str(folder or '').strip()
+        self.out_dir.setText(cleaned)
+        self.state.export_config.out_dir = cleaned
+
     def push_to_state(self) -> None:
         cfg = self.state.export_config
         cfg.out_dir = self.out_dir.text().strip()

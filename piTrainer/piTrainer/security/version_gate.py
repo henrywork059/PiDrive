@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 import urllib.error
 import urllib.request
@@ -142,6 +143,31 @@ def _load_fresh_cache(cache_hours: float, app_version: str) -> dict[str, Any] | 
     return manifest if isinstance(manifest, dict) else None
 
 
+def _version_parts(value: str) -> tuple[int, ...] | None:
+    parts = [part for part in re.split(r'[^0-9]+', str(value or '')) if part != '']
+    if not parts:
+        return None
+    try:
+        return tuple(int(part) for part in parts)
+    except ValueError:
+        return None
+
+
+def _compare_versions(left: str, right: str) -> int | None:
+    left_parts = _version_parts(left)
+    right_parts = _version_parts(right)
+    if left_parts is None or right_parts is None:
+        return None
+    width = max(len(left_parts), len(right_parts))
+    left_parts = left_parts + (0,) * (width - len(left_parts))
+    right_parts = right_parts + (0,) * (width - len(right_parts))
+    if left_parts < right_parts:
+        return -1
+    if left_parts > right_parts:
+        return 1
+    return 0
+
+
 def _as_str_list(value: Any) -> list[str]:
     if value is None:
         return []
@@ -176,6 +202,8 @@ def _evaluate_manifest(manifest: dict[str, Any], app_version: str, source: str) 
 
     blocked_versions = set(_as_str_list(manifest.get("blocked_versions")))
     allowed_versions = set(_as_str_list(manifest.get("allowed_versions")))
+    minimum_version = str(manifest.get("minimum_version") or "").strip()
+    minimum_compare = _compare_versions(app_version, minimum_version) if minimum_version else None
 
     if app_version in blocked_versions:
         return VersionGateResult(
@@ -189,7 +217,24 @@ def _evaluate_manifest(manifest: dict[str, Any], app_version: str, source: str) 
             source=source,
         )
 
-    if allowed_versions and app_version not in allowed_versions:
+    if minimum_version and minimum_compare is not None and minimum_compare < 0:
+        return VersionGateResult(
+            allowed=False,
+            title="PiTrainer version too old",
+            message=_message_from_manifest(
+                manifest,
+                "This PiTrainer version is older than the minimum enabled version.",
+            ),
+            detail=f"Current version {app_version} is older than minimum_version {minimum_version}.",
+            source=source,
+        )
+
+    # If the manifest provides minimum_version, treat v9+ patch builds as valid
+    # even when the older allowed_versions list still contains only the stable
+    # baseline. This keeps future 0.9.x bug-fix patches from being blocked while
+    # still blocking lower versions.
+    minimum_allows_current = bool(minimum_version and minimum_compare is not None and minimum_compare >= 0)
+    if allowed_versions and app_version not in allowed_versions and not minimum_allows_current:
         return VersionGateResult(
             allowed=False,
             title="PiTrainer version not allowed",

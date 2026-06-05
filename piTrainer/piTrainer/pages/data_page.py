@@ -258,6 +258,10 @@ class DataPage(DockPage):
         self.state.history = {}
         self.current_preview_source_df = self._review_dataframe(filtered)
 
+        sync_working_folder = getattr(self.main_window, 'sync_working_folder_from_loaded_sessions', None)
+        if callable(sync_working_folder):
+            sync_working_folder()
+
         stats = calculate_basic_stats(filtered)
         self.stats_panel.set_stats(stats)
         self.apply_preview_filter()
