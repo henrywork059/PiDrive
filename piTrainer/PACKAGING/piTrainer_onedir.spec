@@ -129,33 +129,12 @@ hiddenimports += safe_collect_submodules("keras.src.metrics")
 hiddenimports += safe_collect_submodules("keras.src.trainers.data_adapters")
 hiddenimports += safe_collect_submodules("keras.src.trainers")
 
-# These are not used by piTrainer and are common causes of extra size.
-excludes = [
-    "tkinter",
-    "tcl",
-    "tk",
-    "doctest",
-    "pdb",
-    "pytest",
-    "IPython",
-    "jupyter",
-    "notebook",
-    "sphinx",
-    "seaborn",
-    "torch",
-    "torchvision",
-    "torchaudio",
-    "cv2",
-    "sklearn",
-    "scipy.tests",
-    "numpy.tests",
-    "pandas.tests",
-    "matplotlib.tests",
-    "tensorflow.examples",
-    "tensorflow_estimator",
-    "keras.src.backend.torch",
-    "keras.src.backend.jax",
-]
+# Reliability-first build: do not exclude standard-library, TensorFlow, Keras,
+# Matplotlib, or other dependency modules just to reduce size. TensorFlow/Keras
+# use dynamic imports during training, so aggressive excludes can let the app
+# start but fail later when Start Training is pressed. Keep this list empty and
+# let PyInstaller/package hooks include what the current environment needs.
+excludes = []
 
 runtime_hooks = []
 train_runtime_hook = ROOT / "PACKAGING" / "rthook_pitrainer_training_env.py"

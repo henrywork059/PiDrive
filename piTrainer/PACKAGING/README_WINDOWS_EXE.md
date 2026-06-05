@@ -1,5 +1,17 @@
 # piTrainer Windows EXE packaging
 
+## Packaging strategy
+
+Use the reliability-first one-folder build. Do not try to shrink the package by excluding Python standard-library modules, TensorFlow/Keras internals, or Matplotlib internals. TensorFlow and Keras are the large part of this app, and Keras imports several training modules dynamically only when training starts. A smaller EXE folder is not useful if the app opens but fails at Start Training.
+
+Expected result:
+
+- The app folder may be large.
+- `PiTrainer.exe` stays small because runtime files are beside it in `_internal`.
+- Startup is faster and more reliable than `--onefile`.
+- Training should use the same installed environment dependencies that PyInstaller can collect.
+
+
 This packaging setup is designed for:
 
 - easy loading: one-folder app, no one-file extraction delay;
@@ -52,14 +64,14 @@ Then unzip it and run `PiTrainer.exe`.
 
 One-folder mode starts faster and keeps the main EXE small, even though the whole app folder still contains large runtime libraries.
 
-## Smaller build tips
+## Size expectation and safe build tips
 
-The provided spec already excludes common unused packages such as Jupyter, pytest, tkinter, torch, OpenCV and test packages.
+Do not reduce size by excluding standard-library modules or TensorFlow/Keras training modules. Previous aggressive exclusions made the EXE open but fail during startup or training. TensorFlow/Keras are the large part of this project, so a very small build is not realistic while keeping training/export features.
 
-To keep the build smaller:
+Safe tips:
 
-1. Build from a clean venv used only for piTrainer.
-2. Do not install unrelated packages in that venv.
+1. Build from the current piTrainer venv that already runs `python main.py`.
+2. Avoid installing unrelated packages in that venv before packaging.
 3. Use the provided one-folder spec, not `--onefile`.
 4. Zip the output folder for transfer.
 5. Do not enable UPX for this project; TensorFlow/PySide DLLs are safer uncompressed.
