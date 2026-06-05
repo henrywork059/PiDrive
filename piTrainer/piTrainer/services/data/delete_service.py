@@ -4,9 +4,9 @@ import json
 from pathlib import Path
 from typing import Any, Iterable
 
-from .record_loader_service import IMAGE_KEYS
+from .record_loader_service import IMAGE_KEYS, _resolve_image_path
 from .session_service import resolve_session_dir
-from .visibility_service import is_record_hidden, mark_record_hidden, utc_timestamp
+from .visibility_service import hidden_timestamp, is_record_hidden, mark_record_hidden, unmark_record_hidden, utc_timestamp
 
 TS_KEYS = ['ts', 'timestamp', 'timestamp_utc', 'saved_at_utc']
 ID_KEYS = ['frame_id', 'id', 'source_frame_seq']
@@ -134,6 +134,302 @@ def _hide_in_jsonl(path: Path, targets: list[dict[str, str]], *, hidden_at_utc: 
             handle.writelines(output_lines)
     return changed_rows, matched_targets
 
+
+
+def _first_sorted_text(values: Iterable[Any]) -> str:
+    texts = sorted({str(value or '').strip() for value in values if str(value or '').strip()})
+    return texts[0] if texts else ''
+
+
+def _target_from_jsonl_record(session_name: str, record: dict[str, Any]) -> dict[str, str]:
+    return {
+        'session': str(session_name or ''),
+        'frame_id': _first_sorted_text(_record_ids(record)),
+        'image_name': _first_sorted_text(_record_image_names(record)),
+        'ts': _first_sorted_text(_record_timestamps(record)),
+    }
+
+
+def _selected_session_names(sessions: Iterable[str]) -> list[str]:
+    names: list[str] = []
+    seen: set[str] = set()
+    for session in sessions:
+        name = str(session or '').strip()
+        if name and name not in seen:
+            names.append(name)
+            seen.add(name)
+    return names
+
+
+def _jsonl_records(path: Path):
+    if not path.exists():
+        return
+    with path.open('r', encoding='utf-8') as handle:
+        for line_no, raw_line in enumerate(handle, start=1):
+            line = raw_line.strip()
+            if not line:
+                yield line_no, raw_line, None
+                continue
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                yield line_no, raw_line, None
+                continue
+            yield line_no, raw_line, record if isinstance(record, dict) else None
+
+
+def _hidden_refs(records_root: Path, sessions: Iterable[str]) -> list[dict[str, Any]]:
+    refs: list[dict[str, Any]] = []
+    order = 0
+    for session_name in _selected_session_names(sessions):
+        session_dir = resolve_session_dir(records_root, session_name)
+        for filename in ('labels.jsonl', 'records.jsonl'):
+            path = session_dir / filename
+            for line_no, _raw_line, record in _jsonl_records(path) or []:
+                if not record or not is_record_hidden(record):
+                    continue
+                target = _target_from_jsonl_record(session_name, record)
+                refs.append({
+                    'session': session_name,
+                    'session_dir': session_dir,
+                    'path': path,
+                    'filename': filename,
+                    'line_no': line_no,
+                    'key': _target_key(target),
+                    'target': target,
+                    'hidden_at_utc': hidden_timestamp(record),
+                    'order': order,
+                })
+                order += 1
+    return refs
+
+
+def _recover_target_keys(refs: list[dict[str, Any]], *, recover_all: bool, count: int) -> set[tuple[str, str, str, str]]:
+    if recover_all:
+        return {tuple(ref['key']) for ref in refs}
+    unique: dict[tuple[str, str, str, str], dict[str, Any]] = {}
+    for ref in refs:
+        key = tuple(ref['key'])
+        previous = unique.get(key)
+        if previous is None:
+            unique[key] = ref
+            continue
+        previous_sort = (str(previous.get('hidden_at_utc', '')), int(previous.get('order', 0)))
+        current_sort = (str(ref.get('hidden_at_utc', '')), int(ref.get('order', 0)))
+        if current_sort > previous_sort:
+            unique[key] = ref
+    ordered = sorted(
+        unique.values(),
+        key=lambda ref: (str(ref.get('hidden_at_utc', '')), int(ref.get('order', 0))),
+        reverse=True,
+    )
+    limit = max(1, int(count or 1))
+    return {tuple(ref['key']) for ref in ordered[:limit]}
+
+
+def recover_hidden_frames(records_root: Path, sessions: Iterable[str], *, recover_all: bool = False, count: int = 1) -> dict[str, Any]:
+    """Unhide previously hidden frame rows in the selected sessions.
+
+    Recovering removes piTrainer's soft-delete flags from matching JSONL rows.
+    Image files are not modified. The loader will include the rows again after
+    the Data page reloads the selected sessions.
+    """
+    session_names = _selected_session_names(sessions)
+    if not session_names:
+        return {
+            'requested_sessions': 0,
+            'recovered_count': 0,
+            'metadata_rows_changed': 0,
+            'files_changed': [],
+            'failed_messages': ['No loaded/selected sessions are available to recover.'],
+        }
+
+    refs = _hidden_refs(records_root, session_names)
+    if not refs:
+        return {
+            'requested_sessions': len(session_names),
+            'recovered_count': 0,
+            'metadata_rows_changed': 0,
+            'files_changed': [],
+            'failed_messages': ['No hidden frames were found in the loaded/selected session(s).'],
+        }
+
+    target_keys = _recover_target_keys(refs, recover_all=recover_all, count=count)
+    changed_keys: set[tuple[str, str, str, str]] = set()
+    metadata_rows_changed = 0
+    files_changed: list[str] = []
+
+    paths_by_session_file: dict[tuple[str, Path], Path] = {}
+    for ref in refs:
+        paths_by_session_file[(str(ref['session']), Path(ref['path']))] = Path(ref['session_dir'])
+
+    for (session_name, path), _session_dir in paths_by_session_file.items():
+        output_lines: list[str] = []
+        changed_rows = 0
+        for _line_no, raw_line, record in _jsonl_records(path) or []:
+            if record and is_record_hidden(record):
+                target = _target_from_jsonl_record(session_name, record)
+                key = _target_key(target)
+                if key in target_keys:
+                    unmark_record_hidden(record)
+                    output_lines.append(json.dumps(record, ensure_ascii=False, sort_keys=True) + '\n')
+                    changed_rows += 1
+                    changed_keys.add(key)
+                    continue
+            output_lines.append(_with_newline(raw_line))
+        if changed_rows:
+            with path.open('w', encoding='utf-8') as handle:
+                handle.writelines(output_lines)
+            metadata_rows_changed += changed_rows
+            files_changed.append(f'{session_name}/{path.name}')
+
+    failed_messages: list[str] = []
+    if not changed_keys:
+        failed_messages.append('Hidden frame rows were found, but none could be recovered.')
+
+    return {
+        'requested_sessions': len(session_names),
+        'recovered_count': len(changed_keys),
+        'metadata_rows_changed': metadata_rows_changed,
+        'files_changed': files_changed,
+        'failed_messages': failed_messages,
+    }
+
+
+def _safe_delete_candidate(path: Path, *, session_dir: Path, records_root: Path) -> bool:
+    try:
+        resolved = Path(path).expanduser().resolve()
+        session_root = Path(session_dir).expanduser().resolve()
+        records_root_resolved = Path(records_root).expanduser().resolve()
+    except Exception:
+        return False
+    try:
+        return resolved.is_file() and (resolved.is_relative_to(session_root) or resolved.is_relative_to(records_root_resolved))
+    except AttributeError:
+        text = str(resolved)
+        return resolved.is_file() and (text.startswith(str(session_root)) or text.startswith(str(records_root_resolved)))
+
+
+def _record_image_path(session_dir: Path, record: dict[str, Any]) -> Path | None:
+    try:
+        image_path = _resolve_image_path(session_dir, record)
+    except Exception:
+        image_path = None
+    return image_path if image_path and image_path.exists() else None
+
+
+def purge_hidden_frames(records_root: Path, sessions: Iterable[str]) -> dict[str, Any]:
+    """Permanently remove hidden JSONL rows and their unreferenced image files.
+
+    This is intentionally not exposed as a normal button. It is for the hidden
+    cleanup shortcut after frames were already soft-hidden and reviewed.
+    """
+    session_names = _selected_session_names(sessions)
+    if not session_names:
+        return {
+            'requested_sessions': 0,
+            'purged_count': 0,
+            'metadata_rows_removed': 0,
+            'image_files_deleted': 0,
+            'files_changed': [],
+            'deleted_files': [],
+            'skipped_files': [],
+            'failed_messages': ['No loaded/selected sessions are available to purge.'],
+        }
+
+    hidden_refs = _hidden_refs(records_root, session_names)
+    if not hidden_refs:
+        return {
+            'requested_sessions': len(session_names),
+            'purged_count': 0,
+            'metadata_rows_removed': 0,
+            'image_files_deleted': 0,
+            'files_changed': [],
+            'deleted_files': [],
+            'skipped_files': [],
+            'failed_messages': ['No hidden frames were found to permanently delete.'],
+        }
+
+    hidden_keys = {tuple(ref['key']) for ref in hidden_refs}
+    hidden_image_paths: set[Path] = set()
+    visible_image_paths: set[Path] = set()
+    files_changed: list[str] = []
+    metadata_rows_removed = 0
+
+    for session_name in session_names:
+        session_dir = resolve_session_dir(records_root, session_name)
+        for filename in ('labels.jsonl', 'records.jsonl'):
+            path = session_dir / filename
+            for _line_no, _raw_line, record in _jsonl_records(path) or []:
+                if not record:
+                    continue
+                image_path = _record_image_path(session_dir, record)
+                if image_path is None:
+                    continue
+                if is_record_hidden(record):
+                    hidden_image_paths.add(image_path.resolve())
+                else:
+                    visible_image_paths.add(image_path.resolve())
+
+    for session_name in session_names:
+        session_dir = resolve_session_dir(records_root, session_name)
+        for filename in ('labels.jsonl', 'records.jsonl'):
+            path = session_dir / filename
+            if not path.exists():
+                continue
+            output_lines: list[str] = []
+            removed_rows = 0
+            for _line_no, raw_line, record in _jsonl_records(path) or []:
+                if record and is_record_hidden(record):
+                    removed_rows += 1
+                    continue
+                output_lines.append(_with_newline(raw_line))
+            if removed_rows:
+                with path.open('w', encoding='utf-8') as handle:
+                    handle.writelines(output_lines)
+                metadata_rows_removed += removed_rows
+                files_changed.append(f'{session_name}/{filename}')
+
+    deleted_files: list[str] = []
+    skipped_files: list[str] = []
+    for image_path in sorted(hidden_image_paths, key=lambda path: str(path)):
+        if image_path in visible_image_paths:
+            skipped_files.append(f'{image_path} (still referenced by visible rows)')
+            continue
+        # Resolve the owning session from the image path for conservative safety.
+        owning_session_dir = None
+        for session_name in session_names:
+            session_dir = resolve_session_dir(records_root, session_name)
+            try:
+                if image_path.is_relative_to(session_dir.resolve()):
+                    owning_session_dir = session_dir
+                    break
+            except AttributeError:
+                if str(image_path).startswith(str(session_dir.resolve())):
+                    owning_session_dir = session_dir
+                    break
+        if owning_session_dir is None:
+            skipped_files.append(f'{image_path} (outside loaded session folders)')
+            continue
+        if not _safe_delete_candidate(image_path, session_dir=owning_session_dir, records_root=records_root):
+            skipped_files.append(f'{image_path} (not inside session/records root)')
+            continue
+        try:
+            image_path.unlink()
+            deleted_files.append(str(image_path))
+        except OSError as exc:
+            skipped_files.append(f'{image_path} ({exc})')
+
+    return {
+        'requested_sessions': len(session_names),
+        'purged_count': len(hidden_keys),
+        'metadata_rows_removed': metadata_rows_removed,
+        'image_files_deleted': len(deleted_files),
+        'files_changed': files_changed,
+        'deleted_files': deleted_files,
+        'skipped_files': skipped_files,
+        'failed_messages': [],
+    }
 
 def hide_frames_from_training(records_root: Path, records: Iterable[dict[str, Any]]) -> dict[str, Any]:
     """Soft-delete selected frame rows by adding traceable hidden flags.

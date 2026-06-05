@@ -109,6 +109,8 @@ class MainWindow(QMainWindow):
         QShortcut(QKeySequence('Ctrl+A'), self, activated=self.data_page.session_list_panel.select_all)
         QShortcut(QKeySequence('Ctrl+Shift+A'), self, activated=self.data_page.session_list_panel.clear_all)
         QShortcut(QKeySequence('Delete'), self.data_page, activated=self.data_page.delete_selected_frame)
+        QShortcut(QKeySequence('Ctrl+Z, D'), self.data_page, activated=self.data_page.purge_hidden_frames_shortcut)
+        QShortcut(QKeySequence('Ctrl+Z, Ctrl+D'), self.data_page, activated=self.data_page.purge_hidden_frames_shortcut)
         QShortcut(QKeySequence('Ctrl+P'), self, activated=self.train_page.prepare_split)
         QShortcut(QKeySequence('Ctrl+R'), self, activated=self.train_page.start_training)
         QShortcut(QKeySequence('Escape'), self, activated=self.train_page.stop_training)

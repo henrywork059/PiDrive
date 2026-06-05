@@ -165,6 +165,36 @@ def mark_record_hidden(record: dict[str, Any], *, hidden_at_utc: str | None = No
     return record
 
 
+HIDDEN_TRACE_KEYS = (
+    *HIDDEN_FLAG_KEYS,
+    'hidden_reason',
+    'hidden_at_utc',
+    'hidden_source',
+    'hidden_action',
+)
+
+
+def hidden_timestamp(record: dict[str, Any]) -> str:
+    """Return the best available hide timestamp for sorting recovery actions."""
+    if not isinstance(record, dict):
+        return ''
+    for scope in _iter_record_scopes(record):
+        value = scope.get('hidden_at_utc')
+        if value is not None and str(value).strip():
+            return str(value).strip()
+    return ''
+
+
+def unmark_record_hidden(record: dict[str, Any]) -> dict[str, Any]:
+    """Remove piTrainer hide/delete trace flags from a JSONL record in place."""
+    if not isinstance(record, dict):
+        return record
+    for scope in _iter_record_scopes(record):
+        for key in HIDDEN_TRACE_KEYS:
+            scope.pop(key, None)
+    return record
+
+
 def hidden_row_mask(df: pd.DataFrame) -> pd.Series:
     if df is None or df.empty:
         return pd.Series([], dtype=bool)

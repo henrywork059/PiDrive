@@ -17,7 +17,7 @@ from ..panels.data.overlay_control_panel import OverlayControlPanel
 from ..panels.data.playback_control_panel import PlaybackControlPanel
 from ..panels.data.preview_panel import PreviewPanel
 from ..panels.data.session_source_panel import SessionSourcePanel
-from ..services.data.delete_service import hide_frames_from_training
+from ..services.data.delete_service import hide_frames_from_training, purge_hidden_frames, recover_hidden_frames
 from ..services.data.edit_service import update_frame_controls_batch, update_frame_controls_many
 from ..services.data.filter_service import filter_preview_dataframe
 from ..services.data.merge_service import merge_sessions
@@ -66,7 +66,11 @@ class DataPage(DockPage):
         self.single_edit_plot_timer.setSingleShot(True)
         self.single_edit_plot_timer.setInterval(650)
         self.single_edit_plot_timer.timeout.connect(self.refresh_plot_from_preview)
-        self.data_control_panel = DataControlPanel(delete_frame_callback=self.delete_selected_frame)
+        self.data_control_panel = DataControlPanel(
+            delete_frame_callback=self.delete_selected_frame,
+            recover_last_callback=self.recover_last_hidden_frames,
+            recover_all_callback=self.recover_all_hidden_frames,
+        )
         self.build_default_layout()
         self.restore_layout()
         self.preview_panel.set_playback_fps(self.playback_panel.playback_fps())
@@ -82,14 +86,19 @@ class DataPage(DockPage):
                 ], object_name='dataLoadWorkflowScrollArea', intro='Start here: choose a PiSD/piTrainer records root, scan sessions, select sessions, then load them.'),
             ),
             (
-                '2 Manage',
+                '2 Delete and Recover',
                 make_scrollable_stack([
-                    ('Data Control', self.data_control_panel, True),
-                    ('Frame Filter', self.filter_panel, True),
-                ], object_name='dataManageWorkflowScrollArea', intro='Manage the loaded dataset: confirm hide/delete actions once, hide selected frame rows, and filter frames before review or training.'),
+                    ('Delete and Recover', self.data_control_panel, True),
+                ], object_name='dataDeleteRecoverWorkflowScrollArea', intro='Manage hidden rows: soft-delete selected bad frames, recover the last hidden frames, or recover all hidden frames.'),
             ),
             (
-                '3 Review',
+                '3 Filter',
+                make_scrollable_stack([
+                    ('Frame Filter', self.filter_panel, True),
+                ], object_name='dataFilterWorkflowScrollArea', intro='Filter loaded frames by text, mode, speed, or steering before review, editing, deletion, or training.'),
+            ),
+            (
+                '4 Review',
                 make_scrollable_stack([
                     ('Bulk Edit Selected Frames', self.bulk_edit_panel, True, 'Apply one steering or speed value to selected Record Preview rows after confirmation.'),
                     ('Merge Sessions', self.merge_sessions_panel, False),
@@ -134,7 +143,7 @@ class DataPage(DockPage):
             workspace,
             step='1 of 6',
             title='Data',
-            summary='Load sessions, manage bad frames, review labels, and confirm the V7 overlay before preparing a dataset.',
+            summary='Load sessions, delete/recover hidden frames, filter rows, review labels, and confirm the V7 overlay before preparing a dataset.',
             next_step='Load Selected',
             next_callback=lambda: self.reveal_widget(
                 self.session_source_panel.load_btn,
@@ -606,6 +615,100 @@ class DataPage(DockPage):
             if isinstance(df, pd.DataFrame):
                 setattr(self.state, df_attr, self._remove_identities_from_dataframe(df, identities))
         self.current_preview_source_df = self._remove_identities_from_dataframe(self.current_preview_source_df, identities)
+
+    def _active_session_names_for_visibility_actions(self) -> list[str]:
+        selected = [str(session).strip() for session in self.state.selected_sessions if str(session).strip()]
+        if selected:
+            return selected
+        if not self.state.dataset_df.empty and 'session' in self.state.dataset_df.columns:
+            names = self.state.dataset_df['session'].fillna('').astype(str).str.strip().tolist()
+            return [name for index, name in enumerate(names) if name and name not in names[:index]]
+        return []
+
+    def _reload_loaded_sessions_after_visibility_change(self, status_message: str) -> None:
+        sessions = self._active_session_names_for_visibility_actions()
+        if sessions:
+            self.state.selected_sessions = sessions
+            self.session_source_panel.set_selected_sessions(sessions)
+            self._load_sessions(sessions)
+        else:
+            self.refresh_from_state()
+        self.image_preview_panel.clear_preview()
+        self.bulk_edit_panel.set_selected_count(0)
+        self.main_window.set_status_message(status_message)
+
+    def recover_last_hidden_frames(self) -> None:
+        self.preview_panel.stop_autoplay()
+        sessions = self._active_session_names_for_visibility_actions()
+        count = self.data_control_panel.recover_count()
+        result = recover_hidden_frames(self.state.records_root_path, sessions, recover_all=False, count=count)
+        recovered_count = int(result.get('recovered_count', 0) or 0)
+        metadata_rows_changed = int(result.get('metadata_rows_changed', 0) or 0)
+        failed_messages = list(result.get('failed_messages', []))
+
+        if recovered_count:
+            self._reload_loaded_sessions_after_visibility_change(
+                f"Recovered {recovered_count} hidden frame(s) with {metadata_rows_changed} metadata row(s) changed."
+            )
+            return
+        QMessageBox.information(self, 'Recover Hidden Frame(s)', '\n'.join(failed_messages[:8]) if failed_messages else 'No hidden frames were recovered.')
+        self.main_window.set_status_message('No hidden frames were recovered.')
+
+    def recover_all_hidden_frames(self) -> None:
+        self.preview_panel.stop_autoplay()
+        sessions = self._active_session_names_for_visibility_actions()
+        result = recover_hidden_frames(self.state.records_root_path, sessions, recover_all=True)
+        recovered_count = int(result.get('recovered_count', 0) or 0)
+        metadata_rows_changed = int(result.get('metadata_rows_changed', 0) or 0)
+        failed_messages = list(result.get('failed_messages', []))
+
+        if recovered_count:
+            self._reload_loaded_sessions_after_visibility_change(
+                f"Recovered all hidden frames: {recovered_count} frame(s), {metadata_rows_changed} metadata row(s) changed."
+            )
+            return
+        QMessageBox.information(self, 'Recover All Hidden Frames', '\n'.join(failed_messages[:8]) if failed_messages else 'No hidden frames were recovered.')
+        self.main_window.set_status_message('No hidden frames were recovered.')
+
+    def purge_hidden_frames_shortcut(self) -> None:
+        self.preview_panel.stop_autoplay()
+        sessions = self._active_session_names_for_visibility_actions()
+        if not sessions:
+            QMessageBox.information(self, 'Permanent Hidden-Frame Cleanup', 'Load or select at least one session before permanently deleting hidden frames.')
+            return
+
+        confirm = QMessageBox.warning(
+            self,
+            'Permanently Delete Hidden Frames?',
+            'This hidden cleanup will permanently remove all currently hidden JSONL rows from the loaded/selected session(s) and delete their unreferenced image files.\n\n'
+            'This cannot be recovered from inside piTrainer. Continue?',
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if confirm != QMessageBox.Yes:
+            self.main_window.set_status_message('Permanent hidden-frame cleanup cancelled.')
+            return
+
+        result = purge_hidden_frames(self.state.records_root_path, sessions)
+        purged_count = int(result.get('purged_count', 0) or 0)
+        rows_removed = int(result.get('metadata_rows_removed', 0) or 0)
+        image_files_deleted = int(result.get('image_files_deleted', 0) or 0)
+        failed_messages = list(result.get('failed_messages', []))
+        skipped_files = list(result.get('skipped_files', []))
+
+        if purged_count:
+            self._reload_loaded_sessions_after_visibility_change(
+                f"Permanently deleted {purged_count} hidden frame(s), removed {rows_removed} metadata row(s), and deleted {image_files_deleted} image file(s)."
+            )
+            if skipped_files:
+                QMessageBox.information(
+                    self,
+                    'Permanent Hidden-Frame Cleanup',
+                    'Cleanup finished, but some files were kept:\n' + '\n'.join(skipped_files[:8]),
+                )
+            return
+        QMessageBox.information(self, 'Permanent Hidden-Frame Cleanup', '\n'.join(failed_messages[:8]) if failed_messages else 'No hidden frames were permanently deleted.')
+        self.main_window.set_status_message('No hidden frames were permanently deleted.')
 
     def delete_selected_frame(self) -> None:
         self.preview_panel.stop_autoplay()
