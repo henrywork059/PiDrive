@@ -55,6 +55,7 @@ class DataPage(DockPage):
             selection_callback=self.on_preview_record_selected,
             playback_state_callback=self.on_playback_state_changed,
         )
+        self.image_preview_panel.set_record_navigation_callback(self.preview_panel.select_adjacent_record)
         self.playback_panel = PlaybackControlPanel(
             play_callback=self.start_preview_playback,
             stop_callback=self.stop_preview_playback,

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from PySide6.QtCore import QPoint, QTimer, Qt
-from PySide6.QtGui import QMouseEvent, QPixmap
+from PySide6.QtCore import QEvent, QPoint, QTimer, Qt
+from PySide6.QtGui import QKeyEvent, QMouseEvent, QPixmap
 from PySide6.QtWidgets import QGroupBox, QHBoxLayout, QLabel, QSlider, QVBoxLayout, QWidget
 
 from ...services.data.augmentation_service import truthy_value
@@ -20,6 +20,7 @@ class InteractiveImageLabel(QLabel):
         self.setAlignment(Qt.AlignCenter)
         self.setMinimumHeight(220)
         self.setWordWrap(True)
+        self.setFocusPolicy(Qt.ClickFocus)
         self._pixmap: QPixmap | None = None
 
     def set_display_pixmap(self, pixmap: QPixmap | None) -> None:
@@ -51,6 +52,7 @@ class InteractiveImageLabel(QLabel):
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.LeftButton:
+            self.setFocus(Qt.MouseFocusReason)
             self._handle_event_position(event.position().toPoint())
         super().mousePressEvent(event)
 
@@ -66,9 +68,10 @@ class InteractiveImageLabel(QLabel):
 
 
 class ImagePreviewPanel(QGroupBox):
-    def __init__(self, record_edited_callback=None) -> None:
+    def __init__(self, record_edited_callback=None, navigate_record_callback=None) -> None:
         super().__init__('Image Preview')
         self.record_edited_callback = record_edited_callback
+        self.navigate_record_callback = navigate_record_callback
         self.current_record: dict[str, Any] | None = None
         self.overlay_options: dict[str, bool] = {
             'path_preview': True,
@@ -103,6 +106,9 @@ class ImagePreviewPanel(QGroupBox):
         self.speed_slider = QSlider(Qt.Horizontal)
         self.speed_slider.setRange(0, 1000)
         self.speed_slider.valueChanged.connect(self._on_slider_changed)
+
+        for widget in (self.image_label, self.steering_slider, self.speed_slider):
+            widget.installEventFilter(self)
 
         steering_row = QHBoxLayout()
         steering_row.addWidget(QLabel('Steering'))
@@ -141,6 +147,38 @@ class ImagePreviewPanel(QGroupBox):
         self._set_slider_enabled(False)
         self._update_value_labels(0.0, 0.0)
         self._update_overlay_meta_label({})
+
+    @staticmethod
+    def _key_press_event_type():
+        direct = getattr(QEvent, 'KeyPress', None)
+        if direct is not None:
+            return direct
+        event_type = getattr(QEvent, 'Type', None)
+        return getattr(event_type, 'KeyPress', None) if event_type is not None else None
+
+    def set_record_navigation_callback(self, callback) -> None:
+        self.navigate_record_callback = callback
+
+    def eventFilter(self, watched, event) -> bool:  # noqa: N802 - Qt API name
+        key_press_type = self._key_press_event_type()
+        if key_press_type is not None and event.type() == key_press_type and isinstance(event, QKeyEvent):
+            if self._handle_navigation_key(event):
+                return True
+        return super().eventFilter(watched, event)
+
+    def _handle_navigation_key(self, event: QKeyEvent) -> bool:
+        key = event.key()
+        if key not in (Qt.Key_Down, Qt.Key_Up):
+            return False
+        if event.modifiers() & (Qt.ShiftModifier | Qt.ControlModifier | Qt.AltModifier):
+            return False
+        if self.navigate_record_callback is None:
+            return False
+        step = 1 if key == Qt.Key_Down else -1
+        if not self.navigate_record_callback(step):
+            return False
+        event.accept()
+        return True
 
     def set_record(self, record: dict[str, Any] | None) -> None:
         # Do not synchronously write pending edits when the user clicks another row.
