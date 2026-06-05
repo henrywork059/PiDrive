@@ -30,6 +30,7 @@ class PreprocessPage(DockPage):
         self.state = state
         self.main_window = main_window
         self.output_tabs = None
+        self._preprocess_applied = False
         super().__init__('preprocess')
 
         self.summary_panel = PreprocessSummaryPanel()
@@ -117,12 +118,18 @@ class PreprocessPage(DockPage):
     def on_working_folder_changed(self, working_dir: Path | str) -> None:
         path = Path(working_dir).expanduser().resolve()
         self.state.last_saved_preprocess_settings_path = str(path / 'preprocess' / 'preprocess_settings.json')
+        self._preprocess_applied = False
         self.log_panel.append_line(f'Preprocess save/settings folder now follows loaded session: {path}')
         self.refresh_from_state()
 
     def _source_df(self) -> pd.DataFrame:
-        source_mode = self.filter_panel.recipe().get('source_mode', 'Loaded dataset (all rows)')
-        if source_mode == 'Current filtered rows':
+        source_mode = self.filter_panel.recipe().get('source_mode', self.filter_panel.SOURCE_ITEMS[0])
+        if self.filter_panel.is_visible_source_mode(source_mode):
+            data_page = getattr(self.main_window, 'data_page', None)
+            preview_panel = getattr(data_page, 'preview_panel', None) if data_page is not None else None
+            visible_df = getattr(preview_panel, 'df', None) if preview_panel is not None else None
+            if isinstance(visible_df, pd.DataFrame) and not visible_df.empty:
+                return visible_df.copy()
             return self.state.filtered_df.copy()
         return self.state.dataset_df.copy()
 
@@ -149,6 +156,17 @@ class PreprocessPage(DockPage):
                 title='Current active training dataset',
             )
         )
+        default_source_df = self._source_df()
+        if default_source_df.empty:
+            self.result_panel.set_status_idle('Status: load selected sessions first.')
+        elif self._preprocess_applied:
+            self.result_panel.set_status_done(
+                f"✓ PREPROCESS DONE — {len(self.state.filtered_df)} active row(s) ready for training."
+            )
+        else:
+            self.result_panel.set_status_idle(
+                f"Ready: {len(default_source_df)} visible table row(s) from selected session(s)."
+            )
 
     def _set_recommended_defaults(self) -> dict[str, object]:
         self.filter_panel.reset_to_defaults()
@@ -159,6 +177,7 @@ class PreprocessPage(DockPage):
 
     def use_recommended_defaults(self) -> None:
         self._set_recommended_defaults()
+        self._preprocess_applied = False
         self.preview_recipe(message_prefix='Defaults loaded and previewed')
 
     def auto_preprocess(self) -> None:
@@ -172,18 +191,24 @@ class PreprocessPage(DockPage):
                     title='Auto preprocess could not start',
                 )
             )
+            self.result_panel.set_status_warning('Auto preprocess skipped: no source rows loaded.')
             self._activate_preview_tab()
             self.log_panel.append_line('Auto preprocess skipped: no source rows are loaded. Load sessions on the Data tab first.')
             self.main_window.set_status_message('Auto preprocess needs loaded session data first.')
             return
+        self.result_panel.set_status_running('Auto preprocess running...')
         self.apply_recipe(source_df=source_df, message_prefix='Auto preprocessing complete')
 
     def preview_recipe(self, *, message_prefix: str = 'Preview ready') -> None:
+        self._preprocess_applied = False
         source_df = self._source_df()
         recipe = self.current_recipe()
         result_df, summary = apply_preprocessing_recipe(source_df, recipe)
         preview_text = format_preprocess_preview(summary, recipe)
         self.result_panel.set_preview_text(preview_text)
+        self.result_panel.set_status_preview(
+            f"Preview ready: {summary['rows_after']} active row(s), {summary['generated_rows']} generated. Not applied yet."
+        )
         self.summary_panel.set_preview_counts(summary)
         self._activate_preview_tab()
         self.main_window.set_status_message(f'{message_prefix}: {len(result_df)} active row(s) after synthesis.')
@@ -202,6 +227,7 @@ class PreprocessPage(DockPage):
                     title='No source rows to preprocess',
                 )
             )
+            self.result_panel.set_status_warning('Preprocess not applied: no source rows available.')
             self._activate_preview_tab()
             self.log_panel.append_line('Preprocess was not applied because no source rows are available.')
             self.main_window.set_status_message('No source rows to preprocess.')
@@ -211,6 +237,7 @@ class PreprocessPage(DockPage):
         result_df, summary = apply_preprocessing_recipe(source_df, recipe)
 
         self.state.preprocess_recipe = recipe
+        self._preprocess_applied = True
         self.state.filtered_df = result_df
         self.state.train_df = result_df.iloc[0:0].copy() if not result_df.empty else pd.DataFrame()
         self.state.val_df = result_df.iloc[0:0].copy() if not result_df.empty else pd.DataFrame()
@@ -220,6 +247,9 @@ class PreprocessPage(DockPage):
         self.state.train_config.img_w = int(recipe['image_width'])
 
         self.result_panel.set_preview_text(format_preprocess_preview(summary, recipe, applied=True))
+        self.result_panel.set_status_done(
+            f"✓ PREPROCESS DONE — {summary['rows_after']} active row(s) ready for training; {summary['generated_rows']} generated."
+        )
         self.summary_panel.set_summary(
             dataset_df=self.state.dataset_df,
             filtered_df=self.state.filtered_df,
@@ -248,12 +278,14 @@ class PreprocessPage(DockPage):
         self.config_panel.reset_to_defaults()
         baseline = build_filtered_dataframe(self.state.dataset_df, self.state.train_config.only_manual)
         self.state.preprocess_recipe = {}
+        self._preprocess_applied = False
         self.state.filtered_df = baseline
         self.state.train_df = baseline.iloc[0:0].copy() if not baseline.empty else pd.DataFrame()
         self.state.val_df = baseline.iloc[0:0].copy() if not baseline.empty else pd.DataFrame()
         self.state.model = None
         self.state.history = {}
         self.refresh_from_state()
+        self.result_panel.set_status_idle('Status: reset complete. Run Auto Preprocess when ready.')
         self.main_window.data_page.refresh_from_state()
         self.main_window.train_page.refresh_from_state()
         self.main_window.export_page.refresh_from_state()

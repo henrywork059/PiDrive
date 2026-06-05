@@ -15,7 +15,7 @@ class TrainConfig:
     epochs: int = 100
     learning_rate: float = 1e-3
     val_ratio: float = 0.2
-    only_manual: bool = True
+    only_manual: bool = False
     augment: bool = True
     session_split: bool = False
     shuffle: bool = True

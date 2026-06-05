@@ -504,6 +504,34 @@ def build_stylesheet(density: str = "comfortable") -> str:
         border-radius: 9px;
         padding: 7px 9px;
     }
+
+    QLabel[role='preprocessStatus'] {
+        color: @COLOR_TEXT_SECONDARY@;
+        background: @COLOR_BG_INPUT_ALT@;
+        border: 1px solid @COLOR_BORDER@;
+        border-radius: 9px;
+        padding: 8px 10px;
+        font-weight: 750;
+    }
+    QLabel[role='preprocessStatus'][status='running'],
+    QLabel[role='preprocessStatus'][status='preview'] {
+        color: @COLOR_TEXT_ON_WARNING@;
+        background: @COLOR_WARNING@;
+        border: 1px solid @COLOR_WARNING_BORDER@;
+    }
+    QLabel[role='preprocessStatus'][status='done'] {
+        color: @COLOR_TEXT_ON_DARK@;
+        background: @COLOR_SUCCESS@;
+        border: 1px solid @COLOR_SUCCESS_BORDER@;
+        font-weight: 900;
+    }
+    QLabel[role='preprocessStatus'][status='warning'] {
+        color: @COLOR_TEXT_ON_DARK@;
+        background: @COLOR_DANGER@;
+        border: 1px solid @COLOR_DANGER_BORDER@;
+        font-weight: 850;
+    }
+
     QLabel[role='summaryBlock'] {
         color: @COLOR_TEXT_PRIMARY@;
         background: @COLOR_BG_INPUT_ALT@;

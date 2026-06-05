@@ -19,7 +19,7 @@ from ...ui.layout_widgets import CollapsibleSection, standardize_form_layout
 
 class PreprocessFilterPanel(QGroupBox):
     MODE_ITEMS = ['Any mode', 'Manual only', 'Exclude manual']
-    SOURCE_ITEMS = ['Loaded dataset (all rows)', 'Current filtered rows']
+    SOURCE_ITEMS = ['Visible table rows', 'All loaded rows']
 
     def __init__(self, state: AppState) -> None:
         super().__init__('Filters')
@@ -154,11 +154,17 @@ class PreprocessFilterPanel(QGroupBox):
         self.straight_keep_ratio.setEnabled(balance_enabled)
 
     def sync_from_state(self) -> None:
-        self.mode_combo.setCurrentText('Manual only' if self.state.train_config.only_manual else 'Any mode')
+        # Keep the user's current source/mode choices when the Data page refreshes.
+        # The default is intentionally all modes; Train's optional manual preference
+        # should not silently narrow Preprocess rows.
+        if self.mode_combo.currentText() not in self.MODE_ITEMS:
+            self.mode_combo.setCurrentText('Any mode')
+        if self.source_combo.currentText() not in self.SOURCE_ITEMS:
+            self.source_combo.setCurrentText(self.SOURCE_ITEMS[0])
 
     def reset_to_defaults(self) -> None:
         self.source_combo.setCurrentIndex(0)
-        self.mode_combo.setCurrentText('Manual only' if self.state.train_config.only_manual else 'Any mode')
+        self.mode_combo.setCurrentText('Any mode')
         self.require_images.setChecked(True)
         self.drop_duplicate_images.setChecked(False)
         self.frame_stride.setValue(1)
@@ -173,11 +179,25 @@ class PreprocessFilterPanel(QGroupBox):
         self.straight_keep_ratio.setValue(0.35)
         self._update_enabled_state()
 
+    @classmethod
+    def normalized_source_mode(cls, value: object) -> str:
+        text = str(value or '').strip()
+        if text in {'Current filtered rows', 'Visible rows', 'Visible rows (selected sessions)', 'Visible table rows'}:
+            return cls.SOURCE_ITEMS[0]
+        if text in {'Loaded dataset (all rows)', 'Loaded rows', 'Loaded rows (selected sessions)', 'All loaded rows'}:
+            return cls.SOURCE_ITEMS[1]
+        return cls.SOURCE_ITEMS[0]
+
+    @classmethod
+    def is_visible_source_mode(cls, value: object) -> bool:
+        return cls.normalized_source_mode(value) == cls.SOURCE_ITEMS[0]
+
     def load_from_recipe(self, recipe: dict[str, object]) -> None:
         if not recipe:
             return
-        self.source_combo.setCurrentText(str(recipe.get('source_mode', self.SOURCE_ITEMS[0])))
-        self.mode_combo.setCurrentText(str(recipe.get('mode_filter', self.mode_combo.currentText())))
+        self.source_combo.setCurrentText(self.normalized_source_mode(recipe.get('source_mode', self.SOURCE_ITEMS[0])))
+        mode_text = str(recipe.get('mode_filter', self.mode_combo.currentText()))
+        self.mode_combo.setCurrentText(mode_text if mode_text in self.MODE_ITEMS else 'Any mode')
         self.require_images.setChecked(bool(recipe.get('require_images', True)))
         self.drop_duplicate_images.setChecked(bool(recipe.get('drop_duplicate_images', False)))
         self.frame_stride.setValue(max(1, int(recipe.get('frame_stride', 1) or 1)))
