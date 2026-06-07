@@ -11,7 +11,7 @@ from .overlay_values import clip_speed, clip_steering, drive_arrow_points
 
 DATA_OVERLAY_TEXT_COLOR = QColor(255, 72, 72, 245)
 DATA_OVERLAY_TEXT_SCALE = 1.30
-DATA_OVERLAY_TEXT_WEIGHT_SCALE = 1.80
+DATA_OVERLAY_TEXT_WEIGHT_SCALE = 2.50
 
 
 def _font_weight_value(weight) -> int:
@@ -176,8 +176,9 @@ def _draw_steering_arc(painter: QPainter, pixmap: QPixmap, steering_value: float
     width = pixmap.width()
     height = pixmap.height()
     size = min(width, height) * 0.25
-    label_height = 34.0
-    rect = QRectF(62, height - size - label_height - 42.0, size, size)
+    label_height = 38.0
+    arc_left = max(18.0, width * 0.07)
+    rect = QRectF(arc_left, height - size - label_height - 12.0, size, size)
     value = clip_steering(steering_value)
 
     painter.save()
@@ -208,8 +209,8 @@ def _draw_steering_arc(painter: QPainter, pixmap: QPixmap, steering_value: float
 
     label_rect = _centered_label_rect(
         rect.center().x(),
-        rect.center().y() + 10.0,
-        190.0,
+        rect.bottom() + 4.0,
+        170.0,
         label_height,
         float(width),
         float(height),
