@@ -52,13 +52,15 @@ class SessionSourceRowWidget(QFrame):
 class SessionSourcePanel(QGroupBox):
     SETTINGS_KEY = 'data/last_records_root'
 
-    def __init__(self, state: AppState, refresh_callback, load_callback) -> None:
+    def __init__(self, state: AppState, refresh_callback, load_callback, selection_changed_callback=None) -> None:
         super().__init__('Session Source')
         self.setObjectName('sessionSourcePanel')
         self.state = state
         self.refresh_callback = refresh_callback
         self.load_callback = load_callback
+        self.selection_changed_callback = selection_changed_callback
         self._rows: list[SessionSourceRowWidget] = []
+        self._suspend_selection_callback = False
 
         help_label = QLabel(
             'Choose a records root, refresh sessions, select sessions, then load.'
@@ -154,21 +156,25 @@ class SessionSourcePanel(QGroupBox):
 
     def _build_row_widget(self, session: str, checked: bool) -> QWidget:
         row = SessionSourceRowWidget(session, checked)
-        row.checkbox.toggled.connect(self._update_summary)
+        row.checkbox.toggled.connect(self._on_selection_changed)
         return row
 
     def set_sessions(self, sessions: list[str]) -> None:
         selected = set(self.selected_sessions())
-        self.list_widget.clear()
-        self._rows.clear()
-        for session in sessions:
-            row_widget = self._build_row_widget(session, session in selected)
-            item = QListWidgetItem(self.list_widget)
-            item.setFlags(Qt.ItemIsEnabled)
-            item.setSizeHint(row_widget.sizeHint())
-            self.list_widget.addItem(item)
-            self.list_widget.setItemWidget(item, row_widget)
-            self._rows.append(row_widget)
+        self._suspend_selection_callback = True
+        try:
+            self.list_widget.clear()
+            self._rows.clear()
+            for session in sessions:
+                row_widget = self._build_row_widget(session, session in selected)
+                item = QListWidgetItem(self.list_widget)
+                item.setFlags(Qt.ItemIsEnabled)
+                item.setSizeHint(row_widget.sizeHint())
+                self.list_widget.addItem(item)
+                self.list_widget.setItemWidget(item, row_widget)
+                self._rows.append(row_widget)
+        finally:
+            self._suspend_selection_callback = False
         self._update_summary()
 
     def selected_sessions(self) -> list[str]:
@@ -180,22 +186,41 @@ class SessionSourcePanel(QGroupBox):
 
     def set_selected_sessions(self, sessions: list[str]) -> None:
         wanted = set(sessions)
-        for row in self._rows:
-            row.checkbox.setChecked(row.session_name() in wanted)
-        self._update_summary()
+        self._suspend_selection_callback = True
+        try:
+            for row in self._rows:
+                row.checkbox.setChecked(row.session_name() in wanted)
+        finally:
+            self._suspend_selection_callback = False
+        self._on_selection_changed()
 
     def select_all(self) -> None:
-        for row in self._rows:
-            row.checkbox.setChecked(True)
-        self._update_summary()
+        self._suspend_selection_callback = True
+        try:
+            for row in self._rows:
+                row.checkbox.setChecked(True)
+        finally:
+            self._suspend_selection_callback = False
+        self._on_selection_changed()
 
     def clear_all(self) -> None:
-        for row in self._rows:
-            row.checkbox.setChecked(False)
-        self._update_summary()
+        self._suspend_selection_callback = True
+        try:
+            for row in self._rows:
+                row.checkbox.setChecked(False)
+        finally:
+            self._suspend_selection_callback = False
+        self._on_selection_changed()
 
     def current_records_root(self) -> str:
         return self.path_edit.text().strip()
+
+    def _on_selection_changed(self) -> None:
+        self._update_summary()
+        if self._suspend_selection_callback:
+            return
+        if callable(self.selection_changed_callback):
+            self.selection_changed_callback(self.selected_sessions())
 
     def _update_summary(self) -> None:
         root = self.current_records_root()

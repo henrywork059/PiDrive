@@ -22,7 +22,7 @@ from ..ui.formatting import (
     apply_splitter_format,
     set_box_layout_format,
 )
-from ..ui.layout_widgets import CollapsibleSection, make_page_banner, make_panel_content_scroll
+from ..ui.layout_widgets import CollapsibleSection, make_panel_content_scroll
 
 
 class ResponsiveSplitter(QSplitter):
@@ -167,28 +167,17 @@ class DockPage(QMainWindow):
         next_callback=None,
         next_tooltip: str = '',
     ) -> None:
-        """Set the page's central workspace with an optional workflow banner.
+        """Set the page's central workspace without the old page banner.
 
-        The default pages use full-width splitter workspaces rather than nested
-        docks. The banner adds quick orientation above the splitter so users can
-        tell where they are, what to check, and what the recommended next action
-        is without hunting through dense panels.
+        The page-level top banner is intentionally disabled for now so each
+        workflow opens directly into the splitter workspace. The unused banner
+        arguments stay in the method signature for page compatibility and for a
+        future easy restore if the banner is wanted again.
         """
+        _ = (step, title, summary, next_step, next_callback, next_tooltip)
         widget.setObjectName(f"{self.page_id}_workspace_widget")
         widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        if title or summary or next_step:
-            wrapper = QFrame()
-            wrapper.setObjectName(f"{self.page_id}_page_shell")
-            wrapper.setProperty("role", "pageShell")
-            wrapper.setFrameShape(QFrame.NoFrame)
-            wrapper.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-            layout = QVBoxLayout(wrapper)
-            set_box_layout_format(layout, role="page")
-            layout.addWidget(make_page_banner(step, title, summary, next_step, next_callback, next_tooltip), 0)
-            layout.addWidget(widget, 1)
-            self.setCentralWidget(wrapper)
-        else:
-            self.setCentralWidget(widget)
+        self.setCentralWidget(widget)
 
     def clear_docks(self) -> None:
         self._splitters = []

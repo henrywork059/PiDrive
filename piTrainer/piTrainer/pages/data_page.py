@@ -45,7 +45,12 @@ class DataPage(
         self.last_focus_source_frame_id = ''
         super().__init__('data')
 
-        self.session_source_panel = SessionSourcePanel(self.state, self.refresh_sessions, self.load_selected_sessions)
+        self.session_source_panel = SessionSourcePanel(
+            self.state,
+            self.refresh_sessions,
+            self.load_selected_sessions,
+            self.on_session_selection_changed,
+        )
         self.session_list_panel = self.session_source_panel
         self.bulk_edit_panel = BulkEditPanel(
             apply_steering_callback=self.apply_bulk_steering_edit,

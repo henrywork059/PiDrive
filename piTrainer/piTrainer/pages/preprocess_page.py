@@ -115,11 +115,22 @@ class PreprocessPage(DockPage):
             self.state.preprocess_recipe = recipe
             self.state.last_saved_preprocess_settings_path = str(self.state.out_dir_path / 'preprocess' / 'preprocess_settings.json')
 
-    def on_working_folder_changed(self, working_dir: Path | str) -> None:
+    def on_working_folder_changed(self, working_dir: Path | str, *, show_log: bool = True) -> None:
         path = Path(working_dir).expanduser().resolve()
         self.state.last_saved_preprocess_settings_path = str(path / 'preprocess' / 'preprocess_settings.json')
         self._preprocess_applied = False
-        self.log_panel.append_line(f'Preprocess save/settings folder now follows loaded session: {path}')
+
+        # If the selected session already has preprocess settings, load them from
+        # the session folder; otherwise keep the current/default recipe while
+        # saving future settings to the selected session.
+        recipe = load_preprocess_settings(path)
+        if recipe:
+            self.filter_panel.load_from_recipe(recipe)
+            self.config_panel.load_from_recipe(recipe)
+            self.state.preprocess_recipe = recipe
+
+        if show_log:
+            self.log_panel.append_line(f'Preprocess save/settings folder now follows loaded session: {path}')
         self.refresh_from_state()
 
     def _source_df(self) -> pd.DataFrame:

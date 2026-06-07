@@ -13,6 +13,12 @@ class DataPageSessionMixin:
     def refresh_sessions(self) -> None:
         self.state.available_sessions = list_sessions(self.state.records_root_path)
         self.session_source_panel.set_sessions(self.state.available_sessions)
+        if self.state.available_sessions == ['.'] and not self.session_source_panel.selected_sessions():
+            self.session_source_panel.set_selected_sessions(['.'])
+            self.state.selected_sessions = ['.']
+        sync_working_folder = getattr(self.main_window, 'sync_working_folder_from_loaded_sessions', None)
+        if callable(sync_working_folder):
+            sync_working_folder(show_status=False)
         self.main_window.set_status_message(
             f"Found {len(self.state.available_sessions)} session(s) under {self.state.records_root_path}."
         )
@@ -21,6 +27,13 @@ class DataPageSessionMixin:
         selected = self.session_source_panel.selected_sessions()
         self.state.selected_sessions = selected
         self._load_sessions(selected)
+
+    def on_session_selection_changed(self, selected: list[str]) -> None:
+        """Keep save/export defaults aligned as soon as session selection changes."""
+        self.state.selected_sessions = list(selected)
+        sync_working_folder = getattr(self.main_window, 'sync_working_folder_from_loaded_sessions', None)
+        if callable(sync_working_folder):
+            sync_working_folder(show_status=False)
 
     def _load_sessions(self, selected: list[str]) -> None:
         df = load_records_dataframe(self.state.records_root_path, selected)

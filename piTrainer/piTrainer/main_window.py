@@ -156,14 +156,25 @@ class MainWindow(QMainWindow):
     def set_status_message(self, message: str) -> None:
         self.status.showMessage(message, 5000)
 
+    def _records_root_is_session_dir(self) -> bool:
+        root = self.state.records_root_path
+        if not root.exists() or not root.is_dir():
+            return False
+        has_frames = (root / 'frames').is_dir()
+        has_images = (root / 'images').is_dir()
+        has_labels = (root / 'labels.jsonl').exists() and has_frames
+        has_records = (root / 'records.jsonl').exists() and (has_frames or has_images)
+        return bool(has_labels or has_records)
+
     def _loaded_session_working_dir(self) -> Path | None:
-        """Return the save/output folder that should follow the loaded data.
+        """Return the save/output folder that should follow the selected data.
 
         For the normal single-session workflow, preprocessing outputs, saved
         trained models, and exported artifacts should all write back into the
-        loaded session folder. If the user intentionally loads multiple sessions,
-        there is no single session folder, so use the selected records root as a
-        safe common working folder instead of silently choosing one session.
+        selected/loaded session folder. If the user intentionally selects
+        multiple sessions, use the selected records root as a safe common folder.
+        If the records root itself is a direct session folder, use that folder
+        even before the synthetic `.` session row has been loaded.
         """
 
         selected = [str(session).strip() for session in self.state.selected_sessions if str(session).strip()]
@@ -171,24 +182,27 @@ class MainWindow(QMainWindow):
             return resolve_session_dir(self.state.records_root_path, selected[0])
         if selected:
             return self.state.records_root_path
+        if self._records_root_is_session_dir():
+            return self.state.records_root_path
         return None
 
-    def sync_working_folder_from_loaded_sessions(self) -> None:
+    def sync_working_folder_from_loaded_sessions(self, *, show_status: bool = True) -> None:
         working_dir = self._loaded_session_working_dir()
         if working_dir is None:
             return
         working_dir = working_dir.expanduser().resolve()
         working_dir_text = str(working_dir)
 
-        # state.out_dir_path is derived from export_config.out_dir, so updating
-        # this one value keeps preprocess save/settings and export save paths in
-        # the same loaded-session working folder.
+        # Keep every default output location tied to the selected/loaded session
+        # folder. Preprocess save/settings use state.out_dir_path, export uses
+        # export_config.out_dir, and Train's manual Save Model control has its
+        # own remembered line edit that also needs to be updated.
         self.state.export_config.out_dir = working_dir_text
         self.state.trained_model_out_dir = working_dir_text
 
         preprocess_page = getattr(self, 'preprocess_page', None)
         if preprocess_page is not None and hasattr(preprocess_page, 'on_working_folder_changed'):
-            preprocess_page.on_working_folder_changed(working_dir)
+            preprocess_page.on_working_folder_changed(working_dir, show_log=show_status)
 
         train_page = getattr(self, 'train_page', None)
         if train_page is not None and hasattr(train_page, 'set_model_save_dir'):
@@ -197,6 +211,17 @@ class MainWindow(QMainWindow):
         export_page = getattr(self, 'export_page', None)
         if export_page is not None and hasattr(export_page, 'set_output_dir'):
             export_page.set_output_dir(working_dir_text)
+
+        validation_page = getattr(self, 'validation_page', None)
+        if validation_page is not None and hasattr(validation_page, 'refresh_from_state'):
+            validation_page.refresh_from_state()
+
+        export_validation_page = getattr(self, 'export_validation_page', None)
+        if export_validation_page is not None and hasattr(export_validation_page, 'refresh_from_state'):
+            export_validation_page.refresh_from_state()
+
+        if show_status:
+            self.set_status_message(f'Working folder set to loaded session: {working_dir_text}')
 
     def on_dataset_loaded(self) -> None:
         self.preprocess_page.refresh_from_state()
