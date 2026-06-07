@@ -11,7 +11,7 @@ from .overlay_values import clip_speed, clip_steering, drive_arrow_points
 
 DATA_OVERLAY_TEXT_COLOR = QColor(255, 72, 72, 245)
 DATA_OVERLAY_TEXT_SCALE = 1.30
-DATA_OVERLAY_TEXT_WEIGHT_SCALE = 1.30
+DATA_OVERLAY_TEXT_WEIGHT_SCALE = 1.80
 
 
 def _font_weight_value(weight) -> int:
@@ -75,11 +75,41 @@ def _draw_track(painter: QPainter, rect: QRectF) -> None:
     painter.restore()
 
 
+def _centered_label_rect(
+    center_x: float,
+    y: float,
+    width: float,
+    height: float,
+    pixmap_width: float,
+    pixmap_height: float | None = None,
+    margin: float = 8.0,
+) -> QRectF:
+    left = center_x - width / 2.0
+    if left < margin:
+        left = margin
+    if left + width > pixmap_width - margin:
+        left = max(margin, pixmap_width - margin - width)
+    top = y
+    if pixmap_height is not None:
+        if top < margin:
+            top = margin
+        if top + height > pixmap_height - margin:
+            top = max(margin, pixmap_height - margin - height)
+    return QRectF(left, top, width, height)
+
+
 def _draw_speed_bar(painter: QPainter, pixmap: QPixmap, throttle_value: float) -> None:
     width = pixmap.width()
     height = pixmap.height()
-    track = QRectF(width - 48, height * 0.12, 24, height * 0.68)
-    label_rect = QRectF(width - 132, height * 0.815, 108, 30)
+    track = QRectF(width - 96, height * 0.12, 24, height * 0.68)
+    label_rect = _centered_label_rect(
+        track.center().x(),
+        track.bottom() + 10.0,
+        150.0,
+        34.0,
+        float(width),
+        float(height),
+    )
 
     _draw_track(painter, track)
 
@@ -131,14 +161,23 @@ def _draw_steering_bar(painter: QPainter, pixmap: QPixmap, steering_value: float
     painter.drawLine(QPointF(inner.left(), inner.center().y()), QPointF(inner.right(), inner.center().y()))
     painter.restore()
 
-    _draw_label(painter, QRectF(track.right() + 8, track.top() - 4, 130, 30), f"Steering {steering_value:.2f}")
+    label_rect = _centered_label_rect(
+        track.center().x(),
+        track.bottom() + 8.0,
+        170.0,
+        34.0,
+        float(width),
+        float(height),
+    )
+    _draw_label(painter, label_rect, f"Steering {steering_value:.2f}")
 
 
 def _draw_steering_arc(painter: QPainter, pixmap: QPixmap, steering_value: float) -> None:
     width = pixmap.width()
     height = pixmap.height()
     size = min(width, height) * 0.25
-    rect = QRectF(22, height - size - 28, size, size)
+    label_height = 34.0
+    rect = QRectF(62, height - size - label_height - 42.0, size, size)
     value = clip_steering(steering_value)
 
     painter.save()
@@ -167,7 +206,15 @@ def _draw_steering_arc(painter: QPainter, pixmap: QPixmap, steering_value: float
     painter.drawLine(QPointF(center.x(), center.y()), QPointF(end_x, end_y))
     painter.restore()
 
-    _draw_label(painter, QRectF(rect.left() - 10, max(6.0, rect.top() - 34.0), rect.width() + 86, 30), f"Steering {steering_value:.2f}")
+    label_rect = _centered_label_rect(
+        rect.center().x(),
+        rect.center().y() + 10.0,
+        190.0,
+        label_height,
+        float(width),
+        float(height),
+    )
+    _draw_label(painter, label_rect, f"Steering {steering_value:.2f}")
 
 
 def _sample_quarter_ellipse_points(start: QPointF, end: QPointF, steps: int = 40) -> list[QPointF]:
