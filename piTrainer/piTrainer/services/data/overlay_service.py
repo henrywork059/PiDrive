@@ -69,6 +69,9 @@ def apply_prediction_comparison_overlay(
     steering_pred: float,
     speed_pred: float,
     overlay_settings: dict[str, Any] | None = None,
+    *,
+    legend_text_color: QColor | None = None,
+    legend_font_scale: float = 1.0,
 ) -> QPixmap:
     if pixmap.isNull():
         return pixmap
@@ -97,19 +100,30 @@ def apply_prediction_comparison_overlay(
         comparison=True,
     )
 
-    legend_rect = QRectF(16, 10, min(280.0, rendered.width() * 0.50), 48)
+    text_color = legend_text_color or QColor(theme_color('text_primary'))
+    text_scale = legend_font_scale if legend_font_scale > 0 else 1.0
+    legend_height = 48.0 if text_scale <= 1.05 else 62.0
+    legend_rect = QRectF(16, 10, min(340.0, rendered.width() * 0.58), legend_height)
     painter.save()
+    if text_scale != 1.0:
+        font = painter.font()
+        point_size = font.pointSizeF()
+        if point_size > 0:
+            font.setPointSizeF(point_size * text_scale)
+        elif font.pixelSize() > 0:
+            font.setPixelSize(max(1, round(font.pixelSize() * text_scale)))
+        painter.setFont(font)
     painter.setPen(QPen(QColor(255, 255, 255, 70), 1))
     painter.setBrush(QBrush(QColor(18, 22, 31, 165)))
     painter.drawRoundedRect(legend_rect, 8, 8)
     painter.setPen(QPen(QColor(74, 208, 120, 235), 3))
-    painter.drawLine(QPointF(legend_rect.left() + 12, legend_rect.top() + 15), QPointF(legend_rect.left() + 34, legend_rect.top() + 15))
-    painter.setPen(QColor(theme_color('text_primary')))
-    painter.drawText(QRectF(legend_rect.left() + 40, legend_rect.top() + 4, legend_rect.width() - 45, 20), Qt.AlignLeft | Qt.AlignVCenter, 'Target PiSD road guide')
+    painter.drawLine(QPointF(legend_rect.left() + 12, legend_rect.top() + 18), QPointF(legend_rect.left() + 34, legend_rect.top() + 18))
+    painter.setPen(text_color)
+    painter.drawText(QRectF(legend_rect.left() + 40, legend_rect.top() + 5, legend_rect.width() - 45, 25), Qt.AlignLeft | Qt.AlignVCenter, 'Target PiSD road guide')
     painter.setPen(QPen(QColor(255, 164, 76, 235), 3))
-    painter.drawLine(QPointF(legend_rect.left() + 12, legend_rect.top() + 32), QPointF(legend_rect.left() + 34, legend_rect.top() + 32))
-    painter.setPen(QColor(theme_color('text_primary')))
-    painter.drawText(QRectF(legend_rect.left() + 40, legend_rect.top() + 21, legend_rect.width() - 45, 20), Qt.AlignLeft | Qt.AlignVCenter, 'Predicted PiSD road guide')
+    painter.drawLine(QPointF(legend_rect.left() + 12, legend_rect.top() + 41), QPointF(legend_rect.left() + 34, legend_rect.top() + 41))
+    painter.setPen(text_color)
+    painter.drawText(QRectF(legend_rect.left() + 40, legend_rect.top() + 28, legend_rect.width() - 45, 25), Qt.AlignLeft | Qt.AlignVCenter, 'Predicted PiSD road guide')
     painter.restore()
 
     painter.end()

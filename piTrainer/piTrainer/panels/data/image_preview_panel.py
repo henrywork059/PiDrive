@@ -7,6 +7,7 @@ from PySide6.QtGui import QKeyEvent, QMouseEvent, QPixmap
 from PySide6.QtWidgets import QGroupBox, QHBoxLayout, QLabel, QSlider, QVBoxLayout, QWidget
 
 from ...services.data.augmentation_service import truthy_value
+from ...services.data.overlay_primitives import DATA_OVERLAY_TEXT_COLOR, DATA_OVERLAY_TEXT_SCALE
 from ...services.data.overlay_service import apply_overlays, apply_prediction_comparison_overlay, clip_speed, clip_steering, drive_values_from_point
 from ...utils.image_utils import load_scaled_pixmap
 from ...ui.layout_widgets import CollapsibleSection
@@ -313,6 +314,8 @@ class ImagePreviewPanel(QGroupBox):
                 steering_pred=float(record.get('pred_steering', 0.0) or 0.0),
                 speed_pred=float(record.get('pred_throttle', record.get('pred_speed', 0.0)) or 0.0),
                 overlay_settings=record.get('overlay_settings') if isinstance(record.get('overlay_settings'), dict) else {},
+                legend_text_color=DATA_OVERLAY_TEXT_COLOR,
+                legend_font_scale=DATA_OVERLAY_TEXT_SCALE,
             )
         else:
             rendered = apply_overlays(pixmap, record, self.overlay_options)

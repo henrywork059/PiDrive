@@ -6,7 +6,7 @@ from typing import Any
 from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QBrush, QPainter, QPen, QPixmap
 
-from .overlay_primitives import _draw_label, _polygon_path, _smooth_polyline_path
+from .overlay_primitives import DATA_OVERLAY_TEXT_COLOR, DATA_OVERLAY_TEXT_SCALE, _draw_label, _polygon_path, _smooth_polyline_path
 from .overlay_values import (
     PISD_OVERLAY_DEFAULTS,
     _bounded_opacity,
@@ -133,6 +133,8 @@ def _draw_pisd_road_guide(
     *,
     color: QColor,
     label: str | None = None,
+    label_color: QColor | None = None,
+    label_font_scale: float = DATA_OVERLAY_TEXT_SCALE,
     comparison: bool = False,
 ) -> None:
     geometry = _pisd_road_geometry(float(pixmap.width()), float(pixmap.height()), steering_value, throttle_value, overlay_settings)
@@ -195,7 +197,13 @@ def _draw_pisd_road_guide(
         start = geometry['start']
         curve = abs(float(geometry.get('curve', 0.0) or 0.0))
         curve_text = 'trapezium' if curve < 0.08 else f'road curve {curve:.2f}'
-        _draw_label(painter, QRectF(start.x() - 136, max(6.0, start.y() - 62.0), 272, 24), f"{label} · {curve_text}", color)
+        _draw_label(
+            painter,
+            QRectF(start.x() - 150, max(6.0, start.y() - 68.0), 300, 32),
+            f"{label} · {curve_text}",
+            label_color or DATA_OVERLAY_TEXT_COLOR,
+            font_scale=label_font_scale,
+        )
 
 
 def _draw_path_preview(painter: QPainter, pixmap: QPixmap, record: dict[str, Any] | None, steering_value: float, speed_value: float) -> None:
@@ -206,6 +214,8 @@ def _draw_path_preview(painter: QPainter, pixmap: QPixmap, record: dict[str, Any
         steering_value,
         speed_value,
         settings,
-        color=QColor(36, 212, 255, 235),
+        color=QColor(74, 208, 120, 235),
         label=f"PiSD V7 SPD {speed_value:.2f} | STR {steering_value:.2f}",
+        label_color=DATA_OVERLAY_TEXT_COLOR,
+        label_font_scale=DATA_OVERLAY_TEXT_SCALE,
     )

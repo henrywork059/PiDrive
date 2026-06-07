@@ -28,7 +28,7 @@ class ValidationConfigPanel(QGroupBox):
         self.model_source_combo.addItems(['Current trained model', 'Load .keras / .h5 model'])
 
         self.dataset_source_combo = QComboBox()
-        self.dataset_source_combo.addItems(['Validation split', 'Current filtered rows', 'Training split'])
+        self.dataset_source_combo.addItems(['All visible rows', 'Validation split', 'Training split'])
 
         self.model_path_edit = QLineEdit()
         self.model_path_edit.setPlaceholderText('Optional .keras/.h5 model path')

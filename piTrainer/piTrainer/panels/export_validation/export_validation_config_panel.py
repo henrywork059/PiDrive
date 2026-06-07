@@ -28,7 +28,7 @@ class ExportValidationConfigPanel(QGroupBox):
         self.tflite_path_edit.setPlaceholderText('.tflite model path')
 
         self.dataset_source_combo = QComboBox()
-        self.dataset_source_combo.addItems(['Validation split', 'Current filtered rows', 'Training split'])
+        self.dataset_source_combo.addItems(['All visible rows', 'Validation split', 'Training split'])
 
         self.batch_spin = QSpinBox()
         self.batch_spin.setRange(1, 512)

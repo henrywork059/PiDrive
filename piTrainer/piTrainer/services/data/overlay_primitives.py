@@ -3,15 +3,39 @@ from __future__ import annotations
 from math import cos, pi, radians, sin, sqrt
 
 from PySide6.QtCore import QPointF, QRectF, Qt
-from PySide6.QtGui import QColor, QBrush, QPainter, QPainterPath, QPen, QPixmap
+from PySide6.QtGui import QColor, QBrush, QFont, QPainter, QPainterPath, QPen, QPixmap
 
 from ...ui.theme import theme_color
 from .overlay_values import clip_speed, clip_steering, drive_arrow_points
 
 
-def _draw_label(painter: QPainter, rect: QRectF, text: str, color: QColor | None = None) -> None:
+DATA_OVERLAY_TEXT_COLOR = QColor(255, 72, 72, 245)
+DATA_OVERLAY_TEXT_SCALE = 1.30
+
+
+def _scaled_overlay_font(painter: QPainter, scale: float = DATA_OVERLAY_TEXT_SCALE) -> QFont:
+    font = QFont(painter.font())
+    if scale <= 0:
+        return font
+    point_size = font.pointSizeF()
+    if point_size > 0:
+        font.setPointSizeF(point_size * scale)
+    elif font.pixelSize() > 0:
+        font.setPixelSize(max(1, round(font.pixelSize() * scale)))
+    return font
+
+
+def _draw_label(
+    painter: QPainter,
+    rect: QRectF,
+    text: str,
+    color: QColor | None = None,
+    *,
+    font_scale: float = DATA_OVERLAY_TEXT_SCALE,
+) -> None:
     painter.save()
-    painter.setPen(color or QColor(theme_color('text_primary')))
+    painter.setFont(_scaled_overlay_font(painter, font_scale))
+    painter.setPen(color or DATA_OVERLAY_TEXT_COLOR)
     painter.drawText(rect, Qt.AlignCenter, text)
     painter.restore()
 
