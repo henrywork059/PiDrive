@@ -562,7 +562,7 @@ def format_preprocess_preview(summary: dict[str, float | int | str], recipe: dic
         f"Horizontal flip copies: {'Enabled' if recipe.get('mirror_enabled', False) else 'Disabled'}",
         f"Mild exposure / WB variants per row: {int(recipe.get('color_variants', 0) or 0)}",
         f"Added horizontal flip rows: {summary['mirror_rows_added']}",
-        "Horizontal flip labels: steering is inverted; speed/throttle is preserved.",
+        "Horizontal flip labels: Steering is inverted; Speed is preserved.",
         f"Added mild color rows: {summary['color_rows_added']}",
         f"Output image size: {recipe.get('image_width')}x{recipe.get('image_height')}",
         '',

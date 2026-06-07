@@ -457,7 +457,7 @@ class PreviewPanel(QGroupBox):
         selected_note = f" {selected_count} row(s) selected." if selected_count > 1 else ""
         display_row = row + 1
         self.summary_label.setText(
-            f"Displaying {total} frame(s). Current: row {display_row}, session '{session}', frame '{frame_id}', mode '{mode}', steering {steering:.3f}, speed {throttle:.3f}.{selected_note}"
+            f"Displaying {total} frame(s). Current: row {display_row}, session '{session}', frame '{frame_id}', mode '{mode}', Steering {steering:.3f}, Speed {throttle:.3f}.{selected_note}"
         )
 
     def _emit_playback_state(self) -> None:

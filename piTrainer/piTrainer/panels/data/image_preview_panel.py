@@ -77,9 +77,9 @@ class ImagePreviewPanel(QGroupBox):
         self.overlay_options: dict[str, bool] = {
             'path_preview': True,
             'legacy_path_preview': False,
-            'speed_vertical': False,
+            'speed_vertical': True,
             'steering_horizontal': False,
-            'steering_arc': False,
+            'steering_arc': True,
             'drive_arrow': False,
         }
         self._syncing_controls = False
@@ -193,9 +193,9 @@ class ImagePreviewPanel(QGroupBox):
         self.overlay_options = {
             'path_preview': bool(options.get('path_preview', True)),
             'legacy_path_preview': bool(options.get('legacy_path_preview', False)),
-            'speed_vertical': bool(options.get('speed_vertical', False)),
+            'speed_vertical': bool(options.get('speed_vertical', True)),
             'steering_horizontal': bool(options.get('steering_horizontal', False)),
-            'steering_arc': bool(options.get('steering_arc', False)),
+            'steering_arc': bool(options.get('steering_arc', True)),
             'drive_arrow': bool(options.get('drive_arrow', False)),
         }
         self._render_preview()
@@ -274,17 +274,18 @@ class ImagePreviewPanel(QGroupBox):
         if self._has_deployed_output(record):
             try:
                 prediction_suffix = (
-                    f" | AI {float(record.get('pred_steering', 0.0) or 0.0):.3f}"
-                    f"/{float(record.get('pred_throttle', record.get('pred_speed', 0.0)) or 0.0):.3f}"
+                    f" | AI Steering/Speed "
+                    f"{float(record.get('pred_steering', 0.0) or 0.0):.3f}/"
+                    f"{float(record.get('pred_throttle', record.get('pred_speed', 0.0)) or 0.0):.3f}"
                 )
             except (TypeError, ValueError):
                 prediction_suffix = ' | AI output loaded'
         if has_settings:
             count = len(settings)
             suffix = f' | {source}' if source else ''
-            self.overlay_meta_label.setText(f'Overlay metadata: PiSD road settings loaded ({count} value(s)) | {schema or "no schema"}{suffix}{prediction_suffix}')
+            self.overlay_meta_label.setText(f'Overlay: PiSD settings loaded ({count}) | {schema or "no schema"}{suffix}{prediction_suffix}')
         else:
-            self.overlay_meta_label.setText(f'Overlay metadata: using PiSD V7 defaults{prediction_suffix}')
+            self.overlay_meta_label.setText(f'Overlay: PiSD defaults{prediction_suffix}')
 
     def _schedule_render_preview(self) -> None:
         if self.current_record is not None:

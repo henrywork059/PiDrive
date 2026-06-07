@@ -64,8 +64,8 @@ class _FrameReviewCard(QWidget):
                 'Review frame: {review_frame}/{review_total}\n'
                 'Horizontal flip: {flip_note}{source_suffix}{variant_suffix}{warning_suffix}\n'
                 'Combined error: {combined_error:.4f}\n'
-                'Target Steer/Speed: {steering_true:.3f} / {throttle_true:.3f}\n'
-                'Pred Steer/Speed: {steering_pred:.3f} / {throttle_pred:.3f}'
+                'Target Steering/Speed: {steering_true:.3f} / {throttle_true:.3f}\n'
+                'AI Steering/Speed: {steering_pred:.3f} / {throttle_pred:.3f}'
             ).format(
                 session=str(payload.get('session', '')),
                 frame_id=frame_id,

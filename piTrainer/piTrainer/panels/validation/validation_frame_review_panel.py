@@ -164,7 +164,7 @@ class ValidationFrameReviewPanel(QGroupBox):
             'row_number', 'session', 'frame_id', 'frame_number', 'mode',
             'target_steering', 'pred_steering', 'target_speed', 'pred_speed', 'combined_error',
         ]
-        headers = ['Row', 'Session', 'Frame ID', 'Frame No.', 'Mode', 'True Steer', 'Pred Steer', 'True Speed', 'Pred Speed', 'Error']
+        headers = ['Row', 'Session', 'Frame ID', 'Frame No.', 'Mode', 'True Steering', 'AI Steering', 'True Speed', 'AI Speed', 'Error']
         self.table.clear()
         self.table.setRowCount(len(self.rows))
         self.table.setColumnCount(len(columns))
@@ -236,8 +236,8 @@ class ValidationFrameReviewPanel(QGroupBox):
             (
                 'Row {row_number} | Session: {session} | Mode: {mode} | Frame ID: {frame_id} | Frame No.: {frame_number}\n'
                 'Horizontal flip: {flip_note}{source_suffix}{variant_suffix}{warning_suffix}\n'
-                'Target Steer/Speed: {target_steering:.3f} / {target_speed:.3f} | '
-                'Pred Steer/Speed: {pred_steering:.3f} / {pred_speed:.3f} | '
+                'Target Steering/Speed: {target_steering:.3f} / {target_speed:.3f} | '
+                'AI Steering/Speed: {pred_steering:.3f} / {pred_speed:.3f} | '
                 'Combined error: {combined_error:.4f}'
             ).format(
                 row_number=int(row.get('row_number', 0) or 0),

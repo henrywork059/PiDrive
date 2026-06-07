@@ -100,7 +100,7 @@ class ModelDeployPanel(QGroupBox):
         self.deploy_btn.setToolTip('Run the selected model on the currently visible Records rows.')
         self.deploy_btn.clicked.connect(self.deploy_callback)
 
-        self.sort_steer_btn = QPushButton('Sort Steer Diff')
+        self.sort_steer_btn = QPushButton('Sort Steering Diff')
         self.sort_steer_btn.setProperty('role', 'secondary')
         self.sort_steer_btn.clicked.connect(self.sort_steering_diff_callback)
 

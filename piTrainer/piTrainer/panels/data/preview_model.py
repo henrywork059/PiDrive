@@ -23,7 +23,7 @@ class RecordPreviewModel(QAbstractTableModel):
         'throttle': 'Speed',
         'pred_steering': 'AI Steering',
         'pred_throttle': 'AI Speed',
-        'steering_diff': 'Steer Diff',
+        'steering_diff': 'Steering Diff',
         'speed_diff': 'Speed Diff',
         'mode': 'Mode',
         'ts': 'Time',

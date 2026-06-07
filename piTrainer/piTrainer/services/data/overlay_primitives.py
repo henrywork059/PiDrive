@@ -11,17 +11,44 @@ from .overlay_values import clip_speed, clip_steering, drive_arrow_points
 
 DATA_OVERLAY_TEXT_COLOR = QColor(255, 72, 72, 245)
 DATA_OVERLAY_TEXT_SCALE = 1.30
+DATA_OVERLAY_TEXT_WEIGHT_SCALE = 1.30
 
 
-def _scaled_overlay_font(painter: QPainter, scale: float = DATA_OVERLAY_TEXT_SCALE) -> QFont:
+def _font_weight_value(weight) -> int:
+    raw = getattr(weight, 'value', weight)
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return 400
+
+
+def _weight_from_value(value: int):
+    weight_enum = getattr(QFont, 'Weight', None)
+    if weight_enum is None:
+        return int(value)
+    names = ('Thin', 'ExtraLight', 'Light', 'Normal', 'Medium', 'DemiBold', 'Bold', 'ExtraBold', 'Black')
+    candidates = [getattr(weight_enum, name) for name in names if hasattr(weight_enum, name)]
+    if not candidates:
+        return int(value)
+    return min(candidates, key=lambda candidate: abs(_font_weight_value(candidate) - int(value)))
+
+
+def _scaled_overlay_font(
+    painter: QPainter,
+    scale: float = DATA_OVERLAY_TEXT_SCALE,
+    *,
+    weight_scale: float = DATA_OVERLAY_TEXT_WEIGHT_SCALE,
+) -> QFont:
     font = QFont(painter.font())
-    if scale <= 0:
-        return font
-    point_size = font.pointSizeF()
-    if point_size > 0:
-        font.setPointSizeF(point_size * scale)
-    elif font.pixelSize() > 0:
-        font.setPixelSize(max(1, round(font.pixelSize() * scale)))
+    if scale > 0:
+        point_size = font.pointSizeF()
+        if point_size > 0:
+            font.setPointSizeF(point_size * scale)
+        elif font.pixelSize() > 0:
+            font.setPixelSize(max(1, round(font.pixelSize() * scale)))
+    if weight_scale > 0:
+        base_weight = max(1, _font_weight_value(font.weight()))
+        font.setWeight(_weight_from_value(round(base_weight * weight_scale)))
     return font
 
 
@@ -52,7 +79,7 @@ def _draw_speed_bar(painter: QPainter, pixmap: QPixmap, throttle_value: float) -
     width = pixmap.width()
     height = pixmap.height()
     track = QRectF(width - 48, height * 0.12, 24, height * 0.68)
-    label_rect = QRectF(width - 92, height * 0.82, 70, 24)
+    label_rect = QRectF(width - 132, height * 0.815, 108, 30)
 
     _draw_track(painter, track)
 
@@ -68,7 +95,7 @@ def _draw_speed_bar(painter: QPainter, pixmap: QPixmap, throttle_value: float) -
     painter.drawLine(track.left() - 4, track.bottom(), track.right() + 4, track.bottom())
     painter.restore()
 
-    _draw_label(painter, label_rect, f"SPD {throttle_value:.2f}")
+    _draw_label(painter, label_rect, f"Speed {throttle_value:.2f}")
 
 
 def _steering_fill_color(value: float) -> QColor:
@@ -104,7 +131,7 @@ def _draw_steering_bar(painter: QPainter, pixmap: QPixmap, steering_value: float
     painter.drawLine(QPointF(inner.left(), inner.center().y()), QPointF(inner.right(), inner.center().y()))
     painter.restore()
 
-    _draw_label(painter, QRectF(track.right() + 8, track.top() - 2, 92, 24), f"STR {steering_value:.2f}")
+    _draw_label(painter, QRectF(track.right() + 8, track.top() - 4, 130, 30), f"Steering {steering_value:.2f}")
 
 
 def _draw_steering_arc(painter: QPainter, pixmap: QPixmap, steering_value: float) -> None:
@@ -140,7 +167,7 @@ def _draw_steering_arc(painter: QPainter, pixmap: QPixmap, steering_value: float
     painter.drawLine(QPointF(center.x(), center.y()), QPointF(end_x, end_y))
     painter.restore()
 
-    _draw_label(painter, QRectF(rect.left() - 8, rect.bottom() - 4, rect.width() + 16, 24), f"STR ARC {steering_value:.2f}")
+    _draw_label(painter, QRectF(rect.left() - 10, max(6.0, rect.top() - 34.0), rect.width() + 86, 30), f"Steering {steering_value:.2f}")
 
 
 def _sample_quarter_ellipse_points(start: QPointF, end: QPointF, steps: int = 40) -> list[QPointF]:
@@ -274,10 +301,10 @@ def _draw_single_path(
     painter.restore()
 
     if label:
-        _draw_label(painter, QRectF(start.x() - 112, max(6.0, start.y() - 60.0), 224, 24), label, main_color)
+        _draw_label(painter, QRectF(start.x() - 144, max(6.0, start.y() - 64.0), 288, 30), label, main_color)
 
 def _draw_legacy_path_preview(painter: QPainter, pixmap: QPixmap, steering_value: float, speed_value: float) -> None:
-    _draw_single_path(painter, pixmap, steering_value, speed_value, QColor(180, 210, 255, 185), f"LEGACY SPD {speed_value:.2f} | STR {steering_value:.2f}")
+    _draw_single_path(painter, pixmap, steering_value, speed_value, QColor(180, 210, 255, 185), f"Legacy Speed {speed_value:.2f} · Steering {steering_value:.2f}")
 
 
 def _draw_drive_arrow(painter: QPainter, pixmap: QPixmap, steering_value: float, speed_value: float) -> None:

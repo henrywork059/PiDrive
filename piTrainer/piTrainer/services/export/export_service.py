@@ -154,7 +154,7 @@ def export_tflite_model(model, out_path: Path, quantize: bool, representative_ds
     out_path.write_bytes(tflite_bytes)
     notes = list(_summarize_capture(import_capture))
     notes.extend(_summarize_capture(captured))
-    notes.append('TFLite output is forced to one ordered tensor: [steering, throttle/speed].')
+    notes.append('TFLite output is forced to one ordered tensor: [steering, speed].')
     if quantize:
         notes.append("Created size-optimised TFLite file; model input/output remain float32 for the current PiDrive runtime.")
     else:

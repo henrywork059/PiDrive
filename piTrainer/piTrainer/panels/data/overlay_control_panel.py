@@ -20,6 +20,8 @@ class OverlayControlPanel(QGroupBox):
         self.drive_arrow_cb = QCheckBox('Drive arrow (debug)')
 
         self.path_preview_cb.setChecked(True)
+        self.speed_vertical_cb.setChecked(True)
+        self.steering_arc_cb.setChecked(True)
 
         for checkbox in [
             self.path_preview_cb,
