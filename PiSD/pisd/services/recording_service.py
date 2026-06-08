@@ -147,7 +147,7 @@ class RecordingService:
                     "overlay_settings_source": "manual_drive_runtime_overlay",
                     "overlay_schema_version": OVERLAY_SCHEMA_VERSION,
                     "schema": {
-                        "frame_id": "unique stable frame id",
+                        "frame_id": "globally unique stable frame id with session/date prefix",
                         "frame_index": "1-based session order",
                         "saved_at_utc": "capture save time",
                         "source_frame_seq": "camera service frame sequence",
@@ -160,6 +160,7 @@ class RecordingService:
                         "overlay_settings_file": "session-level overlay_settings.json for trainer apps to reuse the same visual calibration",
                     },
                     "training_labels_schema": {
+                        "frame_id": "globally unique stable frame id used when merging sessions",
                         "frame": "relative frame path used by trainers",
                         "steering": "manual steering label in -1..1",
                         "throttle": "manual throttle label in -1..1",
@@ -294,7 +295,7 @@ class RecordingService:
                         "training_data": {
                             "format": "behavioural_cloning_jsonl",
                             "labels_file": session.get("labels_file", ""),
-                            "label_fields": ["frame", "steering", "throttle", "timestamp_utc", "overlay_settings", "overlay_settings_file"],
+                            "label_fields": ["frame_id", "frame", "steering", "throttle", "timestamp_utc", "overlay_settings", "overlay_settings_file"],
                             "overlay_settings_file": record.get("overlay_settings_file", session.get("overlay_settings_file", "")),
                             "overlay_settings_history_file": record.get("overlay_settings_history_file", session.get("overlay_settings_history_file", "")),
                             "overlay_schema_version": record.get("overlay_schema_version", OVERLAY_SCHEMA_VERSION),
@@ -600,6 +601,21 @@ class RecordingService:
         except Exception:
             return str(path).replace("\\", "/")
 
+    def _make_frame_identity(self, session: dict[str, Any], frame_index: int, saved_at: datetime) -> tuple[str, str]:
+        """Return a globally unique trainer-safe frame id and JPEG filename.
+
+        Older data tools often used per-session frame numbers such as
+        ``frame_000001`` as a loose id.  That can collide when sessions from
+        different days are merged.  PiSD now prefixes the session/date id and
+        keeps a short UUID suffix so every saved frame can be identified across
+        recording folders, daily snapshot folders, and trainer imports.
+        """
+        session_id = _safe_label(session.get("session_id", "session"), "session")
+        stamp = _stamp(saved_at).lower()
+        suffix = uuid.uuid4().hex[:10]
+        frame_id = f"pisd_{session_id}_f{int(frame_index):06d}_{stamp}_{suffix}"
+        return frame_id, f"{frame_id}.jpg"
+
     def _overlay_sidecar_paths(self, session: dict[str, Any]) -> tuple[Path, Path]:
         session_dir = Path(session["session_dir"])
         settings_path = Path(session.get("overlay_settings_file") or (session_dir / OVERLAY_SETTINGS_FILENAME))
@@ -647,6 +663,8 @@ class RecordingService:
             "timestamp_utc": saved_at_utc,
             "frame_id": frame_id,
             "frame_index": int(frame_index),
+            "frame_id_scheme": "pisd_session_date_uuid_v2",
+            "frame_id_unique_scope": "global_across_pisd_recordings",
             "relative_file": relative_file,
             "overlay_schema_version": OVERLAY_SCHEMA_VERSION,
             "overlay_settings_source": "manual_drive_runtime_overlay",
@@ -762,8 +780,7 @@ class RecordingService:
         overlay_settings: Any | None = None,
     ) -> dict[str, Any]:
         saved_at = _utc_now()
-        frame_id = f"{session['session_id']}_{frame_index:06d}_{_stamp(saved_at)}_{uuid.uuid4().hex[:8]}"
-        filename = f"frame_{frame_index:06d}_{_stamp(saved_at)}_{uuid.uuid4().hex[:8]}.jpg"
+        frame_id, filename = self._make_frame_identity(session, frame_index, saved_at)
         frames_dir = Path(session["frames_dir"])
         frames_dir.mkdir(parents=True, exist_ok=True)
         frame_path = frames_dir / filename
@@ -784,6 +801,8 @@ class RecordingService:
         record = {
             "frame_id": frame_id,
             "frame_index": int(frame_index),
+            "frame_id_scheme": "pisd_session_date_uuid_v2",
+            "frame_id_unique_scope": "global_across_pisd_recordings",
             "label": label,
             "saved_at_utc": saved_at.isoformat(),
             "date": saved_at.strftime("%Y-%m-%d"),
@@ -830,6 +849,9 @@ class RecordingService:
         # while labels.jsonl is intentionally easy for an AI trainer to stream.
         labels_file = Path(session.get("labels_file") or Path(session["records_file"]).with_name("labels.jsonl"))
         training_label = {
+            "frame_id": frame_id,
+            "frame_index": int(frame_index),
+            "frame_id_scheme": "pisd_session_date_uuid_v2",
             "frame": str(frame_path.relative_to(Path(session["session_dir"]))).replace("\\", "/"),
             "relative_file": str(frame_path.relative_to(self.project_root)).replace("\\", "/"),
             "steering": record["steering"],
@@ -881,7 +903,7 @@ class RecordingService:
             "training_data": {
                 "format": "behavioural_cloning_jsonl",
                 "labels_file": str(Path(self._active_session.get("labels_file") or manifest_file.with_name("labels.jsonl"))),
-                "label_fields": ["frame", "steering", "throttle", "timestamp_utc", "overlay_settings", "overlay_settings_file"],
+                "label_fields": ["frame_id", "frame", "steering", "throttle", "timestamp_utc", "overlay_settings", "overlay_settings_file"],
                 "overlay_settings_file": str(Path(self._active_session.get("overlay_settings_file") or session_dir / OVERLAY_SETTINGS_FILENAME)),
                 "overlay_settings_history_file": str(Path(self._active_session.get("overlay_settings_history_file") or session_dir / OVERLAY_SETTINGS_HISTORY_FILENAME)),
                 "overlay_schema_version": OVERLAY_SCHEMA_VERSION,

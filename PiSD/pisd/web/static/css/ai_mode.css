@@ -565,3 +565,11 @@ body[data-pisd-theme="light"] .ai-panel-tabs {
 .ai-files-panel .mdrv-file-summary {
   margin-top: .55rem;
 }
+
+/* PiSD_0_10_9: AI preview run controls are now above the camera frame. */
+.ai-preview-run-actions {
+  margin: 0 0 .6rem;
+  padding: 0 0 .6rem;
+  border-top: 0;
+  border-bottom: 1px solid rgba(148, 163, 184, .16);
+}

@@ -151,6 +151,7 @@ def check_source_contract() -> list[Result]:
         "mdrvPreviewLoopDebug",
         "Preview is idle",
         "Start live",
+        "mdrv-preview-top-actions",
         "manualDriveFilesPanel",
         "mdrvFileKind",
         "mdrvFileSelect",
@@ -313,6 +314,17 @@ def check_source_contract() -> list[Result]:
     status_index = template.find("manualDriveStatusPanel")
     preview_index = template.find("manualDriveCameraPanel")
     order_ok = status_index >= 0 and preview_index >= 0 and status_index < preview_index
+    preview_actions_index = template.find('id="mdrvLiveCamera"')
+    preview_frame_index = template.find('id="mdrvPreviewFrame"')
+    preview_actions_order_ok = preview_actions_index >= 0 and preview_frame_index >= 0 and preview_actions_index < preview_frame_index
+    results.append(Result(
+        "manual_drive.preview_buttons_above_frame",
+        preview_actions_order_ok,
+        PiSDErrorCodes.OK if preview_actions_order_ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
+        "Manual Drive Start live/Snapshot/Record controls are above the camera preview frame" if preview_actions_order_ok else "Manual Drive preview controls were not above the camera frame",
+        {"actions_index": preview_actions_index, "preview_frame_index": preview_frame_index},
+    ))
+
     results.append(Result(
         "manual_drive.status_above_preview",
         order_ok,

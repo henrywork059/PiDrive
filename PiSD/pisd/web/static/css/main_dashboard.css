@@ -508,3 +508,10 @@ code { color: #bae6fd; }
   .md-top-actions { width: 100%; }
   .md-top-actions > * { flex: 1 1 auto; }
 }
+
+/* PiSD_0_10_9: keep dashboard preview controls above the camera image. */
+.md-preview-top-actions {
+  margin: 0 0 .55rem;
+  padding-bottom: .5rem;
+  border-bottom: 1px solid rgba(148, 163, 184, .14);
+}

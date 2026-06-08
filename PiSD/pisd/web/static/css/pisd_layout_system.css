@@ -455,3 +455,16 @@ body.motor-tuning-page .mtun-shell {
 body.motor-tuning-page .mtun-hero {
   grid-column: 1 / -1 !important;
 }
+
+/* PiSD_0_10_9: testing preview action buttons sit above the preview image even when layout overrides are active. */
+body.testing-page .preview-grid.preview-buttons-top {
+  grid-template-columns: 1fr !important;
+}
+body.testing-page .preview-grid.preview-buttons-top .preview-actions-top {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  min-width: 0 !important;
+  margin-bottom: .45rem !important;
+}

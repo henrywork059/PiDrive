@@ -87,14 +87,14 @@ For this stable GUI baseline, test on the Pi browser after applying the package:
 - TFLite model loading supports piTrainer exports more reliably, including single-output `[steering, throttle]`, multi-output fallback handling, quantized input/output handling, and NumPy tensor shape handling.
 - AI runtime setup guidance and helper scripts are included for Pis missing `tflite_runtime`, `ai_edge_litert`, or TensorFlow Lite.
 - AI control loop uses cached camera frames to better follow the configured Update Hz; the allowed AI update-rate maximum is now `60`.
-- Manual Drive and AI Mode expose one short Start live action; Dashboard and Testing Server keep one technical camera/live diagnostic action; AI run/record controls stay beside the camera/prediction preview.
+- Manual Drive and AI Mode expose one short Start live action; Dashboard and Testing Server keep one technical camera/live diagnostic action; camera/live/record/run controls stay above the preview image so they remain visible before the user looks at the frame.
 - AI Mode recording and snapshot buttons use the shared recording service and include overlay sidecar metadata.
 - AI Mode `Limiter / correction` adds a correction pane with Manual Drive-style drag-pad/arrow-key additive AI correction, user-settable correction percentage, `r` recording shortcut, and `s` snapshot shortcut; fixed-throttle mode still enforces fixed throttle after correction.
 - Motor dead-zone/start-kick code added during the v9 patch line was later removed; this baseline does not include that feature.
 
 ## Future patch rule
 
-Future PiSD patches after this baseline should use `0_10_x` naming, such as `PiSD_0_10_8_patch.zip`, unless the user promotes a newer stable line.
+Future PiSD patches after this baseline should use `0_10_x` naming, such as `PiSD_0_10_9_patch.zip`, unless the user promotes a newer stable line.
 
 Patch-only zips should contain only:
 
@@ -134,6 +134,15 @@ Main UI/runtime update:
 
 Rollback safety: this patch preserves the accepted one-button `Start live` workflow, AI snapshot/record buttons and shortcuts, additive correction equation, fixed-throttle-after-correction behaviour, and the `0_10_5` helper-module split.
 
+
+## PiSD 0.10.9 preview buttons and frame-id patch
+
+`PiSD_0_10_9_patch.zip` builds forward from v10 plus accepted patches `0_10_1` through `0_10_8`. It does not promote a new stable rollback baseline.
+
+- Preview action buttons now stay above the preview image on Manual Drive, AI Mode, Dashboard, and Testing Server.
+- Recording frame IDs use a globally unique session/date/UUID-based format and are written into both `records.jsonl` and `labels.jsonl`.
+
+Rollback safety: this patch preserves the accepted one-button live workflow, AI correction/manual-pad behaviour, global Space STOP, shared recording download panel, and max-throttle persistence.
 
 ## PiSD 0.10.8 AI max-throttle persistence patch
 

@@ -730,3 +730,10 @@ body[data-pisd-theme="light"] .mdrv-keyboard-hint {
   border-color: rgba(134, 239, 172, .82) !important;
   background: rgba(21, 128, 61, .72) !important;
 }
+
+/* PiSD_0_10_9: preview controls stay above the camera frame on Manual Drive and AI Mode. */
+.mdrv-preview-top-actions {
+  margin: 0 0 .45rem;
+  padding-bottom: .45rem;
+  border-bottom: 1px solid rgba(148, 163, 184, .14);
+}

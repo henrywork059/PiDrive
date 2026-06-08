@@ -1,6 +1,6 @@
 # PiSD
 
-`PiSD_0_10_8` patch package — builds forward from the `PiSD_0_10_0` stable v10 baseline plus accepted `0_10_1` through `0_10_7` UI/AI-correction/manual-pad/recording patches.
+`PiSD_0_10_9` patch package — builds forward from the `PiSD_0_10_0` stable v10 baseline plus accepted `0_10_1` through `0_10_8` UI/AI-correction/manual-pad/recording/persistence patches.
 
 PiSD is a clean sandbox under `PiDrive/PiSD` for rebuilding and testing PiServer GUI and runtime functions from square one.
 
@@ -10,9 +10,9 @@ Future bug-fix patches after this package should use `PiSD_0_10_x_patch` naming 
 
 ## Current version
 
-`PiSD_0_10_8` patch package. `PiSD_0_10_0` remains the full stable v10 baseline built from the accepted `PiSD_0_9_0` stable package plus the accepted `0_9_1` through `0_9_10` patch line. It promotes the latest AI runtime/model compatibility work, AI update-rate/control-loop improvements, combined camera/live-stream control, AI Mode recording/snapshot controls, keyboard steering timing, overlay recording metadata, and dead-zone cleanup into a new rollback baseline.
+`PiSD_0_10_9` patch package. `PiSD_0_10_0` remains the full stable v10 baseline built from the accepted `PiSD_0_9_0` stable package plus the accepted `0_9_1` through `0_9_10` patch line. It promotes the latest AI runtime/model compatibility work, AI update-rate/control-loop improvements, combined camera/live-stream control, AI Mode recording/snapshot controls, keyboard steering timing, overlay recording metadata, and dead-zone cleanup into a new rollback baseline.
 
-Use `PiSD_0_10_0` as the rollback point for future PiSD work unless a newer stable line is promoted; this patch is the eighth `0_10_x` forward fix.
+Use `PiSD_0_10_0` as the rollback point for future PiSD work unless a newer stable line is promoted; this patch is the ninth `0_10_x` forward fix.
 
 Included accepted work:
 
@@ -34,12 +34,13 @@ Included accepted work:
 - Preview idle start, FPS estimate, frame-age display, stale-frame warning, and guarded preview metrics loop.
 - Recording/snapshot selected-folder details, safer download/delete button states, and hardened backend folder-id validation.
 - Manual Drive recordings include trainer-friendly `labels.jsonl` beside full `records.jsonl` metadata.
+- Frame IDs now use a session/date/UUID-based global scheme and are written into both `records.jsonl` and `labels.jsonl`, so frame identifiers do not repeat when multiple recording days or sessions are merged for training.
 - AI Mode page at `/ai-mode`, replacing the earlier scripted Autopilot foundation.
 - Legacy `/autopilot` path is retained only as a retired compatibility/redirect path to AI Mode.
 - AI Mode model listing/loading from `PiSD/models/` and a guarded safety layer between AI predictions and motor output.
 - AI Mode can save snapshots, start/stop recording, and download/delete saved recording or snapshot folders through the shared recording service, using the same recording folder format as Manual Drive.
 - AI Mode max throttle and fixed throttle controls allow full-scale `1.00`; Update Hz can be set up to `60` when the Pi/model can keep up.
-- AI Mode preview reuses the Manual Drive preview-frame design, keeps Start AI preview / Start AI drive / Stop AI beside the camera view, and draws the road-guide overlay from the model prediction after the safety limiter.
+- AI Mode preview reuses the Manual Drive preview-frame design, keeps Start live/Snapshot/Record and Start AI preview/Start AI drive/Stop AI above the camera view, and draws the road-guide overlay from the model prediction after the safety limiter.
 - AI Mode `Limiter / correction / manual` panel has three panes: Limiter settings, additive AI Correction, and a full Manual pad takeover.
 - AI Mode supports `r` to toggle recording and `s` to save a snapshot when focus is not inside a text field or popup editor. Space is now a global STOP shortcut across PiSD pages and AI panels.
 - AI correction percentage is user-settable; fixed-throttle mode still enforces the configured fixed throttle after steering correction. The full Manual pad uses the same guarded `/api/control/manual` path as Manual Drive and directly takes over from AI drive control. The correction equation now lives in `pisd/services/ai_correction.py`, while fixed-throttle/limiter math lives in `pisd/services/ai_safety.py` for smaller, easier-to-debug backend scripts.
@@ -195,7 +196,7 @@ Use `records.jsonl` only for full debug metadata, filtering, or advanced trainin
 
 ## Stable baseline notes
 
-`PiSD_0_10_0` is the stable rollback baseline; `PiSD_0_10_8` is the current forward patch on the `0_10_x` line.
+`PiSD_0_10_0` is the stable rollback baseline; `PiSD_0_10_9` is the current forward patch on the `0_10_x` line.
 
 It includes the tested service foundation from earlier baselines plus the accepted v6, v7, v8, v9, and v10-promotion Manual Drive, recording, overlay, AI Mode, steering algorithm, motor tuning reset, keyboard-control, safety-policy, AI-runtime, and validation cleanup patch lines.
 
@@ -285,6 +286,20 @@ python3 scripts/test_motor_channels.py --hardware
 - piTrainer still needs a matching update to redraw the overlay from saved `overlay_settings` metadata.
 - Camera setting source-of-truth is still duplicated between backend defaults, service dataclass, UI forms, and diagnostic scripts. If the OV5647 colour still does not match the earlier 03/91 diagnostic result on real hardware, that should be a future `0_10_x` camera patch.
 
+
+## PiSD 0.10.9 preview-button placement and global frame-id patch
+
+`PiSD_0_10_9_patch.zip` builds forward from v10 plus accepted patches `0_10_1` through `0_10_8`. It does not promote a new stable rollback baseline.
+
+Changed behaviour:
+
+- Manual Drive keeps `Start live`, `Snapshot`, and `Record` above the camera preview frame.
+- AI Mode keeps camera actions and AI run actions above the camera preview frame.
+- The legacy Dashboard keeps its camera/live controls above the preview frame.
+- The Testing Server GUI keeps diagnostic camera buttons above the preview image.
+- Recording frame IDs now use `pisd_<session/date>_fNNNNNN_<utc-stamp>_<uuid>` and are also included in `labels.jsonl`, reducing merge collisions across different recording days/sessions.
+
+Rollback safety: this patch preserves the accepted Start live workflow, AI snapshot/record shortcuts, Records & snaps, global Space STOP, additive correction math, fixed-throttle-after-correction, Manual pad takeover, and max-throttle persistence behaviour.
 
 ## PiSD 0.10.8 AI max-throttle persistence patch
 

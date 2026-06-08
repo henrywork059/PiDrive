@@ -51,6 +51,7 @@ REQUIRED_TEMPLATE_TOKENS = [
     "mdOverlaySteeringValue",
     "mdOverlayPathSvg",
     "Start camera + live",
+    "md-preview-top-actions",
     "Stop camera only",
     "Refresh status",
 ]
@@ -159,13 +160,16 @@ def check_source_contract() -> Result:
         "js": [token for token in REQUIRED_JS_TOKENS if token not in js],
     }
     missing = {key: value for key, value in missing.items() if value}
-    ok = not missing
+    action_index = template.find('id="mdCameraStart"')
+    frame_index = template.find('id="mdPreviewFrame"')
+    order_errors = {} if (action_index >= 0 and frame_index >= 0 and action_index < frame_index) else {"preview_buttons_above_frame": {"action_index": action_index, "preview_frame_index": frame_index}}
+    ok = not missing and not order_errors
     return Result(
         "main_dashboard.source_contract",
         ok,
         PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_MAIN_DASHBOARD_CONTRACT_FAILED,
-        "main dashboard source includes required panels, safety lock, STOP actions, and API calls" if ok else "main dashboard source contract failed",
-        {"missing": missing},
+        "main dashboard source includes required panels, top-of-preview camera buttons, safety lock, STOP actions, and API calls" if ok else "main dashboard source contract failed",
+        {"missing": missing, "order_errors": order_errors},
     )
 
 

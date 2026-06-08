@@ -62,6 +62,11 @@
           <span class="mdrv-code" data-code-for="camera">PISD-OK-000</span>
         </div>
       </div>
+      <div class="mdrv-row mdrv-compact-actions mdrv-preview-top-actions" aria-label="Manual preview actions">
+        <button id="mdrvLiveCamera" class="mdrv-button mdrv-primary mdrv-live-action" title="Start camera service and switch the preview image to MJPEG live stream.">Start live</button>
+        <button id="mdrvCaptureFrame" class="mdrv-button mdrv-primary mdrv-snapshot-action">Snapshot</button>
+        <button id="mdrvRecordToggle" class="mdrv-button">Record</button>
+      </div>
       <div id="mdrvPreviewFrame" class="mdrv-preview-frame mdrv-overlay-enabled" data-preview-mode="idle" data-preview-state="idle">
         <img id="mdrvPreview" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720'%3E%3Crect width='1280' height='720' fill='%23020617'/%3E%3Ctext x='640' y='340' fill='%2394a3b8' font-family='Arial,sans-serif' font-size='42' text-anchor='middle'%3EPreview idle%3C/text%3E%3Ctext x='640' y='398' fill='%2364748b' font-family='Arial,sans-serif' font-size='26' text-anchor='middle'%3EPress Start live%3C/text%3E%3C/svg%3E" alt="PiSD live camera preview" data-preview-mode="idle">
         <div id="mdrvDriveOverlay" class="mdrv-drive-overlay" aria-live="polite">
@@ -109,11 +114,6 @@
             <span>R <strong id="mdrvOverlayRightValue">+0.00</strong></span>
           </div>
         </div>
-      </div>
-      <div class="mdrv-row mdrv-compact-actions">
-        <button id="mdrvLiveCamera" class="mdrv-button mdrv-primary mdrv-live-action" title="Start camera service and switch the preview image to MJPEG live stream.">Start live</button>
-        <button id="mdrvCaptureFrame" class="mdrv-button mdrv-primary mdrv-snapshot-action">Snapshot</button>
-        <button id="mdrvRecordToggle" class="mdrv-button">Record</button>
       </div>
       <p id="mdrvCaptureNotice" class="mdrv-capture-notice" role="status" aria-live="polite">Preview is idle. Use <strong>Start live</strong> to start the camera and show MJPEG. Press <strong>s</strong> to save a snapshot or <strong>r</strong> to toggle recording. Use <strong>Overlay: On/Off</strong> in this Camera header to show the road-style guide drawn from the live/manual control state.</p>
     </section>

@@ -8,13 +8,13 @@ One-off captures:
 
 ```text
 recordings/
-  snapshots/
+  single_captures/
     YYYY-MM-DD/
-      snapshot_YYYYMMDDTHHMMSSffffffZ_label_xxxxxxxx/
-        frames/
-          frame_000001_YYYYMMDDTHHMMSSffffffZ_xxxxxxxx.jpg
-        manifest.json
-        records.jsonl
+      frames/
+        pisd_single_captures_YYYY-MM-DD_f000001_YYYYMMDDTHHMMSSffffffZ_xxxxxxxxxx.jpg
+      manifest.json
+      records.jsonl
+      labels.jsonl
 ```
 
 Recording sessions:
@@ -24,20 +24,21 @@ recordings/
   YYYY-MM-DD/
     YYYYMMDD_HHMMSS_manual_drive_xxxxxxxx/
       frames/
-        frame_000001_YYYYMMDDTHHMMSSffffffZ_xxxxxxxx.jpg
-        frame_000002_YYYYMMDDTHHMMSSffffffZ_xxxxxxxx.jpg
+        pisd_YYYYMMDD_HHMMSS_manual_drive_xxxxxxxx_f000001_YYYYMMDDTHHMMSSffffffZ_xxxxxxxxxx.jpg
+        pisd_YYYYMMDD_HHMMSS_manual_drive_xxxxxxxx_f000002_YYYYMMDDTHHMMSSffffffZ_xxxxxxxxxx.jpg
       manifest.json
       records.jsonl
+      labels.jsonl
 ```
 
 ## Traceability
 
-Every saved frame has a unique `frame_id` and a 1-based `frame_index`.
+Every saved frame has a globally unique `frame_id` and a 1-based `frame_index`. From PiSD 0.10.9 onward, the id is session/date/UUID based and is also present in `labels.jsonl` so trainer imports can merge different recording days without treating `frame_000001` from two sessions as the same frame.
 The JSONL record beside the image stores:
 
 - `saved_at_utc`, `date`, and `time`
 - camera frame sequence and source timestamp
-- relative image file path
+- globally unique `frame_id` and relative image file path
 - full camera settings/status
 - full motor settings/status
 - steering, throttle, steer mix
@@ -102,7 +103,7 @@ PiSD/recordings/single_captures/YYYY-MM-DD/
   records.jsonl
 ```
 
-This avoids creating one tiny folder for every quick screenshot while still keeping each frame traceable by `frame_id`, `frame_index`, date, time, source camera frame sequence, camera settings, motor settings, steering/throttle command, and motor output values.
+This avoids creating one tiny folder for every quick screenshot while still keeping each frame traceable by globally unique `frame_id`, `frame_index`, date, time, source camera frame sequence, camera settings, motor settings, steering/throttle command, and motor output values.
 
 The Manual Drive page displays a visible confirmation message after a frame is captured. When recording is active, it also shows a red recording indicator in the camera panel.
 

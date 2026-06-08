@@ -60,6 +60,11 @@
             <button id="aiStopCamera" class="mdrv-button ai-button ai-button-secondary">Stop camera</button>
           </div>
         </div>
+        <div class="ai-button-row ai-run-buttons ai-preview-run-actions" aria-label="AI run controls">
+          <button id="aiStartPreview" class="mdrv-button mdrv-primary ai-button ai-button-primary">Start AI preview</button>
+          <button id="aiStartDrive" class="mdrv-button mdrv-danger ai-button ai-button-danger">Start AI drive</button>
+          <button id="aiStop" class="mdrv-button ai-button ai-button-secondary">Stop AI</button>
+        </div>
         <div id="aiPreviewFrame" class="mdrv-preview-frame ai-preview-frame mdrv-overlay-enabled" data-preview-mode="idle" data-preview-state="idle" data-overlay-source="ai-stopped" data-overlay-motion="stopped">
           <img id="aiPreviewImage" alt="AI camera preview" data-preview-mode="idle" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720'%3E%3Crect width='1280' height='720' fill='%23020617'/%3E%3Ctext x='640' y='340' fill='%2394a3b8' font-family='Arial,sans-serif' font-size='42' text-anchor='middle'%3EAI preview idle%3C/text%3E%3Ctext x='640' y='398' fill='%2364748b' font-family='Arial,sans-serif' font-size='26' text-anchor='middle'%3EStart live, then run AI preview%3C/text%3E%3C/svg%3E" />
           <div id="aiDriveOverlay" class="mdrv-drive-overlay ai-drive-overlay" aria-live="polite">
@@ -111,11 +116,6 @@
           </div>
         </div>
         <p id="aiPreviewCaption" class="mdrv-capture-notice ai-preview-caption" role="status" aria-live="polite">Preview is idle. Use Start live first, then start AI preview before enabling AI drive.</p>
-        <div class="ai-button-row ai-run-buttons ai-preview-run-actions" aria-label="AI run controls">
-          <button id="aiStartPreview" class="mdrv-button mdrv-primary ai-button ai-button-primary">Start AI preview</button>
-          <button id="aiStartDrive" class="mdrv-button mdrv-danger ai-button ai-button-danger">Start AI drive</button>
-          <button id="aiStop" class="mdrv-button ai-button ai-button-secondary">Stop AI</button>
-        </div>
       </section>
 
       <section class="mdrv-panel ai-panel" id="aiModelPanel">

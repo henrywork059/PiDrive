@@ -123,13 +123,14 @@ def main() -> int:
     record2 = capture2.get("record") or {}
     same_folder = (Path(record.get("file", "missing")).parent == Path(record2.get("file", "other")).parent) if record and record2 else False
     ordered = record.get("frame_index") == 1 and record2.get("frame_index") == 2
-    single_folder_ok = capture2.get("code") == PiSDErrorCodes.OK and same_folder and ordered and "single_captures" in str(record2.get("relative_file", ""))
+    unique_capture_ids = (record.get("frame_id") != record2.get("frame_id")) and str(record.get("frame_id", "")).startswith("pisd_") and str(record2.get("frame_id", "")).startswith("pisd_")
+    single_folder_ok = capture2.get("code") == PiSDErrorCodes.OK and same_folder and ordered and unique_capture_ids and "single_captures" in str(record2.get("relative_file", ""))
     results.append(Result(
         "recording.single_capture_daily_folder",
         single_folder_ok,
         capture2.get("code", PiSDErrorCodes.TEST_RECORDING_SERVICE_FAILED),
-        "single captures share the same daily folder and increment frame order" if single_folder_ok else "single capture folder/order policy failed",
-        {"first": record.get("relative_file"), "second": record2.get("relative_file"), "same_folder": same_folder, "ordered": ordered},
+        "single captures share the same daily folder, increment frame order, and keep unique frame ids" if single_folder_ok else "single capture folder/order/id policy failed",
+        {"first": record.get("relative_file"), "second": record2.get("relative_file"), "first_id": record.get("frame_id"), "second_id": record2.get("frame_id"), "same_folder": same_folder, "ordered": ordered, "unique_capture_ids": unique_capture_ids},
     ))
 
     start = service.start(camera, motor, label="unit_record", fps=10)
@@ -154,10 +155,13 @@ def main() -> int:
         overlay_data = json.loads(overlay_file.read_text(encoding="utf-8")) if overlay_file.exists() else {}
         history_lines = overlay_history_file.read_text(encoding="utf-8").strip().splitlines() if overlay_history_file.exists() else []
         schema_ok = (
-            all(key in item for key in ("frame_id", "frame_index", "saved_at_utc", "relative_file", "camera_settings", "motor_state", "steering", "throttle", "motor_outputs", "motor_tuning", "training_label", "overlay_settings", "overlay_settings_file", "overlay_settings_history_file", "overlay_schema_version"))
+            all(key in item for key in ("frame_id", "frame_index", "frame_id_scheme", "saved_at_utc", "relative_file", "camera_settings", "motor_state", "steering", "throttle", "motor_outputs", "motor_tuning", "training_label", "overlay_settings", "overlay_settings_file", "overlay_settings_history_file", "overlay_schema_version"))
             and (item.get("overlay_settings") or {}).get("path_width_scale") == provider_overlay["path_width_scale"]
             and (item.get("overlay_settings") or {}).get("horizon_y") == provider_overlay["horizon_y"]
             and item.get("overlay_schema_version") == "PiSD_0_8_8_overlay_settings_v2"
+            and item.get("frame_id_scheme") == "pisd_session_date_uuid_v2"
+            and str(item.get("frame_id", "")).startswith("pisd_")
+            and item.get("frame_id") in str(item.get("relative_file", ""))
             and "curve_strength" not in (item.get("overlay_settings") or {})
             and "sample_count" not in (item.get("overlay_settings") or {})
         )
@@ -174,7 +178,9 @@ def main() -> int:
         if label_lines:
             label = json.loads(label_lines[0])
             labels_ok = (
-                all(key in label for key in ("frame", "relative_file", "steering", "throttle", "timestamp_utc", "source_frame_seq", "session_id", "overlay_settings", "overlay_settings_file", "overlay_settings_history_file", "overlay_schema_version"))
+                all(key in label for key in ("frame_id", "frame_index", "frame_id_scheme", "frame", "relative_file", "steering", "throttle", "timestamp_utc", "source_frame_seq", "session_id", "overlay_settings", "overlay_settings_file", "overlay_settings_history_file", "overlay_schema_version"))
+                and label.get("frame_id") == item.get("frame_id")
+                and label.get("frame_id_scheme") == "pisd_session_date_uuid_v2"
                 and label.get("steering") == item.get("steering")
                 and label.get("throttle") == item.get("throttle")
                 and (label.get("overlay_settings") or {}).get("path_width_scale") == provider_overlay["path_width_scale"]

@@ -36,16 +36,16 @@
         </div>
         <span class="hint">01 visual / 91 array</span>
       </div>
-      <div class="preview-grid">
-        <div class="preview-box">
-          <img id="cameraPreview" src="/api/camera/frame.jpg" alt="Camera preview" data-mode="snapshot">
-        </div>
-        <div class="button-stack">
+      <div class="preview-grid preview-buttons-top">
+        <div class="button-stack preview-actions-top" aria-label="Testing preview actions">
           <button id="startLivePreviewBtn" class="button primary">Start camera + live</button>
           <button class="button secondary" data-call='{"method":"POST","path":"/api/camera/stop"}'>Stop camera</button>
           <button id="refreshFrameBtn" class="button secondary">Snapshot frame</button>
           <button class="button secondary" data-call='{"method":"GET","path":"/api/camera/config"}'>Read camera config</button>
           <button class="button secondary" data-call='{"method":"GET","path":"/api/camera/capabilities"}'>Read capabilities</button>
+        </div>
+        <div class="preview-box">
+          <img id="cameraPreview" src="/api/camera/frame.jpg" alt="Camera preview" data-mode="snapshot">
         </div>
       </div>
     </section>

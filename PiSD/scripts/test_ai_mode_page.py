@@ -115,6 +115,7 @@ def check_source_contract() -> Result:
             "Record",
             "STOP AI + motors",
             "aiPreviewFrame",
+            "ai-preview-run-actions",
             "aiDriveOverlay",
             "AI road guide",
             "Overlay: On",
@@ -213,13 +214,22 @@ def check_source_contract() -> Result:
     }
     present_forbidden = {name: [token for token in tokens if token in sources[name]] for name, tokens in forbidden.items()}
     present_forbidden = {name: tokens for name, tokens in present_forbidden.items() if tokens}
-    ok = not missing and not present_forbidden
+    order_errors: dict[str, dict[str, int]] = {}
+    for label, first_token, second_token in (
+        ("camera_buttons_above_preview", 'id="aiLive"', 'id="aiPreviewFrame"'),
+        ("run_buttons_above_preview", 'id="aiStartPreview"', 'id="aiPreviewFrame"'),
+    ):
+        first_index = template.find(first_token)
+        second_index = template.find(second_token)
+        if not (first_index >= 0 and second_index >= 0 and first_index < second_index):
+            order_errors[label] = {"first_index": first_index, "preview_frame_index": second_index}
+    ok = not missing and not present_forbidden and not order_errors
     return Result(
         "ai_mode.source_contract",
         ok,
         PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_AI_MODE_FAILED,
-        "AI Mode source contains model-loading, one Start live action, snapshot/record buttons, road-guide overlay, safety, same-sign reverse steering policy, and drive contracts" if ok else "AI Mode source contract failed",
-        {"missing": missing, "forbidden_present": present_forbidden},
+        "AI Mode source contains model-loading, one Start live action, snapshot/record buttons above preview, road-guide overlay, safety, same-sign reverse steering policy, and drive contracts" if ok else "AI Mode source contract failed",
+        {"missing": missing, "forbidden_present": present_forbidden, "order_errors": order_errors},
     )
 
 

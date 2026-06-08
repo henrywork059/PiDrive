@@ -1097,6 +1097,34 @@ Browser/Pi checks to perform on hardware:
 8. Confirm `Correction` still uses `AI + manual * Correction %` and fixed-throttle mode still ignores manual throttle correction.
 
 
+## PiSD 0.10.9 preview-button and frame-id checks
+
+After applying `PiSD_0_10_9_patch`, run the safe local checks:
+
+```bash
+cd ~/PiDrive/PiSD
+python3 -m compileall -q pisd scripts PiSD.py
+node --check pisd/web/static/js/ai_mode.js
+node --check pisd/web/static/js/manual_drive.js
+node --check pisd/web/static/js/main_dashboard.js
+node --check pisd/web/static/js/testing_server.js
+python3 scripts/test_manual_drive_page.py --static-only
+python3 scripts/test_ai_mode_page.py --static-only
+python3 scripts/test_main_dashboard.py --static-only
+python3 scripts/test_testing_server_gui.py --static-only
+python3 scripts/test_recording_service.py
+python3 scripts/run_standard_validation.py --skip-api --skip-camera --skip-motor --skip-gui
+python3 PiSD.py --status-only
+```
+
+Browser/Pi checks to perform on hardware:
+
+1. Open `/manual-drive` and confirm `Start live`, `Snapshot`, and `Record` are above the camera preview image.
+2. Open `/ai-mode` and confirm camera actions plus `Start AI preview`, `Start AI drive`, and `Stop AI` are above the AI camera preview image.
+3. Open `/dashboard` and `/testing` and confirm their camera/live diagnostic buttons are above the preview image.
+4. Record two sessions on different days, or copy two different session folders into piTrainer, and confirm `labels.jsonl` contains unique `frame_id` values that include the session/date prefix and UUID suffix.
+5. Confirm old trainer-facing fields still exist: `frame`, `relative_file`, `steering`, `throttle`, `timestamp_utc`, and `session_id`.
+
 ## PiSD 0.10.8 AI max-throttle persistence checks
 
 After applying `PiSD_0_10_8_patch`, run the safe local checks:

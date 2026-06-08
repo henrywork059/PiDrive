@@ -94,6 +94,8 @@ def check_source_contract() -> Result:
             "globalCode",
             "cameraPreview",
             "startLivePreviewBtn",
+            "preview-buttons-top",
+            "preview-actions-top",
             "Start camera + live",
             "fpsTestPanel",
             "runMaxFpsBtn",
@@ -130,13 +132,16 @@ def check_source_contract() -> Result:
     sources = {"template": template, "css": css, "js": js}
     missing = {key: [token for token in tokens if token not in sources[key]] for key, tokens in expected.items()}
     missing = {key: value for key, value in missing.items() if value}
-    ok = not missing
+    action_index = template.find('id="startLivePreviewBtn"')
+    frame_index = template.find('id="cameraPreview"')
+    order_errors = {} if (action_index >= 0 and frame_index >= 0 and action_index < frame_index) else {"preview_buttons_above_frame": {"action_index": action_index, "preview_frame_index": frame_index}}
+    ok = not missing and not order_errors
     return Result(
         "gui.source_contract",
         ok,
         PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_GUI_ASSET_FAILED,
-        "GUI source includes required controls, smoke test, API paths, and safety code" if ok else "GUI source contract failed",
-        {"missing": missing},
+        "GUI source includes required top-of-preview controls, smoke test, API paths, and safety code" if ok else "GUI source contract failed",
+        {"missing": missing, "order_errors": order_errors},
     )
 
 

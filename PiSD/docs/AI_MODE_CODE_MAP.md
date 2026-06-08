@@ -119,3 +119,8 @@ Space key
 ```
 
 Page scripts should use the `pisd:space-stop` event only for local UI cleanup. Motor stopping should remain in the shared helper and backend stop routes.
+
+
+## PiSD 0.10.9 preview-control placement
+
+AI Mode keeps both camera actions (`Start live`, `Snapshot`, `Record`) and AI run actions (`Start AI preview`, `Start AI drive`, `Stop AI`) above `#aiPreviewFrame`. This keeps all start/record/drive controls visible before the live frame and avoids hiding important buttons below a large preview.
