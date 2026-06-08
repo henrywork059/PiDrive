@@ -16,6 +16,7 @@ import argparse
 import json
 import sys
 import time
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
@@ -27,6 +28,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from pisd.app import create_app, load_defaults  # noqa: E402
 from pisd.core.errors import PiSDErrorCodes, ok_payload, report_payload, ErrorReporter  # noqa: E402
 from pisd.core.panel_contracts import get_panel_contracts  # noqa: E402
+from pisd.core.settings_manager import SettingsManager  # noqa: E402
 from pisd.services.ai_correction import apply_additive_manual_correction, manual_correction_status  # noqa: E402
 from pisd.services.ai_safety import apply_ai_safety  # noqa: E402
 from pisd.services.camera_service import CameraService  # noqa: E402
@@ -218,6 +220,22 @@ def _check_ai_helper_math() -> CheckResult:
         {"corrected": corrected, "safe": safe},
     )
 
+
+
+def _check_ai_settings_persistence() -> CheckResult:
+    with tempfile.TemporaryDirectory() as tmp:
+        settings_path = Path(tmp) / "runtime_settings.json"
+        manager = SettingsManager(settings_path, {})
+        ok, settings, report = manager.save({"ai_mode": {"max_throttle": 0.61}})
+        reloaded = SettingsManager(settings_path, {}).get().get("ai_mode") or {}
+    persisted = abs(float(reloaded.get("max_throttle", -1.0)) - 0.61) < 1e-9
+    return CheckResult(
+        "ai_mode.settings_persistence",
+        bool(ok and persisted),
+        PiSDErrorCodes.OK if ok and persisted else PiSDErrorCodes.TEST_AI_MODE_FAILED,
+        "AI max throttle setting persists through runtime_settings.json" if ok and persisted else "AI max throttle setting did not persist",
+        {"saved_ok": ok, "reloaded_ai_mode": reloaded, "report": getattr(report, "message", "")},
+    )
 
 def _check_camera_service(hardware: bool) -> CheckResult:
     defaults = load_defaults()
@@ -1336,6 +1354,7 @@ def main() -> int:
     checks.append(_safe_check("core.error_reporting_schema", _check_error_schema))
     checks.append(_safe_check("services.import_and_status", _check_imports))
     checks.append(_safe_check("ai_mode.helper_math", _check_ai_helper_math))
+    checks.append(_safe_check("ai_mode.settings_persistence", _check_ai_settings_persistence))
 
     if not args.skip_gui:
         checks.append(_safe_check("front_page.static_files", _check_front_page_static_files))

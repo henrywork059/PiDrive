@@ -1,6 +1,6 @@
 # PiSD
 
-`PiSD_0_10_7` patch package — builds forward from the `PiSD_0_10_0` stable v10 baseline plus accepted `0_10_1` through `0_10_6` UI/AI-correction/manual-pad patches.
+`PiSD_0_10_8` patch package — builds forward from the `PiSD_0_10_0` stable v10 baseline plus accepted `0_10_1` through `0_10_7` UI/AI-correction/manual-pad/recording patches.
 
 PiSD is a clean sandbox under `PiDrive/PiSD` for rebuilding and testing PiServer GUI and runtime functions from square one.
 
@@ -10,9 +10,9 @@ Future bug-fix patches after this package should use `PiSD_0_10_x_patch` naming 
 
 ## Current version
 
-`PiSD_0_10_7` patch package. `PiSD_0_10_0` remains the full stable v10 baseline built from the accepted `PiSD_0_9_0` stable package plus the accepted `0_9_1` through `0_9_10` patch line. It promotes the latest AI runtime/model compatibility work, AI update-rate/control-loop improvements, combined camera/live-stream control, AI Mode recording/snapshot controls, keyboard steering timing, overlay recording metadata, and dead-zone cleanup into a new rollback baseline.
+`PiSD_0_10_8` patch package. `PiSD_0_10_0` remains the full stable v10 baseline built from the accepted `PiSD_0_9_0` stable package plus the accepted `0_9_1` through `0_9_10` patch line. It promotes the latest AI runtime/model compatibility work, AI update-rate/control-loop improvements, combined camera/live-stream control, AI Mode recording/snapshot controls, keyboard steering timing, overlay recording metadata, and dead-zone cleanup into a new rollback baseline.
 
-Use `PiSD_0_10_0` as the rollback point for future PiSD work unless a newer stable line is promoted; this patch is the seventh `0_10_x` forward fix.
+Use `PiSD_0_10_0` as the rollback point for future PiSD work unless a newer stable line is promoted; this patch is the eighth `0_10_x` forward fix.
 
 Included accepted work:
 
@@ -195,7 +195,7 @@ Use `records.jsonl` only for full debug metadata, filtering, or advanced trainin
 
 ## Stable baseline notes
 
-`PiSD_0_10_0` is the stable rollback baseline; `PiSD_0_10_7` is the current forward patch on the `0_10_x` line.
+`PiSD_0_10_0` is the stable rollback baseline; `PiSD_0_10_8` is the current forward patch on the `0_10_x` line.
 
 It includes the tested service foundation from earlier baselines plus the accepted v6, v7, v8, v9, and v10-promotion Manual Drive, recording, overlay, AI Mode, steering algorithm, motor tuning reset, keyboard-control, safety-policy, AI-runtime, and validation cleanup patch lines.
 
@@ -284,6 +284,20 @@ python3 scripts/test_motor_channels.py --hardware
 - Shared API/status helper logic is still duplicated across some frontend files and can be centralised later.
 - piTrainer still needs a matching update to redraw the overlay from saved `overlay_settings` metadata.
 - Camera setting source-of-truth is still duplicated between backend defaults, service dataclass, UI forms, and diagnostic scripts. If the OV5647 colour still does not match the earlier 03/91 diagnostic result on real hardware, that should be a future `0_10_x` camera patch.
+
+
+## PiSD 0.10.8 AI max-throttle persistence patch
+
+`PiSD_0_10_8_patch.zip` builds forward from v10 plus accepted patches `0_10_1` through `0_10_7`. It does not promote a new stable rollback baseline.
+
+Main UI/runtime update:
+
+- AI Mode limiter settings now protect active edits from the 250 ms AI status refresh.
+- `Max throttle` auto-saves after editing, so the value is not overwritten by the old saved/default value before the user can press Save.
+- The other AI limiter controls also use the same dirty-field guard and auto-save path for consistency.
+- Successful saves force the form to repaint from persisted settings only after the new values are confirmed.
+
+Rollback safety: this patch preserves Start live, AI snapshot/record shortcuts, Records & snaps, global Space STOP, additive correction math, fixed-throttle-after-correction, and full Manual pad takeover behaviour.
 
 
 ## PiSD 0.10.7 AI recording panel and global Space STOP patch

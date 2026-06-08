@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -18,6 +19,7 @@ from pisd.app import create_app  # noqa: E402
 from pisd.core.errors import PiSDErrorCodes  # noqa: E402
 from pisd.services.ai_correction import apply_additive_manual_correction, manual_correction_status  # noqa: E402
 from pisd.services.ai_safety import apply_ai_safety  # noqa: E402
+from pisd.core.settings_manager import SettingsManager  # noqa: E402
 
 WEB_ROOT = PROJECT_ROOT / "pisd" / "web"
 AI_TEMPLATE = WEB_ROOT / "templates" / "ai_mode.html"
@@ -195,6 +197,9 @@ def check_source_contract() -> Result:
             "ai-manual-keyboard",
             "/api/control/manual",
             "pisd:space-stop",
+            "configDirtyFields",
+            "scheduleConfigAutoSave",
+            "aiMaxThrottle",
         ],
         "global_space_js": ["PiSDGlobalSpaceStop", "space-global-stop", "/api/control/stop", "/api/ai/stop", "stopImmediatePropagation"],
         "recording_panel_js": ["PiSDRecordingDownloadPanels", "/api/recording/items", "/api/recording/download.zip", "/api/recording/delete", "data-recording-download-panel"],
@@ -246,12 +251,35 @@ def check_routes(hardware: bool) -> list[Result]:
     ok = config.status_code == 200 and b"manual_mix_percent" in config.data and b"75" in config.data
     checks.append(Result("ai_mode.api.correction_config", ok, PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_AI_MODE_FAILED, "AI correction percentage settings save and normalize" if ok else "AI correction percentage config did not save", {"http_status": config.status_code, "body": config.get_data(as_text=True)[:240]}))
 
+    throttle_config = client.post("/api/ai/config", json={"max_throttle": 0.61})
+    throttle_body = throttle_config.get_data(as_text=True)
+    ok = throttle_config.status_code == 200 and '"max_throttle":0.61' in throttle_body.replace(' ', '')
+    checks.append(Result("ai_mode.api.max_throttle_config", ok, PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_AI_MODE_FAILED, "AI max throttle setting saves and returns from runtime settings" if ok else "AI max throttle setting did not persist through config API", {"http_status": throttle_config.status_code, "body": throttle_body[:240]}))
+
     start_unloaded = client.post("/api/ai/start", json={"mode": "drive", "safety_ack": True, "enable_motor_output": False})
     ok = start_unloaded.status_code in {400, 409} and b"PISD-AI-003" in start_unloaded.data
     checks.append(Result("ai_mode.api.drive_requires_model", ok, PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_AI_MODE_FAILED, "AI drive is blocked when no model is loaded" if ok else "AI drive was not safely blocked without a model", {"http_status": start_unloaded.status_code, "body": start_unloaded.get_data(as_text=True)[:240]}))
     return checks
 
 
+
+
+def check_settings_persistence() -> Result:
+    """Check that AI max throttle survives SettingsManager save/load without Flask."""
+    with tempfile.TemporaryDirectory() as tmp:
+        settings_path = Path(tmp) / "runtime_settings.json"
+        manager = SettingsManager(settings_path, {})
+        ok, settings, report = manager.save({"ai_mode": {"max_throttle": 0.61, "max_steering": 0.64}})
+        reloaded = SettingsManager(settings_path, {}).get().get("ai_mode") or {}
+    throttle_ok = abs(float(reloaded.get("max_throttle", -1.0)) - 0.61) < 1e-9
+    steering_ok = abs(float(reloaded.get("max_steering", -1.0)) - 0.64) < 1e-9
+    return Result(
+        "ai_mode.settings_persistence.max_throttle",
+        bool(ok and throttle_ok and steering_ok),
+        PiSDErrorCodes.OK if ok and throttle_ok and steering_ok else PiSDErrorCodes.TEST_AI_MODE_FAILED,
+        "AI max throttle persists through runtime_settings.json save/load" if ok and throttle_ok and steering_ok else "AI max throttle did not persist through settings manager",
+        {"saved_ok": ok, "report": getattr(report, "message", ""), "reloaded_ai_mode": reloaded},
+    )
 
 def check_correction_math() -> list[Result]:
     """Check AI correction and safety math without camera, model, Flask, or motors."""
@@ -315,6 +343,7 @@ def main() -> int:
     results: list[Result] = []
     results.extend(check_files())
     results.append(check_source_contract())
+    results.append(check_settings_persistence())
     results.extend(check_correction_math())
     if not args.static_only:
         results.extend(check_routes(args.hardware))

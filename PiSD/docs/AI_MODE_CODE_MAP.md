@@ -22,7 +22,7 @@ This note is a maintainer map for the current AI Mode implementation. It is not 
   AI Mode page structure and panel IDs.
 
 - `pisd/web/static/js/ai_mode.js`  
-  AI Mode browser controller. It owns DOM updates, button wiring, model upload/delete calls, status refresh, Correction-panel input handling, and the Manual-pad takeover UI. Recording folder download/delete behaviour is kept in the smaller shared helper below.
+  AI Mode browser controller. It owns DOM updates, button wiring, model upload/delete calls, status refresh, AI limiter-form persistence/dirty-field protection, Correction-panel input handling, and the Manual-pad takeover UI. Recording folder download/delete behaviour is kept in the smaller shared helper below.
 
 - `pisd/web/static/js/recording_download_panel.js`  
   Small shared browser helper for the `Records & snaps` panel. It lists recording/snapshot folders, updates the selected-folder summary, starts zip downloads, and safely deletes selected non-active folders.
@@ -35,6 +35,20 @@ This note is a maintainer map for the current AI Mode implementation. It is not 
 
 - `pisd/web/static/js/overlay_geometry.js`  
   Shared overlay path geometry used by Manual Drive and AI Mode.
+
+## Current limiter settings persistence path
+
+```text
+AI Mode limiter controls
+  -> ai_mode.js collectConfig()
+  -> POST /api/ai/config
+  -> SettingsManager.save({ai_mode: ...})
+  -> config/runtime_settings.json
+  -> AIDriveService.apply_settings()
+```
+
+The AI page polls status while running. Limiter form fields therefore use dirty-field protection in `ai_mode.js` so `/api/ai/status` refreshes cannot repaint `Max throttle` or other limiter values with an older/default setting while the user is editing. Successful config saves force a repaint from the confirmed persisted settings.
+
 
 ## Current correction path
 

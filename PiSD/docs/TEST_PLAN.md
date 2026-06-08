@@ -1097,6 +1097,29 @@ Browser/Pi checks to perform on hardware:
 8. Confirm `Correction` still uses `AI + manual * Correction %` and fixed-throttle mode still ignores manual throttle correction.
 
 
+## PiSD 0.10.8 AI max-throttle persistence checks
+
+After applying `PiSD_0_10_8_patch`, run the safe local checks:
+
+```bash
+cd ~/PiDrive/PiSD
+python3 -m compileall -q pisd scripts PiSD.py
+node --check pisd/web/static/js/ai_mode.js
+python3 scripts/test_ai_mode_page.py --static-only
+python3 scripts/run_standard_validation.py --skip-api --skip-camera --skip-motor --skip-gui
+python3 PiSD.py --status-only
+```
+
+Browser/Pi checks to perform on hardware:
+
+1. Open `/ai-mode`.
+2. Change `Max throttle` from the default `0.22` to a clearly different value such as `0.35`.
+3. Keep AI status refresh active or start AI preview, then confirm the slider does not jump back to `0.22`.
+4. Hard refresh the page and confirm `Max throttle` still shows the saved value.
+5. Restart PiSD and confirm the saved value is still loaded from `config/runtime_settings.json`.
+6. Confirm Start live, Snapshot, Record, Records & snaps, Space STOP, Correction, and Manual pad still behave as before.
+
+
 ## PiSD 0.10.7 AI recording panel and global Space STOP checks
 
 After applying `PiSD_0_10_7_patch`, run the safe local checks:

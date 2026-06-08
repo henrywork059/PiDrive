@@ -94,7 +94,7 @@ For this stable GUI baseline, test on the Pi browser after applying the package:
 
 ## Future patch rule
 
-Future PiSD patches after this baseline should use `0_10_x` naming, such as `PiSD_0_10_7_patch.zip`, unless the user promotes a newer stable line.
+Future PiSD patches after this baseline should use `0_10_x` naming, such as `PiSD_0_10_8_patch.zip`, unless the user promotes a newer stable line.
 
 Patch-only zips should contain only:
 
@@ -133,6 +133,15 @@ Main UI/runtime update:
 - There is still only one `Save AI settings` configuration button, kept in the panel header outside the toggled content.
 
 Rollback safety: this patch preserves the accepted one-button `Start live` workflow, AI snapshot/record buttons and shortcuts, additive correction equation, fixed-throttle-after-correction behaviour, and the `0_10_5` helper-module split.
+
+
+## PiSD 0.10.8 AI max-throttle persistence patch
+
+`PiSD_0_10_8_patch.zip` builds forward from v10 plus accepted patches `0_10_1` through `0_10_7`. It does not promote a new stable rollback baseline.
+
+This patch fixes AI Mode limiter settings being repainted from old/default status values while the user is editing. `Max throttle` now gets a dirty-field guard and auto-save path so it persists through status refresh, page reload, and restart once saved to `config/runtime_settings.json`.
+
+Rollback safety: the patch does not change AI runtime math, model loading, recording folders, camera startup, motor mapping, Space STOP, or Manual pad behaviour.
 
 
 ## PiSD 0.10.7 AI recording panel and global Space STOP patch

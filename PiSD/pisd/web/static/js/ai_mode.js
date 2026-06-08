@@ -62,9 +62,18 @@
   let manualDriveKeyboardRightHeld = false;
   let manualDriveKeyboardLoopHandle = 0;
   let manualDriveKeyboardLastFrameAt = 0;
+  let configAutoSaveTimer = 0;
+  let configAutoSaveInFlight = false;
+  let configAutoSaveQueued = false;
+  let configEditVersion = 0;
+  const configDirtyFields = new Set();
   const CORRECTION_SEND_INTERVAL_MS = 90;
   const KEYBOARD_THROTTLE_STEP = 0.05;
   const KEYBOARD_STEERING_FULL_SCALE_MS = 800;
+  const AI_CONFIG_FIELD_IDS = [
+    'aiOutputMode', 'aiMaxThrottle', 'aiMaxSteering', 'aiFixedThrottle',
+    'aiUpdateHz', 'aiSteerSmooth', 'aiThrottleSmooth', 'aiManualMix',
+  ];
 
   function clamp(value, min = -1, max = 1, fallback = 0) {
     const n = Number(value);
@@ -137,20 +146,41 @@
     };
   }
 
-  function setRange(id, outputId, value, digits = 2) {
+  function shouldKeepLocalConfigValue(id, force = false) {
+    if (force) return false;
+    const element = els[id];
+    return Boolean(configDirtyFields.has(id) || (element && document.activeElement === element));
+  }
+
+  function markConfigDirty(id) {
+    if (id) {
+      configDirtyFields.add(id);
+      configEditVersion += 1;
+    }
+  }
+
+  function clearConfigDirty() {
+    configDirtyFields.clear();
+  }
+
+  function setRange(id, outputId, value, digits = 2, options = {}) {
+    if (shouldKeepLocalConfigValue(id, Boolean(options.force))) return;
     if (els[id]) els[id].value = String(value);
     if (els[outputId]) els[outputId].textContent = fmt(value, digits);
   }
 
-  function setPercentRange(id, outputId, value) {
+  function setPercentRange(id, outputId, value, options = {}) {
     const percent = clamp(value, 0, 100, 50);
-    if (els[id]) els[id].value = String(percent);
-    if (els[outputId]) els[outputId].textContent = `${Math.round(percent)}%`;
+    if (!shouldKeepLocalConfigValue(id, Boolean(options.force))) {
+      if (els[id]) els[id].value = String(percent);
+      if (els[outputId]) els[outputId].textContent = `${Math.round(percent)}%`;
+    }
     if (els.aiManualMixReadout) els.aiManualMixReadout.textContent = `${Math.round(percent)}%`;
   }
 
-  function renderConfig(config = {}) {
-    if (els.aiOutputMode) els.aiOutputMode.value = config.output_mode || 'steering_and_throttle';
+  function renderConfig(config = {}, options = {}) {
+    const force = Boolean(options.force);
+    if (els.aiOutputMode && !shouldKeepLocalConfigValue('aiOutputMode', force)) els.aiOutputMode.value = config.output_mode || 'steering_and_throttle';
     // PiSD_0_5_12: never restore motor output enable from saved config; it is session-only.
     // Only clear it during initial render so Save/Refresh does not unexpectedly uncheck
     // the live checkbox immediately before Start AI Drive reads it.
@@ -158,13 +188,13 @@
       els.aiEnableMotor.checked = false;
       aiMotorEnableInitialised = true;
     }
-    setRange('aiMaxThrottle', 'aiMaxThrottleOut', config.max_throttle ?? 0.22);
-    setRange('aiMaxSteering', 'aiMaxSteeringOut', config.max_steering ?? 0.70);
-    setRange('aiFixedThrottle', 'aiFixedThrottleOut', config.fixed_throttle ?? 0.16);
-    setRange('aiUpdateHz', 'aiUpdateHzOut', config.update_hz ?? 12, 0);
-    setRange('aiSteerSmooth', 'aiSteerSmoothOut', config.steering_smoothing ?? 0.35);
-    setRange('aiThrottleSmooth', 'aiThrottleSmoothOut', config.throttle_smoothing ?? 0.25);
-    setPercentRange('aiManualMix', 'aiManualMixOut', config.manual_mix_percent ?? 50);
+    setRange('aiMaxThrottle', 'aiMaxThrottleOut', config.max_throttle ?? 0.22, 2, { force });
+    setRange('aiMaxSteering', 'aiMaxSteeringOut', config.max_steering ?? 0.70, 2, { force });
+    setRange('aiFixedThrottle', 'aiFixedThrottleOut', config.fixed_throttle ?? 0.16, 2, { force });
+    setRange('aiUpdateHz', 'aiUpdateHzOut', config.update_hz ?? 12, 0, { force });
+    setRange('aiSteerSmooth', 'aiSteerSmoothOut', config.steering_smoothing ?? 0.35, 2, { force });
+    setRange('aiThrottleSmooth', 'aiThrottleSmoothOut', config.throttle_smoothing ?? 0.25, 2, { force });
+    setPercentRange('aiManualMix', 'aiManualMixOut', config.manual_mix_percent ?? 50, { force });
     if (outputPanelMode !== 'manual') {
       setOutputPanel(Boolean(config.manual_correction_enabled) ? 'correction' : 'limiter', false);
     }
@@ -330,7 +360,7 @@
     drawAIPath(throttle, steering);
   }
 
-  function renderAI(ai = {}) {
+  function renderAI(ai = {}, options = {}) {
     lastAIStatus = ai || {};
     aiRunning = Boolean(ai.running);
     const raw = ai.last_raw_prediction || {};
@@ -398,7 +428,7 @@
     if (els.aiLoopHz) els.aiLoopHz.textContent = `${fmt(ai.loop_hz, 1)} Hz`;
     if (els.aiDriveOutputState) els.aiDriveOutputState.textContent = ai.drive_output_enabled ? 'armed' : 'off';
     if (els.aiFrameSeq) els.aiFrameSeq.textContent = String(ai.last_frame_seq ?? 0);
-    if (ai.settings) renderConfig(ai.settings);
+    if (ai.settings) renderConfig(ai.settings, { force: Boolean(options.forceConfig) });
     updateAIOverlay(ai);
   }
 
@@ -780,14 +810,36 @@
           : 'Preview is idle. Start live first, then use AI preview to see the model-predicted safe path overlay before enabling AI drive.';
   }
 
-  async function saveConfig() {
+  async function saveConfig(options = {}) {
+    if (configAutoSaveTimer) {
+      clearTimeout(configAutoSaveTimer);
+      configAutoSaveTimer = 0;
+    }
+    if (configAutoSaveInFlight) {
+      configAutoSaveQueued = true;
+      return;
+    }
+    configAutoSaveInFlight = true;
+    const saveVersion = configEditVersion;
     try {
       const data = await api('/api/ai/config', { method: 'POST', body: collectConfig() });
-      renderAI(data.ai || {});
-      log('AI settings saved.', data.ai || {});
+      if (configEditVersion === saveVersion) clearConfigDirty();
+      renderAI(data.ai || {}, { forceConfig: configEditVersion === saveVersion });
+      if (!options.quiet) log('AI settings saved.', data.ai || {});
     } catch (err) {
       log(err.message, err.payload || {});
+    } finally {
+      configAutoSaveInFlight = false;
+      if (configAutoSaveQueued || configDirtyFields.size) {
+        configAutoSaveQueued = false;
+        scheduleConfigAutoSave(250);
+      }
     }
+  }
+
+  function scheduleConfigAutoSave(delayMs = 450) {
+    if (configAutoSaveTimer) clearTimeout(configAutoSaveTimer);
+    configAutoSaveTimer = setTimeout(() => saveConfig({ quiet: true }), delayMs);
   }
 
   async function loadModel() {
@@ -945,10 +997,27 @@
       ['aiMaxThrottle', 'aiMaxThrottleOut', 2], ['aiMaxSteering', 'aiMaxSteeringOut', 2], ['aiFixedThrottle', 'aiFixedThrottleOut', 2],
       ['aiUpdateHz', 'aiUpdateHzOut', 0], ['aiSteerSmooth', 'aiSteerSmoothOut', 2], ['aiThrottleSmooth', 'aiThrottleSmoothOut', 2],
     ].forEach(([inputId, outId, digits]) => {
-      els[inputId]?.addEventListener('input', () => { if (els[outId]) els[outId].textContent = fmt(els[inputId].value, digits); });
+      const input = els[inputId];
+      if (!input) return;
+      input.addEventListener('input', () => {
+        if (els[outId]) els[outId].textContent = fmt(input.value, digits);
+        markConfigDirty(inputId);
+        scheduleConfigAutoSave(inputId === 'aiMaxThrottle' ? 250 : 650);
+      });
+      input.addEventListener('change', () => {
+        markConfigDirty(inputId);
+        saveConfig({ quiet: true });
+      });
     });
-    els.aiManualMix?.addEventListener('input', () => setPercentRange('aiManualMix', 'aiManualMixOut', els.aiManualMix.value || 50));
-    els.aiManualMix?.addEventListener('change', saveConfig);
+    els.aiOutputMode?.addEventListener('change', () => { markConfigDirty('aiOutputMode'); saveConfig({ quiet: true }); });
+    els.aiManualMix?.addEventListener('input', () => {
+      const percent = clamp(els.aiManualMix.value, 0, 100, 50);
+      if (els.aiManualMixOut) els.aiManualMixOut.textContent = `${Math.round(percent)}%`;
+      if (els.aiManualMixReadout) els.aiManualMixReadout.textContent = `${Math.round(percent)}%`;
+      markConfigDirty('aiManualMix');
+      scheduleConfigAutoSave(650);
+    });
+    els.aiManualMix?.addEventListener('change', () => { markConfigDirty('aiManualMix'); saveConfig({ quiet: true }); });
     els.aiManualDriveSpeed?.addEventListener('input', () => setManualDriveKnob(manualDriveSteering, manualDriveThrottle));
   }
 
