@@ -6,7 +6,14 @@ from typing import Any
 from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QBrush, QPainter, QPen, QPixmap
 
-from .overlay_primitives import DATA_OVERLAY_TEXT_COLOR, DATA_OVERLAY_TEXT_SCALE, _draw_label, _polygon_path, _smooth_polyline_path
+from .overlay_primitives import (
+    DATA_OVERLAY_TEXT_COLOR,
+    DATA_OVERLAY_TEXT_SCALE,
+    _draw_label,
+    _overlay_text_size_factor,
+    _polygon_path,
+    _smooth_polyline_path,
+)
 from .overlay_values import (
     PISD_OVERLAY_DEFAULTS,
     _bounded_opacity,
@@ -197,12 +204,15 @@ def _draw_pisd_road_guide(
         start = geometry['start']
         curve = abs(float(geometry.get('curve', 0.0) or 0.0))
         curve_text = 'Straight' if curve < 0.08 else f'Curve {curve:.2f}'
+        reference_size = float(min(pixmap.width(), pixmap.height()))
+        factor = _overlay_text_size_factor(reference_size)
         _draw_label(
             painter,
-            QRectF(start.x() - 180, max(6.0, start.y() - 78.0), 360, 34),
+            QRectF(start.x() - 180.0 * factor, max(6.0, start.y() - 78.0 * factor), 360.0 * factor, 34.0 * factor),
             f"{label} · {curve_text}",
             label_color or DATA_OVERLAY_TEXT_COLOR,
             font_scale=label_font_scale,
+            reference_size=reference_size,
         )
 
 

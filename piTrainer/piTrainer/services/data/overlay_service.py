@@ -3,16 +3,17 @@ from __future__ import annotations
 from typing import Any
 
 from PySide6.QtCore import QPointF, QRectF, Qt
-from PySide6.QtGui import QColor, QBrush, QPainter, QPen, QPixmap
+from PySide6.QtGui import QColor, QBrush, QFontMetricsF, QPainter, QPen, QPixmap
 
 from ...ui.theme import theme_color
 from .overlay_primitives import (
-    DATA_OVERLAY_TEXT_WEIGHT_SCALE,
     _draw_drive_arrow,
     _draw_legacy_path_preview,
     _draw_speed_bar,
     _draw_steering_arc,
     _draw_steering_bar,
+    _overlay_text_color,
+    _overlay_text_size_factor,
     _scaled_overlay_font,
 )
 from .overlay_road import _draw_path_preview, _draw_pisd_road_guide
@@ -103,24 +104,37 @@ def apply_prediction_comparison_overlay(
         comparison=True,
     )
 
-    text_color = legend_text_color or QColor(theme_color('text_primary'))
+    text_color = _overlay_text_color(legend_text_color or QColor(theme_color('text_primary')))
     text_scale = legend_font_scale if legend_font_scale > 0 else 1.0
-    legend_height = 48.0 if text_scale <= 1.05 else 62.0
-    legend_rect = QRectF(16, 10, min(340.0, rendered.width() * 0.58), legend_height)
+    reference_size = float(min(rendered.width(), rendered.height()))
+    size_factor = _overlay_text_size_factor(reference_size)
+
     painter.save()
-    if text_scale != 1.0 or DATA_OVERLAY_TEXT_WEIGHT_SCALE != 1.0:
-        painter.setFont(_scaled_overlay_font(painter, text_scale))
-    painter.setPen(QPen(QColor(255, 255, 255, 70), 1))
+    painter.setFont(_scaled_overlay_font(painter, text_scale, reference_size=reference_size))
+    metrics = QFontMetricsF(painter.font())
+    row_height = max(20.0 * size_factor, metrics.height() + 4.0 * size_factor)
+    swatch_left = 12.0 * size_factor
+    swatch_width = 22.0 * size_factor
+    text_left = 40.0 * size_factor
+    legend_width = min(max(220.0 * size_factor, text_left + metrics.horizontalAdvance('Target path') + 18.0 * size_factor), rendered.width() * 0.58)
+    legend_height = row_height * 2.0 + 14.0 * size_factor
+    legend_rect = QRectF(16.0 * size_factor, 10.0 * size_factor, legend_width, legend_height)
+
+    painter.setPen(QPen(QColor(255, 255, 255, 70), max(1.0, size_factor)))
     painter.setBrush(QBrush(QColor(18, 22, 31, 165)))
-    painter.drawRoundedRect(legend_rect, 8, 8)
-    painter.setPen(QPen(QColor(74, 208, 120, 235), 3))
-    painter.drawLine(QPointF(legend_rect.left() + 12, legend_rect.top() + 18), QPointF(legend_rect.left() + 34, legend_rect.top() + 18))
+    painter.drawRoundedRect(legend_rect, 8.0 * size_factor, 8.0 * size_factor)
+
+    first_center_y = legend_rect.top() + 7.0 * size_factor + row_height / 2.0
+    second_center_y = first_center_y + row_height
+    painter.setPen(QPen(QColor(74, 208, 120, 235), max(2.0, 3.0 * size_factor)))
+    painter.drawLine(QPointF(legend_rect.left() + swatch_left, first_center_y), QPointF(legend_rect.left() + swatch_left + swatch_width, first_center_y))
     painter.setPen(text_color)
-    painter.drawText(QRectF(legend_rect.left() + 40, legend_rect.top() + 5, legend_rect.width() - 45, 25), Qt.AlignLeft | Qt.AlignVCenter, 'Target path')
-    painter.setPen(QPen(QColor(255, 164, 76, 235), 3))
-    painter.drawLine(QPointF(legend_rect.left() + 12, legend_rect.top() + 41), QPointF(legend_rect.left() + 34, legend_rect.top() + 41))
+    painter.drawText(QRectF(legend_rect.left() + text_left, legend_rect.top() + 5.0 * size_factor, legend_rect.width() - text_left - 6.0 * size_factor, row_height), Qt.AlignLeft | Qt.AlignVCenter, 'Target path')
+
+    painter.setPen(QPen(QColor(255, 164, 76, 235), max(2.0, 3.0 * size_factor)))
+    painter.drawLine(QPointF(legend_rect.left() + swatch_left, second_center_y), QPointF(legend_rect.left() + swatch_left + swatch_width, second_center_y))
     painter.setPen(text_color)
-    painter.drawText(QRectF(legend_rect.left() + 40, legend_rect.top() + 28, legend_rect.width() - 45, 25), Qt.AlignLeft | Qt.AlignVCenter, 'AI path')
+    painter.drawText(QRectF(legend_rect.left() + text_left, legend_rect.top() + 5.0 * size_factor + row_height, legend_rect.width() - text_left - 6.0 * size_factor, row_height), Qt.AlignLeft | Qt.AlignVCenter, 'AI path')
     painter.restore()
 
     painter.end()

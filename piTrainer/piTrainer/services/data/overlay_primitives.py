@@ -9,9 +9,15 @@ from ...ui.theme import theme_color
 from .overlay_values import clip_speed, clip_steering, drive_arrow_points
 
 
-DATA_OVERLAY_TEXT_COLOR = QColor(255, 72, 72, 245)
+# Text remains red, but with 30% transparency so it does not dominate the frame.
+# Alpha 178 is roughly 70% opacity / 30% transparent.
+DATA_OVERLAY_TEXT_ALPHA = 178
+DATA_OVERLAY_TEXT_COLOR = QColor(255, 72, 72, DATA_OVERLAY_TEXT_ALPHA)
 DATA_OVERLAY_TEXT_SCALE = 1.30
-DATA_OVERLAY_TEXT_WEIGHT_SCALE = 2.50
+DATA_OVERLAY_TEXT_WEIGHT_SCALE = 3.00
+DATA_OVERLAY_TEXT_BASE_EXTENT = 382.0
+DATA_OVERLAY_TEXT_MIN_FACTOR = 0.72
+DATA_OVERLAY_TEXT_MAX_FACTOR = 1.70
 
 
 def _font_weight_value(weight) -> int:
@@ -33,22 +39,39 @@ def _weight_from_value(value: int):
     return min(candidates, key=lambda candidate: abs(_font_weight_value(candidate) - int(value)))
 
 
+def _overlay_text_size_factor(reference_size: float | None) -> float:
+    if reference_size is None or reference_size <= 0:
+        return 1.0
+    factor = float(reference_size) / DATA_OVERLAY_TEXT_BASE_EXTENT
+    return max(DATA_OVERLAY_TEXT_MIN_FACTOR, min(DATA_OVERLAY_TEXT_MAX_FACTOR, factor))
+
+
+def _overlay_text_color(color: QColor | None = None) -> QColor:
+    text_color = QColor(color or DATA_OVERLAY_TEXT_COLOR)
+    text_color.setAlpha(min(text_color.alpha(), DATA_OVERLAY_TEXT_ALPHA))
+    return text_color
+
+
 def _scaled_overlay_font(
     painter: QPainter,
     scale: float = DATA_OVERLAY_TEXT_SCALE,
     *,
     weight_scale: float = DATA_OVERLAY_TEXT_WEIGHT_SCALE,
+    reference_size: float | None = None,
 ) -> QFont:
+    size_factor = _overlay_text_size_factor(reference_size)
+    effective_scale = max(0.1, scale) * size_factor
+    effective_weight_scale = 1.0 + max(0.0, weight_scale - 1.0) * size_factor
+
     font = QFont(painter.font())
-    if scale > 0:
-        point_size = font.pointSizeF()
-        if point_size > 0:
-            font.setPointSizeF(point_size * scale)
-        elif font.pixelSize() > 0:
-            font.setPixelSize(max(1, round(font.pixelSize() * scale)))
-    if weight_scale > 0:
+    point_size = font.pointSizeF()
+    if point_size > 0:
+        font.setPointSizeF(point_size * effective_scale)
+    elif font.pixelSize() > 0:
+        font.setPixelSize(max(1, round(font.pixelSize() * effective_scale)))
+    if effective_weight_scale > 0:
         base_weight = max(1, _font_weight_value(font.weight()))
-        font.setWeight(_weight_from_value(round(base_weight * weight_scale)))
+        font.setWeight(_weight_from_value(round(base_weight * effective_weight_scale)))
     return font
 
 
@@ -59,10 +82,11 @@ def _draw_label(
     color: QColor | None = None,
     *,
     font_scale: float = DATA_OVERLAY_TEXT_SCALE,
+    reference_size: float | None = None,
 ) -> None:
     painter.save()
-    painter.setFont(_scaled_overlay_font(painter, font_scale))
-    painter.setPen(color or DATA_OVERLAY_TEXT_COLOR)
+    painter.setFont(_scaled_overlay_font(painter, font_scale, reference_size=reference_size))
+    painter.setPen(_overlay_text_color(color))
     painter.drawText(rect, Qt.AlignCenter, text)
     painter.restore()
 
@@ -73,6 +97,10 @@ def _draw_track(painter: QPainter, rect: QRectF) -> None:
     painter.setBrush(QBrush(QColor(18, 22, 31, 150)))
     painter.drawRoundedRect(rect, 8, 8)
     painter.restore()
+
+
+def _gauge_label_y(height: float) -> float:
+    return height * 0.12 + height * 0.68 + 10.0
 
 
 def _centered_label_rect(
@@ -98,15 +126,22 @@ def _centered_label_rect(
     return QRectF(left, top, width, height)
 
 
+def _scaled_label_size(base_width: float, base_height: float, reference_size: float) -> tuple[float, float]:
+    factor = _overlay_text_size_factor(reference_size)
+    return base_width * factor, base_height * factor
+
+
 def _draw_speed_bar(painter: QPainter, pixmap: QPixmap, throttle_value: float) -> None:
     width = pixmap.width()
     height = pixmap.height()
+    reference_size = float(min(width, height))
+    label_width, label_height = _scaled_label_size(150.0, 34.0, reference_size)
     track = QRectF(width - 96, height * 0.12, 24, height * 0.68)
     label_rect = _centered_label_rect(
         track.center().x(),
-        track.bottom() + 10.0,
-        150.0,
-        34.0,
+        _gauge_label_y(float(height)),
+        label_width,
+        label_height,
         float(width),
         float(height),
     )
@@ -125,7 +160,7 @@ def _draw_speed_bar(painter: QPainter, pixmap: QPixmap, throttle_value: float) -
     painter.drawLine(track.left() - 4, track.bottom(), track.right() + 4, track.bottom())
     painter.restore()
 
-    _draw_label(painter, label_rect, f"Speed {throttle_value:.2f}")
+    _draw_label(painter, label_rect, f"Speed {throttle_value:.2f}", reference_size=reference_size)
 
 
 def _steering_fill_color(value: float) -> QColor:
@@ -137,6 +172,8 @@ def _steering_fill_color(value: float) -> QColor:
 def _draw_steering_bar(painter: QPainter, pixmap: QPixmap, steering_value: float) -> None:
     width = pixmap.width()
     height = pixmap.height()
+    reference_size = float(min(width, height))
+    label_width, label_height = _scaled_label_size(170.0, 34.0, reference_size)
     track = QRectF(width * 0.20, height - 44, width * 0.44, 20)
     inner = QRectF(track.left() + 4, track.top() + 4, track.width() - 8, track.height() - 8)
     center_x = inner.center().x()
@@ -163,22 +200,29 @@ def _draw_steering_bar(painter: QPainter, pixmap: QPixmap, steering_value: float
 
     label_rect = _centered_label_rect(
         track.center().x(),
-        track.bottom() + 8.0,
-        170.0,
-        34.0,
+        _gauge_label_y(float(height)),
+        label_width,
+        label_height,
         float(width),
         float(height),
     )
-    _draw_label(painter, label_rect, f"Steering {steering_value:.2f}")
+    _draw_label(painter, label_rect, f"Steering {steering_value:.2f}", reference_size=reference_size)
 
 
 def _draw_steering_arc(painter: QPainter, pixmap: QPixmap, steering_value: float) -> None:
     width = pixmap.width()
     height = pixmap.height()
+    reference_size = float(min(width, height))
+    factor = _overlay_text_size_factor(reference_size)
     size = min(width, height) * 0.25
-    label_height = 38.0
-    arc_left = max(18.0, width * 0.07)
-    rect = QRectF(arc_left, height - size - label_height - 12.0, size, size)
+    label_width, label_height = _scaled_label_size(180.0, 40.0, reference_size)
+    arc_left = max(10.0, width * 0.045)
+    label_y = min(max(8.0, height - label_height - 6.0 * factor), _gauge_label_y(float(height)))
+    # Qt draws this as the upper half of the arc rectangle.  Place the
+    # rectangle so the visible arc sits just above the bottom-left label
+    # instead of leaving a large empty lower half between arc and text.
+    visible_arc_bottom_y = max(size * 0.5 + 8.0, label_y - 4.0 * factor)
+    rect = QRectF(arc_left, visible_arc_bottom_y - size * 0.5, size, size)
     value = clip_steering(steering_value)
 
     painter.save()
@@ -209,13 +253,13 @@ def _draw_steering_arc(painter: QPainter, pixmap: QPixmap, steering_value: float
 
     label_rect = _centered_label_rect(
         rect.center().x(),
-        rect.bottom() + 4.0,
-        170.0,
+        label_y,
+        label_width,
         label_height,
         float(width),
         float(height),
     )
-    _draw_label(painter, label_rect, f"Steering {steering_value:.2f}")
+    _draw_label(painter, label_rect, f"Steering {steering_value:.2f}", reference_size=reference_size)
 
 
 def _sample_quarter_ellipse_points(start: QPointF, end: QPointF, steps: int = 40) -> list[QPointF]:
@@ -313,6 +357,8 @@ def _draw_single_path(
 ) -> None:
     width = float(pixmap.width())
     height = float(pixmap.height())
+    reference_size = min(width, height)
+    factor = _overlay_text_size_factor(reference_size)
     start, end = drive_arrow_points(width, height, steering_value, speed_value)
     center_points = _sample_quarter_ellipse_points(start, end)
     lane_half_width = max(7.0, min(width, height) * (0.014 + 0.005 * abs(clip_steering(steering_value))))
@@ -349,7 +395,14 @@ def _draw_single_path(
     painter.restore()
 
     if label:
-        _draw_label(painter, QRectF(start.x() - 144, max(6.0, start.y() - 64.0), 288, 30), label, main_color)
+        _draw_label(
+            painter,
+            QRectF(start.x() - 144.0 * factor, max(6.0, start.y() - 64.0 * factor), 288.0 * factor, 30.0 * factor),
+            label,
+            main_color,
+            reference_size=reference_size,
+        )
+
 
 def _draw_legacy_path_preview(painter: QPainter, pixmap: QPixmap, steering_value: float, speed_value: float) -> None:
     _draw_single_path(painter, pixmap, steering_value, speed_value, QColor(180, 210, 255, 185), f"Legacy Speed {speed_value:.2f} · Steering {steering_value:.2f}")
@@ -358,6 +411,8 @@ def _draw_legacy_path_preview(painter: QPainter, pixmap: QPixmap, steering_value
 def _draw_drive_arrow(painter: QPainter, pixmap: QPixmap, steering_value: float, speed_value: float) -> None:
     width = float(pixmap.width())
     height = float(pixmap.height())
+    reference_size = min(width, height)
+    factor = _overlay_text_size_factor(reference_size)
     start, end = drive_arrow_points(width, height, steering_value, speed_value)
 
     painter.save()
@@ -380,4 +435,9 @@ def _draw_drive_arrow(painter: QPainter, pixmap: QPixmap, steering_value: float,
     painter.drawLine(end, right)
     painter.restore()
 
-    _draw_label(painter, QRectF(start.x() - 82, max(6.0, start.y() - 42.0), 164, 22), f"DRV X {steering_value:.2f} | Y {speed_value:.2f}")
+    _draw_label(
+        painter,
+        QRectF(start.x() - 82.0 * factor, max(6.0, start.y() - 42.0 * factor), 164.0 * factor, 22.0 * factor),
+        f"DRV X {steering_value:.2f} | Y {speed_value:.2f}",
+        reference_size=reference_size,
+    )
