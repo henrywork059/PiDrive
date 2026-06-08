@@ -89,11 +89,12 @@ For this stable GUI baseline, test on the Pi browser after applying the package:
 - AI control loop uses cached camera frames to better follow the configured Update Hz; the allowed AI update-rate maximum is now `60`.
 - Manual Drive and AI Mode expose one short Start live action; Dashboard and Testing Server keep one technical camera/live diagnostic action; AI run/record controls stay beside the camera/prediction preview.
 - AI Mode recording and snapshot buttons use the shared recording service and include overlay sidecar metadata.
+- AI Mode `Limiter / correction` adds a correction pane with Manual Drive-style drag-pad/arrow-key AI correction, user-settable mix percentage, `r` recording shortcut, and `s` snapshot shortcut; fixed-throttle mode still enforces fixed throttle after mixing.
 - Motor dead-zone/start-kick code added during the v9 patch line was later removed; this baseline does not include that feature.
 
 ## Future patch rule
 
-Future PiSD patches after this baseline should use `0_10_x` naming, such as `PiSD_0_10_2_patch.zip`, unless the user promotes a newer stable line.
+Future PiSD patches after this baseline should use `0_10_x` naming, such as `PiSD_0_10_3_patch.zip`, unless the user promotes a newer stable line.
 
 Patch-only zips should contain only:
 

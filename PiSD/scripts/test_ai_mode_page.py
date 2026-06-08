@@ -109,7 +109,13 @@ def check_source_contract() -> Result:
             "AI road guide",
             "Overlay: On",
             "labels.jsonl",
-            "Output limiter",
+            "Limiter / correction",
+            "aiLimiterTab",
+            "aiCorrectionTab",
+            "aiCorrectionPad",
+            "Manual mix %",
+            "Mixed steering",
+            "Manual correction",
             "Reverse steering",
             "Drive output",
             "Frame seq",
@@ -160,6 +166,10 @@ def check_source_contract() -> Result:
             "/api/recording/stop",
             "saveAISnapshot",
             "toggleAIRecording",
+            "/api/ai/manual-correction",
+            "sendManualCorrection",
+            "bindKeyboardShortcuts",
+            "ai-correction-keyboard",
         ],
     }
     sources = {"template": template, "css": css, "js": js}
@@ -200,6 +210,14 @@ def check_routes(hardware: bool) -> list[Result]:
     upload_missing = client.post("/api/ai/upload-model", data={})
     ok = upload_missing.status_code == 400 and b"No AI model file" in upload_missing.data
     checks.append(Result("ai_mode.api.upload_requires_file", ok, PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_AI_MODE_FAILED, "AI upload rejects missing file" if ok else "AI upload did not reject missing file", {"http_status": upload_missing.status_code, "body": upload_missing.get_data(as_text=True)[:240]}))
+
+    correction = client.post("/api/ai/manual-correction", json={"steering": 0.25, "throttle": -0.10, "source": "test"})
+    ok = correction.status_code == 200 and b"manual_correction" in correction.data
+    checks.append(Result("ai_mode.api.manual_correction", ok, PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_AI_MODE_FAILED, "AI manual correction API accepts guarded correction vector" if ok else "AI manual correction API did not accept correction vector", {"http_status": correction.status_code, "body": correction.get_data(as_text=True)[:240]}))
+
+    config = client.post("/api/ai/config", json={"manual_correction_enabled": True, "manual_mix_percent": 75})
+    ok = config.status_code == 200 and b"manual_mix_percent" in config.data and b"75" in config.data
+    checks.append(Result("ai_mode.api.correction_config", ok, PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_AI_MODE_FAILED, "AI correction mix settings save and normalize" if ok else "AI correction mix config did not save", {"http_status": config.status_code, "body": config.get_data(as_text=True)[:240]}))
 
     start_unloaded = client.post("/api/ai/start", json={"mode": "drive", "safety_ack": True, "enable_motor_output": False})
     ok = start_unloaded.status_code in {400, 409} and b"PISD-AI-003" in start_unloaded.data

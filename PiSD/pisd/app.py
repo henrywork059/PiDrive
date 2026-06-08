@@ -185,6 +185,7 @@ def create_app(hardware_enabled: bool = False):
                 {"method": "POST", "path": "/api/ai/upload-model", "purpose": "Upload a piTrainer-exported model file into PiSD/models."},
                 {"method": "POST", "path": "/api/ai/delete-model", "purpose": "Delete a selected model file from PiSD/models."},
                 {"method": "POST", "path": "/api/ai/config", "purpose": "Save AI safety/config limits."},
+                {"method": "POST", "path": "/api/ai/manual-correction", "purpose": "Update the live Manual Drive-style correction vector blended with AI output before the safety limiter."},
                 {"method": "POST", "path": "/api/ai/load-model", "purpose": "Load a trained AI model."},
                 {"method": "POST", "path": "/api/ai/start", "purpose": "Start AI preview-only or guarded AI drive loop."},
                 {"method": "POST", "path": "/api/ai/stop", "purpose": "Stop AI mode and stop motors when needed."},
@@ -680,6 +681,22 @@ def create_app(hardware_enabled: bool = False):
             return jsonify(ok_payload("AI mode settings saved.", settings=settings, ai=ai_drive_service.status()))
         except Exception as exc:
             report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"AI config API failed: {exc}", exc=exc)
+            return jsonify(report_payload(False, report)), 500
+
+    @app.post("/api/ai/manual-correction")
+    def api_ai_manual_correction():
+        data, json_error = get_json_payload()
+        if json_error is not None:
+            return jsonify(report_payload(False, json_error)), 400
+        try:
+            result = ai_drive_service.set_manual_correction(
+                steering=data.get("steering", 0.0),
+                throttle=data.get("throttle", 0.0),
+                source=data.get("source", "ai-correction"),
+            )
+            return jsonify(result), 200 if result.get("ok") else 400
+        except Exception as exc:
+            report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"AI manual-correction API failed: {exc}", exc=exc)
             return jsonify(report_payload(False, report)), 500
 
     @app.post("/api/ai/load-model")

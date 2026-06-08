@@ -46,6 +46,9 @@ DEFAULT_RUNTIME_SETTINGS: dict[str, Any] = {
         "fixed_throttle": 0.16,
         "steering_smoothing": 0.35,
         "throttle_smoothing": 0.25,
+        "manual_correction_enabled": False,
+        "manual_mix_percent": 50.0,
+        "manual_correction_timeout_s": 0.75,
         "update_hz": 12.0,
         "command_timeout_s": 0.75,
         "output_mode": "steering_and_throttle",
@@ -356,6 +359,8 @@ class SettingsManager:
             ("fixed_throttle", 0.0, 1.0, ai_defaults.get("fixed_throttle", 0.16)),
             ("steering_smoothing", 0.0, 1.0, ai_defaults.get("steering_smoothing", 0.35)),
             ("throttle_smoothing", 0.0, 1.0, ai_defaults.get("throttle_smoothing", 0.25)),
+            ("manual_mix_percent", 0.0, 100.0, ai_defaults.get("manual_mix_percent", 50.0)),
+            ("manual_correction_timeout_s", 0.1, 3.0, ai_defaults.get("manual_correction_timeout_s", 0.75)),
             ("update_hz", 1.0, 60.0, ai_defaults.get("update_hz", 12.0)),
             ("command_timeout_s", 0.2, 3.0, ai_defaults.get("command_timeout_s", 0.75)),
         ):
@@ -365,6 +370,7 @@ class SettingsManager:
                 ai[key] = default
         if ai.get("output_mode") not in {"steering_only", "steering_and_throttle"}:
             ai["output_mode"] = ai_defaults.get("output_mode", "steering_and_throttle")
+        ai["manual_correction_enabled"] = str(ai.get("manual_correction_enabled", ai_defaults.get("manual_correction_enabled", False))).lower() in {"true", "1", "yes", "on"}
         ai["preview_only_by_default"] = str(ai.get("preview_only_by_default", ai_defaults.get("preview_only_by_default", True))).lower() not in {"false", "0", "no", "off"}
         # PiSD_0_5_12: motor_output_enabled is a live/session safety checkbox, not a persistent setting.
         ai["motor_output_enabled"] = False

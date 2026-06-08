@@ -1,6 +1,6 @@
 # PiSD
 
-`PiSD_0_10_2` patch package — builds forward from the `PiSD_0_10_0` stable v10 baseline and accepted `0_10_1` UI workflow patch.
+`PiSD_0_10_3` patch package — builds forward from the `PiSD_0_10_0` stable v10 baseline plus accepted `0_10_1` and `0_10_2` UI workflow patches.
 
 PiSD is a clean sandbox under `PiDrive/PiSD` for rebuilding and testing PiServer GUI and runtime functions from square one.
 
@@ -10,9 +10,9 @@ Future bug-fix patches after this package should use `PiSD_0_10_x_patch` naming 
 
 ## Current version
 
-`PiSD_0_10_2` patch package. `PiSD_0_10_0` remains the full stable v10 baseline built from the accepted `PiSD_0_9_0` stable package plus the accepted `0_9_1` through `0_9_10` patch line. It promotes the latest AI runtime/model compatibility work, AI update-rate/control-loop improvements, combined camera/live-stream control, AI Mode recording/snapshot controls, keyboard steering timing, overlay recording metadata, and dead-zone cleanup into a new rollback baseline.
+`PiSD_0_10_3` patch package. `PiSD_0_10_0` remains the full stable v10 baseline built from the accepted `PiSD_0_9_0` stable package plus the accepted `0_9_1` through `0_9_10` patch line. It promotes the latest AI runtime/model compatibility work, AI update-rate/control-loop improvements, combined camera/live-stream control, AI Mode recording/snapshot controls, keyboard steering timing, overlay recording metadata, and dead-zone cleanup into a new rollback baseline.
 
-Use `PiSD_0_10_0` as the rollback point for future PiSD work unless a newer stable line is promoted; this patch is the second `0_10_x` forward fix.
+Use `PiSD_0_10_0` as the rollback point for future PiSD work unless a newer stable line is promoted; this patch is the third `0_10_x` forward fix.
 
 Included accepted work:
 
@@ -40,6 +40,9 @@ Included accepted work:
 - AI Mode can save snapshots and start/stop recording through the shared recording service, using the same recording folder format as Manual Drive.
 - AI Mode max throttle and fixed throttle controls allow full-scale `1.00`; Update Hz can be set up to `60` when the Pi/model can keep up.
 - AI Mode preview reuses the Manual Drive preview-frame design, keeps Start AI preview / Start AI drive / Stop AI beside the camera view, and draws the road-guide overlay from the model prediction after the safety limiter.
+- AI Mode `Limiter / correction` panel adds a correction pane that blends Manual Drive-style drag-pad/arrow-key input with the AI prediction before the existing safety limiter.
+- AI Mode now supports `r` to toggle recording and `s` to save a snapshot when focus is not inside a text field or popup editor.
+- AI correction mix percentage is user-settable; fixed-throttle mode still enforces the configured fixed throttle after steering/throttle mixing.
 - AI steering-only mode keeps fixed throttle while driving straight.
 - AI motor-output enable is live/session-only and is not persisted across reloads.
 - Manual Drive backend now enforces the saved max speed limit in `/api/control/manual`.
@@ -118,6 +121,14 @@ ai_edge_litert.interpreter
 tensorflow.lite.Interpreter
 ```
 
+The **Limiter / correction** panel has two panes. **Limiter** keeps the existing output safety settings. **Correction** lets the user correct the AI with the same control style as Manual Drive: drag the pad, use arrow keys, press Space to centre the correction, press `r` to toggle recording, and press `s` to save a snapshot. The **Manual mix %** slider controls how much of the final command comes from the manual correction versus the model prediction:
+
+```text
+mixed output = AI output * (1 - manual_mix) + manual correction * manual_mix
+```
+
+The mixed command is then passed through the existing AI safety limiter and motor-output checks. If `AI steering + fixed throttle` is selected, the final throttle still comes from the fixed-throttle value after the steering correction is mixed.
+
 The **Model file** panel can upload a model from the browser to `PiSD/models/` and can delete a selected model from the Pi. Upload uses a safe filename and appends a timestamp if the same filename already exists. The panel also shows runtime diagnostics. If `Backend` shows `load_failed` or `Runtime` shows `TFLite missing`, install a compatible TFLite backend in the same Python environment that runs PiSD, restart PiSD, and click **Load model** again. PiSD includes helper commands for this:
 
 ```bash
@@ -183,7 +194,7 @@ Use `records.jsonl` only for full debug metadata, filtering, or advanced trainin
 
 ## Stable baseline notes
 
-`PiSD_0_10_0` is the stable rollback baseline; `PiSD_0_10_2` is the current forward patch on the `0_10_x` line.
+`PiSD_0_10_0` is the stable rollback baseline; `PiSD_0_10_3` is the current forward patch on the `0_10_x` line.
 
 It includes the tested service foundation from earlier baselines plus the accepted v6, v7, v8, v9, and v10-promotion Manual Drive, recording, overlay, AI Mode, steering algorithm, motor tuning reset, keyboard-control, safety-policy, AI-runtime, and validation cleanup patch lines.
 

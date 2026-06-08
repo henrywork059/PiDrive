@@ -61,8 +61,11 @@ class AIDriveService:
         self._last_frame_seq = 0
         self._loop_consecutive_failures = 0
         self._last_raw = {"steering": 0.0, "throttle": 0.0}
+        self._last_mixed = {"steering": 0.0, "throttle": 0.0}
         self._last_safe = {"steering": 0.0, "throttle": 0.0}
         self._last_motor = {"left": 0.0, "right": 0.0}
+        self._manual_correction = {"steering": 0.0, "throttle": 0.0, "source": "idle", "updated_at_utc": ""}
+        self._manual_correction_at = 0.0
         self._last_prediction_at = ""
         self._last_inference_ms = 0.0
         self._last_loop_hz = 0.0
@@ -95,6 +98,9 @@ class AIDriveService:
                 "fixed_throttle": clamp_float(data.get("fixed_throttle", self._settings.get("fixed_throttle", 0.16)), 0.0, 1.0, 0.16),
                 "steering_smoothing": clamp_float(data.get("steering_smoothing", self._settings.get("steering_smoothing", 0.35)), 0.0, 1.0, 0.35),
                 "throttle_smoothing": clamp_float(data.get("throttle_smoothing", self._settings.get("throttle_smoothing", 0.25)), 0.0, 1.0, 0.25),
+                "manual_correction_enabled": str(data.get("manual_correction_enabled", self._settings.get("manual_correction_enabled", False))).lower() in {"true", "1", "yes", "on"},
+                "manual_mix_percent": clamp_float(data.get("manual_mix_percent", self._settings.get("manual_mix_percent", 50.0)), 0.0, 100.0, 50.0),
+                "manual_correction_timeout_s": clamp_float(data.get("manual_correction_timeout_s", self._settings.get("manual_correction_timeout_s", 0.75)), 0.1, 3.0, 0.75),
                 "update_hz": clamp_float(data.get("update_hz", self._settings.get("update_hz", 12.0)), 1.0, 60.0, 12.0),
                 "command_timeout_s": clamp_float(data.get("command_timeout_s", self._settings.get("command_timeout_s", 0.75)), 0.2, 3.0, 0.75),
                 "output_mode": str(data.get("output_mode", self._settings.get("output_mode", "steering_and_throttle")) or "steering_and_throttle"),
@@ -104,7 +110,30 @@ class AIDriveService:
             }
             if self._settings["output_mode"] not in {"steering_only", "steering_and_throttle"}:
                 self._settings["output_mode"] = "steering_and_throttle"
+            if not self._settings.get("manual_correction_enabled"):
+                self._manual_correction = {"steering": 0.0, "throttle": 0.0, "source": "disabled", "updated_at_utc": ""}
+                self._manual_correction_at = 0.0
         return self.status()
+
+    def _manual_correction_status_locked(self) -> dict[str, Any]:
+        settings = dict(self._settings)
+        manual = dict(self._manual_correction)
+        timeout_s = clamp_float(settings.get("manual_correction_timeout_s", 0.75), 0.1, 3.0, 0.75)
+        age_s: float | None = None
+        if self._manual_correction_at:
+            age_s = max(0.0, time.monotonic() - float(self._manual_correction_at))
+        active = bool(settings.get("manual_correction_enabled") and age_s is not None and age_s <= timeout_s)
+        manual.update({
+            "enabled": bool(settings.get("manual_correction_enabled")),
+            "active": active,
+            "mix_percent": clamp_float(settings.get("manual_mix_percent", 50.0), 0.0, 100.0, 50.0),
+            "age_s": age_s,
+            "timeout_s": timeout_s,
+        })
+        if not active:
+            manual["steering"] = 0.0
+            manual["throttle"] = 0.0
+        return manual
 
     def status(self) -> dict[str, Any]:
         with self._lock:
@@ -128,7 +157,9 @@ class AIDriveService:
                 "piTrainer_export_compatible": self._backend in {"tflite", "tensorflow.keras"},
                 "settings": dict(self._settings),
                 "last_raw_prediction": dict(self._last_raw),
+                "last_mixed_command": dict(self._last_mixed),
                 "last_safe_command": dict(self._last_safe),
+                "manual_correction": self._manual_correction_status_locked(),
                 "last_motor_output": dict(self._last_motor),
                 "last_prediction_at_utc": self._last_prediction_at,
                 "last_inference_ms": float(self._last_inference_ms),
@@ -140,6 +171,9 @@ class AIDriveService:
                     "max_throttle": self._settings.get("max_throttle"),
                     "max_steering": self._settings.get("max_steering"),
                     "output_mode": self._settings.get("output_mode"),
+                    "manual_correction_enabled": bool(self._settings.get("manual_correction_enabled")),
+                    "manual_mix_percent": self._settings.get("manual_mix_percent"),
+                    "manual_correction_timeout_s": self._settings.get("manual_correction_timeout_s"),
                     "drive_requires_safety_ack": True,
                     "drive_requires_enable_motor_output": True,
                     "reverse_steering_policy": "same_sign",
@@ -385,6 +419,45 @@ class AIDriveService:
         )
         return report_payload(False, report, ai=self.status())
 
+    def set_manual_correction(self, steering: Any = 0.0, throttle: Any = 0.0, *, source: Any = "ai-correction") -> dict[str, Any]:
+        """Update the live manual-correction vector used by AI Mode.
+
+        This does not drive the motors directly.  The values are blended with the
+        model output inside ``predict_once()``, then the normal AI safety limiter
+        and motor service receive the corrected command.
+        """
+        safe_steering = clamp_float(steering, -1.0, 1.0, 0.0)
+        safe_throttle = clamp_float(throttle, -1.0, 1.0, 0.0)
+        clean_source = str(source or "ai-correction")[:80]
+        with self._lock:
+            self._manual_correction = {
+                "steering": float(safe_steering),
+                "throttle": float(safe_throttle),
+                "source": clean_source,
+                "updated_at_utc": _utc_now(),
+            }
+            self._manual_correction_at = time.monotonic()
+        status = self.status()
+        return ok_payload("AI manual correction updated.", manual_correction=status.get("manual_correction", {}), ai=status)
+
+    def _mix_manual_correction(self, model_steering: Any, model_throttle: Any) -> dict[str, Any]:
+        with self._lock:
+            settings = dict(self._settings)
+            manual = self._manual_correction_status_locked()
+        model_s = clamp_float(model_steering, -1.0, 1.0, 0.0)
+        model_t = clamp_float(model_throttle, -1.0, 1.0, 0.0)
+        weight = clamp_float(settings.get("manual_mix_percent", 50.0), 0.0, 100.0, 50.0) / 100.0 if manual.get("active") else 0.0
+        manual_s = clamp_float(manual.get("steering", 0.0), -1.0, 1.0, 0.0)
+        manual_t = clamp_float(manual.get("throttle", 0.0), -1.0, 1.0, 0.0)
+        mixed_s = (model_s * (1.0 - weight)) + (manual_s * weight)
+        mixed_t = (model_t * (1.0 - weight)) + (manual_t * weight)
+        return {
+            "steering": float(clamp_float(mixed_s, -1.0, 1.0, 0.0)),
+            "throttle": float(clamp_float(mixed_t, -1.0, 1.0, 0.0)),
+            "manual_weight": float(weight),
+            "manual_active": bool(manual.get("active")),
+        }
+
     def start(self, camera_service: Any, motor_service: Any, *, mode: Any = "preview", safety_ack: Any = False, enable_motor_output: Any = False) -> dict[str, Any]:
         load_result = self._ensure_model_ready_for_run()
         if load_result is not None:
@@ -437,6 +510,7 @@ class AIDriveService:
             self._drive_output_enabled = False
             self._loop_consecutive_failures = 0
             self._last_raw = {"steering": 0.0, "throttle": 0.0}
+            self._last_mixed = {"steering": 0.0, "throttle": 0.0}
             self._last_safe = {"steering": 0.0, "throttle": 0.0}
             self._last_loop_hz = 0.0
         if stop_motors and motor_service is not None:
@@ -458,7 +532,8 @@ class AIDriveService:
             started = time.perf_counter()
             raw_steering, raw_throttle = self._predict_from_jpeg(frame)
             inference_ms = (time.perf_counter() - started) * 1000.0
-            safe = self.apply_safety(raw_steering, raw_throttle)
+            mixed = self._mix_manual_correction(raw_steering, raw_throttle)
+            safe = self.apply_safety(mixed["steering"], mixed["throttle"])
             left = right = 0.0
             left_intended = right_intended = 0.0
             if drive and motor_service is not None:
@@ -468,13 +543,14 @@ class AIDriveService:
                 right_intended = float(motor_status.get("last_intended_right", right) or 0.0)
             with self._lock:
                 self._last_raw = {"steering": float(raw_steering), "throttle": float(raw_throttle)}
+                self._last_mixed = {"steering": float(mixed["steering"]), "throttle": float(mixed["throttle"]), "manual_weight": float(mixed.get("manual_weight", 0.0)), "manual_active": bool(mixed.get("manual_active", False))}
                 self._last_safe = {"steering": float(safe["steering"]), "throttle": float(safe["throttle"])}
                 self._last_motor = {"left": float(left_intended), "right": float(right_intended), "left_hardware": float(left), "right_hardware": float(right)}
                 self._last_prediction_at = _utc_now()
                 self._last_inference_ms = float(inference_ms)
                 self._last_error = ""
                 self._last_error_code = PiSDErrorCodes.OK
-            return ok_payload("AI prediction completed.", raw_prediction=self._last_raw, safe_command=self._last_safe, motor_output=self._last_motor, ai=self.status())
+            return ok_payload("AI prediction completed.", raw_prediction=self._last_raw, mixed_command=self._last_mixed, safe_command=self._last_safe, motor_output=self._last_motor, ai=self.status())
         except Exception as exc:
             report = self._record_error(PiSDErrorCodes.AI_INFERENCE_FAILED, f"AI prediction failed: {exc}", exc=exc)
             if drive and motor_service is not None:
@@ -524,8 +600,11 @@ class AIDriveService:
         self._model_loaded = False
         self._model_ready = False
         self._last_raw = {"steering": 0.0, "throttle": 0.0}
+        self._last_mixed = {"steering": 0.0, "throttle": 0.0}
         self._last_safe = {"steering": 0.0, "throttle": 0.0}
         self._last_motor = {"left": 0.0, "right": 0.0}
+        self._manual_correction = {"steering": 0.0, "throttle": 0.0, "source": "idle", "updated_at_utc": ""}
+        self._manual_correction_at = 0.0
 
     @staticmethod
     def _safe_upload_filename(filename: str) -> str:

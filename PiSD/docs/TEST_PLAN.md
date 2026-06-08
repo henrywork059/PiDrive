@@ -979,3 +979,34 @@ Expected compact status fields include:
 ```text
 HW | Cam | Motor | FPS | Rec | Cmd | Out
 ```
+
+## PiSD 0.10.3 AI correction-panel checks
+
+After applying `PiSD_0_10_3_patch`, run the safe local checks:
+
+```bash
+cd ~/PiDrive/PiSD
+python3 -m compileall -q pisd scripts PiSD.py
+node --check pisd/web/static/js/ai_mode.js
+python3 scripts/test_ai_mode_page.py --static-only
+python3 scripts/run_standard_validation.py --skip-api --skip-camera --skip-motor --skip-gui
+```
+
+On the Pi browser, hard refresh `/ai-mode` and check:
+
+1. `Snapshot` and `Record` in AI Mode use the same green action styling as the other main AI controls.
+2. Press `s` to save a snapshot when focus is not inside a text field.
+3. Press `r` to toggle AI Mode recording.
+4. The `Limiter / correction` panel switches between the `Limiter` pane and the `Correction` pane.
+5. In `Correction`, the drag pad and arrow keys produce Manual Drive-style steering/throttle correction input.
+6. The `Manual mix %` value changes how strongly the manual correction is blended with AI output.
+7. With `AI steering + fixed throttle` selected, manual throttle correction does not override the fixed-throttle output.
+8. Switching back to `Limiter` or leaving the page centres the correction command.
+
+If Flask is installed in the environment, also run:
+
+```bash
+python3 scripts/test_ai_mode_page.py
+```
+
+That test validates the AI Mode page route and the local `/api/ai/manual-correction` contract.

@@ -457,3 +457,66 @@ body[data-pisd-card-accent="strong"] .ai-intro-panel {
   align-self: center;
   white-space: nowrap;
 }
+
+/* PiSD_0_10_3: AI Mode snapshot/record actions and output-correction panel. */
+#aiSaveSnapshot.mdrv-button,
+#aiRecordToggle.mdrv-button.ai-ai-record-action {
+  border-color: rgba(34, 197, 94, .64) !important;
+  background: rgba(22, 101, 52, .68) !important;
+  color: #dcfce7 !important;
+}
+
+#aiSaveSnapshot.mdrv-button:hover,
+#aiRecordToggle.mdrv-button.ai-ai-record-action:hover {
+  border-color: rgba(134, 239, 172, .86) !important;
+  background: rgba(21, 128, 61, .76) !important;
+}
+
+.ai-panel-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .35rem;
+  margin: .5rem 0 .55rem;
+  padding: .25rem;
+  border: 1px solid rgba(148, 163, 184, .18);
+  border-radius: calc(var(--pisd-ui-radius, 14px) * .75);
+  background: rgba(2, 6, 23, .24);
+}
+
+.ai-panel-tab.is-active {
+  border-color: rgba(34, 197, 94, .58) !important;
+  background: rgba(22, 101, 52, .58) !important;
+  color: #dcfce7 !important;
+}
+
+.ai-output-pane[hidden] {
+  display: none !important;
+}
+
+.ai-correction-pane {
+  display: grid;
+  gap: .55rem;
+}
+
+.ai-correction-mix-field {
+  margin-top: .15rem;
+}
+
+.ai-correction-pad {
+  width: min(100%, 320px);
+}
+
+.ai-correction-readout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .45rem;
+  justify-content: center;
+}
+
+.ai-correction-keyboard {
+  margin-top: 0;
+}
+
+body[data-pisd-theme="light"] .ai-panel-tabs {
+  background: rgba(255, 255, 255, .68);
+}
