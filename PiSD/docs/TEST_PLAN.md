@@ -1036,3 +1036,62 @@ On the Pi browser, hard refresh `/ai-mode` and check:
 3. With 50% correction, a manual steering correction of `+0.40` adds `+0.20` to the AI steering before the limiter.
 4. With 100% correction, manual correction is added fully to the AI base; it does not replace the AI value.
 5. Values above `1.0` or below `-1.0` are clamped before the existing limiter/fixed-throttle logic.
+
+
+## PiSD 0.10.5 maintainability/helper checks
+
+After applying `PiSD_0_10_5_patch`, run the safe local checks:
+
+```bash
+cd ~/PiDrive/PiSD
+python3 -m compileall -q pisd scripts PiSD.py
+node --check pisd/web/static/js/ai_mode.js
+python3 scripts/test_ai_mode_page.py --static-only
+python3 scripts/run_standard_validation.py --skip-api --skip-camera --skip-motor
+python3 PiSD.py --status-only
+```
+
+The static AI Mode test now checks the extracted helper modules:
+
+- `pisd/services/ai_correction.py` for additive AI correction and timeout/active-state handling;
+- `pisd/services/ai_safety.py` for limiter, smoothing, and fixed-throttle enforcement.
+
+Expected backend equation remains:
+
+```text
+corrected = AI output + manual correction * Correction %
+```
+
+Expected fixed-throttle behaviour remains:
+
+```text
+corrected steering -> safety limiter
+throttle -> fixed_throttle when output_mode is AI steering + fixed throttle
+```
+
+No hardware movement is required for these checks. Real Pi/browser checks are still needed for live camera preview, keyboard shortcuts, recording files, motor movement, and real model inference.
+
+
+## PiSD 0.10.6 AI Mode manual-pad checks
+
+After applying `PiSD_0_10_6_patch`, run the safe local checks:
+
+```bash
+cd ~/PiDrive/PiSD
+python3 -m compileall -q pisd scripts PiSD.py
+node --check pisd/web/static/js/ai_mode.js
+python3 scripts/test_ai_mode_page.py --static-only
+python3 scripts/run_standard_validation.py --skip-api --skip-camera --skip-motor
+python3 PiSD.py --status-only
+```
+
+Browser/Pi checks to perform on hardware:
+
+1. Open `/ai-mode` and confirm the safety panel title is `Limiter / correction / manual`.
+2. Confirm the tab strip has `Limiter`, `Correction`, and `Manual pad`.
+3. Confirm the safety acknowledgement and `Enable motor output` checkboxes stay visible on all three panes.
+4. Confirm there is only one `Save AI settings` button and that it stays visible while switching panes.
+5. In `Manual pad`, tick both safety boxes, use the drag pad, and confirm the car responds through direct Manual Drive control.
+6. Confirm arrow keys work in `Manual pad`: ↑/↓ throttle, hold ←/→ steering, Space STOP.
+7. Switch away from `Manual pad` and confirm a STOP is sent.
+8. Confirm `Correction` still uses `AI + manual * Correction %` and fixed-throttle mode still ignores manual throttle correction.

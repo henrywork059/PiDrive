@@ -27,6 +27,8 @@ if str(PROJECT_ROOT) not in sys.path:
 from pisd.app import create_app, load_defaults  # noqa: E402
 from pisd.core.errors import PiSDErrorCodes, ok_payload, report_payload, ErrorReporter  # noqa: E402
 from pisd.core.panel_contracts import get_panel_contracts  # noqa: E402
+from pisd.services.ai_correction import apply_additive_manual_correction, manual_correction_status  # noqa: E402
+from pisd.services.ai_safety import apply_ai_safety  # noqa: E402
 from pisd.services.camera_service import CameraService  # noqa: E402
 from pisd.services.motor_service import MotorService  # noqa: E402
 
@@ -184,6 +186,35 @@ def _check_imports() -> CheckResult:
     finally:
         motor.close()
         camera.stop()
+
+
+def _check_ai_helper_math() -> CheckResult:
+    manual = manual_correction_status(
+        {"manual_correction_enabled": True, "manual_mix_percent": 50.0, "manual_correction_timeout_s": 0.75},
+        {"steering": -0.6, "throttle": 0.4, "source": "standard-test", "updated_at_utc": ""},
+        20.0,
+        now_monotonic=20.1,
+    )
+    corrected = apply_additive_manual_correction(0.4, -0.2, {"manual_mix_percent": 50.0}, manual)
+    safe = apply_ai_safety(
+        corrected.get("steering"),
+        corrected.get("throttle"),
+        {"output_mode": "steering_only", "fixed_throttle": 0.16, "max_steering": 1.0, "max_throttle": 1.0, "steering_smoothing": 0.0, "throttle_smoothing": 0.0},
+        {"steering": 0.0, "throttle": 0.0},
+    )
+    ok = (
+        abs(corrected.get("steering", 99.0) - 0.1) < 1e-9
+        and abs(corrected.get("throttle", 99.0) - 0.0) < 1e-9
+        and corrected.get("equation") == "ai + manual * correction_gain"
+        and abs(safe.get("throttle", 99.0) - 0.16) < 1e-9
+    )
+    return CheckResult(
+        "ai_mode.helper_math",
+        ok,
+        PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_AI_MODE_FAILED,
+        "AI correction and safety helper math passed" if ok else "AI correction/safety helper math failed",
+        {"corrected": corrected, "safe": safe},
+    )
 
 
 def _check_camera_service(hardware: bool) -> CheckResult:
@@ -508,9 +539,9 @@ def _check_ai_mode_source_contract() -> CheckResult:
     except Exception as exc:
         return CheckResult("ai_mode.source_contract", False, PiSDErrorCodes.TEST_AI_MODE_FAILED, f"failed to read AI Mode files: {exc}")
     required = {
-        "template": ["PiSD AI Mode", "Back to Front Page", "aiModeInitialStatus", "aiModelSelect", "aiSafetyAck", "aiEnableMotor", "aiStartPreview", "aiStartDrive", "labels.jsonl", "Limiter / correction", "aiCorrectionPad", "Correction %", "Corrected steering", "manual_drive.css", "mdrv-panel", 'max="1.0"'],
-        "css": [".ai-shell", ".ai-grid", ".ai-preview-frame", ".ai-button-danger", ".ai-panel-tabs", ".ai-correction-pad"],
-        "js": ["/api/ai/models", "/api/ai/load-model", "/api/ai/config", "/api/ai/manual-correction", "/api/ai/start", "/api/ai/stop", "safety_ack", "enable_motor_output", "enforceFullScaleThrottleRanges", "last_corrected_command", "bindKeyboardShortcuts"],
+        "template": ["PiSD AI Mode", "Back to Front Page", "aiModeInitialStatus", "aiModelSelect", "aiSafetyAck", "aiEnableMotor", "aiStartPreview", "aiStartDrive", "labels.jsonl", "Limiter / correction / manual", "aiCorrectionPad", "aiManualDriveTab", "aiManualDrivePad", "Full manual pad", "Correction %", "Corrected steering", "manual_drive.css", "mdrv-panel", 'max="1.0"'],
+        "css": [".ai-shell", ".ai-grid", ".ai-preview-frame", ".ai-button-danger", ".ai-panel-tabs", ".ai-correction-pad", ".ai-manual-drive-pad", ".ai-shared-drive-controls"],
+        "js": ["/api/ai/models", "/api/ai/load-model", "/api/ai/config", "/api/ai/manual-correction", "/api/control/manual", "/api/ai/start", "/api/ai/stop", "safety_ack", "enable_motor_output", "enforceFullScaleThrottleRanges", "last_corrected_command", "bindKeyboardShortcuts", "sendFullManualDrive", "ai-manual-keyboard"],
     }
     sources = {"template": template, "css": css, "js": js}
     missing = {name: [token for token in tokens if token not in sources[name]] for name, tokens in required.items()}
@@ -1298,6 +1329,7 @@ def main() -> int:
     checks.append(_safe_check("config.load_defaults", _check_config_load))
     checks.append(_safe_check("core.error_reporting_schema", _check_error_schema))
     checks.append(_safe_check("services.import_and_status", _check_imports))
+    checks.append(_safe_check("ai_mode.helper_math", _check_ai_helper_math))
 
     if not args.skip_gui:
         checks.append(_safe_check("front_page.static_files", _check_front_page_static_files))

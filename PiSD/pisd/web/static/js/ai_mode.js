@@ -9,8 +9,9 @@
     'aiRefreshModels', 'aiModelSelect', 'aiLoadModel', 'aiPredictOnce', 'aiDeleteModel', 'aiModelUploadFile', 'aiUploadModel', 'aiUploadHint', 'aiSelectedModel', 'aiBackend', 'aiInputShape', 'aiOutputNames', 'aiPiTrainerCompatible', 'aiRuntimeSupport', 'aiRuntimeHelp', 'aiRuntimeHelpCommands', 'aiLoadError', 'aiModelsDir',
     'aiSafetyAck', 'aiEnableMotor', 'aiOutputMode', 'aiMaxThrottle', 'aiMaxThrottleOut', 'aiMaxSteering', 'aiMaxSteeringOut',
     'aiFixedThrottle', 'aiFixedThrottleOut', 'aiUpdateHz', 'aiUpdateHzOut', 'aiSteerSmooth', 'aiSteerSmoothOut', 'aiThrottleSmooth',
-    'aiThrottleSmoothOut', 'aiSaveConfig', 'aiLimiterTab', 'aiCorrectionTab', 'aiLimiterPane', 'aiCorrectionPane', 'aiManualMix', 'aiManualMixOut',
+    'aiThrottleSmoothOut', 'aiSaveConfig', 'aiLimiterTab', 'aiCorrectionTab', 'aiManualDriveTab', 'aiLimiterPane', 'aiCorrectionPane', 'aiManualDrivePane', 'aiManualMix', 'aiManualMixOut',
     'aiCorrectionPad', 'aiCorrectionKnob', 'aiCorrectionStatus', 'aiManualSteeringOut', 'aiManualThrottleOut', 'aiManualMixReadout',
+    'aiManualDriveSpeed', 'aiManualDriveSpeedOut', 'aiManualDrivePad', 'aiManualDriveKnob', 'aiManualDriveStatus', 'aiManualDriveSteeringOut', 'aiManualDriveThrottleOut', 'aiManualDriveStop',
     'aiStartPreview', 'aiStartDrive', 'aiStop', 'aiStopAll', 'aiRawSteering', 'aiRawThrottle', 'aiMixedSteering', 'aiMixedThrottle',
     'aiSafeSteering', 'aiSafeThrottle', 'aiManualCorrectionState', 'aiLeftMotor', 'aiRightMotor', 'aiInferenceMs', 'aiLoopHz', 'aiDriveOutputState', 'aiFrameSeq', 'aiRefreshStatus', 'aiLog'
   ];
@@ -39,7 +40,8 @@
   let lastAIStatus = initial.ai_mode || {};
   let aiMotorEnableInitialised = false;
   let latestMotorSettings = { ...DEFAULT_MOTOR_SETTINGS };
-  let correctionPanelActive = Boolean((lastAIStatus.settings || {}).manual_correction_enabled);
+  let outputPanelMode = Boolean((lastAIStatus.settings || {}).manual_correction_enabled) ? 'correction' : 'limiter';
+  let correctionPanelActive = outputPanelMode === 'correction';
   let correctionDragging = false;
   let correctionSteering = 0;
   let correctionThrottle = 0;
@@ -50,6 +52,16 @@
   let correctionKeyboardRightHeld = false;
   let correctionKeyboardLoopHandle = 0;
   let correctionKeyboardLastFrameAt = 0;
+  let manualDriveDragging = false;
+  let manualDriveSteering = 0;
+  let manualDriveThrottle = 0;
+  let manualDriveLastSentAt = 0;
+  let manualDriveKeyboardSteering = 0;
+  let manualDriveKeyboardThrottle = 0;
+  let manualDriveKeyboardLeftHeld = false;
+  let manualDriveKeyboardRightHeld = false;
+  let manualDriveKeyboardLoopHandle = 0;
+  let manualDriveKeyboardLastFrameAt = 0;
   const CORRECTION_SEND_INTERVAL_MS = 90;
   const KEYBOARD_THROTTLE_STEP = 0.05;
   const KEYBOARD_STEERING_FULL_SCALE_MS = 800;
@@ -119,7 +131,7 @@
       update_hz: Number(els.aiUpdateHz?.value || 12),
       steering_smoothing: Number(els.aiSteerSmooth?.value || 0.35),
       throttle_smoothing: Number(els.aiThrottleSmooth?.value || 0.25),
-      manual_correction_enabled: Boolean(correctionPanelActive),
+      manual_correction_enabled: outputPanelMode === 'correction',
       manual_mix_percent: Number(els.aiManualMix?.value || 50),
       manual_correction_timeout_s: 0.75,
     };
@@ -153,7 +165,9 @@
     setRange('aiSteerSmooth', 'aiSteerSmoothOut', config.steering_smoothing ?? 0.35);
     setRange('aiThrottleSmooth', 'aiThrottleSmoothOut', config.throttle_smoothing ?? 0.25);
     setPercentRange('aiManualMix', 'aiManualMixOut', config.manual_mix_percent ?? 50);
-    setCorrectionPanel(Boolean(config.manual_correction_enabled), false);
+    if (outputPanelMode !== 'manual') {
+      setOutputPanel(Boolean(config.manual_correction_enabled) ? 'correction' : 'limiter', false);
+    }
   }
 
   function setSignedFill(element, value) {
@@ -479,32 +493,56 @@
     return { steering: correctionSteering, throttle: correctionThrottle };
   }
 
-  function setCorrectionPanel(active, persist = false) {
-    const wasActive = Boolean(correctionPanelActive);
-    correctionPanelActive = Boolean(active);
-    if (els.aiLimiterPane) els.aiLimiterPane.hidden = correctionPanelActive;
-    if (els.aiCorrectionPane) els.aiCorrectionPane.hidden = !correctionPanelActive;
-    if (els.aiLimiterTab) {
-      els.aiLimiterTab.classList.toggle('is-active', !correctionPanelActive);
-      els.aiLimiterTab.setAttribute('aria-selected', String(!correctionPanelActive));
-    }
-    if (els.aiCorrectionTab) {
-      els.aiCorrectionTab.classList.toggle('is-active', correctionPanelActive);
-      els.aiCorrectionTab.setAttribute('aria-selected', String(correctionPanelActive));
-    }
+  function manualDrivePanelActive() {
+    return outputPanelMode === 'manual';
+  }
+
+  function setPanelTab(tab, active) {
+    if (!tab) return;
+    tab.classList.toggle('is-active', Boolean(active));
+    tab.setAttribute('aria-selected', String(Boolean(active)));
+  }
+
+  function resetCorrectionKeyboardState() {
+    stopCorrectionKeyboardLoop();
+    correctionKeyboardSteering = 0;
+    correctionKeyboardThrottle = 0;
+    correctionKeyboardLeftHeld = false;
+    correctionKeyboardRightHeld = false;
+    setCorrectionKnob(0, 0);
+  }
+
+  function setOutputPanel(mode = 'limiter', persist = false) {
+    const nextMode = ['limiter', 'correction', 'manual'].includes(mode) ? mode : 'limiter';
+    const wasCorrection = correctionPanelActive;
+    const wasManual = manualDrivePanelActive();
+    outputPanelMode = nextMode;
+    correctionPanelActive = outputPanelMode === 'correction';
+    const manualActive = manualDrivePanelActive();
+
+    if (els.aiLimiterPane) els.aiLimiterPane.hidden = outputPanelMode !== 'limiter';
+    if (els.aiCorrectionPane) els.aiCorrectionPane.hidden = outputPanelMode !== 'correction';
+    if (els.aiManualDrivePane) els.aiManualDrivePane.hidden = !manualActive;
+    setPanelTab(els.aiLimiterTab, outputPanelMode === 'limiter');
+    setPanelTab(els.aiCorrectionTab, outputPanelMode === 'correction');
+    setPanelTab(els.aiManualDriveTab, manualActive);
+
     if (!correctionPanelActive) {
-      stopCorrectionKeyboardLoop();
-      correctionKeyboardSteering = 0;
-      correctionKeyboardThrottle = 0;
-      correctionKeyboardLeftHeld = false;
-      correctionKeyboardRightHeld = false;
-      setCorrectionKnob(0, 0);
-      if (wasActive || persist) sendManualCorrection(true, 'ai-correction-disabled', true);
-      updateCorrectionStatus('Correction disabled. AI output uses the limiter only.', 'ready');
+      resetCorrectionKeyboardState();
+      if (wasCorrection || persist) sendManualCorrection(true, 'ai-correction-disabled', true);
+      updateCorrectionStatus(manualActive ? 'Correction disabled while full manual pad is active.' : 'Correction disabled. AI output uses the limiter only.', 'ready');
     } else {
       updateCorrectionStatus('Correction active. Drag pad / arrow keys are added to AI output by the Correction %.', 'active');
     }
+
+    if (wasManual && !manualActive) stopFullManualDrive('ai-manual-pane-exit');
+    if (manualActive) updateManualDriveStatus('Manual pad active. Direct manual commands will stop AI drive control.', 'active');
+
     if (persist) saveConfig();
+  }
+
+  function setCorrectionPanel(active, persist = false) {
+    setOutputPanel(active ? 'correction' : 'limiter', persist);
   }
 
   function pointerToCorrection(event) {
@@ -512,6 +550,137 @@
     const x = ((event.clientX - rect.left) / Math.max(1, rect.width) - 0.5) * 2;
     const y = ((event.clientY - rect.top) / Math.max(1, rect.height) - 0.5) * 2;
     return setCorrectionKnob(x, -y);
+  }
+
+  function manualDriveSpeedLimit() {
+    return clamp(els.aiManualDriveSpeed?.value || 0.18, 0, 1, 0.18);
+  }
+
+  function updateManualDriveStatus(message, state = 'ready') {
+    if (!els.aiManualDriveStatus) return;
+    els.aiManualDriveStatus.textContent = message;
+    els.aiManualDriveStatus.dataset.state = state;
+  }
+
+  function updateManualDriveReadout() {
+    if (els.aiManualDriveSpeedOut) els.aiManualDriveSpeedOut.textContent = fmt(manualDriveSpeedLimit(), 2);
+    if (els.aiManualDriveSteeringOut) els.aiManualDriveSteeringOut.textContent = formatSigned(manualDriveSteering);
+    if (els.aiManualDriveThrottleOut) els.aiManualDriveThrottleOut.textContent = formatSigned(manualDriveThrottle);
+  }
+
+  function setManualDriveKnob(steering, throttle) {
+    const speedLimit = manualDriveSpeedLimit();
+    const knobScale = Math.max(0.001, speedLimit);
+    manualDriveSteering = clamp(steering, -1, 1, 0);
+    manualDriveThrottle = clamp(throttle, -speedLimit, speedLimit, 0);
+    if (els.aiManualDriveKnob) {
+      els.aiManualDriveKnob.style.setProperty('--knob-left', `${50 + manualDriveSteering * 50}%`);
+      els.aiManualDriveKnob.style.setProperty('--knob-top', `${50 - (manualDriveThrottle / knobScale) * 50}%`);
+    }
+    updateManualDriveReadout();
+    return { steering: manualDriveSteering, throttle: manualDriveThrottle };
+  }
+
+  function pointerToManualDrive(event) {
+    const rect = els.aiManualDrivePad.getBoundingClientRect();
+    const x = ((event.clientX - rect.left) / Math.max(1, rect.width) - 0.5) * 2;
+    const y = ((event.clientY - rect.top) / Math.max(1, rect.height) - 0.5) * 2;
+    return setManualDriveKnob(x, -y * manualDriveSpeedLimit());
+  }
+
+  function fullManualOutputEnabled() {
+    return Boolean(els.aiSafetyAck?.checked) && Boolean(els.aiEnableMotor?.checked);
+  }
+
+  async function sendFullManualDrive(force = false, source = 'ai-manual-pad') {
+    if (!manualDrivePanelActive()) return;
+    if (!fullManualOutputEnabled()) {
+      updateManualDriveStatus('Manual pad locked: tick both shared safety boxes above first.', 'locked');
+      return;
+    }
+    const now = performance.now();
+    if (!force && now - manualDriveLastSentAt < CORRECTION_SEND_INTERVAL_MS) return;
+    manualDriveLastSentAt = now;
+    try {
+      const data = await api('/api/control/manual', {
+        method: 'POST',
+        body: {
+          steering: manualDriveSteering,
+          throttle: manualDriveThrottle,
+          safety_ack: true,
+          enable_motor_output: true,
+          source,
+        },
+      });
+      lastAIStatus = { ...(lastAIStatus || {}), running: false, mode: 'manual' };
+      if (els.aiRunMode) els.aiRunMode.textContent = 'manual';
+      renderAI(data.ai || lastAIStatus || {});
+      updateManualDriveStatus(`Manual S ${formatSigned(manualDriveSteering)} / T ${formatSigned(manualDriveThrottle)} sent.`, 'active');
+      log('Full manual command sent from AI Mode.', { steering: manualDriveSteering, throttle: manualDriveThrottle, motor: data.motor || {} });
+    } catch (err) {
+      updateManualDriveStatus(`Manual send failed: ${err.message}`, 'locked');
+      log(err.message, err.payload || {});
+    }
+  }
+
+  async function stopFullManualDrive(reason = 'ai-manual-stop') {
+    manualDriveDragging = false;
+    manualDriveKeyboardSteering = 0;
+    manualDriveKeyboardThrottle = 0;
+    manualDriveKeyboardLeftHeld = false;
+    manualDriveKeyboardRightHeld = false;
+    stopManualDriveKeyboardLoop();
+    setManualDriveKnob(0, 0);
+    try {
+      const data = await api('/api/control/stop', { method: 'POST', body: { reason } });
+      renderAI(data.ai || lastAIStatus || {});
+      updateManualDriveStatus('Manual STOP sent.', 'ready');
+      log('Full manual STOP sent from AI Mode.', data.motor || data || {});
+    } catch (err) {
+      updateManualDriveStatus(`Manual STOP failed: ${err.message}`, 'locked');
+      log(err.message, err.payload || {});
+    }
+  }
+
+  function manualDriveKeyboardPayload() {
+    setManualDriveKnob(manualDriveKeyboardSteering, manualDriveKeyboardThrottle);
+    return { steering: manualDriveSteering, throttle: manualDriveThrottle };
+  }
+
+  function stopManualDriveKeyboardLoop() {
+    if (manualDriveKeyboardLoopHandle) cancelAnimationFrame(manualDriveKeyboardLoopHandle);
+    manualDriveKeyboardLoopHandle = 0;
+    manualDriveKeyboardLastFrameAt = 0;
+  }
+
+  function runManualDriveKeyboardLoop(now) {
+    const direction = (manualDriveKeyboardRightHeld ? 1 : 0) - (manualDriveKeyboardLeftHeld ? 1 : 0);
+    if (!manualDriveKeyboardLastFrameAt) manualDriveKeyboardLastFrameAt = now;
+    const deltaMs = Math.max(0, now - manualDriveKeyboardLastFrameAt);
+    manualDriveKeyboardLastFrameAt = now;
+    const unitsPerMs = 1 / KEYBOARD_STEERING_FULL_SCALE_MS;
+    if (direction) {
+      manualDriveKeyboardSteering = clamp(manualDriveKeyboardSteering + direction * deltaMs * unitsPerMs, -1, 1, 0);
+    } else {
+      const returnStep = deltaMs * unitsPerMs;
+      if (Math.abs(manualDriveKeyboardSteering) <= returnStep) manualDriveKeyboardSteering = 0;
+      else manualDriveKeyboardSteering -= Math.sign(manualDriveKeyboardSteering) * returnStep;
+    }
+    manualDriveKeyboardPayload();
+    const centred = !direction && Math.abs(manualDriveKeyboardSteering) <= 1e-4;
+    sendFullManualDrive(centred, 'ai-manual-keyboard');
+    if (direction || !centred) {
+      manualDriveKeyboardLoopHandle = requestAnimationFrame(runManualDriveKeyboardLoop);
+    } else {
+      stopManualDriveKeyboardLoop();
+      updateManualDriveStatus(`Keyboard S ${formatSigned(0)} / T ${formatSigned(manualDriveKeyboardThrottle)}`, 'ready');
+    }
+  }
+
+  function startManualDriveKeyboardLoop() {
+    if (manualDriveKeyboardLoopHandle) return;
+    manualDriveKeyboardLastFrameAt = 0;
+    manualDriveKeyboardLoopHandle = requestAnimationFrame(runManualDriveKeyboardLoop);
   }
 
   async function sendManualCorrection(force = false, source = 'ai-correction', allowInactive = false) {
@@ -534,7 +703,7 @@
 
   function shortcutBlocked() {
     const active = document.activeElement;
-    if (!active || active === document.body || active === document.documentElement || active === els.aiCorrectionPad) return false;
+    if (!active || active === document.body || active === document.documentElement || active === els.aiCorrectionPad || active === els.aiManualDrivePad) return false;
     const tag = String(active.tagName || '').toLowerCase();
     if (tag === 'input') {
       const type = String(active.type || '').toLowerCase();
@@ -774,11 +943,13 @@
     });
     els.aiManualMix?.addEventListener('input', () => setPercentRange('aiManualMix', 'aiManualMixOut', els.aiManualMix.value || 50));
     els.aiManualMix?.addEventListener('change', saveConfig);
+    els.aiManualDriveSpeed?.addEventListener('input', () => setManualDriveKnob(manualDriveSteering, manualDriveThrottle));
   }
 
   function bindCorrectionPad() {
-    if (els.aiLimiterTab) els.aiLimiterTab.addEventListener('click', () => setCorrectionPanel(false, true));
-    if (els.aiCorrectionTab) els.aiCorrectionTab.addEventListener('click', () => setCorrectionPanel(true, true));
+    if (els.aiLimiterTab) els.aiLimiterTab.addEventListener('click', () => setOutputPanel('limiter', true));
+    if (els.aiCorrectionTab) els.aiCorrectionTab.addEventListener('click', () => setOutputPanel('correction', true));
+    if (els.aiManualDriveTab) els.aiManualDriveTab.addEventListener('click', () => setOutputPanel('manual', true));
     if (els.aiCorrectionPad) {
       els.aiCorrectionPad.addEventListener('pointerdown', (event) => {
         if (!correctionPanelActive) return;
@@ -808,6 +979,33 @@
         resetManualCorrection('ai-correction-drag-leave');
       });
     }
+    if (els.aiManualDrivePad) {
+      els.aiManualDrivePad.addEventListener('pointerdown', (event) => {
+        if (!manualDrivePanelActive()) return;
+        event.preventDefault();
+        manualDriveDragging = true;
+        els.aiManualDrivePad.setPointerCapture(event.pointerId);
+        pointerToManualDrive(event);
+        sendFullManualDrive(true, 'ai-manual-drag');
+      });
+      els.aiManualDrivePad.addEventListener('pointermove', (event) => {
+        if (!manualDriveDragging || !manualDrivePanelActive()) return;
+        event.preventDefault();
+        pointerToManualDrive(event);
+        sendFullManualDrive(false, 'ai-manual-drag');
+      });
+      const manualRelease = (event) => {
+        if (!manualDriveDragging) return;
+        try { els.aiManualDrivePad.releasePointerCapture(event.pointerId); } catch (_err) {}
+        stopFullManualDrive('ai-manual-drag-release');
+      };
+      els.aiManualDrivePad.addEventListener('pointerup', manualRelease);
+      els.aiManualDrivePad.addEventListener('pointercancel', manualRelease);
+      els.aiManualDrivePad.addEventListener('mouseleave', () => {
+        if (!manualDriveDragging) return;
+        stopFullManualDrive('ai-manual-drag-leave');
+      });
+    }
   }
 
   function bindKeyboardShortcuts() {
@@ -816,8 +1014,10 @@
       const key = event.key;
       const shortcut = String(key || '').toLowerCase();
       const isRecordOrSnapshot = shortcut === 'r' || shortcut === 's';
-      const isCorrectionKey = correctionPanelActive && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(key);
-      if (!isRecordOrSnapshot && !isCorrectionKey) return;
+      const isPanelDriveKey = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(key);
+      const isCorrectionKey = correctionPanelActive && isPanelDriveKey;
+      const isManualDriveKey = manualDrivePanelActive() && isPanelDriveKey;
+      if (!isRecordOrSnapshot && !isCorrectionKey && !isManualDriveKey) return;
       event.preventDefault();
       if (shortcut === 'r') {
         if (!event.repeat) toggleAIRecording();
@@ -825,6 +1025,30 @@
       }
       if (shortcut === 's') {
         if (!event.repeat) saveAISnapshot();
+        return;
+      }
+      if (manualDrivePanelActive()) {
+        if (key === ' ') {
+          if (!event.repeat) stopFullManualDrive('ai-manual-space');
+          return;
+        }
+        if (key === 'ArrowUp' || key === 'ArrowDown') {
+          if (event.repeat) return;
+          const limit = manualDriveSpeedLimit();
+          manualDriveKeyboardThrottle = clamp(manualDriveKeyboardThrottle + (key === 'ArrowUp' ? KEYBOARD_THROTTLE_STEP : -KEYBOARD_THROTTLE_STEP), -limit, limit, 0);
+          manualDriveKeyboardPayload();
+          sendFullManualDrive(true, 'ai-manual-keyboard');
+          return;
+        }
+        if (key === 'ArrowLeft') {
+          manualDriveKeyboardLeftHeld = true;
+          startManualDriveKeyboardLoop();
+          return;
+        }
+        if (key === 'ArrowRight') {
+          manualDriveKeyboardRightHeld = true;
+          startManualDriveKeyboardLoop();
+        }
         return;
       }
       if (!correctionPanelActive) return;
@@ -851,6 +1075,13 @@
     }, { passive: false });
 
     document.addEventListener('keyup', (event) => {
+      if (manualDrivePanelActive() && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) {
+        event.preventDefault();
+        if (event.key === 'ArrowLeft') manualDriveKeyboardLeftHeld = false;
+        if (event.key === 'ArrowRight') manualDriveKeyboardRightHeld = false;
+        if (!manualDriveKeyboardLeftHeld && !manualDriveKeyboardRightHeld) startManualDriveKeyboardLoop();
+        return;
+      }
       if (!correctionPanelActive || (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight')) return;
       event.preventDefault();
       if (event.key === 'ArrowLeft') correctionKeyboardLeftHeld = false;
@@ -859,6 +1090,7 @@
     }, { passive: false });
 
     window.addEventListener('blur', () => {
+      if (manualDrivePanelActive()) stopFullManualDrive('ai-manual-blur');
       if (correctionPanelActive) resetManualCorrection('ai-correction-blur');
     });
   }
@@ -878,6 +1110,9 @@
     els.aiRefreshStatus?.addEventListener('click', refreshStatus);
     els.aiSaveSnapshot?.addEventListener('click', saveAISnapshot);
     els.aiRecordToggle?.addEventListener('click', toggleAIRecording);
+    els.aiManualDriveStop?.addEventListener('click', () => stopFullManualDrive('ai-manual-stop-button'));
+    els.aiEnableMotor?.addEventListener('change', () => { if (!els.aiEnableMotor.checked && manualDrivePanelActive()) stopFullManualDrive('ai-manual-disabled'); });
+    els.aiSafetyAck?.addEventListener('change', () => { if (!els.aiSafetyAck.checked && manualDrivePanelActive()) stopFullManualDrive('ai-manual-safety-cleared'); });
     bindCorrectionPad();
     bindKeyboardShortcuts();
     els.aiLive?.addEventListener('click', async () => { await api('/api/camera/start', { method: 'POST', body: {} }).catch((err) => log(err.message, err.payload)); setPreview('live', `/video_feed?t=${Date.now()}`); });
@@ -885,9 +1120,10 @@
     window.addEventListener('pagehide', () => {
       const zero = new Blob([JSON.stringify({ steering: 0, throttle: 0, source: 'ai-correction-pagehide' })], { type: 'application/json' });
       navigator.sendBeacon?.('/api/ai/manual-correction', zero);
+      if (manualDrivePanelActive()) navigator.sendBeacon?.('/api/control/stop', new Blob([JSON.stringify({ reason: 'ai-manual-pagehide' })], { type: 'application/json' }));
       if (aiRunning) navigator.sendBeacon?.('/api/ai/stop', new Blob([JSON.stringify({})], { type: 'application/json' }));
     });
-    document.addEventListener('visibilitychange', () => { if (document.hidden) { resetManualCorrection('ai-correction-hidden'); if (aiRunning) navigator.sendBeacon?.('/api/ai/stop', new Blob([JSON.stringify({})], { type: 'application/json' })); } });
+    document.addEventListener('visibilitychange', () => { if (document.hidden) { resetManualCorrection('ai-correction-hidden'); if (manualDrivePanelActive()) stopFullManualDrive('ai-manual-hidden'); if (aiRunning) navigator.sendBeacon?.('/api/ai/stop', new Blob([JSON.stringify({})], { type: 'application/json' })); } });
   }
 
   enforceFullScaleThrottleRanges();
@@ -895,6 +1131,7 @@
   setOverlayEnabled(true);
   updateOverlayMotorSettings(initial.motor || {});
   setCorrectionKnob(0, 0);
+  setManualDriveKnob(0, 0);
   renderAI((initial.ai_mode || {}));
   renderRecording(initial.recording || {});
   wireRanges();

@@ -520,3 +520,32 @@ body[data-pisd-card-accent="strong"] .ai-intro-panel {
 body[data-pisd-theme="light"] .ai-panel-tabs {
   background: rgba(255, 255, 255, .68);
 }
+
+/* PiSD_0_10_6: three-way output pane toggle with always-visible shared safety controls and full manual takeover pad. */
+.ai-panel-tabs {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.ai-shared-drive-controls {
+  margin: .45rem 0 .55rem;
+}
+
+.ai-manual-drive-pane {
+  display: grid;
+  gap: .55rem;
+}
+
+.ai-manual-speed-field {
+  margin-top: .15rem;
+}
+
+.ai-manual-drive-pad {
+  width: min(100%, 320px);
+}
+
+.ai-manual-drive-readout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .45rem;
+  justify-content: center;
+}

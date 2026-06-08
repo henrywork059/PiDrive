@@ -167,19 +167,20 @@ python3 scripts/check_ai_runtime.py</pre>
         <div class="mdrv-panel-head ai-panel-head">
           <div>
             <p class="mdrv-label ai-panel-kicker">Safety</p>
-            <h2>Limiter / correction</h2>
+            <h2>Limiter / correction / manual</h2>
           </div>
           <button id="aiSaveConfig" class="mdrv-button ai-button ai-button-secondary">Save AI settings</button>
         </div>
         <div class="ai-panel-tabs" role="tablist" aria-label="AI output panel mode">
           <button id="aiLimiterTab" class="mdrv-button ai-panel-tab" type="button" role="tab" aria-controls="aiLimiterPane" aria-selected="true">Limiter</button>
           <button id="aiCorrectionTab" class="mdrv-button ai-panel-tab" type="button" role="tab" aria-controls="aiCorrectionPane" aria-selected="false">Correction</button>
+          <button id="aiManualDriveTab" class="mdrv-button ai-panel-tab" type="button" role="tab" aria-controls="aiManualDrivePane" aria-selected="false">Manual pad</button>
+        </div>
+        <div class="ai-shared-drive-controls ai-checks" aria-label="Shared drive safety controls">
+          <label><input id="aiSafetyAck" type="checkbox"> I confirm the car is safe to test and wheels can be lifted.</label>
+          <label><input id="aiEnableMotor" type="checkbox"> Enable motor output</label>
         </div>
         <div id="aiLimiterPane" class="ai-output-pane" role="tabpanel" aria-labelledby="aiLimiterTab">
-          <div class="ai-checks">
-            <label><input id="aiSafetyAck" type="checkbox"> I confirm the car is safe to test and wheels can be lifted.</label>
-            <label><input id="aiEnableMotor" type="checkbox"> Enable AI motor output</label>
-          </div>
           <div class="ai-form-grid">
             <label class="ai-field"><span>Output mode</span><select id="aiOutputMode"><option value="steering_and_throttle">AI steering + AI throttle</option><option value="steering_only">AI steering + fixed throttle</option></select></label>
             <label class="ai-field"><span>Max throttle</span><input id="aiMaxThrottle" type="range" min="0" max="1.0" step="0.01"><output id="aiMaxThrottleOut">0.22</output></label>
@@ -215,6 +216,33 @@ python3 scripts/check_ai_runtime.py</pre>
           </div>
           <p id="aiCorrectionStatus" class="mdrv-keyboard-status" data-state="ready">Correction ready. Switch to Limiter to disable manual correction.</p>
           <p class="mdrv-help ai-range-note">If Output mode is <strong>AI steering + fixed throttle</strong>, the backend still uses Fixed throttle after correction, so manual throttle is ignored but manual steering correction still applies.</p>
+        </div>
+        <div id="aiManualDrivePane" class="ai-output-pane ai-manual-drive-pane" role="tabpanel" aria-labelledby="aiManualDriveTab" hidden>
+          <p class="ai-note">Full manual pad sends direct Manual Drive commands and stops AI drive control. Use this when you need to take over instead of adding correction to the AI output.</p>
+          <label class="ai-field ai-manual-speed-field"><span>Manual speed</span><input id="aiManualDriveSpeed" type="range" min="0" max="1.0" step="0.01" value="0.18"><output id="aiManualDriveSpeedOut">0.18</output></label>
+          <div id="aiManualDrivePad" class="mdrv-drag-pad ai-manual-drive-pad" role="application" aria-label="AI Mode full manual driving pad" tabindex="0">
+            <div class="mdrv-drag-cross"></div>
+            <div id="aiManualDriveKnob" class="mdrv-drag-knob"></div>
+            <div class="mdrv-drag-label top">Forward</div>
+            <div class="mdrv-drag-label bottom">Reverse</div>
+            <div class="mdrv-drag-label left">Left</div>
+            <div class="mdrv-drag-label right">Right</div>
+          </div>
+          <div class="mdrv-pad-readout ai-manual-drive-readout">
+            <span>Manual S <strong id="aiManualDriveSteeringOut">+0.00</strong></span>
+            <span>Manual T <strong id="aiManualDriveThrottleOut">+0.00</strong></span>
+          </div>
+          <div class="ai-button-row">
+            <button id="aiManualDriveStop" class="mdrv-button mdrv-danger ai-button ai-button-danger" type="button">STOP manual</button>
+          </div>
+          <div class="mdrv-keyboard-hint ai-correction-keyboard" aria-label="AI Mode full manual keyboard controls">
+            <strong>Manual keys</strong>
+            <span>↑/↓ throttle ±0.05 per press</span>
+            <span>hold ←/→ steering ±1 in 0.8 s; release returns to 0</span>
+            <span>r record · s snapshot · Space STOP manual</span>
+          </div>
+          <p id="aiManualDriveStatus" class="mdrv-keyboard-status" data-state="ready">Manual pad ready. Enable motor output above before driving.</p>
+          <p class="mdrv-help ai-range-note">This panel uses <code>/api/control/manual</code>, the same guarded Manual Drive endpoint. It is a takeover mode, not an AI correction mode.</p>
         </div>
       </section>
 

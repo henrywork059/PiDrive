@@ -10,8 +10,8 @@ Use this file when an AI coding assistant continues piTrainer work inside the Pi
 
 ## Current baseline and version line
 
-- Latest accepted full baseline: `piTrainer_0_8_0` / V8.
-- Future patch-only zips should build forward as `piTrainer_0_8_1_patch.zip`, `piTrainer_0_8_2_patch.zip`, and so on.
+- Latest accepted full baseline: `piTrainer_0_10_0` / V10.
+- Future patch-only zips should build forward as `piTrainer_0_10_1_patch.zip`, `piTrainer_0_10_2_patch.zip`, and so on.
 - Patch zips must include only changed/new files plus patch notes.
 - Patch notes belong in `piTrainer/PATCH_NOTES/`.
 
@@ -23,9 +23,9 @@ Before editing, inspect:
 2. The latest piTrainer patch note.
 3. The previous three piTrainer patch notes when available.
 
-Do not restore older copies of files by accident. Do not remove accepted V8 behaviour unless the user explicitly asks.
+Do not restore older copies of files by accident. Do not remove accepted V8/V9/V10 behaviour unless the user explicitly asks.
 
-Preserve these accepted V8 behaviours:
+Preserve these accepted V8/V9/V10 behaviours:
 
 - PiSD V7 `labels.jsonl` and `records.jsonl` support.
 - PiSD V7 saved overlay metadata and overlay redraw support.
@@ -40,6 +40,7 @@ Preserve these accepted V8 behaviours:
 - Central style/format control through `piTrainer/piTrainer/ui/formatting.py` and `piTrainer/piTrainer/ui/styles.py`.
 - Central colour tokens through `piTrainer/piTrainer/ui/theme.py`; do not scatter local hex colours through panels/services.
 - Visible version in the app window/status area.
+- V9 Data page overlay refactors, green path curves, default Speed bar / Steering arc visibility, responsive 30%-transparent overlay text, and the no-repeated-text drawing rule.
 
 ## UI and layout rules
 
@@ -96,11 +97,11 @@ For each patch:
 
 Only claim checks that were actually run. Be clear about anything not tested, especially live PySide6 rendering, real PiSD import, or TensorFlow training.
 
-## V8 stable baseline rule
+## V10 stable baseline rule
 
-V8 (`piTrainer_0_8_0`) promotes the accepted V7 patch line through `piTrainer_0_7_3` into the latest full baseline. Future patches should build forward as `0_8_x` patches unless the user explicitly changes the stable baseline. Do not roll back V7.1 flip-label safety, V7.2 generated-data hiding/edit redirection, or V7.3 startup version-gate behaviour.
+V10 (`piTrainer_0_10_0`) promotes the accepted V9 patch line through `piTrainer_0_9_21` into the latest full baseline. Future patches should build forward as `0_10_x` patches unless the user explicitly changes the stable baseline. Do not roll back V7.1 flip-label safety, V7.2 generated-data hiding/edit redirection, V7.3 startup version-gate behaviour, V8 packaging/runtime fixes, or V9 Data/overlay/refactor behaviour.
 
-Before packaging a V8 release with the version gate enabled, make sure the online manifest allows `0.8.0`; otherwise the app will correctly refuse to open.
+Before packaging a V10 release with the version gate enabled, make sure the online manifest either allows `0.10.0` directly or allows it through the `minimum_version` logic in `piTrainer/piTrainer/security/version_gate.py`. For a controlled V10-only release, update the GitHub manifest `latest` / `minimum_version` to `0.10.0`.
 
 ## V7.2 synthetic data visibility rule
 
@@ -121,7 +122,7 @@ https://raw.githubusercontent.com/henrywork059/PiDrive/refs/heads/main/release_c
 Preserve these behaviours unless the user asks otherwise:
 
 - `enabled=true` and `fail_closed=true` for release builds that should be controlled by the online manifest.
-- The current `APP_VERSION` must be in the manifest `allowed_versions` list and must not be in `blocked_versions`. For V8, the manifest must allow `0.8.0`.
+- The current `APP_VERSION` must not be in `blocked_versions`. If `allowed_versions` is non-empty, the app version must either be listed there directly or be equal/newer than the manifest `minimum_version` handled by the current version-gate code. For a controlled V10-only release, update the manifest to allow or require `0.10.0`.
 - Network checks must have a short timeout so the app does not hang on startup.
 - A recent cache may allow startup only when the online check is temporarily unavailable and the cached manifest still allows the same app version.
 - Do not put private tokens, GitHub credentials, or real secrets in the app.

@@ -94,7 +94,7 @@ For this stable GUI baseline, test on the Pi browser after applying the package:
 
 ## Future patch rule
 
-Future PiSD patches after this baseline should use `0_10_x` naming, such as `PiSD_0_10_4_patch.zip`, unless the user promotes a newer stable line.
+Future PiSD patches after this baseline should use `0_10_x` naming, such as `PiSD_0_10_6_patch.zip`, unless the user promotes a newer stable line.
 
 Patch-only zips should contain only:
 
@@ -103,3 +103,33 @@ Patch-only zips should contain only:
 - required patch notes.
 
 Full packages should only be created when the user asks for a stable/full package.
+
+
+## PiSD 0.10.5 maintainability patch
+
+`PiSD_0_10_5_patch.zip` builds forward from v10 plus accepted patches `0_10_1` through `0_10_4`. It does not promote a new stable rollback baseline.
+
+Main structural update:
+
+- AI correction equation helpers moved into `pisd/services/ai_correction.py`.
+- AI safety limiter helpers moved into `pisd/services/ai_safety.py`.
+- `AIDriveService` remains the live runtime coordinator for model loading, camera frames, prediction loop, and motor calls.
+- The additive correction equation remains `corrected = AI + manual * Correction %`.
+- Fixed-throttle mode still applies after correction through the same safety path.
+
+This makes the newest AI correction work easier to test without real camera, model, Flask, or motor dependencies while preserving the accepted v10 behaviour.
+
+
+## PiSD 0.10.6 AI Mode manual-pad patch
+
+`PiSD_0_10_6_patch.zip` builds forward from v10 plus accepted patches `0_10_1` through `0_10_5`. It does not promote a new stable rollback baseline.
+
+Main UI/runtime update:
+
+- AI Mode `Limiter / correction` is now `Limiter / correction / manual`.
+- The tab strip has three panes: Limiter, Correction, and Manual pad.
+- The Manual pad is a direct takeover pad that sends guarded `/api/control/manual` commands using drag input and arrow-key driving.
+- Shared safety acknowledgement and motor-output enable controls are outside the toggled pane content, so they remain visible from all three modes.
+- There is still only one `Save AI settings` configuration button, kept in the panel header outside the toggled content.
+
+Rollback safety: this patch preserves the accepted one-button `Start live` workflow, AI snapshot/record buttons and shortcuts, additive correction equation, fixed-throttle-after-correction behaviour, and the `0_10_5` helper-module split.
