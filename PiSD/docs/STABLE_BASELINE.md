@@ -2,9 +2,9 @@
 
 ## Stable version
 
-`PiSD_0_9_0`
+`PiSD_0_10_0`
 
-This is the ninth stable PiSD baseline package. It is built from the full `PiSD_0_8_0` package plus the accepted `0_8_1` through `0_8_11` patch line and the Manual Drive keyboard-control update.
+This is the tenth stable PiSD baseline package. It is built from the accepted `PiSD_0_9_0` stable package plus the accepted `0_9_1` through `0_9_10` patch line.
 
 ## Baseline purpose
 
@@ -14,7 +14,7 @@ This stable baseline should be used as the rollback point for future PiSD manual
 
 ## Included accepted work
 
-`PiSD_0_9_0` includes the tested hardware-service foundation from earlier baselines, the accepted v6 AI/manual-drive/runtime work, the accepted v7 overlay/recording metadata patch line, and the accepted 0_8_x steering, overlay, recording, motor-tuning, and keyboard-control patch line:
+`PiSD_0_10_0` includes the tested hardware-service foundation from earlier baselines, the accepted v6 AI/manual-drive/runtime work, the accepted v7 overlay/recording metadata patch line, the accepted 0_8_x steering/overlay/recording/motor-tuning reset work, and the accepted 0_9_x keyboard, AI runtime, model loading, recording, and control-loop patch line:
 
 - Picamera2 camera service with request/PIL visual preview path and simulation fallback.
 - RPi.GPIO-style motor service with safe simulation fallback.
@@ -59,7 +59,7 @@ Earlier PiSD hardware tests on the Raspberry Pi confirmed:
 
 ## Camera colour note
 
-The package includes the attempted `03_request_awb_off_lock` default visual profile and the `91_array_rgb_confirmed_correct` diagnostic reference from earlier hardware testing. Because this packaging container cannot verify OV5647 colour output, treat camera colour as a known hardware-verification item for a future `0_9_x` patch if the Pi still shows the old colour behaviour.
+The package includes the attempted `03_request_awb_off_lock` default visual profile and the `91_array_rgb_confirmed_correct` diagnostic reference from earlier hardware testing. Because this packaging container cannot verify OV5647 colour output, treat camera colour as a known hardware-verification item for a future `0_10_x` patch if the Pi still shows the old colour behaviour.
 
 ## Remaining physical checks
 
@@ -83,10 +83,17 @@ For this stable GUI baseline, test on the Pi browser after applying the package:
 - recording creates its own session folder with frames, `manifest.json`, `records.jsonl`, and `labels.jsonl`, including overlay metadata;
 - recording/snapshot folders can be listed, zip-downloaded, and deleted only from safe selected folders;
 - AI Mode can load a runnable model from `PiSD/models/` and keeps motor-output enable session-only.
+- AI Mode can upload/delete model files safely inside `PiSD/models/` and reports clearer load/runtime diagnostics.
+- TFLite model loading supports piTrainer exports more reliably, including single-output `[steering, throttle]`, multi-output fallback handling, quantized input/output handling, and NumPy tensor shape handling.
+- AI runtime setup guidance and helper scripts are included for Pis missing `tflite_runtime`, `ai_edge_litert`, or TensorFlow Lite.
+- AI control loop uses cached camera frames to better follow the configured Update Hz; the allowed AI update-rate maximum is now `60`.
+- AI Mode combines Start camera and Live stream into one user-facing control and keeps AI run/record controls beside the camera/prediction preview.
+- AI Mode recording and snapshot buttons use the shared recording service and include overlay sidecar metadata.
+- Motor dead-zone/start-kick code added during the v9 patch line was later removed; this baseline does not include that feature.
 
 ## Future patch rule
 
-Future PiSD patches after this baseline should use `0_9_x` naming, such as `PiSD_0_9_1_patch.zip`, unless the user promotes a newer stable line.
+Future PiSD patches after this baseline should use `0_10_x` naming, such as `PiSD_0_10_1_patch.zip`, unless the user promotes a newer stable line.
 
 Patch-only zips should contain only:
 
