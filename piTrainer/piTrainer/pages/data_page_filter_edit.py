@@ -123,6 +123,8 @@ class DataPageFilterEditMixin:
             f'Updated steering/speed for {updated_count} frame edit(s) with {rows_changed} metadata row(s) changed.'
             + (f' {len(failed_messages)} failed.' if failed_messages else '')
         )
+        if updated_records and hasattr(self.main_window, 'on_data_records_edited'):
+            self.main_window.on_data_records_edited(updated_records)
         if failed_messages:
             QMessageBox.warning(self, 'Edit Frame Data', '\n'.join(failed_messages[:8]))
 
@@ -235,9 +237,15 @@ class DataPageFilterEditMixin:
             self._update_records_field_in_loaded_data(updated_identities, field_name, value)
 
         failed_messages = list(result.get('failed_messages', []))
+        edited_records = [
+            record for record in records
+            if self._bulk_edit_target_key(record) in matched_key_set
+        ]
         self.stats_panel.set_stats(calculate_basic_stats(self.state.filtered_df))
         first_identity = updated_identities[0] if updated_identities else None
         self.apply_preview_filter(select_identity=first_identity)
+        if edited_records and hasattr(self.main_window, 'on_data_records_edited'):
+            self.main_window.on_data_records_edited(edited_records)
 
         updated_count = int(result.get('updated_count', 0))
         rows_changed = int(result.get('metadata_rows_changed', 0))

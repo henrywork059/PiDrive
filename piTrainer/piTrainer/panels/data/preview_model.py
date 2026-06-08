@@ -4,6 +4,9 @@ from typing import Any
 import re
 
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
+from PySide6.QtGui import QBrush, QColor
+
+from ...ui.theme import theme_color
 
 
 class RecordPreviewModel(QAbstractTableModel):
@@ -33,6 +36,16 @@ class RecordPreviewModel(QAbstractTableModel):
         'synthetic_variant': 'Variant',
         'aug_flip_lr': 'Flip',
         'hidden_from_training': 'Hidden',
+        'row_number': 'Row',
+        'target_steering': 'True Steering',
+        'target_speed': 'True Speed',
+        'pred_speed': 'AI Speed',
+        'combined_error': 'Error',
+    }
+
+    NUMERIC_COLUMNS = {
+        'steering', 'throttle', 'pred_steering', 'pred_throttle', 'steering_diff', 'speed_diff',
+        'target_steering', 'target_speed', 'pred_speed', 'combined_error',
     }
 
     def __init__(self) -> None:
@@ -100,7 +113,7 @@ class RecordPreviewModel(QAbstractTableModel):
     def _sort_key(self, value: Any, column_name: str):
         if value is None or value == '':
             return (1, ())
-        if column_name in {'steering', 'throttle', 'pred_steering', 'pred_throttle', 'steering_diff', 'speed_diff'}:
+        if column_name in self.NUMERIC_COLUMNS:
             try:
                 return (0, 0, float(value))
             except (TypeError, ValueError):
@@ -130,14 +143,23 @@ class RecordPreviewModel(QAbstractTableModel):
         value = self.rows[row].get(column_name, "")
         if role == Qt.UserRole:
             return self.source_row(row)
+        edit_status = str(self.rows[row].get('_validation_edit_status', '') or '').strip()
+        if role == Qt.BackgroundRole and edit_status:
+            color_name = 'warning_surface' if edit_status == 'edited' else 'info_surface'
+            return QBrush(QColor(theme_color(color_name)))
         if role not in (Qt.DisplayRole, Qt.ToolTipRole):
             return None
-        if column_name in {"steering", "throttle", "pred_steering", "pred_throttle", "steering_diff", "speed_diff"}:
+        if column_name in self.NUMERIC_COLUMNS:
             try:
-                return f"{float(value):.3f}"
+                display = f"{float(value):.3f}"
             except (TypeError, ValueError):
-                return ""
-        return "" if value is None else str(value)
+                display = ""
+        else:
+            display = "" if value is None else str(value)
+        if role == Qt.ToolTipRole:
+            tooltip = str(self.rows[row].get('_validation_edit_tooltip', '') or '').strip()
+            return f"{display}\n{tooltip}" if tooltip else display
+        return display
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int = Qt.DisplayRole):  # noqa: N802 - Qt API name
         if role != Qt.DisplayRole:

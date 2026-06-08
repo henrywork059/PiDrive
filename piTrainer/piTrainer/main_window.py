@@ -55,6 +55,7 @@ class MainWindow(QMainWindow):
         self.tabs.setTabToolTip(3, 'Validate a model and inspect errors.')
         self.tabs.setTabToolTip(4, 'Export model files for deployment.')
         self.tabs.setTabToolTip(5, 'Check the exported TFLite model.')
+        self.tabs.currentChanged.connect(self._on_tab_changed)
 
         self.setCentralWidget(self.tabs)
 
@@ -118,6 +119,12 @@ class MainWindow(QMainWindow):
         QShortcut(QKeySequence('Ctrl+Shift+E'), self, activated=self.export_validation_page.validate_export)
         QShortcut(QKeySequence('Ctrl+Shift+R'), self, activated=self.reset_current_page_layout)
         QShortcut(QKeySequence('F1'), self, activated=self.show_shortcuts)
+
+    def _on_tab_changed(self, index: int) -> None:
+        widget = self.tabs.widget(index)
+        frame_review = getattr(widget, 'frame_review_panel', None)
+        if frame_review is not None and hasattr(frame_review, 'restore_pending_selection'):
+            frame_review.restore_pending_selection()
 
     def next_tab(self) -> None:
         self.tabs.setCurrentIndex((self.tabs.currentIndex() + 1) % self.tabs.count())
@@ -238,6 +245,14 @@ class MainWindow(QMainWindow):
         self.export_page.refresh_from_state()
         self.export_validation_page.refresh_from_state()
         self.set_status_message('Training finished.')
+
+    def on_data_records_edited(self, records: list[dict] | dict | None) -> None:
+        if not records:
+            return
+        for page in (getattr(self, 'validation_page', None), getattr(self, 'export_validation_page', None)):
+            frame_review = getattr(page, 'frame_review_panel', None)
+            if frame_review is not None and hasattr(frame_review, 'mark_edited_records'):
+                frame_review.mark_edited_records(records)
 
     def open_validation_frame_in_data_editor(self, record: dict | None) -> None:
         if not record:
