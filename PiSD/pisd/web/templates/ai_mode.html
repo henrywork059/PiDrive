@@ -48,15 +48,14 @@
       <section class="mdrv-panel ai-panel ai-preview-panel" id="aiPreviewPanel">
         <div class="mdrv-panel-head ai-panel-head">
           <div>
-            <p class="mdrv-label ai-panel-kicker">Camera / AI prediction preview</p>
-            <h2>Live input + AI path overlay</h2>
+            <p class="mdrv-label ai-panel-kicker">Camera</p>
+            <h2>Live AI preview</h2>
           </div>
           <div class="mdrv-camera-head-actions ai-camera-head-actions">
             <button id="aiOverlayToggle" class="mdrv-button mdrv-overlay-toggle" type="button" aria-pressed="true" title="Show or hide the AI model path overlay drawn from the safe AI steering/throttle command.">Overlay: On</button>
-            <button id="aiLive" class="mdrv-button ai-button">Start camera + live stream</button>
-            <button id="aiSnapshot" class="mdrv-button ai-button ai-button-secondary" type="button">Refresh frame</button>
-            <button id="aiSaveSnapshot" class="mdrv-button ai-button ai-button-secondary" type="button">Save snapshot</button>
-            <button id="aiRecordToggle" class="mdrv-button ai-button ai-button-secondary" type="button">Start recording</button>
+            <button id="aiLive" class="mdrv-button mdrv-live-action ai-button">Start live</button>
+            <button id="aiSaveSnapshot" class="mdrv-button mdrv-snapshot-action ai-button ai-button-secondary" type="button">Snapshot</button>
+            <button id="aiRecordToggle" class="mdrv-button ai-button ai-button-secondary" type="button">Record</button>
             <span id="aiRecordingState" class="mdrv-recording-indicator" data-recording="off">REC off</span>
             <button id="aiStopCamera" class="mdrv-button ai-button ai-button-secondary">Stop camera</button>
           </div>
@@ -111,7 +110,7 @@
             </div>
           </div>
         </div>
-        <p id="aiPreviewCaption" class="mdrv-capture-notice ai-preview-caption" role="status" aria-live="polite">Preview is idle. Start live first, then use AI preview to see the model-predicted road guide overlay before enabling AI drive.</p>
+        <p id="aiPreviewCaption" class="mdrv-capture-notice ai-preview-caption" role="status" aria-live="polite">Preview is idle. Use Start live first, then start AI preview before enabling AI drive.</p>
         <div class="ai-button-row ai-run-buttons ai-preview-run-actions" aria-label="AI run controls">
           <button id="aiStartPreview" class="mdrv-button mdrv-primary ai-button ai-button-primary">Start AI preview</button>
           <button id="aiStartDrive" class="mdrv-button mdrv-danger ai-button ai-button-danger">Start AI drive</button>
@@ -122,8 +121,8 @@
       <section class="mdrv-panel ai-panel" id="aiModelPanel">
         <div class="mdrv-panel-head ai-panel-head">
           <div>
-            <p class="mdrv-label ai-panel-kicker">Model</p>
-            <h2>Load trained model</h2>
+            <p class="mdrv-label ai-panel-kicker">AI model</p>
+            <h2>Model file</h2>
           </div>
           <button id="aiRefreshModels" class="mdrv-button ai-button ai-button-secondary">Refresh models</button>
         </div>
@@ -167,8 +166,8 @@ python3 scripts/check_ai_runtime.py</pre>
       <section class="mdrv-panel ai-panel" id="aiSafetyPanel">
         <div class="mdrv-panel-head ai-panel-head">
           <div>
-            <p class="mdrv-label ai-panel-kicker">Safety layer</p>
-            <h2>AI → safety limiter → motors</h2>
+            <p class="mdrv-label ai-panel-kicker">Safety</p>
+            <h2>Output limiter</h2>
           </div>
           <button id="aiSaveConfig" class="mdrv-button ai-button ai-button-secondary">Save AI settings</button>
         </div>
@@ -191,8 +190,8 @@ python3 scripts/check_ai_runtime.py</pre>
       <section class="mdrv-panel ai-panel" id="aiRunPanel">
         <div class="mdrv-panel-head ai-panel-head">
           <div>
-            <p class="mdrv-label ai-panel-kicker">Run</p>
-            <h2>Preview before drive</h2>
+            <p class="mdrv-label ai-panel-kicker">AI output</p>
+            <h2>Prediction readout</h2>
           </div>
           <span class="mdrv-code" data-code-for="run">PISD-OK-000</span>
         </div>
@@ -215,8 +214,8 @@ python3 scripts/check_ai_runtime.py</pre>
       <section class="mdrv-panel ai-panel ai-log-panel" id="aiLogPanel">
         <div class="mdrv-panel-head ai-panel-head">
           <div>
-            <p class="mdrv-label ai-panel-kicker">Status</p>
-            <h2>AI mode log</h2>
+            <p class="mdrv-label ai-panel-kicker">Log</p>
+            <h2>AI actions</h2>
           </div>
           <button id="aiRefreshStatus" class="mdrv-button ai-button ai-button-secondary">Refresh status</button>
         </div>

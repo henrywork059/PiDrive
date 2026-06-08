@@ -68,3 +68,14 @@ a { color: inherit; text-decoration: none; }
 
 /* 0.5.1 autopilot mode card */
 #frontModeAutopilot { background: linear-gradient(135deg, rgba(34,197,94,.24), rgba(6,95,70,.2), rgba(15,23,42,.94)); }
+
+/* 0.10.2 current-drive mode cards */
+#frontModeManualDrive,
+#frontModeAiMode {
+  border-color: rgba(34,197,94,.52);
+  background: linear-gradient(135deg, rgba(34,197,94,.26), rgba(6,95,70,.22), rgba(15,23,42,.94));
+}
+#frontModeManualDrive .fp-card-label,
+#frontModeAiMode .fp-card-label,
+#frontModeManualDrive .fp-card-action,
+#frontModeAiMode .fp-card-action { color: #bbf7d0; }

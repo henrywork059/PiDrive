@@ -2,7 +2,7 @@
   const initial = JSON.parse(document.getElementById('aiModeInitialStatus')?.textContent || '{}');
   const els = {};
   const ids = [
-    'aiGlobalCode', 'aiRunMode', 'aiModelReady', 'aiPreviewFrame', 'aiPreviewImage', 'aiPreviewCaption', 'aiSnapshot', 'aiSaveSnapshot', 'aiLive', 'aiRecordToggle', 'aiRecordingState', 'aiStopCamera',
+    'aiGlobalCode', 'aiRunMode', 'aiModelReady', 'aiPreviewFrame', 'aiPreviewImage', 'aiPreviewCaption', 'aiSaveSnapshot', 'aiLive', 'aiRecordToggle', 'aiRecordingState', 'aiStopCamera',
     'aiOverlayToggle', 'aiOverlayMode', 'aiOverlayCurveLabel', 'aiOverlayCar', 'aiOverlaySurface', 'aiOverlayPathWide', 'aiOverlayPathGuide', 'aiOverlayPath',
     'aiOverlayEndpoint', 'aiOverlayStartPoint', 'aiOverlayThrottleFill', 'aiOverlaySteeringFill', 'aiOverlayThrottleValue', 'aiOverlaySteeringValue',
     'aiOverlayRawSteering', 'aiOverlayRawThrottle', 'aiOverlayLeftValue', 'aiOverlayRightValue',
@@ -355,7 +355,7 @@
       els.aiRecordingState.textContent = recordingRunning ? `REC on ${Number(recording.frame_count || 0)} frames` : 'REC off';
     }
     if (els.aiRecordToggle) {
-      els.aiRecordToggle.textContent = recordingRunning ? 'Stop recording' : 'Start recording';
+      els.aiRecordToggle.textContent = recordingRunning ? 'Stop rec' : 'Record';
       els.aiRecordToggle.classList.toggle('mdrv-recording-on', recordingRunning);
     }
   }
@@ -607,7 +607,6 @@
     els.aiStop?.addEventListener('click', stopAI);
     els.aiStopAll?.addEventListener('click', async () => { await stopAI(); await api('/api/control/stop', { method: 'POST', body: {} }).catch(() => null); });
     els.aiRefreshStatus?.addEventListener('click', refreshStatus);
-    els.aiSnapshot?.addEventListener('click', () => setPreview('snapshot', `/api/camera/frame.jpg?t=${Date.now()}`));
     els.aiSaveSnapshot?.addEventListener('click', saveAISnapshot);
     els.aiRecordToggle?.addEventListener('click', toggleAIRecording);
     els.aiLive?.addEventListener('click', async () => { await api('/api/camera/start', { method: 'POST', body: {} }).catch((err) => log(err.message, err.payload)); setPreview('live', `/video_feed?t=${Date.now()}`); });

@@ -77,7 +77,7 @@ For this stable GUI baseline, test on the Pi browser after applying the package:
 - overlay toggle is visible on Manual Drive and AI Mode pages;
 - overlay settings popup opens and number inputs save the values typed by the user;
 - road-guide overlay bends in the intended screen direction for left/right steering;
-- Start camera + live is the single user-facing live-preview start action; Stop camera only, Refresh status, and STOP motors keep separate meanings;
+- Start live is the short user-facing live-preview action in Manual Drive and AI Mode; Stop camera only, Refresh status, and STOP motors keep separate meanings;
 - preview FPS/frame-age/stale indicators update while live preview is active;
 - capture saves to the daily single-captures folder and includes overlay metadata;
 - recording creates its own session folder with frames, `manifest.json`, `records.jsonl`, and `labels.jsonl`, including overlay metadata;
@@ -87,13 +87,13 @@ For this stable GUI baseline, test on the Pi browser after applying the package:
 - TFLite model loading supports piTrainer exports more reliably, including single-output `[steering, throttle]`, multi-output fallback handling, quantized input/output handling, and NumPy tensor shape handling.
 - AI runtime setup guidance and helper scripts are included for Pis missing `tflite_runtime`, `ai_edge_litert`, or TensorFlow Lite.
 - AI control loop uses cached camera frames to better follow the configured Update Hz; the allowed AI update-rate maximum is now `60`.
-- Manual Drive, Dashboard, AI Mode, and Testing Server preview controls use one Start camera + live user-facing action; AI run/record controls stay beside the camera/prediction preview.
+- Manual Drive and AI Mode expose one short Start live action; Dashboard and Testing Server keep one technical camera/live diagnostic action; AI run/record controls stay beside the camera/prediction preview.
 - AI Mode recording and snapshot buttons use the shared recording service and include overlay sidecar metadata.
 - Motor dead-zone/start-kick code added during the v9 patch line was later removed; this baseline does not include that feature.
 
 ## Future patch rule
 
-Future PiSD patches after this baseline should use `0_10_x` naming, such as `PiSD_0_10_1_patch.zip`, unless the user promotes a newer stable line.
+Future PiSD patches after this baseline should use `0_10_x` naming, such as `PiSD_0_10_2_patch.zip`, unless the user promotes a newer stable line.
 
 Patch-only zips should contain only:
 

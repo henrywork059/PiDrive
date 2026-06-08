@@ -150,7 +150,7 @@ def check_source_contract() -> list[Result]:
         "mdrvPreviewFpsDebug",
         "mdrvPreviewLoopDebug",
         "Preview is idle",
-        "Start camera + live",
+        "Start live",
         "manualDriveFilesPanel",
         "mdrvFileKind",
         "mdrvFileSelect",
@@ -170,10 +170,9 @@ def check_source_contract() -> list[Result]:
         'data-panel-role="preview"',
         "data-panel-h-weight",
         "Refresh status",
-        "does not start the camera, restart preview, or send motor commands",
         "STOP motors",
     ]
-    required_css = [".mdrv-shell", ".mdrv-panel", ".mdrv-status-panel", ".mdrv-preview-frame", ".mdrv-drag-pad", ".mdrv-big-stop", ".mdrv-drag-knob", "width: 28px", ".mdrv-recording-indicator", ".mdrv-capture-notice", ".mdrv-overlay-toggle", ".mdrv-drive-overlay", ".mdrv-overlay-path", ".mdrv-overlay-path-wide", ".mdrv-overlay-endpoint", "road-guide overlay", "marker-end: url(#mdrvOverlayArrow)", ".mdrv-drive-debug-panel", ".mdrv-keyboard-hint", ".mdrv-keyboard-status", ".mdrv-overlay-calibration", ".mdrv-overlay-settings-grid-reduced", ".mdrv-overlay-calibration-guide", "data-overlay-source", "data-preview-state", "Preview stale", "@media (max-width: 1100px)"]
+    required_css = [".mdrv-shell", ".mdrv-live-action", ".mdrv-snapshot-action", ".mdrv-panel", ".mdrv-status-panel", ".mdrv-preview-frame", ".mdrv-drag-pad", ".mdrv-big-stop", ".mdrv-drag-knob", "width: 28px", ".mdrv-recording-indicator", ".mdrv-capture-notice", ".mdrv-overlay-toggle", ".mdrv-drive-overlay", ".mdrv-overlay-path", ".mdrv-overlay-path-wide", ".mdrv-overlay-endpoint", "road-guide overlay", "marker-end: url(#mdrvOverlayArrow)", ".mdrv-drive-debug-panel", ".mdrv-keyboard-hint", ".mdrv-keyboard-status", ".mdrv-overlay-calibration", ".mdrv-overlay-settings-grid-reduced", ".mdrv-overlay-calibration-guide", "data-overlay-source", "data-preview-state", "Preview stale", "@media (max-width: 1100px)"]
     required_unified_css = [
         "PiSD 0.3.3 manual-drive semantic layout recovery",
         "body.manual-drive-page .mdrv-shell",

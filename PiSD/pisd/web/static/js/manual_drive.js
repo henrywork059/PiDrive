@@ -111,7 +111,7 @@
   let recordingCollections = { recordings: [], snapshots: [] };
   const PREVIEW_STALE_MS = 2500;
   const PREVIEW_METRICS_MS = 850;
-  const PREVIEW_IDLE_SRC = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720'%3E%3Crect width='1280' height='720' fill='%23020617'/%3E%3Ctext x='640' y='340' fill='%2394a3b8' font-family='Arial,sans-serif' font-size='42' text-anchor='middle'%3EPreview idle%3C/text%3E%3Ctext x='640' y='398' fill='%2364748b' font-family='Arial,sans-serif' font-size='26' text-anchor='middle'%3EPress Start camera + live%3C/text%3E%3C/svg%3E";
+  const PREVIEW_IDLE_SRC = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720'%3E%3Crect width='1280' height='720' fill='%23020617'/%3E%3Ctext x='640' y='340' fill='%2394a3b8' font-family='Arial,sans-serif' font-size='42' text-anchor='middle'%3EPreview idle%3C/text%3E%3Ctext x='640' y='398' fill='%2364748b' font-family='Arial,sans-serif' font-size='26' text-anchor='middle'%3EPress Start live%3C/text%3E%3C/svg%3E";
   let currentPreviewMode = "idle";
   let overlaySettings = { ...DEFAULTS.overlay };
   let latestMotorSettings = { ...DEFAULT_MOTOR_SETTINGS };
@@ -342,7 +342,7 @@
     });
   }
 
-  function setPreviewIdle(message = 'Preview idle. Press Start camera + live.') {
+  function setPreviewIdle(message = 'Preview idle. Press Start live.') {
     currentPreviewMode = 'idle';
     if (preview) preview.src = PREVIEW_IDLE_SRC;
     stopPreviewMetricsLoop();
@@ -1239,10 +1239,10 @@
     try {
       const { payload } = await api('POST', '/api/camera/start', {}, 'camera');
       livePreview();
-      setShortStatus(`Start camera + live: ${payload?.code || 'PISD-OK-000'} ${payload?.message || ''}`.trim(), payload?.code || 'PISD-OK-000');
+      setShortStatus(`Start live: ${payload?.code || 'PISD-OK-000'} ${payload?.message || ''}`.trim(), payload?.code || 'PISD-OK-000');
       await refreshStatus();
     } catch (err) {
-      writeLog('start camera + live failed', { ok: false, code: 'PISD-API-002', message: String(err) });
+      writeLog('start live failed', { ok: false, code: 'PISD-API-002', message: String(err) });
     }
   }
 
@@ -1406,7 +1406,7 @@
     bindKeyboardDrive();
   }
 
-  setPreviewIdle('Preview idle. Press Start camera + live.');
+  setPreviewIdle('Preview idle. Press Start live.');
   setKnob(0, 0);
   setDriveState(STOP_COMMAND, STOP_OUTPUT, 'stopped');
   renderStatus(initialStatus);

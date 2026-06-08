@@ -809,7 +809,7 @@ Check:
 - manual drag pad is in the right control column
 - drag pad ball follows the pointer position
 - speed slider can reach `1.0`
-- `Capture frame` creates one saved frame and JSONL record
+- `Snapshot` creates one saved frame and JSONL record
 - `Record` starts/stops a session in `recordings/YYYY-MM-DD/...`
 - `records.jsonl` contains camera settings, steering, throttle, motor output, bias, and tuning data for every saved frame
 
@@ -831,7 +831,7 @@ Manual browser checks:
 1. Open `/manual-drive`.
 2. Confirm the camera panel stays under the compact status panel and the drag pad stays in the control column.
 3. Confirm the speed slider max is not 1.0 and the Settings page shows motor left/right max speed up to `1.0`.
-4. Press `Capture frame` and confirm a visible capture notice appears.
+4. Press `Snapshot` and confirm a visible capture notice appears.
 5. Start `Record` and confirm the red recording indicator appears.
 6. Stop recording and confirm the indicator returns to `REC off`.
 
@@ -916,7 +916,7 @@ On the Pi browser:
 
 1. Open `/manual-drive`.
 2. Capture a single frame.
-3. Confirm the `Recordings & snapshots` panel lists a snapshot folder.
+3. Confirm the `Records & snaps` panel lists a snapshot folder.
 4. Start and stop a recording.
 5. Confirm a recording folder appears.
 6. Select a recording folder and click `Download zip`.
@@ -939,7 +939,7 @@ On the Pi browser, hard refresh `/manual-drive` and check:
 
 1. Manual Drive has no `Steer strength` slider; drag-pad X directly maps to steering X.
 2. `/settings` has no `Steer strength` control; legacy `steer_strength` is ignored by settings normalisation.
-3. `Start camera + live` starts the camera service and switches the preview to `/video_feed` with one click.
+3. `Start live` starts the camera service and switches the preview to `/video_feed` with one click.
 4. Press `s` in Manual Drive to save a snapshot and press `r` to toggle recording.
 5. Top-bar `Refresh status` visibly updates the compact status line without starting/restarting the camera preview.
 6. Top-bar `STOP` sends `/api/control/stop`, recentres the drag pad, and updates the compact status line with the returned `PISD-*` code.
@@ -967,9 +967,9 @@ On the Pi browser, hard refresh `/manual-drive` and check:
 
 1. The drag-pad ball is noticeably smaller, about half the previous diameter.
 2. The Preview panel no longer shows a `Snapshot view` button.
-3. `Start camera + live` starts the camera service and switches to `/video_feed`; there is no separate Start camera / Live stream pair.
+3. `Start live` starts the camera service and switches to `/video_feed`; there is no separate Start camera / Live stream pair.
 4. Press `s` to capture a still frame; press `r` to start/stop recording.
-5. The Status / Run signals panel shows compact current command values: intended steering/throttle.
+5. The Status / Live signals panel shows compact current command values: intended steering/throttle.
 6. The same panel also shows current motor output values: left/right motor output.
 7. While dragging, `Cmd` updates immediately and `Out` updates after the `/api/control/manual` response.
 8. Pressing `STOP` returns both `Cmd` and `Out` to zero.

@@ -27,7 +27,7 @@
 
   <main class="mdrv-shell" id="manualDriveShell">
     <section class="mdrv-panel mdrv-status-panel" id="manualDriveStatusPanel" data-panel-role="status" data-panel-h-weight="2" data-panel-v-weight="1">
-      <div class="mdrv-panel-head compact"><div><p class="mdrv-label">Status</p><h2>Run signals</h2></div><span class="mdrv-code" data-code-for="status">{{ initial_status.code }}</span></div>
+      <div class="mdrv-panel-head compact"><div><p class="mdrv-label">Status</p><h2>Live signals</h2></div><span class="mdrv-code" data-code-for="status">{{ initial_status.code }}</span></div>
       <div class="mdrv-status-strip">
         <span>HW <strong id="mdrvHardware">{{ 'on' if initial_status.hardware_requested else 'sim' }}</strong></span>
         <span>Cam <strong id="mdrvCameraState">{{ initial_status.camera.backend }}</strong></span>
@@ -55,7 +55,7 @@
 
     <section class="mdrv-panel mdrv-preview-panel" id="manualDriveCameraPanel" data-panel-role="preview" data-panel-h-weight="2" data-panel-v-weight="2">
       <div class="mdrv-panel-head">
-        <div><p class="mdrv-label">Camera</p><h2>Live view</h2></div>
+        <div><p class="mdrv-label">Camera</p><h2>Live camera</h2></div>
         <div class="mdrv-camera-head-actions">
           <button id="mdrvOverlayToggle" class="mdrv-button mdrv-overlay-toggle" type="button" aria-pressed="true" title="Show or hide the intended-path overlay drawn from current steering and throttle.">Overlay: On</button>
           <span id="mdrvRecordingIndicator" class="mdrv-recording-indicator" data-recording="off">REC off</span>
@@ -63,7 +63,7 @@
         </div>
       </div>
       <div id="mdrvPreviewFrame" class="mdrv-preview-frame mdrv-overlay-enabled" data-preview-mode="idle" data-preview-state="idle">
-        <img id="mdrvPreview" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720'%3E%3Crect width='1280' height='720' fill='%23020617'/%3E%3Ctext x='640' y='340' fill='%2394a3b8' font-family='Arial,sans-serif' font-size='42' text-anchor='middle'%3EPreview idle%3C/text%3E%3Ctext x='640' y='398' fill='%2364748b' font-family='Arial,sans-serif' font-size='26' text-anchor='middle'%3EPress Start camera + live%3C/text%3E%3C/svg%3E" alt="PiSD live camera preview" data-preview-mode="idle">
+        <img id="mdrvPreview" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720'%3E%3Crect width='1280' height='720' fill='%23020617'/%3E%3Ctext x='640' y='340' fill='%2394a3b8' font-family='Arial,sans-serif' font-size='42' text-anchor='middle'%3EPreview idle%3C/text%3E%3Ctext x='640' y='398' fill='%2364748b' font-family='Arial,sans-serif' font-size='26' text-anchor='middle'%3EPress Start live%3C/text%3E%3C/svg%3E" alt="PiSD live camera preview" data-preview-mode="idle">
         <div id="mdrvDriveOverlay" class="mdrv-drive-overlay" aria-live="polite">
           <div class="mdrv-overlay-hud mdrv-overlay-hud-top">
             <span>Road guide</span>
@@ -111,15 +111,15 @@
         </div>
       </div>
       <div class="mdrv-row mdrv-compact-actions">
-        <button id="mdrvLiveCamera" class="mdrv-button mdrv-primary" title="Start camera service and switch the preview image to MJPEG live stream.">Start camera + live</button>
-        <button id="mdrvCaptureFrame" class="mdrv-button mdrv-primary">Capture frame</button>
+        <button id="mdrvLiveCamera" class="mdrv-button mdrv-primary mdrv-live-action" title="Start camera service and switch the preview image to MJPEG live stream.">Start live</button>
+        <button id="mdrvCaptureFrame" class="mdrv-button mdrv-primary mdrv-snapshot-action">Snapshot</button>
         <button id="mdrvRecordToggle" class="mdrv-button">Record</button>
       </div>
-      <p id="mdrvCaptureNotice" class="mdrv-capture-notice" role="status" aria-live="polite">Preview is idle. Use <strong>Start camera + live</strong> to start the camera and show MJPEG. Press <strong>s</strong> to save a snapshot or <strong>r</strong> to toggle recording in Manual Drive. Use <strong>Overlay: On/Off</strong> in this Camera header to show the road-style guide drawn from the live/manual control state. Refresh status does not start the camera, restart preview, or send motor commands.</p>
+      <p id="mdrvCaptureNotice" class="mdrv-capture-notice" role="status" aria-live="polite">Preview is idle. Use <strong>Start live</strong> to start the camera and show MJPEG. Press <strong>s</strong> to save a snapshot or <strong>r</strong> to toggle recording. Use <strong>Overlay: On/Off</strong> in this Camera header to show the road-style guide drawn from the live/manual control state.</p>
     </section>
 
     <section class="mdrv-panel mdrv-drive-panel" id="manualDrivePadPanel" data-panel-role="drive" data-panel-h-weight="1" data-panel-v-weight="2">
-      <div class="mdrv-panel-head compact"><div><p class="mdrv-label">Drag Pad</p><h2>Manual control</h2></div><span class="mdrv-code" data-code-for="drive">PISD-OK-000</span></div>
+      <div class="mdrv-panel-head compact"><div><p class="mdrv-label">Drive input</p><h2>Manual steering</h2></div><span class="mdrv-code" data-code-for="drive">PISD-OK-000</span></div>
       <label class="mdrv-arm"><input id="mdrvArm" type="checkbox"><span>Enable motor output. Wheels are lifted / area is safe.</span></label>
       <div id="mdrvDragPad" class="mdrv-drag-pad" role="application" aria-label="Manual drag driving pad" tabindex="0">
         <div class="mdrv-drag-cross"></div>
@@ -189,14 +189,14 @@
     </section>
 
     <section class="mdrv-panel mdrv-stop-panel" id="manualDriveStopPanel" data-panel-role="control" data-panel-h-weight="1" data-panel-v-weight="1">
-      <div class="mdrv-panel-head compact"><div><p class="mdrv-label">Safety</p><h2>Emergency stop</h2></div><span class="mdrv-code" data-code-for="stop">PISD-OK-000</span></div>
+      <div class="mdrv-panel-head compact"><div><p class="mdrv-label">Safety</p><h2>Motor stop</h2></div><span class="mdrv-code" data-code-for="stop">PISD-OK-000</span></div>
       <button id="mdrvStopBig" class="mdrv-big-stop" title="Immediately send /api/control/stop and clear the intended-path overlay.">STOP ALL MOTORS</button>
       <button id="mdrvToggleLog" class="mdrv-button">Show action log</button>
     </section>
 
 
     <section class="mdrv-panel mdrv-files-panel" id="manualDriveFilesPanel" data-panel-role="recording" data-panel-h-weight="1" data-panel-v-weight="1">
-      <div class="mdrv-panel-head compact"><div><p class="mdrv-label">Files</p><h2>Recordings & snapshots</h2></div><span class="mdrv-code" data-code-for="files">PISD-OK-000</span></div>
+      <div class="mdrv-panel-head compact"><div><p class="mdrv-label">Saved data</p><h2>Records & snaps</h2></div><span class="mdrv-code" data-code-for="files">PISD-OK-000</span></div>
       <div class="mdrv-file-controls">
         <label>Type
           <select id="mdrvFileKind">

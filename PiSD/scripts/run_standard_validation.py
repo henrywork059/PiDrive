@@ -338,8 +338,8 @@ def _check_front_page_source_contract() -> CheckResult:
             {"exception_type": type(exc).__name__},
         )
     required = {
-        "front": ["PiSD Front Page", "frontModeSettings", "frontModeTesting", "href=\"/settings\"", "href=\"/testing\"", "frontPageInitialStatus"],
-        "front_css": [".fp-mode-grid", ".fp-mode-card"],
+        "front": ["PiSD Front Page", "frontModeSettings", "frontModeTesting", "frontModeManualDrive", "frontModeAiMode", "href=\"/settings\"", "href=\"/testing\"", "href=\"/manual-drive\"", "href=\"/ai-mode\"", "frontPageInitialStatus"],
+        "front_css": [".fp-mode-grid", ".fp-mode-card", "#frontModeManualDrive", "#frontModeAiMode", "rgba(34,197,94"],
         "front_js": ["frontApi", "/api/status", "/api/control/stop"],
         "settings": ["PiSD Settings", "Back to Front Page", "settingsMainPanel", "stCameraForm", "stMotorForm", "settingsInitialStatus"],
         "settings_js": ["settingsApi", "/api/settings/apply", "/api/settings", "/api/control/stop", "pisd.runtimeSettings.v2"],

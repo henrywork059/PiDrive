@@ -717,3 +717,16 @@ body[data-pisd-theme="light"] .mdrv-keyboard-hint {
   background: rgba(224, 242, 254, .72);
   border-color: rgba(14, 116, 144, .24);
 }
+
+/* 0.10.2 clear green action buttons for live/snapshot workflow */
+.mdrv-button.mdrv-live-action,
+.mdrv-button.mdrv-snapshot-action {
+  border-color: rgba(34, 197, 94, .58) !important;
+  background: rgba(22, 101, 52, .62) !important;
+  color: #dcfce7 !important;
+}
+.mdrv-button.mdrv-live-action:hover,
+.mdrv-button.mdrv-snapshot-action:hover {
+  border-color: rgba(134, 239, 172, .82) !important;
+  background: rgba(21, 128, 61, .72) !important;
+}

@@ -100,16 +100,16 @@ def check_source_contract() -> Result:
             "aiSaveSnapshot",
             "aiRecordToggle",
             "aiRecordingState",
-            "Start camera + live stream",
-            "Save snapshot",
-            "Start recording",
+            "Start live",
+            "Snapshot",
+            "Record",
             "STOP AI + motors",
             "aiPreviewFrame",
             "aiDriveOverlay",
             "AI road guide",
             "Overlay: On",
             "labels.jsonl",
-            "AI → safety limiter → motors",
+            "Output limiter",
             "Reverse steering",
             "Drive output",
             "Frame seq",
@@ -165,13 +165,19 @@ def check_source_contract() -> Result:
     sources = {"template": template, "css": css, "js": js}
     missing = {name: [token for token in tokens if token not in sources[name]] for name, tokens in required.items()}
     missing = {name: tokens for name, tokens in missing.items() if tokens}
-    ok = not missing
+    forbidden = {
+        "template": ["Refresh frame", "Start camera + live stream"],
+        "js": ["aiSnapshot"],
+    }
+    present_forbidden = {name: [token for token in tokens if token in sources[name]] for name, tokens in forbidden.items()}
+    present_forbidden = {name: tokens for name, tokens in present_forbidden.items() if tokens}
+    ok = not missing and not present_forbidden
     return Result(
         "ai_mode.source_contract",
         ok,
         PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_AI_MODE_FAILED,
-        "AI Mode source contains model-loading, Manual Drive-style road-guide overlay, safety, same-sign reverse steering policy, and drive contracts" if ok else "AI Mode source contract failed",
-        {"missing": missing},
+        "AI Mode source contains model-loading, one Start live action, snapshot/record buttons, road-guide overlay, safety, same-sign reverse steering policy, and drive contracts" if ok else "AI Mode source contract failed",
+        {"missing": missing, "forbidden_present": present_forbidden},
     )
 
 
