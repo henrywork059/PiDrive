@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QPushButton,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -61,6 +62,8 @@ class SessionSourcePanel(QGroupBox):
         self.selection_changed_callback = selection_changed_callback
         self._rows: list[SessionSourceRowWidget] = []
         self._suspend_selection_callback = False
+        self._min_visible_session_rows = 5
+        self._max_visible_session_rows = 16
 
         help_label = QLabel(
             'Choose a records root, refresh sessions, select sessions, then load.'
@@ -95,7 +98,8 @@ class SessionSourcePanel(QGroupBox):
         self.list_widget.setSpacing(6)
         self.list_widget.setAlternatingRowColors(False)
         self.list_widget.setUniformItemSizes(False)
-        self.list_widget.setMinimumHeight(150)
+        self.list_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.MinimumExpanding)
+        self._resize_session_list()
 
         select_all_btn = QPushButton('Select All')
         select_all_btn.setProperty('role', 'secondary')
@@ -175,7 +179,30 @@ class SessionSourcePanel(QGroupBox):
                 self._rows.append(row_widget)
         finally:
             self._suspend_selection_callback = False
+        self._resize_session_list()
         self._update_summary()
+
+    def _resize_session_list(self) -> None:
+        """Grow the session list with the scanned rows so more sessions are visible.
+
+        The workflow sidebar itself remains scrollable, so increasing this
+        minimum height is safer than forcing an inner list scrollbar after only
+        a few sessions. A cap keeps the list from swallowing the whole Data
+        workflow panel when a records root contains many sessions.
+        """
+        row_count = len(self._rows)
+        visible_rows = min(
+            max(row_count, self._min_visible_session_rows),
+            self._max_visible_session_rows,
+        )
+        sample_height = 42
+        if self._rows:
+            sample_height = max(sample_height, max(row.sizeHint().height() for row in self._rows))
+        spacing = max(0, int(self.list_widget.spacing()))
+        frame_padding = 18
+        target_height = int((sample_height + spacing) * visible_rows + frame_padding)
+        self.list_widget.setMinimumHeight(max(180, target_height))
+        self.list_widget.updateGeometry()
 
     def selected_sessions(self) -> list[str]:
         selected: list[str] = []
