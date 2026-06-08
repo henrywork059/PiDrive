@@ -94,7 +94,7 @@ For this stable GUI baseline, test on the Pi browser after applying the package:
 
 ## Future patch rule
 
-Future PiSD patches after this baseline should use `0_10_x` naming, such as `PiSD_0_10_9_patch.zip`, unless the user promotes a newer stable line.
+Future PiSD patches after this baseline should use `0_10_x` naming, such as `PiSD_0_10_10_patch.zip`, unless the user promotes a newer stable line.
 
 Patch-only zips should contain only:
 
@@ -134,6 +134,19 @@ Main UI/runtime update:
 
 Rollback safety: this patch preserves the accepted one-button `Start live` workflow, AI snapshot/record buttons and shortcuts, additive correction equation, fixed-throttle-after-correction behaviour, and the `0_10_5` helper-module split.
 
+
+
+## PiSD 0.10.10 original frame-id restore patch
+
+`PiSD_0_10_10_patch.zip` builds forward from v10 plus accepted patches `0_10_1` through `0_10_9`. It does not promote a new stable rollback baseline.
+
+- Restores the original PiSD recording filename format: `frame_000001_<utc-stamp>_<uuid>.jpg`.
+- Restores the original `records.jsonl` frame-id format: `<session_id>_000001_<utc-stamp>_<uuid>`.
+- Removes the experimental `frame_id_scheme` / `frame_id_unique_scope` fields added in `0_10_9` from new recording metadata.
+- Restores the original compact `labels.jsonl` schema without extra global-id fields.
+- Preserves the `0_10_9` top-of-preview button placement changes.
+
+Rollback safety: this patch preserves the accepted one-button live workflow, AI correction/manual-pad behaviour, global Space STOP, shared recording download panel, max-throttle persistence, and preview button placement.
 
 ## PiSD 0.10.9 preview buttons and frame-id patch
 

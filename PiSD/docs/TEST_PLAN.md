@@ -1097,6 +1097,35 @@ Browser/Pi checks to perform on hardware:
 8. Confirm `Correction` still uses `AI + manual * Correction %` and fixed-throttle mode still ignores manual throttle correction.
 
 
+
+## PiSD 0.10.10 original frame-id restore checks
+
+After applying `PiSD_0_10_10_patch`, run the safe local checks:
+
+```bash
+cd ~/PiDrive/PiSD
+python3 -m compileall -q pisd scripts PiSD.py
+node --check pisd/web/static/js/ai_mode.js
+node --check pisd/web/static/js/manual_drive.js
+node --check pisd/web/static/js/main_dashboard.js
+node --check pisd/web/static/js/testing_server.js
+python3 scripts/test_manual_drive_page.py --static-only
+python3 scripts/test_ai_mode_page.py --static-only
+python3 scripts/test_main_dashboard.py --static-only
+python3 scripts/test_testing_server_gui.py --static-only
+python3 scripts/test_recording_service.py
+python3 scripts/run_standard_validation.py --skip-api --skip-camera --skip-motor --skip-gui
+python3 PiSD.py --status-only
+```
+
+Browser/Pi checks to perform on hardware:
+
+1. Save a Manual Drive snapshot and confirm the image file name uses `frame_000001_<utc-stamp>_<uuid>.jpg`.
+2. Start/stop a Manual Drive or AI Mode recording and confirm its saved image names use the same original `frame_000001...` style.
+3. Check `records.jsonl` still includes `frame_id` and `frame_index`, but no new `frame_id_scheme` field.
+4. Check `labels.jsonl` keeps the original compact fields: `frame`, `relative_file`, `steering`, `throttle`, `timestamp_utc`, `source_frame_seq`, `session_id`, and overlay metadata.
+5. Re-check `/manual-drive`, `/ai-mode`, `/dashboard`, and `/testing` to confirm preview buttons still stay above the preview image.
+
 ## PiSD 0.10.9 preview-button and frame-id checks
 
 After applying `PiSD_0_10_9_patch`, run the safe local checks:

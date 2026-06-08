@@ -1,6 +1,6 @@
 # PiSD
 
-`PiSD_0_10_9` patch package — builds forward from the `PiSD_0_10_0` stable v10 baseline plus accepted `0_10_1` through `0_10_8` UI/AI-correction/manual-pad/recording/persistence patches.
+`PiSD_0_10_10` patch package — builds forward from the `PiSD_0_10_0` stable v10 baseline plus accepted `0_10_1` through `0_10_9` UI/AI-correction/manual-pad/recording/persistence/layout patches.
 
 PiSD is a clean sandbox under `PiDrive/PiSD` for rebuilding and testing PiServer GUI and runtime functions from square one.
 
@@ -10,9 +10,9 @@ Future bug-fix patches after this package should use `PiSD_0_10_x_patch` naming 
 
 ## Current version
 
-`PiSD_0_10_9` patch package. `PiSD_0_10_0` remains the full stable v10 baseline built from the accepted `PiSD_0_9_0` stable package plus the accepted `0_9_1` through `0_9_10` patch line. It promotes the latest AI runtime/model compatibility work, AI update-rate/control-loop improvements, combined camera/live-stream control, AI Mode recording/snapshot controls, keyboard steering timing, overlay recording metadata, and dead-zone cleanup into a new rollback baseline.
+`PiSD_0_10_10` patch package. `PiSD_0_10_0` remains the full stable v10 baseline built from the accepted `PiSD_0_9_0` stable package plus the accepted `0_9_1` through `0_9_10` patch line. It promotes the latest AI runtime/model compatibility work, AI update-rate/control-loop improvements, combined camera/live-stream control, AI Mode recording/snapshot controls, keyboard steering timing, overlay recording metadata, and dead-zone cleanup into a new rollback baseline.
 
-Use `PiSD_0_10_0` as the rollback point for future PiSD work unless a newer stable line is promoted; this patch is the ninth `0_10_x` forward fix.
+Use `PiSD_0_10_0` as the rollback point for future PiSD work unless a newer stable line is promoted; this patch is the tenth `0_10_x` forward fix.
 
 Included accepted work:
 
@@ -34,7 +34,7 @@ Included accepted work:
 - Preview idle start, FPS estimate, frame-age display, stale-frame warning, and guarded preview metrics loop.
 - Recording/snapshot selected-folder details, safer download/delete button states, and hardened backend folder-id validation.
 - Manual Drive recordings include trainer-friendly `labels.jsonl` beside full `records.jsonl` metadata.
-- Frame IDs now use a session/date/UUID-based global scheme and are written into both `records.jsonl` and `labels.jsonl`, so frame identifiers do not repeat when multiple recording days or sessions are merged for training.
+- Recording frame names/IDs are restored to the original PiSD format after the experimental `0_10_9` global-id scheme was found too complicated for the current workflow.
 - AI Mode page at `/ai-mode`, replacing the earlier scripted Autopilot foundation.
 - Legacy `/autopilot` path is retained only as a retired compatibility/redirect path to AI Mode.
 - AI Mode model listing/loading from `PiSD/models/` and a guarded safety layer between AI predictions and motor output.
@@ -196,7 +196,7 @@ Use `records.jsonl` only for full debug metadata, filtering, or advanced trainin
 
 ## Stable baseline notes
 
-`PiSD_0_10_0` is the stable rollback baseline; `PiSD_0_10_9` is the current forward patch on the `0_10_x` line.
+`PiSD_0_10_0` is the stable rollback baseline; `PiSD_0_10_10` is the current forward patch on the `0_10_x` line.
 
 It includes the tested service foundation from earlier baselines plus the accepted v6, v7, v8, v9, and v10-promotion Manual Drive, recording, overlay, AI Mode, steering algorithm, motor tuning reset, keyboard-control, safety-policy, AI-runtime, and validation cleanup patch lines.
 
@@ -286,6 +286,23 @@ python3 scripts/test_motor_channels.py --hardware
 - piTrainer still needs a matching update to redraw the overlay from saved `overlay_settings` metadata.
 - Camera setting source-of-truth is still duplicated between backend defaults, service dataclass, UI forms, and diagnostic scripts. If the OV5647 colour still does not match the earlier 03/91 diagnostic result on real hardware, that should be a future `0_10_x` camera patch.
 
+
+
+## PiSD 0.10.10 original frame-id restore patch
+
+`PiSD_0_10_10_patch.zip` builds forward from v10 plus accepted patches `0_10_1` through `0_10_9`. It does not promote a new stable rollback baseline.
+
+Changed behaviour:
+
+- Recording image filenames are restored to the original shorter format: `frame_000001_<utc-stamp>_<uuid>.jpg`.
+- `records.jsonl` frame IDs are restored to the original format: `<session_id>_000001_<utc-stamp>_<uuid>`.
+- The experimental `frame_id_scheme` / `frame_id_unique_scope` fields from `0_10_9` are removed from new records and overlay history.
+- `labels.jsonl` is restored to the original compact trainer-facing schema without the new global-id fields.
+- The `0_10_9` preview-button placement fixes are preserved.
+
+Known trade-off: this returns to the simpler original workflow, so frame identity is again mainly session-scoped in trainer-facing labels. Use `session_id`, `timestamp_utc`, and folder path if comparing frames across sessions.
+
+Rollback safety: this patch preserves the accepted Start live workflow, top-of-preview buttons, AI snapshot/record shortcuts, Records & snaps, global Space STOP, additive correction math, fixed-throttle-after-correction, Manual pad takeover, and max-throttle persistence behaviour.
 
 ## PiSD 0.10.9 preview-button placement and global frame-id patch
 

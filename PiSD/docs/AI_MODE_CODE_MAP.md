@@ -124,3 +124,8 @@ Page scripts should use the `pisd:space-stop` event only for local UI cleanup. M
 ## PiSD 0.10.9 preview-control placement
 
 AI Mode keeps both camera actions (`Start live`, `Snapshot`, `Record`) and AI run actions (`Start AI preview`, `Start AI drive`, `Stop AI`) above `#aiPreviewFrame`. This keeps all start/record/drive controls visible before the live frame and avoids hiding important buttons below a large preview.
+
+
+## PiSD 0.10.10 note
+
+The `0.10.10` patch does not change AI Mode control wiring. It only restores the original recording frame-id/filename format after `0.10.9`; the AI preview controls still stay above `#aiPreviewFrame`.
