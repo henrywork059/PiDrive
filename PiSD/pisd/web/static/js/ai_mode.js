@@ -292,7 +292,7 @@
 
   function updateAIOverlay(ai = lastAIStatus) {
     const raw = ai.last_raw_prediction || {};
-    const mixed = ai.last_mixed_command || {};
+    const mixed = ai.last_corrected_command || ai.last_mixed_command || {};
     const safe = ai.last_safe_command || {};
     const manual = ai.manual_correction || {};
     const motor = ai.last_motor_output || {};
@@ -320,7 +320,7 @@
     lastAIStatus = ai || {};
     aiRunning = Boolean(ai.running);
     const raw = ai.last_raw_prediction || {};
-    const mixed = ai.last_mixed_command || {};
+    const mixed = ai.last_corrected_command || ai.last_mixed_command || {};
     const safe = ai.last_safe_command || {};
     const manual = ai.manual_correction || {};
     const motor = ai.last_motor_output || {};
@@ -365,9 +365,9 @@
     if (els.aiMixedSteering) els.aiMixedSteering.textContent = fmt(mixed.steering ?? raw.steering);
     if (els.aiMixedThrottle) els.aiMixedThrottle.textContent = fmt(mixed.throttle ?? raw.throttle);
     if (els.aiManualCorrectionState) {
-      const manualMix = Math.round(clamp(manual.mix_percent ?? (mixed.manual_weight ?? 0) * 100, 0, 100, 0));
+      const manualCorrectionPercent = Math.round(clamp(manual.mix_percent ?? (mixed.manual_weight ?? 0) * 100, 0, 100, 0));
       els.aiManualCorrectionState.textContent = manual.enabled
-        ? `${manual.active ? 'active' : 'ready'} · ${manualMix}%`
+        ? `${manual.active ? 'active' : 'ready'} · ${manualCorrectionPercent}%`
         : 'off';
     }
     if (els.aiSafeSteering) els.aiSafeSteering.textContent = fmt(safe.steering);
@@ -502,7 +502,7 @@
       if (wasActive || persist) sendManualCorrection(true, 'ai-correction-disabled', true);
       updateCorrectionStatus('Correction disabled. AI output uses the limiter only.', 'ready');
     } else {
-      updateCorrectionStatus('Correction active. Drag pad / arrow keys now blend with AI output.', 'active');
+      updateCorrectionStatus('Correction active. Drag pad / arrow keys are added to AI output by the Correction %.', 'active');
     }
     if (persist) saveConfig();
   }
@@ -525,7 +525,7 @@
         body: { steering: correctionSteering, throttle: correctionThrottle, source },
       });
       renderAI(data.ai || lastAIStatus || {});
-      updateCorrectionStatus(`Correction S ${formatSigned(correctionSteering)} / T ${formatSigned(correctionThrottle)} · mix ${Math.round(clamp(els.aiManualMix?.value || 50, 0, 100, 50))}%`, 'active');
+      updateCorrectionStatus(`Correction S ${formatSigned(correctionSteering)} / T ${formatSigned(correctionThrottle)} · correction ${Math.round(clamp(els.aiManualMix?.value || 50, 0, 100, 50))}%`, 'active');
     } catch (err) {
       updateCorrectionStatus(`Correction send failed: ${err.message}`, 'locked');
       log(err.message, err.payload || {});
@@ -715,7 +715,7 @@
     try {
       const data = await api('/api/ai/predict-once', { method: 'POST', body: {} });
       renderAI(data.ai || {});
-      log('One AI prediction completed.', { raw: data.raw_prediction, mixed: data.mixed_command, safe: data.safe_command });
+      log('One AI prediction completed.', { raw: data.raw_prediction, corrected: data.corrected_command || data.mixed_command, safe: data.safe_command });
     } catch (err) {
       renderAI((err.payload || {}).ai || {});
       log(err.message, err.payload || {});

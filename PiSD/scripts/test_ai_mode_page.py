@@ -16,6 +16,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from pisd.app import create_app  # noqa: E402
 from pisd.core.errors import PiSDErrorCodes  # noqa: E402
+from pisd.services.ai_drive_service import AIDriveService  # noqa: E402
 
 WEB_ROOT = PROJECT_ROOT / "pisd" / "web"
 AI_TEMPLATE = WEB_ROOT / "templates" / "ai_mode.html"
@@ -113,8 +114,8 @@ def check_source_contract() -> Result:
             "aiLimiterTab",
             "aiCorrectionTab",
             "aiCorrectionPad",
-            "Manual mix %",
-            "Mixed steering",
+            "Correction %",
+            "Corrected steering",
             "Manual correction",
             "Reverse steering",
             "Drive output",
@@ -142,6 +143,7 @@ def check_source_contract() -> Result:
             "aiRuntimeHelpCommands",
             "aiLoadError",
             "runtime_support",
+            "last_corrected_command",
             "install_commands",
             "scripts/install_ai_runtime.py",
             "TFLite missing",
@@ -217,7 +219,7 @@ def check_routes(hardware: bool) -> list[Result]:
 
     config = client.post("/api/ai/config", json={"manual_correction_enabled": True, "manual_mix_percent": 75})
     ok = config.status_code == 200 and b"manual_mix_percent" in config.data and b"75" in config.data
-    checks.append(Result("ai_mode.api.correction_config", ok, PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_AI_MODE_FAILED, "AI correction mix settings save and normalize" if ok else "AI correction mix config did not save", {"http_status": config.status_code, "body": config.get_data(as_text=True)[:240]}))
+    checks.append(Result("ai_mode.api.correction_config", ok, PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_AI_MODE_FAILED, "AI correction percentage settings save and normalize" if ok else "AI correction percentage config did not save", {"http_status": config.status_code, "body": config.get_data(as_text=True)[:240]}))
 
     start_unloaded = client.post("/api/ai/start", json={"mode": "drive", "safety_ack": True, "enable_motor_output": False})
     ok = start_unloaded.status_code in {400, 409} and b"PISD-AI-003" in start_unloaded.data
@@ -225,11 +227,57 @@ def check_routes(hardware: bool) -> list[Result]:
     return checks
 
 
+
+def check_correction_math() -> list[Result]:
+    """Check the guarded AI correction equation without camera, model, or motors."""
+    svc = AIDriveService(PROJECT_ROOT, {"manual_correction_enabled": True, "manual_mix_percent": 50.0})
+    try:
+        svc.set_manual_correction(steering=-0.6, throttle=0.4, source="math-test")
+        corrected = svc._mix_manual_correction(0.4, -0.2)  # private helper: local deterministic math check
+        steering_ok = abs(corrected.get("steering", 99.0) - 0.1) < 1e-9
+        throttle_ok = abs(corrected.get("throttle", 99.0) - 0.0) < 1e-9
+        gain_ok = abs(corrected.get("correction_gain", corrected.get("manual_weight", 99.0)) - 0.5) < 1e-9
+        first = Result(
+            "ai_mode.correction_math.additive_50_percent",
+            steering_ok and throttle_ok and gain_ok,
+            PiSDErrorCodes.OK if steering_ok and throttle_ok and gain_ok else PiSDErrorCodes.TEST_AI_MODE_FAILED,
+            "manual correction is added as AI + manual * correction_percent" if steering_ok and throttle_ok and gain_ok else "manual correction did not use additive AI-base equation",
+            {"corrected": corrected, "expected": {"steering": 0.1, "throttle": 0.0, "correction_gain": 0.5}},
+        )
+
+        svc.apply_settings({"manual_correction_enabled": True, "manual_mix_percent": 100.0})
+        svc.set_manual_correction(steering=0.4, throttle=-0.3, source="math-test-100")
+        full = svc._mix_manual_correction(0.3, 0.2)
+        second_ok = abs(full.get("steering", 99.0) - 0.7) < 1e-9 and abs(full.get("throttle", 99.0) - (-0.1)) < 1e-9
+        second = Result(
+            "ai_mode.correction_math.additive_100_percent",
+            second_ok,
+            PiSDErrorCodes.OK if second_ok else PiSDErrorCodes.TEST_AI_MODE_FAILED,
+            "100% correction adds the full manual correction to the AI base" if second_ok else "100% correction replaced AI output instead of adding to it",
+            {"corrected": full, "expected": {"steering": 0.7, "throttle": -0.1}},
+        )
+
+        svc.apply_settings({"manual_correction_enabled": True, "manual_mix_percent": 60.0})
+        svc.set_manual_correction(steering=0.5, throttle=0.5, source="math-test-clamp")
+        clamped = svc._mix_manual_correction(0.8, 0.9)
+        clamp_ok = abs(clamped.get("steering", 99.0) - 1.0) < 1e-9 and abs(clamped.get("throttle", 99.0) - 1.0) < 1e-9
+        third = Result(
+            "ai_mode.correction_math.clamps_corrected_command",
+            clamp_ok,
+            PiSDErrorCodes.OK if clamp_ok else PiSDErrorCodes.TEST_AI_MODE_FAILED,
+            "corrected AI command is clamped before the safety limiter" if clamp_ok else "corrected AI command was not clamped safely",
+            {"corrected": clamped, "expected": {"steering": 1.0, "throttle": 1.0}},
+        )
+        return [first, second, third]
+    finally:
+        svc.close()
+
 def main() -> int:
     args = parse_args()
     results: list[Result] = []
     results.extend(check_files())
     results.append(check_source_contract())
+    results.extend(check_correction_math())
     if not args.static_only:
         results.extend(check_routes(args.hardware))
     for result in results:

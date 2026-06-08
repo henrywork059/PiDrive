@@ -192,8 +192,8 @@ python3 scripts/check_ai_runtime.py</pre>
           <p class="mdrv-help ai-range-note">Throttle values use the same full-scale command range as Manual Drive: <strong>0.00</strong> to <strong>1.00</strong>. The safety limiter still clamps AI output before it reaches the motors. Reverse steering uses <strong>Option A</strong>: keep the same steering sign when throttle is negative.</p>
         </div>
         <div id="aiCorrectionPane" class="ai-output-pane ai-correction-pane" role="tabpanel" aria-labelledby="aiCorrectionTab" hidden>
-          <p class="ai-note">Correction blends Manual Drive-style input with the AI prediction before the normal output limiter. Use the drag pad or arrow keys. Press <strong>Space</strong> to centre correction.</p>
-          <label class="ai-field ai-correction-mix-field"><span>Manual mix %</span><input id="aiManualMix" type="range" min="0" max="100" step="1"><output id="aiManualMixOut">50%</output></label>
+          <p class="ai-note">Correction adds Manual Drive-style input to the AI prediction before the normal output limiter: AI + manual × %. Use the drag pad or arrow keys. Press <strong>Space</strong> to centre correction.</p>
+          <label class="ai-field ai-correction-mix-field"><span>Correction %</span><input id="aiManualMix" type="range" min="0" max="100" step="1"><output id="aiManualMixOut">50%</output></label>
           <div id="aiCorrectionPad" class="mdrv-drag-pad ai-correction-pad" role="application" aria-label="AI manual correction pad" tabindex="0">
             <div class="mdrv-drag-cross"></div>
             <div id="aiCorrectionKnob" class="mdrv-drag-knob"></div>
@@ -205,7 +205,7 @@ python3 scripts/check_ai_runtime.py</pre>
           <div class="mdrv-pad-readout ai-correction-readout">
             <span>Manual S <strong id="aiManualSteeringOut">+0.00</strong></span>
             <span>Manual T <strong id="aiManualThrottleOut">+0.00</strong></span>
-            <span>Mix <strong id="aiManualMixReadout">50%</strong></span>
+            <span>Correction <strong id="aiManualMixReadout">50%</strong></span>
           </div>
           <div class="mdrv-keyboard-hint ai-correction-keyboard" aria-label="AI correction keyboard controls">
             <strong>Correction keys</strong>
@@ -213,8 +213,8 @@ python3 scripts/check_ai_runtime.py</pre>
             <span>hold ←/→ steering ±1 in 0.8 s; release returns to 0</span>
             <span>r record · s snapshot · Space centre correction</span>
           </div>
-          <p id="aiCorrectionStatus" class="mdrv-keyboard-status" data-state="ready">Correction ready. Switch to Limiter to disable manual mixing.</p>
-          <p class="mdrv-help ai-range-note">If Output mode is <strong>AI steering + fixed throttle</strong>, the backend still uses Fixed throttle after mixing, so manual throttle is ignored but manual steering correction still applies.</p>
+          <p id="aiCorrectionStatus" class="mdrv-keyboard-status" data-state="ready">Correction ready. Switch to Limiter to disable manual correction.</p>
+          <p class="mdrv-help ai-range-note">If Output mode is <strong>AI steering + fixed throttle</strong>, the backend still uses Fixed throttle after correction, so manual throttle is ignored but manual steering correction still applies.</p>
         </div>
       </section>
 
@@ -230,8 +230,8 @@ python3 scripts/check_ai_runtime.py</pre>
         <dl class="ai-readout-grid ai-readout-large">
           <div><dt>Model steering</dt><dd id="aiRawSteering">0.00</dd></div>
           <div><dt>Model throttle</dt><dd id="aiRawThrottle">0.00</dd></div>
-          <div><dt>Mixed steering</dt><dd id="aiMixedSteering">0.00</dd></div>
-          <div><dt>Mixed throttle</dt><dd id="aiMixedThrottle">0.00</dd></div>
+          <div><dt>Corrected steering</dt><dd id="aiMixedSteering">0.00</dd></div>
+          <div><dt>Corrected throttle</dt><dd id="aiMixedThrottle">0.00</dd></div>
           <div><dt>Safe steering</dt><dd id="aiSafeSteering">0.00</dd></div>
           <div><dt>Safe throttle</dt><dd id="aiSafeThrottle">0.00</dd></div>
           <div><dt>Manual correction</dt><dd id="aiManualCorrectionState">off</dd></div>

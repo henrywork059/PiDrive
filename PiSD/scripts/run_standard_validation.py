@@ -508,9 +508,9 @@ def _check_ai_mode_source_contract() -> CheckResult:
     except Exception as exc:
         return CheckResult("ai_mode.source_contract", False, PiSDErrorCodes.TEST_AI_MODE_FAILED, f"failed to read AI Mode files: {exc}")
     required = {
-        "template": ["PiSD AI Mode", "Back to Front Page", "aiModeInitialStatus", "aiModelSelect", "aiSafetyAck", "aiEnableMotor", "aiStartPreview", "aiStartDrive", "labels.jsonl", "Limiter / correction", "aiCorrectionPad", "Manual mix %", "manual_drive.css", "mdrv-panel", 'max="1.0"'],
+        "template": ["PiSD AI Mode", "Back to Front Page", "aiModeInitialStatus", "aiModelSelect", "aiSafetyAck", "aiEnableMotor", "aiStartPreview", "aiStartDrive", "labels.jsonl", "Limiter / correction", "aiCorrectionPad", "Correction %", "Corrected steering", "manual_drive.css", "mdrv-panel", 'max="1.0"'],
         "css": [".ai-shell", ".ai-grid", ".ai-preview-frame", ".ai-button-danger", ".ai-panel-tabs", ".ai-correction-pad"],
-        "js": ["/api/ai/models", "/api/ai/load-model", "/api/ai/config", "/api/ai/manual-correction", "/api/ai/start", "/api/ai/stop", "safety_ack", "enable_motor_output", "enforceFullScaleThrottleRanges", "bindKeyboardShortcuts"],
+        "js": ["/api/ai/models", "/api/ai/load-model", "/api/ai/config", "/api/ai/manual-correction", "/api/ai/start", "/api/ai/stop", "safety_ack", "enable_motor_output", "enforceFullScaleThrottleRanges", "last_corrected_command", "bindKeyboardShortcuts"],
     }
     sources = {"template": template, "css": css, "js": js}
     missing = {name: [token for token in tokens if token not in sources[name]] for name, tokens in required.items()}

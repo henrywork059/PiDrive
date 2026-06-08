@@ -185,7 +185,7 @@ def create_app(hardware_enabled: bool = False):
                 {"method": "POST", "path": "/api/ai/upload-model", "purpose": "Upload a piTrainer-exported model file into PiSD/models."},
                 {"method": "POST", "path": "/api/ai/delete-model", "purpose": "Delete a selected model file from PiSD/models."},
                 {"method": "POST", "path": "/api/ai/config", "purpose": "Save AI safety/config limits."},
-                {"method": "POST", "path": "/api/ai/manual-correction", "purpose": "Update the live Manual Drive-style correction vector blended with AI output before the safety limiter."},
+                {"method": "POST", "path": "/api/ai/manual-correction", "purpose": "Update the live Manual Drive-style correction vector added to AI output before the safety limiter."},
                 {"method": "POST", "path": "/api/ai/load-model", "purpose": "Load a trained AI model."},
                 {"method": "POST", "path": "/api/ai/start", "purpose": "Start AI preview-only or guarded AI drive loop."},
                 {"method": "POST", "path": "/api/ai/stop", "purpose": "Stop AI mode and stop motors when needed."},

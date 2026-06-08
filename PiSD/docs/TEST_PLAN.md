@@ -999,7 +999,7 @@ On the Pi browser, hard refresh `/ai-mode` and check:
 3. Press `r` to toggle AI Mode recording.
 4. The `Limiter / correction` panel switches between the `Limiter` pane and the `Correction` pane.
 5. In `Correction`, the drag pad and arrow keys produce Manual Drive-style steering/throttle correction input.
-6. The `Manual mix %` value changes how strongly the manual correction is blended with AI output.
+6. The `Correction %` value changes how strongly the manual correction is added to the AI output.
 7. With `AI steering + fixed throttle` selected, manual throttle correction does not override the fixed-throttle output.
 8. Switching back to `Limiter` or leaving the page centres the correction command.
 
@@ -1010,3 +1010,29 @@ python3 scripts/test_ai_mode_page.py
 ```
 
 That test validates the AI Mode page route and the local `/api/ai/manual-correction` contract.
+
+## PiSD 0.10.4 additive AI-correction checks
+
+After applying `PiSD_0_10_4_patch`, run the safe local checks:
+
+```bash
+cd ~/PiDrive/PiSD
+python3 -m compileall -q pisd scripts PiSD.py
+node --check pisd/web/static/js/ai_mode.js
+python3 scripts/test_ai_mode_page.py --static-only
+python3 scripts/run_standard_validation.py --skip-api --skip-camera --skip-motor --skip-gui
+```
+
+The `test_ai_mode_page.py --static-only` check now includes deterministic backend math checks for the corrected equation:
+
+```text
+corrected = AI output + manual correction * Correction %
+```
+
+On the Pi browser, hard refresh `/ai-mode` and check:
+
+1. `Limiter / correction` → `Correction` labels the slider as `Correction %`.
+2. The readout labels corrected steering/throttle, not replacement-blended steering/throttle.
+3. With 50% correction, a manual steering correction of `+0.40` adds `+0.20` to the AI steering before the limiter.
+4. With 100% correction, manual correction is added fully to the AI base; it does not replace the AI value.
+5. Values above `1.0` or below `-1.0` are clamped before the existing limiter/fixed-throttle logic.
