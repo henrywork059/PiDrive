@@ -117,6 +117,8 @@ def check_source_contract() -> list[Result]:
         "↑/↓ throttle ±0.05 per press",
         "hold ←/→ steering ±1 in 0.8 s; release returns to 0",
         "Space STOP",
+        "Press <strong>s</strong> to save a snapshot",
+        "<strong>r</strong> to toggle recording",
         "Overlay calibration — 7 controls",
         "7 visual-only overlay controls",
         "Shape",
@@ -148,7 +150,7 @@ def check_source_contract() -> list[Result]:
         "mdrvPreviewFpsDebug",
         "mdrvPreviewLoopDebug",
         "Preview is idle",
-        "Live stream",
+        "Start camera + live",
         "manualDriveFilesPanel",
         "mdrvFileKind",
         "mdrvFileSelect",
@@ -225,7 +227,6 @@ def check_source_contract() -> list[Result]:
         "updateLock",
         "pointerdown",
         "pointermove",
-        "startCameraOnly",
         "startLiveCamera",
         "currentPreviewMode",
         "PREVIEW_STALE_MS",
@@ -288,6 +289,10 @@ def check_source_contract() -> list[Result]:
         "releaseKeyboardSteeringToCentre",
         "Window lost focus",
         "visibilitychange",
+        "toggleRecording",
+        "captureFrame",
+        "shortcut === 'r'",
+        "shortcut === 's'",
     ]
     missing = {
         "template": [token for token in required_template if token not in template],
@@ -334,14 +339,14 @@ def check_source_contract() -> list[Result]:
     ))
 
     keyboard_ok = (
-        all(token in template for token in ("mdrvKeyboardStatus", "↑/↓ throttle ±0.05 per press", "hold ←/→ steering ±1 in 0.8 s; release returns to 0", "Space STOP"))
-        and all(token in js for token in ("KEYBOARD_THROTTLE_STEP", "KEYBOARD_STEERING_FULL_SCALE_MS", "800", "bindKeyboardDrive", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "requestAnimationFrame", "source: 'keyboard'", "releaseKeyboardSteeringToCentre", "Window lost focus", "visibilitychange"))
+        all(token in template for token in ("mdrvKeyboardStatus", "↑/↓ throttle ±0.05 per press", "hold ←/→ steering ±1 in 0.8 s; release returns to 0", "Space STOP", "Press <strong>s</strong> to save a snapshot", "<strong>r</strong> to toggle recording"))
+        and all(token in js for token in ("KEYBOARD_THROTTLE_STEP", "KEYBOARD_STEERING_FULL_SCALE_MS", "800", "bindKeyboardDrive", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "requestAnimationFrame", "source: 'keyboard'", "releaseKeyboardSteeringToCentre", "Window lost focus", "visibilitychange", "shortcut === 'r'", "shortcut === 's'", "toggleRecording", "captureFrame"))
     )
     results.append(Result(
         "manual_drive.keyboard_control",
         keyboard_ok,
         PiSDErrorCodes.OK if keyboard_ok else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED,
-        "Manual Drive supports keyboard control: ↑/↓ throttle steps, held ←/→ steering ramp, release-to-centre, and Space stop" if keyboard_ok else "Manual Drive keyboard control contract is missing",
+        "Manual Drive supports keyboard control: ↑/↓ throttle steps, held ←/→ steering ramp, release-to-centre, Space stop, r record toggle, and s snapshot" if keyboard_ok else "Manual Drive keyboard control contract is missing",
         {},
     ))
 

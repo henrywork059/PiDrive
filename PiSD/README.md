@@ -1,6 +1,6 @@
 # PiSD
 
-`PiSD_0_10_0` full stable v10 package — current stable rollback baseline for future PiSD work.
+`PiSD_0_10_1` patch package — builds forward from the `PiSD_0_10_0` stable v10 baseline.
 
 PiSD is a clean sandbox under `PiDrive/PiSD` for rebuilding and testing PiServer GUI and runtime functions from square one.
 
@@ -10,9 +10,9 @@ Future bug-fix patches after this package should use `PiSD_0_10_x_patch` naming 
 
 ## Current version
 
-`PiSD_0_10_0` full stable v10 package built from the accepted `PiSD_0_9_0` stable package plus the accepted `0_9_1` through `0_9_10` patch line. It promotes the latest AI runtime/model compatibility work, AI update-rate/control-loop improvements, combined camera/live-stream control, AI Mode recording/snapshot controls, keyboard steering timing, overlay recording metadata, and dead-zone cleanup into a new rollback baseline.
+`PiSD_0_10_1` patch package. `PiSD_0_10_0` remains the full stable v10 baseline built from the accepted `PiSD_0_9_0` stable package plus the accepted `0_9_1` through `0_9_10` patch line. It promotes the latest AI runtime/model compatibility work, AI update-rate/control-loop improvements, combined camera/live-stream control, AI Mode recording/snapshot controls, keyboard steering timing, overlay recording metadata, and dead-zone cleanup into a new rollback baseline.
 
-Use `PiSD_0_10_0` as the rollback point for future PiSD work unless a newer stable line is promoted; future fixes should use the `0_10_x` patch line.
+Use `PiSD_0_10_0` as the rollback point for future PiSD work unless a newer stable line is promoted; this patch is the first `0_10_x` forward fix.
 
 Included accepted work:
 
@@ -27,10 +27,10 @@ Included accepted work:
 - Overlay values are no longer clamped back to old slider ranges when typed or saved.
 - Manual Drive overlay tuning is reduced to seven visual-only controls, and the values are accepted without old UI min/max caps.
 - Screenshots and continuous recordings include `overlay_settings.json` and `overlay_settings_history.jsonl` for future piTrainer redraw.
-- Clear combined Start camera + live stream / Stop camera / STOP motors / Refresh status behaviour.
+- Clear one-button Start camera + live stream / Stop camera / STOP motors / Refresh status behaviour across the main Manual Drive, Dashboard, AI Mode, and Testing Server preview controls.
 - Status-only refresh that does not start the camera or send motor commands.
 - Page-leave motor fail-safe stop.
-- Manual Drive now supports keyboard driving: ↑/↓ adjust live throttle by `0.05` per press, holding ←/→ ramps steering by full scale in `0.8 s`, and Space stops.
+- Manual Drive now supports keyboard driving: ↑/↓ adjust live throttle by `0.05` per press, holding ←/→ ramps steering by full scale in `0.8 s`, Space stops, `r` toggles recording, and `s` saves a snapshot.
 - Preview idle start, FPS estimate, frame-age display, stale-frame warning, and guarded preview metrics loop.
 - Recording/snapshot selected-folder details, safer download/delete button states, and hardened backend folder-id validation.
 - Manual Drive recordings include trainer-friendly `labels.jsonl` beside full `records.jsonl` metadata.
@@ -183,7 +183,7 @@ Use `records.jsonl` only for full debug metadata, filtering, or advanced trainin
 
 ## Stable baseline notes
 
-`PiSD_0_10_0` is the stable rollback baseline before future `0_10_x` patches.
+`PiSD_0_10_0` is the stable rollback baseline; `PiSD_0_10_1` is the first forward patch on the `0_10_x` line.
 
 It includes the tested service foundation from earlier baselines plus the accepted v6, v7, v8, v9, and v10-promotion Manual Drive, recording, overlay, AI Mode, steering algorithm, motor tuning reset, keyboard-control, safety-policy, AI-runtime, and validation cleanup patch lines.
 

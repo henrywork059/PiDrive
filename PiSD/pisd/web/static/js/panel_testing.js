@@ -104,7 +104,7 @@
         </div>`;
       case 'cameraPreview':
         return `<div class="pt-preview-surface"><span>Camera preview surface<br><small>aspect controlled by panel settings</small></span></div>
-          <div class="pt-action-grid"><button class="pt-button" data-panel-api="POST /api/camera/start">Start camera</button><button class="pt-button" data-panel-api="GET /api/camera/frame.jpg">Fetch frame</button></div>`;
+          <div class="pt-action-grid"><button class="pt-button" data-panel-api="POST /api/camera/start">Start camera API</button><button class="pt-button" data-panel-api="GET /api/camera/frame.jpg">Fetch frame</button></div>`;
       case 'cameraSettings':
         return `<div class="pt-field-grid">
           <label><span>Width</span><input value="426" inputmode="numeric"></label>

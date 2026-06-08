@@ -632,10 +632,10 @@ body[data-pisd-theme="light"] .mdrv-file-controls select { color: #0f172a; backg
   .mdrv-overlay-calibration-guide { grid-template-columns: 1fr; }
 }
 
-/* 0.4.9 Manual Drive preview truth/debugging.
-   Preview starts idle; Start camera and Live stream now explicitly choose the
-   browser preview path. These styles make active/stale/error states visible
-   without touching motor/overlay command logic. */
+/* 0.4.9/0.10.1 Manual Drive preview truth/debugging.
+   Preview starts idle; the single Start camera + live action starts the service
+   and chooses the browser live preview path. These styles make active/stale/error
+   states visible without touching motor/overlay command logic. */
 .mdrv-drive-debug-panel {
   grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
 }

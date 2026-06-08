@@ -63,7 +63,7 @@
         </div>
       </div>
       <div id="mdrvPreviewFrame" class="mdrv-preview-frame mdrv-overlay-enabled" data-preview-mode="idle" data-preview-state="idle">
-        <img id="mdrvPreview" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720'%3E%3Crect width='1280' height='720' fill='%23020617'/%3E%3Ctext x='640' y='340' fill='%2394a3b8' font-family='Arial,sans-serif' font-size='42' text-anchor='middle'%3EPreview idle%3C/text%3E%3Ctext x='640' y='398' fill='%2364748b' font-family='Arial,sans-serif' font-size='26' text-anchor='middle'%3EPress Start camera or Live stream%3C/text%3E%3C/svg%3E" alt="PiSD live camera preview" data-preview-mode="idle">
+        <img id="mdrvPreview" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720'%3E%3Crect width='1280' height='720' fill='%23020617'/%3E%3Ctext x='640' y='340' fill='%2394a3b8' font-family='Arial,sans-serif' font-size='42' text-anchor='middle'%3EPreview idle%3C/text%3E%3Ctext x='640' y='398' fill='%2364748b' font-family='Arial,sans-serif' font-size='26' text-anchor='middle'%3EPress Start camera + live%3C/text%3E%3C/svg%3E" alt="PiSD live camera preview" data-preview-mode="idle">
         <div id="mdrvDriveOverlay" class="mdrv-drive-overlay" aria-live="polite">
           <div class="mdrv-overlay-hud mdrv-overlay-hud-top">
             <span>Road guide</span>
@@ -111,12 +111,11 @@
         </div>
       </div>
       <div class="mdrv-row mdrv-compact-actions">
-        <button id="mdrvStartCamera" class="mdrv-button mdrv-primary" title="Start camera service and refresh the snapshot frame.">Start camera</button>
-        <button id="mdrvLiveCamera" class="mdrv-button" title="Start camera if needed and switch the preview image to MJPEG live stream.">Live stream</button>
+        <button id="mdrvLiveCamera" class="mdrv-button mdrv-primary" title="Start camera service and switch the preview image to MJPEG live stream.">Start camera + live</button>
         <button id="mdrvCaptureFrame" class="mdrv-button mdrv-primary">Capture frame</button>
         <button id="mdrvRecordToggle" class="mdrv-button">Record</button>
       </div>
-      <p id="mdrvCaptureNotice" class="mdrv-capture-notice" role="status" aria-live="polite">Preview is idle. Use <strong>Start camera</strong> for a snapshot or <strong>Live stream</strong> for MJPEG. Use <strong>Overlay: On/Off</strong> in this Camera header to show the road-style guide drawn from the live/manual control state. Refresh status does not start the camera, restart preview, or send motor commands.</p>
+      <p id="mdrvCaptureNotice" class="mdrv-capture-notice" role="status" aria-live="polite">Preview is idle. Use <strong>Start camera + live</strong> to start the camera and show MJPEG. Press <strong>s</strong> to save a snapshot or <strong>r</strong> to toggle recording in Manual Drive. Use <strong>Overlay: On/Off</strong> in this Camera header to show the road-style guide drawn from the live/manual control state. Refresh status does not start the camera, restart preview, or send motor commands.</p>
     </section>
 
     <section class="mdrv-panel mdrv-drive-panel" id="manualDrivePadPanel" data-panel-role="drive" data-panel-h-weight="1" data-panel-v-weight="2">

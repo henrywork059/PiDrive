@@ -111,7 +111,7 @@
   let recordingCollections = { recordings: [], snapshots: [] };
   const PREVIEW_STALE_MS = 2500;
   const PREVIEW_METRICS_MS = 850;
-  const PREVIEW_IDLE_SRC = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720'%3E%3Crect width='1280' height='720' fill='%23020617'/%3E%3Ctext x='640' y='340' fill='%2394a3b8' font-family='Arial,sans-serif' font-size='42' text-anchor='middle'%3EPreview idle%3C/text%3E%3Ctext x='640' y='398' fill='%2364748b' font-family='Arial,sans-serif' font-size='26' text-anchor='middle'%3EPress Start camera or Live stream%3C/text%3E%3C/svg%3E";
+  const PREVIEW_IDLE_SRC = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720'%3E%3Crect width='1280' height='720' fill='%23020617'/%3E%3Ctext x='640' y='340' fill='%2394a3b8' font-family='Arial,sans-serif' font-size='42' text-anchor='middle'%3EPreview idle%3C/text%3E%3Ctext x='640' y='398' fill='%2364748b' font-family='Arial,sans-serif' font-size='26' text-anchor='middle'%3EPress Start camera + live%3C/text%3E%3C/svg%3E";
   let currentPreviewMode = "idle";
   let overlaySettings = { ...DEFAULTS.overlay };
   let latestMotorSettings = { ...DEFAULT_MOTOR_SETTINGS };
@@ -342,7 +342,7 @@
     });
   }
 
-  function setPreviewIdle(message = 'Preview idle. Press Start camera or Live stream.') {
+  function setPreviewIdle(message = 'Preview idle. Press Start camera + live.') {
     currentPreviewMode = 'idle';
     if (preview) preview.src = PREVIEW_IDLE_SRC;
     stopPreviewMetricsLoop();
@@ -1152,10 +1152,21 @@
     document.addEventListener('keydown', event => {
       if (keyboardControlBlocked()) return;
       const key = event.key;
-      if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(key)) return;
+      const shortcut = String(key || '').toLowerCase();
+      const isDriveKey = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(key);
+      const isRecordOrSnapshotKey = ['r', 's'].includes(shortcut);
+      if (!isDriveKey && !isRecordOrSnapshotKey) return;
       event.preventDefault();
       if (key === ' ') {
         if (!event.repeat) resetKeyboardControl('keyboard-space');
+        return;
+      }
+      if (shortcut === 'r') {
+        if (!event.repeat) toggleRecording();
+        return;
+      }
+      if (shortcut === 's') {
+        if (!event.repeat) captureFrame();
         return;
       }
       if (key === 'ArrowUp' || key === 'ArrowDown') {
@@ -1224,25 +1235,14 @@
     setShortStatus('Snapshot preview refreshed from the running camera service.', 'PISD-OK-000');
   }
 
-  async function startCameraOnly() {
-    try {
-      const { payload } = await api('POST', '/api/camera/start', {}, 'camera');
-      setShortStatus(`Camera start: ${payload?.code || 'PISD-OK-000'} ${payload?.message || ''}`.trim(), payload?.code || 'PISD-OK-000');
-      snapshotView();
-      await refreshStatus();
-    } catch (err) {
-      writeLog('start camera failed', { ok: false, code: 'PISD-API-002', message: String(err) });
-    }
-  }
-
   async function startLiveCamera() {
     try {
       const { payload } = await api('POST', '/api/camera/start', {}, 'camera');
       livePreview();
-      setShortStatus(`Live stream: ${payload?.code || 'PISD-OK-000'} ${payload?.message || ''}`.trim(), payload?.code || 'PISD-OK-000');
+      setShortStatus(`Start camera + live: ${payload?.code || 'PISD-OK-000'} ${payload?.message || ''}`.trim(), payload?.code || 'PISD-OK-000');
       await refreshStatus();
     } catch (err) {
-      writeLog('live camera failed', { ok: false, code: 'PISD-API-002', message: String(err) });
+      writeLog('start camera + live failed', { ok: false, code: 'PISD-API-002', message: String(err) });
     }
   }
 
@@ -1330,7 +1330,6 @@
 
   function bind() {
     $('mdrvRefresh')?.addEventListener('click', () => refreshStatus(true));
-    $('mdrvStartCamera')?.addEventListener('click', startCameraOnly);
     $('mdrvLiveCamera')?.addEventListener('click', startLiveCamera);
     $('mdrvCaptureFrame')?.addEventListener('click', captureFrame);
     recordButton?.addEventListener('click', toggleRecording);
@@ -1407,7 +1406,7 @@
     bindKeyboardDrive();
   }
 
-  setPreviewIdle('Preview idle. Press Start camera or Live stream.');
+  setPreviewIdle('Preview idle. Press Start camera + live.');
   setKnob(0, 0);
   setDriveState(STOP_COMMAND, STOP_OUTPUT, 'stopped');
   renderStatus(initialStatus);

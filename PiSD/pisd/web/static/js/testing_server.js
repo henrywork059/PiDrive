@@ -73,6 +73,12 @@ function startLivePreview() {
   preview.src = `/video_feed?t=${Date.now()}`;
 }
 
+async function startCameraAndLivePreview() {
+  await apiCall('POST', '/api/camera/start', {});
+  startLivePreview();
+  await refreshStatus();
+}
+
 function setFpsCode(code) {
   if (!fpsCode) return;
   fpsCode.textContent = code || 'PISD-OK-000';
@@ -257,7 +263,7 @@ document.addEventListener('click', async (event) => {
 
 document.getElementById('refreshStatusBtn').addEventListener('click', refreshStatus);
 document.getElementById('refreshFrameBtn').addEventListener('click', refreshFrame);
-document.getElementById('startLivePreviewBtn').addEventListener('click', startLivePreview);
+document.getElementById('startLivePreviewBtn').addEventListener('click', startCameraAndLivePreview);
 document.getElementById('applyFastPreviewBtn').addEventListener('click', applyFastPreviewPreset);
 document.getElementById('readFpsStatsBtn').addEventListener('click', () => readFpsStats());
 document.getElementById('runMaxFpsBtn').addEventListener('click', runMaxFpsTest);

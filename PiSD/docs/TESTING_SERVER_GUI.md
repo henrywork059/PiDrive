@@ -64,8 +64,8 @@ OK   PISD-OK-000   browser.smoke_summary - failed=0
 
 Then use the Camera Preview card:
 
-1. Click `Start camera`.
-2. Click `Refresh frame`.
+1. Click `Start camera + live`.
+2. Click `Snapshot frame` only when you need a still frame.
 3. Click `Read camera config`.
 4. Click `Read capabilities`.
 5. Confirm the response panel reports `PISD-OK-000`.
@@ -204,7 +204,7 @@ The testing tab now includes a **Live FPS pipeline test** card. It is for checki
 
 Use these controls:
 
-1. **Live MJPEG preview** — switches the preview image to `/video_feed` instead of repeatedly polling `/api/camera/frame.jpg`.
+1. **Start camera + live** — starts the camera service and switches the preview image to `/video_feed` instead of requiring separate start/live clicks.
 2. **Apply fast preview preset** — applies the confirmed fast array path:
    - `capture_source: array`
    - `array_color_order: rgb`

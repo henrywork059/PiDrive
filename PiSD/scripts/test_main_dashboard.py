@@ -52,7 +52,6 @@ REQUIRED_TEMPLATE_TOKENS = [
     "mdOverlayPathSvg",
     "Start camera + live",
     "Stop camera only",
-    "Show live stream",
     "Refresh status",
 ]
 
@@ -86,8 +85,7 @@ REQUIRED_JS_TOKENS = [
     "/api/status",
     "/api/camera/start",
     "/api/camera/stop",
-    "/api/camera/frame.jpg",
-    "/video_feed",
+        "/video_feed",
     "/api/control/manual",
     "/api/motor/test-channel",
     "/api/control/stop",

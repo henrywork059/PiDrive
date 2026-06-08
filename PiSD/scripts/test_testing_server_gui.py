@@ -94,6 +94,7 @@ def check_source_contract() -> Result:
             "globalCode",
             "cameraPreview",
             "startLivePreviewBtn",
+            "Start camera + live",
             "fpsTestPanel",
             "runMaxFpsBtn",
             "cameraSettingsForm",
@@ -113,6 +114,7 @@ def check_source_contract() -> Result:
             "/api/camera/start",
             "/api/camera/frame.jpg",
             "/video_feed",
+            "startCameraAndLivePreview",
             "/api/camera/fps-stats",
             "/api/camera/apply",
             "/api/motor/apply",
@@ -195,7 +197,8 @@ def check_routes(hardware: bool) -> list[Result]:
     response = client.get("/api/test-gui/manifest")
     payload = response.get_json(silent=True) or {}
     endpoints = {str(item.get("path")) for item in payload.get("endpoints") or [] if isinstance(item, dict)}
-    required = {"/api/status", "/api/camera/start", "/api/camera/frame.jpg", "/video_feed", "/api/camera/fps-stats", "/api/camera/apply", "/api/motor/test-channel", "/api/control/stop"}
+    required = {"/api/status", "/api/camera/start", "/api/camera/frame.jpg", "/video_feed",
+            "startCameraAndLivePreview", "/api/camera/fps-stats", "/api/camera/apply", "/api/motor/test-channel", "/api/control/stop"}
     known = payload.get("known_good_camera") or {}
     ok = response.status_code == 200 and payload.get("code") == PiSDErrorCodes.OK and required.issubset(endpoints) and known.get("array_color_order") == "rgb"
     results.append(

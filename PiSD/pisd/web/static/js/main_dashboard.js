@@ -281,7 +281,6 @@ function bindEvents() {
     await apiCall('POST', '/api/camera/stop', {}, 'camera-preview');
     await refreshStatus();
   });
-  document.getElementById('mdCameraRefresh').addEventListener('click', startLivePreview);
   if (overlayToggle) overlayToggle.addEventListener('click', () => setOverlayEnabled(!previewFrame.classList.contains('md-overlay-enabled')));
   document.getElementById('mdStopAllTop').addEventListener('click', () => stopAll('safety-stop'));
   document.getElementById('mdStopAllCenter').addEventListener('click', () => stopAll('manual-drive'));

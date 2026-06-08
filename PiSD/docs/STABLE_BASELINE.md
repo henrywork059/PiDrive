@@ -77,7 +77,7 @@ For this stable GUI baseline, test on the Pi browser after applying the package:
 - overlay toggle is visible on Manual Drive and AI Mode pages;
 - overlay settings popup opens and number inputs save the values typed by the user;
 - road-guide overlay bends in the intended screen direction for left/right steering;
-- Start camera, Live stream, Stop camera only, Refresh status, and STOP motors keep separate meanings;
+- Start camera + live is the single user-facing live-preview start action; Stop camera only, Refresh status, and STOP motors keep separate meanings;
 - preview FPS/frame-age/stale indicators update while live preview is active;
 - capture saves to the daily single-captures folder and includes overlay metadata;
 - recording creates its own session folder with frames, `manifest.json`, `records.jsonl`, and `labels.jsonl`, including overlay metadata;
@@ -87,7 +87,7 @@ For this stable GUI baseline, test on the Pi browser after applying the package:
 - TFLite model loading supports piTrainer exports more reliably, including single-output `[steering, throttle]`, multi-output fallback handling, quantized input/output handling, and NumPy tensor shape handling.
 - AI runtime setup guidance and helper scripts are included for Pis missing `tflite_runtime`, `ai_edge_litert`, or TensorFlow Lite.
 - AI control loop uses cached camera frames to better follow the configured Update Hz; the allowed AI update-rate maximum is now `60`.
-- AI Mode combines Start camera and Live stream into one user-facing control and keeps AI run/record controls beside the camera/prediction preview.
+- Manual Drive, Dashboard, AI Mode, and Testing Server preview controls use one Start camera + live user-facing action; AI run/record controls stay beside the camera/prediction preview.
 - AI Mode recording and snapshot buttons use the shared recording service and include overlay sidecar metadata.
 - Motor dead-zone/start-kick code added during the v9 patch line was later removed; this baseline does not include that feature.
 
