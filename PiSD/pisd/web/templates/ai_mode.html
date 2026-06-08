@@ -193,7 +193,7 @@ python3 scripts/check_ai_runtime.py</pre>
           <p class="mdrv-help ai-range-note">Throttle values use the same full-scale command range as Manual Drive: <strong>0.00</strong> to <strong>1.00</strong>. The safety limiter still clamps AI output before it reaches the motors. Reverse steering uses <strong>Option A</strong>: keep the same steering sign when throttle is negative.</p>
         </div>
         <div id="aiCorrectionPane" class="ai-output-pane ai-correction-pane" role="tabpanel" aria-labelledby="aiCorrectionTab" hidden>
-          <p class="ai-note">Correction adds Manual Drive-style input to the AI prediction before the normal output limiter: AI + manual × %. Use the drag pad or arrow keys. Press <strong>Space</strong> to centre correction.</p>
+          <p class="ai-note">Correction adds Manual Drive-style input to the AI prediction before the normal output limiter: AI + manual × %. Use the drag pad or arrow keys. Press <strong>Space</strong> for global STOP.</p>
           <label class="ai-field ai-correction-mix-field"><span>Correction %</span><input id="aiManualMix" type="range" min="0" max="100" step="1"><output id="aiManualMixOut">50%</output></label>
           <div id="aiCorrectionPad" class="mdrv-drag-pad ai-correction-pad" role="application" aria-label="AI manual correction pad" tabindex="0">
             <div class="mdrv-drag-cross"></div>
@@ -212,7 +212,7 @@ python3 scripts/check_ai_runtime.py</pre>
             <strong>Correction keys</strong>
             <span>↑/↓ throttle ±0.05 per press</span>
             <span>hold ←/→ steering ±1 in 0.8 s; release returns to 0</span>
-            <span>r record · s snapshot · Space centre correction</span>
+            <span>r record · s snapshot · Space STOP</span>
           </div>
           <p id="aiCorrectionStatus" class="mdrv-keyboard-status" data-state="ready">Correction ready. Switch to Limiter to disable manual correction.</p>
           <p class="mdrv-help ai-range-note">If Output mode is <strong>AI steering + fixed throttle</strong>, the backend still uses Fixed throttle after correction, so manual throttle is ignored but manual steering correction still applies.</p>
@@ -239,7 +239,7 @@ python3 scripts/check_ai_runtime.py</pre>
             <strong>Manual keys</strong>
             <span>↑/↓ throttle ±0.05 per press</span>
             <span>hold ←/→ steering ±1 in 0.8 s; release returns to 0</span>
-            <span>r record · s snapshot · Space STOP manual</span>
+            <span>r record · s snapshot · Space STOP</span>
           </div>
           <p id="aiManualDriveStatus" class="mdrv-keyboard-status" data-state="ready">Manual pad ready. Enable motor output above before driving.</p>
           <p class="mdrv-help ai-range-note">This panel uses <code>/api/control/manual</code>, the same guarded Manual Drive endpoint. It is a takeover mode, not an AI correction mode.</p>
@@ -273,6 +273,43 @@ python3 scripts/check_ai_runtime.py</pre>
         </dl>
       </section>
 
+
+      <section class="mdrv-panel ai-panel ai-files-panel" id="aiFilesPanel" data-recording-download-panel="ai">
+        <div class="mdrv-panel-head compact">
+          <div>
+            <p class="mdrv-label ai-panel-kicker">Saved data</p>
+            <h2>Records & snaps</h2>
+          </div>
+          <span class="mdrv-code" data-code-for="ai-files">PISD-OK-000</span>
+        </div>
+        <p class="ai-note">Download or delete AI/Manual recording sessions and snapshot folders from the shared PiSD recordings store.</p>
+        <div class="mdrv-file-controls">
+          <label>Type
+            <select id="aiFileKind">
+              <option value="recording">Recordings</option>
+              <option value="snapshot">Snapshots</option>
+            </select>
+          </label>
+          <label>Folder
+            <select id="aiFileSelect"><option value="">No folders loaded</option></select>
+          </label>
+        </div>
+        <div id="aiFileSummary" class="mdrv-file-summary" data-state="empty" aria-live="polite">
+          <div><span>Name</span><strong id="aiFileSummaryName">No folder selected</strong></div>
+          <div><span>Frames</span><strong id="aiFileSummaryFrames">0</strong></div>
+          <div><span>Size</span><strong id="aiFileSummarySize">0 B</strong></div>
+          <div><span>Modified</span><strong id="aiFileSummaryModified">n/a</strong></div>
+          <div class="wide"><span>Folder id</span><strong id="aiFileSummaryId">n/a</strong></div>
+          <div class="wide"><span>Zip name</span><strong id="aiFileSummaryZip">n/a</strong></div>
+        </div>
+        <div class="mdrv-row mdrv-compact-actions">
+          <button id="aiRefreshFiles" class="mdrv-button ai-button ai-button-secondary" type="button">Refresh list</button>
+          <button id="aiDownloadZip" class="mdrv-button mdrv-primary ai-button ai-button-primary" type="button">Download zip</button>
+          <button id="aiDeleteFolder" class="mdrv-button mdrv-danger ai-button ai-button-danger" type="button">Delete selected</button>
+        </div>
+        <p id="aiFilesNotice" class="mdrv-help">Select a recording session or snapshot day folder. AI Mode uses the same recording library as Manual Drive.</p>
+      </section>
+
       <section class="mdrv-panel ai-panel ai-log-panel" id="aiLogPanel">
         <div class="mdrv-panel-head ai-panel-head">
           <div>
@@ -285,8 +322,10 @@ python3 scripts/check_ai_runtime.py</pre>
       </section>
     </section>
   </main>
+  <script src="{{ static_asset('js/global_space_stop.js') }}"></script>
   <script id="aiModeInitialStatus" type="application/json">{{ initial_status | tojson }}</script>
   <script src="{{ static_asset('js/overlay_geometry.js') }}"></script>
+  <script src="{{ static_asset('js/recording_download_panel.js') }}"></script>
   <script src="{{ static_asset('js/ai_mode.js') }}"></script>
 </body>
 </html>

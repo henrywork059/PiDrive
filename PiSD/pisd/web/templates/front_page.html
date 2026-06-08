@@ -81,6 +81,7 @@
       <pre id="fpStatusJson" class="fp-console">{{ initial_status | tojson(indent=2) }}</pre>
     </section>
   </main>
+  <script src="{{ static_asset('js/global_space_stop.js') }}"></script>
   <script id="frontPageInitialStatus" type="application/json">{{ initial_status | tojson }}</script>
   <script src="{{ static_asset('js/front_page.js') }}"></script>
 </body>

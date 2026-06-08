@@ -898,6 +898,7 @@
       renderRecording(data.recording || {});
       setPreview('snapshot', `/api/camera/frame.jpg?t=${Date.now()}`);
       log('AI snapshot saved.', data.record || data.recording || {});
+      await refreshAIRecordingFiles();
     } catch (err) {
       log(err.message, err.payload || {});
     }
@@ -917,6 +918,7 @@
         log('AI recording started.', data.recording?.active_session || data.recording || {});
       }
       await refreshStatus();
+      await refreshAIRecordingFiles();
     } catch (err) {
       renderRecording((err.payload || {}).recording || {});
       log(err.message, err.payload || {});
@@ -932,6 +934,10 @@
         statusTimer = null;
       }
     }, 250);
+  }
+
+  function refreshAIRecordingFiles() {
+    return window.PiSDRecordingDownloadPanels?.ai?.refresh?.() || Promise.resolve(null);
   }
 
   function wireRanges() {
@@ -1029,7 +1035,7 @@
       }
       if (manualDrivePanelActive()) {
         if (key === ' ') {
-          if (!event.repeat) stopFullManualDrive('ai-manual-space');
+          if (!event.repeat) window.PiSDGlobalSpaceStop?.sendSpaceStop?.();
           return;
         }
         if (key === 'ArrowUp' || key === 'ArrowDown') {
@@ -1053,7 +1059,7 @@
       }
       if (!correctionPanelActive) return;
       if (key === ' ') {
-        if (!event.repeat) resetManualCorrection('ai-correction-space');
+        if (!event.repeat) window.PiSDGlobalSpaceStop?.sendSpaceStop?.();
         return;
       }
       if (key === 'ArrowUp' || key === 'ArrowDown') {
@@ -1113,6 +1119,27 @@
     els.aiManualDriveStop?.addEventListener('click', () => stopFullManualDrive('ai-manual-stop-button'));
     els.aiEnableMotor?.addEventListener('change', () => { if (!els.aiEnableMotor.checked && manualDrivePanelActive()) stopFullManualDrive('ai-manual-disabled'); });
     els.aiSafetyAck?.addEventListener('change', () => { if (!els.aiSafetyAck.checked && manualDrivePanelActive()) stopFullManualDrive('ai-manual-safety-cleared'); });
+    window.addEventListener('pisd:space-stop', () => {
+      correctionKeyboardSteering = 0;
+      correctionKeyboardThrottle = 0;
+      correctionKeyboardLeftHeld = false;
+      correctionKeyboardRightHeld = false;
+      stopCorrectionKeyboardLoop();
+      setCorrectionKnob(0, 0);
+      updateCorrectionStatus('Space STOP sent. Correction centred.', 'ready');
+      manualDriveDragging = false;
+      manualDriveKeyboardSteering = 0;
+      manualDriveKeyboardThrottle = 0;
+      manualDriveKeyboardLeftHeld = false;
+      manualDriveKeyboardRightHeld = false;
+      stopManualDriveKeyboardLoop();
+      setManualDriveKnob(0, 0);
+      updateManualDriveStatus('Space STOP sent globally.', 'ready');
+      aiRunning = false;
+      if (els.aiRunMode) els.aiRunMode.textContent = 'stopped';
+      log('Space STOP shortcut sent.', { source: 'global_space_stop' });
+      setTimeout(() => refreshStatus(), 180);
+    });
     bindCorrectionPad();
     bindKeyboardShortcuts();
     els.aiLive?.addEventListener('click', async () => { await api('/api/camera/start', { method: 'POST', body: {} }).catch((err) => log(err.message, err.payload)); setPreview('live', `/video_feed?t=${Date.now()}`); });
@@ -1136,5 +1163,5 @@
   renderRecording(initial.recording || {});
   wireRanges();
   bind();
-  refreshModels().then(() => refreshStatus());
+  refreshModels().then(() => refreshStatus()).then(() => refreshAIRecordingFiles());
 })();

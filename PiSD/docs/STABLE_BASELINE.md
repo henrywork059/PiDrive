@@ -94,7 +94,7 @@ For this stable GUI baseline, test on the Pi browser after applying the package:
 
 ## Future patch rule
 
-Future PiSD patches after this baseline should use `0_10_x` naming, such as `PiSD_0_10_6_patch.zip`, unless the user promotes a newer stable line.
+Future PiSD patches after this baseline should use `0_10_x` naming, such as `PiSD_0_10_7_patch.zip`, unless the user promotes a newer stable line.
 
 Patch-only zips should contain only:
 
@@ -133,3 +133,18 @@ Main UI/runtime update:
 - There is still only one `Save AI settings` configuration button, kept in the panel header outside the toggled content.
 
 Rollback safety: this patch preserves the accepted one-button `Start live` workflow, AI snapshot/record buttons and shortcuts, additive correction equation, fixed-throttle-after-correction behaviour, and the `0_10_5` helper-module split.
+
+
+## PiSD 0.10.7 AI recording panel and global Space STOP patch
+
+`PiSD_0_10_7_patch.zip` builds forward from v10 plus accepted patches `0_10_1` through `0_10_6`. It does not promote a new stable rollback baseline.
+
+Main update:
+
+- AI Mode gains a `Records & snaps` panel for shared recording/snapshot folder refresh, zip download, and safe delete.
+- `pisd/web/static/js/recording_download_panel.js` owns the reusable browser-side recording download/delete behaviour.
+- `pisd/web/static/js/global_space_stop.js` owns the global Space STOP shortcut across PiSD pages.
+- On AI Mode, Space sends `/api/ai/stop` and `/api/control/stop`; on other pages, Space sends `/api/control/stop`.
+- Manual Drive and AI Mode reset local pad/keyboard readouts from the shared `pisd:space-stop` event.
+
+Rollback safety: preserves all accepted 0.10.6 Manual pad behaviour, AI correction math, fixed-throttle safety, `r`/`s` recording shortcuts, and the one-button live workflow.

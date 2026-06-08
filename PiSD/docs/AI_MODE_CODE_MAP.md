@@ -22,7 +22,13 @@ This note is a maintainer map for the current AI Mode implementation. It is not 
   AI Mode page structure and panel IDs.
 
 - `pisd/web/static/js/ai_mode.js`  
-  AI Mode browser controller. It owns DOM updates, button wiring, shortcut wiring, model upload/delete calls, status refresh, Correction-panel input handling, and the Manual-pad takeover UI.
+  AI Mode browser controller. It owns DOM updates, button wiring, model upload/delete calls, status refresh, Correction-panel input handling, and the Manual-pad takeover UI. Recording folder download/delete behaviour is kept in the smaller shared helper below.
+
+- `pisd/web/static/js/recording_download_panel.js`  
+  Small shared browser helper for the `Records & snaps` panel. It lists recording/snapshot folders, updates the selected-folder summary, starts zip downloads, and safely deletes selected non-active folders.
+
+- `pisd/web/static/js/global_space_stop.js`  
+  Small shared browser helper for the global Space STOP shortcut. It ignores text-entry fields, dispatches `pisd:space-stop` for page-local UI resets, and sends the stop API calls.
 
 - `pisd/web/static/css/ai_mode.css`  
   AI Mode-specific layout and presentation.
@@ -73,3 +79,29 @@ When Correction behaviour looks wrong:
 ## Refactor boundary
 
 Do not move hardware, camera, or motor calls into the helper modules. The helper modules should stay deterministic and side-effect free.
+
+
+## Current recording download path
+
+```text
+AI Mode Records & snaps panel
+  -> recording_download_panel.js
+  -> GET /api/recording/items
+  -> GET /api/recording/download.zip
+  -> POST /api/recording/delete
+  -> RecordingService
+```
+
+This path is shared with the existing Manual Drive recording library concept and does not change the folder format.
+
+## Current Space STOP path
+
+```text
+Space key
+  -> global_space_stop.js
+  -> window event: pisd:space-stop
+  -> /api/ai/stop on /ai-mode
+  -> /api/control/stop
+```
+
+Page scripts should use the `pisd:space-stop` event only for local UI cleanup. Motor stopping should remain in the shared helper and backend stop routes.

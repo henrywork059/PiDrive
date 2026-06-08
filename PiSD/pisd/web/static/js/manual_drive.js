@@ -1328,6 +1328,21 @@
     pad.addEventListener('mouseleave', () => { if (dragging) stopAll('drive'); dragging = false; });
   }
 
+
+  function handleGlobalSpaceStop() {
+    dragging = false;
+    manualDriveActive = false;
+    keyboardThrottle = 0;
+    keyboardSteering = 0;
+    keyboardLeftHeld = false;
+    keyboardRightHeld = false;
+    stopKeyboardSteeringLoop();
+    setKnobForCommand(0, 0);
+    setStoppedDriveState('stopped');
+    setKeyboardStatus('Space STOP sent globally. Use ↑/↓ for throttle, hold ←/→ for steering.', 'ready');
+    setShortStatus('Space STOP sent to motors.', 'PISD-OK-000');
+  }
+
   function bind() {
     $('mdrvRefresh')?.addEventListener('click', () => refreshStatus(true));
     $('mdrvLiveCamera')?.addEventListener('click', startLiveCamera);
@@ -1345,6 +1360,7 @@
     overlaySettingsPopup?.addEventListener('click', event => {
       if (event.target === overlaySettingsPopup) closeOverlaySettingsPopup();
     });
+    window.addEventListener('pisd:space-stop', handleGlobalSpaceStop);
     document.addEventListener('keydown', event => {
       if (event.key !== 'Escape') return;
       if (overlaySettingsPopup && !overlaySettingsPopup.hidden) closeOverlaySettingsPopup();

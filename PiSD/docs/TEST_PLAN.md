@@ -1095,3 +1095,33 @@ Browser/Pi checks to perform on hardware:
 6. Confirm arrow keys work in `Manual pad`: ↑/↓ throttle, hold ←/→ steering, Space STOP.
 7. Switch away from `Manual pad` and confirm a STOP is sent.
 8. Confirm `Correction` still uses `AI + manual * Correction %` and fixed-throttle mode still ignores manual throttle correction.
+
+
+## PiSD 0.10.7 AI recording panel and global Space STOP checks
+
+After applying `PiSD_0_10_7_patch`, run the safe local checks:
+
+```bash
+cd ~/PiDrive/PiSD
+python3 -m compileall -q pisd scripts PiSD.py
+node --check pisd/web/static/js/ai_mode.js
+node --check pisd/web/static/js/manual_drive.js
+node --check pisd/web/static/js/global_space_stop.js
+node --check pisd/web/static/js/recording_download_panel.js
+python3 scripts/test_ai_mode_page.py --static-only
+python3 scripts/run_standard_validation.py --skip-api --skip-camera --skip-motor --skip-gui
+python3 PiSD.py --status-only
+```
+
+Browser/Pi checks to perform on hardware:
+
+1. Open `/ai-mode` and confirm a `Records & snaps` panel is visible.
+2. Click `Refresh list` and confirm recording/snapshot folders load from the shared PiSD recordings folder.
+3. Select a recording folder and click `Download zip`; confirm the browser starts the zip download.
+4. Select a snapshot folder and click `Download zip`; confirm the browser starts the zip download.
+5. Confirm `Delete selected` is disabled for an active recording and enabled for a safe selected inactive folder.
+6. Press Space in AI Limiter, Correction, Manual pad, preview, model, readout, and records panels; confirm AI stops where relevant and motors stop.
+7. Press Space in Manual Drive, Dashboard, Settings, Testing, Panel Testing, Motor Tuning, and Front Page; confirm motor STOP is sent.
+8. Confirm Space is ignored while typing into text/number/range/select fields, so settings can still be edited safely.
+9. Confirm `r` still toggles recording and `s` still saves a snapshot in Manual Drive and AI Mode.
+10. Confirm arrow-key driving/correction still works after the Space STOP reset.

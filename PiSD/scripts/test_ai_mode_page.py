@@ -23,6 +23,8 @@ WEB_ROOT = PROJECT_ROOT / "pisd" / "web"
 AI_TEMPLATE = WEB_ROOT / "templates" / "ai_mode.html"
 AI_CSS = WEB_ROOT / "static" / "css" / "ai_mode.css"
 AI_JS = WEB_ROOT / "static" / "js" / "ai_mode.js"
+GLOBAL_SPACE_JS = WEB_ROOT / "static" / "js" / "global_space_stop.js"
+RECORDING_PANEL_JS = WEB_ROOT / "static" / "js" / "recording_download_panel.js"
 AI_CORRECTION_PY = PROJECT_ROOT / "pisd" / "services" / "ai_correction.py"
 AI_SAFETY_PY = PROJECT_ROOT / "pisd" / "services" / "ai_safety.py"
 OUTPUT_DIR = PROJECT_ROOT / "test_outputs" / "ai_mode_page"
@@ -54,7 +56,7 @@ def emit(result: Result) -> None:
 
 
 def check_files() -> list[Result]:
-    files = {"template": AI_TEMPLATE, "css": AI_CSS, "js": AI_JS, "correction_helper": AI_CORRECTION_PY, "safety_helper": AI_SAFETY_PY}
+    files = {"template": AI_TEMPLATE, "css": AI_CSS, "js": AI_JS, "global_space_js": GLOBAL_SPACE_JS, "recording_panel_js": RECORDING_PANEL_JS, "correction_helper": AI_CORRECTION_PY, "safety_helper": AI_SAFETY_PY}
     return [
         Result(
             f"ai_mode.file.{name}",
@@ -72,6 +74,8 @@ def check_source_contract() -> Result:
         template = AI_TEMPLATE.read_text(encoding="utf-8")
         css = AI_CSS.read_text(encoding="utf-8")
         js = AI_JS.read_text(encoding="utf-8")
+        global_space_js = GLOBAL_SPACE_JS.read_text(encoding="utf-8")
+        recording_panel_js = RECORDING_PANEL_JS.read_text(encoding="utf-8")
     except Exception as exc:
         return Result("ai_mode.source_contract", False, PiSDErrorCodes.TEST_AI_MODE_FAILED, f"failed to read AI files: {exc}")
     required = {
@@ -123,6 +127,14 @@ def check_source_contract() -> Result:
             "Correction %",
             "Corrected steering",
             "Manual correction",
+            "aiFilesPanel",
+            "aiFileKind",
+            "aiDownloadZip",
+            "Records & snaps",
+            "Download zip",
+            "global_space_stop.js",
+            "recording_download_panel.js",
+            "Space STOP",
             "Reverse steering",
             "Drive output",
             "Frame seq",
@@ -132,7 +144,7 @@ def check_source_contract() -> Result:
             "mdrv-panel",
             'max="1.0"',
         ],
-        "css": [".ai-shell", ".ai-grid", ".ai-preview-frame", ".ai-preview-run-actions", ".ai-button-danger", "mdrv-drive-overlay", ".ai-runtime-help", "@media (max-width: 980px)"],
+        "css": [".ai-shell", ".ai-grid", ".ai-preview-frame", ".ai-preview-run-actions", ".ai-button-danger", "mdrv-drive-overlay", ".ai-runtime-help", "#aiFilesPanel", "@media (max-width: 980px)"],
         "js": [
             "aiModeInitialStatus",
             "/api/ai/models",
@@ -172,6 +184,7 @@ def check_source_contract() -> Result:
             "/api/recording/capture",
             "/api/recording/start",
             "/api/recording/stop",
+            "refreshAIRecordingFiles",
             "saveAISnapshot",
             "toggleAIRecording",
             "/api/ai/manual-correction",
@@ -181,13 +194,16 @@ def check_source_contract() -> Result:
             "sendFullManualDrive",
             "ai-manual-keyboard",
             "/api/control/manual",
+            "pisd:space-stop",
         ],
+        "global_space_js": ["PiSDGlobalSpaceStop", "space-global-stop", "/api/control/stop", "/api/ai/stop", "stopImmediatePropagation"],
+        "recording_panel_js": ["PiSDRecordingDownloadPanels", "/api/recording/items", "/api/recording/download.zip", "/api/recording/delete", "data-recording-download-panel"],
     }
-    sources = {"template": template, "css": css, "js": js}
+    sources = {"template": template, "css": css, "js": js, "global_space_js": global_space_js, "recording_panel_js": recording_panel_js}
     missing = {name: [token for token in tokens if token not in sources[name]] for name, tokens in required.items()}
     missing = {name: tokens for name, tokens in missing.items() if tokens}
     forbidden = {
-        "template": ["Refresh frame", "Start camera + live stream"],
+        "template": ["Refresh frame", "Start camera + live stream", "Space centre correction"],
         "js": ["aiSnapshot"],
     }
     present_forbidden = {name: [token for token in tokens if token in sources[name]] for name, tokens in forbidden.items()}
