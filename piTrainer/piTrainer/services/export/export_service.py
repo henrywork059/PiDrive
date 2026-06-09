@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 
 from ...app_state import ExportConfig, TrainConfig
@@ -29,6 +30,52 @@ class ExportArtifact:
             size /= 1024.0
 
 
+
+
+def next_available_model_artifact_path(out_dir: Path, stem: str, extension: str) -> Path:
+    """Return a model artifact path that will not overwrite an existing file.
+
+    piTrainer's default model names are intentionally predictable, but repeated
+    saves/exports should never replace an earlier model silently. This mirrors
+    the trained .keras save behavior by adding a timestamp when the default
+    path is already in use, and then a small counter if multiple saves happen
+    within the same second.
+    """
+
+    safe_stem = safe_filename(stem, default='picar_model')
+    clean_extension = str(extension or '').strip()
+    if not clean_extension.startswith('.'):
+        clean_extension = f'.{clean_extension}' if clean_extension else ''
+
+    candidate = Path(out_dir) / f'{safe_stem}{clean_extension}'
+    if not candidate.exists():
+        return candidate
+
+    stamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    timestamped = Path(out_dir) / f'{safe_stem}_{stamp}{clean_extension}'
+    if not timestamped.exists():
+        return timestamped
+
+    counter = 2
+    while True:
+        numbered = Path(out_dir) / f'{safe_stem}_{stamp}_{counter:02d}{clean_extension}'
+        if not numbered.exists():
+            return numbered
+        counter += 1
+
+
+def overwrite_guard_notes(default_path: Path, chosen_path: Path) -> tuple[str, ...]:
+    """Return UI/log notes when a timestamped path was chosen to avoid overwrite."""
+
+    try:
+        if Path(default_path).resolve() == Path(chosen_path).resolve():
+            return ()
+    except Exception:
+        if str(default_path) == str(chosen_path):
+            return ()
+    return (
+        'Default file name already existed; saved a timestamped copy instead of overwriting the older model.',
+    )
 
 
 def _quiet_tensorflow_export() -> CapturedTensorFlowOutput:
@@ -69,12 +116,13 @@ def _summarize_capture(captured: CapturedTensorFlowOutput) -> tuple[str, ...]:
     return tuple(dict.fromkeys(notes))
 
 
-def save_keras_model(model, out_path: Path) -> ExportArtifact:
+def save_keras_model(model, out_path: Path, extra_notes: tuple[str, ...] = ()) -> ExportArtifact:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with _quiet_tensorflow_export() as captured:
         model.save(out_path)
-    notes = _summarize_capture(captured)
-    return ExportArtifact(str(out_path), ".keras", out_path.stat().st_size, notes)
+    notes = list(_summarize_capture(captured))
+    notes.extend(extra_notes)
+    return ExportArtifact(str(out_path), ".keras", out_path.stat().st_size, tuple(dict.fromkeys(notes)))
 
 
 def _model_output_by_name(model, names: tuple[str, ...]):
@@ -129,7 +177,7 @@ def _ordered_tflite_export_model(model):
     return tf.keras.Model(inputs=model.inputs, outputs=ordered_output, name=f'{model.name}_ordered_tflite')
 
 
-def export_tflite_model(model, out_path: Path, quantize: bool, representative_ds=None) -> ExportArtifact:
+def export_tflite_model(model, out_path: Path, quantize: bool, representative_ds=None, extra_notes: tuple[str, ...] = ()) -> ExportArtifact:
     with _quiet_tensorflow_export() as import_capture:
         import tensorflow as tf
 
@@ -159,6 +207,7 @@ def export_tflite_model(model, out_path: Path, quantize: bool, representative_ds
         notes.append("Created size-optimised TFLite file; model input/output remain float32 for the current PiDrive runtime.")
     else:
         notes.append("Created float32 TFLite file.")
+    notes.extend(extra_notes)
     return ExportArtifact(str(out_path), ".tflite", out_path.stat().st_size, tuple(dict.fromkeys(notes)))
 
 
@@ -181,14 +230,23 @@ def export_model_artifacts(model, export_config: ExportConfig, train_df, train_c
     created: list[ExportArtifact] = []
 
     if export_config.export_keras:
-        keras_path = out_dir / f"{base_name}.keras"
-        created.append(save_keras_model(model, keras_path))
+        default_keras_path = out_dir / f"{base_name}.keras"
+        keras_path = next_available_model_artifact_path(out_dir, base_name, ".keras")
+        created.append(save_keras_model(model, keras_path, overwrite_guard_notes(default_keras_path, keras_path)))
 
     if export_config.export_tflite:
         rep_ds = build_representative_dataset(train_df, train_config) if export_config.quantize_int8 else None
         suffix = "_int8" if export_config.quantize_int8 else ""
-        tflite_path = out_dir / f"{base_name}{suffix}.tflite"
-        created.append(export_tflite_model(model, tflite_path, export_config.quantize_int8, rep_ds))
+        tflite_stem = f"{base_name}{suffix}"
+        default_tflite_path = out_dir / f"{tflite_stem}.tflite"
+        tflite_path = next_available_model_artifact_path(out_dir, tflite_stem, ".tflite")
+        created.append(export_tflite_model(
+            model,
+            tflite_path,
+            export_config.quantize_int8,
+            rep_ds,
+            overwrite_guard_notes(default_tflite_path, tflite_path),
+        ))
 
     if not created:
         raise RuntimeError("No export target selected.")

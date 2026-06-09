@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -12,7 +11,7 @@ from ..panels.train.train_config_panel import TrainConfigPanel
 from ..panels.train.train_control_panel import TrainControlPanel
 from ..panels.train.train_epoch_review_panel import TrainEpochReviewPanel
 from ..panels.train.train_history_panel import TrainHistoryPanel
-from ..services.export.export_service import save_keras_model
+from ..services.export.export_service import next_available_model_artifact_path, overwrite_guard_notes, save_keras_model
 from ..services.train.split_service import split_dataframe
 from ..services.data.augmentation_service import normalize_horizontal_flip_labels
 from ..services.data.visibility_service import without_hidden_rows
@@ -246,21 +245,24 @@ class TrainPage(DockPage):
         self.state.trained_model_out_dir = str(out_dir)
         self.control_panel.set_model_save_dir(str(out_dir))
         base_name = safe_filename(self.state.export_config.base_name or 'picar_model', default='picar_model')
-        candidate = out_dir / f'{base_name}_trained.keras'
-        if candidate.exists():
-            stamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            candidate = out_dir / f'{base_name}_trained_{stamp}.keras'
+        default_candidate = out_dir / f'{base_name}_trained.keras'
+        candidate = next_available_model_artifact_path(out_dir, f'{base_name}_trained', '.keras')
+        guard_notes = overwrite_guard_notes(default_candidate, candidate)
         try:
-            save_keras_model(self.state.model, candidate)
+            save_keras_model(self.state.model, candidate, guard_notes)
         except Exception as exc:
             self.control_panel.set_save_status(f'Could not save model to:\n{candidate}\n{exc}', success=False)
             self.log_panel.append_line(f'Could not save trained model to {candidate}: {exc}')
             self.main_window.set_status_message('Could not save trained model.')
             return
         self.state.last_saved_model_path = str(candidate)
+        guard_message = ''
+        if guard_notes:
+            guard_message = '\nDefault name already existed, so this was saved as a timestamped copy.'
         save_message = (
             'Saved trained .keras model to:\n'
-            f'{candidate}\n'
+            f'{candidate}'
+            f'{guard_message}\n'
             'Linked this file to 4 Validate.'
         )
         self.control_panel.set_save_status(save_message, success=True)
