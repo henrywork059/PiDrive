@@ -94,7 +94,7 @@ For this stable GUI baseline, test on the Pi browser after applying the package:
 
 ## Future patch rule
 
-Future PiSD patches after this baseline should use `0_10_x` naming, such as `PiSD_0_10_11_patch.zip`, unless the user promotes a newer stable line.
+Future PiSD patches after this baseline should use the latest accepted line. This package starts `0_11_x` naming, beginning with `PiSD_0_11_0_patch.zip`.
 
 Patch-only zips should contain only:
 
@@ -136,9 +136,9 @@ Rollback safety: this patch preserves the accepted one-button `Start live` workf
 
 
 
-## PiSD 0.10.11 AI text and one-confirmation patch
+## PiSD 0.11.0 AI text and one-confirmation patch
 
-`PiSD_0_10_11_patch.zip` builds forward from v10 plus accepted patches `0_10_1` through `0_10_10`. It does not promote a new stable rollback baseline.
+`PiSD_0_11_0_patch.zip` builds forward from v10 plus accepted patches `0_10_1` through `0_10_10`, starting the `0_11_x` forward patch line.
 
 Scope:
 - Shortens AI Mode descriptive text.
