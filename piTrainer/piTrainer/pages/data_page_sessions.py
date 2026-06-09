@@ -10,6 +10,49 @@ from ..services.data.stats_service import calculate_basic_stats
 
 
 class DataPageSessionMixin:
+    @staticmethod
+    def _normalise_session_selection(sessions: list[str] | tuple[str, ...] | set[str]) -> list[str]:
+        """Return non-empty session names with duplicates removed, preserving order."""
+        result: list[str] = []
+        seen: set[str] = set()
+        for session in sessions:
+            name = str(session or '').strip()
+            if not name or name in seen:
+                continue
+            result.append(name)
+            seen.add(name)
+        return result
+
+    def _current_session_selection_for_focus(self) -> list[str]:
+        """Return the user's current Session Source selection without narrowing it.
+
+        Validation's **Edit in Data** action should focus one frame in Data, but it
+        must not turn a multi-session selection into a single selected session.
+        Prefer the live Session Source checkboxes, then fall back to the app
+        state, and finally to the sessions already loaded in the Data dataframe.
+        """
+        selected = self._normalise_session_selection(self.session_source_panel.selected_sessions())
+        if selected:
+            return selected
+
+        selected = self._normalise_session_selection(self.state.selected_sessions)
+        if selected:
+            return selected
+
+        if not self.state.dataset_df.empty and 'session' in self.state.dataset_df.columns:
+            return self._normalise_session_selection(
+                self.state.dataset_df['session'].fillna('').astype(str).tolist()
+            )
+        return []
+
+    def _session_selection_with_focus_target(self, target_session: str) -> list[str]:
+        """Keep the existing session selection and add the focus target if needed."""
+        sessions = self._current_session_selection_for_focus()
+        target = str(target_session or '').strip()
+        if target and target not in sessions:
+            sessions.append(target)
+        return sessions
+
     def refresh_sessions(self) -> None:
         self.state.available_sessions = list_sessions(self.state.records_root_path)
         self.session_source_panel.set_sessions(self.state.available_sessions)
@@ -65,14 +108,26 @@ class DataPageSessionMixin:
 
         current_sessions = set(self.state.dataset_df.get('session', pd.Series(dtype=str)).astype(str).tolist()) if not self.state.dataset_df.empty else set()
         need_reload = session not in current_sessions
-        self.state.selected_sessions = [session]
-        self.session_source_panel.set_selected_sessions([session])
         if need_reload:
-            self._load_sessions([session])
+            sessions_to_load = self._session_selection_with_focus_target(session)
+            self.session_source_panel.set_selected_sessions(sessions_to_load)
+            # Re-apply the full load list after the checkbox update. If a
+            # session is not visible in the current scan list for any reason,
+            # set_selected_sessions() can only check visible rows, but the
+            # reload still needs the complete list including the focus target.
+            self.state.selected_sessions = sessions_to_load
+            self._load_sessions(sessions_to_load)
             if self.last_focus_redirected_to_source:
                 reloaded_target = self._find_source_record_for_synthetic(record)
                 if reloaded_target:
                     target_record = reloaded_target
+        else:
+            # Keep the user's multi-session checkbox selection intact. Do not
+            # call set_selected_sessions() here, because that would clear any
+            # selected sessions except the one frame being edited.
+            preserved_selection = self._current_session_selection_for_focus()
+            if preserved_selection:
+                self.state.selected_sessions = preserved_selection
 
         identity = self._record_identity(target_record)
         self.filter_panel.reset()
