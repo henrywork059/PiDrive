@@ -50,10 +50,83 @@ class SessionSourceRowWidget(QFrame):
         super().mouseReleaseEvent(event)
 
 
+class SessionListResizeHandle(QFrame):
+    def __init__(self, get_height, set_height, reset_height) -> None:
+        super().__init__()
+        self.setObjectName('sessionListResizeHandle')
+        self.setCursor(Qt.SizeVerCursor)
+        self.setFixedHeight(10)
+        self.setToolTip(
+            'Drag up or down to resize the session list. Double-click to reset.'
+        )
+        try:
+            self.setFrameShape(QFrame.Shape.HLine)
+        except AttributeError:
+            self.setFrameShape(QFrame.HLine)
+        self._get_height = get_height
+        self._set_height = set_height
+        self._reset_height = reset_height
+        self._drag_start_y: int | None = None
+        self._drag_start_height: int | None = None
+
+    @staticmethod
+    def _event_global_y(event) -> int:
+        if hasattr(event, 'globalPosition'):
+            return int(event.globalPosition().y())
+        return int(event.globalPos().y())
+
+    def mousePressEvent(self, event) -> None:  # noqa: N802
+        if event.button() == Qt.LeftButton:
+            self._drag_start_y = self._event_global_y(event)
+            self._drag_start_height = int(self._get_height())
+            event.accept()
+            return
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event) -> None:  # noqa: N802
+        if self._drag_start_y is not None and self._drag_start_height is not None:
+            delta_y = self._event_global_y(event) - self._drag_start_y
+            self._set_height(self._drag_start_height + delta_y, persist=False)
+            event.accept()
+            return
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event) -> None:  # noqa: N802
+        is_drag_release = (
+            event.button() == Qt.LeftButton
+            and self._drag_start_y is not None
+            and self._drag_start_height is not None
+        )
+        if is_drag_release:
+            delta_y = self._event_global_y(event) - self._drag_start_y
+            self._set_height(self._drag_start_height + delta_y, persist=True)
+            self._drag_start_y = None
+            self._drag_start_height = None
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
+
+    def mouseDoubleClickEvent(self, event) -> None:  # noqa: N802
+        if event.button() == Qt.LeftButton:
+            self._drag_start_y = None
+            self._drag_start_height = None
+            self._reset_height()
+            event.accept()
+            return
+        super().mouseDoubleClickEvent(event)
+
+
 class SessionSourcePanel(QGroupBox):
     SETTINGS_KEY = 'data/last_records_root'
+    LIST_HEIGHT_SETTINGS_KEY = 'data/session_source_list_height'
 
-    def __init__(self, state: AppState, refresh_callback, load_callback, selection_changed_callback=None) -> None:
+    def __init__(
+        self,
+        state: AppState,
+        refresh_callback,
+        load_callback,
+        selection_changed_callback=None,
+    ) -> None:
         super().__init__('Session Source')
         self.setObjectName('sessionSourcePanel')
         self.state = state
@@ -62,8 +135,10 @@ class SessionSourcePanel(QGroupBox):
         self.selection_changed_callback = selection_changed_callback
         self._rows: list[SessionSourceRowWidget] = []
         self._suspend_selection_callback = False
-        self._min_visible_session_rows = 5
-        self._max_visible_session_rows = 16
+        self._session_list_default_height = 260
+        self._session_list_min_height = 180
+        self._session_list_max_height = 900
+        self._session_list_height = self._restore_session_list_height()
 
         help_label = QLabel(
             'Choose a records root, refresh sessions, select sessions, then load.'
@@ -98,8 +173,13 @@ class SessionSourcePanel(QGroupBox):
         self.list_widget.setSpacing(6)
         self.list_widget.setAlternatingRowColors(False)
         self.list_widget.setUniformItemSizes(False)
-        self.list_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.MinimumExpanding)
+        self.list_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self._resize_session_list()
+        self.resize_handle = SessionListResizeHandle(
+            self._current_session_list_height,
+            self._set_session_list_height,
+            self._reset_session_list_height,
+        )
 
         select_all_btn = QPushButton('Select All')
         select_all_btn.setProperty('role', 'secondary')
@@ -119,7 +199,8 @@ class SessionSourcePanel(QGroupBox):
         layout.addWidget(help_label)
         layout.addLayout(path_row)
         layout.addWidget(self.summary_label)
-        layout.addWidget(self.list_widget, 1)
+        layout.addWidget(self.list_widget)
+        layout.addWidget(self.resize_handle)
         layout.addLayout(select_row)
         layout.addWidget(self.load_btn)
 
@@ -182,27 +263,51 @@ class SessionSourcePanel(QGroupBox):
         self._resize_session_list()
         self._update_summary()
 
-    def _resize_session_list(self) -> None:
-        """Grow the session list with the scanned rows so more sessions are visible.
-
-        The workflow sidebar itself remains scrollable, so increasing this
-        minimum height is safer than forcing an inner list scrollbar after only
-        a few sessions. A cap keeps the list from swallowing the whole Data
-        workflow panel when a records root contains many sessions.
-        """
-        row_count = len(self._rows)
-        visible_rows = min(
-            max(row_count, self._min_visible_session_rows),
-            self._max_visible_session_rows,
+    def _restore_session_list_height(self) -> int:
+        value = self._settings().value(
+            self.LIST_HEIGHT_SETTINGS_KEY,
+            self._session_list_default_height,
         )
-        sample_height = 42
-        if self._rows:
-            sample_height = max(sample_height, max(row.sizeHint().height() for row in self._rows))
-        spacing = max(0, int(self.list_widget.spacing()))
-        frame_padding = 18
-        target_height = int((sample_height + spacing) * visible_rows + frame_padding)
-        self.list_widget.setMinimumHeight(max(180, target_height))
+        try:
+            height = int(float(value))
+        except (TypeError, ValueError):
+            height = self._session_list_default_height
+        return self._clamp_session_list_height(height)
+
+    def _save_session_list_height(self, height: int) -> None:
+        self._settings().setValue(self.LIST_HEIGHT_SETTINGS_KEY, int(height))
+
+    def _clamp_session_list_height(self, height: int) -> int:
+        return max(
+            self._session_list_min_height,
+            min(self._session_list_max_height, int(height)),
+        )
+
+    def _current_session_list_height(self) -> int:
+        return self._clamp_session_list_height(
+            self._session_list_height or self.list_widget.height()
+        )
+
+    def _set_session_list_height(self, height: int, persist: bool = True) -> None:
+        height = self._clamp_session_list_height(height)
+        self._session_list_height = height
+        self.list_widget.setMinimumHeight(height)
+        self.list_widget.setMaximumHeight(height)
         self.list_widget.updateGeometry()
+        if persist:
+            self._save_session_list_height(height)
+
+    def _reset_session_list_height(self) -> None:
+        self._set_session_list_height(self._session_list_default_height, persist=True)
+
+    def _resize_session_list(self) -> None:
+        """Apply the user-controlled session-list height after refreshes.
+
+        The list no longer auto-grows with row count. Users can drag the thin
+        handle under the list to make the Session Source area taller or shorter,
+        and the chosen height is saved through QSettings.
+        """
+        self._set_session_list_height(self._session_list_height, persist=False)
 
     def selected_sessions(self) -> list[str]:
         selected: list[str] = []

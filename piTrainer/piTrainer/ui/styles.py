@@ -255,6 +255,19 @@ def build_stylesheet(density: str = "comfortable") -> str:
     #sessionListWidget {
         padding: 7px;
     }
+    #sessionListResizeHandle {
+        min-height: 10px;
+        max-height: 10px;
+        margin-left: 8px;
+        margin-right: 8px;
+        background: @COLOR_BG_INPUT_ALT@;
+        border: 1px solid @COLOR_BORDER_SUBTLE@;
+        border-radius: 5px;
+    }
+    #sessionListResizeHandle:hover {
+        background: @COLOR_INFO_SURFACE@;
+        border: 1px solid @COLOR_INFO@;
+    }
     #sessionRow {
         background: @COLOR_BG_INPUT_ALT@;
         border: 1px solid @COLOR_BORDER_SUBTLE@;
