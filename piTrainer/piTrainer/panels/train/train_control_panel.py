@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QSettings
+from PySide6.QtCore import QSettings, Qt
 from PySide6.QtWidgets import (
     QFileDialog,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
+    QLabel,
     QLineEdit,
     QProgressBar,
     QPushButton,
@@ -57,6 +58,13 @@ class TrainControlPanel(QGroupBox):
 
         self.progress = QProgressBar(); self.progress.setRange(0, 100); self.progress.setValue(0)
 
+        self.save_status_label = QLabel('Saved model: not saved yet.')
+        self.save_status_label.setObjectName('trainModelSaveStatus')
+        self.save_status_label.setProperty('role', 'saveStatus')
+        self.save_status_label.setProperty('status', 'idle')
+        self.save_status_label.setWordWrap(True)
+        self.save_status_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+
         row1 = QHBoxLayout(); row1.addWidget(self.prepare_btn); row1.addWidget(self.stop_btn)
         row2 = QHBoxLayout(); row2.addWidget(self.save_model_btn); row2.addStretch(1)
 
@@ -65,6 +73,7 @@ class TrainControlPanel(QGroupBox):
         layout.addWidget(self.start_btn)
         layout.addWidget(save_form_widget)
         layout.addLayout(row2)
+        layout.addWidget(self.save_status_label)
         layout.addWidget(self.progress)
 
     def _settings(self) -> QSettings:
@@ -110,3 +119,12 @@ class TrainControlPanel(QGroupBox):
 
     def set_progress(self, value: int) -> None:
         self.progress.setValue(max(0, min(100, int(value))))
+
+    def set_save_status(self, message: str, *, success: bool = False) -> None:
+        cleaned = str(message or '').strip() or 'Saved model: not saved yet.'
+        lower = cleaned.lower()
+        status = 'saved' if success else ('warning' if ('failed' in lower or 'could not' in lower or 'error' in lower) else 'idle')
+        self.save_status_label.setText(cleaned)
+        self.save_status_label.setProperty('status', status)
+        self.save_status_label.style().unpolish(self.save_status_label)
+        self.save_status_label.style().polish(self.save_status_label)

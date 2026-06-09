@@ -209,6 +209,7 @@ class TrainPage(DockPage):
 
         self.history_panel.clear_history()
         self.epoch_review_panel.clear_review()
+        self.control_panel.set_save_status('Saved model: training is running; save after it finishes.')
         self.log_panel.append_line(
             f'Starting training worker with {len(train_df)} train row(s) and {len(val_df)} validation row(s)...'
         )
@@ -252,14 +253,22 @@ class TrainPage(DockPage):
         try:
             save_keras_model(self.state.model, candidate)
         except Exception as exc:
+            self.control_panel.set_save_status(f'Could not save model to:\n{candidate}\n{exc}', success=False)
             self.log_panel.append_line(f'Could not save trained model to {candidate}: {exc}')
             self.main_window.set_status_message('Could not save trained model.')
             return
         self.state.last_saved_model_path = str(candidate)
-        self.log_panel.append_line(f'Saved trained model: {candidate}')
+        save_message = (
+            'Saved trained .keras model to:\n'
+            f'{candidate}\n'
+            'Linked this file to 4 Validate.'
+        )
+        self.control_panel.set_save_status(save_message, success=True)
+        self.log_panel.append_line(f'Saved trained .keras model to: {candidate}')
+        self.log_panel.append_line(f'Linked saved model to 4 Validate: {candidate}')
         self.main_window.validation_page.config_panel.set_saved_model_path(str(candidate))
         self.main_window.validation_page.refresh_from_state()
-        self.main_window.set_status_message('Saved trained model and linked it to Validation.')
+        self.main_window.set_status_message(f'Saved .keras model to {candidate}')
 
     def _on_training_error(self, message: str) -> None:
         self.state.last_error = message

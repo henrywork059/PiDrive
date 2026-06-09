@@ -517,6 +517,26 @@ def build_stylesheet(density: str = "comfortable") -> str:
         border-radius: 9px;
         padding: 7px 9px;
     }
+    QLabel[role='saveStatus'] {
+        color: @COLOR_TEXT_MUTED@;
+        background: @COLOR_BG_INPUT_ALT@;
+        border: 1px solid @COLOR_BORDER@;
+        border-radius: 9px;
+        padding: 7px 9px;
+        font-weight: 650;
+    }
+    QLabel[role='saveStatus'][status='saved'] {
+        color: @COLOR_TEXT_ON_DARK@;
+        background: @COLOR_SUCCESS@;
+        border: 1px solid @COLOR_SUCCESS_BORDER@;
+        font-weight: 850;
+    }
+    QLabel[role='saveStatus'][status='warning'] {
+        color: @COLOR_TEXT_ON_DARK@;
+        background: @COLOR_DANGER@;
+        border: 1px solid @COLOR_DANGER_BORDER@;
+        font-weight: 800;
+    }
 
     QLabel[role='preprocessStatus'] {
         color: @COLOR_TEXT_SECONDARY@;

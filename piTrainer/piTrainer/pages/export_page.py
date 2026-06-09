@@ -88,26 +88,39 @@ class ExportPage(DockPage):
                 train_config=self.state.train_config,
             )
         except Exception as exc:
+            self.actions_panel.set_export_status(f'Export failed:\n{exc}', success=False)
             self.log_panel.append_line(f'ERROR: {exc}')
             self.main_window.set_status_message('Export failed.')
             return
 
         latest_tflite_path = ''
+        saved_lines: list[str] = []
         for item in created:
             size_label = getattr(item, 'size_label', '')
             suffix = f' ({size_label})' if size_label else ''
             kind = getattr(item, "kind", "artifact")
             path = getattr(item, "path", item)
             self.log_panel.append_line(f'Created {kind}: {path}{suffix}')
+            saved_lines.append(f'{kind} -> {path}{suffix}')
             if str(kind).lower() == '.tflite' or str(path).lower().endswith('.tflite'):
                 latest_tflite_path = str(path)
             for note in getattr(item, 'notes', ()): 
                 self.log_panel.append_line(f'  Note: {note}')
+        if saved_lines:
+            self.actions_panel.set_export_status(
+                'Saved exported model file(s):\n' + '\n'.join(saved_lines),
+                success=True,
+            )
+            self.log_panel.append_line('Saved exported model file(s):')
+            for line in saved_lines:
+                self.log_panel.append_line(f'  {line}')
         if latest_tflite_path:
             self.state.last_exported_tflite_path = latest_tflite_path
             export_validation_page = getattr(self.main_window, 'export_validation_page', None)
             if export_validation_page is not None:
                 export_validation_page.set_exported_tflite_path(latest_tflite_path)
-            self.log_panel.append_line(f'Linked exported TFLite model to TFLite Check: {latest_tflite_path}')
+            self.log_panel.append_line(f'Linked exported TFLite model to 6 TFLite Check: {latest_tflite_path}')
         self.log_panel.append_line('Export finished. TensorFlow converter details are summarised above; non-fatal internal converter chatter is suppressed.')
-        self.main_window.set_status_message('Export finished. Next: 6 TFLite Check.')
+        self.main_window.set_status_message(
+            'Export saved: ' + '; '.join(saved_lines) if saved_lines else 'Export finished. Next: 6 TFLite Check.'
+        )

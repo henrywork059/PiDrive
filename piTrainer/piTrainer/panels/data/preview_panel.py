@@ -93,8 +93,9 @@ class PreviewPanel(QGroupBox):
         self.model.set_preview_rows(rows, columns)
         self.table.clearSelection()
         if rows and columns:
-            default_column = columns.index('frame_id') if 'frame_id' in columns else 0
-            self.table.sortByColumn(default_column, Qt.AscendingOrder)
+            # The model applies the default Data order: session date/time first,
+            # then natural frame id inside that session. Do not immediately call
+            # sortByColumn(frame_id), because frame ids can repeat across days.
             first = self.model.index(0, 0)
             self._set_current_index(first)
 

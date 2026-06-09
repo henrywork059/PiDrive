@@ -61,9 +61,9 @@ class RecordPreviewModel(QAbstractTableModel):
         self.rows = list(rows)
         self.columns = list(columns)
         self._source_rows = list(range(len(self.rows)))
-        self._sort_column = self.columns.index('frame_id') if 'frame_id' in self.columns else (0 if self.columns else -1)
+        self._sort_column = -1
         self._sort_order = Qt.AscendingOrder
-        self._sort_rows_in_place()
+        self._sort_rows_by_default_order()
         self.endResetModel()
 
     def source_row(self, view_row: int) -> int:
@@ -92,9 +92,36 @@ class RecordPreviewModel(QAbstractTableModel):
         column_name = self.columns[self._sort_column]
         pairs = list(zip(self.rows, self._source_rows))
         reverse = self._is_descending(self._sort_order)
-        pairs.sort(key=lambda pair: self._sort_key(pair[0].get(column_name), column_name), reverse=reverse)
+        pairs.sort(key=lambda pair: self._sort_key_for_row(pair[0], column_name), reverse=reverse)
         self.rows = [row for row, _source in pairs]
         self._source_rows = [source for _row, source in pairs]
+
+    def _sort_rows_by_default_order(self) -> None:
+        """Default review order: chronological session, then frame id.
+
+        PiSD frame ids can restart in separate sessions/days. Sorting by frame id
+        alone can interleave two recordings. The default table order therefore
+        keeps each session together by the date/time embedded in the session name
+        or timestamp, then uses natural frame-id order inside that session.
+        """
+        if not self.rows:
+            return
+        pairs = list(zip(self.rows, self._source_rows))
+        pairs.sort(key=lambda pair: self._default_sort_key(pair[0], pair[1]))
+        self.rows = [row for row, _source in pairs]
+        self._source_rows = [source for _row, source in pairs]
+
+    def _default_sort_key(self, row: dict[str, Any], source_row: int):
+        return (
+            self._session_datetime_key(row.get('session', ''), row.get('ts', '')),
+            self._sort_key(row.get('frame_id', ''), 'frame_id'),
+            int(source_row),
+        )
+
+    def _sort_key_for_row(self, row: dict[str, Any], column_name: str):
+        if column_name == 'session':
+            return self._session_datetime_key(row.get('session', ''), row.get('ts', ''))
+        return self._sort_key(row.get(column_name), column_name)
 
     @staticmethod
     def _is_descending(order) -> bool:
@@ -109,6 +136,53 @@ class RecordPreviewModel(QAbstractTableModel):
         text = '' if value is None else str(value)
         parts = re.split(r'(\d+)', text.lower())
         return tuple((0, int(part)) if part.isdigit() else (1, part) for part in parts if part != '')
+
+    @classmethod
+    def _session_datetime_key(cls, session_value: Any, ts_value: Any = ''):
+        session_text = '' if session_value is None else str(session_value)
+        ts_text = '' if ts_value is None else str(ts_value)
+        for text in (f'{session_text} {ts_text}', session_text, ts_text):
+            key = cls._extract_datetime_key(text)
+            if key is not None:
+                return (0, key, session_text.lower())
+        return (1, cls._natural_key(session_text))
+
+    @staticmethod
+    def _valid_datetime_tuple(year: int, month: int, day: int, hour: int = 0, minute: int = 0, second: int = 0):
+        if not (1 <= month <= 12 and 1 <= day <= 31 and 0 <= hour <= 23 and 0 <= minute <= 59 and 0 <= second <= 59):
+            return None
+        return (year, month, day, hour, minute, second)
+
+    @classmethod
+    def _extract_datetime_key(cls, text: str):
+        text = str(text or '')
+        if not text:
+            return None
+
+        # Common PiSD forms:
+        #   YYYY-MM-DD/YYYYMMDD_HHMMSS_...
+        #   PiSD_recording_YYYY-MM-DD_YYYYMMDD_HHMMSS_...
+        #   session_YYYYMMDD-HHMMSS
+        compact_matches = list(re.finditer(r'(20\d{2})(\d{2})(\d{2})[_-]?(\d{2})(\d{2})(\d{2})', text))
+        if compact_matches:
+            match = compact_matches[-1]
+            values = tuple(int(part) for part in match.groups())
+            return cls._valid_datetime_tuple(*values)
+
+        separated = re.search(
+            r'(20\d{2})[-_/](\d{2})[-_/](\d{2})[^0-9]+(\d{2})[:_-](\d{2})[:_-](\d{2})',
+            text,
+        )
+        if separated:
+            values = tuple(int(part) for part in separated.groups())
+            return cls._valid_datetime_tuple(*values)
+
+        # If only a date is available, still keep sessions in day order.
+        date_match = re.search(r'(20\d{2})[-_/]?(\d{2})[-_/]?(\d{2})', text)
+        if date_match:
+            year, month, day = (int(part) for part in date_match.groups())
+            return cls._valid_datetime_tuple(year, month, day)
+        return None
 
     def _sort_key(self, value: Any, column_name: str):
         if value is None or value == '':
