@@ -94,7 +94,7 @@ For this stable GUI baseline, test on the Pi browser after applying the package:
 
 ## Future patch rule
 
-Future PiSD patches after this baseline should use `0_10_x` naming, such as `PiSD_0_10_10_patch.zip`, unless the user promotes a newer stable line.
+Future PiSD patches after this baseline should use `0_10_x` naming, such as `PiSD_0_10_11_patch.zip`, unless the user promotes a newer stable line.
 
 Patch-only zips should contain only:
 
@@ -135,6 +135,17 @@ Main UI/runtime update:
 Rollback safety: this patch preserves the accepted one-button `Start live` workflow, AI snapshot/record buttons and shortcuts, additive correction equation, fixed-throttle-after-correction behaviour, and the `0_10_5` helper-module split.
 
 
+
+## PiSD 0.10.11 AI text and one-confirmation patch
+
+`PiSD_0_10_11_patch.zip` builds forward from v10 plus accepted patches `0_10_1` through `0_10_10`. It does not promote a new stable rollback baseline.
+
+Scope:
+- Shortens AI Mode descriptive text.
+- Replaces the separate AI safety acknowledgement and motor-output checkboxes with one visible confirmation checkbox.
+- Keeps backend guard semantics unchanged by sending both `safety_ack` and `enable_motor_output` when the single confirmation is checked.
+
+Rollback safety: preserves the accepted one-button live workflow, AI correction/manual-pad behaviour, global Space STOP, shared recording download panel, max-throttle persistence, top-of-preview button placement, and original frame-id restore.
 
 ## PiSD 0.10.10 original frame-id restore patch
 

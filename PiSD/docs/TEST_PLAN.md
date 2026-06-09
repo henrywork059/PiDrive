@@ -1089,9 +1089,9 @@ Browser/Pi checks to perform on hardware:
 
 1. Open `/ai-mode` and confirm the safety panel title is `Limiter / correction / manual`.
 2. Confirm the tab strip has `Limiter`, `Correction`, and `Manual pad`.
-3. Confirm the safety acknowledgement and `Enable motor output` checkboxes stay visible on all three panes.
+3. Confirm the single `Confirm safe test + enable motors` checkbox stays visible on all three panes.
 4. Confirm there is only one `Save AI settings` button and that it stays visible while switching panes.
-5. In `Manual pad`, tick both safety boxes, use the drag pad, and confirm the car responds through direct Manual Drive control.
+5. In `Manual pad`, tick the single confirmation checkbox, use the drag pad, and confirm the car responds through direct Manual Drive control.
 6. Confirm arrow keys work in `Manual pad`: ↑/↓ throttle, hold ←/→ steering, Space STOP.
 7. Switch away from `Manual pad` and confirm a STOP is sent.
 8. Confirm `Correction` still uses `AI + manual * Correction %` and fixed-throttle mode still ignores manual throttle correction.

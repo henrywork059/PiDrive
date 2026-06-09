@@ -7,7 +7,7 @@
     'aiOverlayEndpoint', 'aiOverlayStartPoint', 'aiOverlayThrottleFill', 'aiOverlaySteeringFill', 'aiOverlayThrottleValue', 'aiOverlaySteeringValue',
     'aiOverlayRawSteering', 'aiOverlayRawThrottle', 'aiOverlayLeftValue', 'aiOverlayRightValue',
     'aiRefreshModels', 'aiModelSelect', 'aiLoadModel', 'aiPredictOnce', 'aiDeleteModel', 'aiModelUploadFile', 'aiUploadModel', 'aiUploadHint', 'aiSelectedModel', 'aiBackend', 'aiInputShape', 'aiOutputNames', 'aiPiTrainerCompatible', 'aiRuntimeSupport', 'aiRuntimeHelp', 'aiRuntimeHelpCommands', 'aiLoadError', 'aiModelsDir',
-    'aiSafetyAck', 'aiEnableMotor', 'aiOutputMode', 'aiMaxThrottle', 'aiMaxThrottleOut', 'aiMaxSteering', 'aiMaxSteeringOut',
+    'aiEnableMotor', 'aiOutputMode', 'aiMaxThrottle', 'aiMaxThrottleOut', 'aiMaxSteering', 'aiMaxSteeringOut',
     'aiFixedThrottle', 'aiFixedThrottleOut', 'aiUpdateHz', 'aiUpdateHzOut', 'aiSteerSmooth', 'aiSteerSmoothOut', 'aiThrottleSmooth',
     'aiThrottleSmoothOut', 'aiSaveConfig', 'aiLimiterTab', 'aiCorrectionTab', 'aiManualDriveTab', 'aiLimiterPane', 'aiCorrectionPane', 'aiManualDrivePane', 'aiManualMix', 'aiManualMixOut',
     'aiCorrectionPad', 'aiCorrectionKnob', 'aiCorrectionStatus', 'aiManualSteeringOut', 'aiManualThrottleOut', 'aiManualMixReadout',
@@ -618,14 +618,18 @@
     return setManualDriveKnob(x, -y * manualDriveSpeedLimit());
   }
 
+  function driveConfirmationEnabled() {
+    return Boolean(els.aiEnableMotor?.checked);
+  }
+
   function fullManualOutputEnabled() {
-    return Boolean(els.aiSafetyAck?.checked) && Boolean(els.aiEnableMotor?.checked);
+    return driveConfirmationEnabled();
   }
 
   async function sendFullManualDrive(force = false, source = 'ai-manual-pad') {
     if (!manualDrivePanelActive()) return;
     if (!fullManualOutputEnabled()) {
-      updateManualDriveStatus('Manual pad locked: tick both shared safety boxes above first.', 'locked');
+      updateManualDriveStatus('Manual pad locked: tick the confirmation above first.', 'locked');
       return;
     }
     const now = performance.now();
@@ -901,8 +905,8 @@
   }
 
   async function startAI(mode) {
-    const safetyAck = Boolean(els.aiSafetyAck?.checked);
-    const enableMotorOutput = Boolean(els.aiEnableMotor?.checked);
+    const enableMotorOutput = driveConfirmationEnabled();
+    const safetyAck = enableMotorOutput;
     await saveConfig();
     try {
       const data = await api('/api/ai/start', {
@@ -1187,7 +1191,6 @@
     els.aiRecordToggle?.addEventListener('click', toggleAIRecording);
     els.aiManualDriveStop?.addEventListener('click', () => stopFullManualDrive('ai-manual-stop-button'));
     els.aiEnableMotor?.addEventListener('change', () => { if (!els.aiEnableMotor.checked && manualDrivePanelActive()) stopFullManualDrive('ai-manual-disabled'); });
-    els.aiSafetyAck?.addEventListener('change', () => { if (!els.aiSafetyAck.checked && manualDrivePanelActive()) stopFullManualDrive('ai-manual-safety-cleared'); });
     window.addEventListener('pisd:space-stop', () => {
       correctionKeyboardSteering = 0;
       correctionKeyboardThrottle = 0;

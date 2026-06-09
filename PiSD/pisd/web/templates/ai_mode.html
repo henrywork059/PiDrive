@@ -37,8 +37,7 @@
         </div>
         <span class="mdrv-code" data-code-for="ai">PISD-OK-000</span>
       </div>
-      <p class="ai-summary">Load a trained model from <code>PiSD/models/</code>. Manual Drive recordings save <code>labels.jsonl</code> so training can map camera frames to steering and throttle.</p>
-      <p class="ai-note">The safety layer always sits between AI prediction and motor output. Max throttle and fixed throttle can be set up to <strong>1.00</strong>, and AI control update rate can now be set up to <strong>60 Hz</strong> when the Pi can keep up.</p>
+      <p class="ai-summary">Load a model, start live, then preview or drive.</p>
       {% if legacy_autopilot_alias %}
       <p class="ai-warning">The old scripted Autopilot page has been replaced. This page is AI model based and does not run scripted profiles.</p>
       {% endif %}
@@ -126,8 +125,8 @@
           </div>
           <button id="aiRefreshModels" class="mdrv-button ai-button ai-button-secondary">Refresh models</button>
         </div>
-        <p class="ai-note">Upload a <code>.keras</code> or <code>.tflite</code> model exported from piTrainer, then load it for preview/drive. PiSD reads piTrainer's named <code>steering</code> and <code>throttle</code> outputs.</p>
-        <p class="ai-note ai-runtime-note">For Pi driving, <code>.tflite</code> models need a TFLite runtime installed in the same Python environment that runs PiSD. If Runtime shows <strong>TFLite missing</strong>, run the shown install command on that Pi and restart PiSD.</p>
+        <p class="ai-note">Choose, upload, or load a <code>.keras</code>/<code>.tflite</code> model.</p>
+        <p class="ai-note ai-runtime-note">If TFLite is missing, run the shown install command on the Pi.</p>
         <label class="ai-field">
           <span>Model file in PiSD/models</span>
           <select id="aiModelSelect"></select>
@@ -176,9 +175,8 @@ python3 scripts/check_ai_runtime.py</pre>
           <button id="aiCorrectionTab" class="mdrv-button ai-panel-tab" type="button" role="tab" aria-controls="aiCorrectionPane" aria-selected="false">Correction</button>
           <button id="aiManualDriveTab" class="mdrv-button ai-panel-tab" type="button" role="tab" aria-controls="aiManualDrivePane" aria-selected="false">Manual pad</button>
         </div>
-        <div class="ai-shared-drive-controls ai-checks" aria-label="Shared drive safety controls">
-          <label><input id="aiSafetyAck" type="checkbox"> I confirm the car is safe to test and wheels can be lifted.</label>
-          <label><input id="aiEnableMotor" type="checkbox"> Enable motor output</label>
+        <div class="ai-shared-drive-controls ai-checks" aria-label="Shared drive safety control">
+          <label><input id="aiEnableMotor" type="checkbox"> Confirm safe test + enable motors</label>
         </div>
         <div id="aiLimiterPane" class="ai-output-pane" role="tabpanel" aria-labelledby="aiLimiterTab">
           <div class="ai-form-grid">
@@ -190,10 +188,10 @@ python3 scripts/check_ai_runtime.py</pre>
             <label class="ai-field"><span>Steering smoothing</span><input id="aiSteerSmooth" type="range" min="0" max="1" step="0.05"><output id="aiSteerSmoothOut">0.35</output></label>
             <label class="ai-field"><span>Throttle smoothing</span><input id="aiThrottleSmooth" type="range" min="0" max="1" step="0.05"><output id="aiThrottleSmoothOut">0.25</output></label>
           </div>
-          <p class="mdrv-help ai-range-note">Throttle values use the same full-scale command range as Manual Drive: <strong>0.00</strong> to <strong>1.00</strong>. The safety limiter still clamps AI output before it reaches the motors. Reverse steering uses <strong>Option A</strong>: keep the same steering sign when throttle is negative.</p>
+          <p class="mdrv-help ai-range-note">Limits clamp AI output before the motors. Reverse steering keeps the same sign.</p>
         </div>
         <div id="aiCorrectionPane" class="ai-output-pane ai-correction-pane" role="tabpanel" aria-labelledby="aiCorrectionTab" hidden>
-          <p class="ai-note">Correction adds Manual Drive-style input to the AI prediction before the normal output limiter: AI + manual × %. Use the drag pad or arrow keys. Press <strong>Space</strong> for global STOP.</p>
+          <p class="ai-note">Correction = AI + manual × %. Space = STOP.</p>
           <label class="ai-field ai-correction-mix-field"><span>Correction %</span><input id="aiManualMix" type="range" min="0" max="100" step="1"><output id="aiManualMixOut">50%</output></label>
           <div id="aiCorrectionPad" class="mdrv-drag-pad ai-correction-pad" role="application" aria-label="AI manual correction pad" tabindex="0">
             <div class="mdrv-drag-cross"></div>
@@ -215,10 +213,10 @@ python3 scripts/check_ai_runtime.py</pre>
             <span>r record · s snapshot · Space STOP</span>
           </div>
           <p id="aiCorrectionStatus" class="mdrv-keyboard-status" data-state="ready">Correction ready. Switch to Limiter to disable manual correction.</p>
-          <p class="mdrv-help ai-range-note">If Output mode is <strong>AI steering + fixed throttle</strong>, the backend still uses Fixed throttle after correction, so manual throttle is ignored but manual steering correction still applies.</p>
+          <p class="mdrv-help ai-range-note">Fixed-throttle mode keeps fixed throttle; steering correction still works.</p>
         </div>
         <div id="aiManualDrivePane" class="ai-output-pane ai-manual-drive-pane" role="tabpanel" aria-labelledby="aiManualDriveTab" hidden>
-          <p class="ai-note">Full manual pad sends direct Manual Drive commands and stops AI drive control. Use this when you need to take over instead of adding correction to the AI output.</p>
+          <p class="ai-note">Direct Manual Drive takeover. Space = STOP.</p>
           <label class="ai-field ai-manual-speed-field"><span>Manual speed</span><input id="aiManualDriveSpeed" type="range" min="0" max="1.0" step="0.01" value="0.18"><output id="aiManualDriveSpeedOut">0.18</output></label>
           <div id="aiManualDrivePad" class="mdrv-drag-pad ai-manual-drive-pad" role="application" aria-label="AI Mode full manual driving pad" tabindex="0">
             <div class="mdrv-drag-cross"></div>
@@ -241,8 +239,8 @@ python3 scripts/check_ai_runtime.py</pre>
             <span>hold ←/→ steering ±1 in 0.8 s; release returns to 0</span>
             <span>r record · s snapshot · Space STOP</span>
           </div>
-          <p id="aiManualDriveStatus" class="mdrv-keyboard-status" data-state="ready">Manual pad ready. Enable motor output above before driving.</p>
-          <p class="mdrv-help ai-range-note">This panel uses <code>/api/control/manual</code>, the same guarded Manual Drive endpoint. It is a takeover mode, not an AI correction mode.</p>
+          <p id="aiManualDriveStatus" class="mdrv-keyboard-status" data-state="ready">Manual pad ready. Confirm above before driving.</p>
+          <p class="mdrv-help ai-range-note">Uses the guarded Manual Drive endpoint.</p>
         </div>
       </section>
 
@@ -254,7 +252,7 @@ python3 scripts/check_ai_runtime.py</pre>
           </div>
           <span class="mdrv-code" data-code-for="run">PISD-OK-000</span>
         </div>
-        <p class="ai-note">Use the AI run buttons under the camera preview. <strong>Start AI drive</strong> is blocked until a runnable model is loaded and the safety layer is armed.</p>
+        <p class="ai-note">Start AI drive requires a loaded model and confirmation.</p>
         <dl class="ai-readout-grid ai-readout-large">
           <div><dt>Model steering</dt><dd id="aiRawSteering">0.00</dd></div>
           <div><dt>Model throttle</dt><dd id="aiRawThrottle">0.00</dd></div>
