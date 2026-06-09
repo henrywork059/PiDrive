@@ -10,8 +10,8 @@ Use this file when an AI coding assistant continues piTrainer work inside the Pi
 
 ## Current baseline and version line
 
-- Latest accepted full baseline: `piTrainer_0_10_0` / V10.
-- Future patch-only zips should build forward as `piTrainer_0_10_1_patch.zip`, `piTrainer_0_10_2_patch.zip`, and so on.
+- Latest accepted full baseline: `piTrainer_0_11_0` / V11.
+- Future patch-only zips should build forward as `piTrainer_0_11_1_patch.zip`, `piTrainer_0_11_2_patch.zip`, and so on.
 - Patch zips must include only changed/new files plus patch notes.
 - Patch notes belong in `piTrainer/PATCH_NOTES/`.
 
@@ -23,15 +23,15 @@ Before editing, inspect:
 2. The latest piTrainer patch note.
 3. The previous three piTrainer patch notes when available.
 
-Do not restore older copies of files by accident. Do not remove accepted V8/V9/V10 behaviour unless the user explicitly asks.
+Do not restore older copies of files by accident. Do not remove accepted V8/V9/V10/V11 behaviour unless the user explicitly asks.
 
-Preserve these accepted V8/V9/V10 behaviours:
+Preserve these accepted V8/V9/V10/V11 behaviours:
 
 - PiSD V7 `labels.jsonl` and `records.jsonl` support.
 - PiSD V7 saved overlay metadata and overlay redraw support.
 - Manual-drive preprocessing support.
 - Training-start preflight fixes.
-- Record Preview uses a simple read-only `QTableView`/`QAbstractTableModel` list with `frame_id` as the first column, header sorting enabled, default sort by `frame_id`, optimised single-frame edit, multi-select soft-delete/hide, bulk selected-frame edit, and merge support.
+- Record Preview uses a simple read-only `QTableView`/`QAbstractTableModel` list with `frame_id` as the first column, header sorting enabled, default sort by session recording date/time first and natural frame id inside that session, optimised single-frame edit, multi-select soft-delete/hide, bulk selected-frame edit, and merge support.
 - Full-width splitter layout.
 - Horizontal scrollbars only when panel content is reduced too far.
 - Compact top guide banner.
@@ -57,7 +57,7 @@ Preserve these accepted V8/V9/V10 behaviours:
 - Keep Bulk Edit Selected Frames in `3 Review`; it edits only steering or only speed one at a time, has a Select All Visible Frames setup button, requires an overwrite checkbox plus a warning confirmation dialog, and must use the batch JSONL updater so each selected session metadata file is scanned once rather than once per selected frame.
 - Keep Merge Sessions in `3 Review`, collapsed by default.
 - Keep `frame_id` as the first visible Record Preview table column.
-- Keep Record Preview deliberately simple: use the read-only model/view table, keep header sorting inside the model with explicit source-row mapping, keep the default sort on `frame_id`, keep the visible columns short and stable, and do not reintroduce `QTableWidget` item-based current-cell logic.
+- Keep Record Preview deliberately simple: use the read-only model/view table, keep header sorting inside the model with explicit source-row mapping, keep the default sort on session recording date/time first and natural `frame_id` inside that session, keep the visible columns short and stable, and do not reintroduce `QTableWidget` item-based current-cell logic.
 - Keep the Record Preview table horizontally anchored to the first column after multi-row selection; do not let Qt selection/current-cell behaviour scroll it to the second column, and do not force the selected row into the vertical centre on normal click/selection. Use ensure-visible scrolling only when keyboard/playback navigation needs it.
 - Keep Up/Down navigation cycling through Record Preview rows when the table has focus. Down moves to the next frame and wraps from the last row to the first; Up moves to the previous frame and wraps from the first row to the last.
 - Keep batch frame deletion as a soft-delete/hide action tied to the Data Control confirmation checkbox; do not physically remove JSONL rows or image files, and do not restore repeated confirmation popups for every delete.
@@ -97,11 +97,11 @@ For each patch:
 
 Only claim checks that were actually run. Be clear about anything not tested, especially live PySide6 rendering, real PiSD import, or TensorFlow training.
 
-## V10 stable baseline rule
+## V11 stable baseline rule
 
-V10 (`piTrainer_0_10_0`) promotes the accepted V9 patch line through `piTrainer_0_9_21` into the latest full baseline. Future patches should build forward as `0_10_x` patches unless the user explicitly changes the stable baseline. Do not roll back V7.1 flip-label safety, V7.2 generated-data hiding/edit redirection, V7.3 startup version-gate behaviour, V8 packaging/runtime fixes, or V9 Data/overlay/refactor behaviour.
+V11 (`piTrainer_0_11_0`) promotes the accepted V10 patch line through `piTrainer_0_10_6` into the latest full baseline. Future patches should build forward as `0_11_x` patches unless the user explicitly changes the stable baseline. Do not roll back V7.1 flip-label safety, V7.2 generated-data hiding/edit redirection, V7.3 startup version-gate behaviour, V8 packaging/runtime fixes, V9 Data/overlay/refactor behaviour, or accepted V10 Data/Validation/Export workflow fixes.
 
-Before packaging a V10 release with the version gate enabled, make sure the online manifest either allows `0.10.0` directly or allows it through the `minimum_version` logic in `piTrainer/piTrainer/security/version_gate.py`. For a controlled V10-only release, update the GitHub manifest `latest` / `minimum_version` to `0.10.0`.
+Before packaging a V11 release with the version gate enabled, make sure the online manifest either allows `0.11.0` directly or allows it through the `minimum_version` logic in `piTrainer/piTrainer/security/version_gate.py`. For a controlled V11-only release, update the GitHub manifest `latest` / `minimum_version` to `0.11.0`.
 
 ## V7.2 synthetic data visibility rule
 
@@ -122,7 +122,7 @@ https://raw.githubusercontent.com/henrywork059/PiDrive/refs/heads/main/release_c
 Preserve these behaviours unless the user asks otherwise:
 
 - `enabled=true` and `fail_closed=true` for release builds that should be controlled by the online manifest.
-- The current `APP_VERSION` must not be in `blocked_versions`. If `allowed_versions` is non-empty, the app version must either be listed there directly or be equal/newer than the manifest `minimum_version` handled by the current version-gate code. For a controlled V10-only release, update the manifest to allow or require `0.10.0`.
+- The current `APP_VERSION` must not be in `blocked_versions`. If `allowed_versions` is non-empty, the app version must either be listed there directly or be equal/newer than the manifest `minimum_version` handled by the current version-gate code. For a controlled V11-only release, update the manifest to allow or require `0.11.0`.
 - Network checks must have a short timeout so the app does not hang on startup.
 - A recent cache may allow startup only when the online check is temporarily unavailable and the cached manifest still allows the same app version.
 - Do not put private tokens, GitHub credentials, or real secrets in the app.

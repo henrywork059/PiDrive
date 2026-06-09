@@ -1,12 +1,12 @@
 # piTrainer Format and Style Guide
 
-This document records the presentation decisions used by the V10 trainer UI. It is intended to stop future patches from styling individual tabs or panels differently by accident.
+This document records the presentation decisions used by the V11 trainer UI. It is intended to stop future patches from styling individual tabs or panels differently by accident.
 
-## V10 stable baseline note
+## V11 stable baseline note
 
-V10 (`piTrainer_0_10_0`) promotes the accepted V9 patch line through `piTrainer_0_9_21` into the latest full baseline. Future patches should build forward from V10 as `0_10_x` without rolling back accepted data layout, preprocessing, training, validation, export, table, style, soft-hide, generated-data visibility, startup version-gate, packaging, and Data overlay behaviours.
+V11 (`piTrainer_0_11_0`) promotes the accepted V10 patch line through `piTrainer_0_10_6` into the latest full baseline. Future patches should build forward from V11 as `0_11_x` without rolling back accepted data layout, preprocessing, training, validation, export, table, style, soft-hide, generated-data visibility, startup version-gate, packaging, Data overlay behaviours, Validation frame-review workflow fixes, Session Source selection/resize fixes, and non-overwriting model artifact saves.
 
-The earlier V8 baseline (`piTrainer_0_8_0`) promoted accepted V7 work. V10 keeps that V6/V7/V8 work and adds the accepted V9 patch behaviours through `0.9.21`, including the responsive Data overlay text, default Speed/Steering gauges, and v9 refactor/layout cleanup.
+The earlier V8 baseline (`piTrainer_0_8_0`) promoted accepted V7 work. V11 keeps that V6/V7/V8 work, the accepted V9 patch behaviours through `0.9.21`, and the accepted V10 patch behaviours through `0.10.6`.
 
 ## Single source of truth
 
@@ -496,9 +496,9 @@ Expected manifest shape:
 ```json
 {
   "app": "PiTrainer",
-  "latest": "0.10.0",
-  "minimum_version": "0.10.0",
-  "allowed_versions": ["0.10.0"],
+  "latest": "0.11.0",
+  "minimum_version": "0.11.0",
+  "allowed_versions": ["0.11.0"],
   "blocked_versions": [],
   "message": "This PiTrainer version is no longer enabled. Please update to the latest version.",
   "support_message": "Please contact the project owner for the newest PiTrainer build."
@@ -509,5 +509,5 @@ When the gate is enabled, the app checks this manifest before opening the main w
 
 For PyInstaller releases, make sure the config file is bundled or copied beside the executable, for example by adding the config folder as PyInstaller data or by shipping a `config/version_gate.json` folder next to `PiTrainer.exe`.
 
-For V10 packages, update the online manifest before distributing a controlled V10-only release so `latest` and `minimum_version` point at `0.10.0` or so `allowed_versions` includes `0.10.0`. The current version-gate code also allows versions equal/newer than `minimum_version`, which keeps patch builds from being blocked by a narrow `allowed_versions` list.
+For V11 packages, update the online manifest before distributing a controlled V11-only release so `latest` and `minimum_version` point at `0.11.0` or so `allowed_versions` includes `0.11.0`. The current version-gate code also allows versions equal/newer than `minimum_version`, which keeps patch builds from being blocked by a narrow `allowed_versions` list.
 
