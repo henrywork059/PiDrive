@@ -65,6 +65,7 @@ def static_checks() -> bool:
     ok &= line('steer_strength' not in html and 'Steer strength' not in html and "$('mdrvSteer')" not in js and 'mdrvSteerOut' not in js, PiSDErrorCodes.OK if ('steer_strength' not in html and 'Steer strength' not in html and "$('mdrvSteer')" not in js and 'mdrvSteerOut' not in js) else PiSDErrorCodes.TEST_MANUAL_DRIVE_CONTRACT_FAILED, 'manual_drive.no_steer_strength', 'Manual Drive no longer scales steering X with a steer-strength slider')
     ok &= line('name="steer_strength"' not in settings_html and 'Steer strength' not in settings_html, PiSDErrorCodes.OK if ('name="steer_strength"' not in settings_html and 'Steer strength' not in settings_html) else PiSDErrorCodes.TEST_SETTINGS_PERSISTENCE_FAILED, 'settings_tab.no_steer_strength', 'Settings page no longer exposes steer_strength')
     ok &= line('value="0.80"' in html and 'value="0.80"' in settings_html, PiSDErrorCodes.OK if ('value="0.80"' in html and 'value="0.80"' in settings_html) else PiSDErrorCodes.TEST_SETTINGS_PERSISTENCE_FAILED, 'settings.global_manual_speed_default', 'global Manual speed default is 0.80 in Manual Drive and Settings UI')
+    ok &= line('Camera capture FPS' in settings_html and 'name="live_preview_fps"' in settings_html and 'stAIForm' in settings_html and 'AI prediction FPS' in settings_html and 'ai_mode' in stjs and 'live_preview_fps' in stjs, PiSDErrorCodes.OK if ('Camera capture FPS' in settings_html and 'live_preview_fps' in stjs) else PiSDErrorCodes.TEST_SETTINGS_PERSISTENCE_FAILED, 'settings.three_rate_global_fps', 'Settings page exposes global camera capture FPS, live preview FPS, and AI prediction FPS without page-only duplicate keys')
     return ok
 
 
@@ -76,6 +77,8 @@ def manager_checks() -> bool:
         ok &= line(mgr.get()['camera']['width'] == 426, PiSDErrorCodes.OK, 'settings.manager.defaults', 'defaults loaded')
         ok &= line(mgr.get()['camera']['auto_white_balance'] is False and mgr.get()['camera']['awb_settle_seconds'] == 1.0, PiSDErrorCodes.OK, 'settings.manager.camera_default_profile', '0.5.6 camera default profile loaded')
         ok &= line(abs(float(mgr.get()['manual_drive']['speed']) - 0.80) < 1e-9, PiSDErrorCodes.OK, 'settings.manager.manual_speed_default', 'new Manual speed default is 0.80 from the global settings manager')
+        fps_saved, fps_settings, fps_report = mgr.save({'camera': {'fps': 500, 'live_preview_fps': 0}, 'ai_mode': {'update_hz': 500}})
+        ok &= line(fps_saved and fps_settings['camera']['fps'] == 120 and fps_settings['camera']['live_preview_fps'] == 1 and fps_settings['ai_mode']['update_hz'] == 60.0, PiSDErrorCodes.OK if fps_saved else fps_report.code, 'settings.manager.three_rate_clamp', 'global FPS settings are saved once and clamped through the backend settings manager')
         saved, settings, report = mgr.save({'manual_drive': {'speed': 0.22, 'overlay': {'path_length_scale': 9, 'curve_strength': 0.1, 'opacity': 'bad', 'path_width_scale': 1.4, 'sample_count': 128, 'perspective_scale': 105, 'turn_rate_visual_scale': 3.1}}, 'panel_presentation': {'theme': 'light'}})
         ok &= line(saved and settings['manual_drive']['speed'] == 0.22, PiSDErrorCodes.OK if saved else report.code, 'settings.manager.save', 'settings saved')
         overlay = settings['manual_drive']['overlay']

@@ -39,9 +39,9 @@ Included accepted work:
 - Legacy `/autopilot` path is retained only as a retired compatibility/redirect path to AI Mode.
 - AI Mode model listing/loading from `PiSD/models/` and a guarded safety layer between AI predictions and motor output.
 - AI Mode can save snapshots, start/stop recording, and download/delete saved recording or snapshot folders through the shared recording service, using the same recording folder format as Manual Drive.
-- AI Mode max throttle and fixed throttle controls allow full-scale `1.00`; Update Hz can be set up to `60` when the Pi/model can keep up.
+- AI Mode max throttle and fixed throttle controls allow full-scale `1.00`; AI prediction FPS can be set up to `60` when the Pi/model can keep up.
 - AI Mode preview reuses the Manual Drive preview-frame design, keeps Start live/Snapshot/Record and Start AI preview/Start AI drive/Stop AI above the camera view, and draws the road-guide overlay from the model prediction after the safety limiter.
-- AI Mode `Limiter / correction / manual` panel has three panes: Limiter settings, additive AI Correction, and a full Manual pad takeover.
+- AI Mode `Limiter / correction / manual / assist` panel has four panes: Limiter settings, additive AI Correction, full Manual pad takeover, and AI steering assist.
 - AI Mode supports `r` to toggle recording and `s` to save a snapshot when focus is not inside a text field or popup editor. Space is now a global STOP shortcut across PiSD pages and AI panels.
 - AI correction percentage is user-settable; fixed-throttle mode still enforces the configured fixed throttle after steering correction. The full Manual pad uses the same guarded `/api/control/manual` path as Manual Drive and directly takes over from AI drive control. The correction equation now lives in `pisd/services/ai_correction.py`, while fixed-throttle/limiter math lives in `pisd/services/ai_safety.py` for smaller, easier-to-debug backend scripts.
 - AI steering-only mode keeps fixed throttle while driving straight.

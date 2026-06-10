@@ -208,6 +208,8 @@ The GUI should use `/video_feed` for live preview. `/api/camera/frame.jpg` remai
 The camera status now reports these live-frame metrics:
 
 - `target_fps`
+- `target_capture_fps`
+- `target_live_preview_fps`
 - `measured_capture_fps`
 - `last_capture_loop_ms`
 - `average_capture_loop_ms`

@@ -81,11 +81,20 @@
     <section class="st-card" id="settingsCameraPanel" data-panel-role="settings">
       <div class="st-card-head"><h2>Camera settings</h2><span class="st-code-pill" data-code-for="camera">PISD-OK-000</span></div>
       <form id="stCameraForm" class="st-form-grid">
-        <label>Width <input name="width" type="number" min="160" max="1920" value="426"></label><label>Height <input name="height" type="number" min="120" max="1080" value="240"></label><label>FPS <input name="fps" type="number" min="1" max="60" value="12"></label><label>JPEG quality <input name="preview_quality" type="number" min="10" max="95" value="65"></label>
+        <label>Width <input name="width" type="number" min="160" max="1920" value="426"></label><label>Height <input name="height" type="number" min="120" max="1080" value="240"></label><label>Camera capture FPS <input name="fps" type="number" min="1" max="120" value="30"></label><label>Live preview FPS <input name="live_preview_fps" type="number" min="1" max="60" value="20"></label><label>JPEG quality <input name="preview_quality" type="number" min="10" max="95" value="65"></label>
         <label>Capture source <select name="capture_source"><option value="request">request</option><option value="array">array</option></select></label><label>Array colour order <select name="array_color_order"><option value="rgb">rgb</option><option value="bgr">bgr</option><option value="auto">auto</option></select></label>
         <label>Auto exposure <select name="auto_exposure" data-type="boolean"><option value="true">true</option><option value="false">false</option></select></label><label>Exposure us <input name="exposure_us" type="number" min="100" max="200000" value="12000"></label>
         <label>Auto WB <select name="auto_white_balance" data-type="boolean"><option value="true">true</option><option value="false">false</option></select></label><label>AWB mode <select name="awb_mode"><option value="auto">auto</option><option value="daylight">daylight</option><option value="cloudy">cloudy</option><option value="tungsten">tungsten</option><option value="fluorescent">fluorescent</option></select></label>
       </form>
+    </section>
+
+
+    <section class="st-card" id="settingsAISettingsPanel" data-panel-role="settings">
+      <div class="st-card-head"><h2>AI rate settings</h2><span class="st-code-pill" data-code-for="ai_mode">PISD-OK-000</span></div>
+      <form id="stAIForm" class="st-form-grid">
+        <label>AI prediction FPS <input name="update_hz" type="number" min="1" max="60" step="1" value="20"></label>
+      </form>
+      <p class="st-help">This is the global model inference rate. It is separate from camera capture FPS and live preview FPS.</p>
     </section>
 
     <section class="st-card" id="settingsMotorPanel" data-panel-role="settings">

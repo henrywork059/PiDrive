@@ -49,7 +49,7 @@ DEFAULT_RUNTIME_SETTINGS: dict[str, Any] = {
         "manual_correction_enabled": False,
         "manual_mix_percent": 50.0,
         "manual_correction_timeout_s": 0.75,
-        "update_hz": 12.0,
+        "update_hz": 20.0,
         "command_timeout_s": 0.75,
         "output_mode": "steering_and_throttle",
         "preview_only_by_default": True,
@@ -259,6 +259,15 @@ class SettingsManager:
         # runtime_settings.json files from keeping the old red-prone default,
         # while preserving user-chosen camera profiles.
         camera = merged.setdefault("camera", {})
+        camera_defaults = self.defaults.get("camera", {})
+        for key, lower, upper, default in (
+            ("fps", 1, 120, camera_defaults.get("fps", 30)),
+            ("live_preview_fps", 1, 60, camera_defaults.get("live_preview_fps", 20)),
+        ):
+            try:
+                camera[key] = max(lower, min(upper, int(round(float(camera.get(key, default))))))
+            except Exception:
+                camera[key] = int(default)
         self._apply_camera_default_profile_migration(camera)
 
         # Clamp persisted motor limits as settings are loaded, not only when the
@@ -361,7 +370,7 @@ class SettingsManager:
             ("throttle_smoothing", 0.0, 1.0, ai_defaults.get("throttle_smoothing", 0.25)),
             ("manual_mix_percent", 0.0, 100.0, ai_defaults.get("manual_mix_percent", 50.0)),
             ("manual_correction_timeout_s", 0.1, 3.0, ai_defaults.get("manual_correction_timeout_s", 0.75)),
-            ("update_hz", 1.0, 60.0, ai_defaults.get("update_hz", 12.0)),
+            ("update_hz", 1.0, 60.0, ai_defaults.get("update_hz", 20.0)),
             ("command_timeout_s", 0.2, 3.0, ai_defaults.get("command_timeout_s", 0.75)),
         ):
             try:

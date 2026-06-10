@@ -86,7 +86,7 @@ For this stable GUI baseline, test on the Pi browser after applying the package:
 - AI Mode can upload/delete model files safely inside `PiSD/models/` and reports clearer load/runtime diagnostics.
 - TFLite model loading supports piTrainer exports more reliably, including single-output `[steering, throttle]`, multi-output fallback handling, quantized input/output handling, and NumPy tensor shape handling.
 - AI runtime setup guidance and helper scripts are included for Pis missing `tflite_runtime`, `ai_edge_litert`, or TensorFlow Lite.
-- AI control loop uses cached camera frames to better follow the configured Update Hz; the allowed AI update-rate maximum is now `60`.
+- AI control loop uses cached camera frames and frame IDs to follow the configured AI prediction FPS; the allowed AI prediction-rate maximum is now `60`.
 - Manual Drive and AI Mode expose one short Start live action; Dashboard and Testing Server keep one technical camera/live diagnostic action; camera/live/record/run controls stay above the preview image so they remain visible before the user looks at the frame.
 - AI Mode recording and snapshot buttons use the shared recording service and include overlay sidecar metadata.
 - AI Mode `Limiter / correction` adds a correction pane with Manual Drive-style drag-pad/arrow-key additive AI correction, user-settable correction percentage, `r` recording shortcut, and `s` snapshot shortcut; fixed-throttle mode still enforces fixed throttle after correction.

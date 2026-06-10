@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from io import BytesIO
 from datetime import datetime, timezone
 from pathlib import Path
@@ -164,7 +165,7 @@ def create_app(hardware_enabled: bool = False):
                 {"method": "GET", "path": "/api/camera/capabilities", "purpose": "Read Picamera2 capabilities when available."},
                 {"method": "POST", "path": "/api/camera/apply", "purpose": "Apply camera settings and restart camera."},
                 {"method": "GET", "path": "/api/camera/frame.jpg", "purpose": "Fetch one cached JPEG frame/snapshot."},
-                {"method": "GET", "path": "/video_feed", "purpose": "Multipart MJPEG live preview feed using frame notifications."},
+                {"method": "GET", "path": "/video_feed", "purpose": "Multipart MJPEG live preview feed throttled by global camera.live_preview_fps."},
                 {"method": "GET", "path": "/api/camera/fps-stats", "purpose": "Read measured camera capture, encode, and frame-byte statistics."},
                 {"method": "GET", "path": "/api/presentation/manifest", "purpose": "Read shared style/presentation source-of-truth and page layout contracts."},
                 {"method": "GET", "path": "/api/motor/config", "purpose": "Read current motor settings."},
@@ -208,6 +209,7 @@ def create_app(hardware_enabled: bool = False):
                     "width": 426,
                     "height": 240,
                     "fps": 30,
+                    "live_preview_fps": 20,
                     "preview_quality": 50,
                     "buffer_count": 4,
                     "queue": True,
@@ -387,7 +389,7 @@ def create_app(hardware_enabled: bool = False):
         if not applied:
             latest = settings_manager.errors.latest()
             return jsonify(report_payload(False, latest, message, settings=settings)), 500
-        return jsonify(ok_payload(message, settings=settings, camera=camera_service.get_config(), motor=motor_service.get_config()))
+        return jsonify(ok_payload(message, settings=settings, camera=camera_service.get_config(), motor=motor_service.get_config(), ai=ai_drive_service.status()))
 
     @app.post("/api/settings/reset")
     def api_settings_reset():
@@ -398,7 +400,7 @@ def create_app(hardware_enabled: bool = False):
         if not applied:
             latest = settings_manager.errors.latest()
             return jsonify(report_payload(False, latest, message, settings=settings)), 500
-        return jsonify(ok_payload("Runtime settings reset to defaults.", settings=settings, camera=camera_service.get_config(), motor=motor_service.get_config()))
+        return jsonify(ok_payload("Runtime settings reset to defaults.", settings=settings, camera=camera_service.get_config(), motor=motor_service.get_config(), ai=ai_drive_service.status()))
 
     @app.get("/api/status")
     def api_status():
@@ -509,9 +511,20 @@ def create_app(hardware_enabled: bool = False):
 
     @app.get("/video_feed")
     def video_feed():
+        def _live_preview_interval() -> float:
+            try:
+                settings = settings_manager.get()
+                camera_settings = settings.get("camera") if isinstance(settings.get("camera"), dict) else {}
+                fps = float(camera_settings.get("live_preview_fps", camera_service.config.live_preview_fps))
+            except Exception:
+                fps = float(getattr(camera_service.config, "live_preview_fps", 20) or 20)
+            fps = max(1.0, min(60.0, fps))
+            return 1.0 / fps
+
         def generate():
             camera_service.start()
             last_seq = None
+            last_sent_at = 0.0
             while True:
                 frame, seq, _timestamp, _bytes = camera_service.wait_for_jpeg_frame(last_seq=last_seq, timeout=2.0)
                 if frame is None:
@@ -519,11 +532,17 @@ def create_app(hardware_enabled: bool = False):
                 if last_seq is not None and seq == last_seq:
                     continue
                 last_seq = seq
+                now = time.monotonic()
+                interval = _live_preview_interval()
+                if last_sent_at > 0.0 and (now - last_sent_at) < interval:
+                    continue
+                last_sent_at = now
                 yield (
                     b"--frame\r\n"
                     b"Content-Type: image/jpeg\r\n"
                     + f"X-PiSD-Frame-Seq: {seq}\r\n".encode("ascii")
-                    + f"X-PiSD-Frame-Bytes: {_bytes}\r\n\r\n".encode("ascii")
+                    + f"X-PiSD-Frame-Bytes: {_bytes}\r\n".encode("ascii")
+                    + f"X-PiSD-Live-Preview-FPS: {1.0 / interval:.0f}\r\n\r\n".encode("ascii")
                     + frame
                     + b"\r\n"
                 )

@@ -1246,7 +1246,7 @@ python3 PiSD.py --status-only
 Browser/Pi checks to perform on hardware:
 
 1. Open `/ai-mode` and confirm `Confirm safe test + enable motors` is in the top AI workflow panel.
-2. Click `Settings`, set `Camera FPS`, apply it, and confirm the popup reports the saved target FPS.
+2. Click `Settings`, set Camera capture FPS, Live preview FPS, and AI prediction FPS, apply them, and confirm the popup reports the saved global rates.
 3. Start live, load a model, start AI preview, switch to Manual pad, drag and release the pad.
 4. Confirm motor output stops on release but the AI overlay continues updating.
 5. Confirm `STOP AI + motors` and Space STOP still stop both AI and motors.

@@ -14,8 +14,13 @@ function clampNumber(value, min, max, fallback) { const n = Number(value); retur
 function formPayload(form) { const payload = {}; for (const el of form.elements) { if (!el.name) continue; if (el.dataset.type === 'boolean') payload[el.name] = el.value === 'true'; else if (el.type === 'number' || el.type === 'range' || el.tagName === 'SELECT') payload[el.name] = numberMaybe(el.value); else payload[el.name] = el.value; } return payload; }
 function normaliseSettingsForUi(settings = {}) {
   const next = JSON.parse(JSON.stringify(settings || {}));
+  next.camera = next.camera || {};
+  next.ai_mode = next.ai_mode || {};
   next.motor = next.motor || {};
   next.manual_drive = next.manual_drive || {};
+  next.camera.fps = clampNumber(next.camera.fps ?? 30, 1, 120, 30);
+  next.camera.live_preview_fps = clampNumber(next.camera.live_preview_fps ?? 20, 1, 60, 20);
+  next.ai_mode.update_hz = clampNumber(next.ai_mode.update_hz ?? 20, 1, 60, 20);
   next.motor.left_max_speed = clampNumber(next.motor.left_max_speed ?? 1.0, 0, 1.0, 1.0);
   next.motor.right_max_speed = clampNumber(next.motor.right_max_speed ?? 1.0, 0, 1.0, 1.0);
   next.motor.steer_mix = clampNumber(next.motor.steer_mix ?? 1.0, 0, 1.0, 1.0);
@@ -34,8 +39,8 @@ function normaliseSettingsForUi(settings = {}) {
 }
 function fillForm(form, values = {}) { if (!form || !values) return; for (const el of form.elements) { if (!el.name || values[el.name] === undefined) continue; el.value = String(values[el.name]); } updateOutputs(form); }
 function updateOutputs(root=document) { root.querySelectorAll('input[type="range"]').forEach(input => { const out = input.parentElement?.querySelector('output'); if (out) out.textContent = input.value; }); }
-function gatherSettings() { return normaliseSettingsForUi({ camera: formPayload(document.getElementById('stCameraForm')), motor: formPayload(document.getElementById('stMotorForm')), manual_drive: formPayload(document.getElementById('stManualDriveForm')), panel_presentation: formPayload(document.getElementById('stPresentationForm')) }); }
-function fillAll(settings={}) { settings = normaliseSettingsForUi(settings); fillForm(document.getElementById('stCameraForm'), settings.camera); fillForm(document.getElementById('stMotorForm'), settings.motor); fillForm(document.getElementById('stManualDriveForm'), settings.manual_drive); fillForm(document.getElementById('stPresentationForm'), settings.panel_presentation); if (settings.panel_presentation && window.PiSDPanelPresentation) window.PiSDPanelPresentation.apply(settings.panel_presentation); }
+function gatherSettings() { return normaliseSettingsForUi({ camera: formPayload(document.getElementById('stCameraForm')), ai_mode: formPayload(document.getElementById('stAIForm')), motor: formPayload(document.getElementById('stMotorForm')), manual_drive: formPayload(document.getElementById('stManualDriveForm')), panel_presentation: formPayload(document.getElementById('stPresentationForm')) }); }
+function fillAll(settings={}) { settings = normaliseSettingsForUi(settings); fillForm(document.getElementById('stCameraForm'), settings.camera); fillForm(document.getElementById('stAIForm'), settings.ai_mode); fillForm(document.getElementById('stMotorForm'), settings.motor); fillForm(document.getElementById('stManualDriveForm'), settings.manual_drive); fillForm(document.getElementById('stPresentationForm'), settings.panel_presentation); if (settings.panel_presentation && window.PiSDPanelPresentation) window.PiSDPanelPresentation.apply(settings.panel_presentation); }
 function storeLocal(settings) { settings = normaliseSettingsForUi(settings); localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({ ...settings, saved_at: new Date().toISOString() })); if (settings.panel_presentation && window.PiSDPanelPresentation) window.PiSDPanelPresentation.save(settings.panel_presentation); }
 async function settingsApi(method, path, body) { const options={method,headers:{}}; if(body!==undefined&&method!=='GET'){options.headers['Content-Type']='application/json';options.body=JSON.stringify(body);} const res=await fetch(path,options); const payload=await res.json(); logResponse(`${method} ${path}`, payload, res.status); return payload; }
 async function loadSettings() { const payload = await settingsApi('GET','/api/settings'); if (payload.settings) { fillAll(payload.settings); storeLocal(payload.settings); } setSettingsCode('settings', payload.code); }

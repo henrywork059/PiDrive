@@ -59,6 +59,9 @@ class AIDriveService:
         self._mode = "idle"  # idle | preview | drive
         self._drive_output_enabled = False
         self._last_frame_seq = 0
+        self._last_inference_frame_seq = 0
+        self._last_prediction_reused = False
+        self._prediction_reuse_count = 0
         self._loop_consecutive_failures = 0
         self._last_raw = {"steering": 0.0, "throttle": 0.0}
         self._last_mixed = {"steering": 0.0, "throttle": 0.0}
@@ -101,7 +104,7 @@ class AIDriveService:
                 "manual_correction_enabled": str(data.get("manual_correction_enabled", self._settings.get("manual_correction_enabled", False))).lower() in {"true", "1", "yes", "on"},
                 "manual_mix_percent": clamp_float(data.get("manual_mix_percent", self._settings.get("manual_mix_percent", 50.0)), 0.0, 100.0, 50.0),
                 "manual_correction_timeout_s": clamp_float(data.get("manual_correction_timeout_s", self._settings.get("manual_correction_timeout_s", 0.75)), 0.1, 3.0, 0.75),
-                "update_hz": clamp_float(data.get("update_hz", self._settings.get("update_hz", 12.0)), 1.0, 60.0, 12.0),
+                "update_hz": clamp_float(data.get("update_hz", self._settings.get("update_hz", 20.0)), 1.0, 60.0, 20.0),
                 "command_timeout_s": clamp_float(data.get("command_timeout_s", self._settings.get("command_timeout_s", 0.75)), 0.2, 3.0, 0.75),
                 "output_mode": str(data.get("output_mode", self._settings.get("output_mode", "steering_and_throttle")) or "steering_and_throttle"),
                 "preview_only_by_default": str(data.get("preview_only_by_default", self._settings.get("preview_only_by_default", True))).lower() not in {"false", "0", "no", "off"},
@@ -143,6 +146,9 @@ class AIDriveService:
                 "mode": self._mode,
                 "drive_output_enabled": bool(self._drive_output_enabled),
                 "last_frame_seq": int(self._last_frame_seq),
+                "last_inference_frame_seq": int(self._last_inference_frame_seq),
+                "last_prediction_reused": bool(self._last_prediction_reused),
+                "prediction_reuse_count": int(self._prediction_reuse_count),
                 "loop_consecutive_failures": int(self._loop_consecutive_failures),
                 "model_id": self._model_id,
                 "model_path": str(self._model_path or ""),
@@ -547,6 +553,8 @@ class AIDriveService:
             self._last_mixed = {"steering": 0.0, "throttle": 0.0}
             self._last_safe = {"steering": 0.0, "throttle": 0.0}
             self._last_loop_hz = 0.0
+            self._last_prediction_reused = False
+            self._prediction_reuse_count = 0
         if stop_motors and motor_service is not None:
             try:
                 motor_service.stop()
@@ -562,10 +570,22 @@ class AIDriveService:
         if load_result is not None:
             return load_result
         try:
-            frame = self._get_frame(camera_service)
-            started = time.perf_counter()
-            raw_steering, raw_throttle = self._predict_from_jpeg(frame)
-            inference_ms = (time.perf_counter() - started) * 1000.0
+            frame, frame_seq, _frame_at, _byte_count = self._get_frame_info(camera_service)
+            with self._lock:
+                previous_inference_seq = int(self._last_inference_frame_seq)
+                have_previous_prediction = bool(self._last_prediction_at)
+                previous_raw = dict(self._last_raw)
+
+            prediction_reused = bool(have_previous_prediction and frame_seq and int(frame_seq) == previous_inference_seq)
+            if prediction_reused:
+                raw_steering = clamp_float(previous_raw.get("steering", 0.0), -1.0, 1.0, 0.0)
+                raw_throttle = clamp_float(previous_raw.get("throttle", 0.0), -1.0, 1.0, 0.0)
+                inference_ms = 0.0
+            else:
+                started = time.perf_counter()
+                raw_steering, raw_throttle = self._predict_from_jpeg(frame)
+                inference_ms = (time.perf_counter() - started) * 1000.0
+
             mixed = self._mix_manual_correction(raw_steering, raw_throttle)
             safe = self.apply_safety(mixed["steering"], mixed["throttle"])
             left = right = 0.0
@@ -588,9 +608,16 @@ class AIDriveService:
                 self._last_motor = {"left": float(left_intended), "right": float(right_intended), "left_hardware": float(left), "right_hardware": float(right)}
                 self._last_prediction_at = _utc_now()
                 self._last_inference_ms = float(inference_ms)
+                self._last_prediction_reused = bool(prediction_reused)
+                if prediction_reused:
+                    self._prediction_reuse_count += 1
+                else:
+                    self._last_inference_frame_seq = int(frame_seq or 0)
+                    self._prediction_reuse_count = 0
                 self._last_error = ""
                 self._last_error_code = PiSDErrorCodes.OK
-            return ok_payload("AI prediction completed.", raw_prediction=self._last_raw, corrected_command=self._last_mixed, mixed_command=self._last_mixed, safe_command=self._last_safe, motor_output=self._last_motor, ai=self.status())
+            message = "AI prediction reused latest result." if prediction_reused else "AI prediction completed."
+            return ok_payload(message, raw_prediction=self._last_raw, corrected_command=self._last_mixed, mixed_command=self._last_mixed, safe_command=self._last_safe, motor_output=self._last_motor, prediction_reused=prediction_reused, ai=self.status())
         except Exception as exc:
             report = self._record_error(PiSDErrorCodes.AI_INFERENCE_FAILED, f"AI prediction failed: {exc}", exc=exc)
             if drive and motor_service is not None:
@@ -792,17 +819,13 @@ class AIDriveService:
             self._backend = "tensorflow.keras"
             self._backend_detail = "tensorflow.keras"
 
-    def _get_frame(self, camera_service: Any) -> bytes:
-        """Return the latest camera JPEG for AI inference without forcing a new frame.
+    def _get_frame_info(self, camera_service: Any) -> tuple[bytes, int, str, int]:
+        """Return the latest shared camera frame and its frame id for AI inference.
 
-        PiSD 0.9.10 changes the AI loop from "wait for a newer camera frame on
-        every inference" to "use the latest available frame immediately, waiting
-        only when no frame has arrived yet".  The previous behaviour made the AI
-        motor-control update rate effectively limited by camera frame delivery or
-        by a timeout/retry path, so the user-set Update Hz could feel ignored even
-        when TFLite inference itself was fast.  Reusing the latest cached frame is
-        acceptable for control: it keeps the motors refreshed at the requested
-        rate while the camera continues to update independently.
+        PiSD_0_11_6 splits camera capture, browser preview upload, and AI
+        prediction into separate rates.  The AI loop reads from the shared latest
+        camera frame buffer and uses the frame sequence number to avoid running
+        expensive inference repeatedly on the same image.
         """
         try:
             camera_service.start()
@@ -824,7 +847,7 @@ class AIDriveService:
                 self._last_frame_seq = int(seq or 0)
                 self._last_frame_at = str(source_frame_at or "")
                 self._last_frame_bytes = int(byte_count or len(frame) or 0)
-            return frame
+            return frame, int(seq or 0), str(source_frame_at or ""), int(byte_count or len(frame) or 0)
 
         deadline = time.monotonic() + 1.2
         while time.monotonic() < deadline:
@@ -837,9 +860,13 @@ class AIDriveService:
                     self._last_frame_seq = int(seq or 0)
                     self._last_frame_at = str(source_frame_at or "")
                     self._last_frame_bytes = int(byte_count or len(frame) or 0)
-                return frame
+                return frame, int(seq or 0), str(source_frame_at or ""), int(byte_count or len(frame) or 0)
             time.sleep(0.01)
         raise RuntimeError(f"No camera frame available for AI inference after camera warm-up. last_seq={seq}, bytes={byte_count}, at={source_frame_at}")
+
+    def _get_frame(self, camera_service: Any) -> bytes:
+        frame, _seq, _frame_at, _byte_count = self._get_frame_info(camera_service)
+        return frame
 
     def _prepare_input(self, frame: bytes) -> Any:
         from io import BytesIO
@@ -1001,7 +1028,7 @@ class AIDriveService:
                     drove_motors = True
                 result = self.predict_once(camera_service, motor_service, drive=drive_now)
                 elapsed = time.perf_counter() - started
-                interval = 1.0 / max(1.0, float(self._settings.get("update_hz", 12.0)))
+                interval = 1.0 / max(1.0, float(self._settings.get("update_hz", 20.0)))
                 if not result.get("ok"):
                     with self._lock:
                         self._loop_consecutive_failures += 1

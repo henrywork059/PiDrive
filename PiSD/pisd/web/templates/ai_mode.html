@@ -49,21 +49,28 @@
           <div class="mdrv-overlay-settings-head">
             <div>
               <p class="mdrv-label">AI workflow settings</p>
-              <h3 id="aiWorkflowSettingsTitle">Camera settings</h3>
+              <h3 id="aiWorkflowSettingsTitle">Rate settings</h3>
             </div>
             <button id="aiWorkflowSettingsClose" class="mdrv-button" type="button" aria-label="Close AI workflow settings">Close</button>
           </div>
-          <p class="mdrv-overlay-calibration-note">Set the camera capture target used by live preview, AI preview, AI drive, snapshots, and recordings. Applying may restart the camera.</p>
+          <p class="mdrv-overlay-calibration-note">Set the three shared global rates. Camera capture creates real frames, live preview only controls browser upload, and AI prediction controls model inference. Applying may restart the camera only when capture FPS changes.</p>
           <div class="mdrv-overlay-settings-grid mdrv-overlay-settings-grid-compact ai-settings-grid">
             <fieldset>
               <legend>Camera</legend>
-              <label><span>Camera FPS<small>Target capture rate. Higher FPS needs more Pi CPU.</small></span><input id="aiCameraFps" type="number" min="1" max="120" step="1" inputmode="numeric"></label>
-              <label><span>Current target<small>Loaded from the active camera config.</small></span><output id="aiCameraFpsCurrent">-</output></label>
+              <label><span>Camera capture FPS<small>Real PiCamera frame source.</small></span><input id="aiCameraCaptureFps" type="number" min="1" max="120" step="1" inputmode="numeric"></label>
+              <label><span>Current capture<small>Loaded from global camera.fps.</small></span><output id="aiCameraCaptureFpsCurrent">-</output></label>
+              <label><span>Live preview FPS<small>Browser upload only. Does not limit AI.</small></span><input id="aiLivePreviewFps" type="number" min="1" max="60" step="1" inputmode="numeric"></label>
+              <label><span>Current preview<small>Loaded from global camera.live_preview_fps.</small></span><output id="aiLivePreviewFpsCurrent">-</output></label>
+            </fieldset>
+            <fieldset>
+              <legend>AI</legend>
+              <label><span>AI prediction FPS<small>Model inference rate using latest frame.</small></span><input id="aiAiPredictionFps" type="number" min="1" max="60" step="1" inputmode="numeric"></label>
+              <label><span>Current prediction<small>Loaded from global ai_mode.update_hz.</small></span><output id="aiAiPredictionFpsCurrent">-</output></label>
             </fieldset>
           </div>
           <div class="mdrv-overlay-settings-actions">
             <span class="mdrv-overlay-settings-status" id="aiWorkflowSettingsStatus">Ready</span>
-            <button id="aiWorkflowSettingsApply" class="mdrv-button mdrv-primary" type="button">Apply camera FPS</button>
+            <button id="aiWorkflowSettingsApply" class="mdrv-button mdrv-primary" type="button">Apply FPS settings</button>
           </div>
         </div>
       </div>
@@ -211,11 +218,11 @@ python3 scripts/check_ai_runtime.py</pre>
             <label class="ai-field"><span>Max throttle</span><input id="aiMaxThrottle" type="range" min="0" max="1.0" step="0.01"><output id="aiMaxThrottleOut">0.22</output></label>
             <label class="ai-field"><span>Max steering</span><input id="aiMaxSteering" type="range" min="0" max="1" step="0.01"><output id="aiMaxSteeringOut">0.70</output></label>
             <label class="ai-field"><span>Fixed throttle</span><input id="aiFixedThrottle" type="range" min="0" max="1.0" step="0.01"><output id="aiFixedThrottleOut">0.16</output></label>
-            <label class="ai-field"><span>Update Hz</span><input id="aiUpdateHz" type="range" min="1" max="60" step="1"><output id="aiUpdateHzOut">12</output></label>
+            <label class="ai-field"><span>AI prediction FPS</span><input id="aiUpdateHz" type="range" min="1" max="60" step="1"><output id="aiUpdateHzOut">20</output></label>
             <label class="ai-field"><span>Steering smoothing</span><input id="aiSteerSmooth" type="range" min="0" max="1" step="0.05"><output id="aiSteerSmoothOut">0.35</output></label>
             <label class="ai-field"><span>Throttle smoothing</span><input id="aiThrottleSmooth" type="range" min="0" max="1" step="0.05"><output id="aiThrottleSmoothOut">0.25</output></label>
           </div>
-          <p class="mdrv-help ai-range-note">Limits clamp AI output before the motors. Reverse steering keeps the same sign.</p>
+          <p class="mdrv-help ai-range-note">Limits clamp AI output before the motors. AI prediction FPS is independent from live preview FPS. Reverse steering keeps the same sign.</p>
         </div>
         <div id="aiCorrectionPane" class="ai-output-pane ai-correction-pane" role="tabpanel" aria-labelledby="aiCorrectionTab" hidden>
           <p class="ai-note">Correction = AI + manual × %. Space = STOP.</p>

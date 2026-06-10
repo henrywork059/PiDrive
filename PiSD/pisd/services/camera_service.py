@@ -102,6 +102,7 @@ _KNOWN_CAMERA_KEYS = {
     "width",
     "height",
     "fps",
+    "live_preview_fps",
     "format",
     "preview_quality",
     "jpeg_quality",
@@ -181,7 +182,8 @@ def _parse_scaler_crop(value: Any) -> list[int] | None:
 class CameraConfig:
     width: int = 426
     height: int = 240
-    fps: int = 12
+    fps: int = 30
+    live_preview_fps: int = 20
     format: str = "BGR888"
     preview_quality: int = 65
     capture_source: str = "request"
@@ -219,6 +221,7 @@ class CameraConfig:
         self.width = clamp_int(data.get("width", self.width), 64, 3840, self.width)
         self.height = clamp_int(data.get("height", self.height), 48, 2160, self.height)
         self.fps = clamp_int(data.get("fps", self.fps), 1, 120, self.fps)
+        self.live_preview_fps = clamp_int(data.get("live_preview_fps", self.live_preview_fps), 1, 60, self.live_preview_fps)
         self.format = str(data.get("format", self.format) or self.format).upper()
         quality_value = data.get("preview_quality", data.get("jpeg_quality", self.preview_quality))
         self.preview_quality = clamp_int(quality_value, 20, 95, self.preview_quality)
@@ -272,6 +275,7 @@ class CameraConfig:
             "width": int(self.width),
             "height": int(self.height),
             "fps": int(self.fps),
+            "live_preview_fps": int(self.live_preview_fps),
             "format": str(self.format),
             "preview_quality": int(self.preview_quality),
             "capture_source": str(self.capture_source),
@@ -418,6 +422,7 @@ class CameraService:
                     "width": 426,
                     "height": 240,
                     "fps": 30,
+                    "live_preview_fps": 20,
                     "preview_quality": 50,
                     "buffer_count": 4,
                     "queue": True,
@@ -651,6 +656,8 @@ class CameraService:
                 measured = (len(times) - 1) / elapsed
             return {
                 "target_fps": int(self.config.fps),
+                "target_capture_fps": int(self.config.fps),
+                "target_live_preview_fps": int(self.config.live_preview_fps),
                 "measured_capture_fps": round(measured, 2),
                 "last_capture_loop_ms": round(float(self._last_loop_ms), 3),
                 "average_capture_loop_ms": round(float(self._avg_loop_ms), 3),
@@ -661,6 +668,7 @@ class CameraService:
                 "frame_seq": int(self.frame_seq),
                 "last_frame_at": str(self.last_frame_at),
                 "stream_endpoint": "/video_feed",
+                "live_preview_endpoint": "/video_feed",
                 "snapshot_endpoint": "/api/camera/frame.jpg",
             }
 
@@ -753,6 +761,7 @@ class CameraService:
                     "size": [self.config.width, self.config.height],
                     "format": self.config.format,
                     "fps": self.config.fps,
+                    "live_preview_fps": self.config.live_preview_fps,
                     "frame_duration_us": frame_duration,
                     "buffer_count": self.config.buffer_count,
                     "queue": self.config.queue,

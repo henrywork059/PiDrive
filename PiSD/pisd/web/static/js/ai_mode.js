@@ -2,7 +2,7 @@
   const initial = JSON.parse(document.getElementById('aiModeInitialStatus')?.textContent || '{}');
   const els = {};
   const ids = [
-    'aiGlobalCode', 'aiRunMode', 'aiModelReady', 'aiWorkflowSettingsOpen', 'aiWorkflowSettingsPopup', 'aiWorkflowSettingsClose', 'aiWorkflowSettingsApply', 'aiWorkflowSettingsStatus', 'aiCameraFps', 'aiCameraFpsCurrent', 'aiPreviewFrame', 'aiPreviewImage', 'aiPreviewCaption', 'aiSaveSnapshot', 'aiLive', 'aiRecordToggle', 'aiRecordingState', 'aiStopCamera',
+    'aiGlobalCode', 'aiRunMode', 'aiModelReady', 'aiWorkflowSettingsOpen', 'aiWorkflowSettingsPopup', 'aiWorkflowSettingsClose', 'aiWorkflowSettingsApply', 'aiWorkflowSettingsStatus', 'aiCameraCaptureFps', 'aiCameraCaptureFpsCurrent', 'aiLivePreviewFps', 'aiLivePreviewFpsCurrent', 'aiAiPredictionFps', 'aiAiPredictionFpsCurrent', 'aiPreviewFrame', 'aiPreviewImage', 'aiPreviewCaption', 'aiSaveSnapshot', 'aiLive', 'aiRecordToggle', 'aiRecordingState', 'aiStopCamera',
     'aiOverlayToggle', 'aiOverlayMode', 'aiOverlayCurveLabel', 'aiOverlayCar', 'aiOverlaySurface', 'aiOverlayPathWide', 'aiOverlayPathGuide', 'aiOverlayPath',
     'aiOverlayEndpoint', 'aiOverlayStartPoint', 'aiOverlayThrottleFill', 'aiOverlaySteeringFill', 'aiOverlayThrottleValue', 'aiOverlaySteeringValue',
     'aiOverlayRawSteering', 'aiOverlayRawThrottle', 'aiOverlayLeftValue', 'aiOverlayRightValue',
@@ -200,7 +200,7 @@
       max_throttle: Number(els.aiMaxThrottle?.value || 0.22),
       max_steering: Number(els.aiMaxSteering?.value || 0.70),
       fixed_throttle: Number(els.aiFixedThrottle?.value || 0.16),
-      update_hz: Number(els.aiUpdateHz?.value || 12),
+      update_hz: Number(els.aiUpdateHz?.value || 20),
       steering_smoothing: Number(els.aiSteerSmooth?.value || 0.35),
       throttle_smoothing: Number(els.aiThrottleSmooth?.value || 0.25),
       manual_correction_enabled: outputPanelMode === 'correction',
@@ -259,7 +259,7 @@
     setRange('aiMaxThrottle', 'aiMaxThrottleOut', config.max_throttle ?? 0.22, 2, { force });
     setRange('aiMaxSteering', 'aiMaxSteeringOut', config.max_steering ?? 0.70, 2, { force });
     setRange('aiFixedThrottle', 'aiFixedThrottleOut', config.fixed_throttle ?? 0.16, 2, { force });
-    setRange('aiUpdateHz', 'aiUpdateHzOut', config.update_hz ?? 12, 0, { force });
+    setRange('aiUpdateHz', 'aiUpdateHzOut', config.update_hz ?? 20, 0, { force });
     setRange('aiSteerSmooth', 'aiSteerSmoothOut', config.steering_smoothing ?? 0.35, 2, { force });
     setRange('aiThrottleSmooth', 'aiThrottleSmoothOut', config.throttle_smoothing ?? 0.25, 2, { force });
     setPercentRange('aiManualMix', 'aiManualMixOut', config.manual_mix_percent ?? 50, { force });
@@ -497,7 +497,10 @@
     if (els.aiLoopHz) els.aiLoopHz.textContent = `${fmt(ai.loop_hz, 1)} Hz`;
     if (els.aiDriveOutputState) els.aiDriveOutputState.textContent = ai.drive_output_enabled ? 'armed' : 'off';
     if (els.aiFrameSeq) els.aiFrameSeq.textContent = String(ai.last_frame_seq ?? 0);
-    if (ai.settings) renderConfig(ai.settings, { force: Boolean(options.forceConfig) });
+    if (ai.settings) {
+      renderConfig(ai.settings, { force: Boolean(options.forceConfig) });
+      renderAIPredictionWorkflowSettings(ai.settings, { force: Boolean(options.forceConfig) });
+    }
     updateAIOverlay(ai);
   }
 
@@ -565,10 +568,28 @@
   }
 
   function renderCameraWorkflowSettings(camera = {}, options = {}) {
-    const fps = Math.round(clamp(camera.fps ?? camera.target_fps ?? 12, 1, 120, 12));
-    if (els.aiCameraFpsCurrent) els.aiCameraFpsCurrent.textContent = `${fps} FPS`;
-    if (els.aiCameraFps && (options.force || document.activeElement !== els.aiCameraFps)) {
-      els.aiCameraFps.value = String(fps);
+    const captureFps = Math.round(clamp(camera.fps ?? camera.target_capture_fps ?? camera.target_fps ?? 30, 1, 120, 30));
+    const livePreviewFps = Math.round(clamp(camera.live_preview_fps ?? camera.target_live_preview_fps ?? 20, 1, 60, 20));
+    if (els.aiCameraCaptureFpsCurrent) els.aiCameraCaptureFpsCurrent.textContent = `${captureFps} FPS`;
+    if (els.aiLivePreviewFpsCurrent) els.aiLivePreviewFpsCurrent.textContent = `${livePreviewFps} FPS`;
+    if (els.aiCameraCaptureFps && (options.force || document.activeElement !== els.aiCameraCaptureFps)) {
+      els.aiCameraCaptureFps.value = String(captureFps);
+    }
+    if (els.aiLivePreviewFps && (options.force || document.activeElement !== els.aiLivePreviewFps)) {
+      els.aiLivePreviewFps.value = String(livePreviewFps);
+    }
+  }
+
+  function renderAIPredictionWorkflowSettings(aiSettings = {}, options = {}) {
+    const config = aiSettings.settings || aiSettings;
+    const predictionFps = Math.round(clamp(config.update_hz ?? 20, 1, 60, 20));
+    if (els.aiAiPredictionFpsCurrent) els.aiAiPredictionFpsCurrent.textContent = `${predictionFps} FPS`;
+    if (els.aiAiPredictionFps && (options.force || document.activeElement !== els.aiAiPredictionFps)) {
+      els.aiAiPredictionFps.value = String(predictionFps);
+    }
+    if (els.aiUpdateHz && (options.force || document.activeElement !== els.aiUpdateHz)) {
+      els.aiUpdateHz.value = String(predictionFps);
+      if (els.aiUpdateHzOut) els.aiUpdateHzOut.textContent = fmt(predictionFps, 0);
     }
   }
 
@@ -586,6 +607,7 @@
 
   function renderGlobalSettings(settings = {}, options = {}) {
     if (settings.camera) renderCameraWorkflowSettings(settings.camera, options);
+    if (settings.ai_mode) renderAIPredictionWorkflowSettings(settings.ai_mode, options);
     if (settings.manual_drive) renderManualDriveGlobalSettings(settings.manual_drive, options);
   }
 
@@ -593,8 +615,8 @@
     try {
       const data = await api('/api/settings');
       renderGlobalSettings(data.settings || {}, { force: true });
-      setWorkflowSettingsStatus('Global camera settings loaded.', 'ready');
-      return (data.settings || {}).camera || {};
+      setWorkflowSettingsStatus('Global rate settings loaded.', 'ready');
+      return data.settings || {};
     } catch (err) {
       setWorkflowSettingsStatus(`Load failed: ${err.message}`, 'error');
       log(err.message, err.payload || {});
@@ -606,9 +628,9 @@
     if (!els.aiWorkflowSettingsPopup) return;
     els.aiWorkflowSettingsPopup.hidden = false;
     document.body.classList.add('mdrv-overlay-settings-open-body');
-    setWorkflowSettingsStatus('Loading camera settings...', 'ready');
+    setWorkflowSettingsStatus('Loading global rate settings...', 'ready');
     loadWorkflowCameraSettings().finally(() => {
-      window.setTimeout(() => els.aiCameraFps?.focus?.(), 0);
+      window.setTimeout(() => els.aiCameraCaptureFps?.focus?.(), 0);
     });
   }
 
@@ -620,15 +642,20 @@
   }
 
   async function applyWorkflowCameraSettings() {
-    const fps = Math.round(clamp(els.aiCameraFps?.value, 1, 120, 12));
-    if (els.aiCameraFps) els.aiCameraFps.value = String(fps);
-    setWorkflowSettingsStatus('Applying global camera FPS...', 'busy');
+    const captureFps = Math.round(clamp(els.aiCameraCaptureFps?.value, 1, 120, 30));
+    const livePreviewFps = Math.round(clamp(els.aiLivePreviewFps?.value, 1, 60, 20));
+    const predictionFps = Math.round(clamp(els.aiAiPredictionFps?.value, 1, 60, 20));
+    if (els.aiCameraCaptureFps) els.aiCameraCaptureFps.value = String(captureFps);
+    if (els.aiLivePreviewFps) els.aiLivePreviewFps.value = String(livePreviewFps);
+    if (els.aiAiPredictionFps) els.aiAiPredictionFps.value = String(predictionFps);
+    setWorkflowSettingsStatus('Applying global FPS settings...', 'busy');
     try {
-      const data = await api('/api/settings/apply', { method: 'POST', body: { camera: { fps } } });
+      const data = await api('/api/settings/apply', { method: 'POST', body: { camera: { fps: captureFps, live_preview_fps: livePreviewFps }, ai_mode: { update_hz: predictionFps } } });
       renderGlobalSettings(data.settings || {}, { force: true });
       renderCameraWorkflowSettings(data.camera || (data.settings || {}).camera || {}, { force: true });
-      setWorkflowSettingsStatus(`Saved global camera FPS: ${fps}`, 'ready');
-      log('AI workflow global Camera FPS saved.', { fps, camera: data.camera || {}, settings: data.settings || {} });
+      renderAIPredictionWorkflowSettings((data.settings || {}).ai_mode || data.ai || {}, { force: true });
+      setWorkflowSettingsStatus(`Saved global FPS: capture ${captureFps}, preview ${livePreviewFps}, AI ${predictionFps}`, 'ready');
+      log('AI workflow global FPS settings saved.', { camera_capture_fps: captureFps, live_preview_fps: livePreviewFps, ai_prediction_fps: predictionFps, camera: data.camera || {}, settings: data.settings || {} });
       await refreshStatus();
     } catch (err) {
       setWorkflowSettingsStatus(`Save failed: ${err.message}`, 'error');
@@ -1291,7 +1318,7 @@
         log('AI recording stopped.', data.stopped_session || data.recording || {});
       } else {
         await api('/api/camera/start', { method: 'POST', body: {} }).catch(() => null);
-        const fps = clamp(Number(els.aiUpdateHz?.value || 12), 0.2, 30, 12);
+        const fps = clamp(Number(els.aiUpdateHz?.value || 20), 0.2, 30, 20);
         const data = await api('/api/recording/start', { method: 'POST', body: { label: 'ai_mode', fps, command_source: 'ai_safe_command' } });
         renderRecording(data.recording || {});
         log('AI recording started.', data.recording?.active_session || data.recording || {});
@@ -1601,7 +1628,7 @@
     els.aiWorkflowSettingsOpen?.addEventListener('click', openWorkflowSettingsPopup);
     els.aiWorkflowSettingsClose?.addEventListener('click', closeWorkflowSettingsPopup);
     els.aiWorkflowSettingsApply?.addEventListener('click', applyWorkflowCameraSettings);
-    els.aiCameraFps?.addEventListener('keydown', (event) => { if (event.key === 'Enter') applyWorkflowCameraSettings(); });
+    ['aiCameraCaptureFps', 'aiLivePreviewFps', 'aiAiPredictionFps'].forEach((id) => { els[id]?.addEventListener('keydown', (event) => { if (event.key === 'Enter') applyWorkflowCameraSettings(); }); });
     els.aiWorkflowSettingsPopup?.addEventListener('click', (event) => { if (event.target === els.aiWorkflowSettingsPopup) closeWorkflowSettingsPopup(); });
     els.aiRefreshModels?.addEventListener('click', refreshModels);
     els.aiLoadModel?.addEventListener('click', loadModel);

@@ -2,7 +2,7 @@
   "camera": {
     "width": 426,
     "height": 240,
-    "fps": 12,
+    "fps": 30,
     "format": "BGR888",
     "preview_quality": 65,
     "capture_source": "request",
@@ -28,7 +28,8 @@
     "saturation": 1.0,
     "sharpness": 1.0,
     "noise_reduction_mode": "fast",
-    "scaler_crop": null
+    "scaler_crop": null,
+    "live_preview_fps": 20
   },
   "motor": {
     "left_pins": [
