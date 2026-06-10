@@ -28,7 +28,7 @@
         <button id="stExportSettings" class="st-button">Export</button>
         <label class="st-import">Import <input id="stImportSettings" type="file" accept="application/json"></label>
       </div>
-      <p class="st-help">Panel presentation, manual drive defaults, camera, and motor settings are kept in <code>config/runtime_settings.json</code>. Browser localStorage is only a fallback/cache.</p>
+      <p class="st-help">Panel presentation, manual drive defaults, camera, and motor settings use one global source: <code>config/runtime_settings.json</code>. Pages may mirror loaded values for display, but saved settings must come from the backend settings API.</p>
     </section>
 
     <section class="st-card" id="settingsPanelPresentationPanel" data-panel-role="settings">
@@ -70,7 +70,7 @@
     <section class="st-card" id="settingsManualDrivePanel" data-panel-role="settings">
       <div class="st-card-head"><h2>Manual drive defaults</h2><span class="st-code-pill" data-code-for="manual_drive">PISD-OK-000</span></div>
       <form id="stManualDriveForm" class="st-form-grid">
-        <label>Speed <input name="speed" type="range" min="0.08" max="1.0" step="0.01" value="0.18"><output></output></label>
+        <label>Speed <input name="speed" type="range" min="0.08" max="1.0" step="0.01" value="0.80"><output></output></label>
         <label>Max speed limit <input name="max_speed_limit" type="range" min="0.10" max="1.0" step="0.01" value="1.0"><output></output></label>
         <label>Recording FPS <input name="recording_fps" type="number" min="0.2" max="30" step="0.5" value="6"></label>
         <label>Drag send interval ms <input name="drag_send_interval_ms" type="number" min="40" max="500" step="10" value="90"></label>

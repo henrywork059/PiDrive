@@ -3,10 +3,9 @@
 
   const $ = id => document.getElementById(id);
   const initialStatus = JSON.parse($('manualDriveInitialStatus')?.textContent || '{}');
-  const LEGACY_STORAGE_KEY = 'pisd.manualDrive.v1';
   const SETTINGS_STORAGE_KEY = 'pisd.runtimeSettings.v2';
   const DEFAULTS = {
-    speed: 0.18,
+    speed: 0.80,
     max_speed_limit: 1.0,
     drag_send_interval_ms: 90,
     recording_fps: 6,
@@ -854,13 +853,8 @@
     return next;
   }
 
-  function readLegacyPrefs() {
-    try { return JSON.parse(localStorage.getItem(LEGACY_STORAGE_KEY) || '{}') || {}; }
-    catch (_err) { return {}; }
-  }
-
   async function loadSettings() {
-    let settings = readRuntimeLocal();
+    let settings = null;
     try {
       const response = await fetch('/api/settings', { cache: 'no-store' });
       if (response.ok) {
@@ -871,7 +865,7 @@
         }
       }
     } catch (_err) {}
-    const legacy = readLegacyPrefs();
+    if (!settings) settings = readRuntimeLocal();
     const serverManual = settings.manual_drive || {};
     latestMotorSettings = normaliseMotorOverlaySettings({ ...DEFAULT_MOTOR_SETTINGS, ...(settings.motor || {}) });
     writeMotorStartControls(latestMotorSettings);
@@ -880,7 +874,7 @@
       ...DEFAULTS,
       ...serverManual,
       max_speed_limit: limit,
-      speed: clamp(legacy.speed || serverManual.speed || DEFAULTS.speed, 0.0, limit, DEFAULTS.speed),
+      speed: clamp(serverManual.speed ?? DEFAULTS.speed, 0.0, limit, DEFAULTS.speed),
       overlay: normaliseOverlaySettings(serverManual.overlay || DEFAULTS.overlay),
     };
     if (speed) { speed.max = String(manual.max_speed_limit); speed.value = manual.speed; }
@@ -899,9 +893,12 @@
       overlay: normaliseOverlaySettings(overlaySettings),
     };
     writeRuntimeLocal({ manual_drive });
-    localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify({ speed: String(manual_drive.speed) }));
     try {
-      await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ manual_drive }) });
+      const response = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ manual_drive }) });
+      if (response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        if (payload.settings) localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(payload.settings));
+      }
     } catch (_err) {}
   }
 

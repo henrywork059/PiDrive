@@ -212,8 +212,8 @@ def check_source_contract() -> Result:
             "aiWorkflowSettingsOpen",
             "aiWorkflowSettingsPopup",
             "aiCameraFps",
-            "/api/camera/config",
-            "/api/camera/apply",
+            "/api/settings",
+            "/api/settings/apply",
             "applyWorkflowCameraSettings",
             "keep_ai_preview: true",
             "AI preview kept",
@@ -221,7 +221,7 @@ def check_source_contract() -> Result:
         ],
         "global_space_js": ["PiSDGlobalSpaceStop", "space-global-stop", "/api/control/stop", "/api/ai/stop", "stopImmediatePropagation"],
         "recording_panel_js": ["PiSDRecordingDownloadPanels", "/api/recording/items", "/api/recording/download.zip", "/api/recording/delete", "data-recording-download-panel"],
-        "app": ["keep_ai_preview", "Motors stopped; AI preview kept.", "ai=ai_drive_service.status()"],
+        "app": ["keep_ai_preview", "Motors stopped; AI preview kept.", "ai=ai_drive_service.status()", "settings=settings_manager.get()"],
     }
     sources = {"template": template, "css": css, "js": js, "global_space_js": global_space_js, "recording_panel_js": recording_panel_js, "app": app_py}
     missing = {name: [token for token in tokens if token not in sources[name]] for name, tokens in required.items()}

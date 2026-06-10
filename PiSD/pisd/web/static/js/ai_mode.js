@@ -32,6 +32,10 @@
     min_inside_speed: 0.0,
     allow_pivot_turn: false,
   };
+  const DEFAULT_MANUAL_DRIVE_SETTINGS = {
+    speed: 0.80,
+    max_speed_limit: 1.0,
+  };
 
   let statusTimer = null;
   let aiRunning = false;
@@ -63,6 +67,7 @@
   let manualDriveKeyboardLoopHandle = 0;
   let manualDriveKeyboardLastFrameAt = 0;
   let configAutoSaveTimer = 0;
+  let manualDriveSettingsSaveTimer = 0;
   let configAutoSaveInFlight = false;
   let configAutoSaveQueued = false;
   let configEditVersion = 0;
@@ -448,7 +453,8 @@
     try {
       const data = await api('/api/ai/status');
       updateOverlayMotorSettings(data.motor || {});
-      renderCameraWorkflowSettings(data.camera || {});
+      renderGlobalSettings(data.settings || {}, { force: false });
+      renderCameraWorkflowSettings(data.camera || (data.settings || {}).camera || {});
       renderAI(data.ai || {});
       renderRecording(data.recording || {});
       if (els.aiGlobalCode) els.aiGlobalCode.textContent = data.code || 'PISD-OK-000';
@@ -501,12 +507,29 @@
     }
   }
 
+  function renderManualDriveGlobalSettings(manual = {}, options = {}) {
+    const limit = clamp(manual.max_speed_limit ?? DEFAULT_MANUAL_DRIVE_SETTINGS.max_speed_limit, 0.1, 1.0, DEFAULT_MANUAL_DRIVE_SETTINGS.max_speed_limit);
+    const speed = clamp(manual.speed ?? DEFAULT_MANUAL_DRIVE_SETTINGS.speed, 0, limit, DEFAULT_MANUAL_DRIVE_SETTINGS.speed);
+    if (els.aiManualDriveSpeed) {
+      els.aiManualDriveSpeed.max = String(limit);
+      if (options.force || document.activeElement !== els.aiManualDriveSpeed) {
+        els.aiManualDriveSpeed.value = String(speed);
+      }
+    }
+    updateManualDriveReadout();
+  }
+
+  function renderGlobalSettings(settings = {}, options = {}) {
+    if (settings.camera) renderCameraWorkflowSettings(settings.camera, options);
+    if (settings.manual_drive) renderManualDriveGlobalSettings(settings.manual_drive, options);
+  }
+
   async function loadWorkflowCameraSettings() {
     try {
-      const data = await api('/api/camera/config');
-      renderCameraWorkflowSettings(data.config || {}, { force: true });
-      setWorkflowSettingsStatus('Camera settings loaded.', 'ready');
-      return data.config || {};
+      const data = await api('/api/settings');
+      renderGlobalSettings(data.settings || {}, { force: true });
+      setWorkflowSettingsStatus('Global camera settings loaded.', 'ready');
+      return (data.settings || {}).camera || {};
     } catch (err) {
       setWorkflowSettingsStatus(`Load failed: ${err.message}`, 'error');
       log(err.message, err.payload || {});
@@ -534,12 +557,13 @@
   async function applyWorkflowCameraSettings() {
     const fps = Math.round(clamp(els.aiCameraFps?.value, 1, 120, 12));
     if (els.aiCameraFps) els.aiCameraFps.value = String(fps);
-    setWorkflowSettingsStatus('Applying camera FPS...', 'busy');
+    setWorkflowSettingsStatus('Applying global camera FPS...', 'busy');
     try {
-      const data = await api('/api/camera/apply', { method: 'POST', body: { fps } });
-      renderCameraWorkflowSettings(data.config || {}, { force: true });
-      setWorkflowSettingsStatus(`Saved camera FPS: ${fps}`, 'ready');
-      log('AI workflow camera FPS saved.', { fps, camera: data.config || {} });
+      const data = await api('/api/settings/apply', { method: 'POST', body: { camera: { fps } } });
+      renderGlobalSettings(data.settings || {}, { force: true });
+      renderCameraWorkflowSettings(data.camera || (data.settings || {}).camera || {}, { force: true });
+      setWorkflowSettingsStatus(`Saved global camera FPS: ${fps}`, 'ready');
+      log('AI workflow global Camera FPS saved.', { fps, camera: data.camera || {}, settings: data.settings || {} });
       await refreshStatus();
     } catch (err) {
       setWorkflowSettingsStatus(`Save failed: ${err.message}`, 'error');
@@ -644,7 +668,8 @@
   }
 
   function manualDriveSpeedLimit() {
-    return clamp(els.aiManualDriveSpeed?.value || 0.18, 0, 1, 0.18);
+    const limit = clamp(els.aiManualDriveSpeed?.max || DEFAULT_MANUAL_DRIVE_SETTINGS.max_speed_limit, 0.1, 1.0, DEFAULT_MANUAL_DRIVE_SETTINGS.max_speed_limit);
+    return clamp(els.aiManualDriveSpeed?.value ?? DEFAULT_MANUAL_DRIVE_SETTINGS.speed, 0, limit, DEFAULT_MANUAL_DRIVE_SETTINGS.speed);
   }
 
   function updateManualDriveStatus(message, state = 'ready') {
@@ -1060,6 +1085,26 @@
     return window.PiSDRecordingDownloadPanels?.ai?.refresh?.() || Promise.resolve(null);
   }
 
+  async function saveManualDriveSpeedSetting(options = {}) {
+    if (manualDriveSettingsSaveTimer) {
+      clearTimeout(manualDriveSettingsSaveTimer);
+      manualDriveSettingsSaveTimer = 0;
+    }
+    const speed = manualDriveSpeedLimit();
+    try {
+      const data = await api('/api/settings', { method: 'POST', body: { manual_drive: { speed } } });
+      renderGlobalSettings(data.settings || {}, { force: Boolean(options.force) });
+      if (!options.quiet) log('Global manual speed saved.', { speed, settings: data.settings || {} });
+    } catch (err) {
+      log(err.message, err.payload || {});
+    }
+  }
+
+  function scheduleManualDriveSpeedSave(delayMs = 450) {
+    if (manualDriveSettingsSaveTimer) clearTimeout(manualDriveSettingsSaveTimer);
+    manualDriveSettingsSaveTimer = setTimeout(() => saveManualDriveSpeedSetting({ quiet: true }), delayMs);
+  }
+
   function wireRanges() {
     [
       ['aiMaxThrottle', 'aiMaxThrottleOut', 2], ['aiMaxSteering', 'aiMaxSteeringOut', 2], ['aiFixedThrottle', 'aiFixedThrottleOut', 2],
@@ -1086,7 +1131,8 @@
       scheduleConfigAutoSave(650);
     });
     els.aiManualMix?.addEventListener('change', () => { markConfigDirty('aiManualMix'); saveConfig({ quiet: true }); });
-    els.aiManualDriveSpeed?.addEventListener('input', () => setManualDriveKnob(manualDriveSteering, manualDriveThrottle));
+    els.aiManualDriveSpeed?.addEventListener('input', () => { setManualDriveKnob(manualDriveSteering, manualDriveThrottle); scheduleManualDriveSpeedSave(450); });
+    els.aiManualDriveSpeed?.addEventListener('change', () => saveManualDriveSpeedSetting({ quiet: true, force: false }));
   }
 
   function bindCorrectionPad() {
@@ -1303,7 +1349,8 @@
   setPreview('idle', '');
   setOverlayEnabled(true);
   updateOverlayMotorSettings(initial.motor || {});
-  renderCameraWorkflowSettings(initial.camera || {}, { force: true });
+  renderGlobalSettings(initial.settings || {}, { force: true });
+  renderCameraWorkflowSettings(initial.camera || (initial.settings || {}).camera || {}, { force: true });
   setCorrectionKnob(0, 0);
   setManualDriveKnob(0, 0);
   renderAI((initial.ai_mode || {}));

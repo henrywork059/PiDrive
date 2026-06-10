@@ -112,15 +112,15 @@
         <span>I confirm the wheels are lifted and motor output is safe to test.</span>
       </label>
       <div class="md-control-grid" aria-label="Manual drive controls">
-        <button class="md-drive-button" data-steering="0" data-throttle="0.18" disabled>Forward</button>
-        <button class="md-drive-button" data-steering="-0.35" data-throttle="0.18" disabled>Left</button>
+        <button class="md-drive-button" data-steering="0" data-throttle="0.80" disabled>Forward</button>
+        <button class="md-drive-button" data-steering="-0.35" data-throttle="0.80" disabled>Left</button>
         <button id="mdStopAllCenter" class="md-drive-button md-drive-stop">STOP</button>
-        <button class="md-drive-button" data-steering="0.35" data-throttle="0.18" disabled>Right</button>
-        <button class="md-drive-button" data-steering="0" data-throttle="-0.18" disabled>Reverse</button>
+        <button class="md-drive-button" data-steering="0.35" data-throttle="0.80" disabled>Right</button>
+        <button class="md-drive-button" data-steering="0" data-throttle="-0.80" disabled>Reverse</button>
       </div>
       <label class="md-inline-control">Speed
-        <input id="mdManualSpeed" type="range" min="0.08" max="1.0" step="0.01" value="0.18">
-        <output id="mdManualSpeedValue">0.18</output>
+        <input id="mdManualSpeed" type="range" min="0.08" max="1.0" step="0.01" value="0.80">
+        <output id="mdManualSpeedValue">0.80</output>
       </label>
       <p id="mdManualSafetyText" class="md-warning-text">Movement buttons are locked until the safety checkbox is enabled. STOP remains active.</p>
     </section>

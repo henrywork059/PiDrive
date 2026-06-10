@@ -27,7 +27,7 @@ function normaliseSettingsForUi(settings = {}) {
   next.motor.left_bias = clampNumber(next.motor.left_bias ?? 0.0, -0.35, 0.35, 0.0);
   next.motor.right_bias = clampNumber(next.motor.right_bias ?? 0.0, -0.35, 0.35, 0.0);
   next.manual_drive.max_speed_limit = clampNumber(next.manual_drive.max_speed_limit ?? 1.0, 0.1, 1.0, 1.0);
-  next.manual_drive.speed = clampNumber(next.manual_drive.speed ?? 0.18, 0, next.manual_drive.max_speed_limit, 0.18);
+  next.manual_drive.speed = clampNumber(next.manual_drive.speed ?? 0.80, 0, next.manual_drive.max_speed_limit, 0.80);
   delete next.manual_drive.steer_strength;
   next.manual_drive.recording_fps = clampNumber(next.manual_drive.recording_fps ?? 6, 0.2, 30, 6);
   return next;
@@ -39,7 +39,7 @@ function fillAll(settings={}) { settings = normaliseSettingsForUi(settings); fil
 function storeLocal(settings) { settings = normaliseSettingsForUi(settings); localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({ ...settings, saved_at: new Date().toISOString() })); if (settings.panel_presentation && window.PiSDPanelPresentation) window.PiSDPanelPresentation.save(settings.panel_presentation); }
 async function settingsApi(method, path, body) { const options={method,headers:{}}; if(body!==undefined&&method!=='GET'){options.headers['Content-Type']='application/json';options.body=JSON.stringify(body);} const res=await fetch(path,options); const payload=await res.json(); logResponse(`${method} ${path}`, payload, res.status); return payload; }
 async function loadSettings() { const payload = await settingsApi('GET','/api/settings'); if (payload.settings) { fillAll(payload.settings); storeLocal(payload.settings); } setSettingsCode('settings', payload.code); }
-async function saveSettings(apply=false) { const settings = gatherSettings(); storeLocal(settings); if (settings.panel_presentation && window.PiSDPanelPresentation) window.PiSDPanelPresentation.apply(settings.panel_presentation); const payload = await settingsApi('POST', apply ? '/api/settings/apply' : '/api/settings', settings); if (payload.settings) { fillAll(payload.settings); storeLocal(payload.settings); } setSettingsCode('settings', payload.code); }
+async function saveSettings(apply=false) { const settings = gatherSettings(); if (settings.panel_presentation && window.PiSDPanelPresentation) window.PiSDPanelPresentation.apply(settings.panel_presentation); const payload = await settingsApi('POST', apply ? '/api/settings/apply' : '/api/settings', settings); if (payload.settings) { fillAll(payload.settings); storeLocal(payload.settings); } setSettingsCode('settings', payload.code); }
 async function resetSettings() { const payload = await settingsApi('POST','/api/settings/reset',{}); if (payload.settings) { fillAll(payload.settings); storeLocal(payload.settings); } setSettingsCode('settings', payload.code); }
 function exportSettings() { const blob = new Blob([JSON.stringify(gatherSettings(), null, 2)], {type:'application/json'}); const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='pisd_runtime_settings.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(url),500); }
 function importSettings(file) { const reader = new FileReader(); reader.onload = () => { try { const settings = JSON.parse(reader.result); fillAll(settings); storeLocal(settings); logResponse('import settings file', {ok:true, code:'PISD-OK-000', message:'Settings imported into form. Click Save and apply.'}); } catch(err) { logResponse('import settings file', {ok:false, code:'PISD-SET-003', message:String(err)}); } }; reader.readAsText(file); }
@@ -50,6 +50,6 @@ document.getElementById('stResetSettings')?.addEventListener('click', resetSetti
 document.getElementById('stExportSettings')?.addEventListener('click', exportSettings);
 document.getElementById('stImportSettings')?.addEventListener('change', e => { if(e.target.files?.[0]) importSettings(e.target.files[0]); });
 document.getElementById('stStopAll')?.addEventListener('click', () => settingsApi('POST','/api/control/stop',{}));
-document.querySelectorAll('input, select').forEach(el => el.addEventListener('input', () => { updateOutputs(document); const s=gatherSettings(); storeLocal(s); if (s.panel_presentation && window.PiSDPanelPresentation) window.PiSDPanelPresentation.apply(s.panel_presentation); }));
+document.querySelectorAll('input, select').forEach(el => el.addEventListener('input', () => { updateOutputs(document); const s=gatherSettings(); if (s.panel_presentation && window.PiSDPanelPresentation) window.PiSDPanelPresentation.apply(s.panel_presentation); }));
 updateOutputs(document);
 loadSettings().catch(err => logResponse('load settings failed', {ok:false, code:'PISD-API-002', message:String(err)}));

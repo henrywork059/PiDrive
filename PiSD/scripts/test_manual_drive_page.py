@@ -204,7 +204,7 @@ def check_source_contract() -> list[Result]:
     ]
     required_js = [
         "manualDriveInitialStatus",
-        "pisd.manualDrive.v1",
+        
         "pisd.runtimeSettings.v2",
         "/api/status",
         "/api/camera/start",

@@ -18,7 +18,7 @@ DEFAULT_RUNTIME_SETTINGS: dict[str, Any] = {
     "camera": {},
     "motor": {},
     "manual_drive": {
-        "speed": 0.18,
+        "speed": 0.80,
         "max_speed_limit": 1.0,
         "drag_send_interval_ms": 90,
         "preview_mode": "live",
@@ -305,9 +305,9 @@ class SettingsManager:
         # Legacy saved steer_strength is ignored and removed from normalised settings.
         manual.pop("steer_strength", None)
         try:
-            manual["speed"] = max(0.0, min(1.0, float(manual.get("speed", self.defaults["manual_drive"].get("speed", 0.18)))))
+            manual["speed"] = max(0.0, min(1.0, float(manual.get("speed", self.defaults["manual_drive"].get("speed", 0.80)))))
         except Exception:
-            manual["speed"] = self.defaults["manual_drive"].get("speed", 0.18)
+            manual["speed"] = self.defaults["manual_drive"].get("speed", 0.80)
         try:
             manual["max_speed_limit"] = max(0.1, min(1.0, float(manual.get("max_speed_limit", 1.0))))
         except Exception:

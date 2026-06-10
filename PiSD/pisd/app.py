@@ -440,7 +440,12 @@ def create_app(hardware_enabled: bool = False):
 
     @app.get("/api/camera/config")
     def api_camera_config():
-        return jsonify(ok_payload("Camera config loaded.", config=camera_service.get_config()))
+        return jsonify(ok_payload(
+            "Camera config loaded from global runtime settings.",
+            config=camera_service.get_config(),
+            settings=settings_manager.get(),
+            source_of_truth="config/runtime_settings.json:camera",
+        ))
 
     @app.get("/api/camera/capabilities")
     def api_camera_capabilities():
@@ -457,9 +462,11 @@ def create_app(hardware_enabled: bool = False):
             return jsonify(report_payload(False, json_error)), 400
         try:
             ok, message, config = camera_service.apply_settings(data, restart=True)
-            settings_manager.save({"camera": camera_service.config.as_dict()})
+            settings_saved, settings, settings_report = settings_manager.save({"camera": camera_service.config.as_dict()})
+            if not settings_saved:
+                return jsonify(report_payload(False, settings_report, "Camera settings applied but global settings were not saved.", config=config, settings=settings)), 500
             report = camera_service.errors.latest() if not ok else None
-            return jsonify(report_payload(ok, report, message, config=config, settings=settings_manager.get()))
+            return jsonify(report_payload(ok, report, message, config=config, settings=settings, source_of_truth="config/runtime_settings.json:camera"))
         except Exception as exc:
             report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"Camera apply API failed: {exc}", exc=exc)
             return jsonify(report_payload(False, report)), 500
@@ -625,7 +632,15 @@ def create_app(hardware_enabled: bool = False):
 
     @app.get("/api/ai/status")
     def api_ai_status():
-        return jsonify(ok_payload("AI mode status loaded.", ai=ai_drive_service.status(), motor=motor_service.status(), recording=recording_service.status()))
+        return jsonify(ok_payload(
+            "AI mode status loaded.",
+            ai=ai_drive_service.status(),
+            motor=motor_service.status(),
+            camera=camera_service.status(),
+            settings=settings_manager.get(),
+            recording=recording_service.status(),
+            source_of_truth="config/runtime_settings.json",
+        ))
 
     @app.get("/api/ai/models")
     def api_ai_models():

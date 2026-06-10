@@ -21,6 +21,8 @@ const manualSpeedValue = document.getElementById('mdManualSpeedValue');
 const manualSafetyText = document.getElementById('mdManualSafetyText');
 const driveButtons = Array.from(document.querySelectorAll('.md-drive-button[data-steering]'));
 const channelSubmit = document.querySelector('#mdMotorChannelForm button[type="submit"]');
+const DEFAULT_MANUAL_SPEED = 0.80;
+let manualSpeedSaveTimer = 0;
 
 function isOkCode(code) {
   return String(code || '').startsWith('PISD-OK');
@@ -43,6 +45,12 @@ function clampUnit(value) {
   const number = Number(value);
   if (!Number.isFinite(number)) return 0;
   return Math.max(-1, Math.min(1, number));
+}
+
+function clampNumber(value, min, max, fallback) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.max(min, Math.min(max, number));
 }
 
 function signedText(value) {
@@ -154,7 +162,39 @@ function renderStatus(status) {
   statusJson.textContent = JSON.stringify(status, null, 2);
   setPanelCode('system-status', status.code || 'PISD-OK-000');
   setCode(globalCode, status.code || 'PISD-OK-000');
+  applyGlobalSettings(status.settings || {});
   updateDriveOverlay(status.motor || {});
+}
+
+function applyGlobalSettings(settings = {}) {
+  const manual = settings.manual_drive || {};
+  const maxSpeed = clampNumber(manual.max_speed_limit ?? 1.0, 0.1, 1.0, 1.0);
+  const speed = clampNumber(manual.speed ?? DEFAULT_MANUAL_SPEED, 0, maxSpeed, DEFAULT_MANUAL_SPEED);
+  if (manualSpeed) {
+    manualSpeed.max = String(maxSpeed);
+    if (document.activeElement !== manualSpeed) manualSpeed.value = String(speed);
+  }
+  if (manualSpeedValue) manualSpeedValue.textContent = Number(manualSpeed?.value || speed).toFixed(2);
+}
+
+async function saveGlobalManualSpeed() {
+  if (manualSpeedSaveTimer) {
+    clearTimeout(manualSpeedSaveTimer);
+    manualSpeedSaveTimer = 0;
+  }
+  const maxSpeed = clampNumber(manualSpeed?.max ?? 1.0, 0.1, 1.0, 1.0);
+  const speed = clampNumber(manualSpeed?.value ?? DEFAULT_MANUAL_SPEED, 0, maxSpeed, DEFAULT_MANUAL_SPEED);
+  try {
+    const { payload } = await apiCall('POST', '/api/settings', { manual_drive: { speed } }, 'manual-drive');
+    if (payload.settings) applyGlobalSettings(payload.settings);
+  } catch (error) {
+    logAction('manual speed save failed', { ok: false, code: 'PISD-API-002', message: String(error) });
+  }
+}
+
+function scheduleGlobalManualSpeedSave() {
+  if (manualSpeedSaveTimer) clearTimeout(manualSpeedSaveTimer);
+  manualSpeedSaveTimer = setTimeout(saveGlobalManualSpeed, 450);
 }
 
 async function refreshStatus() {
@@ -200,7 +240,7 @@ function updateMotorLock() {
 }
 
 function manualPayloadFromButton(button) {
-  const speed = Number(manualSpeed.value || 0.18);
+  const speed = Number(manualSpeed.value || DEFAULT_MANUAL_SPEED);
   const baseThrottle = Number(button.dataset.throttle || 0);
   const steering = Number(button.dataset.steering || 0);
   const throttle = baseThrottle === 0 ? 0 : Math.sign(baseThrottle) * speed;
@@ -289,7 +329,8 @@ function bindEvents() {
   document.getElementById('mdClearErrors').addEventListener('click', clearErrors);
   document.getElementById('mdMotorChannelForm').addEventListener('submit', sendChannelTest);
   motorArm.addEventListener('change', updateMotorLock);
-  manualSpeed.addEventListener('input', () => { manualSpeedValue.textContent = Number(manualSpeed.value).toFixed(2); });
+  manualSpeed.addEventListener('input', () => { manualSpeedValue.textContent = Number(manualSpeed.value).toFixed(2); scheduleGlobalManualSpeedSave(); });
+  manualSpeed.addEventListener('change', saveGlobalManualSpeed);
   driveButtons.forEach((button) => button.addEventListener('click', () => sendManual(button)));
 }
 
