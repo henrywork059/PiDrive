@@ -195,7 +195,7 @@ python3 scripts/check_ai_runtime.py</pre>
         <div class="mdrv-panel-head ai-panel-head">
           <div>
             <p class="mdrv-label ai-panel-kicker">Safety</p>
-            <h2>Limiter / correction / manual</h2>
+            <h2>Limiter / correction / manual / assist</h2>
           </div>
           <button id="aiSaveConfig" class="mdrv-button ai-button ai-button-secondary">Save AI settings</button>
         </div>
@@ -203,6 +203,7 @@ python3 scripts/check_ai_runtime.py</pre>
           <button id="aiLimiterTab" class="mdrv-button ai-panel-tab" type="button" role="tab" aria-controls="aiLimiterPane" aria-selected="true">Limiter</button>
           <button id="aiCorrectionTab" class="mdrv-button ai-panel-tab" type="button" role="tab" aria-controls="aiCorrectionPane" aria-selected="false">Correction</button>
           <button id="aiManualDriveTab" class="mdrv-button ai-panel-tab" type="button" role="tab" aria-controls="aiManualDrivePane" aria-selected="false">Manual pad</button>
+          <button id="aiAssistTab" class="mdrv-button ai-panel-tab" type="button" role="tab" aria-controls="aiAssistPane" aria-selected="false">AI assist</button>
         </div>
         <div id="aiLimiterPane" class="ai-output-pane" role="tabpanel" aria-labelledby="aiLimiterTab">
           <div class="ai-form-grid">
@@ -267,6 +268,37 @@ python3 scripts/check_ai_runtime.py</pre>
           </div>
           <p id="aiManualDriveStatus" class="mdrv-keyboard-status" data-state="ready">Manual pad ready. Confirm above before driving.</p>
           <p class="mdrv-help ai-range-note">Uses the guarded Manual Drive endpoint.</p>
+        </div>
+        <div id="aiAssistPane" class="ai-output-pane ai-assist-pane" role="tabpanel" aria-labelledby="aiAssistTab" hidden>
+          <p class="ai-note">Manual drive with AI steering assist. Output S = manual S + AI model S × %. Throttle stays manual.</p>
+          <label class="ai-field ai-assist-mix-field"><span>AI assist %</span><input id="aiAssistMix" type="range" min="0" max="100" step="1"><output id="aiAssistMixOut">50%</output></label>
+          <p class="ai-note ai-assist-speed-note">Manual speed uses the global Manual Drive speed setting.</p>
+          <div id="aiAssistPad" class="mdrv-drag-pad ai-assist-pad" role="application" aria-label="AI steering assist manual drive pad" tabindex="0">
+            <div class="mdrv-drag-cross"></div>
+            <div id="aiAssistKnob" class="mdrv-drag-knob"></div>
+            <div class="mdrv-drag-label top">Forward</div>
+            <div class="mdrv-drag-label bottom">Reverse</div>
+            <div class="mdrv-drag-label left">Left</div>
+            <div class="mdrv-drag-label right">Right</div>
+          </div>
+          <div class="mdrv-pad-readout ai-assist-readout">
+            <span>Manual S <strong id="aiAssistManualSteeringOut">+0.00</strong></span>
+            <span>AI S <strong id="aiAssistModelSteeringOut">+0.00</strong></span>
+            <span>Output S <strong id="aiAssistOutputSteeringOut">+0.00</strong></span>
+            <span>Manual T <strong id="aiAssistThrottleOut">+0.00</strong></span>
+            <span>Assist <strong id="aiAssistMixReadout">50%</strong></span>
+          </div>
+          <div class="ai-button-row">
+            <button id="aiAssistStop" class="mdrv-button mdrv-danger ai-button ai-button-danger" type="button">STOP assist</button>
+          </div>
+          <div class="mdrv-keyboard-hint ai-correction-keyboard" aria-label="AI steering assist keyboard controls">
+            <strong>AI assist keys</strong>
+            <span>↑/↓ throttle ±0.05 per press</span>
+            <span>hold ←/→ manual steering ±1 in 0.8 s; AI adds steering only</span>
+            <span>r record · s snapshot · Space STOP</span>
+          </div>
+          <p id="aiAssistStatus" class="mdrv-keyboard-status" data-state="ready">AI assist ready. Start AI preview for live steering assist.</p>
+          <p class="mdrv-help ai-range-note">AI assist uses the same global AI percentage as Correction %. No separate similar setting is created.</p>
         </div>
       </section>
 
@@ -343,6 +375,17 @@ python3 scripts/check_ai_runtime.py</pre>
           <button id="aiRefreshStatus" class="mdrv-button ai-button ai-button-secondary">Refresh status</button>
         </div>
         <pre id="aiLog" class="ai-console">AI mode ready.</pre>
+      </section>
+
+      <section class="mdrv-panel ai-panel ai-error-log-panel" id="aiErrorLogPanel">
+        <div class="mdrv-panel-head ai-panel-head">
+          <div>
+            <p class="mdrv-label ai-panel-kicker">Last error log</p>
+            <h2>Recent errors</h2>
+          </div>
+          <button id="aiRefreshErrors" class="mdrv-button ai-button ai-button-secondary" type="button">Refresh errors</button>
+        </div>
+        <pre id="aiLastErrorLog" class="ai-console ai-error-console">No recent errors.</pre>
       </section>
     </section>
   </main>

@@ -323,6 +323,9 @@ class CameraService:
         self.errors = ErrorReporter("camera")
         self._picam2 = None
         self._thread: threading.Thread | None = None
+        # Each camera start owns its own stop event.  Reusing one Event caused
+        # an old capture thread to wake back up if the camera was restarted
+        # before the previous thread had fully exited.
         self._stop_event = threading.Event()
         self._lock = threading.RLock()
         self._frame_lock = threading.Lock()
@@ -533,10 +536,28 @@ class CameraService:
         return warnings
 
     def start(self) -> tuple[bool, str]:
+        stale_thread: threading.Thread | None = None
         with self._lock:
             if self.running:
                 return True, f"Camera already running via {self.backend}."
-            self._stop_event.clear()
+            stale_thread = self._thread if self._thread and self._thread.is_alive() else None
+            if stale_thread is not None:
+                self._stop_event.set()
+
+        if stale_thread is not None:
+            stale_thread.join(timeout=2.0)
+
+        with self._lock:
+            if self.running:
+                return True, f"Camera already running via {self.backend}."
+            # If a previous Picamera2 instance or capture thread did not close
+            # cleanly, clean it up before opening hardware again.  This prevents
+            # Stop camera -> Start live from falling back to simulation because
+            # the old camera object was still holding the device.
+            self._close_picamera2_locked()
+            self._thread = None
+            self._stop_event = threading.Event()
+            stop_event = self._stop_event
             self._reset_fps_metrics()
 
             if self.hardware_enabled and Picamera2 is not None:
@@ -556,7 +577,7 @@ class CameraService:
                 self.backend = "simulation"
 
             self.running = True
-            self._thread = threading.Thread(target=self._capture_loop, name="pisd-camera", daemon=True)
+            self._thread = threading.Thread(target=self._capture_loop, args=(stop_event,), name="pisd-camera", daemon=True)
             self._thread.start()
             if self.backend == "picamera2":
                 return True, "Camera started with Picamera2."
@@ -566,21 +587,33 @@ class CameraService:
 
     def stop(self) -> tuple[bool, str]:
         thread: threading.Thread | None
+        stop_event: threading.Event
         with self._lock:
             if not self.running:
+                self._stop_event.set()
                 self._close_picamera2_locked()
                 self.backend = "not_started"
+                with self._frame_condition:
+                    self._latest_jpeg = None
+                    self._latest_raw = None
+                    self._last_frame_bytes = 0
+                    self._frame_condition.notify_all()
                 return True, "Camera already stopped."
             self.running = False
-            self._stop_event.set()
+            stop_event = self._stop_event
+            stop_event.set()
             thread = self._thread
         if thread is not None and thread.is_alive():
             thread.join(timeout=2.0)
         with self._lock:
-            self._thread = None
+            if self._thread is thread:
+                self._thread = None
             self._close_picamera2_locked()
             self.backend = "not_started"
         with self._frame_condition:
+            self._latest_jpeg = None
+            self._latest_raw = None
+            self._last_frame_bytes = 0
             self._frame_condition.notify_all()
         return True, "Camera stopped."
 
@@ -883,8 +916,9 @@ class CameraService:
             self._record(PiSDErrorCodes.CAMERA_STOP_FAILED, f"Failed to stop/close Picamera2: {exc}", exc=exc)
         self._picam2 = None
 
-    def _capture_loop(self) -> None:
-        while not self._stop_event.is_set():
+    def _capture_loop(self, stop_event: threading.Event | None = None) -> None:
+        local_stop_event = stop_event or self._stop_event
+        while not local_stop_event.is_set():
             start = time.time()
             try:
                 if self.backend == "picamera2" and self._picam2 is not None:
@@ -931,7 +965,7 @@ class CameraService:
                         )
             interval = 1.0 / max(self.config.fps, 1)
             elapsed = time.time() - start
-            self._stop_event.wait(max(0.001, interval - elapsed))
+            local_stop_event.wait(max(0.001, interval - elapsed))
 
     def _capture_picamera_request(self) -> tuple[Any, bytes | None]:
         if self._picam2 is None:

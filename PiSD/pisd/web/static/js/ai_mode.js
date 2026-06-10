@@ -9,11 +9,11 @@
     'aiRefreshModels', 'aiModelSelect', 'aiLoadModel', 'aiPredictOnce', 'aiDeleteModel', 'aiModelUploadFile', 'aiUploadModel', 'aiUploadHint', 'aiSelectedModel', 'aiBackend', 'aiInputShape', 'aiOutputNames', 'aiPiTrainerCompatible', 'aiRuntimeSupport', 'aiRuntimeHelp', 'aiRuntimeHelpCommands', 'aiLoadError', 'aiModelsDir',
     'aiEnableMotor', 'aiOutputMode', 'aiMaxThrottle', 'aiMaxThrottleOut', 'aiMaxSteering', 'aiMaxSteeringOut',
     'aiFixedThrottle', 'aiFixedThrottleOut', 'aiUpdateHz', 'aiUpdateHzOut', 'aiSteerSmooth', 'aiSteerSmoothOut', 'aiThrottleSmooth',
-    'aiThrottleSmoothOut', 'aiSaveConfig', 'aiLimiterTab', 'aiCorrectionTab', 'aiManualDriveTab', 'aiLimiterPane', 'aiCorrectionPane', 'aiManualDrivePane', 'aiManualMix', 'aiManualMixOut',
+    'aiThrottleSmoothOut', 'aiSaveConfig', 'aiLimiterTab', 'aiCorrectionTab', 'aiManualDriveTab', 'aiAssistTab', 'aiLimiterPane', 'aiCorrectionPane', 'aiManualDrivePane', 'aiAssistPane', 'aiManualMix', 'aiManualMixOut',
     'aiCorrectionPad', 'aiCorrectionKnob', 'aiCorrectionStatus', 'aiManualSteeringOut', 'aiManualThrottleOut', 'aiManualMixReadout',
-    'aiManualDriveSpeed', 'aiManualDriveSpeedOut', 'aiManualDrivePad', 'aiManualDriveKnob', 'aiManualDriveStatus', 'aiManualDriveSteeringOut', 'aiManualDriveThrottleOut', 'aiManualDriveStop',
+    'aiManualDriveSpeed', 'aiManualDriveSpeedOut', 'aiManualDrivePad', 'aiManualDriveKnob', 'aiManualDriveStatus', 'aiManualDriveSteeringOut', 'aiManualDriveThrottleOut', 'aiManualDriveStop', 'aiAssistMix', 'aiAssistMixOut', 'aiAssistMixReadout', 'aiAssistPad', 'aiAssistKnob', 'aiAssistStatus', 'aiAssistManualSteeringOut', 'aiAssistModelSteeringOut', 'aiAssistOutputSteeringOut', 'aiAssistThrottleOut', 'aiAssistStop',
     'aiStartPreview', 'aiStartDrive', 'aiStop', 'aiStopAll', 'aiRawSteering', 'aiRawThrottle', 'aiMixedSteering', 'aiMixedThrottle',
-    'aiSafeSteering', 'aiSafeThrottle', 'aiManualCorrectionState', 'aiLeftMotor', 'aiRightMotor', 'aiInferenceMs', 'aiLoopHz', 'aiDriveOutputState', 'aiFrameSeq', 'aiRefreshStatus', 'aiLog'
+    'aiSafeSteering', 'aiSafeThrottle', 'aiManualCorrectionState', 'aiLeftMotor', 'aiRightMotor', 'aiInferenceMs', 'aiLoopHz', 'aiDriveOutputState', 'aiFrameSeq', 'aiRefreshStatus', 'aiRefreshErrors', 'aiLog', 'aiLastErrorLog'
   ];
   ids.forEach((id) => { els[id] = document.getElementById(id); });
 
@@ -66,6 +66,16 @@
   let manualDriveKeyboardRightHeld = false;
   let manualDriveKeyboardLoopHandle = 0;
   let manualDriveKeyboardLastFrameAt = 0;
+  let assistDragging = false;
+  let assistManualSteering = 0;
+  let assistManualThrottle = 0;
+  let assistLastSentAt = 0;
+  let assistKeyboardSteering = 0;
+  let assistKeyboardThrottle = 0;
+  let assistKeyboardLeftHeld = false;
+  let assistKeyboardRightHeld = false;
+  let assistKeyboardLoopHandle = 0;
+  let assistKeyboardLastFrameAt = 0;
   let configAutoSaveTimer = 0;
   let manualDriveSettingsSaveTimer = 0;
   let configAutoSaveInFlight = false;
@@ -77,7 +87,7 @@
   const KEYBOARD_STEERING_FULL_SCALE_MS = 800;
   const AI_CONFIG_FIELD_IDS = [
     'aiOutputMode', 'aiMaxThrottle', 'aiMaxSteering', 'aiFixedThrottle',
-    'aiUpdateHz', 'aiSteerSmooth', 'aiThrottleSmooth', 'aiManualMix',
+    'aiUpdateHz', 'aiSteerSmooth', 'aiThrottleSmooth', 'aiManualMix', 'aiAssistMix',
   ];
 
   function clamp(value, min = -1, max = 1, fallback = 0) {
@@ -120,6 +130,48 @@
     if (els.aiLog) els.aiLog.textContent = `[${time}] ${body}`;
   }
 
+
+  function flattenErrorGroups(errors = {}) {
+    const rows = [];
+    Object.entries(errors || {}).forEach(([component, history]) => {
+      (Array.isArray(history) ? history : []).forEach((item) => {
+        rows.push({ component, ...(item || {}) });
+      });
+    });
+    rows.sort((a, b) => String(b.timestamp_utc || '').localeCompare(String(a.timestamp_utc || '')));
+    return rows;
+  }
+
+  function renderLastErrorLog(errors = {}) {
+    if (!els.aiLastErrorLog) return;
+    const rows = flattenErrorGroups(errors).slice(0, 12);
+    if (!rows.length) {
+      els.aiLastErrorLog.dataset.state = 'ok';
+      els.aiLastErrorLog.textContent = 'No recent errors.';
+      return;
+    }
+    els.aiLastErrorLog.dataset.state = 'error';
+    els.aiLastErrorLog.textContent = rows.map((item) => {
+      const at = item.timestamp_utc || 'time n/a';
+      const sev = item.severity || 'error';
+      const code = item.code || 'PISD-ERR';
+      const message = item.message || '';
+      return `[${at}] ${item.component || 'app'} ${sev} ${code}\n${message}`;
+    }).join('\n\n');
+  }
+
+  async function refreshLastErrors() {
+    try {
+      const data = await api('/api/errors');
+      renderLastErrorLog(data.errors || {});
+      return data.errors || {};
+    } catch (err) {
+      renderLastErrorLog({ app: [{ timestamp_utc: new Date().toISOString(), severity: 'error', code: 'PISD-API', message: err.message }] });
+      log(err.message, err.payload || {});
+      return {};
+    }
+  }
+
   async function api(path, options = {}) {
     const response = await fetch(path, {
       method: options.method || 'GET',
@@ -136,6 +188,12 @@
     return data;
   }
 
+  function currentManualMixPercent() {
+    const activeAssistValue = els.aiAssistMix && document.activeElement === els.aiAssistMix ? els.aiAssistMix.value : null;
+    const activeCorrectionValue = els.aiManualMix && document.activeElement === els.aiManualMix ? els.aiManualMix.value : null;
+    return clamp(activeAssistValue ?? activeCorrectionValue ?? els.aiAssistMix?.value ?? els.aiManualMix?.value ?? 50, 0, 100, 50);
+  }
+
   function collectConfig() {
     return {
       output_mode: els.aiOutputMode?.value || 'steering_and_throttle',
@@ -146,7 +204,7 @@
       steering_smoothing: Number(els.aiSteerSmooth?.value || 0.35),
       throttle_smoothing: Number(els.aiThrottleSmooth?.value || 0.25),
       manual_correction_enabled: outputPanelMode === 'correction',
-      manual_mix_percent: Number(els.aiManualMix?.value || 50),
+      manual_mix_percent: currentManualMixPercent(),
       manual_correction_timeout_s: 0.75,
     };
   }
@@ -181,6 +239,11 @@
       if (els[outputId]) els[outputId].textContent = `${Math.round(percent)}%`;
     }
     if (els.aiManualMixReadout) els.aiManualMixReadout.textContent = `${Math.round(percent)}%`;
+    if (els.aiAssistMixOut) els.aiAssistMixOut.textContent = `${Math.round(percent)}%`;
+    if (els.aiAssistMixReadout) els.aiAssistMixReadout.textContent = `${Math.round(percent)}%`;
+    if (els.aiAssistMix && !shouldKeepLocalConfigValue('aiAssistMix', Boolean(options.force)) && document.activeElement !== els.aiAssistMix) {
+      els.aiAssistMix.value = String(percent);
+    }
   }
 
   function renderConfig(config = {}, options = {}) {
@@ -200,7 +263,7 @@
     setRange('aiSteerSmooth', 'aiSteerSmoothOut', config.steering_smoothing ?? 0.35, 2, { force });
     setRange('aiThrottleSmooth', 'aiThrottleSmoothOut', config.throttle_smoothing ?? 0.25, 2, { force });
     setPercentRange('aiManualMix', 'aiManualMixOut', config.manual_mix_percent ?? 50, { force });
-    if (outputPanelMode !== 'manual') {
+    if (!['manual', 'assist'].includes(outputPanelMode)) {
       setOutputPanel(Boolean(config.manual_correction_enabled) ? 'correction' : 'limiter', false);
     }
   }
@@ -421,6 +484,7 @@
     }
     if (els.aiSafeSteering) els.aiSafeSteering.textContent = fmt(safe.steering);
     if (els.aiSafeThrottle) els.aiSafeThrottle.textContent = fmt(safe.throttle);
+    updateAssistReadout();
     if (els.aiReverseSteeringPolicy) {
       const safety = ai.safety_layer || {};
       els.aiReverseSteeringPolicy.textContent = safety.reverse_steering_policy === 'same_sign' ? 'same sign' : (safety.reverse_steering_policy || 'same sign');
@@ -457,6 +521,7 @@
       renderCameraWorkflowSettings(data.camera || (data.settings || {}).camera || {});
       renderAI(data.ai || {});
       renderRecording(data.recording || {});
+      if (data.errors) renderLastErrorLog(data.errors || {});
       if (els.aiGlobalCode) els.aiGlobalCode.textContent = data.code || 'PISD-OK-000';
       return data;
     } catch (err) {
@@ -612,6 +677,54 @@
     return outputPanelMode === 'manual';
   }
 
+  function aiAssistPanelActive() {
+    return outputPanelMode === 'assist';
+  }
+
+  function latestAssistModelSteering() {
+    const ai = lastAIStatus || {};
+    const raw = ai.last_raw_prediction || {};
+    const corrected = ai.last_corrected_command || ai.last_mixed_command || {};
+    const safe = ai.last_safe_command || {};
+    return clamp(raw.steering ?? corrected.steering ?? safe.steering ?? 0, -1, 1, 0);
+  }
+
+  function assistGain() {
+    return currentManualMixPercent() / 100.0;
+  }
+
+  function assistOutputSteering() {
+    return clamp(assistManualSteering + latestAssistModelSteering() * assistGain(), -1, 1, 0);
+  }
+
+  function updateAssistStatus(message, state = 'ready') {
+    if (!els.aiAssistStatus) return;
+    els.aiAssistStatus.textContent = message;
+    els.aiAssistStatus.dataset.state = state;
+  }
+
+  function updateAssistReadout() {
+    if (els.aiAssistManualSteeringOut) els.aiAssistManualSteeringOut.textContent = formatSigned(assistManualSteering);
+    if (els.aiAssistModelSteeringOut) els.aiAssistModelSteeringOut.textContent = formatSigned(latestAssistModelSteering());
+    if (els.aiAssistOutputSteeringOut) els.aiAssistOutputSteeringOut.textContent = formatSigned(assistOutputSteering());
+    if (els.aiAssistThrottleOut) els.aiAssistThrottleOut.textContent = formatSigned(assistManualThrottle);
+    if (els.aiAssistMixOut) els.aiAssistMixOut.textContent = `${Math.round(currentManualMixPercent())}%`;
+    if (els.aiAssistMixReadout) els.aiAssistMixReadout.textContent = `${Math.round(currentManualMixPercent())}%`;
+  }
+
+  function setAssistKnob(steering, throttle) {
+    const speedLimit = manualDriveSpeedLimit();
+    const knobScale = Math.max(0.001, speedLimit);
+    assistManualSteering = clamp(steering, -1, 1, 0);
+    assistManualThrottle = clamp(throttle, -speedLimit, speedLimit, 0);
+    if (els.aiAssistKnob) {
+      els.aiAssistKnob.style.setProperty('--knob-left', `${50 + assistManualSteering * 50}%`);
+      els.aiAssistKnob.style.setProperty('--knob-top', `${50 - (assistManualThrottle / knobScale) * 50}%`);
+    }
+    updateAssistReadout();
+    return { steering: assistManualSteering, throttle: assistManualThrottle };
+  }
+
   function setPanelTab(tab, active) {
     if (!tab) return;
     tab.classList.toggle('is-active', Boolean(active));
@@ -628,30 +741,36 @@
   }
 
   function setOutputPanel(mode = 'limiter', persist = false) {
-    const nextMode = ['limiter', 'correction', 'manual'].includes(mode) ? mode : 'limiter';
+    const nextMode = ['limiter', 'correction', 'manual', 'assist'].includes(mode) ? mode : 'limiter';
     const wasCorrection = correctionPanelActive;
     const wasManual = manualDrivePanelActive();
+    const wasAssist = aiAssistPanelActive();
     outputPanelMode = nextMode;
     correctionPanelActive = outputPanelMode === 'correction';
     const manualActive = manualDrivePanelActive();
+    const assistActive = aiAssistPanelActive();
 
     if (els.aiLimiterPane) els.aiLimiterPane.hidden = outputPanelMode !== 'limiter';
     if (els.aiCorrectionPane) els.aiCorrectionPane.hidden = outputPanelMode !== 'correction';
     if (els.aiManualDrivePane) els.aiManualDrivePane.hidden = !manualActive;
+    if (els.aiAssistPane) els.aiAssistPane.hidden = !assistActive;
     setPanelTab(els.aiLimiterTab, outputPanelMode === 'limiter');
     setPanelTab(els.aiCorrectionTab, outputPanelMode === 'correction');
     setPanelTab(els.aiManualDriveTab, manualActive);
+    setPanelTab(els.aiAssistTab, assistActive);
 
     if (!correctionPanelActive) {
       resetCorrectionKeyboardState();
       if (wasCorrection || persist) sendManualCorrection(true, 'ai-correction-disabled', true);
-      updateCorrectionStatus(manualActive ? 'Correction disabled while full manual pad is active.' : 'Correction disabled. AI output uses the limiter only.', 'ready');
+      updateCorrectionStatus(manualActive || assistActive ? 'Correction disabled while manual/assist pad is active.' : 'Correction disabled. AI output uses the limiter only.', 'ready');
     } else {
       updateCorrectionStatus('Correction active. Drag pad / arrow keys are added to AI output by the Correction %.', 'active');
     }
 
     if (wasManual && !manualActive) stopFullManualDrive('ai-manual-pane-exit');
+    if (wasAssist && !assistActive) stopAssistDrive('ai-assist-pane-exit');
     if (manualActive) updateManualDriveStatus('Manual pad active. AI preview overlay can keep running; manual input owns the motors.', 'active');
+    if (assistActive) updateAssistStatus('AI assist active. Manual throttle drives; AI model steering is added by the Assist %.', 'active');
 
     if (persist) saveConfig();
   }
@@ -702,6 +821,13 @@
     const x = ((event.clientX - rect.left) / Math.max(1, rect.width) - 0.5) * 2;
     const y = ((event.clientY - rect.top) / Math.max(1, rect.height) - 0.5) * 2;
     return setManualDriveKnob(x, -y * manualDriveSpeedLimit());
+  }
+
+  function pointerToAssist(event) {
+    const rect = els.aiAssistPad.getBoundingClientRect();
+    const x = ((event.clientX - rect.left) / Math.max(1, rect.width) - 0.5) * 2;
+    const y = ((event.clientY - rect.top) / Math.max(1, rect.height) - 0.5) * 2;
+    return setAssistKnob(x, -y * manualDriveSpeedLimit());
   }
 
   function driveConfirmationEnabled() {
@@ -765,6 +891,72 @@
     }
   }
 
+
+  function assistPayload() {
+    const modelSteering = latestAssistModelSteering();
+    const gain = assistGain();
+    const outputSteering = assistOutputSteering();
+    return {
+      manual_steering: assistManualSteering,
+      manual_throttle: assistManualThrottle,
+      model_steering: modelSteering,
+      assist_percent: Math.round(gain * 100),
+      steering: outputSteering,
+      throttle: assistManualThrottle,
+    };
+  }
+
+  async function sendAssistDrive(force = false, source = 'ai-assist-pad') {
+    if (!aiAssistPanelActive()) return;
+    if (!fullManualOutputEnabled()) {
+      updateAssistStatus('AI assist locked: tick the confirmation above first.', 'locked');
+      return;
+    }
+    const now = performance.now();
+    if (!force && now - assistLastSentAt < CORRECTION_SEND_INTERVAL_MS) return;
+    assistLastSentAt = now;
+    const payload = assistPayload();
+    try {
+      const data = await api('/api/control/manual', {
+        method: 'POST',
+        body: {
+          steering: payload.steering,
+          throttle: payload.throttle,
+          safety_ack: true,
+          enable_motor_output: true,
+          source,
+          ai_assist: payload,
+        },
+      });
+      renderAI(data.ai || lastAIStatus || {});
+      updateAssistReadout();
+      updateAssistStatus(`Assist S ${formatSigned(payload.steering)} / T ${formatSigned(payload.throttle)} sent.`, 'active');
+      log('AI assist manual command sent.', { assist: payload, motor: data.motor || {} });
+    } catch (err) {
+      updateAssistStatus(`AI assist send failed: ${err.message}`, 'locked');
+      log(err.message, err.payload || {});
+    }
+  }
+
+  async function stopAssistDrive(reason = 'ai-assist-stop') {
+    assistDragging = false;
+    assistKeyboardSteering = 0;
+    assistKeyboardThrottle = 0;
+    assistKeyboardLeftHeld = false;
+    assistKeyboardRightHeld = false;
+    stopAssistKeyboardLoop();
+    setAssistKnob(0, 0);
+    try {
+      const data = await api('/api/control/stop', { method: 'POST', body: { reason, keep_ai_preview: true } });
+      renderAI(data.ai || lastAIStatus || {});
+      updateAssistStatus(aiRunning ? 'AI assist STOP sent. AI preview kept.' : 'AI assist STOP sent.', 'ready');
+      log('AI assist STOP sent from AI Mode.', data.motor || data || {});
+    } catch (err) {
+      updateAssistStatus(`AI assist STOP failed: ${err.message}`, 'locked');
+      log(err.message, err.payload || {});
+    }
+  }
+
   function manualDriveKeyboardPayload() {
     setManualDriveKnob(manualDriveKeyboardSteering, manualDriveKeyboardThrottle);
     return { steering: manualDriveSteering, throttle: manualDriveThrottle };
@@ -806,6 +998,48 @@
     manualDriveKeyboardLoopHandle = requestAnimationFrame(runManualDriveKeyboardLoop);
   }
 
+
+  function assistKeyboardPayload() {
+    setAssistKnob(assistKeyboardSteering, assistKeyboardThrottle);
+    return assistPayload();
+  }
+
+  function stopAssistKeyboardLoop() {
+    if (assistKeyboardLoopHandle) cancelAnimationFrame(assistKeyboardLoopHandle);
+    assistKeyboardLoopHandle = 0;
+    assistKeyboardLastFrameAt = 0;
+  }
+
+  function runAssistKeyboardLoop(now) {
+    const direction = (assistKeyboardRightHeld ? 1 : 0) - (assistKeyboardLeftHeld ? 1 : 0);
+    if (!assistKeyboardLastFrameAt) assistKeyboardLastFrameAt = now;
+    const deltaMs = Math.max(0, now - assistKeyboardLastFrameAt);
+    assistKeyboardLastFrameAt = now;
+    const unitsPerMs = 1 / KEYBOARD_STEERING_FULL_SCALE_MS;
+    if (direction) {
+      assistKeyboardSteering = clamp(assistKeyboardSteering + direction * deltaMs * unitsPerMs, -1, 1, 0);
+    } else {
+      const returnStep = deltaMs * unitsPerMs;
+      if (Math.abs(assistKeyboardSteering) <= returnStep) assistKeyboardSteering = 0;
+      else assistKeyboardSteering -= Math.sign(assistKeyboardSteering) * returnStep;
+    }
+    assistKeyboardPayload();
+    const centred = !direction && Math.abs(assistKeyboardSteering) <= 1e-4;
+    sendAssistDrive(centred, 'ai-assist-keyboard');
+    if (direction || !centred) {
+      assistKeyboardLoopHandle = requestAnimationFrame(runAssistKeyboardLoop);
+    } else {
+      stopAssistKeyboardLoop();
+      updateAssistStatus(`Keyboard S ${formatSigned(assistOutputSteering())} / T ${formatSigned(assistManualThrottle)}`, 'ready');
+    }
+  }
+
+  function startAssistKeyboardLoop() {
+    if (assistKeyboardLoopHandle) return;
+    assistKeyboardLastFrameAt = 0;
+    assistKeyboardLoopHandle = requestAnimationFrame(runAssistKeyboardLoop);
+  }
+
   async function sendManualCorrection(force = false, source = 'ai-correction', allowInactive = false) {
     if (!correctionPanelActive && !allowInactive) return;
     const now = performance.now();
@@ -826,7 +1060,7 @@
 
   function shortcutBlocked() {
     const active = document.activeElement;
-    if (!active || active === document.body || active === document.documentElement || active === els.aiCorrectionPad || active === els.aiManualDrivePad) return false;
+    if (!active || active === document.body || active === document.documentElement || active === els.aiCorrectionPad || active === els.aiManualDrivePad || active === els.aiAssistPad) return false;
     const tag = String(active.tagName || '').toLowerCase();
     if (tag === 'input') {
       const type = String(active.type || '').toLowerCase();
@@ -1127,11 +1361,23 @@
       const percent = clamp(els.aiManualMix.value, 0, 100, 50);
       if (els.aiManualMixOut) els.aiManualMixOut.textContent = `${Math.round(percent)}%`;
       if (els.aiManualMixReadout) els.aiManualMixReadout.textContent = `${Math.round(percent)}%`;
+      if (els.aiAssistMix) els.aiAssistMix.value = String(percent);
+      updateAssistReadout();
       markConfigDirty('aiManualMix');
       scheduleConfigAutoSave(650);
     });
     els.aiManualMix?.addEventListener('change', () => { markConfigDirty('aiManualMix'); saveConfig({ quiet: true }); });
-    els.aiManualDriveSpeed?.addEventListener('input', () => { setManualDriveKnob(manualDriveSteering, manualDriveThrottle); scheduleManualDriveSpeedSave(450); });
+    els.aiAssistMix?.addEventListener('input', () => {
+      const percent = clamp(els.aiAssistMix.value, 0, 100, 50);
+      if (els.aiManualMix) els.aiManualMix.value = String(percent);
+      if (els.aiManualMixOut) els.aiManualMixOut.textContent = `${Math.round(percent)}%`;
+      if (els.aiManualMixReadout) els.aiManualMixReadout.textContent = `${Math.round(percent)}%`;
+      updateAssistReadout();
+      markConfigDirty('aiAssistMix');
+      scheduleConfigAutoSave(650);
+    });
+    els.aiAssistMix?.addEventListener('change', () => { markConfigDirty('aiAssistMix'); saveConfig({ quiet: true }); });
+    els.aiManualDriveSpeed?.addEventListener('input', () => { setManualDriveKnob(manualDriveSteering, manualDriveThrottle); setAssistKnob(assistManualSteering, assistManualThrottle); scheduleManualDriveSpeedSave(450); });
     els.aiManualDriveSpeed?.addEventListener('change', () => saveManualDriveSpeedSetting({ quiet: true, force: false }));
   }
 
@@ -1139,6 +1385,7 @@
     if (els.aiLimiterTab) els.aiLimiterTab.addEventListener('click', () => setOutputPanel('limiter', true));
     if (els.aiCorrectionTab) els.aiCorrectionTab.addEventListener('click', () => setOutputPanel('correction', true));
     if (els.aiManualDriveTab) els.aiManualDriveTab.addEventListener('click', () => setOutputPanel('manual', true));
+    if (els.aiAssistTab) els.aiAssistTab.addEventListener('click', () => setOutputPanel('assist', true));
     if (els.aiCorrectionPad) {
       els.aiCorrectionPad.addEventListener('pointerdown', (event) => {
         if (!correctionPanelActive) return;
@@ -1195,6 +1442,33 @@
         stopFullManualDrive('ai-manual-drag-leave');
       });
     }
+    if (els.aiAssistPad) {
+      els.aiAssistPad.addEventListener('pointerdown', (event) => {
+        if (!aiAssistPanelActive()) return;
+        event.preventDefault();
+        assistDragging = true;
+        els.aiAssistPad.setPointerCapture(event.pointerId);
+        pointerToAssist(event);
+        sendAssistDrive(true, 'ai-assist-drag');
+      });
+      els.aiAssistPad.addEventListener('pointermove', (event) => {
+        if (!assistDragging || !aiAssistPanelActive()) return;
+        event.preventDefault();
+        pointerToAssist(event);
+        sendAssistDrive(false, 'ai-assist-drag');
+      });
+      const assistRelease = (event) => {
+        if (!assistDragging) return;
+        try { els.aiAssistPad.releasePointerCapture(event.pointerId); } catch (_err) {}
+        stopAssistDrive('ai-assist-drag-release');
+      };
+      els.aiAssistPad.addEventListener('pointerup', assistRelease);
+      els.aiAssistPad.addEventListener('pointercancel', assistRelease);
+      els.aiAssistPad.addEventListener('mouseleave', () => {
+        if (!assistDragging) return;
+        stopAssistDrive('ai-assist-drag-leave');
+      });
+    }
   }
 
   function bindKeyboardShortcuts() {
@@ -1211,7 +1485,8 @@
       const isPanelDriveKey = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(key);
       const isCorrectionKey = correctionPanelActive && isPanelDriveKey;
       const isManualDriveKey = manualDrivePanelActive() && isPanelDriveKey;
-      if (!isRecordOrSnapshot && !isCorrectionKey && !isManualDriveKey) return;
+      const isAssistKey = aiAssistPanelActive() && isPanelDriveKey;
+      if (!isRecordOrSnapshot && !isCorrectionKey && !isManualDriveKey && !isAssistKey) return;
       event.preventDefault();
       if (shortcut === 'r') {
         if (!event.repeat) toggleAIRecording();
@@ -1219,6 +1494,30 @@
       }
       if (shortcut === 's') {
         if (!event.repeat) saveAISnapshot();
+        return;
+      }
+      if (aiAssistPanelActive()) {
+        if (key === ' ') {
+          if (!event.repeat) window.PiSDGlobalSpaceStop?.sendSpaceStop?.();
+          return;
+        }
+        if (key === 'ArrowUp' || key === 'ArrowDown') {
+          if (event.repeat) return;
+          const limit = manualDriveSpeedLimit();
+          assistKeyboardThrottle = clamp(assistKeyboardThrottle + (key === 'ArrowUp' ? KEYBOARD_THROTTLE_STEP : -KEYBOARD_THROTTLE_STEP), -limit, limit, 0);
+          assistKeyboardPayload();
+          sendAssistDrive(true, 'ai-assist-keyboard');
+          return;
+        }
+        if (key === 'ArrowLeft') {
+          assistKeyboardLeftHeld = true;
+          startAssistKeyboardLoop();
+          return;
+        }
+        if (key === 'ArrowRight') {
+          assistKeyboardRightHeld = true;
+          startAssistKeyboardLoop();
+        }
         return;
       }
       if (manualDrivePanelActive()) {
@@ -1269,6 +1568,13 @@
     }, { passive: false });
 
     document.addEventListener('keyup', (event) => {
+      if (aiAssistPanelActive() && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) {
+        event.preventDefault();
+        if (event.key === 'ArrowLeft') assistKeyboardLeftHeld = false;
+        if (event.key === 'ArrowRight') assistKeyboardRightHeld = false;
+        if (!assistKeyboardLeftHeld && !assistKeyboardRightHeld) startAssistKeyboardLoop();
+        return;
+      }
       if (manualDrivePanelActive() && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) {
         event.preventDefault();
         if (event.key === 'ArrowLeft') manualDriveKeyboardLeftHeld = false;
@@ -1285,6 +1591,7 @@
 
     window.addEventListener('blur', () => {
       if (manualDrivePanelActive()) stopFullManualDrive('ai-manual-blur');
+      if (aiAssistPanelActive()) stopAssistDrive('ai-assist-blur');
       if (correctionPanelActive) resetManualCorrection('ai-correction-blur');
     });
   }
@@ -1307,10 +1614,12 @@
     els.aiStop?.addEventListener('click', stopAI);
     els.aiStopAll?.addEventListener('click', async () => { await stopAI(); await api('/api/control/stop', { method: 'POST', body: {} }).catch(() => null); });
     els.aiRefreshStatus?.addEventListener('click', refreshStatus);
+    els.aiRefreshErrors?.addEventListener('click', refreshLastErrors);
     els.aiSaveSnapshot?.addEventListener('click', saveAISnapshot);
     els.aiRecordToggle?.addEventListener('click', toggleAIRecording);
     els.aiManualDriveStop?.addEventListener('click', () => stopFullManualDrive('ai-manual-stop-button'));
-    els.aiEnableMotor?.addEventListener('change', () => { if (!els.aiEnableMotor.checked && manualDrivePanelActive()) stopFullManualDrive('ai-manual-disabled'); });
+    els.aiAssistStop?.addEventListener('click', () => stopAssistDrive('ai-assist-stop-button'));
+    els.aiEnableMotor?.addEventListener('change', () => { if (!els.aiEnableMotor.checked && manualDrivePanelActive()) stopFullManualDrive('ai-manual-disabled'); if (!els.aiEnableMotor.checked && aiAssistPanelActive()) stopAssistDrive('ai-assist-disabled'); });
     window.addEventListener('pisd:space-stop', () => {
       correctionKeyboardSteering = 0;
       correctionKeyboardThrottle = 0;
@@ -1327,6 +1636,14 @@
       stopManualDriveKeyboardLoop();
       setManualDriveKnob(0, 0);
       updateManualDriveStatus('Space STOP sent globally.', 'ready');
+      assistDragging = false;
+      assistKeyboardSteering = 0;
+      assistKeyboardThrottle = 0;
+      assistKeyboardLeftHeld = false;
+      assistKeyboardRightHeld = false;
+      stopAssistKeyboardLoop();
+      setAssistKnob(0, 0);
+      updateAssistStatus('Space STOP sent globally.', 'ready');
       aiRunning = false;
       if (els.aiRunMode) els.aiRunMode.textContent = 'stopped';
       log('Space STOP shortcut sent.', { source: 'global_space_stop' });
@@ -1340,9 +1657,10 @@
       const zero = new Blob([JSON.stringify({ steering: 0, throttle: 0, source: 'ai-correction-pagehide' })], { type: 'application/json' });
       navigator.sendBeacon?.('/api/ai/manual-correction', zero);
       if (manualDrivePanelActive()) navigator.sendBeacon?.('/api/control/stop', new Blob([JSON.stringify({ reason: 'ai-manual-pagehide' })], { type: 'application/json' }));
+      if (aiAssistPanelActive()) navigator.sendBeacon?.('/api/control/stop', new Blob([JSON.stringify({ reason: 'ai-assist-pagehide' })], { type: 'application/json' }));
       if (aiRunning) navigator.sendBeacon?.('/api/ai/stop', new Blob([JSON.stringify({})], { type: 'application/json' }));
     });
-    document.addEventListener('visibilitychange', () => { if (document.hidden) { resetManualCorrection('ai-correction-hidden'); if (manualDrivePanelActive()) stopFullManualDrive('ai-manual-hidden'); if (aiRunning) navigator.sendBeacon?.('/api/ai/stop', new Blob([JSON.stringify({})], { type: 'application/json' })); } });
+    document.addEventListener('visibilitychange', () => { if (document.hidden) { resetManualCorrection('ai-correction-hidden'); if (manualDrivePanelActive()) stopFullManualDrive('ai-manual-hidden'); if (aiAssistPanelActive()) stopAssistDrive('ai-assist-hidden'); if (aiRunning) navigator.sendBeacon?.('/api/ai/stop', new Blob([JSON.stringify({})], { type: 'application/json' })); } });
   }
 
   enforceFullScaleThrottleRanges();
@@ -1353,9 +1671,10 @@
   renderCameraWorkflowSettings(initial.camera || (initial.settings || {}).camera || {}, { force: true });
   setCorrectionKnob(0, 0);
   setManualDriveKnob(0, 0);
+  setAssistKnob(0, 0);
   renderAI((initial.ai_mode || {}));
   renderRecording(initial.recording || {});
   wireRanges();
   bind();
-  refreshModels().then(() => refreshStatus()).then(() => refreshAIRecordingFiles());
+  refreshModels().then(() => refreshStatus()).then(() => refreshAIRecordingFiles()).then(() => refreshLastErrors());
 })();

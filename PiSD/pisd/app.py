@@ -639,6 +639,7 @@ def create_app(hardware_enabled: bool = False):
             camera=camera_service.status(),
             settings=settings_manager.get(),
             recording=recording_service.status(),
+            errors=all_errors(limit=8),
             source_of_truth="config/runtime_settings.json",
         ))
 
@@ -894,6 +895,7 @@ def create_app(hardware_enabled: bool = False):
                 manual_speed_limit=speed_limit,
                 ai=ai_drive_service.status(),
                 ai_manual_override=ai_manual_override.get("manual_override", {}),
+                ai_assist=data.get("ai_assist") if isinstance(data.get("ai_assist"), dict) else {},
             ))
         except Exception as exc:
             report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"Manual control API failed: {exc}", exc=exc)
