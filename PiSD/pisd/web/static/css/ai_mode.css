@@ -575,3 +575,49 @@ body[data-pisd-theme="light"] .ai-panel-tabs {
   border-top: 0;
   border-bottom: 1px solid rgba(148, 163, 184, .16);
 }
+
+/* PiSD_0_11_2: AI workflow panel owns safety confirmation and camera FPS popup. */
+.ai-intro-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: .45rem;
+}
+
+.ai-intro-drive-confirm {
+  margin: .55rem 0 0;
+}
+
+.ai-settings-popup .mdrv-overlay-settings-card {
+  width: min(560px, 96vw);
+}
+
+.ai-settings-grid output {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  border: 1px solid rgba(148, 163, 184, .24);
+  border-radius: 10px;
+  background: rgba(2, 6, 23, .52);
+  color: #f8fafc;
+  font: inherit;
+  font-weight: 850;
+  font-variant-numeric: tabular-nums;
+  padding: .46rem .52rem;
+}
+
+#aiWorkflowSettingsStatus[data-state="busy"] {
+  color: #fde68a;
+}
+
+#aiWorkflowSettingsStatus[data-state="error"] {
+  color: #fecaca;
+}
+
+@media (max-width: 620px) {
+  .ai-intro-actions {
+    justify-content: flex-start;
+  }
+}

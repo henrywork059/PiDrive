@@ -1229,3 +1229,24 @@ Browser/Pi checks to perform on hardware:
 8. Confirm Space is ignored while typing into text/number/range/select fields, so settings can still be edited safely.
 9. Confirm `r` still toggles recording and `s` still saves a snapshot in Manual Drive and AI Mode.
 10. Confirm arrow-key driving/correction still works after the Space STOP reset.
+
+## PiSD 0.11.2 AI workflow settings and manual-release preview checks
+
+After applying `PiSD_0_11_2_patch`, run the safe local checks:
+
+```bash
+cd ~/PiDrive/PiSD
+python3 -m compileall -q pisd scripts PiSD.py
+node --check pisd/web/static/js/ai_mode.js
+python3 scripts/test_ai_mode_page.py --static-only
+python3 scripts/run_standard_validation.py --skip-api --skip-camera --skip-motor --skip-gui
+python3 PiSD.py --status-only
+```
+
+Browser/Pi checks to perform on hardware:
+
+1. Open `/ai-mode` and confirm `Confirm safe test + enable motors` is in the top AI workflow panel.
+2. Click `Settings`, set `Camera FPS`, apply it, and confirm the popup reports the saved target FPS.
+3. Start live, load a model, start AI preview, switch to Manual pad, drag and release the pad.
+4. Confirm motor output stops on release but the AI overlay continues updating.
+5. Confirm `STOP AI + motors` and Space STOP still stop both AI and motors.

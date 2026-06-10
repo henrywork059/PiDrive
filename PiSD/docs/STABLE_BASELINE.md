@@ -137,6 +137,18 @@ Rollback safety: this patch preserves the accepted one-button `Start live` workf
 
 
 
+## PiSD 0.11.2 AI workflow settings and manual-release preview patch
+
+`PiSD_0_11_2_patch.zip` builds forward from `PiSD_0_11_0` plus accepted `0_11_1`. It does not promote a new full rollback baseline.
+
+Scope:
+- Moves the visible AI safety/motor confirmation checkbox into the top AI workflow panel.
+- Adds a Settings popup in the AI workflow panel for applying and saving camera FPS through the existing camera settings API.
+- Keeps AI preview running when the AI Mode Manual pad is released by using a motor-only stop request with `keep_ai_preview`.
+- Keeps global STOP and `STOP AI + motors` as full AI + motor stop actions.
+
+Rollback safety: preserves the 0.11.1 preview/manual separation, AI-safe recording labels, yellow preview/snapshot/record buttons, original frame-id format, Records & snaps panel, top-of-preview button placement, global Space STOP, additive correction, fixed-throttle-after-correction, and max-throttle persistence.
+
 ## PiSD 0.11.1 AI preview/manual recording patch
 
 `PiSD_0_11_1_patch.zip` builds forward from `PiSD_0_11_0`. It does not promote a new full rollback baseline.

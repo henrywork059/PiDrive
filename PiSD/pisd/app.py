@@ -886,11 +886,23 @@ def create_app(hardware_enabled: bool = False):
 
     @app.post("/api/control/stop")
     def api_control_stop():
+        data, json_error = get_json_payload()
+        if json_error is not None:
+            return jsonify(report_payload(False, json_error)), 400
         try:
-            ai_drive_service.stop(motor_service, stop_motors=True)
-            motor_service.stop()
+            keep_ai_preview = bool(data.get("keep_ai_preview", False))
+            if keep_ai_preview:
+                # Manual pad release should only zero the motors. Keep the AI
+                # preview loop alive so the model overlay and AI recording labels
+                # continue updating while manual mode owns direct motor output.
+                motor_service.stop()
+                message = "Motors stopped; AI preview kept."
+            else:
+                ai_drive_service.stop(motor_service, stop_motors=True)
+                motor_service.stop()
+                message = "Motors stopped."
             report = motor_service.errors.latest() if motor_service.last_error else None
-            return jsonify(report_payload(True, report, "Motors stopped.", motor=motor_service.status()))
+            return jsonify(report_payload(True, report, message, motor=motor_service.status(), ai=ai_drive_service.status(), keep_ai_preview=keep_ai_preview))
         except Exception as exc:
             report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"Motor stop API failed: {exc}", exc=exc)
             return jsonify(report_payload(False, report)), 500

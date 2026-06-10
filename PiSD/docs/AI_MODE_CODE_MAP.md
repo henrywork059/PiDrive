@@ -135,3 +135,11 @@ The `0.10.10` patch does not change AI Mode control wiring. It only restores the
 Manual pad is now a motor-output override, not an AI-preview stop. If AI preview is running, direct manual commands keep the preview loop alive so the overlay can continue using `last_safe_command`. If AI drive output is armed, `/api/control/manual` switches AI back to preview before applying the manual command.
 
 AI Mode snapshot/recording requests include `command_source: ai_safe_command`, so `labels.jsonl` stores the latest safe AI steering/throttle output while `records.jsonl` still keeps the manual command and motor-state trace.
+
+## PiSD 0.11.2 AI workflow settings and manual-release stop
+
+The top AI workflow panel now owns the visible `Confirm safe test + enable motors` checkbox. The checkbox still maps to both backend guard fields when AI drive or full manual takeover sends motor commands.
+
+The AI workflow `Settings` button opens an overlay popup. Its camera FPS field loads from `GET /api/camera/config` and applies through `POST /api/camera/apply`, so the existing camera service restart/persistence path remains the source of truth.
+
+Manual pad release is not a full AI stop. The frontend sends `POST /api/control/stop` with `keep_ai_preview: true`, and the backend zeros the motors while leaving `AIDriveService` running in preview mode. Global STOP and `STOP AI + motors` do not use this flag and still stop AI plus motors.

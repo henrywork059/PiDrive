@@ -2,7 +2,7 @@
   const initial = JSON.parse(document.getElementById('aiModeInitialStatus')?.textContent || '{}');
   const els = {};
   const ids = [
-    'aiGlobalCode', 'aiRunMode', 'aiModelReady', 'aiPreviewFrame', 'aiPreviewImage', 'aiPreviewCaption', 'aiSaveSnapshot', 'aiLive', 'aiRecordToggle', 'aiRecordingState', 'aiStopCamera',
+    'aiGlobalCode', 'aiRunMode', 'aiModelReady', 'aiWorkflowSettingsOpen', 'aiWorkflowSettingsPopup', 'aiWorkflowSettingsClose', 'aiWorkflowSettingsApply', 'aiWorkflowSettingsStatus', 'aiCameraFps', 'aiCameraFpsCurrent', 'aiPreviewFrame', 'aiPreviewImage', 'aiPreviewCaption', 'aiSaveSnapshot', 'aiLive', 'aiRecordToggle', 'aiRecordingState', 'aiStopCamera',
     'aiOverlayToggle', 'aiOverlayMode', 'aiOverlayCurveLabel', 'aiOverlayCar', 'aiOverlaySurface', 'aiOverlayPathWide', 'aiOverlayPathGuide', 'aiOverlayPath',
     'aiOverlayEndpoint', 'aiOverlayStartPoint', 'aiOverlayThrottleFill', 'aiOverlaySteeringFill', 'aiOverlayThrottleValue', 'aiOverlaySteeringValue',
     'aiOverlayRawSteering', 'aiOverlayRawThrottle', 'aiOverlayLeftValue', 'aiOverlayRightValue',
@@ -448,6 +448,7 @@
     try {
       const data = await api('/api/ai/status');
       updateOverlayMotorSettings(data.motor || {});
+      renderCameraWorkflowSettings(data.camera || {});
       renderAI(data.ai || {});
       renderRecording(data.recording || {});
       if (els.aiGlobalCode) els.aiGlobalCode.textContent = data.code || 'PISD-OK-000';
@@ -483,6 +484,66 @@
     } catch (err) {
       log(err.message, err.payload || {});
       return [];
+    }
+  }
+
+  function setWorkflowSettingsStatus(message, state = 'ready') {
+    if (!els.aiWorkflowSettingsStatus) return;
+    els.aiWorkflowSettingsStatus.textContent = message;
+    els.aiWorkflowSettingsStatus.dataset.state = state;
+  }
+
+  function renderCameraWorkflowSettings(camera = {}, options = {}) {
+    const fps = Math.round(clamp(camera.fps ?? camera.target_fps ?? 12, 1, 120, 12));
+    if (els.aiCameraFpsCurrent) els.aiCameraFpsCurrent.textContent = `${fps} FPS`;
+    if (els.aiCameraFps && (options.force || document.activeElement !== els.aiCameraFps)) {
+      els.aiCameraFps.value = String(fps);
+    }
+  }
+
+  async function loadWorkflowCameraSettings() {
+    try {
+      const data = await api('/api/camera/config');
+      renderCameraWorkflowSettings(data.config || {}, { force: true });
+      setWorkflowSettingsStatus('Camera settings loaded.', 'ready');
+      return data.config || {};
+    } catch (err) {
+      setWorkflowSettingsStatus(`Load failed: ${err.message}`, 'error');
+      log(err.message, err.payload || {});
+      return {};
+    }
+  }
+
+  function openWorkflowSettingsPopup() {
+    if (!els.aiWorkflowSettingsPopup) return;
+    els.aiWorkflowSettingsPopup.hidden = false;
+    document.body.classList.add('mdrv-overlay-settings-open-body');
+    setWorkflowSettingsStatus('Loading camera settings...', 'ready');
+    loadWorkflowCameraSettings().finally(() => {
+      window.setTimeout(() => els.aiCameraFps?.focus?.(), 0);
+    });
+  }
+
+  function closeWorkflowSettingsPopup() {
+    if (!els.aiWorkflowSettingsPopup) return;
+    els.aiWorkflowSettingsPopup.hidden = true;
+    document.body.classList.remove('mdrv-overlay-settings-open-body');
+    els.aiWorkflowSettingsOpen?.focus?.();
+  }
+
+  async function applyWorkflowCameraSettings() {
+    const fps = Math.round(clamp(els.aiCameraFps?.value, 1, 120, 12));
+    if (els.aiCameraFps) els.aiCameraFps.value = String(fps);
+    setWorkflowSettingsStatus('Applying camera FPS...', 'busy');
+    try {
+      const data = await api('/api/camera/apply', { method: 'POST', body: { fps } });
+      renderCameraWorkflowSettings(data.config || {}, { force: true });
+      setWorkflowSettingsStatus(`Saved camera FPS: ${fps}`, 'ready');
+      log('AI workflow camera FPS saved.', { fps, camera: data.config || {} });
+      await refreshStatus();
+    } catch (err) {
+      setWorkflowSettingsStatus(`Save failed: ${err.message}`, 'error');
+      log(err.message, err.payload || {});
     }
   }
 
@@ -669,9 +730,9 @@
     stopManualDriveKeyboardLoop();
     setManualDriveKnob(0, 0);
     try {
-      const data = await api('/api/control/stop', { method: 'POST', body: { reason } });
+      const data = await api('/api/control/stop', { method: 'POST', body: { reason, keep_ai_preview: true } });
       renderAI(data.ai || lastAIStatus || {});
-      updateManualDriveStatus('Manual STOP sent.', 'ready');
+      updateManualDriveStatus(aiRunning ? 'Manual STOP sent. AI preview kept.' : 'Manual STOP sent.', 'ready');
       log('Full manual STOP sent from AI Mode.', data.motor || data || {});
     } catch (err) {
       updateManualDriveStatus(`Manual STOP failed: ${err.message}`, 'locked');
@@ -1092,8 +1153,13 @@
 
   function bindKeyboardShortcuts() {
     document.addEventListener('keydown', (event) => {
-      if (shortcutBlocked()) return;
       const key = event.key;
+      if (key === 'Escape' && els.aiWorkflowSettingsPopup && !els.aiWorkflowSettingsPopup.hidden) {
+        event.preventDefault();
+        closeWorkflowSettingsPopup();
+        return;
+      }
+      if (shortcutBlocked()) return;
       const shortcut = String(key || '').toLowerCase();
       const isRecordOrSnapshot = shortcut === 'r' || shortcut === 's';
       const isPanelDriveKey = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(key);
@@ -1179,6 +1245,11 @@
 
   function bind() {
     els.aiOverlayToggle?.addEventListener('click', () => setOverlayEnabled(!overlayEnabled));
+    els.aiWorkflowSettingsOpen?.addEventListener('click', openWorkflowSettingsPopup);
+    els.aiWorkflowSettingsClose?.addEventListener('click', closeWorkflowSettingsPopup);
+    els.aiWorkflowSettingsApply?.addEventListener('click', applyWorkflowCameraSettings);
+    els.aiCameraFps?.addEventListener('keydown', (event) => { if (event.key === 'Enter') applyWorkflowCameraSettings(); });
+    els.aiWorkflowSettingsPopup?.addEventListener('click', (event) => { if (event.target === els.aiWorkflowSettingsPopup) closeWorkflowSettingsPopup(); });
     els.aiRefreshModels?.addEventListener('click', refreshModels);
     els.aiLoadModel?.addEventListener('click', loadModel);
     els.aiPredictOnce?.addEventListener('click', predictOnce);
@@ -1232,6 +1303,7 @@
   setPreview('idle', '');
   setOverlayEnabled(true);
   updateOverlayMotorSettings(initial.motor || {});
+  renderCameraWorkflowSettings(initial.camera || {}, { force: true });
   setCorrectionKnob(0, 0);
   setManualDriveKnob(0, 0);
   renderAI((initial.ai_mode || {}));

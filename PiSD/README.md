@@ -1,6 +1,6 @@
 # PiSD
 
-`PiSD_0_11_1` patch package — builds forward from the current user-provided `PiSD_0_11_0` baseline.
+`PiSD_0_11_2` patch package — builds forward from the current user-provided `PiSD_0_11_0` baseline plus accepted `0_11_1`.
 
 PiSD is a clean sandbox under `PiDrive/PiSD` for rebuilding and testing PiServer GUI and runtime functions from square one.
 
@@ -10,7 +10,7 @@ Future bug-fix patches after this package should use `PiSD_0_11_x_patch` naming 
 
 ## Current version
 
-`PiSD_0_11_1` patch package. The user-provided `PiSD_0_11_0.zip` is the current working baseline for this patch line. This patch keeps the existing AI runtime/model compatibility work, AI update-rate/control-loop improvements, combined camera/live-stream control, AI Mode recording/snapshot controls, keyboard steering timing, overlay recording metadata, and dead-zone cleanup, then adds the AI preview/manual-recording separation requested for `0_11_1`.
+`PiSD_0_11_2` patch package. The user-provided `PiSD_0_11_0.zip` remains the working full baseline for this patch line, with `0_11_1` applied first. This patch keeps the AI preview/manual-recording separation, then adds the AI workflow settings popup, camera FPS control, manual-release preview preservation, and moves the motor confirmation into the AI workflow panel.
 
 Use `PiSD_0_11_0` as the source-of-truth baseline for this patch unless the user promotes a newer full baseline.
 
@@ -196,7 +196,7 @@ Use `records.jsonl` only for full debug metadata, filtering, or advanced trainin
 
 ## Stable baseline notes
 
-`PiSD_0_11_0` is the current user-provided baseline; `PiSD_0_11_1` is the current forward patch on the `0_11_x` line.
+`PiSD_0_11_0` is the current user-provided baseline; `PiSD_0_11_2` is the current forward patch on the `0_11_x` line.
 
 It includes the tested service foundation from earlier baselines plus the accepted v6, v7, v8, v9, and v10-promotion Manual Drive, recording, overlay, AI Mode, steering algorithm, motor tuning reset, keyboard-control, safety-policy, AI-runtime, and validation cleanup patch lines.
 
@@ -288,6 +288,18 @@ python3 scripts/test_motor_channels.py --hardware
 
 
 
+
+## PiSD 0.11.2 AI workflow settings and manual-release preview patch
+
+`PiSD_0_11_2_patch.zip` builds forward from `PiSD_0_11_0` plus accepted `0_11_1`.
+
+Changes:
+- The `Confirm safe test + enable motors` checkbox now sits in the top AI workflow / Model-based driving panel.
+- The AI workflow panel has a `Settings` button that opens an overlay popup for setting camera FPS. Applying the value uses `/api/camera/apply` and persists through the existing camera settings save path.
+- Releasing the AI Mode Manual pad sends a motor-only stop with `keep_ai_preview`, so AI preview and the safe-output overlay continue running instead of being stopped.
+- Global STOP and `STOP AI + motors` still stop AI and motors normally.
+
+Rollback safety: this patch preserves the yellow Start AI preview/Snapshot/Record buttons, AI-safe recording labels, top-of-preview controls, original frame-id format, single confirmation semantics, Records & snaps panel, Space STOP, additive correction math, fixed-throttle mode, and max-throttle persistence.
 
 ## PiSD 0.11.1 AI preview/manual recording patch
 

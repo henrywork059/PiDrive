@@ -25,6 +25,7 @@ WEB_ROOT = PROJECT_ROOT / "pisd" / "web"
 AI_TEMPLATE = WEB_ROOT / "templates" / "ai_mode.html"
 AI_CSS = WEB_ROOT / "static" / "css" / "ai_mode.css"
 AI_JS = WEB_ROOT / "static" / "js" / "ai_mode.js"
+APP_PY = PROJECT_ROOT / "pisd" / "app.py"
 GLOBAL_SPACE_JS = WEB_ROOT / "static" / "js" / "global_space_stop.js"
 RECORDING_PANEL_JS = WEB_ROOT / "static" / "js" / "recording_download_panel.js"
 AI_CORRECTION_PY = PROJECT_ROOT / "pisd" / "services" / "ai_correction.py"
@@ -78,6 +79,7 @@ def check_source_contract() -> Result:
         js = AI_JS.read_text(encoding="utf-8")
         global_space_js = GLOBAL_SPACE_JS.read_text(encoding="utf-8")
         recording_panel_js = RECORDING_PANEL_JS.read_text(encoding="utf-8")
+        app_py = APP_PY.read_text(encoding="utf-8")
     except Exception as exc:
         return Result("ai_mode.source_contract", False, PiSDErrorCodes.TEST_AI_MODE_FAILED, f"failed to read AI files: {exc}")
     required = {
@@ -104,6 +106,13 @@ def check_source_contract() -> Result:
             "piTrainer export",
             "aiEnableMotor",
             "Confirm safe test + enable motors",
+            "aiWorkflowSettingsOpen",
+            "aiWorkflowSettingsPopup",
+            "aiWorkflowSettingsApply",
+            "aiCameraFps",
+            "Camera FPS",
+            "Apply camera FPS",
+            "AI workflow settings",
             "aiStartPreview",
             "aiStartDrive",
             "aiSaveSnapshot",
@@ -145,7 +154,7 @@ def check_source_contract() -> Result:
             "mdrv-panel",
             'max="1.0"',
         ],
-        "css": [".ai-shell", ".ai-grid", ".ai-preview-frame", ".ai-preview-run-actions", ".ai-button-danger", "mdrv-drive-overlay", ".ai-runtime-help", "#aiFilesPanel", "#aiStartPreview.mdrv-button", "rgba(251, 191, 36", "@media (max-width: 980px)"],
+        "css": [".ai-shell", ".ai-grid", ".ai-preview-frame", ".ai-preview-run-actions", ".ai-button-danger", "mdrv-drive-overlay", ".ai-runtime-help", "#aiFilesPanel", "#aiStartPreview.mdrv-button", "rgba(251, 191, 36", ".ai-intro-actions", ".ai-settings-popup", "#aiWorkflowSettingsStatus", "@media (max-width: 980px)"],
         "js": [
             "aiModeInitialStatus",
             "/api/ai/models",
@@ -200,16 +209,25 @@ def check_source_contract() -> Result:
             "pisd:space-stop",
             "configDirtyFields",
             "scheduleConfigAutoSave",
+            "aiWorkflowSettingsOpen",
+            "aiWorkflowSettingsPopup",
+            "aiCameraFps",
+            "/api/camera/config",
+            "/api/camera/apply",
+            "applyWorkflowCameraSettings",
+            "keep_ai_preview: true",
+            "AI preview kept",
             "aiMaxThrottle",
         ],
         "global_space_js": ["PiSDGlobalSpaceStop", "space-global-stop", "/api/control/stop", "/api/ai/stop", "stopImmediatePropagation"],
         "recording_panel_js": ["PiSDRecordingDownloadPanels", "/api/recording/items", "/api/recording/download.zip", "/api/recording/delete", "data-recording-download-panel"],
+        "app": ["keep_ai_preview", "Motors stopped; AI preview kept.", "ai=ai_drive_service.status()"],
     }
-    sources = {"template": template, "css": css, "js": js, "global_space_js": global_space_js, "recording_panel_js": recording_panel_js}
+    sources = {"template": template, "css": css, "js": js, "global_space_js": global_space_js, "recording_panel_js": recording_panel_js, "app": app_py}
     missing = {name: [token for token in tokens if token not in sources[name]] for name, tokens in required.items()}
     missing = {name: tokens for name, tokens in missing.items() if tokens}
     forbidden = {
-        "template": ["Refresh frame", "Start camera + live stream", "Space centre correction"],
+        "template": ["Refresh frame", "Start camera + live stream", "Space centre correction", "Shared drive safety control"],
         "js": ["aiSnapshot"],
     }
     present_forbidden = {name: [token for token in tokens if token in sources[name]] for name, tokens in forbidden.items()}
@@ -218,6 +236,7 @@ def check_source_contract() -> Result:
     for label, first_token, second_token in (
         ("camera_buttons_above_preview", 'id="aiLive"', 'id="aiPreviewFrame"'),
         ("run_buttons_above_preview", 'id="aiStartPreview"', 'id="aiPreviewFrame"'),
+        ("workflow_confirmation_before_panels", 'id="aiEnableMotor"', 'aria-label="AI mode panels"'),
     ):
         first_index = template.find(first_token)
         second_index = template.find(second_token)
@@ -228,7 +247,7 @@ def check_source_contract() -> Result:
         "ai_mode.source_contract",
         ok,
         PiSDErrorCodes.OK if ok else PiSDErrorCodes.TEST_AI_MODE_FAILED,
-        "AI Mode source contains model-loading, one Start live action, one motor/safety confirmation, snapshot/record buttons above preview, road-guide overlay, safety, same-sign reverse steering policy, and drive contracts" if ok else "AI Mode source contract failed",
+        "AI Mode source contains model-loading, one Start live action, AI-workflow safety confirmation, camera FPS settings popup, snapshot/record buttons above preview, road-guide overlay, safety, same-sign reverse steering policy, manual-preview stop separation, and drive contracts" if ok else "AI Mode source contract failed",
         {"missing": missing, "forbidden_present": present_forbidden, "order_errors": order_errors},
     )
 

@@ -35,9 +35,38 @@
           <p class="mdrv-label">AI workflow</p>
           <h2>Model-based driving</h2>
         </div>
-        <span class="mdrv-code" data-code-for="ai">PISD-OK-000</span>
+        <div class="ai-intro-actions">
+          <button id="aiWorkflowSettingsOpen" class="mdrv-button ai-button ai-button-secondary" type="button">Settings</button>
+          <span class="mdrv-code" data-code-for="ai">PISD-OK-000</span>
+        </div>
       </div>
       <p class="ai-summary">Load a model, start live, then preview or drive.</p>
+      <div class="ai-shared-drive-controls ai-checks ai-intro-drive-confirm" aria-label="AI drive safety control">
+        <label><input id="aiEnableMotor" type="checkbox"> Confirm safe test + enable motors</label>
+      </div>
+      <div id="aiWorkflowSettingsPopup" class="mdrv-overlay-settings-popup ai-settings-popup" role="dialog" aria-modal="true" aria-labelledby="aiWorkflowSettingsTitle" hidden>
+        <div class="mdrv-overlay-settings-card ai-settings-card" role="document">
+          <div class="mdrv-overlay-settings-head">
+            <div>
+              <p class="mdrv-label">AI workflow settings</p>
+              <h3 id="aiWorkflowSettingsTitle">Camera settings</h3>
+            </div>
+            <button id="aiWorkflowSettingsClose" class="mdrv-button" type="button" aria-label="Close AI workflow settings">Close</button>
+          </div>
+          <p class="mdrv-overlay-calibration-note">Set the camera capture target used by live preview, AI preview, AI drive, snapshots, and recordings. Applying may restart the camera.</p>
+          <div class="mdrv-overlay-settings-grid mdrv-overlay-settings-grid-compact ai-settings-grid">
+            <fieldset>
+              <legend>Camera</legend>
+              <label><span>Camera FPS<small>Target capture rate. Higher FPS needs more Pi CPU.</small></span><input id="aiCameraFps" type="number" min="1" max="120" step="1" inputmode="numeric"></label>
+              <label><span>Current target<small>Loaded from the active camera config.</small></span><output id="aiCameraFpsCurrent">-</output></label>
+            </fieldset>
+          </div>
+          <div class="mdrv-overlay-settings-actions">
+            <span class="mdrv-overlay-settings-status" id="aiWorkflowSettingsStatus">Ready</span>
+            <button id="aiWorkflowSettingsApply" class="mdrv-button mdrv-primary" type="button">Apply camera FPS</button>
+          </div>
+        </div>
+      </div>
       {% if legacy_autopilot_alias %}
       <p class="ai-warning">The old scripted Autopilot page has been replaced. This page is AI model based and does not run scripted profiles.</p>
       {% endif %}
@@ -174,9 +203,6 @@ python3 scripts/check_ai_runtime.py</pre>
           <button id="aiLimiterTab" class="mdrv-button ai-panel-tab" type="button" role="tab" aria-controls="aiLimiterPane" aria-selected="true">Limiter</button>
           <button id="aiCorrectionTab" class="mdrv-button ai-panel-tab" type="button" role="tab" aria-controls="aiCorrectionPane" aria-selected="false">Correction</button>
           <button id="aiManualDriveTab" class="mdrv-button ai-panel-tab" type="button" role="tab" aria-controls="aiManualDrivePane" aria-selected="false">Manual pad</button>
-        </div>
-        <div class="ai-shared-drive-controls ai-checks" aria-label="Shared drive safety control">
-          <label><input id="aiEnableMotor" type="checkbox"> Confirm safe test + enable motors</label>
         </div>
         <div id="aiLimiterPane" class="ai-output-pane" role="tabpanel" aria-labelledby="aiLimiterTab">
           <div class="ai-form-grid">
