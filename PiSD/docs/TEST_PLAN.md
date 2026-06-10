@@ -1126,6 +1126,30 @@ Browser/Pi checks to perform on hardware:
 4. Check `labels.jsonl` keeps the original compact fields: `frame`, `relative_file`, `steering`, `throttle`, `timestamp_utc`, `source_frame_seq`, `session_id`, and overlay metadata.
 5. Re-check `/manual-drive`, `/ai-mode`, `/dashboard`, and `/testing` to confirm preview buttons still stay above the preview image.
 
+
+## PiSD 0.11.1 AI preview/manual recording checks
+
+After applying `PiSD_0_11_1_patch`, run the safe local checks:
+
+```bash
+cd ~/PiDrive/PiSD
+python3 -m compileall -q pisd scripts PiSD.py
+node --check pisd/web/static/js/ai_mode.js
+python3 scripts/test_ai_mode_page.py --static-only
+python3 scripts/test_recording_service.py
+python3 scripts/run_standard_validation.py --skip-api --skip-camera --skip-motor --skip-gui
+python3 PiSD.py --status-only
+```
+
+Browser/Pi checks to perform on hardware:
+
+1. Open `/ai-mode`, load a model, click `Start live`, then click `Start AI preview`.
+2. Select `Manual pad` and drag/use arrow keys. Confirm the AI road overlay keeps updating from the model preview while motor output follows the manual input.
+3. If AI drive was active, switch to Manual pad and send a manual command. Confirm AI drive output is no longer armed but AI preview/status can continue.
+4. Start AI Mode recording while manual input is being used. Stop recording and check `labels.jsonl`: `control_label_source` should be `ai_safe_command`, and `steering`/`throttle` should match the recorded `ai_output.safe` values.
+5. Confirm `records.jsonl` still contains `manual_command` and `motor_state` for the actual manual motor output trace.
+6. Confirm `Start AI preview`, `Snapshot`, and `Record` appear yellow.
+
 ## PiSD 0.10.9 preview-button and frame-id checks
 
 After applying `PiSD_0_10_9_patch`, run the safe local checks:

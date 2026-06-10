@@ -1,6 +1,6 @@
 # PiSD
 
-`PiSD_0_11_0` patch package — builds forward from the `PiSD_0_10_0` stable v10 baseline plus accepted `0_10_1` through `0_10_10` UI/AI-correction/manual-pad/recording/persistence/layout patches.
+`PiSD_0_11_1` patch package — builds forward from the current user-provided `PiSD_0_11_0` baseline.
 
 PiSD is a clean sandbox under `PiDrive/PiSD` for rebuilding and testing PiServer GUI and runtime functions from square one.
 
@@ -10,9 +10,9 @@ Future bug-fix patches after this package should use `PiSD_0_11_x_patch` naming 
 
 ## Current version
 
-`PiSD_0_11_0` patch package. `PiSD_0_10_0` remains the full stable v10 baseline built from the accepted `PiSD_0_9_0` stable package plus the accepted `0_9_1` through `0_9_10` patch line. It promotes the latest AI runtime/model compatibility work, AI update-rate/control-loop improvements, combined camera/live-stream control, AI Mode recording/snapshot controls, keyboard steering timing, overlay recording metadata, and dead-zone cleanup into a new rollback baseline.
+`PiSD_0_11_1` patch package. The user-provided `PiSD_0_11_0.zip` is the current working baseline for this patch line. This patch keeps the existing AI runtime/model compatibility work, AI update-rate/control-loop improvements, combined camera/live-stream control, AI Mode recording/snapshot controls, keyboard steering timing, overlay recording metadata, and dead-zone cleanup, then adds the AI preview/manual-recording separation requested for `0_11_1`.
 
-Use `PiSD_0_10_0` as the rollback point unless the user promotes a full newer stable baseline; this package starts the `0_11_x` forward patch line.
+Use `PiSD_0_11_0` as the source-of-truth baseline for this patch unless the user promotes a newer full baseline.
 
 Included accepted work:
 
@@ -196,7 +196,7 @@ Use `records.jsonl` only for full debug metadata, filtering, or advanced trainin
 
 ## Stable baseline notes
 
-`PiSD_0_10_0` is the stable rollback baseline; `PiSD_0_11_0` is the current forward patch on the `0_10_x` line.
+`PiSD_0_11_0` is the current user-provided baseline; `PiSD_0_11_1` is the current forward patch on the `0_11_x` line.
 
 It includes the tested service foundation from earlier baselines plus the accepted v6, v7, v8, v9, and v10-promotion Manual Drive, recording, overlay, AI Mode, steering algorithm, motor tuning reset, keyboard-control, safety-policy, AI-runtime, and validation cleanup patch lines.
 
@@ -287,6 +287,19 @@ python3 scripts/test_motor_channels.py --hardware
 - Camera setting source-of-truth is still duplicated between backend defaults, service dataclass, UI forms, and diagnostic scripts. If the OV5647 colour still does not match the earlier 03/91 diagnostic result on real hardware, that should be a future `0_10_x` camera patch.
 
 
+
+
+## PiSD 0.11.1 AI preview/manual recording patch
+
+`PiSD_0_11_1_patch.zip` builds forward from the current `PiSD_0_11_0` baseline.
+
+Changes:
+- AI Mode Manual pad no longer stops an active AI preview loop. Manual drag/keyboard input owns motor output, while the AI preview can keep updating the overlay from the latest safe AI command.
+- If Manual pad is used while AI drive is active, AI motor output is switched back to preview before the manual command is applied.
+- AI Mode snapshots and recordings now request `command_source: ai_safe_command`, so `labels.jsonl` stores the latest safe AI steering/throttle output while the full record still preserves the manual motor command trace.
+- `Start AI preview`, `Snapshot`, and `Record` are styled as yellow preparatory actions.
+
+Rollback safety: this patch preserves the single AI safety confirmation, top-of-preview controls, original frame-id format, Records & snaps panel, Space STOP, additive correction math, fixed-throttle mode, max-throttle persistence, and Manual pad motor gating.
 
 ## PiSD 0.11.0 AI text and one-confirmation patch
 

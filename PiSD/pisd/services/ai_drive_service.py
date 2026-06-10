@@ -498,12 +498,38 @@ class AIDriveService:
             self._running = True
             self._thread = threading.Thread(
                 target=self._run_loop,
-                args=(camera_service, motor_service, requested_mode == "drive"),
+                args=(camera_service, motor_service),
                 name="PiSDAIDriveThread",
                 daemon=True,
             )
             self._thread.start()
         return ok_payload("AI mode started.", ai=self.status())
+
+    def keep_preview_for_manual_override(self, motor_service: Any | None = None, *, stop_motors: bool = False, reason: Any = "manual_override") -> dict[str, Any]:
+        """Disable AI motor output while keeping an active preview loop alive.
+
+        Full Manual mode inside the AI page should not shut down the model
+        preview.  The preview loop can continue updating raw/corrected/safe AI
+        commands for the overlay and recording labels while manual commands own
+        the physical motor output.
+        """
+        clean_reason = str(reason or "manual_override")[:80]
+        with self._lock:
+            was_running = bool(self._running and self._thread and self._thread.is_alive())
+            was_drive = bool(was_running and self._mode == "drive")
+            if was_drive or self._drive_output_enabled:
+                self._mode = "preview"
+                self._drive_output_enabled = False
+        if stop_motors and motor_service is not None and was_drive:
+            try:
+                motor_service.stop()
+                with self._lock:
+                    self._last_motor = {"left": 0.0, "right": 0.0}
+            except Exception as exc:
+                report = self._record_error(PiSDErrorCodes.AI_RUNTIME_FAILED, f"AI manual override could not stop motors: {exc}", exc=exc)
+                return report_payload(False, report, ai=self.status())
+        message = "AI drive output changed to preview for manual override." if was_drive else "AI preview state kept for manual override."
+        return ok_payload(message, ai=self.status(), manual_override={"reason": clean_reason, "was_running": was_running, "was_drive": was_drive, "preview_kept": was_running})
 
     def stop(self, motor_service: Any | None = None, *, stop_motors: bool = True) -> dict[str, Any]:
         with self._lock:
@@ -545,10 +571,16 @@ class AIDriveService:
             left = right = 0.0
             left_intended = right_intended = 0.0
             if drive and motor_service is not None:
-                left, right = motor_service.update(steering=safe["steering"], throttle=safe["throttle"])
-                motor_status = motor_service.status()
-                left_intended = float(motor_status.get("last_intended_left", left) or 0.0)
-                right_intended = float(motor_status.get("last_intended_right", right) or 0.0)
+                # Manual override can happen while inference is running.  Re-check
+                # the drive gate immediately before touching motors so an active
+                # preview loop cannot win a race against manual pad ownership.
+                with self._lock:
+                    drive_allowed = bool(self._running and self._mode == "drive" and self._drive_output_enabled)
+                if drive_allowed:
+                    left, right = motor_service.update(steering=safe["steering"], throttle=safe["throttle"])
+                    motor_status = motor_service.status()
+                    left_intended = float(motor_status.get("last_intended_left", left) or 0.0)
+                    right_intended = float(motor_status.get("last_intended_right", right) or 0.0)
             with self._lock:
                 self._last_raw = {"steering": float(raw_steering), "throttle": float(raw_throttle)}
                 self._last_mixed = {"steering": float(mixed["steering"]), "throttle": float(mixed["throttle"]), "manual_weight": float(mixed.get("manual_weight", 0.0)), "correction_gain": float(mixed.get("correction_gain", mixed.get("manual_weight", 0.0))), "manual_active": bool(mixed.get("manual_active", False))}
@@ -956,13 +988,18 @@ class AIDriveService:
             return self._commands_from_prediction_output(output, output_names)
         raise RuntimeError(f"Unsupported AI inference backend: {backend}")
 
-    def _run_loop(self, camera_service: Any, motor_service: Any, drive: bool) -> None:
+    def _run_loop(self, camera_service: Any, motor_service: Any) -> None:
         last_tick = time.perf_counter()
         max_failures = 5
+        drove_motors = False
         try:
             while not self._stop_event.is_set():
                 started = time.perf_counter()
-                result = self.predict_once(camera_service, motor_service, drive=drive)
+                with self._lock:
+                    drive_now = bool(self._running and self._mode == "drive" and self._drive_output_enabled)
+                if drive_now:
+                    drove_motors = True
+                result = self.predict_once(camera_service, motor_service, drive=drive_now)
                 elapsed = time.perf_counter() - started
                 interval = 1.0 / max(1.0, float(self._settings.get("update_hz", 12.0)))
                 if not result.get("ok"):
@@ -981,7 +1018,7 @@ class AIDriveService:
         except Exception as exc:
             self._record_error(PiSDErrorCodes.AI_RUNTIME_FAILED, f"AI runtime loop failed: {exc}", exc=exc)
         finally:
-            if drive:
+            if drove_motors:
                 try:
                     motor_service.stop()
                 except Exception:
@@ -991,5 +1028,5 @@ class AIDriveService:
                 self._mode = "idle"
                 self._drive_output_enabled = False
                 self._thread = None
-                if drive:
+                if drove_motors:
                     self._last_motor = {"left": 0.0, "right": 0.0}

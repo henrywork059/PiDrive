@@ -542,6 +542,8 @@ def create_app(hardware_enabled: bool = False):
                 motor_service,
                 label=data.get("label", "manual_capture"),
                 overlay_settings=data.get("overlay_settings"),
+                command_source=data.get("command_source"),
+                ai_status_provider=ai_drive_service.status,
             )
             return jsonify(result), 200 if result.get("ok") else 503
         except Exception as exc:
@@ -560,6 +562,8 @@ def create_app(hardware_enabled: bool = False):
                 label=data.get("label", "manual_drive"),
                 fps=data.get("fps", 6),
                 overlay_settings=data.get("overlay_settings"),
+                command_source=data.get("command_source"),
+                ai_status_provider=ai_drive_service.status,
             )
             return jsonify(result), 200 if result.get("ok") else 409
         except Exception as exc:
@@ -847,7 +851,11 @@ def create_app(hardware_enabled: bool = False):
             speed_limit = clamp_float(manual_settings.get("max_speed_limit", 1.0), 0.0, 1.0, 1.0)
             safe_throttle = max(-speed_limit, min(speed_limit, requested_throttle))
 
-            ai_drive_service.stop(motor_service, stop_motors=False)
+            ai_manual_override = ai_drive_service.keep_preview_for_manual_override(
+                motor_service,
+                stop_motors=False,
+                reason=data.get("source", "manual_control"),
+            )
             # steer_mix is intentionally not accepted as a Manual Drive policy
             # override here. MotorService will use the saved motor.steer_mix so
             # motor calibration remains the single source of truth.
@@ -869,6 +877,8 @@ def create_app(hardware_enabled: bool = False):
                 right_hardware=right,
                 motor=motor_status,
                 manual_speed_limit=speed_limit,
+                ai=ai_drive_service.status(),
+                ai_manual_override=ai_manual_override.get("manual_override", {}),
             ))
         except Exception as exc:
             report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"Manual control API failed: {exc}", exc=exc)

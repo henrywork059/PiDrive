@@ -136,6 +136,20 @@ Rollback safety: this patch preserves the accepted one-button `Start live` workf
 
 
 
+
+## PiSD 0.11.1 AI preview/manual recording patch
+
+`PiSD_0_11_1_patch.zip` builds forward from `PiSD_0_11_0`. It does not promote a new full rollback baseline.
+
+Scope:
+- Keeps AI preview running when the AI Mode Manual pad is selected and manual input is sent.
+- Converts any active AI drive output back to preview before applying direct manual motor commands.
+- Records AI Mode snapshots/sessions with `control_label_source=ai_safe_command`, using the latest safe AI command for trainer-facing `steering` and `throttle`.
+- Preserves the manual command and motor state in `records.jsonl` for debugging.
+- Styles `Start AI preview`, `Snapshot`, and `Record` in yellow.
+
+Rollback safety: preserves the single confirmation control, original frame-id format, Records & snaps panel, top-of-preview button placement, global Space STOP, additive correction, fixed-throttle-after-correction, and max-throttle persistence.
+
 ## PiSD 0.11.0 AI text and one-confirmation patch
 
 `PiSD_0_11_0_patch.zip` builds forward from v10 plus accepted patches `0_10_1` through `0_10_10`, starting the `0_11_x` forward patch line.

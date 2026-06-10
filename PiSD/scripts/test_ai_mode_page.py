@@ -145,7 +145,7 @@ def check_source_contract() -> Result:
             "mdrv-panel",
             'max="1.0"',
         ],
-        "css": [".ai-shell", ".ai-grid", ".ai-preview-frame", ".ai-preview-run-actions", ".ai-button-danger", "mdrv-drive-overlay", ".ai-runtime-help", "#aiFilesPanel", "@media (max-width: 980px)"],
+        "css": [".ai-shell", ".ai-grid", ".ai-preview-frame", ".ai-preview-run-actions", ".ai-button-danger", "mdrv-drive-overlay", ".ai-runtime-help", "#aiFilesPanel", "#aiStartPreview.mdrv-button", "rgba(251, 191, 36", "@media (max-width: 980px)"],
         "js": [
             "aiModeInitialStatus",
             "/api/ai/models",
@@ -194,6 +194,8 @@ def check_source_contract() -> Result:
             "ai-correction-keyboard",
             "sendFullManualDrive",
             "ai-manual-keyboard",
+            "AI preview overlay can keep running",
+            "command_source: 'ai_safe_command'",
             "/api/control/manual",
             "pisd:space-stop",
             "configDirtyFields",

@@ -566,7 +566,7 @@
     }
 
     if (wasManual && !manualActive) stopFullManualDrive('ai-manual-pane-exit');
-    if (manualActive) updateManualDriveStatus('Manual pad active. Direct manual commands will stop AI drive control.', 'active');
+    if (manualActive) updateManualDriveStatus('Manual pad active. AI preview overlay can keep running; manual input owns the motors.', 'active');
 
     if (persist) saveConfig();
   }
@@ -646,9 +646,12 @@
           source,
         },
       });
-      lastAIStatus = { ...(lastAIStatus || {}), running: false, mode: 'manual' };
-      if (els.aiRunMode) els.aiRunMode.textContent = 'manual';
-      renderAI(data.ai || lastAIStatus || {});
+      if (data.ai) {
+        renderAI(data.ai);
+      } else {
+        lastAIStatus = { ...(lastAIStatus || {}), mode: manualDrivePanelActive() && aiRunning ? 'preview' : 'manual' };
+        renderAI(lastAIStatus || {});
+      }
       updateManualDriveStatus(`Manual S ${formatSigned(manualDriveSteering)} / T ${formatSigned(manualDriveThrottle)} sent.`, 'active');
       log('Full manual command sent from AI Mode.', { steering: manualDriveSteering, throttle: manualDriveThrottle, motor: data.motor || {} });
     } catch (err) {
@@ -950,7 +953,7 @@
   async function saveAISnapshot() {
     try {
       await api('/api/camera/start', { method: 'POST', body: {} }).catch(() => null);
-      const data = await api('/api/recording/capture', { method: 'POST', body: { label: 'ai_mode_capture' } });
+      const data = await api('/api/recording/capture', { method: 'POST', body: { label: 'ai_mode_capture', command_source: 'ai_safe_command' } });
       renderRecording(data.recording || {});
       setPreview('snapshot', `/api/camera/frame.jpg?t=${Date.now()}`);
       log('AI snapshot saved.', data.record || data.recording || {});
@@ -969,7 +972,7 @@
       } else {
         await api('/api/camera/start', { method: 'POST', body: {} }).catch(() => null);
         const fps = clamp(Number(els.aiUpdateHz?.value || 12), 0.2, 30, 12);
-        const data = await api('/api/recording/start', { method: 'POST', body: { label: 'ai_mode', fps } });
+        const data = await api('/api/recording/start', { method: 'POST', body: { label: 'ai_mode', fps, command_source: 'ai_safe_command' } });
         renderRecording(data.recording || {});
         log('AI recording started.', data.recording?.active_session || data.recording || {});
       }

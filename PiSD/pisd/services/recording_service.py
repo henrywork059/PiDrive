@@ -56,6 +56,37 @@ def _safe_label(value: Any, default: str = "manual") -> str:
     return cleaned[:48] or default
 
 
+def _normalise_command_source(value: Any, label: Any = "") -> str:
+    raw = str(value or "").strip().lower().replace("-", "_")
+    if raw in {"ai", "ai_output", "ai_safe", "ai_safe_command", "model", "model_output"}:
+        return "ai_safe_command"
+    if raw in {"manual", "manual_command", "motor", "motor_command"}:
+        return "manual_command"
+    label_text = str(label or "").strip().lower()
+    if label_text.startswith("ai_mode") or label_text.startswith("ai_"):
+        return "ai_safe_command"
+    return "manual_command"
+
+
+def _safe_status_from_provider(provider: Callable[[], dict[str, Any]] | None) -> dict[str, Any]:
+    if provider is None:
+        return {}
+    try:
+        status = provider() or {}
+        return dict(status) if isinstance(status, dict) else {}
+    except Exception:
+        return {}
+
+
+def _command_dict(value: Any) -> dict[str, float]:
+    if not isinstance(value, dict):
+        return {"steering": 0.0, "throttle": 0.0}
+    return {
+        "steering": float(clamp_float(value.get("steering", 0.0), -1.0, 1.0, 0.0)),
+        "throttle": float(clamp_float(value.get("throttle", 0.0), -1.0, 1.0, 0.0)),
+    }
+
+
 class RecordingService:
     """Filesystem-backed frame recorder for PiSD data collection.
 
@@ -111,9 +142,10 @@ class RecordingService:
         data.update(self.errors.status_fields(limit=5))
         return data
 
-    def start(self, camera_service: Any, motor_service: Any, *, label: Any = "manual_drive", fps: Any = 6.0, overlay_settings: Any | None = None) -> dict[str, Any]:
+    def start(self, camera_service: Any, motor_service: Any, *, label: Any = "manual_drive", fps: Any = 6.0, overlay_settings: Any | None = None, command_source: Any = None, ai_status_provider: Callable[[], dict[str, Any]] | None = None) -> dict[str, Any]:
         record_fps = clamp_float(fps, 0.2, 30.0, 6.0)
         session_label = _safe_label(label, "manual_drive")
+        selected_command_source = _normalise_command_source(command_source, session_label)
         with self._lock:
             if self._thread and self._thread.is_alive() and self._active_session:
                 report = self._record_error(
@@ -146,6 +178,7 @@ class RecordingService:
                     "overlay_settings": overlay_snapshot,
                     "overlay_settings_source": "manual_drive_runtime_overlay",
                     "overlay_schema_version": OVERLAY_SCHEMA_VERSION,
+                    "command_source": selected_command_source,
                     "schema": {
                         "frame_id": "unique stable frame id",
                         "frame_index": "1-based session order",
@@ -153,16 +186,19 @@ class RecordingService:
                         "source_frame_seq": "camera service frame sequence",
                         "camera_settings": "full camera status/config at save time",
                         "motor_state": "full motor status/config at save time",
-                        "steering": "last manual steering command if available",
-                        "throttle": "last manual throttle command if available",
+                        "steering": "selected trainer label steering; manual command by default, AI safe command for AI-mode recordings",
+                        "throttle": "selected trainer label throttle; manual command by default, AI safe command for AI-mode recordings",
+                        "control_label_source": "manual_command or ai_safe_command",
+                        "ai_output": "AI raw/corrected/safe output snapshot when an AI source is selected",
                         "motor_outputs": "left/right effective motor outputs",
                         "overlay_settings": "Manual Drive visual path overlay settings at save time for trainer redraw",
                         "overlay_settings_file": "session-level overlay_settings.json for trainer apps to reuse the same visual calibration",
                     },
                     "training_labels_schema": {
                         "frame": "relative frame path used by trainers",
-                        "steering": "manual steering label in -1..1",
-                        "throttle": "manual throttle label in -1..1",
+                        "steering": "selected steering label in -1..1",
+                        "throttle": "selected throttle label in -1..1",
+                        "control_label_source": "manual_command or ai_safe_command",
                         "timestamp_utc": "save time for traceability",
                         "overlay_settings": "Manual Drive visual path overlay settings at save time for trainer redraw",
                         "overlay_settings_file": "session-level overlay_settings.json for trainer apps to reuse the same visual calibration",
@@ -192,6 +228,7 @@ class RecordingService:
                 "overlay_settings": overlay_snapshot,
                 "overlay_settings_source": "manual_drive_runtime_overlay",
                 "overlay_schema_version": OVERLAY_SCHEMA_VERSION,
+                "command_source": selected_command_source,
             }
             self._frame_count = 0
             self._last_saved_record = {}
@@ -200,7 +237,7 @@ class RecordingService:
             self._stop_event.clear()
             self._thread = threading.Thread(
                 target=self._record_loop,
-                args=(camera_service, motor_service, record_fps),
+                args=(camera_service, motor_service, record_fps, ai_status_provider, selected_command_source),
                 name="PiSDRecordingThread",
                 daemon=True,
             )
@@ -236,8 +273,9 @@ class RecordingService:
             self._thread = None
         return ok_payload("Recording stopped.", recording=self.status(), stopped_session=session)
 
-    def capture_once(self, camera_service: Any, motor_service: Any, *, label: Any = "capture", overlay_settings: Any | None = None) -> dict[str, Any]:
+    def capture_once(self, camera_service: Any, motor_service: Any, *, label: Any = "capture", overlay_settings: Any | None = None, command_source: Any = None, ai_status_provider: Callable[[], dict[str, Any]] | None = None) -> dict[str, Any]:
         label_text = _safe_label(label, "capture")
+        selected_command_source = _normalise_command_source(command_source, label_text)
         try:
             frame, seq, source_frame_at, byte_count = self._get_frame(camera_service)
             if frame is None:
@@ -262,6 +300,8 @@ class RecordingService:
                         frame_index=frame_index,
                         session=session,
                         overlay_settings=overlay_settings,
+                        command_source=selected_command_source,
+                        ai_status_provider=ai_status_provider,
                     )
                     self._frame_count = frame_index
                     self._finalise_manifest_locked(open_session=True)
@@ -278,6 +318,8 @@ class RecordingService:
                     frame_index=frame_index,
                     session=session,
                     overlay_settings=overlay_settings,
+                    command_source=selected_command_source,
+                    ai_status_provider=ai_status_provider,
                 )
                 self._write_json(
                     Path(session["manifest_file"]),
@@ -294,7 +336,7 @@ class RecordingService:
                         "training_data": {
                             "format": "behavioural_cloning_jsonl",
                             "labels_file": session.get("labels_file", ""),
-                            "label_fields": ["frame", "steering", "throttle", "timestamp_utc", "overlay_settings", "overlay_settings_file"],
+                            "label_fields": ["frame", "steering", "throttle", "control_label_source", "timestamp_utc", "overlay_settings", "overlay_settings_file"],
                             "overlay_settings_file": record.get("overlay_settings_file", session.get("overlay_settings_file", "")),
                             "overlay_settings_history_file": record.get("overlay_settings_history_file", session.get("overlay_settings_history_file", "")),
                             "overlay_schema_version": record.get("overlay_schema_version", OVERLAY_SCHEMA_VERSION),
@@ -656,7 +698,7 @@ class RecordingService:
             handle.write(json.dumps(history_entry, sort_keys=True) + "\n")
         return settings_path, history_path
 
-    def _record_loop(self, camera_service: Any, motor_service: Any, record_fps: float) -> None:
+    def _record_loop(self, camera_service: Any, motor_service: Any, record_fps: float, ai_status_provider: Callable[[], dict[str, Any]] | None = None, command_source: str = "manual_command") -> None:
         interval = 1.0 / max(0.2, record_fps)
         last_seq: int | None = None
         next_save_at = time.monotonic()
@@ -688,6 +730,8 @@ class RecordingService:
                         label="record",
                         frame_index=frame_index,
                         session=dict(self._active_session),
+                        command_source=command_source,
+                        ai_status_provider=ai_status_provider,
                     )
                     self._frame_count = frame_index
                     self._last_saved_record = record
@@ -760,6 +804,8 @@ class RecordingService:
         frame_index: int,
         session: dict[str, Any],
         overlay_settings: Any | None = None,
+        command_source: Any = "manual_command",
+        ai_status_provider: Callable[[], dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         saved_at = _utc_now()
         frame_id = f"{session['session_id']}_{frame_index:06d}_{_stamp(saved_at)}_{uuid.uuid4().hex[:8]}"
@@ -772,6 +818,24 @@ class RecordingService:
         camera_status = camera_service.get_config()
         motor_status = motor_service.status()
         last_command = motor_status.get("last_command") or {}
+        selected_command_source = _normalise_command_source(command_source, session.get("label", ""))
+        ai_status = _safe_status_from_provider(ai_status_provider if selected_command_source == "ai_safe_command" else None)
+        ai_raw = _command_dict(ai_status.get("last_raw_prediction") if ai_status else {})
+        ai_corrected = _command_dict(ai_status.get("last_corrected_command") or ai_status.get("last_mixed_command") if ai_status else {})
+        ai_safe = _command_dict(ai_status.get("last_safe_command") if ai_status else {})
+        manual_command = _command_dict(last_command)
+        trainer_command = ai_safe if selected_command_source == "ai_safe_command" else manual_command
+        ai_output_snapshot = {
+            "running": bool(ai_status.get("running", False)) if ai_status else False,
+            "mode": str(ai_status.get("mode", "")) if ai_status else "",
+            "drive_output_enabled": bool(ai_status.get("drive_output_enabled", False)) if ai_status else False,
+            "model_id": str(ai_status.get("model_id", "")) if ai_status else "",
+            "last_prediction_at_utc": str(ai_status.get("last_prediction_at_utc", "")) if ai_status else "",
+            "last_frame_seq": int(ai_status.get("last_frame_seq", 0) or 0) if ai_status else 0,
+            "raw": ai_raw,
+            "corrected": ai_corrected,
+            "safe": ai_safe,
+        } if selected_command_source == "ai_safe_command" else {}
         overlay_snapshot = self._current_overlay_settings(overlay_settings, session=session)
         overlay_settings_file, overlay_settings_history_file = self._write_overlay_settings_sidecar_locked(
             session,
@@ -798,8 +862,10 @@ class RecordingService:
             "camera_settings": camera_status,
             "motor_state": motor_status,
             "manual_command": last_command,
-            "steering": float(last_command.get("steering", 0.0) or 0.0),
-            "throttle": float(last_command.get("throttle", 0.0) or 0.0),
+            "control_label_source": selected_command_source,
+            "ai_output": ai_output_snapshot,
+            "steering": float(trainer_command.get("steering", 0.0) or 0.0),
+            "throttle": float(trainer_command.get("throttle", 0.0) or 0.0),
             "steer_mix": float(last_command.get("steer_mix", motor_status.get("steer_mix", 1.0)) or 1.0),
             "motor_outputs": {
                 # Trainer-facing vehicle intent: positive means forward motion for that side.
@@ -834,6 +900,8 @@ class RecordingService:
             "relative_file": str(frame_path.relative_to(self.project_root)).replace("\\", "/"),
             "steering": record["steering"],
             "throttle": record["throttle"],
+            "control_label_source": record.get("control_label_source", "manual_command"),
+            "ai_output": record.get("ai_output", {}),
             "timestamp_utc": record["saved_at_utc"],
             "source_frame_seq": record["source_frame_seq"],
             "session_id": record["session_id"],

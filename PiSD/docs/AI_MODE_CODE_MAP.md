@@ -74,7 +74,7 @@ Then the safety layer applies max steering, max throttle, smoothing, and fixed-t
 ```text
 AI Mode Manual pad
   -> /api/control/manual
-  -> ai_drive_service.stop(..., stop_motors=False)
+  -> ai_drive_service.keep_preview_for_manual_override(..., stop_motors=False)
   -> MotorService.update()
 ```
 
@@ -129,3 +129,9 @@ AI Mode keeps both camera actions (`Start live`, `Snapshot`, `Record`) and AI ru
 ## PiSD 0.10.10 note
 
 The `0.10.10` patch does not change AI Mode control wiring. It only restores the original recording frame-id/filename format after `0.10.9`; the AI preview controls still stay above `#aiPreviewFrame`.
+
+## PiSD 0.11.1 manual-preview separation
+
+Manual pad is now a motor-output override, not an AI-preview stop. If AI preview is running, direct manual commands keep the preview loop alive so the overlay can continue using `last_safe_command`. If AI drive output is armed, `/api/control/manual` switches AI back to preview before applying the manual command.
+
+AI Mode snapshot/recording requests include `command_source: ai_safe_command`, so `labels.jsonl` stores the latest safe AI steering/throttle output while `records.jsonl` still keeps the manual command and motor-state trace.

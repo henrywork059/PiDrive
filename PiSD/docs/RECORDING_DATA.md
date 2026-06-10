@@ -185,3 +185,20 @@ Example `labels.jsonl` row shape:
 ```
 
 The overlay settings are visual-only metadata. They do not change motor outputs. User-entered unclamped overlay tuning numbers are preserved where they are finite JSON-safe values, so piTrainer can reproduce the same guide style used during recording.
+
+## 0.11.1 AI Mode recording labels
+
+AI Mode recordings can now choose the trainer label source separately from the motor trace. When the browser starts an AI Mode snapshot or recording, it sends:
+
+```json
+{"command_source": "ai_safe_command"}
+```
+
+For that source, the compact `labels.jsonl` row uses the latest safe AI command for `steering` and `throttle`. The full `records.jsonl` row also stores:
+
+- `control_label_source`: `ai_safe_command` or `manual_command`
+- `ai_output.raw`, `ai_output.corrected`, and `ai_output.safe`
+- `manual_command` and `motor_state` for the actual motor-output trace
+
+This allows AI preview to keep overlaying/model-checking while Manual pad input drives the car. The training-facing label can record the AI safe output, while debugging still shows what the manual motors actually did.
+

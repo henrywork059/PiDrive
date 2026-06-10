@@ -119,10 +119,42 @@ def main() -> int:
     )
     results.append(Result("recording.capture_once", ok, capture.get("code", PiSDErrorCodes.TEST_RECORDING_SERVICE_FAILED), "single capture saved frame and metadata with trainer overlay sidecar" if ok else "single capture failed", {"record": record, "overlay_file": str(capture_overlay_file)}))
 
+    ai_status = {
+        "running": True,
+        "mode": "preview",
+        "drive_output_enabled": False,
+        "model_id": "unit_model.tflite",
+        "last_prediction_at_utc": "2026-06-10T00:00:00+00:00",
+        "last_frame_seq": 42,
+        "last_raw_prediction": {"steering": 0.31, "throttle": 0.41},
+        "last_corrected_command": {"steering": 0.52, "throttle": 0.62},
+        "last_safe_command": {"steering": -0.44, "throttle": 0.27},
+    }
+    ai_capture = service.capture_once(camera, motor, label="ai_mode_capture", command_source="ai_safe_command", ai_status_provider=lambda: ai_status)
+    ai_record = ai_capture.get("record") or {}
+    ai_label = ai_record.get("training_label") or {}
+    ai_label_ok = (
+        ai_capture.get("code") == PiSDErrorCodes.OK
+        and ai_record.get("control_label_source") == "ai_safe_command"
+        and ai_label.get("control_label_source") == "ai_safe_command"
+        and ai_record.get("steering") == -0.44
+        and ai_record.get("throttle") == 0.27
+        and (ai_record.get("ai_output") or {}).get("safe", {}).get("steering") == -0.44
+        and (ai_label.get("ai_output") or {}).get("safe", {}).get("throttle") == 0.27
+        and (ai_record.get("manual_command") or {}).get("steering") == 0.12
+    )
+    results.append(Result(
+        "recording.ai_output_labels",
+        bool(ai_label_ok),
+        ai_capture.get("code", PiSDErrorCodes.TEST_RECORDING_SERVICE_FAILED),
+        "AI-mode recording can label frames from the latest safe AI output while preserving manual command trace" if ai_label_ok else "AI-mode recording did not label from AI safe output",
+        {"record": ai_record},
+    ))
+
     capture2 = service.capture_once(camera, motor, label="unit_capture", overlay_settings=capture_overlay)
     record2 = capture2.get("record") or {}
     same_folder = (Path(record.get("file", "missing")).parent == Path(record2.get("file", "other")).parent) if record and record2 else False
-    ordered = record.get("frame_index") == 1 and record2.get("frame_index") == 2
+    ordered = record.get("frame_index") == 1 and record2.get("frame_index") == 3
     single_folder_ok = capture2.get("code") == PiSDErrorCodes.OK and same_folder and ordered and "single_captures" in str(record2.get("relative_file", ""))
     results.append(Result(
         "recording.single_capture_daily_folder",

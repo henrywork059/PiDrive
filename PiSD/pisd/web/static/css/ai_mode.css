@@ -465,18 +465,20 @@ body[data-pisd-card-accent="strong"] .ai-intro-panel {
   white-space: nowrap;
 }
 
-/* PiSD_0_10_3: AI Mode snapshot/record actions and output-correction panel. */
+/* PiSD_0_11_1: AI preview/snapshot/record are yellow preparatory actions. */
+#aiStartPreview.mdrv-button,
 #aiSaveSnapshot.mdrv-button,
 #aiRecordToggle.mdrv-button.ai-ai-record-action {
-  border-color: rgba(34, 197, 94, .64) !important;
-  background: rgba(22, 101, 52, .68) !important;
-  color: #dcfce7 !important;
+  border-color: rgba(251, 191, 36, .70) !important;
+  background: rgba(120, 53, 15, .64) !important;
+  color: #fde68a !important;
 }
 
+#aiStartPreview.mdrv-button:hover,
 #aiSaveSnapshot.mdrv-button:hover,
 #aiRecordToggle.mdrv-button.ai-ai-record-action:hover {
-  border-color: rgba(134, 239, 172, .86) !important;
-  background: rgba(21, 128, 61, .76) !important;
+  border-color: rgba(252, 211, 77, .92) !important;
+  background: rgba(146, 64, 14, .76) !important;
 }
 
 .ai-panel-tabs {
