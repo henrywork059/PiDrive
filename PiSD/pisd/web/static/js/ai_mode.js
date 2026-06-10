@@ -44,7 +44,7 @@
   let lastAIStatus = initial.ai_mode || {};
   let aiMotorEnableInitialised = false;
   let latestMotorSettings = { ...DEFAULT_MOTOR_SETTINGS };
-  let outputPanelMode = Boolean((lastAIStatus.settings || {}).manual_correction_enabled) ? 'correction' : 'limiter';
+  let outputPanelMode = 'manual';
   let correctionPanelActive = outputPanelMode === 'correction';
   let correctionDragging = false;
   let correctionSteering = 0;
@@ -767,8 +767,8 @@
     setCorrectionKnob(0, 0);
   }
 
-  function setOutputPanel(mode = 'limiter', persist = false) {
-    const nextMode = ['limiter', 'correction', 'manual', 'assist'].includes(mode) ? mode : 'limiter';
+  function setOutputPanel(mode = 'manual', persist = false) {
+    const nextMode = ['manual', 'assist', 'correction', 'limiter'].includes(mode) ? mode : 'manual';
     const wasCorrection = correctionPanelActive;
     const wasManual = manualDrivePanelActive();
     const wasAssist = aiAssistPanelActive();
@@ -1302,8 +1302,13 @@
       await api('/api/camera/start', { method: 'POST', body: {} }).catch(() => null);
       const data = await api('/api/recording/capture', { method: 'POST', body: { label: 'ai_mode_capture', command_source: 'ai_safe_command' } });
       renderRecording(data.recording || {});
-      setPreview('snapshot', `/api/camera/frame.jpg?t=${Date.now()}`);
-      log('AI snapshot saved.', data.record || data.recording || {});
+      if (els.aiPreviewCaption) {
+        const livePreviewActive = els.aiPreviewFrame?.dataset.previewMode === 'live' || String(els.aiPreviewImage?.src || '').includes('/video_feed');
+        els.aiPreviewCaption.textContent = livePreviewActive
+          ? 'Snapshot saved. Live stream kept running.'
+          : 'Snapshot saved. Start live to view the stream.';
+      }
+      log('AI snapshot saved. Live stream kept running when already active.', data.record || data.recording || {});
       await refreshAIRecordingFiles();
     } catch (err) {
       log(err.message, err.payload || {});
@@ -1700,6 +1705,7 @@
   setManualDriveKnob(0, 0);
   setAssistKnob(0, 0);
   renderAI((initial.ai_mode || {}));
+  setOutputPanel(outputPanelMode, false);
   renderRecording(initial.recording || {});
   wireRanges();
   bind();

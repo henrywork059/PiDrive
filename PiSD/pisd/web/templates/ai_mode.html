@@ -202,54 +202,17 @@ python3 scripts/check_ai_runtime.py</pre>
         <div class="mdrv-panel-head ai-panel-head">
           <div>
             <p class="mdrv-label ai-panel-kicker">Safety</p>
-            <h2>Limiter / correction / manual / assist</h2>
+            <h2>Manual pad / AI assist / Correction / Limiter</h2>
           </div>
           <button id="aiSaveConfig" class="mdrv-button ai-button ai-button-secondary">Save AI settings</button>
         </div>
         <div class="ai-panel-tabs" role="tablist" aria-label="AI output panel mode">
-          <button id="aiLimiterTab" class="mdrv-button ai-panel-tab" type="button" role="tab" aria-controls="aiLimiterPane" aria-selected="true">Limiter</button>
-          <button id="aiCorrectionTab" class="mdrv-button ai-panel-tab" type="button" role="tab" aria-controls="aiCorrectionPane" aria-selected="false">Correction</button>
-          <button id="aiManualDriveTab" class="mdrv-button ai-panel-tab" type="button" role="tab" aria-controls="aiManualDrivePane" aria-selected="false">Manual pad</button>
+          <button id="aiManualDriveTab" class="mdrv-button ai-panel-tab" type="button" role="tab" aria-controls="aiManualDrivePane" aria-selected="true">Manual pad</button>
           <button id="aiAssistTab" class="mdrv-button ai-panel-tab" type="button" role="tab" aria-controls="aiAssistPane" aria-selected="false">AI assist</button>
+          <button id="aiCorrectionTab" class="mdrv-button ai-panel-tab" type="button" role="tab" aria-controls="aiCorrectionPane" aria-selected="false">Correction</button>
+          <button id="aiLimiterTab" class="mdrv-button ai-panel-tab" type="button" role="tab" aria-controls="aiLimiterPane" aria-selected="false">Limiter</button>
         </div>
-        <div id="aiLimiterPane" class="ai-output-pane" role="tabpanel" aria-labelledby="aiLimiterTab">
-          <div class="ai-form-grid">
-            <label class="ai-field"><span>Output mode</span><select id="aiOutputMode"><option value="steering_and_throttle">AI steering + AI throttle</option><option value="steering_only">AI steering + fixed throttle</option></select></label>
-            <label class="ai-field"><span>Max throttle</span><input id="aiMaxThrottle" type="range" min="0" max="1.0" step="0.01"><output id="aiMaxThrottleOut">0.22</output></label>
-            <label class="ai-field"><span>Max steering</span><input id="aiMaxSteering" type="range" min="0" max="1" step="0.01"><output id="aiMaxSteeringOut">0.70</output></label>
-            <label class="ai-field"><span>Fixed throttle</span><input id="aiFixedThrottle" type="range" min="0" max="1.0" step="0.01"><output id="aiFixedThrottleOut">0.16</output></label>
-            <label class="ai-field"><span>AI prediction FPS</span><input id="aiUpdateHz" type="range" min="1" max="60" step="1"><output id="aiUpdateHzOut">20</output></label>
-            <label class="ai-field"><span>Steering smoothing</span><input id="aiSteerSmooth" type="range" min="0" max="1" step="0.05"><output id="aiSteerSmoothOut">0.35</output></label>
-            <label class="ai-field"><span>Throttle smoothing</span><input id="aiThrottleSmooth" type="range" min="0" max="1" step="0.05"><output id="aiThrottleSmoothOut">0.25</output></label>
-          </div>
-          <p class="mdrv-help ai-range-note">Limits clamp AI output before the motors. AI prediction FPS is independent from live preview FPS. Reverse steering keeps the same sign.</p>
-        </div>
-        <div id="aiCorrectionPane" class="ai-output-pane ai-correction-pane" role="tabpanel" aria-labelledby="aiCorrectionTab" hidden>
-          <p class="ai-note">Correction = AI + manual × %. Space = STOP.</p>
-          <label class="ai-field ai-correction-mix-field"><span>Correction %</span><input id="aiManualMix" type="range" min="0" max="100" step="1"><output id="aiManualMixOut">50%</output></label>
-          <div id="aiCorrectionPad" class="mdrv-drag-pad ai-correction-pad" role="application" aria-label="AI manual correction pad" tabindex="0">
-            <div class="mdrv-drag-cross"></div>
-            <div id="aiCorrectionKnob" class="mdrv-drag-knob"></div>
-            <div class="mdrv-drag-label top">Forward</div>
-            <div class="mdrv-drag-label bottom">Reverse</div>
-            <div class="mdrv-drag-label left">Left</div>
-            <div class="mdrv-drag-label right">Right</div>
-          </div>
-          <div class="mdrv-pad-readout ai-correction-readout">
-            <span>Manual S <strong id="aiManualSteeringOut">+0.00</strong></span>
-            <span>Manual T <strong id="aiManualThrottleOut">+0.00</strong></span>
-            <span>Correction <strong id="aiManualMixReadout">50%</strong></span>
-          </div>
-          <div class="mdrv-keyboard-hint ai-correction-keyboard" aria-label="AI correction keyboard controls">
-            <strong>Correction keys</strong>
-            <span>↑/↓ throttle ±0.05 per press</span>
-            <span>hold ←/→ steering ±1 in 0.8 s; release returns to 0</span>
-            <span>r record · s snapshot · Space STOP</span>
-          </div>
-          <p id="aiCorrectionStatus" class="mdrv-keyboard-status" data-state="ready">Correction ready. Switch to Limiter to disable manual correction.</p>
-          <p class="mdrv-help ai-range-note">Fixed-throttle mode keeps fixed throttle; steering correction still works.</p>
-        </div>
-        <div id="aiManualDrivePane" class="ai-output-pane ai-manual-drive-pane" role="tabpanel" aria-labelledby="aiManualDriveTab" hidden>
+        <div id="aiManualDrivePane" class="ai-output-pane ai-manual-drive-pane" role="tabpanel" aria-labelledby="aiManualDriveTab">
           <p class="ai-note">Direct Manual Drive takeover. Space = STOP.</p>
           <label class="ai-field ai-manual-speed-field"><span>Manual speed</span><input id="aiManualDriveSpeed" type="range" min="0" max="1.0" step="0.01" value="0.80"><output id="aiManualDriveSpeedOut">0.80</output></label>
           <div id="aiManualDrivePad" class="mdrv-drag-pad ai-manual-drive-pad" role="application" aria-label="AI Mode full manual driving pad" tabindex="0">
@@ -306,6 +269,43 @@ python3 scripts/check_ai_runtime.py</pre>
           </div>
           <p id="aiAssistStatus" class="mdrv-keyboard-status" data-state="ready">AI assist ready. Start AI preview for live steering assist.</p>
           <p class="mdrv-help ai-range-note">AI assist uses the same global AI percentage as Correction %. No separate similar setting is created.</p>
+        </div>
+        <div id="aiCorrectionPane" class="ai-output-pane ai-correction-pane" role="tabpanel" aria-labelledby="aiCorrectionTab" hidden>
+          <p class="ai-note">Correction = AI + manual × %. Space = STOP.</p>
+          <label class="ai-field ai-correction-mix-field"><span>Correction %</span><input id="aiManualMix" type="range" min="0" max="100" step="1"><output id="aiManualMixOut">50%</output></label>
+          <div id="aiCorrectionPad" class="mdrv-drag-pad ai-correction-pad" role="application" aria-label="AI manual correction pad" tabindex="0">
+            <div class="mdrv-drag-cross"></div>
+            <div id="aiCorrectionKnob" class="mdrv-drag-knob"></div>
+            <div class="mdrv-drag-label top">Forward</div>
+            <div class="mdrv-drag-label bottom">Reverse</div>
+            <div class="mdrv-drag-label left">Left</div>
+            <div class="mdrv-drag-label right">Right</div>
+          </div>
+          <div class="mdrv-pad-readout ai-correction-readout">
+            <span>Manual S <strong id="aiManualSteeringOut">+0.00</strong></span>
+            <span>Manual T <strong id="aiManualThrottleOut">+0.00</strong></span>
+            <span>Correction <strong id="aiManualMixReadout">50%</strong></span>
+          </div>
+          <div class="mdrv-keyboard-hint ai-correction-keyboard" aria-label="AI correction keyboard controls">
+            <strong>Correction keys</strong>
+            <span>↑/↓ throttle ±0.05 per press</span>
+            <span>hold ←/→ steering ±1 in 0.8 s; release returns to 0</span>
+            <span>r record · s snapshot · Space STOP</span>
+          </div>
+          <p id="aiCorrectionStatus" class="mdrv-keyboard-status" data-state="ready">Correction ready. Switch to Limiter to disable manual correction.</p>
+          <p class="mdrv-help ai-range-note">Fixed-throttle mode keeps fixed throttle; steering correction still works.</p>
+        </div>
+        <div id="aiLimiterPane" class="ai-output-pane" role="tabpanel" aria-labelledby="aiLimiterTab" hidden>
+          <div class="ai-form-grid">
+            <label class="ai-field"><span>Output mode</span><select id="aiOutputMode"><option value="steering_and_throttle">AI steering + AI throttle</option><option value="steering_only">AI steering + fixed throttle</option></select></label>
+            <label class="ai-field"><span>Max throttle</span><input id="aiMaxThrottle" type="range" min="0" max="1.0" step="0.01"><output id="aiMaxThrottleOut">0.22</output></label>
+            <label class="ai-field"><span>Max steering</span><input id="aiMaxSteering" type="range" min="0" max="1" step="0.01"><output id="aiMaxSteeringOut">0.70</output></label>
+            <label class="ai-field"><span>Fixed throttle</span><input id="aiFixedThrottle" type="range" min="0" max="1.0" step="0.01"><output id="aiFixedThrottleOut">0.16</output></label>
+            <label class="ai-field"><span>AI prediction FPS</span><input id="aiUpdateHz" type="range" min="1" max="60" step="1"><output id="aiUpdateHzOut">20</output></label>
+            <label class="ai-field"><span>Steering smoothing</span><input id="aiSteerSmooth" type="range" min="0" max="1" step="0.05"><output id="aiSteerSmoothOut">0.35</output></label>
+            <label class="ai-field"><span>Throttle smoothing</span><input id="aiThrottleSmooth" type="range" min="0" max="1" step="0.05"><output id="aiThrottleSmoothOut">0.25</output></label>
+          </div>
+          <p class="mdrv-help ai-range-note">Limits clamp AI output before the motors. AI prediction FPS is independent from live preview FPS. Reverse steering keeps the same sign.</p>
         </div>
       </section>
 

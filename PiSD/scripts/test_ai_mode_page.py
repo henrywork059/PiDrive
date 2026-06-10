@@ -131,7 +131,7 @@ def check_source_contract() -> Result:
             "aiDriveOverlay",
             "AI road guide",
             "Overlay: On",
-            "Limiter / correction / manual / assist",
+            "Manual pad / AI assist / Correction / Limiter",
             "aiLimiterTab",
             "aiCorrectionTab",
             "aiManualDriveTab",
@@ -207,6 +207,7 @@ def check_source_contract() -> Result:
             "refreshAIRecordingFiles",
             "saveAISnapshot",
             "toggleAIRecording",
+            "Snapshot saved. Live stream kept running",
             "/api/ai/manual-correction",
             "sendManualCorrection",
             "bindKeyboardShortcuts",
@@ -248,7 +249,7 @@ def check_source_contract() -> Result:
     missing = {name: tokens for name, tokens in missing.items() if tokens}
     forbidden = {
         "template": ["Refresh frame", "Start camera + live stream", "Space centre correction", "Shared drive safety control"],
-        "js": ["aiSnapshot"],
+        "js": ["aiSnapshot", "setPreview('snapshot'"],
     }
     present_forbidden = {name: [token for token in tokens if token in sources[name]] for name, tokens in forbidden.items()}
     present_forbidden = {name: tokens for name, tokens in present_forbidden.items() if tokens}
@@ -257,6 +258,9 @@ def check_source_contract() -> Result:
         ("camera_buttons_above_preview", 'id="aiLive"', 'id="aiPreviewFrame"'),
         ("run_buttons_above_preview", 'id="aiStartPreview"', 'id="aiPreviewFrame"'),
         ("workflow_confirmation_before_panels", 'id="aiEnableMotor"', 'aria-label="AI mode panels"'),
+        ("tab_order_manual_before_assist", 'id="aiManualDriveTab"', 'id="aiAssistTab"'),
+        ("tab_order_assist_before_correction", 'id="aiAssistTab"', 'id="aiCorrectionTab"'),
+        ("tab_order_correction_before_limiter", 'id="aiCorrectionTab"', 'id="aiLimiterTab"'),
     ):
         first_index = template.find(first_token)
         second_index = template.find(second_token)
