@@ -36,14 +36,14 @@
           <h2>Model-based driving</h2>
         </div>
         <div class="ai-intro-actions">
+          <div class="ai-shared-drive-controls ai-checks ai-intro-drive-confirm ai-intro-drive-confirm-inline" aria-label="AI drive safety control">
+            <label><input id="aiEnableMotor" type="checkbox"> Confirm safe test + enable motors</label>
+          </div>
           <button id="aiWorkflowSettingsOpen" class="mdrv-button ai-button ai-button-secondary" type="button">Settings</button>
           <span class="mdrv-code" data-code-for="ai">PISD-OK-000</span>
         </div>
       </div>
       <p class="ai-summary">Load a model, start live, then preview or drive.</p>
-      <div class="ai-shared-drive-controls ai-checks ai-intro-drive-confirm" aria-label="AI drive safety control">
-        <label><input id="aiEnableMotor" type="checkbox"> Confirm safe test + enable motors</label>
-      </div>
       <div id="aiWorkflowSettingsPopup" class="mdrv-overlay-settings-popup ai-settings-popup" role="dialog" aria-modal="true" aria-labelledby="aiWorkflowSettingsTitle" hidden>
         <div class="mdrv-overlay-settings-card ai-settings-card" role="document">
           <div class="mdrv-overlay-settings-head">

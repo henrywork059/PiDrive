@@ -589,6 +589,14 @@ body[data-pisd-theme="light"] .ai-panel-tabs {
   margin: .55rem 0 0;
 }
 
+.ai-intro-drive-confirm-inline {
+  margin: 0;
+}
+
+.ai-intro-drive-confirm-inline label {
+  white-space: nowrap;
+}
+
 .ai-settings-popup .mdrv-overlay-settings-card {
   width: min(560px, 96vw);
 }
@@ -619,5 +627,9 @@ body[data-pisd-theme="light"] .ai-panel-tabs {
 @media (max-width: 620px) {
   .ai-intro-actions {
     justify-content: flex-start;
+  }
+
+  .ai-intro-drive-confirm-inline label {
+    white-space: normal;
   }
 }
