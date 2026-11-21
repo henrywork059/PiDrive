@@ -1,21 +1,29 @@
 from __future__ import annotations
 
+import math
 import threading
 import time
 from typing import Any
 
 from piserver.core.runtime_state import RuntimeState
+from piserver.core.value_utils import parse_finite_float
 
 
 def _clamp(value: float, minimum: float, maximum: float) -> float:
     return max(minimum, min(maximum, float(value)))
 
 
-def _parse_float(value: Any, default: float) -> float:
+def _parse_input_float(value: Any) -> float:
+    """Strict parser for controls; malformed/non-finite inputs must not energize motors."""
+    if isinstance(value, bool):
+        raise ValueError("Boolean is not a numeric control value.")
     try:
-        return float(value)
-    except (TypeError, ValueError):
-        return float(default)
+        result = float(value)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError("Invalid numeric control value.") from exc
+    if not math.isfinite(result):
+        raise ValueError("Control values must be finite.")
+    return result
 
 
 class ControlService:
@@ -41,6 +49,11 @@ class ControlService:
         self.running = False
         self.thread = None
         self._processing_enabled_cached = None
+        # A manual command is a short lease, not a persistent motor setpoint.
+        # Deliberately not written to the user's runtime.json.
+        self.manual_command_timeout_s = 0.85
+        self._manual_command_at: float | None = None
+        self._manual_command_timed_out = False
 
         self.apply_runtime_config(self.config_store.load(), initial=True)
 
@@ -111,22 +124,40 @@ class ControlService:
                     except Exception:
                         pass
 
-                if self.state.safety_stop:
-                    steer, throttle = 0.0, 0.0
-                else:
+                force_zero = bool(self.state.safety_stop)
+                if self.state.active_algorithm == "manual":
+                    now = time.monotonic()
+                    if self._manual_command_at is None or now - self._manual_command_at > self.manual_command_timeout_s:
+                        if self._manual_command_at is not None:
+                            was_moving = abs(self.state.manual_steering) > 1e-4 or abs(self.state.manual_throttle) > 1e-4
+                            self._manual_command_timed_out = was_moving
+                            if was_moving:
+                                self.state.system_message = "Manual control timed out; motors stopped."
+                            self._apply_safe_stop_locked()
+                            self._manual_command_at = None
+                        force_zero = True
+
+                steer, throttle = 0.0, 0.0
+                if not force_zero:
                     algo = self.algorithms.get(self.state.active_algorithm, self.algorithms["manual"])
                     try:
                         steer, throttle = algo.compute(self.state, self.camera_service, self.model_service)
+                        if not (math.isfinite(float(steer)) and math.isfinite(float(throttle))):
+                            raise ValueError("non-finite algorithm output")
                     except Exception as exc:
-                        steer, throttle = 0.0, 0.0
+                        force_zero = True
                         self.state.system_message = f"Algorithm error: {exc}"
 
-                steer = _clamp(_parse_float(steer, 0.0) + float(self.state.steer_bias), -1.0, 1.0)
-                throttle = _clamp(
-                    _parse_float(throttle, 0.0),
-                    -float(self.state.max_throttle),
-                    float(self.state.max_throttle),
-                )
+                # Never apply steer bias after a safety stop, timeout, or algorithm error.
+                if force_zero or (abs(steer) < 1e-4 and abs(throttle) < 1e-4):
+                    steer, throttle = 0.0, 0.0
+                else:
+                    steer = _clamp(parse_finite_float(steer, 0.0) + parse_finite_float(self.state.steer_bias, 0.0), -1.0, 1.0)
+                    throttle = _clamp(
+                        parse_finite_float(throttle, 0.0),
+                        -parse_finite_float(self.state.max_throttle, 0.0),
+                        parse_finite_float(self.state.max_throttle, 0.0),
+                    )
 
                 try:
                     left, right = self.motor_service.update(
@@ -138,7 +169,10 @@ class ControlService:
                     left, right = 0.0, 0.0
                     steer, throttle = 0.0, 0.0
                     self._hard_stop_outputs()
-                    self.state.system_message = f"Motor update failed: {exc}"
+                    self.state.safety_stop = True
+                    self._apply_safe_stop_locked()
+                    self._manual_command_at = None
+                    self.state.system_message = f"Motor update failed; emergency stop engaged: {exc}"
                 self.state.applied_steering = steer
                 self.state.applied_throttle = throttle
                 self.state.motor_left = left
@@ -158,42 +192,89 @@ class ControlService:
     def snapshot(self) -> dict:
         with self.lock:
             data = self.state.snapshot()
+            data["manual_command_timeout_s"] = self.manual_command_timeout_s
+            data["manual_command_age_s"] = (
+                round(max(0.0, time.monotonic() - self._manual_command_at), 3)
+                if self._manual_command_at is not None else None
+            )
+            data["manual_command_timed_out"] = self._manual_command_timed_out
         try:
             data.update(self.recorder_service.get_status())
         except Exception:
             pass
         return data
 
-    def set_manual_controls(self, steering=None, throttle=None):
+    def apply_control_update(self, data: dict) -> tuple[bool, str]:
+        """Validate an entire command before applying any changes to runtime state."""
+        if not isinstance(data, dict):
+            return False, "Expected a JSON object."
+
+        limits = {
+            "steering": (-1.0, 1.0),
+            "throttle": (-1.0, 1.0),
+            "max_throttle": (0.0, 1.0),
+            "steer_mix": (0.0, 1.0),
+            "steer_bias": (-0.5, 0.5),
+        }
         with self.lock:
-            if steering is not None:
-                self.state.manual_steering = _clamp(_parse_float(steering, self.state.manual_steering), -1.0, 1.0)
-            if throttle is not None:
-                self.state.manual_throttle = _clamp(_parse_float(throttle, self.state.manual_throttle), -1.0, 1.0)
-            self.state.system_message = "Manual controls updated."
+            algorithm = None
+            if "algorithm" in data:
+                algorithm = str(data.get("algorithm") or "").strip()
+                if algorithm not in self.algorithms:
+                    return False, "Unknown algorithm."
+
+            values: dict[str, float] = {}
+            for key, (low, high) in limits.items():
+                if key not in data or data[key] is None:
+                    continue
+                try:
+                    values[key] = _clamp(_parse_input_float(data[key]), low, high)
+                except ValueError:
+                    # An invalid motion-affecting value is a fail-safe event.
+                    self.state.safety_stop = True
+                    self._apply_safe_stop_locked()
+                    self._manual_command_at = None
+                    self._manual_command_timed_out = False
+                    self.state.system_message = f"Invalid {key}; emergency stop engaged."
+                    self._hard_stop_outputs()
+                    return False, f"Invalid {key}; emergency stop engaged."
+
+            if algorithm is not None:
+                if algorithm != self.state.active_algorithm and algorithm == "manual":
+                    self._apply_safe_stop_locked()
+                    self._manual_command_at = None
+                    self._manual_command_timed_out = False
+                self.state.active_algorithm = algorithm
+            if "steering" in values:
+                self.state.manual_steering = values["steering"]
+            if "throttle" in values:
+                self.state.manual_throttle = values["throttle"]
+            if "steering" in values or "throttle" in values:
+                # No implicit rearm: an emergency stop remains engaged until cleared.
+                if not self.state.safety_stop:
+                    self._manual_command_at = time.monotonic()
+                    self._manual_command_timed_out = False
+            for key in ("max_throttle", "steer_mix", "steer_bias"):
+                if key in values:
+                    setattr(self.state, key, values[key])
+            if data.get("current_page"):
+                self.state.current_page = str(data["current_page"])
+            self.state.system_message = "Controls and runtime parameters updated."
         return True, "OK"
+
+    def set_manual_controls(self, steering=None, throttle=None):
+        return self.apply_control_update({"steering": steering, "throttle": throttle})
 
     def select_algorithm(self, name: str) -> tuple[bool, str]:
-        name = str(name or "").strip()
-        if name not in self.algorithms:
-            return False, "Unknown algorithm."
-        with self.lock:
-            self.state.active_algorithm = name
-            self.state.system_message = f"Algorithm switched to {name}."
-        return True, name
+        return self.apply_control_update({"algorithm": name})
 
     def set_runtime_parameters(self, max_throttle=None, steer_mix=None, steer_bias=None, current_page=None):
-        with self.lock:
-            if max_throttle is not None:
-                self.state.max_throttle = _clamp(_parse_float(max_throttle, self.state.max_throttle), 0.0, 1.0)
-            if steer_mix is not None:
-                self.state.steer_mix = _clamp(_parse_float(steer_mix, self.state.steer_mix), 0.0, 1.0)
-            if steer_bias is not None:
-                self.state.steer_bias = _clamp(_parse_float(steer_bias, self.state.steer_bias), -0.5, 0.5)
-            if current_page:
-                self.state.current_page = str(current_page)
-            self.state.system_message = "Runtime parameters updated."
-        return True, "OK"
+        return self.apply_control_update({
+            "max_throttle": max_throttle,
+            "steer_mix": steer_mix,
+            "steer_bias": steer_bias,
+            "current_page": current_page,
+        })
 
     def toggle_recording(self) -> tuple[bool, bool, str]:
         with self.lock:
@@ -205,8 +286,12 @@ class ControlService:
     def set_safety_stop(self, enabled: bool):
         with self.lock:
             self.state.safety_stop = bool(enabled)
+            # Clear both the motor setpoint and the lease on engage AND release.
+            # Releasing e-stop must not replay a previous manual command.
+            self._apply_safe_stop_locked()
+            self._manual_command_at = None
+            self._manual_command_timed_out = False
             if enabled:
-                self._apply_safe_stop_locked()
                 self.state.system_message = "Emergency stop engaged."
             else:
                 self.state.system_message = "Emergency stop cleared."
@@ -244,11 +329,11 @@ class ControlService:
             if algo in self.algorithms:
                 self.state.active_algorithm = algo
             if "max_throttle" in data:
-                self.state.max_throttle = _clamp(_parse_float(data["max_throttle"], self.state.max_throttle), 0.0, 1.0)
+                self.state.max_throttle = _clamp(parse_finite_float(data["max_throttle"], self.state.max_throttle), 0.0, 1.0)
             if "steer_mix" in data:
-                self.state.steer_mix = _clamp(_parse_float(data["steer_mix"], self.state.steer_mix), 0.0, 1.0)
+                self.state.steer_mix = _clamp(parse_finite_float(data["steer_mix"], self.state.steer_mix), 0.0, 1.0)
             if "steer_bias" in data:
-                self.state.steer_bias = _clamp(_parse_float(data["steer_bias"], self.state.steer_bias), -0.5, 0.5)
+                self.state.steer_bias = _clamp(parse_finite_float(data["steer_bias"], self.state.steer_bias), -0.5, 0.5)
             if "current_page" in data:
                 self.state.current_page = str(data["current_page"])
             self._update_motor_state_locked()

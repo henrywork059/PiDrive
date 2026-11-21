@@ -816,7 +816,9 @@ function updateStatusUi(data) {
   state.latestStatus = data;
   setEstopToggle(!!data.safety_stop);
 
-  const driveState = data.safety_stop ? "E-stop active" : (data.active_algorithm === "manual" ? "Manual ready" : `${data.active_algorithm || "auto"} active`);
+  const driveState = data.safety_stop ? "E-stop active"
+    : data.manual_command_timed_out ? "Manual command expired · stopped"
+    : (data.active_algorithm === "manual" ? "Manual ready" : `${data.active_algorithm || "auto"} active`);
   const previewState = data.camera_preview_live ? "live" : "placeholder";
   const errorText = data.camera_error ? String(data.camera_error) : "none";
 
@@ -1202,6 +1204,11 @@ function refreshVideoFeed() {
 
 function syncPreviewActivity() {
   const enabled = !document.hidden;
+  if (!enabled && (Math.abs(state.manualThrottle) > 0.0001 || Math.abs(state.manualSteering) > 0.0001)) {
+    // Best-effort STOP when the tab is hidden; server watchdog is authoritative.
+    state.pointerControl.active = false;
+    setManualTargets(0, 0, { immediateCurrent: true, sendNow: true });
+  }
   state.previewActive = enabled;
   sendPreviewState(enabled);
   if (enabled) schedulePreviewFrame(true);
@@ -1298,6 +1305,11 @@ function controlLoopTick() {
     state.manualSteering = clamp(nextSteer, -1, 1);
     state.manualThrottle = clamp(nextThrottle, -state.maxThrottle, state.maxThrottle);
     applyManualState();
+    sendManualState(false);
+  } else if (!document.hidden && !state.estopEnabled
+      && (pagePanels[state.page] || []).includes("manual")
+      && (Math.abs(state.manualSteering) > 0.0001 || Math.abs(state.manualThrottle) > 0.0001)) {
+    // Keep a held joystick/keyboard command alive; server expires it on lost connection.
     sendManualState(false);
   }
 }

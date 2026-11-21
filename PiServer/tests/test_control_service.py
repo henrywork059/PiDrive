@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
 
 from piserver.services.control_service import ControlService
 
@@ -131,25 +132,29 @@ class ControlServiceTests(unittest.TestCase):
         )
         return svc, camera, motor, recorder, config
 
-    def test_invalid_manual_inputs_preserve_existing_values(self):
-        svc, *_ = self.build_service()
-        svc.state.manual_steering = 0.25
-        svc.state.manual_throttle = -0.5
-        ok, _ = svc.set_manual_controls("bad", None)
-        self.assertTrue(ok)
-        self.assertEqual(svc.state.manual_steering, 0.25)
-        self.assertEqual(svc.state.manual_throttle, -0.5)
-        svc.set_manual_controls(None, object())
-        self.assertEqual(svc.state.manual_throttle, -0.5)
+    def test_invalid_manual_inputs_fail_safe_without_partial_mutation(self):
+        for bad in ("bad", object(), "NaN", float("nan"), "Infinity", "-Infinity", True):
+            with self.subTest(value=str(bad)):
+                svc, _, motor, _, _ = self.build_service()
+                svc.set_manual_controls(steering=0.25, throttle=-0.5)
+                ok, _ = svc.set_manual_controls(steering=0.7, throttle=bad)
+                self.assertFalse(ok)
+                self.assertTrue(svc.state.safety_stop)
+                self.assertEqual(svc.state.manual_steering, 0.0)
+                self.assertEqual(svc.state.manual_throttle, 0.0)
+                self.assertIsNone(svc._manual_command_at)
+                self.assertGreaterEqual(motor.stop_calls, 1)
 
-    def test_invalid_runtime_inputs_preserve_existing_values(self):
-        svc, *_ = self.build_service()
+    def test_invalid_runtime_inputs_keep_previous_config_and_engage_stop(self):
+        svc, _, motor, _, _ = self.build_service()
         svc.state.max_throttle = 0.6
         svc.state.steer_mix = 0.3
-        ok, _ = svc.set_runtime_parameters(max_throttle="nope", steer_mix=object())
-        self.assertTrue(ok)
+        ok, _ = svc.set_runtime_parameters(max_throttle="nope", steer_mix=0.9)
+        self.assertFalse(ok)
         self.assertEqual(svc.state.max_throttle, 0.6)
         self.assertEqual(svc.state.steer_mix, 0.3)
+        self.assertTrue(svc.state.safety_stop)
+        self.assertGreaterEqual(motor.stop_calls, 1)
 
     def test_processing_toggle_only_updates_on_change(self):
         svc, camera, motor, recorder, _ = self.build_service()
@@ -235,7 +240,7 @@ class ControlServiceTests(unittest.TestCase):
         ok, _ = svc.set_runtime_parameters(steer_bias=0.2)
         self.assertTrue(ok)
         self.assertAlmostEqual(svc.state.steer_bias, 0.2)
-        svc.state.manual_steering = 0.1
+        svc.set_manual_controls(steering=0.1, throttle=0.0)
         svc.running = True
 
         original_sleep = __import__("time").sleep
@@ -255,6 +260,109 @@ class ControlServiceTests(unittest.TestCase):
         self.assertAlmostEqual(steer, 0.3, places=6)
         saved = svc.get_runtime_config()
         self.assertAlmostEqual(saved["steer_bias"], 0.2)
+
+
+    def run_one_tick(self, svc):
+        svc.running = True
+        with patch("piserver.services.control_service.time.sleep", side_effect=lambda _: setattr(svc, "running", False)):
+            svc._loop()
+
+
+    def test_zero_manual_command_never_uses_bias_to_spin_motors(self):
+        svc, _, motor, _, _ = self.build_service(config=DummyConfig({"steer_bias": 0.25}))
+        svc.set_manual_controls(steering=0, throttle=0.5)
+        self.run_one_tick(svc)
+        self.assertNotEqual(motor.update_calls[-1][0], 0.0)
+        svc.set_manual_controls(steering=0, throttle=0)
+        self.run_one_tick(svc)
+        self.assertEqual(motor.update_calls[-1][:2], (0.0, 0.0))
+
+    def test_finite_controls_still_clamp_and_reverse_works(self):
+        svc, _, motor, _, _ = self.build_service()
+        ok, _ = svc.set_manual_controls(steering=7, throttle=-9)
+        self.assertTrue(ok)
+        self.assertEqual(svc.state.manual_steering, 1.0)
+        self.assertEqual(svc.state.manual_throttle, -1.0)
+        self.run_one_tick(svc)
+        self.assertEqual(motor.update_calls[-1][1], -0.55)
+
+    def test_algorithm_validation_is_atomic(self):
+        svc, *_ = self.build_service()
+        svc.set_manual_controls(steering=0.1, throttle=0.2)
+        ok, msg = svc.apply_control_update({
+            "algorithm": "does-not-exist", "steering": -0.9, "throttle": -1,
+            "max_throttle": 1, "current_page": "auto"
+        })
+        self.assertFalse(ok)
+        self.assertIn("Unknown algorithm", msg)
+        self.assertEqual(svc.state.manual_steering, 0.1)
+        self.assertEqual(svc.state.manual_throttle, 0.2)
+        self.assertEqual(svc.state.max_throttle, 0.55)
+        self.assertEqual(svc.state.current_page, "manual")
+
+    def test_invalid_numeric_runtime_update_is_atomic(self):
+        svc, *_ = self.build_service()
+        ok, _ = svc.apply_control_update({
+            "steering": 0.3, "throttle": 0.4, "max_throttle": "NaN", "steer_bias": 0.4
+        })
+        self.assertFalse(ok)
+        self.assertEqual(svc.state.max_throttle, 0.55)
+        self.assertEqual(svc.state.steer_bias, 0.0)
+        self.assertEqual(svc.state.manual_throttle, 0.0)
+        self.assertTrue(svc.state.safety_stop)
+
+    def test_manual_command_expires_without_new_packet(self):
+        svc, _, motor, _, _ = self.build_service()
+        with patch("piserver.services.control_service.time.monotonic", return_value=10.0):
+            svc.set_manual_controls(steering=0.2, throttle=0.6)
+        with patch("piserver.services.control_service.time.monotonic", return_value=10.2):
+            self.run_one_tick(svc)
+            status = svc.snapshot()
+        self.assertAlmostEqual(motor.update_calls[-1][1], 0.55)
+        self.assertAlmostEqual(status["manual_command_age_s"], 0.2)
+        self.assertFalse(status["manual_command_timed_out"])
+        with patch("piserver.services.control_service.time.monotonic", return_value=10.9):
+            self.run_one_tick(svc)
+            status = svc.snapshot()
+        self.assertEqual(motor.update_calls[-1][:2], (0.0, 0.0))
+        self.assertEqual(svc.state.manual_throttle, 0.0)
+        self.assertTrue(status["manual_command_timed_out"])
+        self.assertIsNone(status["manual_command_age_s"])
+        with patch("piserver.services.control_service.time.monotonic", return_value=11.0):
+            self.run_one_tick(svc)
+        self.assertEqual(motor.update_calls[-1][:2], (0.0, 0.0))
+
+    def test_heartbeat_renews_lease_without_latching_stale_commands(self):
+        svc, _, motor, _, _ = self.build_service()
+        with patch("piserver.services.control_service.time.monotonic", return_value=10.0):
+            svc.set_manual_controls(steering=0, throttle=0.4)
+        with patch("piserver.services.control_service.time.monotonic", return_value=10.65):
+            svc.set_manual_controls(steering=0, throttle=0.4)
+        with patch("piserver.services.control_service.time.monotonic", return_value=11.0):
+            self.run_one_tick(svc)
+        self.assertAlmostEqual(motor.update_calls[-1][1], 0.4)
+
+    def test_estop_with_steer_bias_is_zero_and_requires_new_control(self):
+        svc, _, motor, _, _ = self.build_service(config=DummyConfig({"steer_bias": 0.2}))
+        svc.set_manual_controls(steering=0.3, throttle=0.5)
+        svc.set_safety_stop(True)
+        self.run_one_tick(svc)
+        self.assertEqual(motor.update_calls[-1][:2], (0.0, 0.0))
+        svc.set_safety_stop(False)
+        self.run_one_tick(svc)
+        self.assertEqual(motor.update_calls[-1][:2], (0.0, 0.0))
+        svc.set_manual_controls(steering=0.1, throttle=0.5)
+        self.run_one_tick(svc)
+        self.assertGreater(motor.update_calls[-1][1], 0)
+
+    def test_algorithm_exception_with_steer_bias_stays_zero(self):
+        svc, _, motor, _, _ = self.build_service(
+            algorithms={"manual": ManualAlgo(), "boom": BoomAlgo()},
+            config=DummyConfig({"steer_bias": 0.3})
+        )
+        svc.select_algorithm("boom")
+        self.run_one_tick(svc)
+        self.assertEqual(motor.update_calls[-1][:2], (0.0, 0.0))
 
 
 
