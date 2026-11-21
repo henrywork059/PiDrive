@@ -281,6 +281,36 @@ button.danger {
   stroke-dasharray: 5 5;
 }
 
+.overlay-guides .overlay-trigger {
+  stroke-width: 2;
+  stroke-dasharray: 8 4;
+  vector-effect: non-scaling-stroke;
+}
+
+.overlay-guides .overlay-trigger-pickup {
+  stroke: rgba(74, 222, 128, 0.95);
+}
+
+.overlay-guides .overlay-trigger-dropoff {
+  stroke: rgba(251, 191, 36, 0.95);
+}
+
+.overlay-guides .overlay-trigger-label {
+  font: 700 12px ui-sans-serif, system-ui, sans-serif;
+  paint-order: stroke fill;
+  stroke: rgba(3, 7, 18, 0.95);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+
+.overlay-guides .overlay-trigger-pickup-label {
+  fill: #4ade80;
+}
+
+.overlay-guides .overlay-trigger-dropoff-label {
+  fill: #fbbf24;
+}
+
 .overlay-box .box-rect {
   fill: none;
   stroke: rgba(74, 222, 128, 0.95);

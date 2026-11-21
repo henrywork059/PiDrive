@@ -594,6 +594,18 @@ function renderStatus(status) {
 }
 
 
+function triggerGuideY(ratio, height) {
+  // Backend uses -H/2..+H/2 with 100%=top. SVG uses top-origin pixels.
+  const parsed = Number(ratio);
+  const clamped = Number.isFinite(parsed) ? Math.max(0, Math.min(1, parsed)) : 0.3;
+  return Math.round(height * (1 - clamped));
+}
+
+function triggerGuidePercent(ratio) {
+  const parsed = Number(ratio);
+  return Math.round((Number.isFinite(parsed) ? Math.max(0, Math.min(1, parsed)) : 0.3) * 100);
+}
+
 function renderOverlay(status) {
   const svg = document.getElementById('viewerOverlay');
   const frame = status.frame || {};
@@ -604,6 +616,13 @@ function renderOverlay(status) {
   const deadbandWidth = width * deadbandRatio;
   const leftBand = width / 2 - deadbandWidth;
   const rightBand = width / 2 + deadbandWidth;
+  const armConfig = status.config?.arm || {};
+  const pickupRatio = armConfig.grip_trigger_y_ratio ?? 0.3;
+  const dropoffRatio = armConfig.dropoff_trigger_y_ratio ?? 0.3;
+  const pickupY = triggerGuideY(pickupRatio, height);
+  const dropoffY = triggerGuideY(dropoffRatio, height);
+  const pickupTextY = Math.max(12, Math.min(height - 4, pickupY - 6));
+  const dropoffTextY = Math.max(12, Math.min(height - 4, dropoffY - 6));
 
   svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
   svg.innerHTML = '';
@@ -614,6 +633,10 @@ function renderOverlay(status) {
     <rect x="${leftBand}" y="0" width="${rightBand - leftBand}" height="${height}" class="overlay-deadband" />
     <line x1="${width / 2}" y1="0" x2="${width / 2}" y2="${height}" class="overlay-axis" />
     <line x1="0" y1="${height / 2}" x2="${width}" y2="${height / 2}" class="overlay-axis" />
+    <line x1="0" y1="${pickupY}" x2="${width}" y2="${pickupY}" class="overlay-trigger overlay-trigger-pickup" />
+    <text x="6" y="${pickupTextY}" class="overlay-trigger-label overlay-trigger-pickup-label">Grip ${triggerGuidePercent(pickupRatio)}%</text>
+    <line x1="0" y1="${dropoffY}" x2="${width}" y2="${dropoffY}" class="overlay-trigger overlay-trigger-dropoff" />
+    <text x="${width - 6}" y="${dropoffTextY}" text-anchor="end" class="overlay-trigger-label overlay-trigger-dropoff-label">Drop-off ${triggerGuidePercent(dropoffRatio)}%</text>
   `;
   svg.appendChild(guideGroup);
 
