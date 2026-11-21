@@ -10,6 +10,7 @@ The roadmap is being implemented in small, component-isolated patches. **Draft P
 | --- | --- | --- | --- | --- |
 | F1, F2 (PiServer portion), U13 | PiServer | [PR #9 — 0_4_11 control safety](https://github.com/henrywork059/PiDrive/pull/9) | 43 local tests passed, 1 Flask test skipped; Python/JS syntax passed | Draft; hardware review required |
 | U16 | PiBooter | [PR #10 — 0_1_2 config recovery](https://github.com/henrywork059/PiDrive/pull/10) | 4 local tests passed; Python compilation passed | Draft; Pi-side review required |
+| U24 | CustomDrive | [PR #11 — 0_5_17 Mission 1 trigger guides](https://github.com/henrywork059/PiDrive/pull/11) | Node.js SVG tests, JS syntax and Python compilation passed | Draft; browser/Pi preview review required |
 
 All other proposals remain **planned**, not implemented. In particular, F3 LAN operator authentication and the corresponding PiSD/CustomDrive safety work remain outstanding. Do not mark those items complete based on these PRs.
 
