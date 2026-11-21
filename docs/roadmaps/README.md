@@ -2,6 +2,17 @@
 
 These four planning documents contain **75 numbered proposals**, grouped by engineering correctness, additional improvements, refinements, and UI/UX. They are **recommendations**, not implemented patches or a claim that the current GitHub checkout has been retested.
 
+## Implementation status — 2026-11-22
+
+The roadmap is being implemented in small, component-isolated patches. **Draft PRs below are NOT yet merged, deployed, or Raspberry Pi hardware validated.** The plan numbering and source baselines remain unchanged.
+
+| Roadmap IDs | Component | Proposed patch | Validation reported | Status |
+| --- | --- | --- | --- | --- |
+| F1, F2 (PiServer portion), U13 | PiServer | [PR #9 — 0_4_11 control safety](https://github.com/henrywork059/PiDrive/pull/9) | 43 local tests passed, 1 Flask test skipped; Python/JS syntax passed | Draft; hardware review required |
+| U16 | PiBooter | [PR #10 — 0_1_2 config recovery](https://github.com/henrywork059/PiDrive/pull/10) | 4 local tests passed; Python compilation passed | Draft; Pi-side review required |
+
+All other proposals remain **planned**, not implemented. In particular, F3 LAN operator authentication and the corresponding PiSD/CustomDrive safety work remain outstanding. Do not mark those items complete based on these PRs.
+
 ## Roadmap documents
 
 | Track | IDs | Document | Focus |
