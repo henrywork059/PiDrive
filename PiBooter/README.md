@@ -173,6 +173,12 @@ That matters because PiBooter is **supposed** to exit normally when:
 - nobody connects during the 5-second wait, or
 - Wi-Fi setup succeeds and the last known IP is saved
 
+## Configuration recovery
+
+If `config/settings.json` is malformed or has an invalid section structure, PiBooter **does not overwrite it**. It runs with in-memory defaults for diagnosis, shows a recovery warning in its web page and logs, and tries to save a separate `settings.json.corrupt-<hash>` copy next to the original. Repeated starts with the same invalid file reuse the existing recovery copy.
+
+To repair, stop PiBooter and fix or restore `config/settings.json` manually before restarting. Programmatic `ConfigStore.save()` refuses to overwrite an invalid original unless explicitly called with `replace_invalid=True`; do not use this option without a known-good backup. Missing settings files are created as before, and valid saved settings are retained with missing defaults filled safely.
+
 ## Quick troubleshooting
 
 ### Check the service
