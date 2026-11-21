@@ -6,8 +6,12 @@ from __future__ import annotations
 import tempfile
 import time
 import unittest
+import sys
 from pathlib import Path
-from unittest.mock import Mock
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from pisd.services.ai_drive_service import AIDriveService
 
@@ -59,8 +63,8 @@ class AICameraFreshnessTests(unittest.TestCase):
         service._assert_fresh_frame_seq(9, now_monotonic=10.7)
         with self.assertRaisesRegex(RuntimeError, "stale"):
             service._assert_fresh_frame_seq(9, now_monotonic=10.76)
-        service._assert_fresh_frame_seq(10, now_monotonic=10.77)
-        service._assert_fresh_frame_seq(10, now_monotonic=11.0)
+        with self.assertRaisesRegex(RuntimeError, "safety latch"):
+            service._assert_fresh_frame_seq(10, now_monotonic=10.77)
 
     def test_unknown_sequence_is_not_permanently_trusted(self):
         service = self.make_service()
@@ -93,6 +97,11 @@ class AICameraFreshnessTests(unittest.TestCase):
         self.assertTrue(status["camera_frame_stale"])
         self.assertEqual(status["last_safe_command"]["throttle"], 0.0)
         self.assertEqual(status["last_raw_prediction"]["steering"], 0.0)
+        self.assertTrue(status["camera_frame_fault_latched"])
+        camera.frame_seq = 8
+        still_stopped = service.predict_once(camera, motor, drive=True)
+        self.assertFalse(still_stopped.get("ok"))
+        self.assertEqual(len(motor.commands), 1)
 
     def test_new_run_starts_with_fresh_grace_window(self):
         service = self.make_service()
@@ -100,7 +109,8 @@ class AICameraFreshnessTests(unittest.TestCase):
         with service._lock:
             service._last_fresh_frame_seq = 0
             service._last_fresh_frame_monotonic = None
-        service._assert_fresh_frame_seq(3, now_monotonic=100.0)
+        service._camera_frame_fault_latched = False
+        service._assert_fresh_frame_seq(3, now_monotonic=time.monotonic())
         self.assertFalse(service.status()["camera_frame_stale"])
 
 

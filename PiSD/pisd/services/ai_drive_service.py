@@ -61,6 +61,7 @@ class AIDriveService:
         self._last_frame_seq = 0
         self._last_fresh_frame_seq = 0
         self._last_fresh_frame_monotonic: float | None = None
+        self._camera_frame_fault_latched = False
         self._last_inference_frame_seq = 0
         self._last_prediction_reused = False
         self._prediction_reuse_count = 0
@@ -155,7 +156,8 @@ class AIDriveService:
                 "last_frame_seq": int(self._last_frame_seq),
                 "camera_frame_age_s": frame_age_s,
                 "camera_frame_timeout_s": frame_timeout_s,
-                "camera_frame_stale": bool(frame_age_s is not None and frame_age_s > frame_timeout_s),
+                "camera_frame_stale": bool(self._camera_frame_fault_latched or (frame_age_s is not None and frame_age_s > frame_timeout_s)),
+                "camera_frame_fault_latched": bool(self._camera_frame_fault_latched),
                 "last_inference_frame_seq": int(self._last_inference_frame_seq),
                 "last_prediction_reused": bool(self._last_prediction_reused),
                 "prediction_reuse_count": int(self._prediction_reuse_count),
@@ -513,6 +515,7 @@ class AIDriveService:
             self._loop_consecutive_failures = 0
             self._last_fresh_frame_seq = 0
             self._last_fresh_frame_monotonic = None
+            self._camera_frame_fault_latched = False
             self._running = True
             self._thread = threading.Thread(
                 target=self._run_loop,
@@ -569,6 +572,7 @@ class AIDriveService:
             self._prediction_reuse_count = 0
             self._last_fresh_frame_seq = 0
             self._last_fresh_frame_monotonic = None
+            self._camera_frame_fault_latched = False
         if stop_motors and motor_service is not None:
             try:
                 motor_service.stop()
@@ -588,6 +592,8 @@ class AIDriveService:
         seq = int(frame_seq or 0)
         now = time.monotonic() if now_monotonic is None else float(now_monotonic)
         with self._lock:
+            if self._camera_frame_fault_latched:
+                raise RuntimeError("Camera stale-frame safety latch is active; restart AI mode.")
             previous_at = self._last_fresh_frame_monotonic
             if previous_at is None or (seq > 0 and seq != self._last_fresh_frame_seq):
                 self._last_fresh_frame_seq = seq
@@ -596,6 +602,7 @@ class AIDriveService:
             age_s = max(0.0, now - previous_at)
             timeout_s = float(self._settings.get("command_timeout_s", 0.75))
             if age_s > timeout_s:
+                self._camera_frame_fault_latched = True
                 raise RuntimeError(
                     f"Camera frame is stale for {age_s:.2f}s (limit {timeout_s:.2f}s, seq={seq})."
                 )

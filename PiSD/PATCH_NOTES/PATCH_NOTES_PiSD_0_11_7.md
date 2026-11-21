@@ -22,8 +22,9 @@ Preserves three independent capture/preview/inference FPS settings, AI assist, o
 - Refreshes the window only when a positive camera frame sequence changes.
 - Allows duplicate-frame prediction reuse only within the saved `ai_mode.command_timeout_s` window (already clamped to 0.2–3.0 seconds).
 - Rejects unknown/zero sequences once their initial grace period expires, rather than trusting them forever.
+- On a stale frame, latches a safety fault until AI is explicitly restarted; recovering camera frames cannot silently re-arm driving.
 - On a stale frame or prediction error, attempts an immediate motor stop and zeros cached AI raw, corrected, safe and motor commands so AI assist and labels do not reuse stale output.
-- Exposes `camera_frame_age_s`, `camera_frame_timeout_s`, and `camera_frame_stale` in AI status.
+- Exposes `camera_frame_age_s`, `camera_frame_timeout_s`, `camera_frame_stale`, and `camera_frame_fault_latched` in AI status.
 - Leaves `camera.fps`, `camera.live_preview_fps`, and `ai_mode.update_hz` untouched.
 
 ## Verification
