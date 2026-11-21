@@ -516,6 +516,8 @@ class AIDriveService:
             self._last_fresh_frame_seq = 0
             self._last_fresh_frame_monotonic = None
             self._camera_frame_fault_latched = False
+            self._last_prediction_at = ""
+            self._last_inference_frame_seq = 0
             self._running = True
             self._thread = threading.Thread(
                 target=self._run_loop,
@@ -573,6 +575,8 @@ class AIDriveService:
             self._last_fresh_frame_seq = 0
             self._last_fresh_frame_monotonic = None
             self._camera_frame_fault_latched = False
+            self._last_prediction_at = ""
+            self._last_inference_frame_seq = 0
         if stop_motors and motor_service is not None:
             try:
                 motor_service.stop()
@@ -676,6 +680,7 @@ class AIDriveService:
                 self._last_safe = {"steering": 0.0, "throttle": 0.0}
                 self._last_motor = {"left": 0.0, "right": 0.0}
                 self._last_prediction_at = ""
+                self._last_inference_frame_seq = 0
                 self._last_prediction_reused = False
                 self._prediction_reuse_count = 0
             return report_payload(False, report, ai=self.status())

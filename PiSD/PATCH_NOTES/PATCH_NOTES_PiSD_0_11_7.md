@@ -1,34 +1,109 @@
-# PiSD 0.11.7 Patch Notes — AI stale-camera fail-safe
+# PiSD 0.11.7 Patch Notes
 
 ## Request summary
-Implement the next roadmap improvement (U21): stop AI driving when capture frames stop advancing instead of repeatedly applying a cached prediction.
+- Fix AI Mode Snapshot so saving a snapshot does **not** freeze the live preview to the captured still frame.
+- Reorder the AI output tabs to:
+  1. Manual pad
+  2. AI assist
+  3. Correction
+  4. Limiter
+- Review and standardise the visible tab names as exactly:
+  - Manual pad
+  - AI assist
+  - Correction
+  - Limiter
 
-## Baseline and anti-rollback
-Built on live GitHub PiSD `0.11.6` (not the older uploaded `0.11.0` archive).
-Reviewed patch notes for 0.11.6, 0.11.5, 0.11.4 and 0.11.3.
-Preserves three independent capture/preview/inference FPS settings, AI assist, one safety confirmation, saved manual speed, error panel, camera restart recovery, and existing recording metadata.
+## Baseline and anti-rollback check
+- Built from the user-provided `PiSD_0_11_0.zip` baseline with accepted patches `0_11_1` through `0_11_6` applied first.
+- Reviewed the latest patch note and previous three PiSD notes before finalizing:
+  - `PATCH_NOTES_PiSD_0_11_6.md`
+  - `PATCH_NOTES_PiSD_0_11_5.md`
+  - `PATCH_NOTES_PiSD_0_11_4.md`
+  - `PATCH_NOTES_PiSD_0_11_3.md`
+- Preserved the 0.11.6 three-rate FPS behavior: Camera capture FPS, Live preview FPS, and AI prediction FPS remain global settings.
+- Preserved the 0.11.5 AI assist mode, last error log panel, and camera stop/start fix.
+- Preserved the 0.11.4 global settings source and Manual speed default of 0.80.
+- Preserved the 0.11.3 top-right safety confirmation placement.
 
-## Root cause
-0.11.6 intentionally reuses the last AI model result when a camera sequence is unchanged, avoiding duplicate inference. However, a stalled capture source could keep that previous command active indefinitely because `command_timeout_s` was stored but not enforced against frame age.
+## Cause / root cause
+- The Snapshot button saved the recording frame, then called `setPreview('snapshot', /api/camera/frame.jpg...)`.
+- That replaced the browser image source with a single still JPEG.
+- If the live stream was running before Snapshot, the page visually froze because the preview image source was no longer `/video_feed`.
+- The tab group also still showed the older order/title from the Limiter-first workflow after AI assist and Manual pad became more central to the current workflow.
 
 ## Files changed
-- `PiSD/pisd/services/ai_drive_service.py`
-- `PiSD/pisd/__init__.py`
-- `PiSD/scripts/test_ai_frame_timeout.py`
+- `PiSD/pisd/web/templates/ai_mode.html`
+- `PiSD/pisd/web/static/js/ai_mode.js`
+- `PiSD/scripts/test_ai_mode_page.py`
 - `PiSD/PATCH_NOTES/PATCH_NOTES_PiSD_0_11_7.md`
 
-## Behavior
-- Starts a monotonic freshness window when the first camera frame arrives.
-- Refreshes the window only when a positive camera frame sequence changes.
-- Allows duplicate-frame prediction reuse only within the saved `ai_mode.command_timeout_s` window (already clamped to 0.2–3.0 seconds).
-- Rejects unknown/zero sequences once their initial grace period expires, rather than trusting them forever.
-- On a stale frame, latches a safety fault until AI is explicitly restarted; recovering camera frames cannot silently re-arm driving.
-- On a stale frame or prediction error, attempts an immediate motor stop and zeros cached AI raw, corrected, safe and motor commands so AI assist and labels do not reuse stale output.
-- Exposes `camera_frame_age_s`, `camera_frame_timeout_s`, `camera_frame_stale`, and `camera_frame_fault_latched` in AI status.
-- Leaves `camera.fps`, `camera.live_preview_fps`, and `ai_mode.update_hz` untouched.
+## Exact behavior changed
 
-## Verification
-Added hardware-free unit tests for sequence timeout, advancing frames, unknown sequence, and stop/zero behavior. Static verification of changed source is required in CI or an environment with the current PiSD checkout. **Physical Raspberry Pi camera and motor tests have not been performed.**
+### Snapshot keeps live preview running
+- AI Mode Snapshot still calls `/api/recording/capture` with `command_source: 'ai_safe_command'`.
+- Snapshot no longer switches the preview image source to `/api/camera/frame.jpg`.
+- If live preview is already active, the preview remains on `/video_feed` and continues updating.
+- The caption now reports that the snapshot was saved while live stream was kept running.
 
-## Known limits
-This is a frame-freshness gate in the AI inference loop, not a second independent motor hardware watchdog. A blocking inference or service thread can still delay checking the next frame; an independent motor-level timeout remains a separate safety enhancement. Test real camera stall, disconnected camera, and AI assist behavior with wheels lifted before merging.
+### AI output tabs are reordered and renamed
+- The panel title is now:
+
+```text
+Manual pad / AI assist / Correction / Limiter
+```
+
+- The tab order is now:
+
+```text
+Manual pad → AI assist → Correction → Limiter
+```
+
+- The visible tab labels are exactly:
+
+```text
+Manual pad
+AI assist
+Correction
+Limiter
+```
+
+### Default visible tab
+- The AI output panel now opens on **Manual pad** by default.
+- This does not send motor commands by itself. Manual driving still requires the existing safety confirmation and user input.
+- Existing Limiter, Correction, and AI assist behavior is preserved when those tabs are selected.
+
+## Compatibility / migration notes
+- No config schema change.
+- No API change.
+- No change to snapshot file format or recording labels.
+- No change to the three-rate FPS settings.
+- No change to AI assist steering formula.
+- No change to motor safety confirmation behavior.
+
+## Verification actually performed
+Passed locally from the patched `PiSD/` folder:
+
+```bash
+python3 -m compileall -q pisd scripts PiSD.py
+node --check pisd/web/static/js/ai_mode.js
+python3 scripts/test_ai_mode_page.py --static-only
+python3 scripts/test_settings_persistence.py
+python3 scripts/run_standard_validation.py --skip-api --skip-camera --skip-motor --skip-gui
+python3 PiSD.py --status-only
+```
+
+Results:
+- Python compile check passed.
+- AI Mode JavaScript syntax check passed.
+- AI Mode static/source contract passed, including the new tab order check.
+- Settings persistence test passed.
+- Standard validation passed with API/camera/motor/GUI skipped.
+- `PiSD.py --status-only` returned `PISD-OK-000` in simulation mode.
+
+## Known limits / next steps
+- Real Pi browser rendering and real live-stream snapshot behavior were not tested in this container.
+- On the Pi, confirm this browser workflow:
+  1. Start live.
+  2. Click Snapshot.
+  3. Confirm the preview keeps moving and does not freeze to the captured frame.
+  4. Confirm the tab order is Manual pad, AI assist, Correction, Limiter.

@@ -103,7 +103,7 @@ class AICameraFreshnessTests(unittest.TestCase):
         self.assertFalse(still_stopped.get("ok"))
         self.assertEqual(len(motor.commands), 1)
 
-    def test_new_run_starts_with_fresh_grace_window(self):
+    def test_explicit_restart_state_reset_allows_new_grace_window(self):
         service = self.make_service()
         service._assert_fresh_frame_seq(3, now_monotonic=10.0)
         with service._lock:
