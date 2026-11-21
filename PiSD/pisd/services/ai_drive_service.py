@@ -59,6 +59,8 @@ class AIDriveService:
         self._mode = "idle"  # idle | preview | drive
         self._drive_output_enabled = False
         self._last_frame_seq = 0
+        self._last_fresh_frame_seq = 0
+        self._last_fresh_frame_monotonic: float | None = None
         self._last_inference_frame_seq = 0
         self._last_prediction_reused = False
         self._prediction_reuse_count = 0
@@ -140,12 +142,20 @@ class AIDriveService:
 
     def status(self) -> dict[str, Any]:
         with self._lock:
+            frame_age_s = (
+                None if self._last_fresh_frame_monotonic is None
+                else max(0.0, time.monotonic() - self._last_fresh_frame_monotonic)
+            )
+            frame_timeout_s = float(self._settings.get("command_timeout_s", 0.75))
             data = {
                 "models_dir": str(self.models_dir),
                 "running": bool(self._running and self._thread and self._thread.is_alive()),
                 "mode": self._mode,
                 "drive_output_enabled": bool(self._drive_output_enabled),
                 "last_frame_seq": int(self._last_frame_seq),
+                "camera_frame_age_s": frame_age_s,
+                "camera_frame_timeout_s": frame_timeout_s,
+                "camera_frame_stale": bool(frame_age_s is not None and frame_age_s > frame_timeout_s),
                 "last_inference_frame_seq": int(self._last_inference_frame_seq),
                 "last_prediction_reused": bool(self._last_prediction_reused),
                 "prediction_reuse_count": int(self._prediction_reuse_count),
@@ -501,6 +511,8 @@ class AIDriveService:
             self._mode = requested_mode
             self._drive_output_enabled = bool(requested_mode == "drive")
             self._loop_consecutive_failures = 0
+            self._last_fresh_frame_seq = 0
+            self._last_fresh_frame_monotonic = None
             self._running = True
             self._thread = threading.Thread(
                 target=self._run_loop,
@@ -555,6 +567,8 @@ class AIDriveService:
             self._last_loop_hz = 0.0
             self._last_prediction_reused = False
             self._prediction_reuse_count = 0
+            self._last_fresh_frame_seq = 0
+            self._last_fresh_frame_monotonic = None
         if stop_motors and motor_service is not None:
             try:
                 motor_service.stop()
@@ -565,12 +579,34 @@ class AIDriveService:
                 return report_payload(False, report, ai=self.status())
         return ok_payload("AI mode stopped.", ai=self.status())
 
+    def _assert_fresh_frame_seq(self, frame_seq: int, *, now_monotonic: float | None = None) -> None:
+        """Reject a camera buffer that has stopped advancing beyond the configured timeout.
+
+        Frame sequence zero/unknown is accepted only during the initial grace
+        period; it cannot keep an AI motor command alive indefinitely.
+        """
+        seq = int(frame_seq or 0)
+        now = time.monotonic() if now_monotonic is None else float(now_monotonic)
+        with self._lock:
+            previous_at = self._last_fresh_frame_monotonic
+            if previous_at is None or (seq > 0 and seq != self._last_fresh_frame_seq):
+                self._last_fresh_frame_seq = seq
+                self._last_fresh_frame_monotonic = now
+                return
+            age_s = max(0.0, now - previous_at)
+            timeout_s = float(self._settings.get("command_timeout_s", 0.75))
+            if age_s > timeout_s:
+                raise RuntimeError(
+                    f"Camera frame is stale for {age_s:.2f}s (limit {timeout_s:.2f}s, seq={seq})."
+                )
+
     def predict_once(self, camera_service: Any, motor_service: Any | None = None, *, drive: bool = False) -> dict[str, Any]:
         load_result = self._ensure_model_ready_for_run()
         if load_result is not None:
             return load_result
         try:
             frame, frame_seq, _frame_at, _byte_count = self._get_frame_info(camera_service)
+            self._assert_fresh_frame_seq(frame_seq)
             with self._lock:
                 previous_inference_seq = int(self._last_inference_frame_seq)
                 have_previous_prediction = bool(self._last_prediction_at)
@@ -625,6 +661,16 @@ class AIDriveService:
                     motor_service.stop()
                 except Exception:
                     pass
+            # A failed or stale camera sample must never remain available as
+            # the "latest" AI command to manual-assist or recording consumers.
+            with self._lock:
+                self._last_raw = {"steering": 0.0, "throttle": 0.0}
+                self._last_mixed = {"steering": 0.0, "throttle": 0.0}
+                self._last_safe = {"steering": 0.0, "throttle": 0.0}
+                self._last_motor = {"left": 0.0, "right": 0.0}
+                self._last_prediction_at = ""
+                self._last_prediction_reused = False
+                self._prediction_reuse_count = 0
             return report_payload(False, report, ai=self.status())
 
     def apply_safety(self, raw_steering: Any, raw_throttle: Any) -> dict[str, float]:
