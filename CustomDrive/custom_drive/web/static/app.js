@@ -215,6 +215,11 @@ document.getElementById('startBtn').onclick = () => handleAction(async () => {
 document.getElementById('stopBtn').onclick = () => handleAction(async () => {
   await postJSON('/api/stop');
 });
+document.getElementById('rearmBtn').onclick = () => handleAction(async () => {
+  if (window.confirm('Rearm mission safety at zero? Driving will not restart.')) {
+    await postJSON('/api/safety/rearm', { confirm: true });
+  }
+});
 document.getElementById('stepBtn').onclick = () => handleAction(async () => {
   await postJSON('/api/step');
 });
