@@ -2,7 +2,8 @@
 
 ## Model deployment manifests (0.11.3, U27)
 
-Exporting a steering model as `.keras` or `.tflite` now writes an adjacent
+Exporting a steering model as `.keras` or `.tflite`, or using the
+**Save Trained Model** action, now writes an adjacent
 `<model filename>.manifest.json` file. It records steering-control family,
 the RGB/NHWC input geometry, [0,1] normalization, ordered
 `[steering, throttle]` interpretation, quantization mode, training seed,

@@ -12,6 +12,7 @@ from ..panels.train.train_control_panel import TrainControlPanel
 from ..panels.train.train_epoch_review_panel import TrainEpochReviewPanel
 from ..panels.train.train_history_panel import TrainHistoryPanel
 from ..services.export.export_service import next_available_model_artifact_path, overwrite_guard_notes, save_keras_model
+from ..utils.model_manifest import make_manifest, write_manifest
 from ..services.train.split_service import split_dataframe
 from ..services.data.augmentation_service import normalize_horizontal_flip_labels
 from ..services.data.visibility_service import without_hidden_rows
@@ -250,6 +251,13 @@ class TrainPage(DockPage):
         guard_notes = overwrite_guard_notes(default_candidate, candidate)
         try:
             save_keras_model(self.state.model, candidate, guard_notes)
+            metadata = make_manifest(
+                candidate, model_kind="steering_control",
+                width=int(self.state.train_config.img_w),
+                height=int(self.state.train_config.img_h),
+                quantization="float32", training_seed=int(self.state.train_config.seed),
+            )
+            write_manifest(candidate, metadata)
         except Exception as exc:
             self.control_panel.set_save_status(f'Could not save model to:\n{candidate}\n{exc}', success=False)
             self.log_panel.append_line(f'Could not save trained model to {candidate}: {exc}')
