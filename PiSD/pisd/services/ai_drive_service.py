@@ -630,6 +630,19 @@ class AIDriveService:
             self._stop_event.set()
         if thread is not None and thread is not threading.current_thread():
             thread.join(timeout=2.0)
+            if thread.is_alive():
+                # Do not drop the worker reference: explicit rearm must still see
+                # a live inference thread and refuse to re-enable motion.
+                if stop_motors and motor_service is not None:
+                    try:
+                        motor_service.stop()
+                    except Exception:
+                        pass
+                report = self._record_error(
+                    PiSDErrorCodes.AI_RUNTIME_FAILED,
+                    "AI stop timed out; worker may still be active and safety rearm is blocked.",
+                )
+                return report_payload(False, report, ai=self.status())
         with self._lock:
             self._running = False
             self._thread = None
