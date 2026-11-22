@@ -2,6 +2,37 @@
 
 PiServer is the modular PiCar runtime backend/web UI for manual driving, recording, model management, camera operations, and control-loop orchestration.
 
+## PiServer 0.4.16 — Recording disk-space protection (U26)
+
+PiServer recording and snapshots now check available filesystem capacity
+before creating sessions and images. The defaults are a **512 MiB low-space
+warning** and a **256 MiB critical reserve**, plus estimated image write
+size. Configure with environment variables (no changes to `runtime.json`):
+
+```bash
+export PISERVER_RECORDING_WARN_FREE_MB=512
+export PISERVER_RECORDING_MIN_FREE_MB=256
+```
+
+The authenticated `GET /api/status` includes `recording_storage`: free and
+total bytes, warning/critical thresholds, state, session size and up to five
+recent failed writes. Per-session listing adds `size_bytes`. The last queried session size is cached for two seconds; explicit folder
+listings inspect each selected folder. Size scans run outside recorder locks.
+
+If space is critical, the recorder refuses to start or save images. If a
+camera image write or JSONL append fails, only the recording is stopped:
+the control loop, manual-command watchdog, e-stop, and live camera processing
+continue unchanged. The recorder does not silently restart after free space
+returns. Any partial metadata from a true disk-full interruption should be
+reviewed manually before training.
+
+**Cleanup is never automatic.** The existing recordings browser prompts for
+confirmation and the authenticated delete endpoint additionally requires
+`{"session":"SESSION_NAME","confirm":true}`. Only the selected inactive
+folder can be deleted; historical sessions are never selected for pruning by
+disk usage. Back up sessions before deletion. Do not lower the critical
+reserve without validating your SD card capacity on hardware.
+
 ## PiServer 0.4.15 — Runtime latency diagnostics (U23)
 
 The protected `GET /api/status` response now includes

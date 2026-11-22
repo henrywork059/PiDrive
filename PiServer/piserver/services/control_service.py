@@ -285,7 +285,14 @@ class ControlService:
 
     def toggle_recording(self) -> tuple[bool, bool, str]:
         with self.lock:
-            self.recorder_service.toggle()
+            try:
+                self.recorder_service.toggle()
+            except (OSError, ValueError, RuntimeError) as exc:
+                # Recording storage is independent from motor ownership and
+                # must not trip E-stop or interrupt the control-loop thread.
+                self.state.recording = bool(self.recorder_service.recording)
+                self.state.system_message = f"Recording unavailable: {exc}"
+                return False, self.state.recording, self.state.system_message
             self.state.recording = bool(self.recorder_service.recording)
             self.state.system_message = "Recording started." if self.state.recording else "Recording stopped."
             return True, self.state.recording, self.state.system_message

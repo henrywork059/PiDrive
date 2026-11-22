@@ -8,6 +8,8 @@ import zipfile
 from datetime import datetime
 from pathlib import Path
 
+from piserver.core.recording_storage import RecordingStorageGuard, RecordingStorageError
+
 try:
     import cv2
 except Exception:  # pragma: no cover
@@ -35,6 +37,7 @@ class RecorderService:
         self.last_snapshot_relpath = ""
         self.last_snapshot_name = ""
         self._lock = threading.RLock()
+        self.storage = RecordingStorageGuard(self.root, prefix="PISERVER")
         self._normalize_snapshot_layout()
 
     def _display_base_dir(self) -> Path:
@@ -133,6 +136,11 @@ class RecorderService:
         with self._lock:
             if self.recording:
                 return
+            try:
+                self.storage.require_space()
+            except RecordingStorageError as exc:
+                self.storage.note_error('start', exc)
+                raise
             session_name = datetime.now().strftime("%Y%m%d-%H%M%S")
             session_path = self.root / session_name
             images_dir = session_path / "images"
@@ -140,7 +148,8 @@ class RecorderService:
             try:
                 images_dir.mkdir(parents=True, exist_ok=True)
                 index_file = (session_path / "records.jsonl").open("a", encoding="utf-8")
-            except Exception:
+            except Exception as exc:
+                self.storage.note_error('session_start', exc)
                 if index_file is not None:
                     try:
                         index_file.close()
@@ -189,69 +198,97 @@ class RecorderService:
         if not self.recording or frame_bgr is None or cv2 is None:
             return
         with self._lock:
-            if self.images_dir is None or self.index_file is None:
+            if not self.recording or self.images_dir is None or self.index_file is None:
                 return
             now = time.time()
             if now - self.last_record_time < self.min_interval:
                 return
-            self.last_record_time = now
             self.counter += 1
-
             stamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
             fname = f"{stamp}_{self.counter:04d}.jpg"
             image_path = self.images_dir / fname
-            ok = cv2.imwrite(str(image_path), frame_bgr)
-            if not ok:
-                return
-
-            rec = {
-                "frame_id": fname.rsplit(".", 1)[0],
-                "session": self.session_name,
-                "ts": now,
-                "image": f"images/{fname}",
-                "steering": float(snapshot.get("applied_steering", 0.0)),
-                "throttle": float(snapshot.get("applied_throttle", 0.0)),
-                "mode": str(snapshot.get("active_algorithm", "manual")),
-                "camera_width": int(snapshot.get("camera_width", 0)),
-                "camera_height": int(snapshot.get("camera_height", 0)),
-                "camera_format": str(snapshot.get("camera_format", "BGR888")),
-            }
-            self.index_file.write(json.dumps(rec, ensure_ascii=False) + "\n")
-            self.index_file.flush()
-            self.last_record_relpath = self._display_path(self.root / self.session_name / "images" / fname)
+            try:
+                self.storage.require_space(estimated_bytes=max(65536, int(getattr(frame_bgr, 'nbytes', 0))))
+                ok = cv2.imwrite(str(image_path), frame_bgr)
+                if not ok:
+                    raise OSError("Camera frame image write failed (possibly full disk).")
+                rec = {
+                    "frame_id": fname.rsplit(".", 1)[0],
+                    "session": self.session_name,
+                    "ts": now,
+                    "image": f"images/{fname}",
+                    "steering": float(snapshot.get("applied_steering", 0.0)),
+                    "throttle": float(snapshot.get("applied_throttle", 0.0)),
+                    "mode": str(snapshot.get("active_algorithm", "manual")),
+                    "camera_width": int(snapshot.get("camera_width", 0)),
+                    "camera_height": int(snapshot.get("camera_height", 0)),
+                    "camera_format": str(snapshot.get("camera_format", "BGR888")),
+                }
+                line = json.dumps(rec, ensure_ascii=False) + "\n"
+                # Avoid leaving a broken partial JSONL tail after a failed flush.
+                previous_size = self.index_file.tell()
+                try:
+                    self.index_file.write(line)
+                    self.index_file.flush()
+                except OSError:
+                    try:
+                        self.index_file.seek(previous_size)
+                        self.index_file.truncate(previous_size)
+                        self.index_file.flush()
+                    except OSError:
+                        pass  # Recovery may be needed; keep all historical files.
+                    raise
+                self.last_record_time = now
+                self.last_record_relpath = self._display_path(image_path)
+            except Exception as exc:
+                self.storage.note_error('record_frame', exc)
+                # Recording failure must not escape into the motor controller.
+                self.stop()
 
     def capture_once(self, frame_bgr, snapshot: dict | None = None):
         if frame_bgr is None or cv2 is None:
             return False, "No live frame available to save."
         snapshot = snapshot or {}
         with self._lock:
-            self._normalize_snapshot_layout()
-            shots_dir = self.snapshot_dir
-            shots_dir.mkdir(parents=True, exist_ok=True)
-            stamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-            image_name = self._unique_snapshot_name(f"{stamp}.jpg")
-            image_path = shots_dir / image_name
-            ok = cv2.imwrite(str(image_path), frame_bgr)
-            if not ok:
-                return False, "Failed to save snapshot image."
-
-            meta_path = self._snapshot_metadata_path()
-            rec = {
-                "frame_id": Path(image_name).stem,
-                "ts": time.time(),
-                "image": f"snapshots/{image_name}",
-                "steering": float(snapshot.get("applied_steering", 0.0)),
-                "throttle": float(snapshot.get("applied_throttle", 0.0)),
-                "mode": str(snapshot.get("active_algorithm", "manual")),
-                "camera_width": int(snapshot.get("camera_width", 0)),
-                "camera_height": int(snapshot.get("camera_height", 0)),
-                "camera_format": str(snapshot.get("camera_format", "BGR888")),
-            }
-            self.last_snapshot_name = image_name
-            self.last_snapshot_relpath = self._display_path(self.snapshot_dir / image_name)
-            with meta_path.open("a", encoding="utf-8") as handle:
-                handle.write(json.dumps(rec, ensure_ascii=False) + "\n")
-        return True, f"Snapshot saved: {image_name}"
+            try:
+                self.storage.require_space(estimated_bytes=max(65536, int(getattr(frame_bgr, 'nbytes', 0))))
+                self._normalize_snapshot_layout()
+                shots_dir = self.snapshot_dir
+                shots_dir.mkdir(parents=True, exist_ok=True)
+                stamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+                image_name = self._unique_snapshot_name(f"{stamp}.jpg")
+                image_path = shots_dir / image_name
+                if not cv2.imwrite(str(image_path), frame_bgr):
+                    raise OSError("Failed to save snapshot image (possibly full disk).")
+                meta_path = self._snapshot_metadata_path()
+                rec = {
+                    "frame_id": Path(image_name).stem,
+                    "ts": time.time(),
+                    "image": f"snapshots/{image_name}",
+                    "steering": float(snapshot.get("applied_steering", 0.0)),
+                    "throttle": float(snapshot.get("applied_throttle", 0.0)),
+                    "mode": str(snapshot.get("active_algorithm", "manual")),
+                    "camera_width": int(snapshot.get("camera_width", 0)),
+                    "camera_height": int(snapshot.get("camera_height", 0)),
+                    "camera_format": str(snapshot.get("camera_format", "BGR888")),
+                }
+                with meta_path.open("a", encoding="utf-8") as handle:
+                    before = handle.tell()
+                    try:
+                        handle.write(json.dumps(rec, ensure_ascii=False) + "\n")
+                        handle.flush()
+                    except OSError:
+                        try:
+                            handle.truncate(before)
+                        except OSError:
+                            pass
+                        raise
+                self.last_snapshot_name = image_name
+                self.last_snapshot_relpath = self._display_path(image_path)
+                return True, f"Snapshot saved: {image_name}"
+            except Exception as exc:
+                self.storage.note_error('snapshot', exc)
+                return False, f"Snapshot was not saved: {exc}"
 
     def get_status(self):
         with self._lock:
@@ -261,7 +298,7 @@ class RecorderService:
             elapsed = 0.0
             if self.recording and self.session_started_at:
                 elapsed = max(0.0, time.time() - self.session_started_at)
-            return {
+            data = {
                 "record_session_name": active_session_name,
                 "record_save_path": self._display_path(active_session_path) if active_session_path else self._display_path(self.root),
                 "record_elapsed_seconds": elapsed,
@@ -269,7 +306,12 @@ class RecorderService:
                 "snapshot_save_path": self._display_path(self.snapshot_dir),
                 "snapshot_last_saved": self.last_snapshot_relpath,
                 "snapshot_last_name": self.last_snapshot_name,
+                "recording": self.recording,
             }
+        # Filesystem directory walks may be slow on an SD card. Do not hold
+        # the recorder lock while gathering optional size/free-space telemetry.
+        data["recording_storage"] = self.storage.status(active_session_path)
+        return data
 
     def _iter_session_dirs(self):
         for path in sorted(self.root.glob("*"), reverse=True):
@@ -304,6 +346,7 @@ class RecorderService:
             "kind": kind,
             "label": label,
             "image_count": image_count,
+            "size_bytes": self.storage.session_size(path),
             "updated_at": updated_at,
             "path": self._display_path(path),
         }
