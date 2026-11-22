@@ -12,7 +12,7 @@
     'aiThrottleSmoothOut', 'aiSaveConfig', 'aiLimiterTab', 'aiCorrectionTab', 'aiManualDriveTab', 'aiAssistTab', 'aiLimiterPane', 'aiCorrectionPane', 'aiManualDrivePane', 'aiAssistPane', 'aiManualMix', 'aiManualMixOut',
     'aiCorrectionPad', 'aiCorrectionKnob', 'aiCorrectionStatus', 'aiManualSteeringOut', 'aiManualThrottleOut', 'aiManualMixReadout',
     'aiManualDriveSpeed', 'aiManualDriveSpeedOut', 'aiManualDrivePad', 'aiManualDriveKnob', 'aiManualDriveStatus', 'aiManualDriveSteeringOut', 'aiManualDriveThrottleOut', 'aiManualDriveStop', 'aiAssistMix', 'aiAssistMixOut', 'aiAssistMixReadout', 'aiAssistPad', 'aiAssistKnob', 'aiAssistStatus', 'aiAssistManualSteeringOut', 'aiAssistModelSteeringOut', 'aiAssistOutputSteeringOut', 'aiAssistThrottleOut', 'aiAssistStop',
-    'aiStartPreview', 'aiStartDrive', 'aiStop', 'aiStopAll', 'aiRawSteering', 'aiRawThrottle', 'aiMixedSteering', 'aiMixedThrottle',
+    'aiStartPreview', 'aiStartDrive', 'aiStop', 'aiSafetyRearm', 'aiStopAll', 'aiRawSteering', 'aiRawThrottle', 'aiMixedSteering', 'aiMixedThrottle',
     'aiSafeSteering', 'aiSafeThrottle', 'aiManualCorrectionState', 'aiLeftMotor', 'aiRightMotor', 'aiInferenceMs', 'aiLoopHz', 'aiDriveOutputState', 'aiFrameSeq', 'aiRefreshStatus', 'aiRefreshErrors', 'aiLog', 'aiLastErrorLog'
   ];
   ids.forEach((id) => { els[id] = document.getElementById(id); });
@@ -1286,6 +1286,18 @@
     }
   }
 
+  async function rearmCameraFault() {
+    if (!window.confirm('Confirm camera frames are advancing and motors are stopped. Clear the camera safety latch? This will not start driving.')) return;
+    try {
+      const result = await api('/api/safety/rearm', { method: 'POST', body: { confirm: true } });
+      log(result.message || 'Camera fault rearmed.', result.safety || {});
+      await refreshStatus();
+    } catch (err) {
+      log(err.message, err.payload || {});
+      await refreshStatus();
+    }
+  }
+
   async function predictOnce() {
     try {
       const data = await api('/api/ai/predict-once', { method: 'POST', body: {} });
@@ -1644,6 +1656,7 @@
     els.aiStartPreview?.addEventListener('click', () => startAI('preview'));
     els.aiStartDrive?.addEventListener('click', () => startAI('drive'));
     els.aiStop?.addEventListener('click', stopAI);
+    els.aiSafetyRearm?.addEventListener('click', rearmCameraFault);
     els.aiStopAll?.addEventListener('click', async () => { await stopAI(); await api('/api/control/stop', { method: 'POST', body: {} }).catch(() => null); });
     els.aiRefreshStatus?.addEventListener('click', refreshStatus);
     els.aiRefreshErrors?.addEventListener('click', refreshLastErrors);
