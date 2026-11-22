@@ -53,6 +53,53 @@ near-identical frames with different bytes. Capture in distinct runs,
 conditions or locations for stronger validation. The existing Marking
 quick-deploy and Export Validate interfaces are unchanged.
 
+## Immutable YOLO dataset cache generations (0_2_13, U25)
+
+Training, Validation, and Export Validate now run against **private, immutable
+dataset snapshots** in `.customtrainer_yolo_cache/generations/gen_*/`.
+Preparing another dataset no longer deletes files referenced by an active
+training process. Each run receives its own generation-local `dataset.yaml`,
+`train.txt`, `val.txt`, copied image files, and validated training labels.
+
+Dataset preparation first builds in a private `.building/` directory, checks
+the complete image lists and label counts, writes a `cache_manifest.json`,
+then atomically promotes the generation. Only after successful publication
+does the familiar root `dataset.yaml` pointer change (via atomic file
+replacement). If a build fails, the previous public YAML and old generations
+remain intact. The Marking, training split, labeling, and exported-model
+workflows are otherwise unchanged. Original images are **copied**, not
+hard-linked: an in-place source image edit cannot alter a running snapshot.
+
+**Retention:** There is **no automatic deletion** of prior generations or
+the old pre-U25 cache layout. This uses additional disk space; check free space
+when preparing large image datasets. Inspect caches from the CustomTrainer
+project directory:
+
+```bash
+python manage_dataset_cache.py /path/to/sessions_root
+```
+
+After confirming training, validation, and external YOLO readers are finished,
+explicitly prune old known generations:
+
+```bash
+python manage_dataset_cache.py /path/to/sessions_root --prune --confirm-idle
+```
+
+Pruning preserves at least the two newest generations, the currently selected
+dataset YAML, generations younger than 24 hours, and any generation protected
+by an active CustomTrainer Ultralytics subprocess lease. Other directories or
+unknown cache formats are never removed. Do **not** manually delete or edit an
+active `gen_*` directory. Jobs launched outside CustomTrainer may not hold
+its reader lock: the `--confirm-idle` acknowledgement is therefore
+important even when the CLI shows no busy generation.
+
+The root `dataset.yaml` remains for backwards compatibility, but it points
+to the latest published snapshot and can change on a later preparation.
+For reproducible manual `yolo` commands, use the **generation-local
+`dataset.yaml`** shown in the Run Log. Cache cleanup and Windows file-lock
+handover should be verified on the target workstation before widespread use.
+
 ## Requirements and environment
 
 - Python **3.11** recommended

@@ -661,7 +661,11 @@ class TrainPage(QWidget):
         if self.thread is not None:
             QMessageBox.information(self, 'Training running', 'A training process is already running.')
             return
-        yaml_path, dataset_summary = self._prepare_training_dataset()
+        try:
+            yaml_path, dataset_summary = self._prepare_training_dataset()
+        except (OSError, ValueError, RuntimeError) as exc:
+            QMessageBox.critical(self, 'Dataset preparation failed', f'Existing cache was preserved.\n\n{exc}')
+            return
         if yaml_path is None:
             QMessageBox.critical(
                 self,
@@ -718,7 +722,7 @@ class TrainPage(QWidget):
         self.name_edit.setText(run_name)
         command = build_train_command(
             model=model_text,
-            data=str(yaml_path),
+            data=str(dataset_summary.cache_yaml_path if dataset_summary is not None else yaml_path),
             epochs=epochs,
             imgsz=imgsz,
             batch=batch,
@@ -732,6 +736,7 @@ class TrainPage(QWidget):
         self.current_run_dir = expected_run_dir
         self.current_results_csv = expected_results_csv
         self.plot_status.setText(f'Waiting for training metrics in {expected_run_dir}')
+        self.log(f'[dataset/cache] Task uses immutable YAML: {command[command.index("--data") + 1]}')
         self._launch(command, 'Training started...', cwd=runner_working_directory(), task_kind='train')
         self.plot_timer.start()
 

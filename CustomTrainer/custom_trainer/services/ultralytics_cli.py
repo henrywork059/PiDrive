@@ -5,6 +5,7 @@ import json
 import sys
 from pathlib import Path
 
+from custom_trainer.services.cache_lifecycle import generation_reader_lease
 from custom_trainer.services.session_service import resolve_prediction_source
 
 from custom_trainer.services.device_service import resolve_device, runtime_summary
@@ -281,7 +282,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
-        return int(args.func(args))
+        with generation_reader_lease(getattr(args, 'data', None)):
+            return int(args.func(args))
     except Exception as exc:
         print(f'[error] {exc}', flush=True)
         return 1
