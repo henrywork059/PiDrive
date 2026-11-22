@@ -151,7 +151,8 @@ class AIDriveService:
         """U28 schema-v1 safety contract for this process's AI camera-fault latch."""
         with self._lock:
             latched = bool(self._camera_frame_fault_latched)
-            running = bool(self._running and self._thread and self._thread.is_alive())
+            worker_alive = bool(self._thread and self._thread.is_alive())
+            running = bool(self._running and worker_alive)
             return {
                 "schema_version": 1,
                 "component": "PiSD",
@@ -159,7 +160,7 @@ class AIDriveService:
                 "latched": latched,
                 "motion_allowed": not latched,
                 "rearm_required": latched,
-                "rearm_available": bool(latched and not running),
+                "rearm_available": bool(latched and not worker_alive),
                 "reason": "AI camera-frame timeout; wait for new frames and confirm rearm." if latched else "",
             }
 
