@@ -147,6 +147,55 @@ class AIDriveService:
             manual["throttle"] = 0.0
         return manual
 
+    def safety_status(self) -> dict[str, Any]:
+        """U28 schema-v1 safety contract for this process's AI camera-fault latch."""
+        with self._lock:
+            latched = bool(self._camera_frame_fault_latched)
+            running = bool(self._running and self._thread and self._thread.is_alive())
+            return {
+                "schema_version": 1,
+                "component": "PiSD",
+                "state": "latched" if latched else ("running" if running else "ready"),
+                "latched": latched,
+                "motion_allowed": not latched,
+                "rearm_required": latched,
+                "rearm_available": bool(latched and not running),
+                "reason": "AI camera-frame timeout; wait for new frames and confirm rearm." if latched else "",
+            }
+
+    def rearm_camera_fault(self, camera_service: Any, motor_service: Any, *, confirm: Any = False) -> dict[str, Any]:
+        """Clear a stale-camera latch only while idle, with a fresh frame and stopped motors."""
+        if confirm is not True:
+            return {"ok": False, "message": "Explicit confirm=true is required to rearm.", "safety": self.safety_status()}
+        with self._lock:
+            if self._running or (self._thread and self._thread.is_alive()):
+                return {"ok": False, "message": "Stop AI mode before rearming.", "safety": self.safety_status()}
+            if not self._camera_frame_fault_latched:
+                return {"ok": True, "message": "No active camera-fault latch.", "safety": self.safety_status()}
+        if not bool(getattr(camera_service, "running", False)):
+            return {"ok": False, "message": "Camera is not running; cannot verify recovery.", "safety": self.safety_status()}
+        try:
+            _, last_seq, _, _ = camera_service.get_jpeg_frame_info()
+            new_frame, fresh_seq, _, _ = camera_service.wait_for_jpeg_frame(last_seq=last_seq, timeout=0.5)
+            if new_frame is None or int(fresh_seq or 0) == int(last_seq or 0):
+                return {"ok": False, "message": "No new camera frame arrived; safety remains latched.", "safety": self.safety_status()}
+            motor_service.stop()
+        except Exception as exc:
+            return {"ok": False, "message": f"Rearm refused: camera/motor check failed: {exc}", "safety": self.safety_status()}
+        with self._lock:
+            if self._running or (self._thread and self._thread.is_alive()):
+                return {"ok": False, "message": "AI became active; safety remains latched.", "safety": self.safety_status()}
+            self._camera_frame_fault_latched = False
+            self._last_fresh_frame_seq = 0
+            self._last_fresh_frame_monotonic = None
+            self._last_inference_frame_seq = 0
+            self._last_prediction_at = ""
+            self._last_motor = {"left": 0.0, "right": 0.0}
+            self._last_raw = {"steering": 0.0, "throttle": 0.0}
+            self._last_mixed = {"steering": 0.0, "throttle": 0.0}
+            self._last_safe = {"steering": 0.0, "throttle": 0.0}
+        return {"ok": True, "message": "Camera fault rearmed at zero; start AI again with a fresh acknowledgement.", "safety": self.safety_status()}
+
     def status(self) -> dict[str, Any]:
         with self._lock:
             frame_age_s = (
@@ -502,6 +551,10 @@ class AIDriveService:
         }
 
     def start(self, camera_service: Any, motor_service: Any, *, mode: Any = "preview", safety_ack: Any = False, enable_motor_output: Any = False) -> dict[str, Any]:
+        with self._lock:
+            if self._camera_frame_fault_latched:
+                report = self._record_error(PiSDErrorCodes.AI_UNARMED, "AI camera fault is latched; stop and explicitly rearm before starting.", severity="warning")
+                return report_payload(False, report, ai=self.status())
         load_result = self._ensure_model_ready_for_run()
         if load_result is not None:
             return load_result
@@ -532,7 +585,7 @@ class AIDriveService:
             self._loop_consecutive_failures = 0
             self._last_fresh_frame_seq = 0
             self._last_fresh_frame_monotonic = None
-            self._camera_frame_fault_latched = False
+            # U28: do not clear a previously latched camera fault on start/stop.
             self._last_prediction_at = ""
             self._last_inference_frame_seq = 0
             self._running = True
@@ -614,7 +667,7 @@ class AIDriveService:
         now = time.monotonic() if now_monotonic is None else float(now_monotonic)
         with self._lock:
             if self._camera_frame_fault_latched:
-                raise RuntimeError("Camera stale-frame safety latch is active; restart AI mode.")
+                raise RuntimeError("Camera stale-frame safety latch is active; explicitly rearm after camera recovery.")
             previous_at = self._last_fresh_frame_monotonic
             if previous_at is None or (seq > 0 and seq != self._last_fresh_frame_seq):
                 self._last_fresh_frame_seq = seq
