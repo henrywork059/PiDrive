@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 from pathlib import Path
 
 
@@ -45,6 +46,61 @@ def read_yolo_label_file(path: Path) -> list[YoloBox]:
         boxes.append(YoloBox(class_id=class_id, xc=clamp01(xc), yc=clamp01(yc), w=clamp01(w), h=clamp01(h)))
     return boxes
 
+
+
+@dataclass(frozen=True)
+class LabelIssue:
+    line: int
+    reason: str
+
+
+def validate_yolo_label_file(path: Path, class_count: int) -> tuple[list[YoloBox], list[LabelIssue]]:
+    """Parse the training contract without silently clamping invalid boxes.
+
+    The legacy read_yolo_label_file is intentionally kept for the Marking UI.
+    Invalid training lines are *excluded only from the derived YOLO cache*,
+    with line-specific diagnostics so source annotations stay intact.
+    """
+    if not path.exists():
+        return [], []
+    boxes: list[YoloBox] = []
+    issues: list[LabelIssue] = []
+    try:
+        lines = path.read_text(encoding='utf-8').splitlines()
+    except (OSError, UnicodeError) as exc:
+        return [], [LabelIssue(0, f'cannot read label: {exc}')]
+    for line_no, raw in enumerate(lines, start=1):
+        text = raw.strip()
+        if not text or text.startswith('#'):
+            continue
+        parts = text.split()
+        if len(parts) != 5:
+            issues.append(LabelIssue(line_no, 'expected 5 values: integer class, xc, yc, width, height'))
+            continue
+        try:
+            class_id = int(parts[0])  # Do not silently coerce classes such as 1.5 to 1.
+        except ValueError:
+            issues.append(LabelIssue(line_no, 'class ID must be an integer'))
+            continue
+        if not 0 <= class_id < class_count:
+            issues.append(LabelIssue(line_no, f'class ID {class_id} outside [0, {class_count - 1}]'))
+            continue
+        try:
+            xc, yc, w, h = (float(value) for value in parts[1:])
+        except ValueError:
+            issues.append(LabelIssue(line_no, 'box coordinates must be numbers'))
+            continue
+        if not all(math.isfinite(v) for v in (xc, yc, w, h)):
+            issues.append(LabelIssue(line_no, 'box contains NaN or infinity'))
+        elif not (0 <= xc <= 1 and 0 <= yc <= 1):
+            issues.append(LabelIssue(line_no, 'center outside normalized [0, 1] range'))
+        elif not (0 < w <= 1 and 0 < h <= 1):
+            issues.append(LabelIssue(line_no, 'width/height must be > 0 and <= 1'))
+        elif xc - w / 2 < -1e-9 or xc + w / 2 > 1 + 1e-9 or yc - h / 2 < -1e-9 or yc + h / 2 > 1 + 1e-9:
+            issues.append(LabelIssue(line_no, 'box extends beyond image boundaries'))
+        else:
+            boxes.append(YoloBox(class_id, xc, yc, w, h))
+    return boxes, issues
 
 def write_yolo_label_file(path: Path, boxes: list[YoloBox]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
