@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pisd.core.latency_metrics import RollingLatency
+from pisd.core.model_manifest import inspect_manifest, manifest_path, sha256_model, validate_manifest
 
 import atexit
 import importlib.util
@@ -57,6 +58,8 @@ class AIDriveService:
         self._output_names: list[str] = []
         self._model_loaded = False
         self._model_ready = False
+        self._active_manifest = None
+        self._manifest_warning = "No model loaded."
         self._running = False
         self._mode = "idle"  # idle | preview | drive
         self._drive_output_enabled = False
@@ -169,6 +172,8 @@ class AIDriveService:
                 "model_path": str(self._model_path or ""),
                 "model_loaded": bool(self._model_loaded),
                 "model_ready": bool(self._model_ready),
+                "model_manifest": self._active_manifest,
+                "model_manifest_warning": self._manifest_warning,
                 "backend": self._backend,
                 "backend_detail": self._backend_detail,
                 "runtime_support": self.runtime_diagnostics(),
@@ -276,53 +281,55 @@ class AIDriveService:
                 continue
         return ok_payload("AI model list loaded.", models=models, supported_extensions=sorted(MODEL_EXTENSIONS), models_dir=str(self.models_dir))
 
-    def upload_model(self, filename: Any, file_obj: Any) -> dict[str, Any]:
-        """Save an uploaded model file into PiSD/models with a safe filename.
-
-        piTrainer currently exports .keras and .tflite artifacts. This method also
-        keeps the existing extension allow-list for future/backward-compatible
-        models while preventing uploaded filenames from escaping the models
-        folder.
-        """
+    def upload_model(self, filename: Any, file_obj: Any, manifest_file_obj: Any | None = None) -> dict[str, Any]:
+        """Store a model and optional signed-by-checksum metadata, without clobbering originals."""
+        import json
+        import os
+        import uuid
         original = str(filename or "").strip()
         safe_name = self._safe_upload_filename(original)
-        if not safe_name:
+        if not safe_name or Path(safe_name).suffix.lower() not in MODEL_EXTENSIONS:
             report = self._record_error(
-                PiSDErrorCodes.AI_MODEL_LOAD_FAILED,
-                "Uploaded model filename was missing or unsafe.",
-                severity="warning",
-                context={"filename": original},
-            )
-            return report_payload(False, report, ai=self.status())
-        suffix = Path(safe_name).suffix.lower()
-        if suffix not in MODEL_EXTENSIONS:
-            report = self._record_error(
-                PiSDErrorCodes.AI_MODEL_LOAD_FAILED,
-                "Uploaded model extension is not supported.",
-                severity="warning",
-                context={"filename": original, "safe_name": safe_name, "supported_extensions": sorted(MODEL_EXTENSIONS)},
-            )
+                PiSDErrorCodes.AI_MODEL_LOAD_FAILED, "Uploaded model filename was unsafe or unsupported.",
+                severity="warning", context={"filename": original})
             return report_payload(False, report, ai=self.status())
         self.models_dir.mkdir(parents=True, exist_ok=True)
         target = self._dedupe_upload_path(self.models_dir / safe_name)
-        root = self.models_dir.resolve()
+        temp = self.models_dir / f".{uuid.uuid4().hex}.model-upload"
+        staged_sidecar = None
         try:
-            resolved = target.resolve()
-            resolved.relative_to(root)
-            with resolved.open("wb") as handle:
+            if target.exists():
+                raise ValueError("A model with this name already exists.")
+            with temp.open("wb") as handle:
                 shutil.copyfileobj(file_obj, handle)
-            if resolved.stat().st_size <= 0:
-                resolved.unlink(missing_ok=True)
-                raise RuntimeError("uploaded file was empty")
-            model_id = str(resolved.relative_to(root)).replace("\\", "/")
+            if temp.stat().st_size == 0:
+                raise ValueError("Uploaded model was empty.")
+            if manifest_file_obj is not None:
+                raw = manifest_file_obj.read(128 * 1024 + 1)
+                if len(raw) > 128 * 1024:
+                    raise ValueError("Model manifest exceeds size limit.")
+                metadata = json.loads(raw.decode("utf-8"))
+                validate_manifest(metadata, expected_kind="steering_control")
+                if metadata["model_sha256"] != sha256_model(temp):
+                    raise ValueError("Model manifest checksum differs from uploaded model.")
+                staged_sidecar = self.models_dir / f".{uuid.uuid4().hex}.manifest-upload"
+                staged_sidecar.write_bytes(raw)
+                os.replace(staged_sidecar, manifest_path(target))
+                staged_sidecar = None
+            try:
+                os.replace(temp, target)
+            except BaseException:
+                if manifest_file_obj is not None:
+                    manifest_path(target).unlink(missing_ok=True)
+                raise
+            model_id = str(target.relative_to(self.models_dir)).replace("\\", "/")
             return ok_payload(
-                "AI model uploaded.",
+                "AI model uploaded." + (" Manifest verified." if manifest_file_obj is not None else
+                                        " Legacy model without manifest; tensor preflight required at load."),
                 model={
-                    "id": model_id,
-                    "name": resolved.name,
-                    "extension": resolved.suffix.lower(),
-                    "bytes": int(resolved.stat().st_size),
-                    "relative_path": str(resolved.relative_to(self.project_root)).replace("\\", "/"),
+                    "id": model_id, "name": target.name, "extension": target.suffix.lower(),
+                    "bytes": int(target.stat().st_size),
+                    "relative_path": str(target.relative_to(self.project_root)).replace("\\", "/"),
                 },
                 models=self.list_models().get("models", []),
                 supported_extensions=sorted(MODEL_EXTENSIONS),
@@ -332,10 +339,12 @@ class AIDriveService:
             report = self._record_error(
                 PiSDErrorCodes.AI_MODEL_LOAD_FAILED,
                 f"Failed to save uploaded AI model: {exc}",
-                context={"filename": original, "target": str(target)},
-                exc=exc,
-            )
+                context={"filename": original, "target": str(target)}, exc=exc)
             return report_payload(False, report, ai=self.status())
+        finally:
+            temp.unlink(missing_ok=True)
+            if staged_sidecar is not None:
+                staged_sidecar.unlink(missing_ok=True)
 
     def delete_model(self, model_id: Any) -> dict[str, Any]:
         model_path, safe_id, report = self._resolve_model(model_id)
@@ -348,6 +357,10 @@ class AIDriveService:
             if was_selected:
                 self.stop(stop_motors=False)
             model_path.unlink()
+            try:
+                manifest_path(model_path).unlink(missing_ok=True)
+            except OSError:
+                pass
             if was_selected:
                 with self._lock:
                     self._clear_loaded_model_locked()
@@ -374,58 +387,58 @@ class AIDriveService:
         if report is not None:
             return report_payload(False, report, ai=self.status())
         with self._lock:
-            self.stop(stop_motors=False)
-            self._model_id = safe_id
-            self._model_path = model_path
-            self._model = None
-            self._input_details = None
-            self._output_details = None
-            self._output_names = []
-            self._backend = "loading"
-            self._backend_detail = ""
-            self._model_loaded = False
-            self._model_ready = False
-            self._settings["model_id"] = safe_id
-        try:
-            suffix = model_path.suffix.lower()
-            if suffix == ".tflite":
-                self._load_tflite(model_path)
-            elif suffix in {".keras", ".h5"}:
-                self._load_keras(model_path)
-            elif suffix in {".onnx", ".pt"}:
+            if self._running or (self._thread and self._thread.is_alive()):
                 report = self._record_error(
                     PiSDErrorCodes.AI_MODEL_LOAD_FAILED,
-                    f"{suffix} model file was found, but this PiSD runtime does not have a built-in {suffix} inference backend yet.",
+                    "Stop AI driving/preview before changing the active model.",
                     severity="warning",
-                    context={"model_id": safe_id, "path": str(model_path)},
                 )
                 return report_payload(False, report, ai=self.status())
+
+        try:
+            # Never alter the working interpreter, model ID or saved settings
+            # until the candidate has passed all manifest and tensor checks.
+            metadata, warning = inspect_manifest(model_path, expected_kind="steering_control")
+            suffix = model_path.suffix.lower()
+            if suffix == ".tflite":
+                candidate = self._load_tflite(model_path)
+            elif suffix in {".keras", ".h5"}:
+                candidate = self._load_keras(model_path)
             else:
-                report = self._record_error(PiSDErrorCodes.AI_MODEL_LOAD_FAILED, "Unsupported AI model extension.", context={"model_id": safe_id})
-                return report_payload(False, report, ai=self.status())
+                raise ValueError(f"Unsupported AI inference model type: {suffix}.")
+            if metadata is not None:
+                inspect_manifest(model_path, expected_kind="steering_control",
+                                 input_size=candidate["input_size"])
         except Exception as exc:
-            with self._lock:
-                self._model = None
-                self._input_details = None
-                self._output_details = None
-                self._output_names = []
-                self._backend = "load_failed"
-                self._backend_detail = ""
-                self._model_loaded = False
-                self._model_ready = False
             report = self._record_error(
                 PiSDErrorCodes.AI_MODEL_LOAD_FAILED,
-                f"Failed to load AI model: {exc}",
-                context={"model_id": safe_id, "path": str(model_path), "runtime_support": self.runtime_diagnostics()},
+                f"Model preflight failed (previous active model preserved): {exc}",
+                context={"model_id": safe_id, "path": str(model_path)},
                 exc=exc,
             )
             return report_payload(False, report, ai=self.status())
+
         with self._lock:
+            # Stage complete. Atomically publish only on success.
+            self.stop(stop_motors=False)
+            self._model_id = safe_id
+            self._model_path = model_path
+            self._model = candidate["model"]
+            self._input_details = candidate["input_details"]
+            self._output_details = candidate["output_details"]
+            self._output_names = candidate["output_names"]
+            self._input_size = candidate["input_size"]
+            self._input_dtype_name = candidate["input_dtype_name"]
+            self._backend = candidate["backend"]
+            self._backend_detail = candidate["backend_detail"]
             self._model_loaded = True
             self._model_ready = True
+            self._active_manifest = metadata
+            self._manifest_warning = warning
+            self._settings["model_id"] = safe_id
             self._last_error = ""
             self._last_error_code = PiSDErrorCodes.OK
-        return ok_payload("AI model loaded.", ai=self.status())
+        return ok_payload("AI model loaded. " + warning, ai=self.status())
 
     def _ensure_model_ready_for_run(self) -> dict[str, Any] | None:
         with self._lock:
@@ -815,7 +828,7 @@ class AIDriveService:
         except Exception:
             return str(value or fallback)
 
-    def _load_tflite(self, model_path: Path) -> None:
+    def _load_tflite(self, model_path: Path) -> dict[str, Any]:
         interpreter_cls = None
         backend_detail = ""
         import_errors: list[str] = []
@@ -850,45 +863,70 @@ class AIDriveService:
                 "If that package is unavailable on this Pi, run: python3 scripts/install_ai_runtime.py --runtime ai-edge-litert. "
                 "Import attempts: " + "; ".join(import_errors)
             )
-        self._pending_backend_detail = backend_detail
+        import numpy as np
+
         interpreter = interpreter_cls(model_path=str(model_path))
         interpreter.allocate_tensors()
-        input_details = interpreter.get_input_details()
-        output_details = interpreter.get_output_details()
-        if not input_details or not output_details:
-            raise RuntimeError("TFLite model did not expose input/output tensors.")
-        shape = self._detail_shape_list(input_details[0])
-        if len(shape) >= 4:
-            # usually NHWC: [1, height, width, channels]
-            self._input_size = (int(shape[2] or 160), int(shape[1] or 120))
-        self._input_dtype_name = self._dtype_name(input_details[0].get("dtype", "float32"))
-        output_names = [str(item.get("name") if item.get("name") is not None else item.get("index", "")) for item in output_details]
-        with self._lock:
-            self._model = interpreter
-            self._input_details = input_details
-            self._output_details = output_details
-            self._output_names = output_names
-            self._backend = "tflite"
-            self._backend_detail = getattr(self, "_pending_backend_detail", "") or "tflite"
+        inputs, outputs = interpreter.get_input_details(), interpreter.get_output_details()
+        if len(inputs) != 1 or not 1 <= len(outputs) <= 2:
+            raise ValueError("Steering TFLite requires one RGB input and one ordered pair or two scalar outputs.")
+        input_info = inputs[0]
+        shape = self._detail_shape_list(input_info)
+        if len(shape) != 4 or shape[0] != 1 or shape[3] != 3 or shape[1] <= 0 or shape[2] <= 0 or shape[1] * shape[2] > 4096 * 4096:
+            raise ValueError(f"Invalid steering TFLite NHWC RGB input shape: {shape}.")
+        dtype = np.dtype(input_info.get("dtype", "float32"))
+        if dtype not in (np.dtype("float32"), np.dtype("int8"), np.dtype("uint8")):
+            raise ValueError(f"Unsupported steering input dtype: {dtype}.")
+        for detail in [input_info, *outputs]:
+            item_dtype = np.dtype(detail.get("dtype", "float32"))
+            if item_dtype not in (np.dtype("float32"), np.dtype("int8"), np.dtype("uint8")):
+                raise ValueError(f"Unsupported tensor dtype: {item_dtype}.")
+            if item_dtype != np.dtype("float32"):
+                scale, zero = detail.get("quantization", (0.0, 0))
+                if not math.isfinite(float(scale)) or float(scale) <= 0:
+                    raise ValueError("Invalid TFLite tensor quantization scale.")
+        count_values = [math.prod(self._detail_shape_list(output)) for output in outputs]
+        if (len(outputs) == 1 and count_values != [2]) or (len(outputs) == 2 and count_values != [1, 1]):
+            raise ValueError("Wrong model family: expected two steering/throttle output values.")
+        preflight = np.zeros(shape, dtype=np.float32)
+        interpreter.set_tensor(int(input_info["index"]), self._coerce_tflite_input(preflight, input_info))
+        interpreter.invoke()
+        result = [self._dequantize_tflite_output(interpreter.get_tensor(int(o["index"])), o) for o in outputs]
+        if any(np.asarray(out).size == 0 or not np.all(np.isfinite(out)) for out in result):
+            raise ValueError("Synthetic steering inference returned empty/nonfinite values.")
+        names = [str(o.get("name") if o.get("name") is not None else o.get("index", "")) for o in outputs]
+        return {
+            "model": interpreter, "input_details": inputs, "output_details": outputs,
+            "output_names": names, "input_size": (shape[2], shape[1]),
+            "input_dtype_name": self._dtype_name(input_info.get("dtype", "float32")),
+            "backend": "tflite", "backend_detail": backend_detail,
+        }
 
-    def _load_keras(self, model_path: Path) -> None:
+    def _load_keras(self, model_path: Path) -> dict[str, Any]:
         try:
             import tensorflow as tf  # type: ignore
+            import numpy as np
         except Exception as exc:
-            raise RuntimeError("TensorFlow is not installed, so .keras/.h5 models cannot be loaded on this PiSD runtime.") from exc
+            raise RuntimeError("TensorFlow/NumPy required for .keras/.h5 models.") from exc
         model = tf.keras.models.load_model(str(model_path), compile=False)
-        input_shape = getattr(model, "input_shape", None)
-        if isinstance(input_shape, list):
-            input_shape = input_shape[0]
-        if input_shape is not None and len(input_shape) >= 4:
-            self._input_size = (int(input_shape[2] or 160), int(input_shape[1] or 120))
-        self._input_dtype_name = "float32"
-        output_names = [str(name) for name in (getattr(model, "output_names", None) or [])]
-        with self._lock:
-            self._model = model
-            self._output_names = output_names
-            self._backend = "tensorflow.keras"
-            self._backend_detail = "tensorflow.keras"
+        shape = getattr(model, "input_shape", None)
+        if isinstance(shape, list):
+            shape = shape[0]
+        if not shape or len(shape) != 4 or shape[0] not in (None, 1) or int(shape[3]) != 3:
+            raise ValueError("Steering Keras model must accept one NHWC RGB image.")
+        height, width = int(shape[1]), int(shape[2])
+        if height <= 0 or width <= 0 or height * width > 4096 * 4096:
+            raise ValueError("Invalid Keras image geometry.")
+        output = model.predict(np.zeros((1, height, width, 3), dtype=np.float32), verbose=0)
+        arrays = list(output.values()) if isinstance(output, dict) else (list(output) if isinstance(output, (tuple, list)) else [output])
+        if sum(np.asarray(value).size for value in arrays) != 2 or not all(np.all(np.isfinite(value)) for value in arrays):
+            raise ValueError("Wrong model family or invalid Keras synthetic steering output.")
+        return {
+            "model": model, "input_details": None, "output_details": None,
+            "output_names": [str(name) for name in (getattr(model, "output_names", None) or [])],
+            "input_size": (width, height), "input_dtype_name": "float32",
+            "backend": "tensorflow.keras", "backend_detail": "tensorflow.keras",
+        }
 
     def _get_frame_info(self, camera_service: Any) -> tuple[bytes, int, str, int]:
         """Return the latest shared camera frame and its frame id for AI inference.
