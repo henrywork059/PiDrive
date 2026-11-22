@@ -122,3 +122,8 @@ When updating docs for Mission 1 behavior, verify this marker and parser behavio
 
 Before modifying detection, overlay, or session UI behavior, read:
 - `../BUG_PREVENTION_NOTES.md`
+
+
+### U28 explicit mission-fault rearm (0_5_20)
+
+The generic web GUI and standalone Mission 1 web application add `GET /api/safety/status` and `POST /api/safety/rearm` with JSON `{"confirm":true}`, plus an additive `safety` field on existing `/api/status` responses. A failed mission remains latched after Stop; click **Rearm after fault** only after checking the cause. Rearm stops and resets/zeros controls but **does not restart driving**. Start is a separate action. This is a process-local web safety contract; hardware/arm safety and headless scenarios require Pi-side validation.
