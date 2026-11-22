@@ -262,8 +262,12 @@ def create_app() -> Flask:
 
     @app.route("/api/system/estop", methods=["POST"])
     def api_estop():
+        # STOP must remain usable with an empty or malformed body; never allow
+        # invalid input to be interpreted as a request to clear the latch.
         data = request.get_json(silent=True)
-        if not isinstance(data, dict) or type(data.get("enabled", True)) is not bool:
+        if not isinstance(data, dict):
+            data = {}
+        if type(data.get("enabled", True)) is not bool:
             return jsonify({"ok": False, "message": "enabled must be a JSON boolean."}), 400
         if data.get("enabled", True):
             control_service.set_safety_stop(True)
