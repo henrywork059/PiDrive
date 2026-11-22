@@ -1,6 +1,6 @@
 # PiSD
 
-`PiSD_0_11_2` patch package — builds forward from the current user-provided `PiSD_0_11_0` baseline plus accepted `0_11_1`.
+`PiSD_0_11_9` recording-recovery update — layered on the PiSD 0.11.8 safety branch, retaining the original 0.11.0 uploaded baseline and all accepted 0.11.x UI/settings changes.
 
 PiSD is a clean sandbox under `PiDrive/PiSD` for rebuilding and testing PiServer GUI and runtime functions from square one.
 
@@ -10,7 +10,7 @@ Future bug-fix patches after this package should use `PiSD_0_11_x_patch` naming 
 
 ## Current version
 
-`PiSD_0_11_2` patch package. The user-provided `PiSD_0_11_0.zip` remains the working full baseline for this patch line, with `0_11_1` applied first. This patch keeps the AI preview/manual-recording separation, then adds the AI workflow settings popup, camera FPS control, manual-release preview preservation, and moves the motor confirmation into the AI workflow panel.
+`PiSD_0_11_9` forward patch. The uploaded `PiSD_0_11_0.zip` is the historical full baseline; the live GitHub 0.11.8 branch already contains 0.11.7 Snapshot/tab fixes and 0.11.8 AI stale-frame protection. This patch keeps the AI preview/manual-recording separation, then adds the AI workflow settings popup, camera FPS control, manual-release preview preservation, and moves the motor confirmation into the AI workflow panel.
 
 Use `PiSD_0_11_0` as the source-of-truth baseline for this patch unless the user promotes a newer full baseline.
 
@@ -194,9 +194,61 @@ image → steering, throttle, overlay_settings
 
 Use `records.jsonl` only for full debug metadata, filtering, or advanced training options. If a frame-level overlay value is missing, fall back to `records.jsonl`, then `manifest.json`, then trainer defaults.
 
+## Recording integrity and offline recovery (0.11.9)
+
+PiSD writes each JPEG, its full \`records.jsonl\` trace, its trainer-friendly
+\`labels.jsonl\` row, and the session \`manifest.json\` in separate steps.
+A crash, power loss, or full SD card may leave a partial JSONL tail, unmatched
+metadata or a JPEG without a label.
+
+**Inspect without changing recordings:**
+
+\`\`\`bash
+cd ~/PiDrive/PiSD
+python3 scripts/recover_recordings.py 2026-11-22/SESSION_FOLDER
+\`\`\`
+
+This prints the valid record/label counts, matching pairs, missing rows,
+orphan JPEGs, malformed/duplicate metadata and manifest-count mismatch.
+The default command performs **no writes** and exits nonzero when an issue
+still needs attention.
+
+**Repair a stopped, copied or archived session explicitly:**
+
+\`\`\`bash
+python3 scripts/recover_recordings.py 2026-11-22/SESSION_FOLDER --repair --confirm-offline
+\`\`\`
+
+Stop recording and close any trainer or file writer first. Repair creates a
+unique \`.recovery_backups/\` subfolder containing originals and an audit
+report before replacing any metadata. It never deletes or relabels JPEGs,
+rewrites valid original rows, or truncates malformed lines.
+
+- A full trace record without a label may supply a missing trainer label.
+- A label without a trace record may supply a **limited reconstructed record**
+  explicitly marked as such. The unavailable original camera/motor telemetry
+  is not fabricated.
+- An orphan JPEG with neither record nor label is **reported only**; no
+  steering or throttle is invented.
+- When the operator confirms the session is offline, an interrupted
+  \`running: true\` flag is cleared and the manifest's \`frame_count\` is
+  reconciled to the number of complete record/label pairs. The true historical
+  end time remains unknown; recovery does not make one up.
+- A repeat repair does not duplicate recovered rows. If an individual file
+  replacement fails, the preserved backups allow manual rollback.
+- The original frame ID, JPEG filename convention, daily capture folders,
+  AI labels and overlay sidecar formats are unchanged.
+
+Repair is atomic **per metadata file**, not an all-file database transaction.
+The \`--confirm-offline\` flag is an operator acknowledgement, not a kernel
+lock against unpatched programs. Run it on a disposable copy first if a live
+session is in doubt. You can load repaired \`labels.jsonl\` into piTrainer
+using the existing session workflow. Retain \`.recovery_backups\` until the
+recording has been reviewed.
+
 ## Stable baseline notes
 
-`PiSD_0_11_0` is the current user-provided baseline; `PiSD_0_11_2` is the current forward patch on the `0_11_x` line.
+`PiSD_0_11_0` is the original uploaded baseline; `PiSD_0_11_9` is the current forward patch on the `0_11_x` line.
 
 It includes the tested service foundation from earlier baselines plus the accepted v6, v7, v8, v9, and v10-promotion Manual Drive, recording, overlay, AI Mode, steering algorithm, motor tuning reset, keyboard-control, safety-policy, AI-runtime, and validation cleanup patch lines.
 
