@@ -50,7 +50,11 @@ class DataPageVisibilityMixin:
         self.preview_panel.stop_autoplay()
         sessions = self._active_session_names_for_visibility_actions()
         count = self.data_control_panel.recover_count()
-        result = recover_hidden_frames(self.state.records_root_path, sessions, recover_all=False, count=count)
+        try:
+            result = recover_hidden_frames(self.state.records_root_path, sessions, recover_all=False, count=count)
+        except (OSError, RuntimeError) as exc:
+            self._show_metadata_save_error('Recover Frames', exc)
+            return
         recovered_count = int(result.get('recovered_count', 0) or 0)
         metadata_rows_changed = int(result.get('metadata_rows_changed', 0) or 0)
         failed_messages = list(result.get('failed_messages', []))
@@ -66,7 +70,11 @@ class DataPageVisibilityMixin:
     def recover_all_hidden_frames(self) -> None:
         self.preview_panel.stop_autoplay()
         sessions = self._active_session_names_for_visibility_actions()
-        result = recover_hidden_frames(self.state.records_root_path, sessions, recover_all=True)
+        try:
+            result = recover_hidden_frames(self.state.records_root_path, sessions, recover_all=True)
+        except (OSError, RuntimeError) as exc:
+            self._show_metadata_save_error('Recover All', exc)
+            return
         recovered_count = int(result.get('recovered_count', 0) or 0)
         metadata_rows_changed = int(result.get('metadata_rows_changed', 0) or 0)
         failed_messages = list(result.get('failed_messages', []))
@@ -98,7 +106,11 @@ class DataPageVisibilityMixin:
             self.main_window.set_status_message('Permanent delete cancelled.')
             return
 
-        result = purge_hidden_frames(self.state.records_root_path, sessions)
+        try:
+            result = purge_hidden_frames(self.state.records_root_path, sessions)
+        except (OSError, RuntimeError) as exc:
+            self._show_metadata_save_error('Permanent Delete', exc)
+            return
         purged_count = int(result.get('purged_count', 0) or 0)
         rows_removed = int(result.get('metadata_rows_removed', 0) or 0)
         image_files_deleted = int(result.get('image_files_deleted', 0) or 0)
@@ -135,7 +147,11 @@ class DataPageVisibilityMixin:
             return
 
         identities = [self._record_identity(record) for record in records]
-        result = hide_frames_from_training(self.state.records_root_path, records)
+        try:
+            result = hide_frames_from_training(self.state.records_root_path, records)
+        except (OSError, RuntimeError) as exc:
+            self._show_metadata_save_error('Hide Selected', exc)
+            return
         hidden_count = int(result.get('hidden_count', 0) or 0)
         metadata_rows_changed = int(result.get('metadata_rows_changed', 0) or 0)
         failed_messages = list(result.get('failed_messages', []))

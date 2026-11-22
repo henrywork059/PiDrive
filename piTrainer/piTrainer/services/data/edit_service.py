@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import copy
 import json
 from pathlib import Path
 from typing import Any, Iterable
 
+from .jsonl_atomic_service import FileSignature, file_signature, replace_jsonl_lines
 from .record_loader_service import IMAGE_KEYS, STEER_KEYS, THROTTLE_KEYS
 from .session_service import resolve_session_dir
 
@@ -94,12 +96,11 @@ _JSONL_CACHE: dict[Path, dict[str, Any]] = {}
 _JSONL_CACHE_ORDER: list[Path] = []
 
 
-def _file_signature(path: Path) -> tuple[int, int]:
-    stat = path.stat()
-    return int(stat.st_mtime_ns), int(stat.st_size)
+def _file_signature(path: Path) -> FileSignature:
+    return file_signature(path)
 
 
-def _remember_jsonl_cache(path: Path, signature: tuple[int, int], entries: list[JsonlEntry]) -> list[JsonlEntry]:
+def _remember_jsonl_cache(path: Path, signature: FileSignature, entries: list[JsonlEntry]) -> list[JsonlEntry]:
     resolved = path.resolve()
     _JSONL_CACHE[resolved] = {'signature': signature, 'entries': entries}
     if resolved in _JSONL_CACHE_ORDER:
@@ -140,9 +141,13 @@ def _set_jsonl_entry_record(entry: JsonlEntry, record: dict[str, Any]) -> None:
     entry['raw'] = json.dumps(record, ensure_ascii=False, sort_keys=True) + '\n'
 
 
-def _write_jsonl_entries(path: Path, entries: list[JsonlEntry]) -> None:
-    with path.open('w', encoding='utf-8') as handle:
-        handle.writelines(str(entry.get('raw', '')) for entry in entries)
+def _write_jsonl_entries(path: Path, entries: list[JsonlEntry], *, expected_signature: FileSignature) -> None:
+    replace_jsonl_lines(
+        path,
+        (str(entry.get('raw', '')) for entry in entries),
+        expected_signature=expected_signature,
+    )
+    # Only the committed version belongs in the reusable preview-edit cache.
     _remember_jsonl_cache(path, _file_signature(path), entries)
 
 
@@ -211,7 +216,8 @@ def _update_jsonl_file(
     if not path.exists():
         return False
 
-    entries = _load_jsonl_entries(path)
+    expected_signature = _file_signature(path)
+    entries = copy.deepcopy(_load_jsonl_entries(path))
     updated = False
     for entry in entries:
         record = entry.get('record')
@@ -228,7 +234,7 @@ def _update_jsonl_file(
             break
 
     if updated:
-        _write_jsonl_entries(path, entries)
+        _write_jsonl_entries(path, entries, expected_signature=expected_signature)
     return updated
 
 
@@ -314,7 +320,8 @@ def _update_jsonl_file_batch(
     target_by_key, by_id, by_image, by_ts = _build_target_indexes(targets)
     matched_targets: set[TargetKey] = set()
     changed_rows = 0
-    entries = _load_jsonl_entries(path)
+    expected_signature = _file_signature(path)
+    entries = copy.deepcopy(_load_jsonl_entries(path))
 
     for entry in entries:
         record = entry.get('record')
@@ -342,7 +349,7 @@ def _update_jsonl_file_batch(
         _set_jsonl_entry_record(entry, record)
 
     if changed_rows:
-        _write_jsonl_entries(path, entries)
+        _write_jsonl_entries(path, entries, expected_signature=expected_signature)
     return changed_rows, matched_targets
 
 
@@ -363,7 +370,8 @@ def _update_jsonl_file_many(
     target_by_key, by_id, by_image, by_ts = _build_target_indexes(targets)
     matched_targets: set[TargetKey] = set()
     changed_rows = 0
-    entries = _load_jsonl_entries(path)
+    expected_signature = _file_signature(path)
+    entries = copy.deepcopy(_load_jsonl_entries(path))
 
     for entry in entries:
         record = entry.get('record')
@@ -392,7 +400,7 @@ def _update_jsonl_file_many(
         _set_jsonl_entry_record(entry, record)
 
     if changed_rows:
-        _write_jsonl_entries(path, entries)
+        _write_jsonl_entries(path, entries, expected_signature=expected_signature)
     return changed_rows, matched_targets
 
 
