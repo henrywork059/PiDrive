@@ -91,6 +91,8 @@ def create_app(mode: str | None = None) -> Flask:
             state['safety_fault_reason'] = str(payload.get('last_error') or payload.get('detail') or 'Mission failed')
         latched = bool(state['safety_fault_latched'])
         running = bool(payload.get('running'))
+        worker = getattr(runtime, '_thread', None)
+        worker_alive = bool(worker is not None and worker.is_alive())
         payload['safety'] = {
             'schema_version': 1,
             'component': 'CustomDrive',
@@ -98,7 +100,7 @@ def create_app(mode: str | None = None) -> Flask:
             'latched': latched,
             'motion_allowed': not latched,
             'rearm_required': latched,
-            'rearm_available': bool(latched and not running),
+            'rearm_available': bool(latched and not running and not worker_alive),
             'reason': str(state['safety_fault_reason']) if latched else '',
         }
         payload['mode_requested'] = getattr(runtime, 'mode_requested', payload.get('mode', 'sim'))
