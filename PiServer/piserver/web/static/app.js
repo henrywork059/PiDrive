@@ -1003,10 +1003,11 @@ async function captureOneShot() {
 }
 
 async function setEstop(enabled) {
+  if (!enabled && !window.confirm("Rearm motor controls at zero? The previous command will not resume.")) return;
   const data = await fetchJson("/api/system/estop", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ enabled: !!enabled })
+    body: JSON.stringify(enabled ? { enabled: true } : { enabled: false, confirm: true })
   });
   updateStatusUi(data.state || {});
   if (enabled) {
