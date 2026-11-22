@@ -1448,7 +1448,7 @@ class Mission1SessionContext:
             frame = camera_service.get_latest_frame(copy=True)
             frame_age = camera_service.get_raw_frame_age() if hasattr(camera_service, 'get_raw_frame_age') else None
             self._fail_if_stale_frame(frame_age, now=loop_started, frame_present=frame is not None)
-            if frame_age is not None and frame is not None:
+            if frame_age is not None and frame is not None and hasattr(self, 'performance'):
                 self.performance.observe_ms('frame_age_before_inference', max(0.0, float(frame_age)) * 1000.0)
             if frame is None:
                 self.current_phase = 'ai_wait_frame'
