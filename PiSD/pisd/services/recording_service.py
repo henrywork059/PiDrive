@@ -16,6 +16,7 @@ from typing import Any, Callable
 
 from pisd.core.errors import ErrorReport, ErrorReporter, PiSDErrorCodes, ok_payload, report_payload
 from pisd.core.value_utils import clamp_float
+from pisd.core.recording_storage import RecordingStorageGuard, RecordingStorageError
 
 OVERLAY_SCHEMA_VERSION = "PiSD_0_8_8_overlay_settings_v2"
 OVERLAY_REDUCED_KEYS = {
@@ -110,6 +111,9 @@ class RecordingService:
         self._last_saved_record: dict[str, Any] = {}
         self._last_error = ""
         self._last_error_code = PiSDErrorCodes.OK
+        self.storage = RecordingStorageGuard(self.root_dir, prefix='PISD')
+        self._last_session_dir: Path | None = None
+        self._storage_abort_pending = False
         atexit.register(self.close)
 
     def _record_error(
@@ -140,6 +144,8 @@ class RecordingService:
                 "last_error": self._last_error,
                 "last_error_code": self._last_error_code,
             }
+        # Slow SD-card directory scans must not block the recording writer.
+        data["storage"] = self.storage.status(session.get('session_dir') or self._last_session_dir)
         data.update(self.errors.status_fields(limit=5))
         return data
 
@@ -148,12 +154,22 @@ class RecordingService:
         session_label = _safe_label(label, "manual_drive")
         selected_command_source = _normalise_command_source(command_source, session_label)
         with self._lock:
-            if self._thread and self._thread.is_alive() and self._active_session:
+            if self._active_session:
                 report = self._record_error(
                     PiSDErrorCodes.RECORDING_ALREADY_RUNNING,
                     "Recording is already running.",
                     severity="warning",
                     context={"session_id": self._active_session.get("session_id")},
+                )
+                return report_payload(False, report, recording=self.status())
+            try:
+                self.storage.require_space()
+            except RecordingStorageError as exc:
+                self.storage.note_error('start', exc)
+                report = self._record_error(
+                    PiSDErrorCodes.RECORDING_START_FAILED,
+                    f"Recording cannot start: {exc}",
+                    exc=exc,
                 )
                 return report_payload(False, report, recording=self.status())
             now = _utc_now()
@@ -207,6 +223,7 @@ class RecordingService:
                 }
                 self._write_json(session_dir / "manifest.json", manifest)
             except Exception as exc:
+                self.storage.note_error('session_start', exc)
                 report = self._record_error(
                     PiSDErrorCodes.RECORDING_START_FAILED,
                     f"Failed to create recording session: {exc}",
@@ -232,6 +249,8 @@ class RecordingService:
                 "command_source": selected_command_source,
             }
             self._frame_count = 0
+            self._last_session_dir = session_dir
+            self._storage_abort_pending = False
             self._last_saved_record = {}
             self._last_error = ""
             self._last_error_code = PiSDErrorCodes.OK
@@ -270,6 +289,7 @@ class RecordingService:
             try:
                 self._finalise_manifest_locked()
             except Exception as exc:
+                self.storage.note_error('manifest_finalise', exc)
                 report = self._record_error(
                     PiSDErrorCodes.RECORDING_STOP_FAILED,
                     f"Failed to finalise recording manifest: {exc}",
@@ -285,6 +305,7 @@ class RecordingService:
         label_text = _safe_label(label, "capture")
         selected_command_source = _normalise_command_source(command_source, label_text)
         try:
+            self.storage.require_space()
             frame, seq, source_frame_at, byte_count = self._get_frame(camera_service)
             if frame is None:
                 report = self._record_error(
@@ -353,8 +374,14 @@ class RecordingService:
                     },
                 )
                 self._last_saved_record = record
+                self._last_session_dir = Path(session["session_dir"])
                 return ok_payload("Frame captured.", record=record, recording=self.status())
         except Exception as exc:
+            self.storage.note_error('capture', exc)
+            with self._lock:
+                if self._active_session:
+                    self._storage_abort_pending = True
+                    self._stop_event.set()
             report = self._record_error(
                 PiSDErrorCodes.RECORDING_WRITE_FAILED,
                 f"Failed to capture frame: {exc}",
@@ -745,9 +772,34 @@ class RecordingService:
                     self._last_saved_record = record
                     self._finalise_manifest_locked(open_session=True)
             except Exception as exc:
-                self._record_error(PiSDErrorCodes.RECORDING_WRITE_FAILED, f"Recording loop failed to save a frame: {exc}", exc=exc)
-                time.sleep(0.2)
+                self.storage.note_error('record_frame', exc)
+                self._record_error(
+                    PiSDErrorCodes.RECORDING_WRITE_FAILED,
+                    f"Recording stopped after a frame/storage failure: {exc}", exc=exc,
+                )
+                with self._lock:
+                    self._storage_abort_pending = True
+                    self._stop_event.set()
+                break
             next_save_at = time.monotonic() + interval
+
+        # Fail only the recording subsystem: no motor command or AI state is
+        # changed here. On available space, finalise the session normally;
+        # otherwise keep metadata for the existing offline recovery workflow.
+        with self._lock:
+            if self._storage_abort_pending and self._active_session:
+                try:
+                    self._finalise_manifest_locked()
+                except Exception as exc:
+                    self.storage.note_error('manifest_finalise', exc)
+                    self._record_error(
+                        PiSDErrorCodes.RECORDING_STOP_FAILED,
+                        f"Could not finalise recording manifest after write failure: {exc}", exc=exc,
+                    )
+                else:
+                    self._active_session = None
+                    self._thread = None
+                    self._storage_abort_pending = False
 
     def _get_frame(self, camera_service: Any, *, last_seq: int | None = None, timeout: float = 1.0) -> tuple[bytes | None, int, str, int]:
         try:
@@ -819,6 +871,9 @@ class RecordingService:
         command_source: Any = "manual_command",
         ai_status_provider: Callable[[], dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
+        # Reserve enough free space for the incoming JPEG and accompanying
+        # JSONL/overlay metadata before modifying any session file.
+        self.storage.require_space(estimated_bytes=len(frame) + 128 * 1024)
         saved_at = _utc_now()
         frame_id = f"{session['session_id']}_{frame_index:06d}_{_stamp(saved_at)}_{uuid.uuid4().hex[:8]}"
         filename = f"frame_{frame_index:06d}_{_stamp(saved_at)}_{uuid.uuid4().hex[:8]}.jpg"

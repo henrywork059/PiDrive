@@ -177,7 +177,7 @@
       if (!ok) return;
       try {
         if (els.delete) els.delete.disabled = true;
-        const data = await api('/api/recording/delete', { method: 'POST', body: { kind, id: itemId } });
+        const data = await api('/api/recording/delete', { method: 'POST', body: { kind, id: itemId, confirm: true } });
         setNotice(`Deleted ${kind}: ${itemId}`, data.code || 'PISD-OK-000');
         await refresh();
       } catch (err) {
