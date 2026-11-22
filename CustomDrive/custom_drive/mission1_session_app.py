@@ -1895,7 +1895,8 @@ class Mission1SessionContext:
         with self._lock:
             latched = bool(self._safety_fault_latched)
             thread = self._thread
-            running = bool(thread and thread.is_alive() and not self._stop_event.is_set())
+            worker_alive = bool(thread and thread.is_alive())
+            running = bool(worker_alive and not self._stop_event.is_set())
             return {
                 'schema_version': 1,
                 'component': 'CustomDrive',
@@ -1903,7 +1904,7 @@ class Mission1SessionContext:
                 'latched': latched,
                 'motion_allowed': not latched,
                 'rearm_required': latched,
-                'rearm_available': bool(latched and not running),
+                'rearm_available': bool(latched and not worker_alive),
                 'reason': str(self.failure_reason or self.last_error or 'Mission 1 fault') if latched else '',
             }
 
