@@ -56,6 +56,8 @@ def build_pi_bundle(
         classes = [line.strip() for line in labels_dst.read_text(encoding="utf-8").splitlines() if line.strip()]
         if not classes:
             raise ValueError("YOLO class label file is empty.")
+        if source_meta is not None and source_meta["class_names"] and source_meta["class_names"] != classes:
+            raise ValueError("Pi bundle labels do not match the exported YOLO model class ordering.")
         # Training seed and quantization are copied from a verified producer
         # sidecar when known; never guess them from the output filename.
         meta = make_manifest(
