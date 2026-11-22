@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from .latency_metrics import RollingLatency
+
 import os
 import threading
 import uuid
@@ -36,6 +38,7 @@ class Mission1TFLiteDetector:
         self.active_name = 'none'
         self.labels: list[str] = []
         self.last_message = 'No model loaded.'
+        self.performance = RollingLatency(('resize', 'inference', 'postprocess'))
 
     def backend_ready(self) -> tuple[bool, str]:
         if cv2 is None:
@@ -116,10 +119,15 @@ class Mission1TFLiteDetector:
         input_details = interpreter.get_input_details()[0]
         output_details = interpreter.get_output_details()[0]
         size = int(input_details['shape'][1])
+        resize_started = self.performance.start()
         inp, scale, pad = self._preprocess(frame_bgr, size, input_details['dtype'])
+        self.performance.observe_elapsed('resize', resize_started)
+        infer_started = self.performance.start()
         interpreter.set_tensor(input_details['index'], inp)
         interpreter.invoke()
         output = interpreter.get_tensor(output_details['index'])
+        self.performance.observe_elapsed('inference', infer_started)
+        post_started = self.performance.start()
         boxes, scores, classes = self._parse_output(output, float(conf_threshold), len(labels), size)
         boxes = self._scale_boxes(boxes, scale, pad, frame_bgr.shape[:2])
         keep = self._nms(boxes, scores, float(iou_threshold))
@@ -147,6 +155,7 @@ class Mission1TFLiteDetector:
                     ),
                 )
             )
+        self.performance.observe_elapsed('postprocess', post_started)
         return detections
 
     def _load_labels_for_model(self, model_path: Path) -> list[str]:

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from .latency_metrics import RollingLatency
+
 import atexit
 import copy
 import json
@@ -34,7 +36,7 @@ from piserver.services.camera_service import CameraService  # noqa: E402
 from piserver.services.motor_service import MotorService  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent / 'mission1_web'
-APP_VERSION = '0_5_18'
+APP_VERSION = '0_5_19'
 MISSION1_CONFIG_PATH = CONFIG_DIR / 'mission1_session.json'
 MISSION1_MODEL_DIR = CUSTOMDRIVE_ROOT / 'models' / 'mission1'
 
@@ -515,6 +517,7 @@ class Mission1SessionContext:
         self.annotated_jpeg: bytes | None = None
         self.pipeline_fps = 0.0
         self.pipeline_cycle_time_ms = 0.0
+        self.performance = RollingLatency(('controller_loop', 'motor_apply', 'frame_age_before_inference'))
         self.loaded_model_name = 'none'
         self.selected_model_name = self._selected_model_name()
         self.last_output_summary = ''
@@ -841,12 +844,16 @@ class Mission1SessionContext:
         if frame_present:
             self._no_frame_since = None
             if age_s is not None and age_s > timeout:
+                if hasattr(self, 'performance'):
+                    self.performance.count('stale_frames')
                 self._stop_with_note('camera frame expired')
                 raise MissionAbort('frame_stale', f'Camera frame age {age_s:.2f}s exceeds {timeout:.2f}s.')
         else:
             if self._no_frame_since is None:
                 self._no_frame_since = now
             if now - self._no_frame_since > timeout:
+                if hasattr(self, 'performance'):
+                    self.performance.count('stale_frames')
                 self._stop_with_note('camera frame timeout')
                 raise MissionAbort('frame_stale', f'No fresh camera frame for over {timeout:.2f}s.')
 
@@ -1133,7 +1140,9 @@ class Mission1SessionContext:
 
     def _set_route_drive(self, steering: float, throttle: float, note: str) -> None:
         steer_mix = float(self.get_config().get('drive', {}).get('steer_mix', 0.75))
+        motor_started = self.performance.start()
         left, right = self.motor_service.update(steering=steering, throttle=throttle, steer_mix=steer_mix)
+        self.performance.observe_elapsed('motor_apply', motor_started)
         self.last_command = {
             'mode': 'route_mix',
             'steering': float(steering),
@@ -1144,6 +1153,7 @@ class Mission1SessionContext:
         }
 
     def _apply_direct_motor_command(self, left_target: float, right_target: float, note: str) -> tuple[float, float]:
+        motor_started = self.performance.start()
         with self.motor_service._lock:  # type: ignore[attr-defined]
             left_value = self.motor_service._apply_motor_tuning(  # type: ignore[attr-defined]
                 float(left_target),
@@ -1169,6 +1179,7 @@ class Mission1SessionContext:
             'right': float(right_value),
             'note': str(note),
         }
+        self.performance.observe_elapsed('motor_apply', motor_started)
         return left_value, right_value
 
     def _drive_forward(self, speed: float, note: str) -> None:
@@ -1190,7 +1201,9 @@ class Mission1SessionContext:
             self.last_command = {'mode': 'stop', 'steering': 0.0, 'throttle': 0.0, 'left': 0.0, 'right': 0.0, 'note': str(note)}
             return
 
+        motor_started = self.performance.start()
         left, right = self.motor_service.update(steering=steering, throttle=0.0, steer_mix=1.0)
+        self.performance.observe_elapsed('motor_apply', motor_started)
         self.last_command = {
             'mode': 'turn_in_place',
             'steering': float(steering),
@@ -1435,6 +1448,8 @@ class Mission1SessionContext:
             frame = camera_service.get_latest_frame(copy=True)
             frame_age = camera_service.get_raw_frame_age() if hasattr(camera_service, 'get_raw_frame_age') else None
             self._fail_if_stale_frame(frame_age, now=loop_started, frame_present=frame is not None)
+            if frame_age is not None and frame is not None:
+                self.performance.observe_ms('frame_age_before_inference', max(0.0, float(frame_age)) * 1000.0)
             if frame is None:
                 self.current_phase = 'ai_wait_frame'
                 self.mission_state = 'wait_frame'
@@ -1683,6 +1698,7 @@ class Mission1SessionContext:
                 fps_window_count = 0
                 fps_window_start = now
 
+            self.performance.observe_ms('controller_loop', (time.monotonic() - loop_started) * 1000.0)
             sleep_time = max(0.0, tick_s - (time.monotonic() - loop_started))
             time.sleep(sleep_time)
 
@@ -1927,6 +1943,8 @@ class Mission1SessionContext:
             'pipeline': {
                 'fps': round(float(self.pipeline_fps), 3),
                 'cycle_time_ms': round(float(self.pipeline_cycle_time_ms), 2),
+                'performance': self.performance.snapshot() if hasattr(self, 'performance') else None,
+                'detector_performance': self.detector.performance.snapshot() if hasattr(self.detector, 'performance') else None,
             },
             'stage_theme': self._stage_theme(),
             'motion_theme': self._motion_theme(),
