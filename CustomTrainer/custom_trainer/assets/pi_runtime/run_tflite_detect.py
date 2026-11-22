@@ -9,6 +9,12 @@ import cv2
 import numpy as np
 
 try:
+    from model_manifest import inspect_manifest
+except ImportError:
+    # Direct invocation from the CustomTrainer source tree remains supported.
+    from custom_trainer.services.model_manifest import inspect_manifest
+
+try:
     from tflite_runtime.interpreter import Interpreter
 except Exception:
     from tensorflow.lite import Interpreter  # type: ignore
@@ -186,9 +192,34 @@ def main() -> None:
     conf = float(args.conf if args.conf is not None else config.get("confidence_threshold", 0.25))
     iou = float(args.iou if args.iou is not None else config.get("iou_threshold", 0.45))
 
-    interpreter = Interpreter(model_path=str(Path(args.model)))
-    interpreter.allocate_tensors()
+    model_path = Path(args.model)
     labels = load_labels(Path(args.labels))
+    manifest, info = inspect_manifest(model_path, expected_kind="yolo_detection")
+    print(info)
+    interpreter = Interpreter(model_path=str(model_path))
+    interpreter.allocate_tensors()
+    inputs, outputs = interpreter.get_input_details(), interpreter.get_output_details()
+    if len(inputs) != 1 or not outputs:
+        raise ValueError("YOLO model must have one input and nonempty output tensors.")
+    shape = tuple(int(x) for x in inputs[0]["shape"])
+    if len(shape) != 4 or shape[0] != 1 or shape[-1] != 3 or shape[1] <= 0 or shape[2] != shape[1]:
+        raise ValueError("YOLO TFLite input must be fixed [1, size, size, 3].")
+    if manifest is not None:
+        inspect_manifest(model_path, expected_kind="yolo_detection", input_size=(shape[2], shape[1]))
+        if manifest["class_names"] and manifest["class_names"] != labels:
+            raise ValueError("YOLO manifest class names differ from labels.txt.")
+    # Exercise tensor allocation and output shape before reading the camera.
+    import numpy as np
+    dtype = np.dtype(inputs[0]["dtype"])
+    if dtype not in (np.dtype("float32"), np.dtype("uint8"), np.dtype("int8")):
+        raise ValueError("Unsupported TFLite input dtype.")
+    sample = np.zeros(shape, dtype=dtype)
+    interpreter.set_tensor(inputs[0]["index"], sample)
+    interpreter.invoke()
+    for detail in outputs:
+        result = np.asarray(interpreter.get_tensor(detail["index"]))
+        if result.size == 0 or not np.all(np.isfinite(result)):
+            raise ValueError("YOLO synthetic preflight returned empty/nonfinite output.")
     source = parse_source(args.source)
 
     if isinstance(source, int):
