@@ -4,6 +4,7 @@ import argparse
 import html
 import ipaddress
 import json
+import secrets
 import socket
 import threading
 import time
@@ -16,6 +17,7 @@ from urllib.parse import parse_qs, urlencode, urlparse
 
 from .config import ConfigStore
 from .network import NetworkManagerBackend
+from .provisioning_security import authorized_setup_client, hotspot_password_safe, request_token_matches, trusted_post_origin
 from .state import RuntimeState
 from .status_store import LastStatusStore
 
@@ -137,6 +139,8 @@ class PiBooterController:
         self.hostname = socket.gethostname().strip() or "raspberrypi"
         self._connection_lock = threading.Lock()
         self._session_lock = threading.Lock()
+        self.csrf_token = secrets.token_urlsafe(32)
+        self._unsafe_hotspot_warning_logged = False
         self._monitor_stop = threading.Event()
         self._shutdown_requested = threading.Event()
         self._shutdown_callback: Callable[[], None] | None = None
@@ -178,7 +182,8 @@ class PiBooterController:
         self.refresh_state(ensure_hotspot=True)
 
     def note_http_activity(self, path: str, client_ip: str) -> None:
-        self._activate_session(source=f"HTTP request from {client_ip} ({path})")
+        if authorized_setup_client(client_ip, self.config['network']['hotspot_ip']):
+            self._activate_session(source=f"HTTP request from {client_ip} ({path})")
 
     def _activate_session(self, source: str) -> None:
         source = str(source or "activity")
@@ -221,8 +226,21 @@ class PiBooterController:
 
         phase = snapshot.get("phase", "idle")
         message = snapshot.get("message", "")
+        unsafe_hotspot = not hotspot_password_safe(self.config['network']['hotspot_password'])
+        if unsafe_hotspot:
+            # An older NetworkManager profile may still be active with the
+            # published credential from a previous installation.
+            if snapshot.get('wifi', {}).get('hotspot_active'):
+                self.network.stop_hotspot()
+                snapshot = self.network.get_runtime_snapshot(self.hotspot_ssid)
+            phase = 'error'
+            message = ('The setup hotspot is disabled because its password is publicly known or invalid. '
+                       'Run --provision-hotspot-password locally on the Pi, then restart PiBooter.')
+            if not self._unsafe_hotspot_warning_logged:
+                self.state.log(message, level='error')
+                self._unsafe_hotspot_warning_logged = True
         attempt = self.state.snapshot().get("connection_attempt")
-        if ensure_hotspot and snapshot.get("nmcli_available") and not self._shutdown_requested.is_set():
+        if ensure_hotspot and not unsafe_hotspot and snapshot.get("nmcli_available") and not self._shutdown_requested.is_set():
             autostart = self.config["network"].get("hotspot_autostart_when_unconfigured", True)
             attempt_running = bool(attempt and attempt.get("status") == "running")
             if autostart and not attempt_running and not snapshot.get("any_non_hotspot_connection") and not snapshot["wifi"].get("hotspot_active"):
@@ -241,7 +259,7 @@ class PiBooterController:
         active_connection = self._pick_active_connection(snapshot)
         hotspot_info = {
             "ssid": self.hotspot_ssid,
-            "password": self.config["network"]["hotspot_password"],
+            # Password intentionally never enters web-rendered state or APIs.
             "url": self.config["network"]["hotspot_url"],
             "active": snapshot.get("wifi", {}).get("hotspot_active", False),
         }
@@ -499,7 +517,7 @@ class PiBooterController:
 
 class RequestHandler(BaseHTTPRequestHandler):
     controller: PiBooterController
-    server_version = "PiBooter/0.1.1"
+    server_version = "PiBooter/0.1.3"
 
     def do_GET(self) -> None:  # noqa: N802
         self.controller.note_http_activity(self.path, self.client_address[0])
@@ -533,7 +551,24 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.controller.note_http_activity(self.path, self.client_address[0])
         parsed = urlparse(self.path)
         path = parsed.path or "/"
-        form = self.parse_post_form()
+        if path not in {'/connect', '/forget', '/rescan'}:
+            self.send_error(HTTPStatus.NOT_FOUND, 'Not found')
+            return
+        if not authorized_setup_client(self.client_address[0], self.controller.config['network']['hotspot_ip']):
+            self.send_error(HTTPStatus.FORBIDDEN, 'Wi-Fi changes are allowed only from the Pi or its setup hotspot.')
+            return
+        if not trusted_post_origin(self.headers.get('Origin'), self.headers.get('Host')):
+            self.send_error(HTTPStatus.FORBIDDEN, 'Cross-origin Wi-Fi changes are not allowed.')
+            return
+        try:
+            form = self.parse_post_form()
+        except ValueError as exc:
+            code = HTTPStatus.REQUEST_ENTITY_TOO_LARGE if '8192 bytes' in str(exc) else HTTPStatus.BAD_REQUEST
+            self.send_error(code, str(exc))
+            return
+        if not request_token_matches(form.get('csrf_token', ''), self.controller.csrf_token):
+            self.send_error(HTTPStatus.FORBIDDEN, 'Invalid or missing setup request token. Reload the page.')
+            return
         if path == "/connect":
             self.handle_connect(form)
             return
@@ -546,6 +581,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
         self.send_error(HTTPStatus.NOT_FOUND, "Not found")
 
+    def end_headers(self) -> None:
+        self.send_header('Cache-Control', 'no-store')
+        self.send_header('X-Content-Type-Options', 'nosniff')
+        self.send_header('X-Frame-Options', 'DENY')
+        self.send_header('Referrer-Policy', 'no-referrer')
+        super().end_headers()
+
     def log_message(self, format: str, *args: Any) -> None:  # noqa: A003
         message = format % args
         try:
@@ -554,18 +596,28 @@ class RequestHandler(BaseHTTPRequestHandler):
             pass
 
     def parse_post_form(self) -> dict[str, str]:
-        content_length = int(self.headers.get("Content-Length", "0") or 0)
+        try:
+            content_length = int(self.headers.get("Content-Length", "0") or 0)
+        except ValueError as exc:
+            raise ValueError('Invalid request content length.') from exc
+        if not 0 < content_length <= 8192:
+            raise ValueError('Setup request must be between 1 and 8192 bytes.')
+        content_type = self.headers.get("Content-Type", "").lower()
+        if not ('application/x-www-form-urlencoded' in content_type or 'application/json' in content_type):
+            raise ValueError('Unsupported setup request content type.')
         raw = self.rfile.read(content_length)
-        content_type = self.headers.get("Content-Type", "")
         if "application/json" in content_type:
             try:
                 data = json.loads(raw.decode("utf-8"))
-            except json.JSONDecodeError:
-                return {}
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                raise ValueError('Invalid JSON setup request.') from None
             if isinstance(data, dict):
                 return {str(key): str(value) for key, value in data.items()}
             return {}
-        parsed = parse_qs(raw.decode("utf-8"), keep_blank_values=True)
+        try:
+            parsed = parse_qs(raw.decode("utf-8"), keep_blank_values=True)
+        except UnicodeDecodeError as exc:
+            raise ValueError('Invalid UTF-8 setup form.') from exc
         return {key: values[0] if values else "" for key, values in parsed.items()}
 
     def handle_index(self, query: dict[str, list[str]]) -> None:
@@ -630,8 +682,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         ) or '<tr><td colspan="4" class="muted">No network devices reported yet.</td></tr>'
 
         networks_table = self.render_scan_results(snapshot.get("scan_results", []))
-        known_table = self.render_known_connections(snapshot.get("known_connections", []))
+        known_table = self.render_known_connections(snapshot.get("known_connections", []), self.controller.csrf_token)
         logs_text = self.render_logs(snapshot.get("logs", []))
+        csrf_input = f'<input type="hidden" name="csrf_token" value="{html.escape(self.controller.csrf_token, quote=True)}">'
         chip_message = html.escape(snapshot.get("message", ""))
         session_state = "Locked open" if snapshot.get("session_active") else "Waiting for first client"
         startup_remaining = "Locked" if snapshot.get("session_active") else str(snapshot.get("startup_remaining_s", 0))
@@ -643,7 +696,7 @@ class RequestHandler(BaseHTTPRequestHandler):
               <h2>Hotspot details</h2>
               <dl>
                 <dt>SSID</dt><dd class="mono">{html.escape(hotspot.get('ssid', ''))}</dd>
-                <dt>Password</dt><dd class="mono">{html.escape(hotspot.get('password', ''))}</dd>
+                <dt>Password</dt><dd>Read the private hotspot password from the Pi during installation; it is never displayed in this web page.</dd>
                 <dt>Open on your phone</dt><dd><a href="{html.escape(hotspot.get('url', '/'))}">{html.escape(hotspot.get('url', ''))}</a></dd>
                 <dt>Tip</dt><dd>If your phone says the hotspot has no internet, stay connected anyway and open the URL above.</dd>
               </dl>
@@ -659,6 +712,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         <div class="card">
           <h2>Connect Pi to home Wi-Fi</h2>
           <form method="post" action="/connect">
+            {csrf_input}
             <div>
               <label for="ssid">Wi-Fi name (SSID)</label>
               <input id="ssid" name="ssid" type="text" required placeholder="Example: MyHomeWiFi">
@@ -742,6 +796,7 @@ class RequestHandler(BaseHTTPRequestHandler):
           <div class="card">
             <h2>Nearby Wi-Fi networks</h2>
             <form method="post" action="/rescan" style="margin-bottom: 12px; display: inline-block;">
+              {csrf_input}
               <button class="btn-secondary" type="submit">Refresh scan</button>
             </form>
             <p class="muted">Some Raspberry Pi Wi-Fi adapters cannot actively scan while the hotspot is running. If your network is missing, type the SSID manually below.</p>
@@ -777,7 +832,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             ssid = item.get("ssid") or "(hidden network)"
             use_button = ""
             if item.get("ssid"):
-                quoted_ssid = json.dumps(item.get("ssid"))
+                quoted_ssid = html.escape(json.dumps(item.get("ssid")), quote=True)
                 use_button = f'<button class="btn-secondary" type="button" onclick="fillSsid({quoted_ssid})">Use this network</button>'
             rows.append(
                 "<tr>"
@@ -794,7 +849,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         )
 
     @staticmethod
-    def render_known_connections(connections: list[dict[str, str]]) -> str:
+    def render_known_connections(connections: list[dict[str, str]], csrf_token: str = '') -> str:
         if not connections:
             return '<p class="muted">No saved Wi-Fi profiles yet.</p>'
         rows = []
@@ -805,6 +860,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                 f"<td>{html.escape(item.get('autoconnect', ''))}</td>"
                 "<td>"
                 "<form method='post' action='/forget' style='display:inline;'>"
+                f"<input type='hidden' name='csrf_token' value='{html.escape(csrf_token, quote=True)}'>"
                 f"<input type='hidden' name='name' value='{html.escape(item.get('name', ''))}'>"
                 "<button class='btn-danger' type='submit'>Forget</button>"
                 "</form>"
@@ -831,7 +887,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             "primary_ip": snapshot.get("primary_ip"),
             "active_connection": snapshot.get("active_connection"),
             "connection_attempt": snapshot.get("connection_attempt"),
-            "hotspot": snapshot.get("hotspot"),
+            "hotspot": {key: value for key, value in (snapshot.get("hotspot") or {}).items() if key != 'password'},
             "last_status": snapshot.get("last_status"),
             "hotspot_clients": snapshot.get("hotspot_clients"),
             "session_active": snapshot.get("session_active"),
@@ -840,7 +896,6 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_json(payload)
 
     def handle_networks_json(self) -> None:
-        self.controller.rescan()
         snapshot = self.controller.state.snapshot()
         self.send_json(snapshot.get("scan_results", []))
 
@@ -918,9 +973,22 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="PiBooter Wi-Fi onboarding web service")
     parser.add_argument("--config", default=str(Path(__file__).resolve().parent.parent / "config" / "settings.json"))
     parser.add_argument("--write-default-config", action="store_true", help="Create or normalize the config file, then exit.")
+    parser.add_argument('--provision-hotspot-password', action='store_true', help='Generate a private password only if still using the published default; preserve custom passwords.')
+    parser.add_argument('--rotate-hotspot-password', action='store_true', help='Explicitly rotate the hotspot password (requires reconnecting devices).')
+    parser.add_argument('--show-hotspot-password', action='store_true', help='Print the configured secret locally; do not run in shared terminal sessions or logs.')
     args = parser.parse_args(argv)
 
     config_store = ConfigStore(args.config)
+    if args.provision_hotspot_password or args.rotate_hotspot_password or args.show_hotspot_password:
+        if config_store.load_error:
+            print(f"Cannot provision invalid config: {config_store.load_error}")
+            return 1
+        if args.provision_hotspot_password or args.rotate_hotspot_password:
+            changed = config_store.provision_hotspot_password(rotate=args.rotate_hotspot_password)
+            print('Hotspot credential generated.' if changed else 'Existing custom hotspot password preserved.')
+        if args.show_hotspot_password:
+            print(config_store.data['network']['hotspot_password'])
+        return 0
     if args.write_default_config:
         if config_store.load_error:
             print(f"Cannot normalize invalid config in place: {config_store.load_error}")
