@@ -136,7 +136,8 @@ def create_app(mode: str | None = None) -> Flask:
         runtime = current_runtime()
         try:
             runtime.stop_background(join=True)
-            if runtime.status().get('running'):
+            worker = getattr(runtime, '_thread', None)
+            if runtime.status().get('running') or (worker is not None and worker.is_alive()):
                 raise RuntimeError('Mission worker is still running.')
             motor = getattr(runtime, 'motor_service', None)
             if motor is not None:
