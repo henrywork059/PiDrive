@@ -194,6 +194,28 @@ image → steering, throttle, overlay_settings
 
 Use `records.jsonl` only for full debug metadata, filtering, or advanced training options. If a frame-level overlay value is missing, fall back to `records.jsonl`, then `manifest.json`, then trainer defaults.
 
+## PiSD 0.11.10 — Runtime latency diagnostics (U23)
+
+Camera and AI status include a `performance` object with bounded rolling p50/p95
+latencies. Camera measures capture-loop work and JPEG encode; AI measures JPEG
+decode, resize/array preparation, inference (new frames only), safety/postprocess,
+motor apply, and controller-loop work. Existing camera FPS, frame age, encode
+averages and stale-frame safety indicators remain unchanged. Diagnostics also
+include dropped/stale frames, reused predictions, and inference failures.
+
+Use the existing authenticated status endpoints:
+`/api/status`, `/api/ai/status`, and camera status/FPS APIs. Process CPU
+percent is sampled on status reads at intervals of at least one second; it
+can exceed 100% with multiple CPU cores. Empty/unmeasured stages are omitted,
+**not** reported as zero latency. Queue-wait latency is not included because
+these runtime paths do not expose a discrete timestamped work queue.
+
+The rolling window holds at most 120 observations per stage, no performance
+samples are written to SD card, and verbose per-frame logging is off. These
+measurements are diagnostic observations, not calibrated end-to-end actuation
+latencies or a guarantee of motion safety. Measure actual Pi hardware before
+setting budgets; no synthetic performance targets are assumed.
+
 ## Recording integrity and offline recovery (0.11.9)
 
 PiSD writes each JPEG, its full \`records.jsonl\` trace, its trainer-friendly

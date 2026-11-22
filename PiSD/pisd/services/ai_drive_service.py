@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pisd.core.latency_metrics import RollingLatency
+
 import atexit
 import importlib.util
 import json
@@ -74,6 +76,7 @@ class AIDriveService:
         self._manual_correction_at = 0.0
         self._last_prediction_at = ""
         self._last_inference_ms = 0.0
+        self.performance = RollingLatency(('decode', 'resize', 'inference', 'postprocess', 'motor_apply', 'controller_loop'))
         self._last_loop_hz = 0.0
         self._last_error = ""
         self._last_error_code = PiSDErrorCodes.OK
@@ -186,6 +189,7 @@ class AIDriveService:
                 "last_prediction_at_utc": self._last_prediction_at,
                 "last_inference_ms": float(self._last_inference_ms),
                 "loop_hz": float(self._last_loop_hz),
+                "performance": self.performance.snapshot(),
                 "last_error": self._last_error,
                 "last_error_code": self._last_error_code,
                 "safety_layer": {
@@ -632,9 +636,12 @@ class AIDriveService:
                 started = time.perf_counter()
                 raw_steering, raw_throttle = self._predict_from_jpeg(frame)
                 inference_ms = (time.perf_counter() - started) * 1000.0
+                self.performance.observe_ms("inference", inference_ms)
 
+            post_started = self.performance.start()
             mixed = self._mix_manual_correction(raw_steering, raw_throttle)
             safe = self.apply_safety(mixed["steering"], mixed["throttle"])
+            self.performance.observe_elapsed("postprocess", post_started)
             left = right = 0.0
             left_intended = right_intended = 0.0
             if drive and motor_service is not None:
@@ -644,7 +651,9 @@ class AIDriveService:
                 with self._lock:
                     drive_allowed = bool(self._running and self._mode == "drive" and self._drive_output_enabled)
                 if drive_allowed:
+                    motor_started = self.performance.start()
                     left, right = motor_service.update(steering=safe["steering"], throttle=safe["throttle"])
+                    self.performance.observe_elapsed("motor_apply", motor_started)
                     motor_status = motor_service.status()
                     left_intended = float(motor_status.get("last_intended_left", left) or 0.0)
                     right_intended = float(motor_status.get("last_intended_right", right) or 0.0)
@@ -657,6 +666,7 @@ class AIDriveService:
                 self._last_inference_ms = float(inference_ms)
                 self._last_prediction_reused = bool(prediction_reused)
                 if prediction_reused:
+                    self.performance.count("reused_predictions")
                     self._prediction_reuse_count += 1
                 else:
                     self._last_inference_frame_seq = int(frame_seq or 0)
@@ -666,6 +676,9 @@ class AIDriveService:
             message = "AI prediction reused latest result." if prediction_reused else "AI prediction completed."
             return ok_payload(message, raw_prediction=self._last_raw, corrected_command=self._last_mixed, mixed_command=self._last_mixed, safe_command=self._last_safe, motor_output=self._last_motor, prediction_reused=prediction_reused, ai=self.status())
         except Exception as exc:
+            self.performance.count("inference_failures")
+            if self._camera_frame_fault_latched:
+                self.performance.count("stale_frames")
             report = self._record_error(PiSDErrorCodes.AI_INFERENCE_FAILED, f"AI prediction failed: {exc}", exc=exc)
             if drive and motor_service is not None:
                 try:
@@ -932,9 +945,13 @@ class AIDriveService:
         import numpy as np
         from PIL import Image
 
+        decode_start = self.performance.start()
         image = Image.open(BytesIO(frame)).convert("RGB")
+        self.performance.observe_elapsed("decode", decode_start)
+        resize_start = self.performance.start()
         image = image.resize(self._input_size)
         array = np.asarray(image).astype("float32") / 255.0
+        self.performance.observe_elapsed("resize", resize_start)
         with self._lock:
             backend = self._backend
         return np.expand_dims(array, axis=0), backend
@@ -1086,6 +1103,7 @@ class AIDriveService:
                     drove_motors = True
                 result = self.predict_once(camera_service, motor_service, drive=drive_now)
                 elapsed = time.perf_counter() - started
+                self.performance.observe_ms("controller_loop", elapsed * 1000.0)
                 interval = 1.0 / max(1.0, float(self._settings.get("update_hz", 20.0)))
                 if not result.get("ok"):
                     with self._lock:
