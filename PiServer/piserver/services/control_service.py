@@ -205,11 +205,12 @@ class ControlService:
                 if self._manual_command_at is not None else None
             )
             data["manual_command_timed_out"] = self._manual_command_timed_out
+            # One lock-held view keeps legacy safety_stop and the U28 contract consistent.
+            data["safety"] = self.safety_status()
         try:
             data.update(self.recorder_service.get_status())
         except Exception:
             pass
-        data["safety"] = self.safety_status()
         return data
 
     def apply_control_update(self, data: dict) -> tuple[bool, str]:
