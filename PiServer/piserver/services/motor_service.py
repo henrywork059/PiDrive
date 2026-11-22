@@ -5,6 +5,7 @@ import threading
 import time
 from typing import Any
 
+from piserver.core.hardware_ownership import claim_hardware
 from piserver.core.value_utils import clamp_float, normalize_direction, parse_finite_float
 
 try:
@@ -58,12 +59,25 @@ class _MotorDriver:
 
 class MotorService:
     def __init__(self):
-        if GPIO_AVAILABLE:
-            GPIO.setmode(GPIO.BCM)
-            GPIO.setwarnings(False)
+        self._hardware_lease = claim_hardware("motor") if GPIO_AVAILABLE else None
+        self._closed = False
+        try:
+            if GPIO_AVAILABLE:
+                GPIO.setmode(GPIO.BCM)
+                GPIO.setwarnings(False)
 
-        self.left = _MotorDriver(IN1_PIN, IN2_PIN)
-        self.right = _MotorDriver(IN3_PIN, IN4_PIN)
+            self.left = _MotorDriver(IN1_PIN, IN2_PIN)
+            self.right = _MotorDriver(IN3_PIN, IN4_PIN)
+        except BaseException:
+            # Never leave a partially initialized GPIO adapter owning the Pi.
+            if GPIO_AVAILABLE:
+                try:
+                    GPIO.cleanup()
+                except Exception:
+                    pass
+            if self._hardware_lease is not None:
+                self._hardware_lease.release()
+            raise
         self.last_left = 0.0
         self.last_right = 0.0
 
@@ -97,10 +111,14 @@ class MotorService:
         return data
 
     def apply_settings(self, data: dict | None) -> dict[str, Any]:
+        if self._closed:
+            raise RuntimeError("MotorService is closed; acquire hardware ownership with a new service.")
         if not isinstance(data, dict):
             return self.get_config()
 
         with self._lock:
+            if self._closed:
+                raise RuntimeError("MotorService is closed; acquire hardware ownership with a new service.")
             if "left_direction" in data:
                 self.left_direction = normalize_direction(data.get("left_direction", self.left_direction), self.left_direction)
             if "right_direction" in data:
@@ -147,6 +165,8 @@ class MotorService:
 
     def update(self, steering: float, throttle: float, steer_mix: float):
         with self._lock:
+            if self._closed:
+                raise RuntimeError("MotorService is closed; motor commands require a new owner.")
             previous_left = self.last_left
             previous_right = self.last_right
             left, right = self._map_drive_locked(steering, throttle, steer_mix)
@@ -174,15 +194,19 @@ class MotorService:
 
     def stop(self):
         with self._lock:
-            self._stop_locked()
+            if not self._closed:
+                self._stop_locked()
 
     def close(self):
-        try:
-            self.stop()
-        except Exception:
-            pass
-        if GPIO_AVAILABLE:
-            try:
+        with self._lock:
+            if self._closed:
+                return
+            # Fail closed: do not release the ownership lease while a motor may
+            # still be active because stop or GPIO cleanup failed.
+            self._stop_locked()
+            if GPIO_AVAILABLE:
                 GPIO.cleanup()
-            except Exception:
-                pass
+            self._closed = True
+            if self._hardware_lease is not None:
+                self._hardware_lease.release()
+                self._hardware_lease = None

@@ -56,6 +56,36 @@ leave it unset when accessing directly over HTTP. `PISERVER_HOST` can restrict
 the listening interface even when a token is set. `PISERVER_PORT` defaults to 5000.
 
 
+### Physical hardware ownership (0.4.14)
+
+PiServer and CustomDrive reuse the same `piserver.services.camera_service` and
+`piserver.services.motor_service` implementations. On a Raspberry Pi, they
+now acquire a **nonblocking, shared-process camera/motor lease** before opening
+physical camera or GPIO resources. Only one process may control the hardware.
+
+- The default lock file is `/tmp/pidrive-physical-hardware.lock`.
+- Both applications must use the **same path and filesystem**. If needed,
+  set `PIDRIVE_HARDWARE_LOCK_FILE` to the same **absolute path** in both service
+  environments. Never delete an in-use lock file to bypass the guard.
+- If another process owns the hardware, the second process fails with an
+  explicit error and **does not open its motor GPIO adapter**.
+- Closing the motor first writes zero speed and calls GPIO cleanup before
+  releasing its ownership. A camera capture thread that cannot stop retains
+  its lease; restart is blocked until it has exited.
+- A new motor instance starts its PWM outputs at **zero**. No previous motor
+  command is restored; a new operator action is required to move the car.
+- Desktop/simulation mode without Raspberry Pi hardware remains available.
+  CustomDrive's existing `live` runtime factory can report why it fell back
+  to simulation when hardware is busy. Mission 1 direct startup fails closed.
+
+This is a **software advisory lock**, not a motor driver watchdog or
+hardware emergency cutoff. An unpatched PiSD runtime or third-party GPIO
+script that does not honor the same lease could still contend. A kill/power
+failure can release the software lock before a physical motor output stops,
+so validate hardware stop behavior separately. For a deliberate handover,
+stop and close the current runtime, verify motors are stationary, then start
+the other runtime. Use wheels raised for first testing.
+
 ## Current snapshot code markers
 
 - App version constant: `piserver/app.py`
