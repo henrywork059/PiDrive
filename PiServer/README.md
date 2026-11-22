@@ -2,6 +2,26 @@
 
 PiServer is the modular PiCar runtime backend/web UI for manual driving, recording, model management, camera operations, and control-loop orchestration.
 
+## PiServer 0.4.15 — Runtime latency diagnostics (U23)
+
+The protected `GET /api/status` response now includes
+`performance_diagnostics` with `controller`, `camera`, `model`, and
+`camera_frame_age_s`. Controller metrics cover loop work and motor calls;
+camera measures capture-loop work and dropped frames; model measures RGB
+resize/preprocessing, inference and output postprocessing. Stage summaries
+are bounded rolling p50/p95/last in milliseconds (120 samples maximum).
+Missing stages have no measurements and are omitted rather than reported as
+zero. The process CPU percentage is measured using process CPU time on status
+reads, not whole-device CPU utilization; values above 100% are possible.
+
+All measurements are memory-only, no log/SD writes or hardware dependencies
+are added. This keeps prior 0.4.11 watchdog, 0.4.12 login protection,
+0.4.13 model preflight, and 0.4.14 hardware ownership unchanged. A remote
+client must authenticate before requesting status. No queue delay is claimed
+where the code lacks a timestamped queue boundary; capture-to-motor latency
+requires hardware time correlation and remains a follow-up. Performance
+budgets must be measured on actual Pi 4 hardware, not guessed.
+
 ## Quick start
 
 ```bash

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from piserver.core.latency_metrics import RollingLatency
+
 import math
 import os
 import threading
@@ -41,6 +43,7 @@ class ModelService:
         self._output_details = None
         self._input_size = None
         self._lock = threading.RLock()
+        self.performance = RollingLatency(('resize', 'inference', 'postprocess'))
 
     def list_models(self) -> list[str]:
         return sorted([p.name for p in self.root.glob("*.tflite")])
@@ -152,6 +155,9 @@ class ModelService:
             message += ". Active model cleared."
         return True, message
 
+    def get_performance(self) -> dict:
+        return self.performance.snapshot()
+
     def get_input_spec(self) -> dict | None:
         """Expose resolved model dimensions for API diagnostics without changing config."""
         with self._lock:
@@ -226,14 +232,25 @@ class ModelService:
                 return None
             # Hold the lock through preprocessing/invoke so a concurrent model
             # load cannot swap an interpreter between shape selection and infer.
+            resize_started = self.performance.start()
             x = self._prepare_input(frame_bgr, input_size)
             if x is None:
+                self.performance.count('dropped_frames')
                 return None
+            self.performance.observe_elapsed('resize', resize_started)
             try:
                 x = self._quantize_if_needed(x, input_info)
+                invoke_started = self.performance.start()
                 interpreter.set_tensor(int(input_info["index"]), x)
                 interpreter.invoke()
                 y = interpreter.get_tensor(int(output_info["index"]))
-                return self._read_output(y, output_info)
+                self.performance.observe_elapsed('inference', invoke_started)
+                post_started = self.performance.start()
+                result = self._read_output(y, output_info)
+                self.performance.observe_elapsed('postprocess', post_started)
+                if result is None:
+                    self.performance.count('inference_failures')
+                return result
             except Exception:
+                self.performance.count('inference_failures')
                 return None
