@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 from piserver.core.latency_metrics import RollingLatency
+from piserver.core.model_manifest import (
+    inspect_manifest, manifest_path, sha256_model, validate_manifest,
+)
 
+import json
 import math
 import os
 import threading
@@ -43,29 +47,57 @@ class ModelService:
         self._output_details = None
         self._input_size = None
         self._lock = threading.RLock()
+        self._active_manifest = None
+        self._manifest_warning = "No model loaded."
         self.performance = RollingLatency(('resize', 'inference', 'postprocess'))
 
     def list_models(self) -> list[str]:
         return sorted([p.name for p in self.root.glob("*.tflite")])
 
-    def save_uploaded_model(self, file_storage) -> tuple[bool, str]:
+    def save_uploaded_model(self, file_storage, manifest_storage=None) -> tuple[bool, str]:
         filename = (getattr(file_storage, "filename", "") or "").strip()
         safe_name = Path(filename).name
-        if not safe_name or not safe_name.lower().endswith(".tflite"):
-            return False, "Only .tflite files are supported."
+        if not safe_name or safe_name.lower() != filename.lower() or not safe_name.lower().endswith(".tflite"):
+            return False, "Only simple .tflite filenames are supported."
         target = self.root / safe_name
-        tmp_target = self.root / f".{safe_name}.{uuid.uuid4().hex}.upload"
+        temp = self.root / f".{safe_name}.{uuid.uuid4().hex}.upload"
+        temp_meta = None
         try:
-            file_storage.save(tmp_target)
-            os.replace(tmp_target, target)
+            if target.exists():
+                return False, "Model already exists; use a new filename instead of overwriting an active or historical model."
+            file_storage.save(temp)
+            if temp.stat().st_size == 0:
+                raise ValueError("Uploaded model is empty.")
+            if manifest_storage is not None:
+                sidecar_name = getattr(manifest_storage, "filename", "") or ""
+                if sidecar_name != safe_name + ".manifest.json":
+                    raise ValueError("Uploaded manifest name must match the model filename.")
+                raw = manifest_storage.read(128 * 1024 + 1)
+                if len(raw) > 128 * 1024:
+                    raise ValueError("Uploaded manifest exceeds size limit.")
+                metadata = json.loads(raw.decode("utf-8"))
+                validate_manifest(metadata, expected_kind="steering_control")
+                if metadata["model_sha256"] != sha256_model(temp):
+                    raise ValueError("Uploaded manifest checksum does not match the TFLite model.")
+                temp_meta = self.root / f".{safe_name}.{uuid.uuid4().hex}.manifest"
+                temp_meta.write_bytes(raw)
+                # Publish manifest first; never expose a model with a rejected
+                # manifest. On model publication failure remove our sidecar.
+                os.replace(temp_meta, manifest_path(target))
+                temp_meta = None
+            try:
+                os.replace(temp, target)
+            except BaseException:
+                if manifest_storage is not None:
+                    manifest_path(target).unlink(missing_ok=True)
+                raise
             return True, target.name
         except Exception as exc:
-            try:
-                if tmp_target.exists():
-                    tmp_target.unlink()
-            except Exception:
-                pass
             return False, f"Failed to save model: {exc}"
+        finally:
+            temp.unlink(missing_ok=True)
+            if temp_meta is not None:
+                temp_meta.unlink(missing_ok=True)
 
     @staticmethod
     def _validate_model_signature(interpreter):
@@ -108,11 +140,17 @@ class ModelService:
         if not path.exists() or not path.is_file() or path.suffix.lower() != ".tflite":
             return False, "Model file does not exist or is not .tflite."
         try:
+            metadata, warning = inspect_manifest(path, expected_kind="steering_control")
             # Load and preflight a replacement separately; never clear a working
             # interpreter when the new model has an incompatible tensor contract.
             interpreter = InterpreterType(model_path=str(path))
             interpreter.allocate_tensors()
             input_info, output_info, input_size = self._validate_model_signature(interpreter)
+            if metadata is not None:
+                # A sidecar may be copied from an unrelated model even if its
+                # checksum was previously correct; require the actual tensor
+                # shape to match the declared geometry before activation.
+                inspect_manifest(path, expected_kind="steering_control", input_size=input_size)
             preflight_input = np.zeros((1, input_size[1], input_size[0], 3), dtype=np.float32)
             preflight_input = self._quantize_if_needed(preflight_input, input_info)
             interpreter.set_tensor(int(input_info["index"]), preflight_input)
@@ -128,7 +166,13 @@ class ModelService:
             self._output_details = output_info
             self._input_size = input_size
             self.active_name = path.name
-        return True, self.active_name
+            self._active_manifest = metadata
+            self._manifest_warning = warning
+        return True, path.name + (" (" + warning + ")" if metadata is None else "")
+
+    def get_model_metadata(self) -> dict:
+        with self._lock:
+            return {"manifest": self._active_manifest, "message": self._manifest_warning}
 
     def get_active_name(self) -> str:
         with self._lock:
@@ -136,24 +180,28 @@ class ModelService:
 
     def delete_model(self, filename: str) -> tuple[bool, str]:
         path = self.root / Path(str(filename or "")).name
-        if not path.exists() or not path.is_file() or path.suffix.lower() != ".tflite":
+        if not path.is_file() or path.suffix.lower() != ".tflite":
             return False, "Model file does not exist."
         with self._lock:
             is_active = path.name == self.active_name
+            try:
+                path.unlink()
+            except OSError as exc:
+                return False, f"Failed to delete model: {exc}"
+            # A failed model deletion never clears the interpreter.
             if is_active:
                 self.interpreter = None
                 self._input_details = None
                 self._output_details = None
                 self._input_size = None
                 self.active_name = "none"
+                self._active_manifest = None
+                self._manifest_warning = "No model loaded."
         try:
-            path.unlink()
-        except Exception as exc:
-            return False, f"Failed to delete model: {exc}"
-        message = f"Deleted model: {path.name}"
-        if is_active:
-            message += ". Active model cleared."
-        return True, message
+            manifest_path(path).unlink(missing_ok=True)
+        except OSError:
+            pass
+        return True, "Deleted model: " + path.name + (". Active model cleared." if is_active else "")
 
     def get_performance(self) -> dict:
         return self.performance.snapshot()
