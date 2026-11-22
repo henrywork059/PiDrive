@@ -947,7 +947,9 @@ async function loadSelectedModel() {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ filename })
   });
-  setBanner("modelMessage", data.message || "Model loaded.", "muted");
+  const spec = data.input_spec;
+  const shapeLabel = spec ? ` · ${spec.width}×${spec.height} RGB · ${spec.dtype}` : "";
+  setBanner("modelMessage", `${data.message || "Model loaded."}${shapeLabel}`, "muted");
   await pollStatus();
 }
 

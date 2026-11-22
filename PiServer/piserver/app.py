@@ -18,7 +18,7 @@ from piserver.services.recorder_service import RecorderService
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 WEB_DIR = Path(__file__).resolve().parent / "web"
-APP_VERSION = "0_4_12"
+APP_VERSION = "0_4_13"
 
 
 def mjpeg_generator(camera_service):
@@ -203,7 +203,7 @@ def create_app() -> Flask:
 
     @app.route("/api/model/list")
     def api_model_list():
-        return jsonify({"models": model_service.list_models(), "active": model_service.get_active_name()})
+        return jsonify({"models": model_service.list_models(), "active": model_service.get_active_name(), "input_spec": model_service.get_input_spec()})
 
     @app.route("/api/model/upload", methods=["POST"])
     def api_model_upload():
@@ -219,7 +219,7 @@ def create_app() -> Flask:
         data = request.get_json(silent=True) or {}
         ok, msg = model_service.load_model(data.get("filename", ""))
         code = 200 if ok else 400
-        return jsonify({"ok": ok, "message": msg, "active": model_service.get_active_name()}), code
+        return jsonify({"ok": ok, "message": msg, "active": model_service.get_active_name(), "input_spec": model_service.get_input_spec()}), code
 
     @app.route("/api/model/delete", methods=["POST"])
     def api_model_delete():
