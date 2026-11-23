@@ -1106,6 +1106,7 @@
     setDriveState(payload, lastMotorOutput, 'manual intent');
     try {
       const result = await api('POST', '/api/control/manual', payload, 'drive');
+      if (result.payload?.ok === false) return; // never label rejected motor action as live output
       renderMotorSignalsFromApiResponse(result.payload, payload, 'live status');
     }
     catch (err) { writeLog('manual drag failed', { ok: false, code: 'PISD-API-002', message: String(err) }); }
@@ -1269,6 +1270,7 @@
     setStoppedDriveState('stopped');
     try {
       const { payload } = await api('POST', '/api/control/stop', {}, target);
+      if (payload?.ok === false) return; // STOP outcome is unconfirmed; retain error reference
       renderMotorSignalsFromApiResponse(payload, STOP_COMMAND, 'stopped');
       setShortStatus(`STOP motors sent: ${payload?.code || 'PISD-OK-000'} ${payload?.message || ''}`.trim(), payload?.code || 'PISD-OK-000');
       await refreshStatus();
@@ -1331,9 +1333,11 @@
     try {
       if (recordingRunning) {
         const { payload } = await api('POST', '/api/recording/stop', {}, 'camera');
+        if (payload?.ok === false) return;
         showCaptureNotice(`Recording stopped: ${payload?.code || 'PISD-OK-000'}`, payload?.code || 'PISD-OK-000');
       } else {
         const { payload } = await api('POST', '/api/recording/start', { label: 'manual_drive', fps: manual.recording_fps || DEFAULTS.recording_fps, overlay_settings: overlaySettingsForRecording() }, 'camera');
+        if (payload?.ok === false) return;
         const session = payload?.recording?.active_session || {};
         showCaptureNotice(`Recording started${session.session_id ? ': ' + session.session_id : ''}`, payload?.code || 'PISD-OK-000');
       }
