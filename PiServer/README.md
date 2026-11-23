@@ -1,5 +1,36 @@
 # PiServer
 
+## R49 — Bounded recent operator events (0_4_28)
+
+The existing Status dock now includes collapsed **Recent operator events** under
+Startup preflight. Expand it and choose **Refresh events** for a read-only GET
+`/api/recent-events`. **Copy events** copies the currently displayed sanitized
+rows to the clipboard; when clipboard access is denied, select the visible
+text manually. No telemetry or continuous polling runs.
+
+The server keeps at most **128** entries in a thread-safe in-memory deque.
+Its GET returns at most **80** entries. Each contains only a UTC timestamp,
+constant operation/category/title, and `succeeded`, `failed`, `partial`
+or `observed` outcome. The HTTP response hook records selected human
+actions such as Camera/Motor Apply, model upload/load, recording, Save,
+safety rearm, and **Emergency STOP**. The 60 ms manual drive command
+endpoint is **excluded** to avoid excessive logging. R47
+`correlation_id` remains on failures; the R49 ring does not copy failure
+payloads, camera frames, exceptions, model paths, tokens or settings.
+
+This is a volatile process-local event view; it resets on server restart.
+The existing runtime, hardware stop latch, HTTP status and config
+persistence are unchanged. The copy button is not a cloud exporter.
+
+From repository root:
+```bash
+cd PiServer && python -m unittest discover -s tests -p 'test_recent_events_r49.py' -v
+cd ..
+node --test PiServer/tests/test_recent_events_ui_r49.cjs
+```
+Check real STOP/rearm, Save failures including `saved:false`, recording,
+model loading, active camera/motor and browser clipboard behavior on a Pi.
+
 ## R48 passive startup preflight (0_4_27)
 
 The existing Status dock has a **collapsed, read-only Startup preflight**.
