@@ -3575,3 +3575,36 @@ button.active,
 @media (forced-colors: active) {
   :where(button, a[href], input, select, textarea, [tabindex="0"]):focus-visible { outline: 3px solid Highlight !important; }
 }
+
+/* R36: keep the existing docked square driving pad and layout preferences.
+   Only small-screen button text and the style-dialog scroll chain are adjusted. */
+@media (max-width: 760px) {
+  .style-modal-card {
+    width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
+    max-height: calc(100dvh - 16px);
+    margin: 8px auto;
+    min-width: 0;
+  }
+  .style-modal-body {
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+  .style-modal-head, .style-modal-foot {
+    flex-wrap: wrap;
+    flex: 0 0 auto;
+    padding: 10px;
+    min-width: 0;
+  }
+  .style-modal-foot button,
+  .estop-toggle,
+  .panel-actions button {
+    max-width: 100%;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .estop-toggle { min-height: 82px; }
+}
