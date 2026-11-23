@@ -25,6 +25,8 @@ from custom_trainer.services.ui_state_service import get_splitter_state, set_spl
 from custom_trainer.services.ultralytics_runner import build_export_command, runner_working_directory
 from custom_trainer.state import AppState
 from custom_trainer.ui.qt_helpers import CommandWorker
+from custom_trainer.services.task_result_summary import TaskResult
+from custom_trainer.ui.widgets.task_result_panel import TaskResultPanel
 
 
 class ExportPage(QWidget):
@@ -35,6 +37,7 @@ class ExportPage(QWidget):
         self.set_status = set_status
         self.thread: QThread | None = None
         self.worker: CommandWorker | None = None
+        self.task_result: TaskResult | None = None
 
         self.weights_edit = QLineEdit(self)
         self.yaml_edit = QLineEdit(self)
@@ -52,6 +55,7 @@ class ExportPage(QWidget):
         self.nms_check.setChecked(True)
         self.status_note = QLabel('Idle', self)
         self.status_note.setProperty('role', 'muted')
+        self.result_panel = TaskResultPanel(self)
         self.export_button = QPushButton('Export Model', self)
         self.stop_button = QPushButton('Stop Export', self)
         self.stop_button.setEnabled(False)
@@ -94,6 +98,7 @@ class ExportPage(QWidget):
         status_box = QGroupBox('Status', self)
         status_layout = QVBoxLayout(status_box)
         status_layout.addWidget(self.status_note)
+        status_layout.addWidget(self.result_panel)
 
         run_log_box = QGroupBox('Run Log', self)
         run_log_layout = QVBoxLayout(run_log_box)
@@ -266,8 +271,16 @@ class ExportPage(QWidget):
             nms=self.nms_check.isChecked(),
             data=data,
         )
+        cwd = runner_working_directory()
+        self.task_result = TaskResult.begin(
+            mode='export', kind='export',
+            model=self.weights_edit.text().strip(),
+            dataset=data, cwd=cwd,
+            export_format=self.format_combo.currentText().strip(),
+        )
+        self.result_panel.show_result(self.task_result)
         self.run_log_output.clear()
-        self._append_run_log(f'[cwd] {runner_working_directory()}')
+        self._append_run_log(f'[cwd] {cwd}')
         self.thread = QThread(self)
         self.worker = CommandWorker(command, cwd=runner_working_directory())
         self.worker.moveToThread(self.thread)
@@ -287,19 +300,34 @@ class ExportPage(QWidget):
         if self.worker is None:
             return
         self.worker.request_stop()
+        if self.task_result is not None:
+            self.task_result.request_stop()
+            self.result_panel.show_result(self.task_result)
         self.stop_button.setEnabled(False)
         self.status_note.setText('Stopping export...')
         self.set_status('Stopping export...')
 
     def _handle_worker_line(self, line: str) -> None:
+        if self.task_result is not None:
+            self.task_result.observe(line)
         self._append_run_log(line)
         self.log(line)
 
     def _on_finished(self, exit_code: int) -> None:
         self.export_button.setEnabled(True)
         self.stop_button.setEnabled(False)
-        self.status_note.setText(f'Finished with exit code {exit_code}.')
-        self.set_status(f'Export finished with exit code {exit_code}.')
+        record = self.task_result
+        if record is not None:
+            record.finish(exit_code)
+            self.result_panel.show_result(record)
+            if record.state == 'Succeeded':
+                message = f'Export succeeded: {record.output_path}'
+            else:
+                message = f'Export {record.state.lower()}: {record.reason}'
+        else:
+            message = f'Export finished with code {exit_code}; result metadata unavailable.'
+        self.status_note.setText(message)
+        self.set_status(message)
 
     def _clear_thread(self) -> None:
         self.thread = None
