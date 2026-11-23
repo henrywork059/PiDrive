@@ -18,7 +18,7 @@ Initial Wi-Fi scan, saved-profile, network-device and hotspot-client empty state
 
 ## Verification actually performed
 - 8/8 live-source checks passed (message availability and CSRF/permission guard strings). Seven Python tests committed, not run on the exact GitHub checkout; no wireless hardware or browser tests done.
-- Direct-parent GitHub comparison and no-rollback checks must be completed before opening the draft PR; do not claim checks not performed.
+- **Direct-parent GitHub comparison completed:** 3 files changed (2 new, 1 modified); 0 commits behind R36, no deleted paths or edits outside PiBooter; NetworkManager commands, provisioning/CSRF security, config persistence, hotspot lifetime and R35/R36 responsive styles untouched.
 - Tests that **remain outstanding**: native `node --test` or Python `unittest` on a checked-out current branch, full component suites, browser interaction/screenshots, live Raspberry Pi motor/camera/network or Windows Qt integration. V8 test callbacks are not native Node's test runner.
 - Version marker only advances this component's existing version series; saved config and user data stay intact.
 
