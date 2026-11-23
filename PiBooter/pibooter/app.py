@@ -16,7 +16,8 @@ from typing import Any, Callable
 from urllib.parse import parse_qs, urlencode, urlparse
 
 from .config import ConfigStore
-from .network import NetworkManagerBackend
+from .network import CommandResult, NetworkManagerBackend
+from .onboarding_status import project_onboarding
 from .provisioning_security import authorized_setup_client, hotspot_password_safe, request_token_matches, trusted_post_origin
 from .state import RuntimeState
 from .status_store import LastStatusStore
@@ -146,6 +147,7 @@ class PiBooterController:
         self._shutdown_callback: Callable[[], None] | None = None
         self._scan_cache: list[dict[str, Any]] = []
         self._scan_cache_ts = 0.0
+        self._scan_in_progress = False
         self._started_at = time.time()
         self._session_active = False
         self._session_source = ""
@@ -287,6 +289,7 @@ class PiBooterController:
             session_started_at=self._session_started_at,
             startup_wait_s=startup_wait_s,
             startup_remaining_s=startup_remaining_s,
+            scan_in_progress=bool(getattr(self, '_scan_in_progress', False)),
         )
         return self.state.snapshot()
 
@@ -381,7 +384,12 @@ class PiBooterController:
 
     def _run_connection_attempt(self, ssid: str, password: str, hidden: bool) -> None:
         with self._connection_lock:
-            result = self.network.connect_to_wifi(ssid=ssid, password=password, hidden=hidden)
+            try:
+                result = self.network.connect_to_wifi(ssid=ssid, password=password, hidden=hidden)
+            except Exception as exc:
+                # An unexpected NetworkManager error must not leave the UI
+                # stuck forever in the "connecting" state.
+                result = CommandResult(ok=False, stderr=f"NetworkManager connection error: {exc}")
             if result.ok:
                 lan_ip, gateway_ip = self._wait_for_router_ip()
                 last_status = self.status_store.save(
@@ -416,7 +424,14 @@ class PiBooterController:
                     time.sleep(delay_s)
                 self.request_shutdown(reason=f"Wi-Fi connected successfully. Saved last known IP: {success_target}.", stop_hotspot=False)
             else:
-                error_message = result.stderr or result.stdout or "Unknown nmcli error."
+                error_message = str(result.stderr or result.stdout or "Unknown nmcli error.")
+                # nmcli or an exception might echo its command arguments. No
+                # submitted password or private hotspot secret may enter logs,
+                # page notices or /api/status on the failure path.
+                for credential in (password, str(self.config["network"].get("hotspot_password") or "")):
+                    if credential:
+                        error_message = error_message.replace(credential, "[redacted]")
+                error_message = error_message[:500]
                 self.state.log(f"Wi-Fi connection failed for {ssid}: {error_message}", level="error")
                 self.state.update(
                     connection_attempt={
@@ -473,8 +488,14 @@ class PiBooterController:
         return False, message
 
     def rescan(self) -> None:
-        self.get_scan_results(force_rescan=True)
-        self.refresh_state(ensure_hotspot=False)
+        # Diagnostic only: expose an in-flight scan, never change the setup
+        # session/window policy or use the scan to authorize a connection.
+        self._scan_in_progress = True
+        try:
+            self.get_scan_results(force_rescan=True)
+            self.refresh_state(ensure_hotspot=False)
+        finally:
+            self._scan_in_progress = False
 
     def request_shutdown(self, reason: str, stop_hotspot: bool = False) -> None:
         if self._shutdown_requested.is_set():
@@ -517,7 +538,7 @@ class PiBooterController:
 
 class RequestHandler(BaseHTTPRequestHandler):
     controller: PiBooterController
-    server_version = "PiBooter/0.1.3"
+    server_version = "PiBooter/0.1.4"
 
     def do_GET(self) -> None:  # noqa: N802
         self.controller.note_http_activity(self.path, self.client_address[0])
