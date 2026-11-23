@@ -69,6 +69,16 @@
             <ul data-preflight-list aria-label="Service readiness checks"></ul>
             <small>Observation only: no motor, servo, camera start, AI load or settings changes.</small>
           </details>
+          <details data-recent-events-root aria-label="Sanitized recent operator events">
+            <summary>Recent operator events (read-only)</summary>
+            <p data-recent-status role="status" aria-live="polite">Expand to read local, sanitized events.</p>
+            <div>
+              <button type="button" data-recent-refresh>Refresh events</button>
+              <button type="button" data-recent-copy>Copy events</button>
+            </div>
+            <pre data-recent-output tabindex="0" style="max-height:160px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere">No events loaded.</pre>
+            <small>Bounded to 128 on-device events. Sensitive inputs and raw log messages are never included.</small>
+          </details>
         </div>
       </article>
 
@@ -345,5 +355,6 @@
   <script src="{{ url_for('static', filename='settings_feedback.js') }}?v={{ app_version }}"></script>
   <script src="{{ url_for('static', filename='app.js') }}?v={{ app_version }}"></script>
   <script src="{{ url_for('static', filename='preflight.js') }}?v={{ app_version }}"></script>
+  <script src="{{ url_for('static', filename='recent_events.js') }}?v={{ app_version }}"></script>
 </body>
 </html>
