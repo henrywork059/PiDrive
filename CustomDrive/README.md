@@ -1,5 +1,44 @@
 # CustomDrive
 
+## Adaptive browser polling and bandwidth (R43)
+
+Both CustomDrive web apps retain their original backend mission/motor rates
+and safety authority. Only **read-only browser refresh** scheduling changes.
+
+The **GUI** uses 1,500 ms status refresh during manual movement, active
+camera preview or in-flight control; 4,000 ms when idle; no periodic
+HTTP status reads in hidden tabs. Errors retry exponentially up to 10 s;
+the first visible-tab refresh is immediate. The backend includes the additive
+`server_status_at_ms` (actual response generation time) shown as a
+status-banner tooltip. Its existing single-in-flight, sequence-checked,
+decoded JPEG loop is preserved.
+
+**Mission 1** keeps active status at 600 ms and active annotated-image
+requests at 250 ms, but idle status slows to 2,500 ms and inactive frame
+checks to 2,000 ms (no frame HTTP request without the live AI camera phase).
+Hidden tabs make **no status/frame HTTP requests**. Returning to the tab
+resumes both immediately. Status/frame errors use bounded retries
+(8 s / 4 s); one annotated image request is allowed at a time, with
+a 1-second timeout that abandons a stalled image load before retry.
+`server_status_at_ms` is displayed as an observation tooltip; it does
+not modify mission timing or camera generation frequency.
+
+| Modeled one-tab status traffic | Before | After idle | During active |
+| --- | ---: | ---: | ---: |
+| GUI | 40/min | 15/min | 40/min |
+| Mission 1 | 100/min | 24/min | 100/min |
+| Mission 1 frame requests, fast successful response | 240/min | 0/min without live frame | 240/min |
+
+These are **formula-based maximum schedule rates**, not captured network
+measurements; request duration, failures and visibility affect observed
+rates. Real live-frame cadence can be lower due to backpressure.
+
+Run `node --test CustomDrive/tests/test_adaptive_polling_r43.cjs` from
+the monorepo root. Before merging, compare 60-second browser Network traces
+for active/idle/hidden/resumed states with actual camera/motor and Mission 1
+operation, including failed image requests. The control heartbeat, safety
+STOP, R33 stage timeline and R35 keyboard hold-release must remain intact.
+
 CustomDrive provides mission-flow and manual-control applications built on shared runtime abstractions for simulated and live Pi operation.
 
 ## Mission 1 latency and CPU diagnostics (0_5_19, U23)
