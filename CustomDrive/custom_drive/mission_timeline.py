@@ -67,6 +67,7 @@ class MissionProgressTimeline:
             if outcome == 'failed' or phase == 'failed':
                 if self._current and self._history:
                     self._history[-1]['state'] = 'failed'
+                    self._current['state'] = 'failed'
                 if self._last_failure is None:
                     self._last_failure = {
                         'reason': str(failure_reason or 'runtime_error'),
@@ -78,11 +79,13 @@ class MissionProgressTimeline:
             if outcome == 'stopped' or phase == 'stopped':
                 if self._current and self._history and self._history[-1]['state'] == 'current':
                     self._history[-1]['state'] = 'interrupted'
+                    self._current['state'] = 'interrupted'
                 return
 
             if outcome == 'complete' or phase == 'complete':
                 if self._current and self._history:
                     self._history[-1]['state'] = 'completed'
+                    self._current['state'] = 'completed'
                     self._last_completed = copy.deepcopy(self._history[-1])
                 return
 
