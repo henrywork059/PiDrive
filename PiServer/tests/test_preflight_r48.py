@@ -4,6 +4,7 @@ from __future__ import annotations
 import ast
 import copy
 import shutil
+import types
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -20,7 +21,7 @@ class ReadOnlyPreflightR48(unittest.TestCase):
         self.camera = {"backend": "picamera2", "preview_enabled": False}
         self.motor = {"gpio_available": True, "left_max_speed": 1.0}
         self.safety = {"latched": False}
-        self.usage = shutil._ntuple_diskusage(20 * 1024**3, 8 * 1024**3, 12 * 1024**3)
+        self.usage = types.SimpleNamespace(total=20 * 1024**3, free=12 * 1024**3)
 
     def summary(self, **overrides):
         kwargs = {
@@ -70,7 +71,7 @@ class ReadOnlyPreflightR48(unittest.TestCase):
         self.assertTrue(self.safety["latched"])
 
     def test_disk_low_and_unknown_have_safe_recovery(self):
-        with patch("piserver.core.preflight.shutil.disk_usage", return_value=shutil._ntuple_diskusage(10 * 1024**3, 9 * 1024**3, 1 * 1024**3 - 1)):
+        with patch("piserver.core.preflight.shutil.disk_usage", return_value=types.SimpleNamespace(total=10 * 1024**3, free=1 * 1024**3 - 1)):
             self.assertEqual(disk_check(BASE)["state"], "attention")
         with patch("piserver.core.preflight.shutil.disk_usage", side_effect=OSError("/home/pi/secret")):
             result = disk_check(BASE)
