@@ -173,6 +173,10 @@
         </div>
 
         <div class="summary-cards" id="summaryCards"></div>
+        <section id="missionTimeline" class="mission-progress" aria-label="Mission 1 progress timeline">
+          <h3>Mission progress</h3>
+          <p class="mission-progress-empty">Waiting for Mission 1 backend status.</p>
+        </section>
 
         <div class="viewer-wrap">
           <div class="viewer-stage">
@@ -252,6 +256,7 @@
     </section>
   </main>
 
+  <script src="{{ url_for('static', filename='mission_timeline.js') }}?v={{ app_version }}"></script>
   <script src="{{ url_for('static', filename='app.js') }}?v={{ app_version }}"></script>
 </body>
 </html>
