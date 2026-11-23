@@ -223,7 +223,7 @@ async function fetchJson(url, options = undefined) {
   const response = await fetch(url, options);
   let data = {};
   try { data = await response.json(); } catch {}
-  if (!response.ok || data?.ok === false || data?.saved === false) {
+  if (!response.ok || data?.ok === false || (data?.saved === false && !['GET', 'HEAD'].includes(String(options?.method || 'GET').toUpperCase()))) {
     const fallback = response.status === 403 ? 'Permission denied. Use an authorized Pi account.'
         : response.status === 401 ? 'Sign in to the Pi, then retry.'
         : response.status >= 500 ? 'Pi service unavailable. Check the Pi connection, then retry.'
