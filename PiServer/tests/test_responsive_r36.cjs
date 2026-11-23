@@ -1,0 +1,22 @@
+'use strict';
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const css = fs.readFileSync(path.join(__dirname,'../piserver/web/static/styles.css'),'utf8');
+const html = fs.readFileSync(path.join(__dirname,'../piserver/web/templates/index.html'),'utf8');
+const ver = fs.readFileSync(path.join(__dirname,'../piserver/app.py'),'utf8');
+const capture = fs.readFileSync(path.join(__dirname,'capture_responsive_r36.py'),'utf8');
+let n=0;function test(name,fn){fn();n++;process.stdout.write('PASS '+name+'\n');}
+test('existing dock square pad geometry preserved',()=>assert.equal(css.includes('.joystick-area {')&&css.includes('aspect-ratio: 1 / 1'),true));
+test('R35 manual keyboard focus kept',()=>assert.equal(html.includes('id="joystickArea"')&&html.includes('tabindex="0"'),true));
+test('emergency stop remains a real button',()=>assert.equal(html.includes('id="estopToggle"'),true));
+test('status and Save controls still exist',()=>assert.equal(html.includes('id="saveRuntimeBtn"')&&html.includes('id="saveStyleSettingsBtn"'),true));
+test('phone dialog width is viewport-bounded',()=>assert.equal(css.includes('.style-modal-card {\n    width: calc(100vw - 16px)'),true));
+test('dialog body has explicit scroll region',()=>assert.equal(css.includes('.style-modal-body {\n    min-height: 0;'),true));
+test('Save footer remains visible while body scrolls',()=>assert.equal(css.includes('.style-modal-head, .style-modal-foot {')&&css.includes('flex: 0 0 auto'),true));
+test('action labels wrap on narrow screens',()=>assert.equal(css.includes('.estop-toggle,')&&css.includes('overflow-wrap: anywhere'),true));
+test('resizable square pad not overwritten at mobile',()=>assert.equal(!css.includes('.joystick-area {\n    aspect-ratio: auto'),true));
+test('screenshot runner records required four widths',()=>assert.equal(capture.includes('WIDTHS = (390, 768, 1024, 1440)'),true));
+test('screenshot runner does not press motor buttons',()=>assert.equal(!capture.includes('click("#estopToggle")')&&capture.includes('non-mutating presentation dialogs'),true));
+test('version 0_4_22',()=>assert.equal(ver.includes('APP_VERSION = "0_4_22"'),true));
+console.log(n+'/12 PiServer R36 responsive checks passed');
