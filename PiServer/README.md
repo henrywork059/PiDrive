@@ -12,11 +12,49 @@ pip install -r requirements.txt
 python server.py
 ```
 
-Open:
+### Access protection (0.4.12)
+
+**Default (no token): localhost-only.** Open `http://127.0.0.1:5000` from the Pi itself.
+Remote/LAN requests are also rejected at the Flask layer if a different WSGI
+server accidentally exposes the application. An explicit non-loopback
+`PISERVER_HOST` without a token causes startup to fail.
+
+**Enable LAN control with an access token (32+ characters):**
+
+```bash
+cd PiServer
+export PISERVER_ACCESS_TOKEN="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
+python server.py
+```
+
+Open `http://<pi-ip>:5000/login` and enter the token from the Pi terminal.
+The browser keeps an HTTP-only, SameSite=Strict session cookie; it does **not**
+store the access token in browser localStorage or put it in a URL. State-changing
+browser requests require a CSRF token. The login expires on server restart
+unless you configure a persistent `PISERVER_SESSION_SECRET`.
+
+For service startup, store `PISERVER_ACCESS_TOKEN` in a private environment file
+with permissions `0600` and add a matching `EnvironmentFile=` to the existing
+systemd service override. **Do not commit the token or save it to runtime.json.**
+An example using a shell-exported variable is shown above only for testing.
+
+For programmatic API clients, supply the token as an HTTP header:
 
 ```text
-http://<pi-ip>:5000
+Authorization: Bearer <access-token>
 ```
+
+Bearer requests are authenticated but do not require the browser's CSRF token.
+All routes, including the video feed, status, downloads, model management,
+settings, and motor commands, require authorization when LAN mode is enabled.
+
+**Security scope:** plain HTTP is not encrypted; a token can be intercepted on
+an untrusted LAN. Use a trusted isolated network or a correctly configured HTTPS
+reverse proxy/VPN. Do not expose port 5000 directly to the public Internet.
+`PISERVER_SESSION_SECURE=1` enables Secure session cookies when using HTTPS;
+leave it unset when accessing directly over HTTP. `PISERVER_HOST` can restrict
+the listening interface even when a token is set. `PISERVER_PORT` defaults to 5000.
+
 
 ## Current snapshot code markers
 

@@ -484,10 +484,41 @@ function renderActivePage(page) {
   window.requestAnimationFrame(updateManualPadSizing);
 }
 
+let csrfTokenPromise = null;
+
+async function getCsrfToken() {
+  if (!csrfTokenPromise) {
+    csrfTokenPromise = fetch("/api/auth/csrf", { credentials: "same-origin", cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) {
+          if (response.status === 401) window.location.assign("/login");
+          throw new Error("Access expired. Reload the page to sign in again.");
+        }
+        const data = await response.json();
+        return String(data.csrf_token || "");
+      })
+      .catch((error) => {
+        csrfTokenPromise = null;
+        throw error;
+      });
+  }
+  return csrfTokenPromise;
+}
+
 async function fetchJson(url, options = {}) {
-  const response = await fetch(url, options);
+  const requestOptions = { ...options, credentials: "same-origin" };
+  if (requestOptions.method && !["GET", "HEAD", "OPTIONS"].includes(String(requestOptions.method).toUpperCase())) {
+    const csrfToken = await getCsrfToken();
+    if (csrfToken) {
+      requestOptions.headers = { ...options.headers, "X-PiServer-CSRF": csrfToken };
+    }
+  }
+  const response = await fetch(url, requestOptions);
   const data = await response.json();
   if (!response.ok) {
+    if (response.status === 401) {
+      window.location.assign("/login");
+    }
     throw new Error(data.message || data.error || "Request failed");
   }
   return data;

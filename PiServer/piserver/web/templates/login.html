@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PiServer — Secure Access</title>
+  <style>
+    :root { color-scheme: dark; font: 16px system-ui, sans-serif; }
+    body { min-height: 100vh; margin: 0; display: grid; place-items: center; background: #101820; color: #f4f7f9; }
+    main { width: min(420px, 90vw); padding: 30px; background: #1c2934; border: 1px solid #405262; border-radius: 14px; }
+    h1 { margin: 0 0 8px; font-size: 1.5rem; }
+    p { line-height: 1.5; color: #b9c8d2; }
+    label { display: block; margin: 20px 0 6px; font-weight: 600; }
+    input { box-sizing: border-box; width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #75889a; background: #0d1821; color: white; font: inherit; }
+    input:focus-visible, button:focus-visible { outline: 3px solid #83c5ff; outline-offset: 3px; }
+    button { margin-top: 18px; width: 100%; padding: 12px; border: 0; border-radius: 8px; background: #2d974b; color: white; font: inherit; font-weight: 700; cursor: pointer; }
+    button:disabled { opacity: .65; cursor: wait; }
+    #error { color: #ffb0a7; min-height: 1.4em; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>PiServer access</h1>
+    <p>Enter the access token configured on the Raspberry Pi to open the control workspace.</p>
+    <form id="accessForm">
+      <label for="accessToken">Access token</label>
+      <input id="accessToken" type="password" autocomplete="off" required autofocus />
+      <button id="submitAccess" type="submit">Unlock workspace</button>
+      <p id="error" role="alert" aria-live="polite"></p>
+    </form>
+    <p>Use on a trusted network or over HTTPS. Never share your token in a URL.</p>
+  </main>
+  <script>
+    document.getElementById('accessForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const input = document.getElementById('accessToken');
+      const button = document.getElementById('submitAccess');
+      const error = document.getElementById('error');
+      const token = input.value;
+      input.value = '';
+      button.disabled = true;
+      error.textContent = '';
+      try {
+        const response = await fetch('/api/auth/login', {
+          method: 'POST', credentials: 'same-origin', cache: 'no-store',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || 'Access denied.');
+        window.location.replace('/');
+      } catch (reason) {
+        error.textContent = reason.message || 'Unable to sign in.';
+        button.disabled = false;
+        input.focus();
+      }
+    });
+  </script>
+</body>
+</html>
