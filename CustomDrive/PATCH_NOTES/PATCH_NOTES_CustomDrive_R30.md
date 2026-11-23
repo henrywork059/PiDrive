@@ -18,8 +18,14 @@ Based directly on **CustomDrive U29 draft PR #36** `update/customdrive-u29-missi
 ## Exact behavior
 The client measures age using `performance.now()`, the timestamp of the last successfully decoded **unique, backend-live JPEG sequence**. Under 1.5s with no failures is Live, 1.5–6s or recent frame errors is Delayed, >=6s or backend offline/no good frame is Disconnected. No empty response, repeated JPEG, backend placeholder or failed decode replaces the successful image or refreshes its timestamp. Stale images are dimmed and always labeled; recovery to a new JPEG automatically returns to Live and resets exponential backoff. Retry grows 250ms → 500ms → 1s → 2s → 4s max and the standard 160/220ms schedule resumes on recovery. Operator Preview toggle and visibility pausing remain; backend failure alone never sets operator previewEnabled=false. Existing manual motor logic and AI overlay code continue untouched.
 
-## Verification
-The draft PR reports JavaScript syntax and deterministic state-machine checks conducted against these staged source files. No full Flask/browser image decode, real camera stream, model inference, GPIO, arm, Raspberry Pi or Windows GUI tests were performed in this session.
+- Requests abort after 3 seconds and retry with the bounded delay; missing/invalid sequence headers fail closed rather than treating `Number(null)` as sequence zero.
+
+## Verification actually performed
+- Executed the **exact 14 deterministic state tests** in `CustomDrive/tests/test_preview_freshness.cjs` through the connector's V8 CommonJS/assert adapter: **14/14 passed**, including recovered and fail-closed states.
+- Parsed the complete final `custom_drive/gui_web/static/app.js` and `preview_freshness.js` using V8 JavaScript compilation: passed.
+- GitHub compare with immediate parent PR #36: 7 paths (4 modified, 3 added), **all inside CustomDrive**, no deletions, no restoration of older files. The manual drag pad, AI overlay, preview toggle and saved settings remain in the source.
+- Inspected `CustomDrive/run_custom_drive_gui.py`, GUI API status/frame/preview-state endpoints and existing HTML/CSS.
+- **Not run:** Node as an external process, Python compile/Flask integration on this exact draft branch, browser decode checks, physical camera/robot, Windows GUI or complete stacked regression suite.
 
 ## Limits
 Sequence identifies new JPEG publication, not physical sensor acquisition. App can only detect a backend which falsely asserts live after no new published frames via the monotonically increasing age. Real Pi test must confirm failure/reconnection timing and load under AI overlay. U29 replay remains unrelated and unmodified.
