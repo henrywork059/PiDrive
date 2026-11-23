@@ -732,7 +732,7 @@ class AIDriveService:
                     drive_allowed = bool(self._running and self._mode == "drive" and self._drive_output_enabled)
                 if drive_allowed:
                     motor_started = self.performance.start()
-                    left, right = motor_service.update(steering=safe["steering"], throttle=safe["throttle"])
+                    left, right = motor_service.update(steering=safe["steering"], throttle=safe["throttle"], control_source="ai")
                     self.performance.observe_elapsed("motor_apply", motor_started)
                     motor_status = motor_service.status()
                     left_intended = float(motor_status.get("last_intended_left", left) or 0.0)
