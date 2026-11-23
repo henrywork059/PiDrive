@@ -7,6 +7,7 @@ import pandas as pd
 from ..app_state import AppState
 from ..panels.common.log_panel import LogPanel
 from ..panels.common.task_progress_panel import TaskProgressPanel
+from ..services.background_task import BackgroundTaskRunner
 from ..panels.train.split_summary_panel import SplitSummaryPanel
 from ..panels.train.train_config_panel import TrainConfigPanel
 from ..panels.train.train_control_panel import TrainControlPanel
@@ -45,6 +46,7 @@ class TrainPage(DockPage):
         )
         self.task_progress = TaskProgressPanel()
         self.control_panel.layout().addWidget(self.task_progress)
+        self.save_runner = BackgroundTaskRunner(self.task_progress, self)
         self.history_panel = TrainHistoryPanel()
         self.epoch_review_panel = TrainEpochReviewPanel()
         self.log_panel = LogPanel('Training Log')
@@ -200,6 +202,9 @@ class TrainPage(DockPage):
         return train_df, val_df
 
     def start_training(self) -> None:
+        if self.save_runner.active:
+            self.log_panel.append_line('Wait until the model save completes before starting training.')
+            return
         if self.worker is not None and self.worker.isRunning():
             self.log_panel.append_line('Training is already running.')
             return
@@ -239,6 +244,9 @@ class TrainPage(DockPage):
             self.log_panel.append_line('Stop requested. Training will stop at a safe epoch boundary.')
 
     def save_trained_model(self) -> None:
+        if self.save_runner.active or self.has_active_task():
+            self.log_panel.append_line('Wait until the current operation completes before saving the model.')
+            return
         if self.state.model is None:
             self.log_panel.append_line('No trained model available to save yet.')
             self.main_window.set_status_message('No trained model available to save.')
@@ -258,36 +266,55 @@ class TrainPage(DockPage):
         default_candidate = out_dir / f'{base_name}_trained.keras'
         candidate = next_available_model_artifact_path(out_dir, f'{base_name}_trained', '.keras')
         guard_notes = overwrite_guard_notes(default_candidate, candidate)
-        try:
-            save_keras_model(self.state.model, candidate, guard_notes)
+        model = self.state.model
+        width = int(self.state.train_config.img_w)
+        height = int(self.state.train_config.img_h)
+        seed = int(self.state.train_config.seed)
+        self.control_panel.set_save_status('Saving trained model — no output confirmed yet.')
+
+        def work(report):
+            report('Writing trained Keras model', None)
+            save_keras_model(model, candidate, guard_notes)
+            report('Writing checksum-bound model manifest', None)
             metadata = make_manifest(
-                candidate, model_kind="steering_control",
-                width=int(self.state.train_config.img_w),
-                height=int(self.state.train_config.img_h),
-                quantization="float32", training_seed=int(self.state.train_config.seed),
+                candidate, model_kind='steering_control',
+                width=width, height=height,
+                quantization='float32', training_seed=seed,
             )
             write_manifest(candidate, metadata)
-        except Exception as exc:
-            self.control_panel.set_save_status(f'Could not save model to:\n{candidate}\n{exc}', success=False)
-            self.log_panel.append_line(f'Could not save trained model to {candidate}: {exc}')
+            return candidate
+
+        def completed(candidate):
+            manifest_path = Path(str(candidate) + '.manifest.json')
+            if not candidate.is_file() or not manifest_path.is_file():
+                raise RuntimeError(f'Completed model or manifest missing: {candidate}')
+            self.state.last_saved_model_path = str(candidate)
+            guard_message = ''
+            if guard_notes:
+                guard_message = '\nDefault name already existed, so this was saved as a timestamped copy.'
+            save_message = (
+                'Saved trained .keras model to:\n'
+                f'{candidate}'
+                f'{guard_message}\n'
+                'Linked this file to 4 Validate.'
+            )
+            self.control_panel.set_save_status(save_message, success=True)
+            self.log_panel.append_line(f'Saved trained .keras model to: {candidate}')
+            self.log_panel.append_line(f'Linked saved model to 4 Validate: {candidate}')
+            self.main_window.validation_page.config_panel.set_saved_model_path(str(candidate))
+            self.main_window.validation_page.refresh_from_state()
+            self.main_window.set_status_message(f'Saved .keras model to {candidate}')
+            return ('Trained model saved', (str(candidate), str(manifest_path)))
+
+        def failed(error):
+            self.control_panel.set_save_status(f'Could not save model to:\n{candidate}\n{error}', success=False)
+            self.log_panel.append_line(f'Could not save trained model to {candidate}: {error}')
             self.main_window.set_status_message('Could not save trained model.')
-            return
-        self.state.last_saved_model_path = str(candidate)
-        guard_message = ''
-        if guard_notes:
-            guard_message = '\nDefault name already existed, so this was saved as a timestamped copy.'
-        save_message = (
-            'Saved trained .keras model to:\n'
-            f'{candidate}'
-            f'{guard_message}\n'
-            'Linked this file to 4 Validate.'
+
+        self.save_runner.start(
+            'Save trained model', work, completed, on_failure=failed,
+            controls=(self.control_panel.save_model_btn, self.control_panel.start_btn, self.control_panel.browse_save_dir_btn),
         )
-        self.control_panel.set_save_status(save_message, success=True)
-        self.log_panel.append_line(f'Saved trained .keras model to: {candidate}')
-        self.log_panel.append_line(f'Linked saved model to 4 Validate: {candidate}')
-        self.main_window.validation_page.config_panel.set_saved_model_path(str(candidate))
-        self.main_window.validation_page.refresh_from_state()
-        self.main_window.set_status_message(f'Saved .keras model to {candidate}')
 
     def _on_training_error(self, message: str) -> None:
         self.state.last_error = message
@@ -314,7 +341,7 @@ class TrainPage(DockPage):
         self.main_window.set_status_message('Training cancelled.')
 
     def has_active_task(self) -> bool:
-        return self.worker is not None and self.worker.isRunning()
+        return self.save_runner.active or (self.worker is not None and self.worker.isRunning())
 
     def shutdown_worker(self) -> None:
         if self.worker is not None and self.worker.isRunning():
