@@ -26,6 +26,7 @@ from .debug_tools import append_event, clamp_float, clamp_int
 from .manual_control_config import load_manual_control_config
 from .mission1_tflite_detector import Mission1TFLiteDetector
 from .mission_safety import MissionAbort, save_mission_report
+from .mission_timeline import MissionProgressTimeline
 from .models import Detection
 from .project_paths import CONFIG_DIR, CUSTOMDRIVE_ROOT, PISERVER_RUNTIME_PATH, ensure_piserver_import_paths
 
@@ -36,7 +37,7 @@ from piserver.services.camera_service import CameraService  # noqa: E402
 from piserver.services.motor_service import MotorService  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent / 'mission1_web'
-APP_VERSION = '0_5_20'
+APP_VERSION = '0_5_21'
 MISSION1_CONFIG_PATH = CONFIG_DIR / 'mission1_session.json'
 MISSION1_MODEL_DIR = CUSTOMDRIVE_ROOT / 'models' / 'mission1'
 
@@ -544,6 +545,7 @@ class Mission1SessionContext:
         self._no_frame_since: float | None = None
         self._search_started_at: float | None = None
         self._search_kind = ''
+        self._mission_timeline = MissionProgressTimeline()
 
         self._apply_motor_defaults()
         ready, message = self.detector.backend_ready()
@@ -552,6 +554,12 @@ class Mission1SessionContext:
         self._record(arm_status.get('last_message', 'Mission arm ready.'), event_type='arm', level='info' if arm_status.get('available') else 'warning')
 
     def _record(self, message: str, *, level: str = 'info', event_type: str = 'runtime', **fields: Any) -> None:
+        # R33: only record the phase already reached. No mission transitions here.
+        self._mission_timeline.observe(self.current_phase, self.mission_state,
+                                      outcome=self.mission_outcome,
+                                      failure_reason=self.failure_reason,
+                                      failure_stage=self.failure_stage,
+                                      last_error=self.last_error)
         append_event(self.events, message, level=level, event_type=event_type, limit=250, **fields)
 
     def _selected_model_name(self) -> str:
@@ -780,6 +788,8 @@ class Mission1SessionContext:
     def _stop_for_pose_transition(self, *, mission_state: str, current_phase: str, detail: str, note: str, frame_snapshot=None) -> None:
         self.current_phase = current_phase
         self.mission_state = mission_state
+        # Record this short-lived phase before blocking arm-settle updates.
+        self._mission_timeline.observe(self.current_phase, self.mission_state)
         self._set_motion_state('hold_stop', turn='stopped', target_side='center')
         self._stop_with_note(note)
         self.detail = detail
@@ -1097,6 +1107,8 @@ class Mission1SessionContext:
             self.dropoff_target_class_id = None
             self.pickup_target_class_id = None
             self.mission_state = 'pickup_search'
+            self._mission_timeline.reset(self._session_report_id)
+            self._mission_timeline.observe(self.current_phase, self.mission_state)
             self.started_at = time.monotonic()
             self._stop_event.clear()
             self._thread = threading.Thread(target=self._run_session, name='mission1-session', daemon=True)
@@ -1931,6 +1943,12 @@ class Mission1SessionContext:
         return True, 'Mission safety rearmed at zero; use Start for a new session.'
 
     def status_payload(self) -> dict[str, Any]:
+        # Read-only observation: never drives the mission forward or touches motors.
+        self._mission_timeline.observe(self.current_phase, self.mission_state,
+                                      outcome=self.mission_outcome,
+                                      failure_reason=self.failure_reason,
+                                      failure_stage=self.failure_stage,
+                                      last_error=self.last_error)
         thread = self._thread
         camera_service = self.camera_service
         ready, backend_message = self.detector.backend_ready()
@@ -1951,6 +1969,9 @@ class Mission1SessionContext:
             'intended_motion': self.intended_motion,
             'mission_state': self.mission_state,
             'mission_outcome': self.mission_outcome,
+            'mission_timeline': self._mission_timeline.snapshot(
+                outcome=self.mission_outcome, detail=self.detail,
+                arm_sequence={'state': self.arm_sequence_state, 'note': self.arm_sequence_note}),
             'failure_reason': self.failure_reason,
             'failure_stage': self.failure_stage,
             'target_loss_count': self.target_loss_count,
