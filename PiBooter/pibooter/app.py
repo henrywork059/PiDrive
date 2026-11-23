@@ -600,7 +600,7 @@ class PiBooterController:
 
 class RequestHandler(BaseHTTPRequestHandler):
     controller: PiBooterController
-    server_version = "PiBooter/0.1.6"
+    server_version = "PiBooter/0.1.7"
 
     def do_GET(self) -> None:  # noqa: N802
         self.controller.note_http_activity(self.path, self.client_address[0])
@@ -765,7 +765,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         device_rows = "".join(
             f"<tr><td>{html.escape(row.get('device', ''))}</td><td>{html.escape(row.get('type', ''))}</td><td>{html.escape(row.get('state', ''))}</td><td>{html.escape(row.get('connection', ''))}</td></tr>"
             for row in devices
-        ) or '<tr><td colspan="4" class="muted">No network devices reported yet.</td></tr>'
+        ) or '<tr><td colspan="4" class="muted">No network devices reported. Check the Pi Wi-Fi adapter.</td></tr>'
 
         networks_table = self.render_scan_results(snapshot.get("scan_results", []))
         known_table = self.render_known_connections(snapshot.get("known_connections", []), self.controller.csrf_token)
@@ -794,7 +794,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         client_rows = "".join(
             f"<tr><td class='mono'>{html.escape(row.get('ip', ''))}</td><td class='mono'>{html.escape(row.get('mac', ''))}</td><td>{html.escape(row.get('state', ''))}</td></tr>"
             for row in hotspot_clients
-        ) or '<tr><td colspan="3" class="muted">No hotspot client detected yet.</td></tr>'
+        ) or '<tr><td colspan="3" class="muted">No hotspot client yet. Connect your phone to the setup hotspot.</td></tr>'
 
         manual_form = f"""
         <div class="card">
@@ -917,7 +917,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     @staticmethod
     def render_scan_results(networks: list[dict[str, Any]]) -> str:
         if not networks:
-            return '<p class="muted">No nearby Wi-Fi networks are cached yet. Use the manual form below if needed.</p>'
+            return '<p class="muted">No Wi-Fi networks found. Select Refresh scan or enter the SSID below.</p>'
         rows = []
         for item in networks:
             ssid = item.get("ssid") or "(hidden network)"
@@ -945,7 +945,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     @staticmethod
     def render_known_connections(connections: list[dict[str, str]], csrf_token: str = '') -> str:
         if not connections:
-            return '<p class="muted">No saved Wi-Fi profiles yet.</p>'
+            return '<p class="muted">No saved Wi-Fi profiles. Connect the Pi to Wi-Fi to create one.</p>'
         rows = []
         for item in connections:
             rows.append(
