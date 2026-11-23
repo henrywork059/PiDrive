@@ -1,5 +1,49 @@
 # piTrainer
 
+## Unified background-task progress (0.11.6, R39)
+
+The **Preprocess**, **Train**, **Validate**, **Export**, and **TFLite Check**
+pages now show the running operation and its current step. Preprocessing
+preview/application/dataset save, trained-model save, model export and both
+validation modes use background QThreads so their long calculation or file
+write does not synchronously block the Qt user interface. A single operation
+runs at a time across these pages to avoid concurrent model use and
+conflicting dataset changes. Attempting to close the window while a worker
+is active is refused until it finishes.
+
+Training continues to show a real percent complete after each epoch.
+The existing **Stop** button requests an orderly stop at an epoch boundary:
+a user-stopped run is **Cancelled**, not **Succeeded**, and its partial
+weights are not adopted as a new model. Normal early stopping is still a
+successful completion. Other long operations have no Stop button because
+their underlying image, TensorFlow conversion, validation and file-write
+functions cannot currently be safely interrupted. Their progress bar remains
+indeterminate rather than inventing a percentage.
+
+Saved trained models and exports are marked **Succeeded** only after both
+the model and its checksum-bound manifest exist and are nonempty. Saved
+preprocessed datasets require a nonempty CSV, JSONL, and recipe file.
+The progress display lists the **absolute folder and file paths** of
+confirmed outputs. Failures display **Failed** with no completed output
+confirmed; any partial files left by an interrupted exporter must not be
+treated as deployment-ready. Training and validation do not create files by
+themselves.
+
+On the Windows development workstation, verify with:
+
+```bash
+cd piTrainer
+python -m unittest discover -s tests -p "test_background_tasks_r39.py" -v
+python -m unittest discover -s tests -v
+```
+
+Also run real PySide6/TensorFlow smoke checks: preprocess 10,000 rows,
+save a CSV+JSONL+recipe dataset, cancel training after an epoch, complete an
+early-stopped run, save and export models with manifests, validate both
+Keras and TFLite, and try closing during an active export. Neither an
+indeterminate progress display nor unit tests prove Windows GUI thread or
+converter compatibility.
+
 ## Preview performance and memory (0.11.5, R38)
 
 Image Preview now coalesces rapid row-navigation requests on the next Qt
