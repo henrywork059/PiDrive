@@ -90,6 +90,8 @@ const state = {
   resizing: null,
   latestStatus: null,
   statusTimer: null,
+  statusInFlight: false,
+  statusFailures: 0,
   cameraConfig: null,
   motorConfig: null,
   motorFormDirty: false,
@@ -891,16 +893,53 @@ function updateStatusUi(data) {
 
   updateToolbarBadge(data);
   setBanner("statusBanner", data.system_message || "Ready.", "muted");
+  const statusBanner = document.getElementById("statusBanner");
+  if (statusBanner) {
+    const serverAt = Number(data.server_status_at_ms);
+    statusBanner.title = Number.isFinite(serverAt) && serverAt > 0
+      ? `Server status as of ${new Date(serverAt).toLocaleTimeString()} (server clock); updated by read-only polling.`
+      : "Server status freshness timestamp unavailable.";
+  }
+}
+
+// R43: read-only UI status is deliberately independent of the 60 ms motor
+// control tick and server-side safety/watchdog. Only one request in flight.
+function statusPollDelayMs() {
+  if (document.hidden) return 5000; // no requests in hidden tabs
+  const status = state.latestStatus || {};
+  const active = !!(status.camera_preview_live || status.recording || status.ai_running ||
+    Math.abs(state.manualThrottle) > 0.001 || Math.abs(state.manualSteering) > 0.001 ||
+    state.pointerControl.active || Object.values(state.stepInputs).some(Boolean));
+  const base = active ? 800 : 2500;
+  return Math.min(8000, base * Math.pow(2, Math.min(state.statusFailures, 3)));
+}
+
+function scheduleStatusPoll(delayMs = statusPollDelayMs()) {
+  if (state.statusTimer) clearTimeout(state.statusTimer);
+  state.statusTimer = setTimeout(() => {
+    state.statusTimer = null;
+    void pollStatus();
+  }, delayMs);
 }
 
 async function pollStatus() {
-  if (document.hidden) return;
+  if (document.hidden) {
+    scheduleStatusPoll();
+    return;
+  }
+  if (state.statusInFlight) return;
+  state.statusInFlight = true;
   try {
     const data = await fetchJson("/api/status");
+    state.statusFailures = 0;
     updateStatusUi(data);
     syncControlsFromStatus(data);
   } catch (error) {
-    setBanner("statusBanner", error.message, "muted");
+    state.statusFailures = Math.min(3, state.statusFailures + 1);
+    setBanner("statusBanner", error.message || "Status unavailable.", "muted");
+  } finally {
+    state.statusInFlight = false;
+    scheduleStatusPoll();
   }
 }
 
@@ -1357,8 +1396,13 @@ function syncPreviewActivity() {
   previewHealth.setPaused(!enabled);
   renderPreviewHealth();
   sendPreviewState(enabled);
-  if (enabled) schedulePreviewFrame(true);
-  else stopPreviewLoop(false);
+  if (enabled) {
+    schedulePreviewFrame(true);
+    scheduleStatusPoll(0); // recover status immediately after returning to tab
+  } else {
+    stopPreviewLoop(false);
+    scheduleStatusPoll(); // parked while hidden, no HTTP status requests
+  }
 }
 
 function setManualTargets(steering, throttle, options = {}) {
@@ -1873,7 +1917,7 @@ async function init() {
   updateStatusUi(status);
   syncControlsFromStatus(status);
   applyManualState();
-  state.statusTimer = setInterval(pollStatus, 800);
+  scheduleStatusPoll(800);
   state.previewHealthTimer = setInterval(renderPreviewHealth, 250);
 }
 
