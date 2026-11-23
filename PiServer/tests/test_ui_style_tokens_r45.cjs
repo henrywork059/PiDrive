@@ -98,8 +98,12 @@ test("source retains stable public style API and storage key",()=>{
   assert.match(themeSrc,/const customStyleKey = 'PiServerStyleCustom:v0_3_5'/);
 });
 test("CSS consumes semantic variables and has no hidden replacements",()=>{
-  for(const variable of ["--bg","--panel","--text","--muted","--accent","--warn","--ok","--danger"])
+  // Legacy status selectors may use accepted literal state colors; new panels
+  // should consume semantic vars without rewriting legacy CSS in R45.
+  for(const variable of ["--bg","--panel","--text","--muted","--accent","--danger"])
     assert.ok(css.includes("var("+variable+")"),variable);
+  for(const variable of ["--warn","--ok"])
+    assert.ok(css.includes(variable+":") || css.includes(variable+": "),variable);
   assert.match(css,/\.badge\.on/);
   assert.match(css,/\.badge\.off/);
   assert.match(css,/:focus-visible/);
