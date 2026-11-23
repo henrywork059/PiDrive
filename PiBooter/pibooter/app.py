@@ -196,7 +196,7 @@ HTML_SHELL = """<!doctype html>
           const title = String(event.title || 'Operator action');
           const outcome = String(event.outcome || 'observed');
           return time + ' · ' + title + ' · ' + outcome;
-        }}).join('\n') || 'No relevant operator events yet.';
+        }}).join('\\n') || 'No relevant operator events yet.';
         status.textContent = rows.length + ' sanitized events; oldest entries automatically expire.';
       }} catch (_error) {{
         status.textContent = 'Event history unavailable. Check the PiBooter connection.';
