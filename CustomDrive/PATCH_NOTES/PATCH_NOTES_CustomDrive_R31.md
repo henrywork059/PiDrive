@@ -21,3 +21,6 @@ Drive preserves accepted motor-apply-before-control order (motor stop behavior u
 
 ## Limits
 Persistence verification is from the existing ConfigStore disk-backed loader, but not a reboot cycle or physical actuation test. Multi-step Save is not atomic: an earlier endpoint may succeed before a later endpoint fails; retry is explicit. Existing AI model deployment semantics and safety controls are untouched. R31 does not retrofit Mission 1 web settings or headless UI.
+
+## Accepted-value normalization
+The backend may clamp or normalize submitted values. R31 checks the backend-accepted response against independent readback, then displays effective values or an explicit normalization notice rather than treating valid clamping as a persistence failure. A rejected response or mismatched accepted-value readback still shows Failed.
