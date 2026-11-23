@@ -74,7 +74,18 @@ def load_preprocess_settings(out_dir: Path) -> dict[str, object]:
 def save_preprocessed_dataset(df: pd.DataFrame, recipe: dict[str, object], out_dir: Path) -> Path:
     root = default_data_root(out_dir)
     stamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    folder = ensure_dir(root / safe_filename(f'preprocessed_{stamp}', default='preprocessed_dataset'))
+    base_name = safe_filename(f'preprocessed_{stamp}', default='preprocessed_dataset')
+    # Atomic mkdir prevents two rapid saves from sharing a folder and replacing
+    # each other's CSV/JSONL/recipe files, including concurrent save requests.
+    counter = 1
+    while True:
+        name = base_name if counter == 1 else f'{base_name}_{counter:02d}'
+        folder = root / name
+        try:
+            folder.mkdir(parents=True, exist_ok=False)
+            break
+        except FileExistsError:
+            counter += 1
     csv_path = folder / 'preprocessed_records.csv'
     jsonl_path = folder / 'preprocessed_records.jsonl'
     recipe_path = folder / 'preprocess_recipe.json'
