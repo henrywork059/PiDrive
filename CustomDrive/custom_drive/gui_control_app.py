@@ -8,6 +8,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, render_template, request
 from .request_trace import install_mutation_trace
 from .preflight import build_gui_preflight
+from .recent_events import RecentEventRing, record_api_response
 
 from .arm_service import ArmService
 from .manual_control_config import load_manual_control_config, save_manual_control_config
@@ -26,7 +27,7 @@ from piserver.services.motor_service import MotorService  # noqa: E402
 from piserver.services.recorder_service import RecorderService  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent / 'gui_web'
-APP_VERSION = '0_3_19'
+APP_VERSION = '0_3_20'
 OD_MODEL_ROOT = CUSTOMDRIVE_ROOT / 'models' / 'object_detection'
 
 
@@ -185,7 +186,27 @@ def create_app() -> Flask:
     )
 
     install_mutation_trace(app)
+    recent_events = RecentEventRing(capacity=128)
+    event_routes = {
+        'api_camera_preview_state': 'camera_preview',
+        'api_estop': 'safety_stop',
+        'api_motor_apply': 'motor_apply',
+        'api_gui_runtime_save': 'runtime_save',
+        'api_arm_action': 'arm_action',
+        'api_ai_upload': 'model_upload',
+        'api_ai_delete': 'model_delete',
+        'api_ai_stop': 'model_undeploy',
+        'api_ai_deploy': 'model_deploy',
+        'api_ai_config': 'config_save',
+        'api_manual_config_save': 'config_save',
+    }
+
+    @app.after_request
+    def capture_operator_event(response):
+        return record_api_response(recent_events, response, request, event_routes)
+
     ctx = GuiControlContext()
+    recent_events.record('startup', 'observed')
     app.config['gui_ctx'] = ctx
     app.config['services'] = {
         'camera': ctx.camera_service,
@@ -253,6 +274,10 @@ def create_app() -> Flask:
             safety=ctx.control_service.safety_status(),
             project_root=CUSTOMDRIVE_ROOT,
         ))
+
+    @app.get('/api/recent-events')
+    def api_recent_events():
+        return jsonify({'ok': True, 'capacity': recent_events.capacity, 'events': recent_events.snapshot()})
 
     @app.route('/api/control', methods=['POST'])
     def api_control():
