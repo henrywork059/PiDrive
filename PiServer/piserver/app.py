@@ -11,6 +11,7 @@ from piserver.algorithms import build_registry
 from piserver.core.config_store import ConfigStore
 from piserver.core.access_control import install_access_control
 from piserver.core.request_trace import install_mutation_trace
+from piserver.core.preflight import build_preflight
 from piserver.services.camera_service import CameraService
 from piserver.services.control_service import ControlService
 from piserver.services.model_service import ModelService
@@ -19,7 +20,7 @@ from piserver.services.recorder_service import RecorderService
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 WEB_DIR = Path(__file__).resolve().parent / "web"
-APP_VERSION = "0_4_26"
+APP_VERSION = "0_4_27"
 
 
 def mjpeg_generator(camera_service):
@@ -145,6 +146,18 @@ def create_app() -> Flask:
         }
         state["server_status_at_ms"] = int(time.time() * 1000)
         return jsonify(state)
+
+    @app.get("/api/preflight")
+    def api_preflight():
+        # R48: inspect already initialized services; no motor/camera/AI action.
+        active_name = model_service.get_active_name()
+        return jsonify(build_preflight(
+            camera=camera_service.get_config(),
+            motor=motor_service.get_config(),
+            model_active=bool(active_name and str(active_name).lower() != "none"),
+            safety=control_service.safety_status(),
+            disk_root=BASE_DIR,
+        ))
 
     @app.route("/api/algorithms")
     def api_algorithms():
