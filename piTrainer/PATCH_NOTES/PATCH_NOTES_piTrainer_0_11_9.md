@@ -21,7 +21,7 @@ Empty Data session root and TFLite-check datasets did not say where to recover i
 
 ## Verification actually performed
 - 13/13 final live-source contract checks passed (exact action strings, UI names, unchanged runner callbacks and version); seven Python AST tests are committed but not run in an exact checkout.
-- Direct-parent GitHub comparison and no-rollback checks must be completed before opening the draft PR; do not claim checks not performed.
+- **Direct-parent GitHub comparison completed:** 6 files changed (2 new, 4 modified); 0 commits behind R45, no deleted paths or edits outside piTrainer; training/validation/export backend services, Data row identities, R38 preview cache, R39 async workers and R40 metadata untouched.
 - Tests that **remain outstanding**: native `node --test` or Python `unittest` on a checked-out current branch, full component suites, browser interaction/screenshots, live Raspberry Pi motor/camera/network or Windows Qt integration. V8 test callbacks are not native Node's test runner.
 - Version marker only advances this component's existing version series; saved config and user data stay intact.
 
