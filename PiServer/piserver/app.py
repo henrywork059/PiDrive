@@ -18,7 +18,7 @@ from piserver.services.recorder_service import RecorderService
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 WEB_DIR = Path(__file__).resolve().parent / "web"
-APP_VERSION = "0_4_17"
+APP_VERSION = "0_4_18"
 
 
 def mjpeg_generator(camera_service):
@@ -247,14 +247,37 @@ def create_app() -> Flask:
         config = control_service.reload_runtime_config()
         return jsonify({"ok": True, "config": config, "message": "Config reloaded."})
 
+    @app.route("/api/safety/status")
+    def api_safety_status():
+        return jsonify({"ok": True, "safety": control_service.safety_status()})
+
+    @app.route("/api/safety/rearm", methods=["POST"])
+    def api_safety_rearm():
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({"ok": False, "message": "Expected a JSON object.", "safety": control_service.safety_status()}), 400
+        ok, message = control_service.rearm_safety(confirm=data.get("confirm"))
+        return jsonify({"ok": ok, "message": message, "safety": control_service.safety_status(),
+                        "state": control_service.snapshot()}), 200 if ok else 409
+
     @app.route("/api/system/estop", methods=["POST"])
     def api_estop():
-        data = request.get_json(silent=True) or {}
-        enabled = bool(data.get("enabled", True))
-        control_service.set_safety_stop(enabled)
-        if enabled:
+        # STOP must remain usable with an empty or malformed body; never allow
+        # invalid input to be interpreted as a request to clear the latch.
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            data = {}
+        if type(data.get("enabled", True)) is not bool:
+            return jsonify({"ok": False, "message": "enabled must be a JSON boolean."}), 400
+        if data.get("enabled", True):
+            control_service.set_safety_stop(True)
             motor_service.stop()
-        return jsonify({"ok": True, "state": control_service.snapshot()})
+            ok, message = True, "Emergency stop engaged."
+        else:
+            # Legacy toggle remains supported, but may not bypass explicit rearm.
+            ok, message = control_service.rearm_safety(confirm=data.get("confirm"))
+        return jsonify({"ok": ok, "message": message, "safety": control_service.safety_status(),
+                        "state": control_service.snapshot()}), 200 if ok else 409
 
     @app.route("/api/motor/config")
     def api_motor_config():

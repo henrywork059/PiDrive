@@ -206,3 +206,8 @@ Adjust `WorkingDirectory`/`ExecStart` in the service file to match your install 
 
 For layout versioning and compact-UI regression prevention practices, see:
 - `../BUG_PREVENTION_NOTES.md`
+
+
+### U28 safety status and explicit rearm (0_4_18)
+
+The existing `GET /api/status` includes an additive `safety` object (schema version 1). `GET /api/safety/status` returns the same object. After E-stop, send `POST /api/safety/rearm` with `{"confirm":true}` under the existing PiServer LAN authentication and CSRF requirements. The legacy E-stop toggle `{"enabled":false,"confirm":true}` uses the same checked rearm path; `{"enabled":false}` is refused. Successful rearm zeros motor commands, switches to manual mode, and does **not** resume prior motion. Retest on Pi hardware before production use.

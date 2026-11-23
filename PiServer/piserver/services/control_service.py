@@ -205,6 +205,8 @@ class ControlService:
                 if self._manual_command_at is not None else None
             )
             data["manual_command_timed_out"] = self._manual_command_timed_out
+            # One lock-held view keeps legacy safety_stop and the U28 contract consistent.
+            data["safety"] = self.safety_status()
         try:
             data.update(self.recorder_service.get_status())
         except Exception:
@@ -297,9 +299,55 @@ class ControlService:
             self.state.system_message = "Recording started." if self.state.recording else "Recording stopped."
             return True, self.state.recording, self.state.system_message
 
-    def set_safety_stop(self, enabled: bool):
+    def safety_status(self) -> dict:
+        """U28 additive status contract; does not change existing snapshot fields."""
         with self.lock:
-            self.state.safety_stop = bool(enabled)
+            latched = bool(self.state.safety_stop)
+            return {
+                "schema_version": 1,
+                "component": "PiServer",
+                "state": "latched" if latched else ("ready" if self.running else "stopped"),
+                "latched": latched,
+                "motion_allowed": bool(self.running and not latched),
+                "rearm_required": latched,
+                "rearm_available": bool(latched and self.running),
+                "reason": str(self.state.system_message) if latched else "",
+            }
+
+    def rearm_safety(self, *, confirm: Any = False) -> tuple[bool, str]:
+        """Explicitly clear the emergency latch with zero commands and manual ownership.
+
+        A mere clear flag cannot silently resume an autonomous algorithm or replay
+        manual setpoints. Failures leave the latch engaged.
+        """
+        if confirm is not True:
+            return False, "Explicit confirm=true is required to rearm."
+        with self.lock:
+            if not self.state.safety_stop:
+                return True, "No active safety stop."
+            if not self.running:
+                return False, "Control loop is not running; safety stop remains latched."
+            self.state.active_algorithm = "manual"
+            self._apply_safe_stop_locked()
+            self._manual_command_at = None
+            self._manual_command_timed_out = False
+            self._processing_enabled_cached = None
+            try:
+                self.motor_service.stop()
+            except Exception as exc:
+                self.state.system_message = f"Rearm refused: motor zero-stop failed: {exc}"
+                self.state.safety_stop = True
+                return False, self.state.system_message
+            self.state.safety_stop = False
+            self.state.system_message = "Safety rearmed at zero. New manual commands required."
+        return True, "Safety rearmed at zero. New manual commands required."
+
+    def set_safety_stop(self, enabled: bool):
+        # Clearing a latch must go through the explicit checked rearm path.
+        if not enabled:
+            return False
+        with self.lock:
+            self.state.safety_stop = True
             # Clear both the motor setpoint and the lease on engage AND release.
             # Releasing e-stop must not replay a previous manual command.
             self._apply_safe_stop_locked()
@@ -309,8 +357,8 @@ class ControlService:
                 self.state.system_message = "Emergency stop engaged."
             else:
                 self.state.system_message = "Emergency stop cleared."
-        if enabled:
-            self._hard_stop_outputs()
+        self._hard_stop_outputs()
+        return True
 
     def get_runtime_config(self) -> dict:
         with self.lock:
