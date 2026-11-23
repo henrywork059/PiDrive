@@ -188,7 +188,8 @@ class OnboardingRuntimeTests(unittest.TestCase):
         calls=str(controller.state.log.call_args_list)+str(controller.state.update.call_args_list)
         self.assertNotIn(secret,calls)
         self.assertNotIn(hotspot,calls)
-        self.assertIn('[redacted]',calls)
+        self.assertIn('Wi-Fi authentication failed',calls)
+        self.assertNotIn('Error ' + secret,calls)
 
     def test_unexpected_network_exception_becomes_failed_state(self):
         controller=PiBooterController.__new__(PiBooterController)
@@ -203,7 +204,7 @@ class OnboardingRuntimeTests(unittest.TestCase):
         controller._run_connection_attempt('home','private-wifi',False)
         latest=controller.state.update.call_args.kwargs
         self.assertEqual(latest['connection_attempt']['status'],'error')
-        self.assertIn('network unavailable',latest['last_error'])
+        self.assertIn('NetworkManager could not connect',latest['last_error'])
 
 
 if __name__ == '__main__':
