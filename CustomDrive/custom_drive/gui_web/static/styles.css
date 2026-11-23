@@ -629,3 +629,9 @@ input[type='range'] {
   color: var(--text);
   font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
+
+/* R30 preview freshness; additive overlay, no layout or theme reset. */
+.preview-health { position: absolute; top: 10px; right: 10px; z-index: 5; padding: 6px 10px; border-radius: 8px; font-size: .82rem; font-weight: 700; color: #e5fff1; background: rgba(10,75,42,.9); pointer-events: none; }
+.preview-health.delayed, .preview-health.paused { color: #fff4d5; background: rgba(106,70,14,.94); }
+.preview-health.disconnected { color: #fff0f0; background: rgba(132,26,29,.95); }
+.viewer-frame.preview-is-stale #videoFeed { filter: grayscale(.45) brightness(.64); }

@@ -93,8 +93,9 @@
         </div>
         <div class="panel-body viewer-body">
           <div class="viewer-frame">
-            <img id="videoFeed" src="/api/camera/frame.jpg?v={{ app_version }}" alt="CustomDrive live preview" />
-            <div id="viewerFallback" class="viewer-fallback hidden">Camera preview unavailable.</div>
+            <img id="videoFeed" src="" alt="CustomDrive live preview" />
+            <div id="previewHealth" class="preview-health disconnected" role="status" aria-live="polite">Disconnected · no frame</div>
+            <div id="viewerFallback" class="viewer-fallback">Waiting for a fresh camera frame.</div>
           </div>
         </div>
       </article>
@@ -324,6 +325,7 @@
     </div>
   </div>
 
+  <script src="{{ url_for('static', filename='preview_freshness.js') }}?v={{ app_version }}"></script>
   <script src="{{ url_for('static', filename='app.js') }}?v={{ app_version }}"></script>
 </body>
 </html>

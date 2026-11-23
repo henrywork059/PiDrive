@@ -24,7 +24,7 @@ from piserver.services.motor_service import MotorService  # noqa: E402
 from piserver.services.recorder_service import RecorderService  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent / 'gui_web'
-APP_VERSION = '0_3_10'
+APP_VERSION = '0_3_11'
 OD_MODEL_ROOT = CUSTOMDRIVE_ROOT / 'models' / 'object_detection'
 
 
@@ -200,9 +200,11 @@ def create_app() -> Flask:
 
     @app.route('/api/camera/frame.jpg')
     def api_camera_frame():
-        jpeg_frame = ctx.camera_service.get_jpeg_frame()
+        # Atomic JPEG bytes/sequence; a cached response is not a new camera frame.
+        jpeg_frame, preview_seq = ctx.camera_service.wait_for_jpeg(-1, timeout=0.0)
         if jpeg_frame is None:
-            jpeg_frame, _ = ctx.camera_service.wait_for_jpeg(0, timeout=0.35)
+            ctx.camera_service.wait_for_jpeg(0, timeout=0.35)
+            jpeg_frame, preview_seq = ctx.camera_service.wait_for_jpeg(-1, timeout=0.0)
         if jpeg_frame is None:
             return ('', 204)
         out_frame = jpeg_frame
@@ -218,6 +220,8 @@ def create_app() -> Flask:
             if annotated is not None:
                 out_frame = annotated
         response = Response(out_frame, mimetype='image/jpeg')
+        response.headers['X-Preview-Seq'] = str(preview_seq)
+        response.headers['X-Preview-Live'] = '1' if ctx.camera_service.get_config().get('preview_live') else '0'
         response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
         response.headers['Pragma'] = 'no-cache'
         response.headers['Expires'] = '0'
