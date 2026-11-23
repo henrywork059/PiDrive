@@ -35,6 +35,7 @@ const state = {
   statusInFlight: false,
   previewTimer: null,
   previewInFlight: false,
+  previewObjectUrl: null,
   aiConfigTimer: null,
   aiDeployedModel: 'none',
   aiDebugFrozen: false,
@@ -91,19 +92,88 @@ function setBanner(id, message, kind = 'muted') {
 }
 
 
+const previewHealth = window.PiDrivePreviewFreshness.createPreviewFreshness(() => performance.now());
+
+function renderPreviewHealth() {
+  const health = previewHealth.snapshot();
+  const age = health.ageMs === null ? 'no frame' : `${(health.ageMs / 1000).toFixed(1)}s old`;
+  const indicator = document.getElementById('previewHealth');
+  if (indicator) {
+    indicator.className = `preview-health ${health.state.toLowerCase()}`;
+    indicator.textContent = `${health.state} · ${age}`;
+  }
+  const viewer = document.querySelector('.viewer-frame');
+  if (viewer) viewer.classList.toggle('preview-is-stale', health.hasFrame && health.state !== 'Live');
+  setText('metricPreview', health.state);
+  const meta = document.getElementById('cameraPreviewMeta');
+  if (meta) {
+    const ai = state.latestAiStatus || {};
+    const overlay = ai.ready && ai.overlay_enabled && ai.backend === 'tflite' ? ' · AI overlay' : '';
+    meta.textContent = `${health.state} · ${age}${overlay}`;
+  }
+  const fallback = document.getElementById('viewerFallback');
+  if (fallback) {
+    fallback.classList.toggle('hidden', state.previewEnabled && health.hasFrame);
+    if (!state.previewEnabled) fallback.textContent = 'Preview paused.';
+    else if (!health.hasFrame) fallback.textContent = 'Waiting for a fresh camera frame.';
+  }
+}
+
+function previewPollDelay() {
+  return document.getElementById('aiOverlayEnabled')?.value === 'true'
+    && document.getElementById('aiBackend')?.value === 'tflite' ? 220 : 160;
+}
+
+async function requestPreviewFrame() {
+  if (!state.previewEnabled || state.previewInFlight || document.hidden) return;
+  state.previewInFlight = true;
+  try {
+    const response = await fetch(`/api/camera/frame.jpg?ts=${Date.now()}`, { cache: 'no-store' });
+    if (response.status === 204) throw new Error('No camera frame');
+    if (!response.ok) throw new Error(`Preview request failed (${response.status})`);
+    const live = response.headers.get('X-Preview-Live') === '1';
+    const sequence = Number(response.headers.get('X-Preview-Seq'));
+    previewHealth.setBackendLive(live);
+    if (!live || !previewHealth.isNew(sequence)) {
+      if (!live || previewHealth.snapshot().ageMs >= 1500) previewHealth.fail();
+      return;
+    }
+    const blob = await response.blob();
+    if (!blob.size) throw new Error('Empty camera JPEG');
+    const url = URL.createObjectURL(blob);
+    try {
+      const decoded = new Image();
+      decoded.src = url;
+      await decoded.decode();
+      if (!state.previewEnabled || document.hidden) return;
+      const video = document.getElementById('videoFeed');
+      const previous = state.previewObjectUrl;
+      if (!previewHealth.accept(sequence)) return;
+      video.src = url;
+      video.classList.remove('hidden');
+      state.previewObjectUrl = url;
+      if (previous) { try { URL.revokeObjectURL(previous); } catch {} }
+    } finally {
+      if (state.previewObjectUrl !== url) URL.revokeObjectURL(url);
+    }
+  } catch {
+    // Keep the last successfully decoded frame instead of replacing it.
+    previewHealth.fail();
+  } finally {
+    state.previewInFlight = false;
+    renderPreviewHealth();
+    schedulePreviewPoll(previewHealth.retryDelay(previewPollDelay()));
+  }
+}
+
 function setPreviewImageSource() {
-  const video = document.getElementById('videoFeed');
-  if (!video || !state.previewEnabled) return;
-  video.src = `/api/camera/frame.jpg?ts=${Date.now()}`;
+  void requestPreviewFrame();
 }
 
 function schedulePreviewPoll(delayMs = 180) {
   window.clearTimeout(state.previewTimer);
-  if (!state.previewEnabled) return;
-  state.previewTimer = window.setTimeout(() => {
-    state.previewInFlight = true;
-    setPreviewImageSource();
-  }, delayMs);
+  if (!state.previewEnabled || document.hidden) return;
+  state.previewTimer = window.setTimeout(setPreviewImageSource, delayMs);
 }
 
 async function fetchJson(url, options = undefined) {
@@ -495,9 +565,15 @@ function toggleAiDebugFreeze() {
 }
 
 function updateStatusUi(data) {
-  const cameraLive = Boolean(data.camera_preview_live ?? data.camera_config?.preview_enabled ?? true);
-  state.previewEnabled = cameraLive;
-  const previewText = cameraLive ? 'live' : 'paused';
+  const cameraLive = Boolean(data.camera_preview_live ?? data.camera_config?.preview_live ?? false);
+  // Preview-enabled is the operator's choice, not a camera-health signal.
+  // A failed camera must never disable the polling required to recover it.
+  if (typeof data.camera_config?.preview_enabled === 'boolean') {
+    state.previewEnabled = data.camera_config.preview_enabled;
+  }
+  state.latestAiStatus = data.ai_status || {};
+  previewHealth.setBackendLive(cameraLive);
+  previewHealth.setPaused(!state.previewEnabled || document.hidden);
   const driveState = data.safety_stop ? 'E-stop active' : 'Manual ready';
   const aiStatus = data.ai_status || {};
   syncAiBackendHistory(aiStatus.history || []);
@@ -505,7 +581,7 @@ function updateStatusUi(data) {
   setText('metricApplied', `S ${fmt(data.applied_steering)} · T ${fmt(data.applied_throttle)}`);
   setText('metricManual', `S ${fmt(state.manualSteering)} · T ${fmt(state.manualThrottle)}`);
   setText('metricCamera', `${data.camera_backend || 'unknown'} · ${data.camera_width || 0}×${data.camera_height || 0}`);
-  setText('metricPreview', previewText);
+  renderPreviewHealth();
   setText('metricArm', data.arm_status?.last_action || 'idle');
   setText('metricAi', aiStatus.ready ? `${aiStatus.backend || 'tflite'} · ${aiStatus.active_model || 'ready'}` : (aiStatus.backend || 'off'));
   setText('metricMaxThrottle', fmt(data.max_throttle ?? state.maxThrottle));
@@ -514,7 +590,7 @@ function updateStatusUi(data) {
   setText('metricWheels', `${fmt(data.motor_left)} / ${fmt(data.motor_right)}`);
   setText('metricFps', `${Number(data.fps || 0).toFixed(1)} FPS`);
   setText('statusMiniText', data.safety_stop ? 'estop' : 'manual');
-  setText('cameraPreviewMeta', aiStatus.ready && aiStatus.overlay_enabled && aiStatus.backend === 'tflite' ? 'streaming + AI overlay' : (cameraLive ? 'streaming' : 'paused'));
+  renderPreviewHealth();
   setText('systemRuntimePath', data.customdrive_runtime_settings_path || data.runtime_config_path || 'runtime.json');
   setText('systemArmLift', `${Number(data.arm_status?.servo0_angle ?? data.arm_status?.lift_angle ?? 0).toFixed(0)}° / ${Number(data.arm_status?.servo1_angle ?? 0).toFixed(0)}°`);
   setText('systemMotorDir', `${data.motor_left_direction ?? 1} / ${data.motor_right_direction ?? 1} / ${data.motor_steering_direction ?? 1}`);
@@ -576,20 +652,20 @@ async function saveDriveSettings() {
 }
 
 async function togglePreview() {
+  const enabled = !state.previewEnabled;
   try {
-    state.previewEnabled = !state.previewEnabled;
-    await postJson('/api/camera/preview_state', { enabled: state.previewEnabled });
+    await postJson('/api/camera/preview_state', { enabled });
+    state.previewEnabled = enabled;
+    previewHealth.setPaused(!enabled);
     const video = document.getElementById('videoFeed');
-    if (!state.previewEnabled) {
+    if (!enabled) {
+      window.clearTimeout(state.previewTimer);
       video.classList.add('hidden');
-      document.getElementById('viewerFallback').classList.remove('hidden');
-      document.getElementById('viewerFallback').textContent = 'Preview paused.';
     } else {
       video.classList.remove('hidden');
-      document.getElementById('viewerFallback').classList.add('hidden');
-      setPreviewImageSource();
-      schedulePreviewPoll(120);
+      schedulePreviewPoll(0);
     }
+    renderPreviewHealth();
     await pollStatus();
   } catch (error) {
     setBanner('systemMessage', error.message || 'Preview toggle failed.', 'warn');
@@ -924,23 +1000,8 @@ function setupArmControls() {
 function setupSystemActions() {
   document.getElementById('previewToggleBtn').addEventListener('click', togglePreview);
   document.getElementById('estopToggle').addEventListener('change', (event) => setEstop(event.target.checked));
-  const video = document.getElementById('videoFeed');
-  const fallback = document.getElementById('viewerFallback');
-  video.addEventListener('error', () => {
-    state.previewInFlight = false;
-    fallback.classList.remove('hidden');
-    setBanner('systemMessage', 'Camera preview frame failed to load.', 'warn');
-    schedulePreviewPoll(500);
-  });
-  video.addEventListener('load', () => {
-    state.previewInFlight = false;
-    fallback.classList.add('hidden');
-    schedulePreviewPoll((document.getElementById('aiOverlayEnabled').value === 'true' && document.getElementById('aiBackend').value === 'tflite') ? 220 : 160);
-  });
-  video.addEventListener('loadeddata', () => {
-    state.previewInFlight = false;
-    fallback.classList.add('hidden');
-  });
+  // R30: fetched sequence + completed JPEG decode, not <img> load events,
+  // determine camera freshness. A cached response is never a new live frame.
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -955,8 +1016,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   await refreshAiModels();
   renderAiDebugHistory();
   updateAiDebugFreezeButton();
+  previewHealth.setPaused(!state.previewEnabled || document.hidden);
+  renderPreviewHealth();
   setPreviewImageSource();
   schedulePreviewPoll(120);
+  document.addEventListener('visibilitychange', () => {
+    previewHealth.setPaused(!state.previewEnabled || document.hidden);
+    renderPreviewHealth();
+    if (!document.hidden && state.previewEnabled) schedulePreviewPoll(0);
+  });
+  window.addEventListener('beforeunload', () => {
+    window.clearTimeout(state.previewTimer);
+    if (state.previewObjectUrl) URL.revokeObjectURL(state.previewObjectUrl);
+  });
+  window.setInterval(renderPreviewHealth, 250);
   if (state.statusTimer) window.clearInterval(state.statusTimer);
   state.statusTimer = window.setInterval(pollStatus, 1500);
 });
