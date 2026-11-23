@@ -108,8 +108,11 @@ test("Mission stage-state colors remain distinguishable by semantic role",()=>{
   assert.match(missionCss,/data-step-state="interrupted"[^\n]*#fbbf24/);
 });
 test("R44 green Grip and amber Drop-off guide stays distinct",()=>{
-  assert.match(missionCss,/\.overlay-guides \.overlay-trigger-pickup\s*\{[^}]*#4ade80/s);
-  assert.match(missionCss,/\.overlay-guides \.overlay-trigger-dropoff\s*\{[^}]*#fbbf24/s);
+  // Existing markers use RGBA strokes; their label text uses hex colors.
+  assert.match(missionCss,/\.overlay-guides \.overlay-trigger-pickup\s*\{[^}]*rgba\(74, 222, 128, 0\.95\)/s);
+  assert.match(missionCss,/\.overlay-guides \.overlay-trigger-dropoff\s*\{[^}]*rgba\(251, 191, 36, 0\.95\)/s);
+  assert.match(missionCss,/\.overlay-guides \.overlay-trigger-pickup-label\s*\{[^}]*#4ade80/s);
+  assert.match(missionCss,/\.overlay-guides \.overlay-trigger-dropoff-label\s*\{[^}]*#fbbf24/s);
   assert.ok(missionCss.includes(".trigger-guide-readout"));
   assert.ok(missionCss.includes(".overlay-frame-scale"));
 });
