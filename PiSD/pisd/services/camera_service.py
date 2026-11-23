@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pisd.core.latency_metrics import RollingLatency
+
 import io
 import threading
 import time
@@ -348,6 +350,7 @@ class CameraService:
         self._avg_encode_ms = 0.0
         self._last_frame_bytes = 0
         self._frames_dropped_or_empty = 0
+        self.performance = RollingLatency(('capture', 'encode'))
 
     def _record(
         self,
@@ -392,6 +395,7 @@ class CameraService:
                 }
             )
         data.update(self.get_fps_stats())
+        data['performance'] = self.performance.snapshot()
         data.update(self.errors.status_fields(limit=5))
         return data
 
@@ -684,6 +688,7 @@ class CameraService:
             self._frame_condition.notify_all()
 
     def _note_encode_time(self, encode_ms: float) -> None:
+        self.performance.observe_ms('encode', encode_ms)
         with self._frame_lock:
             self._last_encode_ms = float(encode_ms)
             if self._avg_encode_ms <= 0:
@@ -929,6 +934,7 @@ class CameraService:
         local_stop_event = stop_event or self._stop_event
         while not local_stop_event.is_set():
             start = time.time()
+            capture_started = self.performance.start()
             try:
                 if self.backend == "picamera2" and self._picam2 is not None:
                     if self.config.capture_source == "request":
@@ -951,12 +957,14 @@ class CameraService:
                 else:
                     with self._frame_lock:
                         self._frames_dropped_or_empty += 1
+                    self.performance.count('dropped_frames')
                     self._record(
                         PiSDErrorCodes.CAMERA_ENCODE_FAILED,
                         "Camera frame could not be JPEG encoded.",
                         context={"backend": self.backend, "capture_source": self.config.capture_source},
                     )
             except Exception as exc:
+                self.performance.count('dropped_frames')
                 self._record(
                     PiSDErrorCodes.CAMERA_CAPTURE_FAILED,
                     f"Capture error: {exc}",
@@ -972,6 +980,7 @@ class CameraService:
                             "Picamera2 capture failed; falling back to simulation.",
                             severity="warning",
                         )
+            self.performance.observe_elapsed('capture', capture_started)
             interval = 1.0 / max(self.config.fps, 1)
             elapsed = time.time() - start
             local_stop_event.wait(max(0.001, interval - elapsed))
