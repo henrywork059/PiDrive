@@ -66,7 +66,8 @@ test("attacker IDs and operation names are rejected or constrained",()=>{
   assert.equal(other.trace.operation,"unknown");
 });
 test("GUI runtime save checks both HTTP failure and body failure",()=>{
-  assert.match(gui,/!response\.ok \|\| data\?\.ok === false \|\| data\?\.saved === false/);
+  assert.match(gui,/!response\.ok \|\| data\?\.ok === false/);
+  assert.match(gui,/data\?\.saved === false && !\['GET', 'HEAD'\]/);
   assert.match(gui,/appendRequestTrace\('driveSettingsMessage', error\)/);
   assert.match(gui,/appendRequestTrace\('aiSettingsMessage', error\)/);
 });
