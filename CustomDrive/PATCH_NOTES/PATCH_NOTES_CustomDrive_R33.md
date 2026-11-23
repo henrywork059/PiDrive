@@ -16,9 +16,9 @@ The original Mission 1 browser showed raw `phase`, `mission_state`, `arm_sequenc
 - `CustomDrive/custom_drive/mission_timeline.py` **new**: thread-safe bounded observation helper with an explicit map of actual `current_phase` strings. Supports route, camera start, model load, waiting for frame, pickup search/alignment, grip/pose, lift, drop-off transport/alignment, release, and reverse reset. Stages are appended **only when observed**, not manufactured by a preset checklist. Tracks most recent completed transition, interrupted/failed stage, failure reason and source stage. Can show repeated pickup cycles; ignores unrecognized phases. No hardware imports.
 - `CustomDrive/custom_drive/mission1_web/static/mission_timeline.js` **new**: pure view projection from backend-owned `mission_timeline`; no guessed stage order on the client. Bounded text and validated status values.
 - `CustomDrive/custom_drive/mission1_web/static/app.js`: compact timeline renderer integrated into existing status refresh; HTML-escapes all status-derived content. No new fetch interval, control request or action.
-- `CustomDrive/custom_drive/mission1_web/templates/index.html`: timeline immediately beneath live viewer metrics, before camera image, with current/last-completed/failure summary.
+- `CustomDrive/custom_drive/mission1_web/templates/index.html`: timeline above the summary telemetry cards and camera image, with current/last-completed/failure summary.
 - `CustomDrive/custom_drive/mission1_web/static/styles.css`: small responsive horizontal activity markers (green completed, blue current, red failed, amber interrupted) using existing theme variables.
-- `CustomDrive/tests/test_mission_timeline.py` **new**: 22 Python unit cases for actual backend stage observations, terminal states, skipped stages and repeated cycles.
+- `CustomDrive/tests/test_mission_timeline.py` **new**: 24 Python unit cases for actual backend stage observations, terminal states, skipped stages and repeated cycles.
 - `CustomDrive/tests/test_mission1_timeline.cjs` **new**: 22 deterministic frontend projector cases.
 - `CustomDrive/PATCH_NOTES/PATCH_NOTES_CustomDrive_R33.md` — this note.
 
@@ -27,11 +27,12 @@ The original Mission 1 browser showed raw `phase`, `mission_state`, `arm_sequenc
 - **Last completed:** a previous observed step is marked completed only on a forward stage progression (or confirmed complete outcome). An interrupted camera wait, backwards search, operator STOP, failure, and idle tabs do not create false completions.
 - **Arm settling:** stop-for-grip and stop-for-release are observed before settling. The latest backend arm-sequence note and `detail` appear below the timeline.
 - **Failure:** U22 `failure_reason`, `failure_stage`, `last_error` populate a diagnostic failure item; stop remains interrupted and no rearm occurs automatically. The failed stage remains visible even if the worker has stopped.
-- **Repeated mission loops:** after release/reset the next observed pickup search is identified as the next cycle without pretending the mission has ended. History is bounded; new sessions reset progress only after passing the original start guards.
+- **Repeated mission loops:** after release/reset the next observed pickup search is identified as the next cycle without pretending the mission has ended. Release or reverse-reset is counted completed when the next pickup cycle is actually entered, including when reverse is disabled. History is bounded; new sessions reset progress only after passing the original start guards.
 - **Control safety:** no new motion paths, no additional stage transitions, no new motor permission, no generated servo/grip confirmation, no configuration migrations, no change to mission reports, and no modifications to GUI/headless components. A successful servo pose is still unverified by a grip sensor.
 
 ## Verification actually performed
-- Final client helper and full Mission 1 browser script parsed using the V8 JavaScript runtime.
+- Final client helper and full Mission 1 browser script parsed using the V8 JavaScript runtime. A lightweight fake-DOM renderer smoke check verified that untrusted backend HTML text is escaped.
+- A failed status poll flags the displayed timeline as disconnected/stale until a successful backend status response, without making any control request.
 - **22/22** frontend timeline projection cases executed using a CommonJS-compatible V8 adapter.
 - Backend Python unit test source added but **not executed** in the connected GitHub environment.
 - GitHub compare against main and unchanged main-file spot checks listed in draft PR.
