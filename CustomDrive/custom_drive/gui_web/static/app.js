@@ -127,8 +127,10 @@ function previewPollDelay() {
 async function requestPreviewFrame() {
   if (!state.previewEnabled || state.previewInFlight || document.hidden) return;
   state.previewInFlight = true;
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 3000);
   try {
-    const response = await fetch(`/api/camera/frame.jpg?ts=${Date.now()}`, { cache: 'no-store' });
+    const response = await fetch(`/api/camera/frame.jpg?ts=${Date.now()}`, { cache: 'no-store', signal: controller.signal });
     if (response.status === 204) throw new Error('No camera frame');
     if (!response.ok) throw new Error(`Preview request failed (${response.status})`);
     const live = response.headers.get('X-Preview-Live') === '1';
@@ -160,6 +162,7 @@ async function requestPreviewFrame() {
     // Keep the last successfully decoded frame instead of replacing it.
     previewHealth.fail();
   } finally {
+    window.clearTimeout(timeoutId);
     state.previewInFlight = false;
     renderPreviewHealth();
     schedulePreviewPoll(previewHealth.retryDelay(previewPollDelay()));
