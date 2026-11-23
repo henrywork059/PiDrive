@@ -16,7 +16,7 @@ from custom_trainer.ui.widgets.log_panel import LogPanel
 class CustomTrainerMainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle('CustomTrainer 0_2_14')
+        self.setWindowTitle('CustomTrainer 0_2_15')
         self.resize(1500, 920)
         self.setMinimumSize(960, 680)
         self._startup_geometry_applied = False
@@ -95,9 +95,6 @@ class CustomTrainerMainWindow(QMainWindow):
             QShortcut(QKeySequence(f'Ctrl+{idx + 1}'), self, activated=lambda i=idx: self.tabs.setCurrentIndex(i))
         QShortcut(QKeySequence('Ctrl+Tab'), self, activated=self.next_tab)
         QShortcut(QKeySequence('Ctrl+Shift+Tab'), self, activated=self.previous_tab)
-        QShortcut(QKeySequence('Ctrl+S'), self, activated=self.marking_page.save_current_labels)
-        QShortcut(QKeySequence('PageUp'), self, activated=self.marking_page.prev_image)
-        QShortcut(QKeySequence('PageDown'), self, activated=self.marking_page.next_image)
         QShortcut(QKeySequence('F1'), self, activated=self.show_shortcuts)
 
     def next_tab(self) -> None:
@@ -145,15 +142,21 @@ class CustomTrainerMainWindow(QMainWindow):
                 [
                     'Ctrl+1..Ctrl+5 -> Switch pages',
                     'Ctrl+Tab / Ctrl+Shift+Tab -> Next / previous page',
+                    'Marking shortcuts only work outside text/class editors.',
                     'Ctrl+S -> Save current labels on Marking page',
-                    'PageUp / PageDown -> Previous / next image (extra shortcut)',
-                    'Right-click box -> Select or drag box',
-                    'Left-drag -> Create box',
-                    'Arrow keys -> Move selected box',
-                    'Shift + Arrow keys -> Move selected box faster',
-                    'A / D -> Previous / next frame with auto-save',
-                    'W / S -> Cycle class up / down (selected box or active class)',
-                    'X -> Delete selected frame(s)',
+                    'A / D or PageUp / PageDown -> Previous / next frame (auto-save)',
+                    'Left-drag -> Draw new box',
+                    'Right-click / right-drag -> Select or move box',
+                    'B / Shift+B -> Select next / previous box',
+                    'Arrow keys -> Move selected box (Shift = 10 pixels)',
+                    'Ctrl+Z -> Undo last box edit on current frame',
+                    'Ctrl+Y or Ctrl+Shift+Z -> Redo box edit',
+                    'Ctrl+mouse wheel -> Zoom 1x to 8x around pointer',
+                    'Middle-button drag -> Pan zoomed image',
+                    'Ctrl+Plus / Ctrl+Minus / Ctrl+0 -> Zoom in / out / reset',
+                    'W / S -> Cycle selected box class or active class',
+                    '1 to 9 -> Choose class 0 to 8; apply to selected box',
+                    'X -> Delete selected frame(s) with confirmation',
                     'Delete -> Delete selected box',
                     'Ctrl + Click in frame list -> Multi-select frames',
                     'Validation prediction browser now lets you step through saved frames.',
