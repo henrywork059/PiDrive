@@ -474,7 +474,7 @@ class MotorService:
                 self._rebuild_drivers_locked()
             return self.get_config()
 
-    def update(self, steering: float = 0.0, throttle: float = 0.0, steer_mix: float | None = None) -> tuple[float, float]:
+    def update(self, steering: float = 0.0, throttle: float = 0.0, steer_mix: float | None = None, *, control_source: str = "other") -> tuple[float, float]:
         with self._lock:
             steering = clamp_float(steering, -1.0, 1.0, 0.0)
             throttle = clamp_float(throttle, -1.0, 1.0, 0.0)
@@ -498,6 +498,7 @@ class MotorService:
             self.last_command = {
                 "steering": steering,
                 "throttle": throttle,
+                "control_source": control_source if control_source in {"manual", "manual_assist", "ai", "other"} else "other",
                 "steer_mix": mix,
                 "steering_mode": self.config.steering_mode,
                 "min_inside_speed": self.config.min_inside_speed,
@@ -603,6 +604,7 @@ class MotorService:
         self.last_command = {
             "steering": 0.0,
             "throttle": 0.0,
+            "control_source": "stopped",
             "steer_mix": self.config.steer_mix,
             "steering_mode": self.config.steering_mode,
             "min_inside_speed": self.config.min_inside_speed,

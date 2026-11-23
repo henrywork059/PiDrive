@@ -125,6 +125,39 @@
   let lastPreviewFps = null;
   let lastPreviewStats = null;
   let lastPreviewImageLoadAt = 0;
+  // R32: diagnostic-only polling. It does not arm, stop or command motors.
+  let lastReadinessStatus = initialStatus;
+  let readinessPollBusy = false;
+  function renderOperatingReadiness(status = lastReadinessStatus, offline = false) {
+    const readiness = window.PiSDOperatingReadiness.projectReadiness(status, {
+      screen: 'manual', confirmed: Boolean(arm?.checked), offline
+    });
+    for (const [key, id] of Object.entries({
+      camera: 'mdrvReadyCamera', model: 'mdrvReadyModel',
+      source: 'mdrvReadySource', motor: 'mdrvReadyMotor', reason: 'mdrvReadyReason'
+    })) {
+      const element = $(id);
+      if (!element) continue;
+      if (element.textContent !== readiness[key].text) element.textContent = readiness[key].text;
+      element.dataset.tone = readiness[key].tone;
+    }
+  }
+  async function pollOperatingReadiness() {
+    if (readinessPollBusy || document.hidden) return;
+    readinessPollBusy = true;
+    try {
+      const response = await fetch('/api/status', { cache: 'no-store' });
+      if (!response.ok) throw new Error('status request failed');
+      const status = await response.json();
+      if (!status || status.app !== 'PiSD') throw new Error('invalid PiSD status');
+      lastReadinessStatus = status;
+      renderOperatingReadiness(status);
+    } catch (error) {
+      renderOperatingReadiness(lastReadinessStatus, true);
+    } finally {
+      readinessPollBusy = false;
+    }
+  }
 
   // PiSD_0_9_1: keyboard driving state. Up/Down adjust live throttle
   // by fixed steps; Left/Right ramp steering linearly while held, then
@@ -938,6 +971,8 @@
   }
 
   function renderStatus(status) {
+    lastReadinessStatus = status;
+    renderOperatingReadiness(status);
     updateOverlayMotorSettings(status?.motor || {});
     $('mdrvHardware').textContent = status.hardware_requested ? 'on' : 'sim';
     $('mdrvCameraState').textContent = status.camera?.running ? 'run' : (status.camera?.backend || 'off');
@@ -1391,6 +1426,7 @@
       toggleLog.textContent = hidden ? 'Hide action log' : 'Show action log';
     });
     arm?.addEventListener('change', () => {
+      renderOperatingReadiness();
       updateLock();
       if (!arm?.checked) {
         keyboardThrottle = 0;
@@ -1424,6 +1460,11 @@
   setDriveState(STOP_COMMAND, STOP_OUTPUT, 'stopped');
   renderStatus(initialStatus);
   bind();
+  window.setInterval(pollOperatingReadiness, 1400);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) pollOperatingReadiness();
+  });
+  pollOperatingReadiness();
   applyOverlayCalibration(overlaySettings, false);
   updateDriveOverlay(lastPayload, lastMotorOutput, 'stopped');
   updateLock();

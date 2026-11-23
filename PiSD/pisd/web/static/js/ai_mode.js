@@ -42,6 +42,42 @@
   let recordingRunning = Boolean(initial.recording?.running);
   let overlayEnabled = true;
   let lastAIStatus = initial.ai_mode || {};
+  // R32: backend status, not page selection, governs the indicated motor owner.
+  let lastReadinessStatus = initial;
+  let readinessPollBusy = false;
+  function renderOperatingReadiness(status = lastReadinessStatus, offline = false) {
+    const readiness = window.PiSDOperatingReadiness.projectReadiness(status, {
+      screen: 'ai',
+      confirmed: Boolean(els.aiEnableMotor?.checked),
+      selectedPanel: outputPanelMode,
+      selectedModel: els.aiModelSelect?.value || '',
+      offline
+    });
+    for (const [key, id] of Object.entries({
+      camera: 'aiReadyCamera', model: 'aiReadyModel', source: 'aiReadySource',
+      motor: 'aiReadyMotor', reason: 'aiReadyReason'
+    })) {
+      const element = document.getElementById(id);
+      if (!element) continue;
+      if (element.textContent !== readiness[key].text) element.textContent = readiness[key].text;
+      element.dataset.tone = readiness[key].tone;
+    }
+  }
+  async function pollOperatingReadiness() {
+    // An active AI run already polls the full status every 250 ms.
+    if (readinessPollBusy || statusTimer || document.hidden) return;
+    readinessPollBusy = true;
+    try {
+      const data = await api('/api/ai/status');
+      if (data?.ok !== true || !data.ai || !data.safety) throw new Error('AI readiness status unavailable');
+      lastReadinessStatus = { ...data, ai_mode: data.ai };
+      renderOperatingReadiness(lastReadinessStatus);
+    } catch (error) {
+      renderOperatingReadiness(lastReadinessStatus, true);
+    } finally {
+      readinessPollBusy = false;
+    }
+  }
   let aiMotorEnableInitialised = false;
   let latestMotorSettings = { ...DEFAULT_MOTOR_SETTINGS };
   let outputPanelMode = 'manual';
@@ -523,11 +559,14 @@
       renderGlobalSettings(data.settings || {}, { force: false });
       renderCameraWorkflowSettings(data.camera || (data.settings || {}).camera || {});
       renderAI(data.ai || {});
+      lastReadinessStatus = { ...data, ai_mode: data.ai || {} };
+      renderOperatingReadiness(lastReadinessStatus);
       renderRecording(data.recording || {});
       if (data.errors) renderLastErrorLog(data.errors || {});
       if (els.aiGlobalCode) els.aiGlobalCode.textContent = data.code || 'PISD-OK-000';
       return data;
     } catch (err) {
+      renderOperatingReadiness(lastReadinessStatus, true);
       log(err.message, err.payload || {});
       return null;
     }
@@ -799,6 +838,7 @@
     if (manualActive) updateManualDriveStatus('Manual pad active. AI preview overlay can keep running; manual input owns the motors.', 'active');
     if (assistActive) updateAssistStatus('AI assist active. Manual throttle drives; AI model steering is added by the Assist %.', 'active');
 
+    renderOperatingReadiness();
     if (persist) saveConfig();
   }
 
@@ -1664,7 +1704,12 @@
     els.aiRecordToggle?.addEventListener('click', toggleAIRecording);
     els.aiManualDriveStop?.addEventListener('click', () => stopFullManualDrive('ai-manual-stop-button'));
     els.aiAssistStop?.addEventListener('click', () => stopAssistDrive('ai-assist-stop-button'));
-    els.aiEnableMotor?.addEventListener('change', () => { if (!els.aiEnableMotor.checked && manualDrivePanelActive()) stopFullManualDrive('ai-manual-disabled'); if (!els.aiEnableMotor.checked && aiAssistPanelActive()) stopAssistDrive('ai-assist-disabled'); });
+    els.aiEnableMotor?.addEventListener('change', () => {
+      renderOperatingReadiness();
+      if (!els.aiEnableMotor.checked && manualDrivePanelActive()) stopFullManualDrive('ai-manual-disabled');
+      if (!els.aiEnableMotor.checked && aiAssistPanelActive()) stopAssistDrive('ai-assist-disabled');
+    });
+    els.aiModelSelect?.addEventListener('change', () => renderOperatingReadiness());
     window.addEventListener('pisd:space-stop', () => {
       correctionKeyboardSteering = 0;
       correctionKeyboardThrottle = 0;
@@ -1722,5 +1767,11 @@
   renderRecording(initial.recording || {});
   wireRanges();
   bind();
+  renderOperatingReadiness(initial);
+  window.setInterval(pollOperatingReadiness, 1400);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) pollOperatingReadiness();
+  });
   refreshModels().then(() => refreshStatus()).then(() => refreshAIRecordingFiles()).then(() => refreshLastErrors());
+  pollOperatingReadiness();
 })();

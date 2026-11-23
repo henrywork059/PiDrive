@@ -1,0 +1,57 @@
+/* PiSD R32: a compact read-only status strip, no changed controls or docking. */
+.pisd-readiness-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: .3rem .55rem;
+  margin: .5rem 0;
+  padding: .4rem .55rem;
+  border: 1px solid var(--mdrv-border, rgba(148,163,184,.22));
+  border-radius: 10px;
+  background: rgba(15,23,42,.22);
+  font-size: .79rem;
+  line-height: 1.25;
+}
+.pisd-readiness-item {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: .18rem .4rem;
+}
+.pisd-readiness-item > span,
+.pisd-readiness-reason > span {
+  color: var(--mdrv-muted, #94a3b8);
+  white-space: nowrap;
+  font-weight: 500;
+}
+.pisd-readiness-item > strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--mdrv-text, #e2e8f0);
+  font-weight: 700;
+}
+.pisd-readiness-reason {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: .5rem;
+  align-items: baseline;
+  border-top: 1px solid rgba(148,163,184,.14);
+  padding-top: .35rem;
+}
+.pisd-readiness-reason > strong {
+  overflow-wrap: anywhere;
+  font-size: .81rem;
+  font-weight: 600;
+}
+.pisd-readiness-strip strong[data-tone="good"] { color: #86efac; }
+.pisd-readiness-strip strong[data-tone="warning"] { color: #fcd34d; }
+.pisd-readiness-strip strong[data-tone="danger"] { color: #fda4af; }
+.pisd-readiness-strip strong[data-tone="neutral"] { color: var(--mdrv-text, #e2e8f0); }
+@media (max-width: 1050px) {
+  .pisd-readiness-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) {
+  .pisd-readiness-strip { grid-template-columns: 1fr; }
+}
