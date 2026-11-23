@@ -2,6 +2,24 @@
 
 CustomDrive provides mission-flow and manual-control applications built on shared runtime abstractions for simulated and live Pi operation.
 
+## Mission 1 latency and CPU diagnostics (0_5_19, U23)
+
+The existing Mission 1 `/api/status` `pipeline` object preserves FPS and
+cycle-time values and adds bounded `performance` (controller-loop work,
+motor apply and camera-frame age before inference) and
+`detector_performance` (preprocessing/resize, inference and postprocessing).
+Each sampled stage exposes p50/p95/last milliseconds across at most 120
+observations; counters track stale/failed frames and model failures when
+observed. Process CPU percent is sampled on status reads, not continuously,
+and is the sum of process core consumption rather than entire-system load.
+
+No verbose per-frame logging, SD-card writes, arm/config updates, motor logic
+changes or browser layout changes are introduced. The accepted grip/drop-off
+thresholds, explicit mission-failure states, and non-verified grip labeling
+remain intact. A missing stage indicates no measured samples, not zero delay;
+queue waits are not claimed without a real queue. No performance target is
+assumed until real Raspberry Pi 4 measurements are available.
+
 ## Current documented entry points
 
 From `CustomDrive/`:
