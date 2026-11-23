@@ -88,6 +88,7 @@
         <div class="panel-body viewer-body">
           <div class="viewer-frame">
             <img id="videoFeed" src="" alt="PiServer camera preview" />
+            <div id="previewHealth" class="preview-health disconnected" role="status" aria-live="polite">Disconnected · no frame</div>
             <div id="snapshotFlash" class="snapshot-flash" aria-hidden="true"></div>
             <div id="frameOverlay" class="frame-overlay overlay-mode-0">
               <div id="overlayOne" class="frame-overlay-panel overlay-one" aria-hidden="true">
@@ -469,6 +470,7 @@
     </section>
   </main>
 
+  <script src="{{ url_for('static', filename='preview_freshness.js') }}?v={{ app_version }}"></script>
   <script src="{{ url_for('static', filename='app.js') }}?v={{ app_version }}"></script>
 
 

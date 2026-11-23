@@ -850,7 +850,7 @@ function updateStatusUi(data) {
   const driveState = data.safety_stop ? "E-stop active"
     : data.manual_command_timed_out ? "Manual command expired · stopped"
     : (data.active_algorithm === "manual" ? "Manual ready" : `${data.active_algorithm || "auto"} active`);
-  const previewState = data.camera_preview_live ? "live" : "placeholder";
+  previewHealth.setBackendLive(!!data.camera_preview_live);
   const errorText = data.camera_error ? String(data.camera_error) : "none";
 
   const setText = (id, text) => {
@@ -865,7 +865,7 @@ function updateStatusUi(data) {
   setText("metricLastSave", shortLastSaveLabel(lastSaveRaw));
   const metricLastSaveEl = document.getElementById("metricLastSave");
   if (metricLastSaveEl) metricLastSaveEl.title = lastSaveRaw;
-  setText("metricPreview", previewState);
+  renderPreviewHealth();
   setText("metricCamera", `${data.camera_width || 0}×${data.camera_height || 0} ${data.camera_format || "unknown"}`);
   setText("metricModel", data.active_model || "none");
   setText("metricAlgorithm", data.active_algorithm || "manual");
@@ -881,12 +881,6 @@ function updateStatusUi(data) {
   setText("recordLastSave", lastSaveRaw);
   const recordLastSaveEl = document.getElementById("recordLastSave");
   if (recordLastSaveEl) recordLastSaveEl.title = lastSaveRaw;
-
-  const previewMeta = document.getElementById("cameraPreviewMeta");
-  if (previewMeta) {
-    const extraError = data.camera_error ? ` · ${data.camera_error}` : "";
-    previewMeta.textContent = `Backend: ${data.camera_backend || "unknown"} · ${previewState} preview${extraError}`;
-  }
 
   setRecordToggle(!!data.recording, false);
   updateOverlayVisuals(data);
@@ -1164,6 +1158,23 @@ async function applyMotorConfig() {
   await pollStatus();
 }
 
+const previewHealth = window.PiDrivePreviewFreshness.createPreviewFreshness(() => performance.now());
+function renderPreviewHealth() {
+  const health = previewHealth.snapshot();
+  const age = health.ageMs === null ? 'no frame' : `${(health.ageMs / 1000).toFixed(1)}s old`;
+  const indicator = document.getElementById('previewHealth');
+  if (indicator) {
+    indicator.className = `preview-health ${health.state.toLowerCase()}`;
+    indicator.textContent = `${health.state} · ${age}`;
+  }
+  const viewer = document.querySelector('.viewer-frame');
+  if (viewer) viewer.classList.toggle('preview-is-stale', health.hasFrame && health.state !== 'Live');
+  const metric = document.getElementById('metricPreview');
+  if (metric) metric.textContent = health.state;
+  const meta = document.getElementById('cameraPreviewMeta');
+  const status = state.latestStatus || {};
+  if (meta) meta.textContent = `Backend: ${status.camera_backend || 'unknown'} · ${health.state} · ${age}${status.camera_error ? ' · ' + status.camera_error : ''}`;
+}
 function previewDelayMs() {
   const fps = Number(document.getElementById("cameraPreviewFps")?.value || state.cameraConfig?.preview_fps || 12);
   return clamp(Math.round(1000 / Math.max(1, fps)), 40, 500);
@@ -1183,6 +1194,8 @@ async function sendPreviewState(enabled) {
 
 function stopPreviewLoop(clearImage = false) {
   state.previewActive = false;
+  previewHealth.setPaused(true);
+  renderPreviewHealth();
   if (state.previewTimer) {
     clearTimeout(state.previewTimer);
     state.previewTimer = null;
@@ -1193,10 +1206,10 @@ function stopPreviewLoop(clearImage = false) {
   }
 }
 
-function schedulePreviewFrame(immediate = false) {
+function schedulePreviewFrame(immediate = false, delayMs = previewDelayMs()) {
   if (!state.previewActive) return;
   if (state.previewTimer) clearTimeout(state.previewTimer);
-  state.previewTimer = setTimeout(requestPreviewFrame, immediate ? 0 : previewDelayMs());
+  state.previewTimer = setTimeout(requestPreviewFrame, immediate ? 0 : delayMs);
 }
 
 async function requestPreviewFrame() {
@@ -1206,32 +1219,53 @@ async function requestPreviewFrame() {
     return;
   }
   state.previewInFlight = true;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 3000);
   try {
-    const response = await fetch(`/api/camera/frame.jpg?t=${Date.now()}`, { cache: "no-store" });
-    if (response.status === 204) {
-      schedulePreviewFrame(false);
+    const response = await fetch(`/api/camera/frame.jpg?t=${Date.now()}`, { cache: "no-store", signal: controller.signal });
+    if (response.status === 204) throw new Error('No camera frame');
+    if (!response.ok) throw new Error(`Preview request failed (${response.status})`);
+    const live = response.headers.get('X-Preview-Live') === '1';
+    const sequenceHeader = response.headers.get('X-Preview-Seq');
+    const sequence = sequenceHeader === null ? NaN : Number(sequenceHeader);
+    if (!Number.isSafeInteger(sequence) || sequence < 0) throw new Error('Invalid camera frame sequence');
+    previewHealth.setBackendLive(live);
+    if (!live || !previewHealth.isNew(sequence)) {
+      if (!live || previewHealth.snapshot().ageMs >= 1500) previewHealth.fail();
       return;
     }
-    if (!response.ok) throw new Error(`Preview request failed (${response.status})`);
     const blob = await response.blob();
+    if (!blob.size) throw new Error('Empty preview frame');
     const url = URL.createObjectURL(blob);
-    const img = document.getElementById("videoFeed");
-    const previous = state.previewObjectUrl;
-    img.src = url;
-    state.previewObjectUrl = url;
-    if (previous) {
-      try { URL.revokeObjectURL(previous); } catch {}
+    try {
+      const decoded = new Image();
+      decoded.src = url;
+      await decoded.decode();
+      if (!state.previewActive || document.hidden) return;
+      const img = document.getElementById("videoFeed");
+      const previous = state.previewObjectUrl;
+      if (!previewHealth.accept(sequence)) return;
+      img.src = url;
+      state.previewObjectUrl = url;
+      if (previous) { try { URL.revokeObjectURL(previous); } catch {} }
+    } finally {
+      if (state.previewObjectUrl !== url) URL.revokeObjectURL(url);
     }
   } catch {
-    // Keep last frame visible.
+    // A failed request or JPEG decode never replaces the last successful frame.
+    previewHealth.fail();
   } finally {
+    clearTimeout(timeoutId);
     state.previewInFlight = false;
-    schedulePreviewFrame(false);
+    renderPreviewHealth();
+    schedulePreviewFrame(false, previewHealth.retryDelay(previewDelayMs()));
   }
 }
 
 function refreshVideoFeed() {
   state.previewActive = !document.hidden;
+  previewHealth.setPaused(!state.previewActive);
+  renderPreviewHealth();
   sendPreviewState(state.previewActive);
   schedulePreviewFrame(true);
 }
@@ -1244,6 +1278,8 @@ function syncPreviewActivity() {
     setManualTargets(0, 0, { immediateCurrent: true, sendNow: true });
   }
   state.previewActive = enabled;
+  previewHealth.setPaused(!enabled);
+  renderPreviewHealth();
   sendPreviewState(enabled);
   if (enabled) schedulePreviewFrame(true);
   else stopPreviewLoop(false);
@@ -1726,6 +1762,7 @@ async function init() {
   syncControlsFromStatus(status);
   applyManualState();
   state.statusTimer = setInterval(pollStatus, 800);
+  state.previewHealthTimer = setInterval(renderPreviewHealth, 250);
 }
 
 window.addEventListener("load", init);

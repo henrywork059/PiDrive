@@ -18,7 +18,7 @@ from piserver.services.recorder_service import RecorderService
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 WEB_DIR = Path(__file__).resolve().parent / "web"
-APP_VERSION = "0_4_18"
+APP_VERSION = "0_4_19"
 
 
 def mjpeg_generator(camera_service):
@@ -109,12 +109,17 @@ def create_app() -> Flask:
 
     @app.route("/api/camera/frame.jpg")
     def api_camera_frame():
-        frame = camera_service.get_jpeg_frame()
+        # Read bytes and publication sequence atomically; never reset freshness
+        # merely because a cached JPEG can still be returned by the service.
+        frame, sequence = camera_service.wait_for_jpeg(-1, timeout=0.0)
         if frame is None:
-            frame, _ = camera_service.wait_for_jpeg(0, timeout=0.35)
+            camera_service.wait_for_jpeg(0, timeout=0.35)
+            frame, sequence = camera_service.wait_for_jpeg(-1, timeout=0.0)
         if frame is None:
             return ("", 204)
         response = Response(frame, mimetype="image/jpeg")
+        response.headers["X-Preview-Seq"] = str(sequence)
+        response.headers["X-Preview-Live"] = "1" if camera_service.get_config().get("preview_live") else "0"
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
