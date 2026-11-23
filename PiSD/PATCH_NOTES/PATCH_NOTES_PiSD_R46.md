@@ -12,7 +12,7 @@ Implement `docs/roadmaps/PiDrive_Refinement_Roadmap.md` R46: short text that tel
 Recording/snapshot folders and model dropdowns reported `No folders` / `No files` without a next action; offline listing failures surfaced raw exception text rather than a short connection/Refresh instruction. AI preview errors gave no recovery step.
 
 ## Files changed / exact behavior
-- `PiSD/pisd/web/static/js/manual_drive.js`: no recordings → Start live then Record; no snapshots → Start live then Capture. Display model avoids false `Loaded 0...` success when both collections empty; failed folder refresh shows one Pi connection/Refresh instruction while retaining the existing coded diagnostics log.
+- `PiSD/pisd/web/static/js/manual_drive.js`: no recordings → Start live then Record; no snapshots → Start live then Capture. The selected folder kind's empty notice remains visible even if the other kind has folders; failed folder refresh shows one Pi connection/Refresh instruction while retaining the existing coded diagnostics log.
 - `PiSD/pisd/web/static/js/ai_mode.js`: empty model list identifies accepted `.keras`/`.tflite` upload, missing selection identifies Choose, preview error says check camera and Start live. Existing AI/control loops and stop beacons untouched.
 - `PiSD/pisd/__init__.py`: 0.11.18 → 0.11.19.
 - `PiSD/scripts/test_ui_copy_r46.cjs`: seven JS syntax/copy/safety guards.
@@ -20,7 +20,7 @@ Recording/snapshot folders and model dropdowns reported `No folders` / `No files
 
 ## Verification actually performed
 - 7/7 exact committed JS test callbacks executed in isolated V8 compatibility harness; both modified browser files parsed and R43 MJPEG/STOP/AI-status safety strings remained.
-- Direct-parent GitHub comparison and no-rollback checks must be completed before opening the draft PR; do not claim checks not performed.
+- **Direct-parent GitHub comparison completed:** 5 files changed (2 new, 3 modified); 0 commits behind R43, no deleted paths or edits outside PiSD; motor/camera/recording/operating-readiness services, R35 STOP, R36 layouts and R43 hidden MJPEG control untouched.
 - Tests that **remain outstanding**: native `node --test` or Python `unittest` on a checked-out current branch, full component suites, browser interaction/screenshots, live Raspberry Pi motor/camera/network or Windows Qt integration. V8 test callbacks are not native Node's test runner.
 - Version marker only advances this component's existing version series; saved config and user data stay intact.
 
