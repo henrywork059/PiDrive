@@ -176,8 +176,11 @@
         </div>
         <div class="stack-row panel-actions">
           <button id="saveDriveSettingsBtn" type="button">Save Drive Settings</button>
+          <span id="driveApplyState" class="settings-apply-state" data-state="unsaved" role="status" aria-live="polite">Unsaved</span>
+          <button id="driveRetryApply" type="button" class="ghost-btn" hidden>Retry apply</button>
         </div>
         <div id="driveSettingsMessage" class="banner muted">Drive settings ready.</div>
+        <div id="driveApplyDetail" class="small-note">Settings have not been confirmed by the backend.</div>
       </div>
     </div>
   </div>
@@ -258,6 +261,11 @@
           </div>
         </div>
 
+        <div class="stack-row panel-actions">
+          <span id="aiApplyState" class="settings-apply-state" data-state="unsaved" role="status" aria-live="polite">Unsaved</span>
+          <button id="aiRetryApply" type="button" class="ghost-btn" hidden>Retry apply</button>
+        </div>
+        <div id="aiApplyDetail" class="small-note">AI settings have not been confirmed by the backend.</div>
         <div id="aiSettingsMessage" class="banner muted">Object detection settings ready.</div>
 
         <div class="panel-section">
@@ -326,6 +334,7 @@
   </div>
 
   <script src="{{ url_for('static', filename='preview_freshness.js') }}?v={{ app_version }}"></script>
+  <script src="{{ url_for('static', filename='settings_feedback.js') }}?v={{ app_version }}"></script>
   <script src="{{ url_for('static', filename='app.js') }}?v={{ app_version }}"></script>
 </body>
 </html>
