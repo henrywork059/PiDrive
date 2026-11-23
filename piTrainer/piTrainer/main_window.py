@@ -271,6 +271,16 @@ class MainWindow(QMainWindow):
             self.set_status_message('Could not open that validation frame in the Data editor.')
 
     def closeEvent(self, event) -> None:
+        active = [page for page in (
+            self.preprocess_page, self.train_page, self.validation_page,
+            self.export_page, self.export_validation_page,
+        ) if page.has_active_task()]
+        if active:
+            if self.train_page in active:
+                self.train_page.stop_training()
+            self.set_status_message('An operation is still finishing; close after it completes to avoid incomplete output.')
+            event.ignore()
+            return
         self.data_page.save_layout()
         self.preprocess_page.save_layout()
         self.train_page.save_layout()
