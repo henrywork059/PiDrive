@@ -8,6 +8,7 @@ from ..app_state import AppState
 from ..panels.common.log_panel import LogPanel
 from ..panels.common.task_progress_panel import TaskProgressPanel
 from ..services.background_task import BackgroundTaskRunner
+from ..services.task_outputs import confirmed_dataset_paths
 from ..panels.preprocess.preprocess_actions_panel import PreprocessActionsPanel
 from ..panels.preprocess.preprocess_config_panel import PreprocessConfigPanel
 from ..panels.preprocess.preprocess_filter_panel import PreprocessFilterPanel
@@ -378,6 +379,7 @@ class PreprocessPage(DockPage):
             return save_preprocessed_dataset(active_df, recipe, out_dir)
 
         def completed(folder):
+            output_paths = confirmed_dataset_paths(folder)
             if self.state.out_dir_path == out_dir:
                 self.state.last_saved_preprocess_path = str(folder)
             self.summary_panel.set_summary(
@@ -390,7 +392,7 @@ class PreprocessPage(DockPage):
             self._activate_log_tab()
             self.log_panel.append_line(f'Saved preprocessed dataset: {folder}')
             self.main_window.set_status_message(f'Saved preprocessed dataset: {folder}')
-            return ('Preprocessed dataset saved', (str(folder),))
+            return ('Preprocessed dataset saved', output_paths)
 
         self.task_runner.start(
             'Save preprocessed dataset', work, completed,
