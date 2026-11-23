@@ -25,7 +25,7 @@ PiServer exposes camera, model, motor, status and safety information, but operat
 - **7/7 exact committed PiServer JS test callbacks passed** in an isolated V8 Node-compatible harness with fake DOM/fetch, using live GitHub source. Across PiServer, PiSD and both CustomDrive web apps **28/28 callbacks passed**; test scripts also parsed. **Native `node --test` was not run.**
 - Performed direct static source-contract checks: all six read-only data fields present; new GET route and template reference present; new browser script parses; no motor, camera-start, model-load, filesystem-write or network-probe call in the formatter. These do not establish actual hardware readiness.
 - **11 committed Python unittest cases were not executed** against this exact checked-out branch, nor was real Flask app boot, camera/motor hardware, screenshot or full PiServer suite. The standalone pure formatter is designed to be testable without Flask or Pi hardware; execute it before merge.
-- Direct-parent GitHub compare must be completed and exact file/rollback evidence included in the draft PR.
+- **Direct-parent GitHub compare completed** against R47 PR #72: **10 commits ahead, 0 behind; 8 component-local files changed (5 new, 3 modified); 0 deletions; 0 cross-component paths**. `piserver/web/static/app.js`, camera/motor/model/control services, auth/CSRF, R47 tracing, persisted runtime config and R43/R45 CSS/theme were not modified.
 
 ## Known limits and acceptance/release gate
 - GPIO **available** and camera backend **picamera2/opencv** mean adapter detected, not verified physical motor motion or a fresh frame. The camera may already have been initialized during the **normal main app startup**; the **preflight GET** never initializes it.
