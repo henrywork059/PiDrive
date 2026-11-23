@@ -457,14 +457,18 @@ class PiBooterController:
                     time.sleep(delay_s)
                 self.request_shutdown(reason=f"Wi-Fi connected successfully. Saved last known IP: {success_target}.", stop_hotspot=False)
             else:
-                error_message = str(result.stderr or result.stdout or "Unknown nmcli error.")
-                # nmcli or an exception might echo its command arguments. No
-                # submitted password or private hotspot secret may enter logs,
-                # page notices or /api/status on the failure path.
-                for credential in (password, str(self.config["network"].get("hotspot_password") or "")):
-                    if credential:
-                        error_message = error_message.replace(credential, "[redacted]")
-                error_message = error_message[:500]
+                # A failed nmcli command may echo Wi-Fi secrets or command
+                # arguments in its stderr. Classify the failure instead of
+                # publishing raw process output to the phone UI or web logs.
+                raw_failure = str(result.stderr or result.stdout or "").lower()
+                if any(word in raw_failure for word in ("secrets", "password", "authentication", "auth failed")):
+                    error_message = "Wi-Fi authentication failed. Check the password and retry."
+                elif any(word in raw_failure for word in ("not found", "no network", "ssid")):
+                    error_message = "Wi-Fi network not found. Check the SSID and signal, then retry."
+                elif any(word in raw_failure for word in ("timed out", "timeout")):
+                    error_message = "Wi-Fi connection timed out. Check the signal and retry."
+                else:
+                    error_message = "NetworkManager could not connect. Check the network settings and retry."
                 self.state.log(f"Wi-Fi connection failed for {ssid}: {error_message}", level="error")
                 self.state.update(
                     connection_attempt={
