@@ -144,6 +144,8 @@ test("only a confirmed save clears draft state; failed save cannot start mission
   assert.match(script, /triggerPreviewEdited = false; \/\/ only a server-confirmed save/);
   assert.match(script, /currentStatus = data\.status;\s*renderStatus\(data\.status\)/);
   assert.match(script, /if \(!await saveConfig\(\)\) return;/);
+  assert.match(script, /if \(!await saveConfig\(\)\) return; \/\/ never move a servo after an unconfirmed config save/);
+  assert.match(script, /Math\.abs\(saved - effective\) > 0\.0001/);
   assert.match(script, /triggerPreviewEdited = true;\s*if \(currentStatus\) renderViewer\(currentStatus\)/);
 });
 test("backend zero trigger is not replaced by 30% fallback", () => {
