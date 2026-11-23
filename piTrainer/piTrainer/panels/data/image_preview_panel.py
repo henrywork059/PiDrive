@@ -84,6 +84,7 @@ class ImagePreviewPanel(QGroupBox):
         }
         self._syncing_controls = False
         self._pending_edit_records: dict[tuple[str, str, str, str], dict[str, Any]] = {}
+        self._render_generation = 0
 
         self.image_label = InteractiveImageLabel(self)
 
@@ -141,6 +142,14 @@ class ImagePreviewPanel(QGroupBox):
         self.resize_render_timer.setInterval(120)
         self.resize_render_timer.timeout.connect(self._render_preview)
 
+        # R38: coalesce multiple selection/navigation changes into one decode
+        # on the next Qt event-loop turn. Unlike resize debounce, do not delay
+        # ordinary navigation by 120ms. Stop queued work on a new identity.
+        self.selection_render_timer = QTimer(self)
+        self.selection_render_timer.setSingleShot(True)
+        self.selection_render_timer.setInterval(0)
+        self.selection_render_timer.timeout.connect(self._render_preview)
+
         layout = QVBoxLayout(self)
         layout.addWidget(self.image_label, 1)
         layout.addWidget(CollapsibleSection('Edit Steering / Speed + Overlay Metadata', editor_widget, expanded=False))
@@ -182,12 +191,21 @@ class ImagePreviewPanel(QGroupBox):
         return True
 
     def set_record(self, record: dict[str, Any] | None) -> None:
-        # Do not synchronously write pending edits when the user clicks another row.
-        # The debounce timer commits queued edits shortly after selection changes,
-        # which keeps frame-to-frame review responsive on large JSONL sessions.
-        self.current_record = dict(record) if record else None
+        # Preserve queued metadata edits: navigation does not synchronously
+        # write JSONL. A new source-frame identity cancels pending image work.
+        # Clear the old pixels BEFORE updating steering/speed sliders, so there
+        # is no transient frame A image paired with frame B labels.
+        self._render_generation += 1
+        self.selection_render_timer.stop()
+        self.resize_render_timer.stop()
+        if not record:
+            self.clear_preview()
+            return
+        self.current_record = dict(record)
+        self.image_label.set_display_pixmap(None)
+        self.image_label.setText('Loading preview...')
         self._sync_controls_from_record()
-        self._render_preview()
+        self.selection_render_timer.start()
 
     def set_overlay_options(self, options: dict[str, bool]) -> None:
         self.overlay_options = {
@@ -210,6 +228,10 @@ class ImagePreviewPanel(QGroupBox):
         self._apply_current_control_values()
 
     def clear_preview(self) -> None:
+        # A late resize/selection timeout must never redraw a prior frame.
+        self._render_generation += 1
+        self.selection_render_timer.stop()
+        self.resize_render_timer.stop()
         self.current_record = None
         self.image_label.set_display_pixmap(None)
         self.image_label.setText('No preview')
@@ -250,6 +272,7 @@ class ImagePreviewPanel(QGroupBox):
         self.current_record['steering'] = steering
         self.current_record['throttle'] = speed
         self._update_value_labels(steering, speed)
+        self.selection_render_timer.stop()
         self._render_preview()
         self._queue_pending_edit(self.current_record)
 
@@ -297,14 +320,19 @@ class ImagePreviewPanel(QGroupBox):
         return width, height
 
     def _render_preview(self) -> None:
-        record = self.current_record or {}
+        generation = self._render_generation
+        record = dict(self.current_record) if self.current_record else None
+        if record is None:
+            return
+        record_identity = self._record_edit_key(record)
         image_path = str(record.get('abs_image', ''))
         target_width, target_height = self._preview_size()
         flip_lr = truthy_value(record.get('aug_flip_lr', False), default=False)
         pixmap = load_scaled_pixmap(image_path, width=target_width, height=target_height, flip_lr=flip_lr)
         if pixmap is None:
-            self.image_label.set_display_pixmap(None)
-            self.image_label.setText('Image not available')
+            if generation == self._render_generation and self.current_record is not None and self._record_edit_key(self.current_record) == record_identity:
+                self.image_label.set_display_pixmap(None)
+                self.image_label.setText('Image not available')
             return
 
         if self._has_deployed_output(record):
@@ -320,6 +348,13 @@ class ImagePreviewPanel(QGroupBox):
             )
         else:
             rendered = apply_overlays(pixmap, record, self.overlay_options)
+        # Keep the rendered image and label identity atomic. Source image
+        # decode/paint currently runs on the GUI thread, but this also guards
+        # against a future nested event loop during decoding or overlay work.
+        if generation != self._render_generation or self.current_record is None:
+            return
+        if self._record_edit_key(self.current_record) != record_identity:
+            return
         self.image_label.setText('')
         self.image_label.set_display_pixmap(rendered)
 
