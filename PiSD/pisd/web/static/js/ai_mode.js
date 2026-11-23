@@ -164,7 +164,26 @@
   function log(message, payload) {
     const time = new Date().toLocaleTimeString();
     const body = payload ? `${message}\n${JSON.stringify(payload, null, 2)}` : message;
-    if (els.aiLog) els.aiLog.textContent = `[${time}] ${body}`;
+    if (els.aiLog) els.aiLog.textContent = '[' + time + '] ' + body;
+    // Only a validated server ID/operation/status enters the expandable UI.
+    document.getElementById('aiTraceDetails')?.remove();
+    const id = String(payload?.correlation_id || '');
+    if (els.aiLog?.parentNode && /^[0-9a-f]{16}$/.test(id)) {
+      const details = document.createElement('details');
+      details.id = 'aiTraceDetails';
+      const summary = document.createElement('summary');
+      summary.textContent = 'Error details';
+      const trace = document.createElement('span');
+      const operation = String(payload?.operation || '');
+      const safeOperation = /^[a-zA-Z0-9_.-]{1,64}$/.test(operation) ? operation : 'unknown';
+      const code = String(payload?.code || '');
+      trace.textContent = ' Ref ' + id + ' · ' + safeOperation +
+        ' · HTTP ' + Number(payload?.status || 0) +
+        (/^[A-Z0-9_-]{1,48}$/.test(code) ? ' · ' + code : '');
+      details.appendChild(summary);
+      details.appendChild(trace);
+      els.aiLog.parentNode.insertBefore(details, els.aiLog.nextSibling);
+    }
   }
 
 
@@ -219,8 +238,16 @@
     });
     const data = await response.json().catch(() => ({ ok: false, message: `HTTP ${response.status}` }));
     if (!response.ok || data.ok === false) {
-      const message = data.message || `Request failed: ${path}`;
-      throw Object.assign(new Error(message), { payload: data, status: response.status });
+      const traceId = String(data?.correlation_id || '');
+      const traced = /^[0-9a-f]{16}$/.test(traceId);
+      const message = traced
+        ? 'AI request failed. Check Pi readiness and the model, then retry.'
+        : (data.message || 'AI request failed. Check the Pi, then retry.');
+      const safePayload = traced
+        ? { ok: false, code: data.code || '', correlation_id: traceId,
+            operation: data.operation || '', status: response.status }
+        : data;
+      throw Object.assign(new Error(message), { payload: safePayload, status: response.status });
     }
     return data;
   }
