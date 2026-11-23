@@ -18,7 +18,7 @@ from piserver.services.recorder_service import RecorderService
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 WEB_DIR = Path(__file__).resolve().parent / "web"
-APP_VERSION = "0_4_16"
+APP_VERSION = "0_4_17"
 
 
 def mjpeg_generator(camera_service):
@@ -212,14 +212,14 @@ def create_app() -> Flask:
 
     @app.route("/api/model/list")
     def api_model_list():
-        return jsonify({"models": model_service.list_models(), "active": model_service.get_active_name(), "input_spec": model_service.get_input_spec()})
+        return jsonify({"models": model_service.list_models(), "active": model_service.get_active_name(), "input_spec": model_service.get_input_spec(), "model_metadata": model_service.get_model_metadata()})
 
     @app.route("/api/model/upload", methods=["POST"])
     def api_model_upload():
         file = request.files.get("file")
         if file is None:
             return jsonify({"ok": False, "error": "No file uploaded."}), 400
-        ok, msg = model_service.save_uploaded_model(file)
+        ok, msg = model_service.save_uploaded_model(file, request.files.get("manifest"))
         code = 200 if ok else 400
         return jsonify({"ok": ok, "message": msg, "active": model_service.get_active_name()}), code
 
@@ -228,7 +228,7 @@ def create_app() -> Flask:
         data = request.get_json(silent=True) or {}
         ok, msg = model_service.load_model(data.get("filename", ""))
         code = 200 if ok else 400
-        return jsonify({"ok": ok, "message": msg, "active": model_service.get_active_name(), "input_spec": model_service.get_input_spec()}), code
+        return jsonify({"ok": ok, "message": msg, "active": model_service.get_active_name(), "input_spec": model_service.get_input_spec(), "model_metadata": model_service.get_model_metadata()}), code
 
     @app.route("/api/model/delete", methods=["POST"])
     def api_model_delete():

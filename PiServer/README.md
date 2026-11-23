@@ -1,5 +1,28 @@
 # PiServer
 
+## Model compatibility and rollback (0.4.17, U27)
+
+PiServer checks optional adjacent `<model>.tflite.manifest.json`
+files before model activation. Manifests identify the
+`steering_control` family, SHA-256 checksum, RGB/NHWC geometry,
+normalization, ordered steering/throttle outputs, quantization mode
+and optional training seed. A present incompatible manifest causes a
+clear failure while the existing interpreter stays active.
+
+The existing TensorFlow Lite signature and zero-input inference preflight
+remains mandatory even for manifest-bearing models. Sidecar-free older
+models still load after tensor preflight, with a legacy warning. The
+authenticated model-upload API accepts an optional multipart
+`manifest` file; unverified or mismatched metadata cannot be attached
+to an uploaded model. Existing model filenames are not overwritten by
+upload, protecting a working model from accidental replacement.
+
+`/api/model/list` and `/api/model/load` return `model_metadata`
+with the active sidecar (or legacy warning). Deleting a model removes its
+adjacent sidecar. The accepted LAN token/CSRF protections, motor watchdog,
+camera/AI timings, storage guard and configuration behavior remain intact.
+Real Pi 4 and end-to-end model swap tests are still required.
+
 PiServer is the modular PiCar runtime backend/web UI for manual driving, recording, model management, camera operations, and control-loop orchestration.
 
 ## PiServer 0.4.16 — Recording disk-space protection (U26)
