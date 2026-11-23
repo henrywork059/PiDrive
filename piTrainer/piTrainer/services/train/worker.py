@@ -209,7 +209,6 @@ class TrainingWorker(QThread):
                     if worker._stop_requested:
                         self.model.stop_training = True
                         worker._cancel_honoured = True
-                        worker._cancel_honoured = True
                     else:
                         progress = int(epoch * 100 / max(1, worker.config.epochs))
                         worker.step_changed.emit(f'Training epoch {epoch + 1}/{worker.config.epochs}', progress)
@@ -234,6 +233,7 @@ class TrainingWorker(QThread):
                         worker.epoch_review.emit(review_payload)
                     if worker._stop_requested:
                         self.model.stop_training = True
+                        worker._cancel_honoured = True
 
             callbacks = [EpochCallback()]
             if getattr(self.config, 'early_stopping', False):
