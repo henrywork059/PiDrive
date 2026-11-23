@@ -78,7 +78,7 @@ class ExportValidatePage(QWidget):
         self.predict_button = QPushButton('Run Exported Prediction', self)
         self.stop_button = QPushButton('Stop Task', self)
         self.stop_button.setEnabled(False)
-        self.preview_label = QLabel('No preview source selected.', self)
+        self.preview_label = QLabel('No preview source. Choose images, then Run Prediction.', self)
         self.preview_label.setAlignment(Qt.AlignCenter)
         self.preview_label.setMinimumSize(420, 260)
         self.preview_label.setStyleSheet('background: #0d1118; border: 1px solid #263244;')
@@ -87,7 +87,7 @@ class ExportValidatePage(QWidget):
         self.preview_info.setProperty('role', 'muted')
         self.frame_selector = QComboBox(self)
         self.frame_selector.currentIndexChanged.connect(self._on_frame_selected)
-        self.frame_status = QLabel('No predicted frames yet.', self)
+        self.frame_status = QLabel('No predictions yet. Run Prediction to create preview frames.', self)
         self.frame_status.setProperty('role', 'muted')
         self.run_log_output = QPlainTextEdit(self)
         self.run_log_output.setReadOnly(True)
@@ -420,7 +420,7 @@ class ExportValidatePage(QWidget):
             self.frame_status.setText(f'Predicted frames: 1/{len(self.predicted_frame_paths)}')
         else:
             self.current_preview_index = -1
-            self.frame_status.setText('No predicted frames yet.')
+            self.frame_status.setText('No predictions yet. Run Prediction to create preview frames.')
         self.frame_selector.blockSignals(False)
 
     def _current_predicted_frame(self) -> Path | None:
@@ -448,13 +448,13 @@ class ExportValidatePage(QWidget):
         source_text = self._current_source_text()
         if not source_text:
             self.preview_label.setPixmap(QPixmap())
-            self.preview_label.setText('No preview source selected.')
+            self.preview_label.setText('No preview source. Choose images, then Run Prediction.')
             self.preview_info.setText('Pick an image or folder source, or use the current frame/session from Marking to test the exported model.')
             return
         source_path = Path(source_text)
         if not source_path.exists():
             self.preview_label.setPixmap(QPixmap())
-            self.preview_label.setText('Preview source not found.')
+            self.preview_label.setText('Preview source missing. Browse to an existing image folder.')
             self.preview_info.setText(f'Source path does not exist:\n{source_text}')
             return
 
@@ -530,7 +530,7 @@ class ExportValidatePage(QWidget):
 
     def start_val(self) -> None:
         if self.thread is not None:
-            QMessageBox.information(self, 'Busy', 'Another exported-model task is already running.')
+            QMessageBox.information(self, 'Busy', 'An exported-model task is running. Stop it or wait before starting another.')
             return
         try:
             imgsz = int(self.imgsz_edit.text())
@@ -538,7 +538,7 @@ class ExportValidatePage(QWidget):
             QMessageBox.critical(self, 'Invalid image size', 'Image size must be an integer.')
             return
         if not self.weights_edit.text().strip():
-            QMessageBox.critical(self, 'Missing inputs', 'Choose an exported model first.')
+            QMessageBox.critical(self, 'Missing inputs', 'Export or browse to a model first.')
             return
         dataset_summary = None
         if self.state.sessions_root is not None:
@@ -554,7 +554,7 @@ class ExportValidatePage(QWidget):
             if yaml_path is not None and yaml_path.exists() and yaml_path.is_file():
                 self.yaml_edit.setText(str(yaml_path))
         if not self.yaml_edit.text().strip():
-            QMessageBox.critical(self, 'Missing inputs', 'Choose an exported model and dataset.yaml first.')
+            QMessageBox.critical(self, 'Missing inputs', 'Choose an exported model and dataset.yaml, then Run Exported Validation.')
             return
         if dataset_summary is not None:
             self.log(f'[dataset] {dataset_summary.describe()}')
