@@ -138,7 +138,7 @@ class TaskResult:
     def _model_file_status(self) -> str:
         try:
             path = Path(self.model)
-            return "Verified nonempty file" if path.is_file() and path.stat().st_size > 0 else "Not verified (original model reference only)"
+            return "Present (nonempty); bytes not pinned" if path.is_file() and path.stat().st_size > 0 else "Not verified (original model reference only)"
         except (OSError, ValueError):
             return "Not verified (original model reference only)"
 
