@@ -6,6 +6,7 @@ import pandas as pd
 
 from ..app_state import AppState
 from ..panels.common.log_panel import LogPanel
+from ..panels.common.task_progress_panel import TaskProgressPanel
 from ..panels.train.split_summary_panel import SplitSummaryPanel
 from ..panels.train.train_config_panel import TrainConfigPanel
 from ..panels.train.train_control_panel import TrainControlPanel
@@ -42,6 +43,8 @@ class TrainPage(DockPage):
             save_model_callback=self.save_trained_model,
             default_save_dir=str(self.state.out_dir_path),
         )
+        self.task_progress = TaskProgressPanel()
+        self.control_panel.layout().addWidget(self.task_progress)
         self.history_panel = TrainHistoryPanel()
         self.epoch_review_panel = TrainEpochReviewPanel()
         self.log_panel = LogPanel('Training Log')
@@ -214,10 +217,14 @@ class TrainPage(DockPage):
             f'Starting training worker with {len(train_df)} train row(s) and {len(val_df)} validation row(s)...'
         )
         self.control_panel.set_running(True)
+        self.control_panel.set_progress(0)
+        self.task_progress.begin('Training')
 
         self.worker = TrainingWorker(train_df, val_df, self.state.train_config)
         self.worker.log_message.connect(self.log_panel.append_line)
         self.worker.progress_changed.connect(self.control_panel.set_progress)
+        self.worker.step_changed.connect(self.task_progress.set_step)
+        self.worker.training_cancelled.connect(self._on_training_cancelled)
         self.worker.epoch_metrics.connect(self.history_panel.append_epoch_metrics)
         self.worker.epoch_review.connect(self.epoch_review_panel.set_review)
         self.worker.error_message.connect(self._on_training_error)
@@ -227,7 +234,9 @@ class TrainPage(DockPage):
     def stop_training(self) -> None:
         if self.worker is not None and self.worker.isRunning():
             self.worker.request_stop()
-            self.log_panel.append_line('Stop requested. Training will stop after the current epoch.')
+            self.control_panel.stop_btn.setEnabled(False)
+            self.task_progress.stop_requested()
+            self.log_panel.append_line('Stop requested. Training will stop at a safe epoch boundary.')
 
     def save_trained_model(self) -> None:
         if self.state.model is None:
@@ -283,6 +292,7 @@ class TrainPage(DockPage):
     def _on_training_error(self, message: str) -> None:
         self.state.last_error = message
         self.control_panel.set_running(False)
+        self.task_progress.fail(message)
         self.log_panel.append_line(f'ERROR: {message}')
         self.main_window.set_status_message('Training failed.')
 
@@ -291,10 +301,20 @@ class TrainPage(DockPage):
         self.state.history = history
         self.control_panel.set_running(False)
         self.control_panel.set_progress(100)
+        self.task_progress.succeed('Training complete; use Save Model to generate a .keras file.')
         self.history_panel.set_history(history)
         self.log_panel.append_line('Training finished successfully.')
         self.refresh_from_state()
         self.main_window.on_training_finished()
+
+    def _on_training_cancelled(self, _history: dict) -> None:
+        self.control_panel.set_running(False)
+        self.task_progress.cancel('Training stopped at an epoch boundary; unsaved weights from this run were discarded.')
+        self.log_panel.append_line('Training cancelled by user; no new model was accepted or saved.')
+        self.main_window.set_status_message('Training cancelled.')
+
+    def has_active_task(self) -> bool:
+        return self.worker is not None and self.worker.isRunning()
 
     def shutdown_worker(self) -> None:
         if self.worker is not None and self.worker.isRunning():
