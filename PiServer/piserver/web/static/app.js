@@ -1226,7 +1226,9 @@ async function requestPreviewFrame() {
     if (response.status === 204) throw new Error('No camera frame');
     if (!response.ok) throw new Error(`Preview request failed (${response.status})`);
     const live = response.headers.get('X-Preview-Live') === '1';
-    const sequence = Number(response.headers.get('X-Preview-Seq'));
+    const sequenceHeader = response.headers.get('X-Preview-Seq');
+    const sequence = sequenceHeader === null ? NaN : Number(sequenceHeader);
+    if (!Number.isSafeInteger(sequence) || sequence < 0) throw new Error('Invalid camera frame sequence');
     previewHealth.setBackendLive(live);
     if (!live || !previewHealth.isNew(sequence)) {
       if (!live || previewHealth.snapshot().ageMs >= 1500) previewHealth.fail();
