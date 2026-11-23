@@ -131,9 +131,12 @@ class TaskResult:
             self.state = "Failed"
             self.reason = "Output path equals the input; no distinct generated artifact was verified."
             return
-        if verified_output(self.output_path, self.kind) is None:
+        verified = verified_output(self.output_path, self.kind)
+        # Validation may legitimately produce metrics without saving plots.
+        # The model evaluation succeeded, but no unverified folder is opened.
+        if verified is None and not (self.kind == "val" and self.metrics):
             self.state = "Failed"
-            self.reason = "Task returned success, but its output was not reported or could not be verified."
+            self.reason = "Task returned success, but neither a completed output nor validation metrics were verified."
             return
         self.state = "Succeeded"
         self.reason = ""
@@ -172,7 +175,7 @@ class TaskResult:
             parts.append(f"Export format: {self.export_format}")
         if self.kind == "val":
             parts.append(f"Reported metrics: {self.metrics or 'Unknown'}")
-        output_label = "Verified output path" if self.state == "Succeeded" else "Reported output path (unconfirmed)"
+        output_label = "Verified output path" if self.verified_path() is not None else "Reported output path (unconfirmed)"
         parts.append(f"{output_label}: {self.output_path or 'Unknown'}")
         if self.reason:
             parts.append(f"Result detail: {self.reason}")
