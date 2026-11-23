@@ -5,6 +5,8 @@ from pathlib import Path
 import pandas as pd
 
 from ..panels.data.preview_panel import PreviewPanel
+from ..services.data.delete_service import count_hidden_frames
+from ..services.data.selection_scope import summarize_selection
 from ..services.data.stats_service import calculate_basic_stats
 from ..services.data.visibility_service import is_synthetic_record, without_synthetic_rows
 
@@ -107,6 +109,29 @@ class DataPageSupportMixin:
     def refresh_plot_from_preview(self) -> None:
         if hasattr(self, 'plot_panel'):
             self.plot_panel.set_dataframe(self.preview_panel.df)
+
+    def _refresh_loaded_hidden_scope(self, sessions: list[str]) -> None:
+        """Read hidden metadata once on load/recovery, never on a row selection."""
+        try:
+            self._loaded_hidden_count = count_hidden_frames(
+                self.state.records_root_path, sessions
+            )
+        except (OSError, RuntimeError, ValueError):
+            # A missing/unreadable source is not equivalent to zero hidden rows.
+            self._loaded_hidden_count = None
+
+    def _refresh_selection_scope(self) -> None:
+        scope = summarize_selection(
+            self.state.dataset_df,
+            self.preview_panel.df,
+            self.preview_panel.selected_records(),
+            hidden_count=self._loaded_hidden_count,
+        )
+        self.preview_panel.set_scope_totals(
+            all_active=scope.all_active,
+            generated_active=scope.generated_active,
+            hidden=scope.hidden,
+        )
 
     def refresh_from_state(self) -> None:
         self.current_preview_source_df = self._review_dataframe(self.state.filtered_df)
