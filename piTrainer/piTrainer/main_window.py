@@ -270,6 +270,17 @@ class MainWindow(QMainWindow):
         else:
             self.set_status_message('Could not open that validation frame in the Data editor.')
 
+    def can_start_task(self, requester) -> bool:
+        for label, page in (
+            ('Preprocess', self.preprocess_page), ('Train', self.train_page),
+            ('Validate', self.validation_page), ('Export', self.export_page),
+            ('TFLite Check', self.export_validation_page),
+        ):
+            if page is not requester and page.has_active_task():
+                self.set_status_message(f'{label} is still running. Finish it before starting another background operation.')
+                return False
+        return True
+
     def closeEvent(self, event) -> None:
         active = [page for page in (
             self.preprocess_page, self.train_page, self.validation_page,
