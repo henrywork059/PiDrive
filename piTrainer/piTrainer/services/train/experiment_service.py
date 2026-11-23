@@ -326,10 +326,13 @@ def comparison_rows(left: dict | None, right: dict | None) -> list[tuple[str, st
         ("Batch size", ("model_settings", "batch_size")),
         ("Epochs requested", ("model_settings", "epochs")),
         ("Epochs completed", ("metrics", "epochs_ran")),
+        ("Metrics partial", ("metrics_partial",)),
         ("Final training loss", ("metrics", "final_loss")),
         ("Best training loss", ("metrics", "best_loss")),
         ("Final validation loss", ("metrics", "final_val_loss")),
         ("Best validation loss", ("metrics", "best_val_loss")),
+        ("Final val steering loss", ("metrics", "final_val_steering_loss")),
+        ("Final val throttle loss", ("metrics", "final_val_throttle_loss")),
         ("Preprocessed dataset", ("preprocessed_dataset_path",)),
     ]
     result = [("Source sessions", _display(source_names(left)), _display(source_names(right)))]
