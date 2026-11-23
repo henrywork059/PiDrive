@@ -122,6 +122,8 @@ class ExportValidationPage(DockPage):
         return without_hidden_rows(self.state.filtered_df)
 
     def validate_export(self) -> None:
+        if not self.main_window.can_start_task(self):
+            return
         if self.task_runner.active:
             return
         dataset_df = self._selected_dataset()
