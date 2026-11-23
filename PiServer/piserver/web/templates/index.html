@@ -62,6 +62,13 @@
           </div>
 
           <div id="statusBanner" class="banner muted">Ready.</div>
+          <details data-preflight-root aria-label="Read-only startup preflight">
+                      <summary>Startup preflight (read-only)</summary>
+                      <p data-preflight-status role="status" aria-live="polite">Inspecting existing service state…</p>
+                      <button type="button" data-preflight-refresh>Refresh checks</button>
+                      <ul data-preflight-list aria-label="Service readiness checks"></ul>
+                      <small>Observation only: no motor, servo, camera start, AI load or settings changes.</small>
+                    </details>
         </div>
         <div class="resize-handle"></div>
       </article>
@@ -480,6 +487,7 @@
   <script src="{{ url_for('static', filename='preview_freshness.js') }}?v={{ app_version }}"></script>
   <script src="{{ url_for('static', filename='settings_feedback.js') }}?v={{ app_version }}"></script>
   <script src="{{ url_for('static', filename='app.js') }}?v={{ app_version }}"></script>
+  <script src="{{ url_for('static', filename='preflight.js') }}?v={{ app_version }}"></script>
 
 
     <div id="styleSettingsModal" class="style-modal hidden" aria-hidden="true">
