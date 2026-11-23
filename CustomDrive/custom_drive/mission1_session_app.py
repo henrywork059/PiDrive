@@ -668,6 +668,7 @@ class Mission1SessionContext:
         deadline = time.monotonic() + duration_s
         self.current_phase = 'ai_reverse_reset'
         self.mission_state = 'reverse_reset'
+        self._mission_timeline.observe(self.current_phase, self.mission_state)
         self._set_motion_state('reverse_reset', turn='backward', target_side='reverse')
         self.detail = f'Release complete. Reversing for {duration_s:.2f}s before pickup search restart.'
         self.last_output_summary = self.detail
@@ -1470,6 +1471,7 @@ class Mission1SessionContext:
             if frame is None:
                 self.current_phase = 'ai_wait_frame'
                 self.mission_state = 'wait_frame'
+                self._mission_timeline.observe(self.current_phase, self.mission_state)
                 self.target_found = False
                 self.target_side = 'no frame'
                 self.car_turn_direction = 'stopped'
@@ -1506,6 +1508,7 @@ class Mission1SessionContext:
                     self._search_watchdog('dropoff', False, now=loop_started)
                     self.current_phase = 'ai_dropoff_search'
                     self.mission_state = 'dropoff_search'
+                    self._mission_timeline.observe(self.current_phase, self.mission_state)
                     self.target_found = False
                     self._set_motion_state('search_rotate_clockwise', turn='right', target_side='search')
                     self.arm_target_lock_engaged = False
@@ -1519,6 +1522,7 @@ class Mission1SessionContext:
                     self._search_watchdog('dropoff', True, now=loop_started)
                     self.current_phase = 'ai_dropoff_track'
                     self.mission_state = 'dropoff_track'
+                    self._mission_timeline.observe(self.current_phase, self.mission_state)
                     self.target_found = True
                     target_x = float(target['center']['x'])
                     target_y = float(target['center']['y'])
@@ -1537,6 +1541,7 @@ class Mission1SessionContext:
                         )
                         self.current_phase = 'ai_dropoff_release'
                         self.mission_state = 'dropoff_release'
+                        self._mission_timeline.observe(self.current_phase, self.mission_state)
                         self._set_motion_state('release_pose', turn='stopped', target_side='center')
                         self._require_arm_role_pose('release', reason=f'drop-off class {desired_dropoff} reached', settle=True, frame_snapshot=frame)
                         self._record(
@@ -1561,6 +1566,7 @@ class Mission1SessionContext:
                         self._require_arm_role_pose('starting_position', reason='pickup search restart after release', settle=True)
                         self.current_phase = 'ai_pickup_search'
                         self.mission_state = 'pickup_search'
+                        self._mission_timeline.observe(self.current_phase, self.mission_state)
                         self._set_motion_state('search_rotate_clockwise', turn='right', target_side='search')
                         self.detail = f'Release and reverse complete. Restarting pickup search after dropping class {released_class}.'
                         self.last_output_summary = self.detail
@@ -1600,6 +1606,7 @@ class Mission1SessionContext:
                     self._search_watchdog('pickup', False, now=loop_started)
                     self.current_phase = 'ai_pickup_search'
                     self.mission_state = 'pickup_search'
+                    self._mission_timeline.observe(self.current_phase, self.mission_state)
                     self.target_found = False
                     self._set_motion_state('search_rotate_clockwise', turn='right', target_side='search')
                     self.pickup_target_class_id = None
@@ -1623,6 +1630,7 @@ class Mission1SessionContext:
                     if close_enough:
                         self.current_phase = 'ai_pickup_stop'
                         self.mission_state = 'pickup_stop_for_grip'
+                        self._mission_timeline.observe(self.current_phase, self.mission_state)
                         self.arm_target_lock_engaged = True
                         self._stop_for_pose_transition(
                             mission_state='pickup_stop_for_grip',
@@ -1633,11 +1641,13 @@ class Mission1SessionContext:
                         )
                         self.current_phase = 'ai_pickup_grip'
                         self.mission_state = 'pickup_grip'
+                        self._mission_timeline.observe(self.current_phase, self.mission_state)
                         self._set_motion_state('grip_pose', turn='stopped', target_side='center')
                         if not self._arm_stage_at_least('grip_loaded'):
                             self._require_arm_role_pose('grip', reason=f'pickup class {locked_class} centered and y={target_y:.1f}', settle=True, frame_snapshot=frame)
                         self.current_phase = 'ai_pickup_lift'
                         self.mission_state = 'pickup_lift'
+                        self._mission_timeline.observe(self.current_phase, self.mission_state)
                         self._set_motion_state('grip_and_lift_pose', turn='stopped', target_side='center')
                         if not self._arm_stage_at_least('grip_and_lift_loaded'):
                             self._require_arm_role_pose('grip_and_lift', reason=f'pickup class {locked_class} grip complete', settle=True, frame_snapshot=frame)
@@ -1653,6 +1663,7 @@ class Mission1SessionContext:
                         )
                         self.current_phase = 'ai_dropoff_search'
                         self.mission_state = 'dropoff_search'
+                        self._mission_timeline.observe(self.current_phase, self.mission_state)
                         self.target_found = False
                         self._set_motion_state('search_rotate_clockwise', turn='right', target_side='search')
                         self.arm_target_lock_engaged = False
@@ -1675,6 +1686,7 @@ class Mission1SessionContext:
                     else:
                         self.current_phase = 'ai_pickup_track'
                         self.mission_state = 'pickup_track'
+                        self._mission_timeline.observe(self.current_phase, self.mission_state)
                         self.arm_target_lock_engaged = True
                         self._maybe_log_gate_status(
                             'pickup',
