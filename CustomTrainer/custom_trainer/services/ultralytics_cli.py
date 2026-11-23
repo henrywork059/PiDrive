@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 from custom_trainer.services.cache_lifecycle import generation_reader_lease
+from custom_trainer.services.model_manifest import make_manifest, write_manifest
 from custom_trainer.services.session_service import resolve_prediction_source
 
 from custom_trainer.services.device_service import resolve_device, runtime_summary
@@ -222,6 +223,22 @@ def cmd_export(args: argparse.Namespace) -> int:
         kwargs['half'] = True
     result = model.export(**kwargs)
     print(f'[export] {result}', flush=True)
+    path = Path(str(result))
+    if args.format == 'tflite':
+        if path.suffix.lower() != '.tflite' or not path.is_file():
+            raise RuntimeError('TFLite exporter did not return a valid .tflite artifact for manifest publication.')
+        raw_names = getattr(model, 'names', {}) or {}
+        if isinstance(raw_names, dict):
+            names = [str(raw_names[key]) for key in sorted(raw_names, key=lambda k: int(k))]
+        else:
+            names = [str(value) for value in raw_names]
+        meta = make_manifest(
+            path, model_kind='yolo_detection', width=int(args.imgsz), height=int(args.imgsz),
+            quantization='int8' if args.int8 else ('float16' if args.half else 'float32'),
+            class_names=names, training_seed=None,
+        )
+        sidecar = write_manifest(path, meta)
+        print(f'[export] Model manifest: {sidecar}', flush=True)
     return 0
 
 

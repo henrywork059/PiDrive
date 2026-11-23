@@ -1,5 +1,28 @@
 # CustomTrainer
 
+## YOLO model manifests and Pi preflight (0_2_14, U27)
+
+A successful TFLite export now writes `<model>.tflite.manifest.json`,
+including the YOLO model family, RGB/NHWC input, image size, normalization,
+output interpretation, class names, selected quantization mode and SHA-256
+checksum. An unknown training seed remains null rather than being invented.
+If manifest publication fails, the export reports a failure explicitly.
+
+The **Pi Deploy** bundle includes a copy of the TFLite model, labels,
+its checksum-verified YOLO sidecar, `model_config.json`, and a model-manifest
+reader. A complete bundle is staged before replacing an existing bundle; an
+invalid source sidecar or empty class list does not delete the previous bundle.
+The standalone runtime validates the family, file checksum, image shape,
+class names, and a zero-input inference **before opening the camera**.
+Old sidecar-free YOLO models are still accepted with an explicit warning and
+shape/inference checks. A steering-control model is not accepted as a YOLO
+detector.
+
+The sidecar documents intended semantics, not proof of training quality.
+Check a physical Pi with a real TFLite interpreter before deployment.
+Existing U18 session grouping, U25 immutable dataset generations, Marking,
+Quick Deploy and all stored settings remain unchanged.
+
 CustomTrainer is a PySide6 desktop workflow for object-detection data labeling, training, validation, export, and exported-model validation.
 
 ## Launch
