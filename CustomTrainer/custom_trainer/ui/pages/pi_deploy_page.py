@@ -107,7 +107,7 @@ class PiDeployPage(QWidget):
         labels = Path(labels_text).expanduser() if labels_text else None
         output_text = self.output_edit.text().strip()
         if not output_text:
-            QMessageBox.critical(self, "Missing output folder", "Choose a bundle output directory.")
+            QMessageBox.critical(self, "Missing output folder", "Choose a destination directory for the Pi deployment bundle.")
             return
         output_dir = Path(output_text).expanduser()
         try:
@@ -118,7 +118,7 @@ class PiDeployPage(QWidget):
             QMessageBox.critical(self, "Invalid values", "Input size must be an integer. Thresholds must be numeric.")
             return
         if not model.exists():
-            QMessageBox.critical(self, "Missing model", "Choose an exported .tflite model first.")
+            QMessageBox.critical(self, "Missing model", "Export a .tflite model first, then choose it for the Pi bundle.")
             return
         bundle_dir = build_pi_bundle(
             model_path=model,
@@ -130,4 +130,4 @@ class PiDeployPage(QWidget):
         )
         self.log(f"Built Pi bundle: {bundle_dir}")
         self.set_status("Pi bundle ready.")
-        QMessageBox.information(self, "Pi bundle ready", f"Saved:\n{bundle_dir}")
+        QMessageBox.information(self, "Pi bundle ready", f"Bundle saved for copying to the Pi:\n{bundle_dir}")
