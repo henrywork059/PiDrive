@@ -7,6 +7,8 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
+from .provisioning_security import hotspot_password_safe
+
 
 def split_nmcli_terse(line: str) -> list[str]:
     parts: list[str] = []
@@ -269,6 +271,12 @@ class NetworkManagerBackend:
         return self.run("radio", "wifi", "on", timeout=15)
 
     def ensure_hotspot_profile(self, ssid: str, password: str) -> CommandResult:
+        if not hotspot_password_safe(password):
+            return CommandResult(
+                ok=False,
+                stderr='Hotspot credential is publicly known or invalid. Use --rotate-hotspot-password locally (or --provision-hotspot-password for the published default).',
+                returncode=13,
+            )
         self.ensure_wifi_radio_on()
         if not self.connection_profile_exists(self.hotspot_name):
             created = self.run(

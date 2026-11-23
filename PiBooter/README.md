@@ -65,7 +65,7 @@ If `nmcli` is missing, the web page can still start, but PiBooter cannot:
 By default PiBooter uses:
 
 - SSID: `PiBooter-<hostname suffix>`
-- Password: `pibooter1234`
+- Password: a unique 32-character randomly generated WPA2 passphrase, provisioned locally per Pi
 - Setup page: `http://192.168.4.1/`
 - Startup wait window: `5 seconds`
 
@@ -85,11 +85,67 @@ sudo ./install.sh
 
 That script will:
 
-- normalize the config file
+- normalize the config file and replace the publicly known example hotspot passphrase with a random per-device credential while **preserving existing custom passwords**
+- tighten configuration file permissions and print the new credential only when run from an interactive terminal
 - ensure the runtime folder exists
 - install the `systemd` service
 - enable the service
 - restart PiBooter immediately
+
+## Secure provisioning and recovery (0_1_3)
+
+**First install:** run `install.sh` from the Pi's own terminal. When the
+checked-in example password is present, the installer generates a fresh,
+unique 32-character WPA2 passphrase and stores it in the existing settings
+file. It **does not rotate** a password that you already customized. On a
+brand-new missing config file, a unique password is generated automatically.
+The file contains sensitive material and the installer restricts its
+permissions to `0600` (owner only). Keep local changes to
+`PiBooter/config/settings.json` private: do not commit the provisioned
+password to GitHub or share it in logs/screenshots.
+
+To read the current password from the Pi's **local private terminal**:
+
+```bash
+cd ~/PiDrive/PiBooter
+sudo python3 run_pibooter.py --config config/settings.json --show-hotspot-password
+```
+
+To provision the published example while keeping any existing custom password:
+
+```bash
+sudo python3 run_pibooter.py --config config/settings.json --provision-hotspot-password
+```
+
+To **explicitly rotate** any current hotspot password (devices must reconnect):
+
+```bash
+sudo python3 run_pibooter.py --config config/settings.json --rotate-hotspot-password
+sudo systemctl restart pibooter.service
+```
+
+A legacy installation retaining the publicly known default is **not allowed to
+start or continue serving the setup hotspot**. Provision a private passphrase
+locally, then restart the service. If settings are malformed, the prior
+`0_1_2` configuration recovery behavior remains: the original file is
+preserved, and provisioning refuses to replace it until repaired.
+
+**Web security:** the setup page no longer displays the hotspot passphrase,
+nor does `/api/status` return it. Network-changing `/connect`,
+`/forget`, and `/rescan` requests require an unguessable token
+from the live setup page and must originate from the Pi itself or a client
+on the configured setup-hotspot subnet. Cross-origin posts are rejected;
+read-only `/api/networks` no longer triggers an active rescan.
+A normal phone browser form automatically includes the token.
+
+The five-second first-client window, NetworkManager handover and saved router
+IP flow are unchanged. Because PiBooter is served over plain HTTP, avoid
+forwarding its port onto untrusted networks. A device that already knows the
+Wi-Fi hotspot passphrase can still request a setup token; these protections
+do not provide an additional login barrier. For full resistance to local
+compromise, use an isolated physical setup network and consider a separate
+operator approval or HTTPS/VPN. NetworkManager may pass credentials in local
+process arguments; protecting local process inspection remains follow-up work.
 
 ## Manual run
 

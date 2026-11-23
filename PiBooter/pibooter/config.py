@@ -10,6 +10,8 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
+from .provisioning_security import PUBLISHED_HOTSPOT_PASSWORD, generate_hotspot_password
+
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "server": {
@@ -134,6 +136,9 @@ class ConfigStore:
             return data
 
         data = self._normalize(data)
+        # A genuinely new config receives a unique secret. Existing configs,
+        # including the checked-in legacy template, are never silently rotated.
+        data['network']['hotspot_password'] = generate_hotspot_password()
         self._write_atomic(data)
         return data
 
@@ -142,6 +147,28 @@ class ConfigStore:
             raise RuntimeError("Invalid settings are preserved; restore or repair the original before saving, or explicitly use replace_invalid=True.")
         self._write_atomic(self.data)
         self.load_error = ""
+
+    def provision_hotspot_password(self, *, rotate: bool = False) -> bool:
+        """Explicitly rotate the published example, or any credential on request.
+
+        Does not rewrite invalid settings or existing custom credentials unless
+        the operator specifically requests rotation. Preserves all other keys.
+        """
+        if self.load_error:
+            raise RuntimeError('Repair the invalid settings file before provisioning a hotspot password.')
+        current = self.data['network']['hotspot_password']
+        if not rotate and current != PUBLISHED_HOTSPOT_PASSWORD:
+            return False
+        previous = self.data
+        revised = deepcopy(previous)
+        revised['network']['hotspot_password'] = generate_hotspot_password()
+        try:
+            self.data = revised
+            self.save()
+        except BaseException:
+            self.data = previous
+            raise
+        return True
 
     def reload(self) -> dict[str, Any]:
         self.data = self.load()
@@ -196,8 +223,9 @@ class ConfigStore:
     @staticmethod
     def _normalize_hotspot_password(value: Any) -> str:
         password = str(value or "pibooter1234")
-        if len(password) < 8:
-            password = (password + "pibooter1234")[:8]
+        # Do not pad a short operator password with a public, predictable
+        # suffix. Retain it for diagnosis and block hotspot activation until
+        # the operator explicitly rotates the credential.
         return password[:63]
 
     def compute_hotspot_ssid(self) -> str:
