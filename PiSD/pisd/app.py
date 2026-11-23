@@ -348,7 +348,9 @@ def create_app(hardware_enabled: bool = False):
     def apply_runtime_settings(settings: dict[str, Any]) -> tuple[bool, str]:
         try:
             if isinstance(settings.get("camera"), dict):
-                camera_service.apply_settings(settings.get("camera"), restart=True)
+                camera_ok, camera_message, _ = camera_service.apply_settings(settings.get("camera"), restart=True)
+                if not camera_ok:
+                    raise RuntimeError(f"Camera settings could not be applied: {camera_message}")
             if isinstance(settings.get("motor"), dict):
                 motor_service.apply_settings(settings.get("motor"))
             if isinstance(settings.get("ai_mode"), dict):
