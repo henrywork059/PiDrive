@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from ..app_state import TrainConfig
 import pandas as pd
 
 from ..app_state import AppState
 from ..panels.common.log_panel import LogPanel
+from ..panels.common.task_progress_panel import TaskProgressPanel
+from ..services.background_task import BackgroundTaskRunner
 from ..panels.export_validation.export_validation_actions_panel import ExportValidationActionsPanel
 from ..panels.export_validation.export_validation_config_panel import ExportValidationConfigPanel
 from ..panels.export_validation.export_validation_summary_panel import ExportValidationSummaryPanel
@@ -33,6 +36,9 @@ class ExportValidationPage(DockPage):
         self.plot_panel = ValidationPlotPanel()
         self.frame_review_panel = ValidationFrameReviewPanel(edit_in_data_callback=self.main_window.open_validation_frame_in_data_editor)
         self.log_panel = LogPanel('TFLite Check Log')
+        self.task_progress = TaskProgressPanel()
+        self.actions_panel.layout().addWidget(self.task_progress)
+        self.task_runner = BackgroundTaskRunner(self.task_progress, self)
 
         self.build_default_layout()
         self.restore_layout()
@@ -116,13 +122,14 @@ class ExportValidationPage(DockPage):
         return without_hidden_rows(self.state.filtered_df)
 
     def validate_export(self) -> None:
+        if self.task_runner.active:
+            return
         dataset_df = self._selected_dataset()
         if dataset_df.empty:
             message = 'No rows available for the selected check dataset.'
             self.log_panel.append_line(message)
             self.main_window.set_status_message(message)
             return
-
         self.config_panel.push_to_state()
         tflite_path = self.config_panel.tflite_path()
         if not tflite_path:
@@ -131,44 +138,54 @@ class ExportValidationPage(DockPage):
             self.main_window.set_status_message(message)
             return
 
-        self.log_panel.append_line(
-            f'Running TFLite check on {len(dataset_df)} row(s): {tflite_path}...'
-        )
-        try:
-            result = run_tflite_validation(
-                dataset_df=dataset_df,
-                train_config=self.state.train_config,
-                tflite_path=tflite_path,
-                batch_size=self.config_panel.batch_size(),
-                max_rows=self.config_panel.max_rows(),
-            )
-        except Exception as exc:
-            message = f'TFLite check failed: {exc}'
-            self.log_panel.append_line(message)
-            self.main_window.set_status_message('TFLite check failed.')
-            return
+        train_config = TrainConfig(**vars(self.state.train_config))
+        batch_size = self.config_panel.batch_size()
+        max_rows = self.config_panel.max_rows()
+        snapshot = dataset_df.copy(deep=True)
+        self.log_panel.append_line(f'Running TFLite check on {len(snapshot)} row(s): {tflite_path}...')
 
-        self.last_result = result
-        self.summary_panel.set_result_text(build_validation_summary_text(result))
-        self.plot_panel.set_result(result)
-        self.frame_review_panel.set_result(result)
-        self.log_panel.append_line(
-            'TFLite check complete: '
-            f"rows={result['rows_used']}, steering_mae={result['steering_mae']:.4f}, speed_mae={result['throttle_mae']:.4f}"
-        )
-        ranges = result.get('prediction_ranges', {}) if isinstance(result.get('prediction_ranges', {}), dict) else {}
-        if ranges:
-            steering_range = ranges.get('steering', {})
-            speed_range = ranges.get('speed', {})
-            self.log_panel.append_line(
-                'TFLite output range: '
-                f"steering={steering_range.get('min', 0.0):.4f}..{steering_range.get('max', 0.0):.4f}, "
-                f"speed={speed_range.get('min', 0.0):.4f}..{speed_range.get('max', 0.0):.4f}"
+        def work(report):
+            report('Loading TFLite interpreter and checking predictions', None)
+            return run_tflite_validation(
+                dataset_df=snapshot, train_config=train_config,
+                tflite_path=tflite_path, batch_size=batch_size, max_rows=max_rows,
             )
-        for note in result.get('backend_notes', [])[:6]:
-            self.log_panel.append_line(f'  Note: {note}')
-        self.main_window.set_status_message('TFLite check complete.')
-        self.refresh_from_state()
+
+        def completed(result):
+            self.last_result = result
+            self.summary_panel.set_result_text(build_validation_summary_text(result))
+            self.plot_panel.set_result(result)
+            self.frame_review_panel.set_result(result)
+            self.log_panel.append_line(
+                'TFLite check complete: '
+                f"rows={result['rows_used']}, steering_mae={result['steering_mae']:.4f}, speed_mae={result['throttle_mae']:.4f}"
+            )
+            ranges = result.get('prediction_ranges', {}) if isinstance(result.get('prediction_ranges', {}), dict) else {}
+            if ranges:
+                steering_range = ranges.get('steering', {})
+                speed_range = ranges.get('speed', {})
+                self.log_panel.append_line(
+                    'TFLite output range: '
+                    f"steering={steering_range.get('min', 0.0):.4f}..{steering_range.get('max', 0.0):.4f}, "
+                    f"speed={speed_range.get('min', 0.0):.4f}..{speed_range.get('max', 0.0):.4f}"
+                )
+            for note in result.get('backend_notes', [])[:6]:
+                self.log_panel.append_line(f'  Note: {note}')
+            self.main_window.set_status_message('TFLite check complete.')
+            self.refresh_from_state()
+            return (f"TFLite check completed: {result['rows_used']} rows", ())
+
+        def failed(error):
+            self.log_panel.append_line(f'TFLite check failed: {error}')
+            self.main_window.set_status_message('TFLite check failed.')
+
+        self.task_runner.start(
+            'TFLite validation', work, completed, on_failure=failed,
+            controls=(self.actions_panel.run_button, self.actions_panel.clear_button, self.actions_panel.browse_button, self.config_panel),
+        )
+
+    def has_active_task(self) -> bool:
+        return self.task_runner.active
 
     def clear_results(self) -> None:
         self.last_result = None
