@@ -49,7 +49,15 @@ HTML_SHELL = """<!doctype html>
     .onboarding-next {{ margin: 10px 0 0; padding: 10px 12px; border-left: 3px solid #2563eb; background: #eff6ff; color: #1e3a8a; border-radius: 0 8px 8px 0; line-height: 1.4; }}
     .onboarding-next[data-state="failed"], .onboarding-next[data-state="window_closing"] {{ border-left-color: #b91c1c; background: #fef2f2; color: #991b1b; }}
     .onboarding-next strong {{ display: block; margin-bottom: 3px; }}
-    button:focus-visible, input:focus-visible, a:focus-visible {{ outline: 3px solid #2563eb; outline-offset: 3px; }}
+    button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible {{ outline: 3px solid #2563eb; outline-offset: 3px; }}
+    .skip-link {{ position: absolute; left: 12px; top: -80px; z-index: 50; padding: 9px 12px; color: #fff; background: #1d4ed8; border-radius: 8px; }}
+    .skip-link:focus-visible {{ top: 8px; }}
+    @media (prefers-reduced-motion: reduce) {{
+      *, *::before, *::after {{ animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }}
+    }}
+    @media (forced-colors: active) {{
+      button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible {{ outline: 3px solid Highlight !important; }}
+    }}
     h2 {{ margin-top: 0; font-size: 1.1rem; }}
     dl {{ margin: 0; }}
     dt {{ font-weight: 700; margin-top: 10px; }}
@@ -85,13 +93,16 @@ HTML_SHELL = """<!doctype html>
   </style>
 </head>
 <body>
+  <a class="skip-link" href="#setup-content">Skip to setup</a>
   <div class="wrap">
     <div class="hero">
       <h1>{title}</h1>
       <p>{subtitle}</p>
     </div>
-    {notice}
-    {body}
+    <main id="setup-content" tabindex="-1">
+      {notice}
+      {body}
+    </main>
   </div>
   <script>
     function fillSsid(ssid) {{
@@ -100,7 +111,8 @@ HTML_SHELL = """<!doctype html>
       ssidField.value = ssid || '';
       var passField = document.getElementById('password');
       if (passField) passField.focus();
-      window.scrollTo({{ top: document.body.scrollHeight, behavior: 'smooth' }});
+      window.scrollTo({{ top: document.body.scrollHeight,
+        behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ? 'auto' : 'smooth' }});
     }}
     async function refreshStatus() {{
       try {{
@@ -575,7 +587,7 @@ class PiBooterController:
 
 class RequestHandler(BaseHTTPRequestHandler):
     controller: PiBooterController
-    server_version = "PiBooter/0.1.4"
+    server_version = "PiBooter/0.1.5"
 
     def do_GET(self) -> None:  # noqa: N802
         self.controller.note_http_activity(self.path, self.client_address[0])
@@ -899,7 +911,9 @@ class RequestHandler(BaseHTTPRequestHandler):
             use_button = ""
             if item.get("ssid"):
                 quoted_ssid = html.escape(json.dumps(item.get("ssid")), quote=True)
-                use_button = f'<button class="btn-secondary" type="button" onclick="fillSsid({quoted_ssid})">Use this network</button>'
+                use_button = (f'<button class="btn-secondary" type="button" '
+                              f'aria-label="Use Wi-Fi network {html.escape(item.get("ssid", ""), quote=True)}" '
+                              f'onclick="fillSsid({quoted_ssid})">Use this network</button>')
             rows.append(
                 "<tr>"
                 f"<td><div class='network-name'>{html.escape(ssid)}</div></td>"
@@ -928,7 +942,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                 "<form method='post' action='/forget' style='display:inline;'>"
                 f"<input type='hidden' name='csrf_token' value='{html.escape(csrf_token, quote=True)}'>"
                 f"<input type='hidden' name='name' value='{html.escape(item.get('name', ''))}'>"
-                "<button class='btn-danger' type='submit'>Forget</button>"
+                f"<button class='btn-danger' type='submit' aria-label='Forget saved Wi-Fi {html.escape(item.get('name', ''), quote=True)}'>Forget</button>"
                 "</form>"
                 "</td>"
                 "</tr>"
