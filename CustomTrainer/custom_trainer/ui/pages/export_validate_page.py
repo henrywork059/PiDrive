@@ -30,6 +30,8 @@ from custom_trainer.services.ui_state_service import get_splitter_state, set_spl
 from custom_trainer.services.ultralytics_runner import build_predict_command, build_val_command, runner_working_directory
 from custom_trainer.state import AppState
 from custom_trainer.ui.qt_helpers import CommandWorker
+from custom_trainer.services.task_result_summary import TaskResult
+from custom_trainer.ui.widgets.task_result_panel import TaskResultPanel
 
 _IMAGE_SUFFIXES = {'.jpg', '.jpeg', '.png', '.bmp', '.webp'}
 
@@ -43,6 +45,7 @@ class ExportValidatePage(QWidget):
         self.thread: QThread | None = None
         self.worker: CommandWorker | None = None
         self.current_task_kind = ''
+        self.task_result: TaskResult | None = None
         self.last_preview_source = ''
         self.last_prediction_summary: list[str] = []
         self.last_metrics_text = ''
@@ -70,6 +73,7 @@ class ExportValidatePage(QWidget):
         self.device_summary.setWordWrap(True)
         self.status_note = QLabel('Idle', self)
         self.status_note.setProperty('role', 'muted')
+        self.result_panel = TaskResultPanel(self)
         self.val_button = QPushButton('Run Exported Validation', self)
         self.predict_button = QPushButton('Run Exported Prediction', self)
         self.stop_button = QPushButton('Stop Task', self)
@@ -144,6 +148,7 @@ class ExportValidatePage(QWidget):
         status_box = QGroupBox('Status', self)
         status_layout = QVBoxLayout(status_box)
         status_layout.addWidget(self.status_note)
+        status_layout.addWidget(self.result_panel)
 
         preview_box = QGroupBox('Exported Model Preview', self)
         preview_layout = QVBoxLayout(preview_box)
@@ -646,6 +651,9 @@ class ExportValidatePage(QWidget):
         if self.worker is None:
             return
         self.worker.request_stop()
+        if self.task_result is not None:
+            self.task_result.request_stop()
+            self.result_panel.show_result(self.task_result)
         self.stop_button.setEnabled(False)
         self.status_note.setText('Stopping exported-model task...')
         self.set_status('Stopping exported-model task...')
@@ -681,6 +689,8 @@ class ExportValidatePage(QWidget):
         self._refresh_frame_selector()
 
     def _handle_worker_line(self, line: str) -> None:
+        if self.task_result is not None:
+            self.task_result.observe(line)
         self._append_run_log(line)
         self.log(line)
         if line.startswith('[preview-image] '):
@@ -704,7 +714,23 @@ class ExportValidatePage(QWidget):
             self.last_save_dir = line.removeprefix('[save-dir] ').strip()
             self.refresh_preview()
 
+    @staticmethod
+    def _command_option(command: list[str], flag: str) -> str:
+        try:
+            index = command.index(flag)
+        except ValueError:
+            return ''
+        return str(command[index + 1]) if index + 1 < len(command) else ''
+
     def _launch(self, command: list[str], status_message: str) -> None:
+        cwd = runner_working_directory()
+        self.task_result = TaskResult.begin(
+            mode='exported', kind=self.current_task_kind,
+            model=self._command_option(command, '--weights'),
+            dataset=self._command_option(command, '--data' if self.current_task_kind == 'val' else '--source'),
+            cwd=cwd,
+        )
+        self.result_panel.show_result(self.task_result)
         self.run_log_output.clear()
         self._append_run_log(f'[cwd] {runner_working_directory()}')
         self.thread = QThread(self)
@@ -727,13 +753,20 @@ class ExportValidatePage(QWidget):
         self.val_button.setEnabled(True)
         self.predict_button.setEnabled(True)
         self.stop_button.setEnabled(False)
-        if self.current_task_kind == 'predict' and exit_code == 0:
+        record = self.task_result
+        if record is not None:
+            record.finish(exit_code)
+            self.result_panel.show_result(record)
+        if record is not None and record.state == 'Succeeded' and self.current_task_kind == 'predict':
             self._load_saved_prediction_frames()
-            message = f'Prediction finished. {len(self.predicted_frame_paths)} frame(s) available for review.'
-        elif self.current_task_kind == 'val' and exit_code == 0 and self.last_metrics_text:
-            message = f'Exported-model validation finished. {self.last_metrics_text}'
+            message = f'Exported-model prediction succeeded: {len(self.predicted_frame_paths)} frame(s) available for review.'
+        elif record is not None and record.state == 'Succeeded' and self.current_task_kind == 'val':
+            metrics = record.metrics or 'metrics not reported'
+            message = f'Exported-model validation succeeded: {metrics}'
+        elif record is not None:
+            message = f'Exported-model {self.current_task_kind}: {record.state}. {record.reason}'
         else:
-            message = f'Exported-model task finished with exit code {exit_code}.'
+            message = f'Task completed with exit code {exit_code}; result metadata unavailable.'
         self.status_note.setText(message)
         self.set_status(message)
         self.refresh_preview()
