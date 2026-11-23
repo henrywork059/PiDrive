@@ -216,6 +216,8 @@ class ImagePreviewPanel(QGroupBox):
             'steering_arc': bool(options.get('steering_arc', True)),
             'drive_arrow': bool(options.get('drive_arrow', False)),
         }
+        self._render_generation += 1
+        self.selection_render_timer.stop()
         self._render_preview()
 
     def set_controls_from_preview(self, steering: float, speed: float) -> None:
@@ -271,6 +273,7 @@ class ImagePreviewPanel(QGroupBox):
         speed = clip_speed(self.speed_slider.value() / 1000.0)
         self.current_record['steering'] = steering
         self.current_record['throttle'] = speed
+        self._render_generation += 1
         self._update_value_labels(steering, speed)
         self.selection_render_timer.stop()
         self._render_preview()
@@ -320,6 +323,8 @@ class ImagePreviewPanel(QGroupBox):
         return width, height
 
     def _render_preview(self) -> None:
+        # A selection render also satisfies any pending resize redraw.
+        self.resize_render_timer.stop()
         generation = self._render_generation
         record = dict(self.current_record) if self.current_record else None
         if record is None:
@@ -329,6 +334,8 @@ class ImagePreviewPanel(QGroupBox):
         target_width, target_height = self._preview_size()
         flip_lr = truthy_value(record.get('aug_flip_lr', False), default=False)
         pixmap = load_scaled_pixmap(image_path, width=target_width, height=target_height, flip_lr=flip_lr)
+        if generation != self._render_generation or self.current_record is None or self._record_edit_key(self.current_record) != record_identity:
+            return
         if pixmap is None:
             if generation == self._render_generation and self.current_record is not None and self._record_edit_key(self.current_record) == record_identity:
                 self.image_label.set_display_pixmap(None)
