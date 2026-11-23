@@ -887,3 +887,22 @@ code {
   white-space: nowrap !important;
   border: 0 !important;
 }
+
+/* R36: reduce only mobile gutters and prevent long action labels/table contents
+   from widening the entire page. Camera stays 16:9; mission state is unchanged. */
+@media (max-width: 720px) {
+  .page-header { padding: 12px; min-width: 0; }
+  .dashboard { padding: 10px; gap: 10px; }
+  .dashboard > *, .panel, .sidebar-stack, .main-stack, .bottom-grid { min-width: 0; }
+  .panel { padding: 12px; }
+  .button-row > button,
+  .arm-load-role {
+    min-width: 0;
+    min-height: 44px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .table-wrap, .arm-table-wrap { max-width: 100%; overflow-x: auto; }
+  .mission-progress-head { flex-wrap: wrap; }
+  .mission-progress-reading, .mission-progress-step { min-width: 0; }
+}
