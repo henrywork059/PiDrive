@@ -18,7 +18,7 @@ from piserver.services.recorder_service import RecorderService
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 WEB_DIR = Path(__file__).resolve().parent / "web"
-APP_VERSION = "0_4_22"
+APP_VERSION = "0_4_23"
 
 
 def mjpeg_generator(camera_service):
@@ -141,6 +141,7 @@ def create_app() -> Flask:
             'model': model_service.get_performance() if hasattr(model_service, 'get_performance') else None,
             'camera_frame_age_s': camera_service.get_raw_frame_age(),
         }
+        state["server_status_at_ms"] = int(time.time() * 1000)
         return jsonify(state)
 
     @app.route("/api/algorithms")
