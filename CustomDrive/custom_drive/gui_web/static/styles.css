@@ -642,3 +642,23 @@ input[type='range'] {
 .settings-apply-state[data-state="applying"] { color:#bae6fd; }
 .settings-apply-state[data-state="failed"] { color:#fecdd3; border-color:rgba(251,113,133,.6); }
 .panel-actions button[hidden] { display:none !important; }
+
+/* R35 accessibility: visible keyboard focus and predictable reduced motion. */
+:where(button, a[href], input, select, textarea, [tabindex="0"]):focus-visible {
+  outline: 3px solid #fbbf24 !important;
+  outline-offset: 3px !important;
+}
+.toggle-row:focus-within { outline: 3px solid #fbbf24; outline-offset: 3px; border-radius: 7px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+@media (forced-colors: active) {
+  :where(button, a[href], input, select, textarea, [tabindex="0"]):focus-visible {
+    outline: 3px solid Highlight !important;
+  }
+}
