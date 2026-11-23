@@ -101,15 +101,20 @@ async function saveSettings(apply = false) {
     requireConfirmedSettings(payload, 'Save');
     const verified = await settingsApi('GET', '/api/settings');
     requireConfirmedSettings(verified, 'Readback');
-    if (!settingsMatch(settings, payload.settings) || !settingsMatch(payload.settings, verified.settings)) {
-      throw new Error('Backend readback does not match the requested settings.');
+    if (!settingsMatch(payload.settings, verified.settings)) {
+      throw new Error('Backend readback does not match the accepted settings.');
     }
+    const normalized = !settingsMatch(settings, payload.settings);
     if (token === settingsFeedback.snapshot().revision) {
       fillAll(verified.settings);
       storeLocal(verified.settings);
       setSettingsCode('settings', payload.code);
     }
-    settingsFeedback.complete(token, true, apply ? 'Backend confirmed saved and applied settings.' : 'Saved to backend storage; runtime application is not confirmed.', apply);
+    settingsFeedback.complete(token, true,
+      apply
+        ? (normalized ? 'Backend applied normalized settings; effective values shown.' : 'Backend confirmed saved and applied settings.')
+        : (normalized ? 'Backend saved normalized settings; runtime application is not confirmed.' : 'Saved to backend storage; runtime application is not confirmed.'),
+      apply);
   } catch (error) {
     settingsFeedback.fail(token, error.message);
     logResponse('R31 settings failure', {ok:false, message:error.message});
