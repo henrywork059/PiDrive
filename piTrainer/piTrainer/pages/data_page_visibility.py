@@ -4,6 +4,7 @@ import pandas as pd
 from PySide6.QtWidgets import QMessageBox
 
 from ..services.data.delete_service import hide_frames_from_training, purge_hidden_frames, recover_hidden_frames
+from ..services.data.selection_scope import selected_visible_impact
 from ..services.data.stats_service import calculate_basic_stats
 
 
@@ -146,6 +147,20 @@ class DataPageVisibilityMixin:
             )
             return
 
+        if len(records) > 1:
+            confirm = QMessageBox.warning(
+                self,
+                'Hide Selected Visible Frames?',
+                f'{selected_visible_impact(records)}\n'
+                f'All active loaded frames: {len(self.state.dataset_df)} (not all targeted).\n\n'
+                'The selected frames will be hidden from training; their images stay on disk. Continue?',
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No,
+            )
+            if confirm != QMessageBox.Yes:
+                self.main_window.set_status_message('Hide selected frames cancelled.')
+                return
+
         identities = [self._record_identity(record) for record in records]
         try:
             result = hide_frames_from_training(self.state.records_root_path, records)
@@ -157,6 +172,10 @@ class DataPageVisibilityMixin:
         failed_messages = list(result.get('failed_messages', []))
 
         if hidden_count:
+            # The hidden count was sourced from the loaded session JSONL
+            # metadata; only a successful hide changes that cached count.
+            if self._loaded_hidden_count is not None:
+                self._loaded_hidden_count += hidden_count
             self._hide_records_from_loaded_data(identities)
             self.stats_panel.set_stats(calculate_basic_stats(self.state.filtered_df))
             self.apply_preview_filter()
