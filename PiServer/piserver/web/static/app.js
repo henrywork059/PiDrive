@@ -1073,7 +1073,6 @@ async function confirmedConfig(path, requested, response, kind) {
   }
   const current = await fetchJson(path);
   if (current?.ok !== true || !current.config
-    || !settingsReadbackMatches(requested, current.config)
     || !settingsReadbackMatches(response.config, current.config)) {
     throw new Error(kind + ' settings did not match backend readback.');
   }
@@ -1147,7 +1146,10 @@ async function applyCameraConfig() {
       state.cameraConfig = confirmed;
       fillCameraForm(confirmed);
     }
-    feedback.complete(token, true, 'Camera runtime and saved settings confirmed by backend.');
+    feedback.complete(token, true,
+      settingsReadbackMatches(payload, confirmed)
+        ? 'Camera runtime and saved settings confirmed by backend.'
+        : 'Camera settings normalized by backend; effective values shown.');
     setBanner("cameraMessage", data.message || "Camera settings applied.", "muted");
     refreshVideoFeed();
     await pollStatus();
@@ -1211,7 +1213,10 @@ async function applyMotorConfig() {
       state.motorConfig = confirmed;
       fillMotorForm(confirmed, true);
     }
-    feedback.complete(token, true, 'Motor runtime and saved settings confirmed by backend.');
+    feedback.complete(token, true,
+      settingsReadbackMatches(payload, confirmed)
+        ? 'Motor runtime and saved settings confirmed by backend.'
+        : 'Motor settings normalized by backend; effective values shown.');
     setBanner("motorMessage", data.message || "Motor settings applied.", "muted");
     await pollStatus();
   } catch (error) {
