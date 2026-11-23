@@ -66,25 +66,28 @@ class BackgroundTaskRunner(QObject):
         worker = BackgroundTaskWorker(operation, self)
         self.worker = worker
         worker.step_changed.connect(self.progress_panel.set_step)
-        worker.succeeded.connect(lambda result: self._success(result, on_success))
+        worker.succeeded.connect(lambda result: self._success(result, on_success, on_failure))
         worker.failed.connect(lambda message: self._failure(message, on_failure))
         worker.finished.connect(self._finished)
         worker.finished.connect(worker.deleteLater)
         worker.start()
         return True
 
-    def _success(self, result, callback: Callable) -> None:
+    def _success(self, result, callback: Callable, on_failure: Callable | None) -> None:
         try:
             message, paths = callback(result)
         except Exception as exc:
-            self._failure(str(exc), None)
+            self._failure(str(exc), on_failure)
             return
         self.progress_panel.succeed(str(message), paths)
 
     def _failure(self, message: str, callback: Callable | None) -> None:
         self.progress_panel.fail(message)
         if callback is not None:
-            callback(message)
+            try:
+                callback(message)
+            except Exception as exc:
+                self.progress_panel.fail(f'{message}\nCould not update error display: {exc}')
 
     def _finished(self) -> None:
         for control in self._controls:
