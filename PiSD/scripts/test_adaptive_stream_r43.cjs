@@ -24,6 +24,7 @@ test("AI hidden stream pause preserves all safety stop paths",()=>{
   assert.match(ai,/stopAssistDrive\('ai-assist-hidden'\)/);
   assert.match(ai,/sendBeacon\?\.\('\/api\/ai\/stop'/);
   assert.match(ai,/els\.aiPreviewImage\.src = IDLE_PREVIEW_SRC; \/\/ close hidden MJPEG HTTP stream/);
+  assert.match(ai,/if \(document\.hidden \|\| statusPollInFlight\) return;/);
 });
 test("AI returns to live stream without a new camera/motor command",()=>{
   assert.match(ai,/els\.aiPreviewImage\.src = \`\/video_feed\?t=\$\{Date\.now\(\)\}\`;/);
