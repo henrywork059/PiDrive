@@ -524,6 +524,15 @@ function renderMissionTimeline(status) {
   const disconnection = root.querySelector('.mission-progress-disconnected');
   if (disconnection) disconnection.hidden = true;
   const progress = window.CustomDriveMissionTimeline.project(status);
+  // R35: announce stage transitions only; the detailed telemetry can update
+  // many times per second without re-announcing the same motor/arm status.
+  const announcer = document.getElementById('missionTimelineAnnouncement');
+  const announcementKey = [progress.outcome, progress.current, progress.currentState, progress.failure].join('|');
+  if (announcer && announcer.dataset.lastStage !== announcementKey) {
+    announcer.dataset.lastStage = announcementKey;
+    announcer.textContent = 'Mission ' + progress.current + '. Last completed: ' + progress.lastCompleted
+      + (progress.failure === 'None' ? '.' : '. Last failure: ' + progress.failure + '.');
+  }
   const summary = JSON.stringify(progress);
   if (root.dataset.snapshot === summary) return;
   root.dataset.snapshot = summary;
@@ -546,7 +555,7 @@ function renderMissionTimeline(status) {
     </div>
     <div class="mission-progress-summary">
       <div class="mission-progress-reading" data-current-state="${currentState}">
-        <span>Current step</span><strong aria-live="polite">${escapeHtml(progress.current)}</strong>
+        <span>Current step</span><strong>${escapeHtml(progress.current)}</strong>
       </div>
       <div class="mission-progress-reading">
         <span>Last completed</span><strong>${escapeHtml(progress.lastCompleted)}</strong>
