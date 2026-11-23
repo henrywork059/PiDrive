@@ -193,11 +193,15 @@ class PreprocessPage(DockPage):
         return recipe
 
     def use_recommended_defaults(self) -> None:
+        if not self.main_window.can_start_task(self) or self.task_runner.active:
+            return
         self._set_recommended_defaults()
         self._preprocess_applied = False
         self.preview_recipe(message_prefix='Defaults loaded and previewed')
 
     def auto_preprocess(self) -> None:
+        if not self.main_window.can_start_task(self) or self.task_runner.active:
+            return
         self._set_recommended_defaults()
         source_df = self._source_df()
         if source_df.empty:
@@ -338,6 +342,8 @@ class PreprocessPage(DockPage):
         )
 
     def reset_recipe(self) -> None:
+        if not self.main_window.can_start_task(self) or self.task_runner.active:
+            return
         self.filter_panel.reset_to_defaults()
         self.config_panel.reset_to_defaults()
         baseline = build_filtered_dataframe(self.state.dataset_df, self.state.train_config.only_manual)
@@ -410,6 +416,8 @@ class PreprocessPage(DockPage):
         return self.task_runner.active
 
     def sync_image_size_to_train(self) -> None:
+        if not self.main_window.can_start_task(self) or self.task_runner.active:
+            return
         recipe = self.current_recipe()
         self.state.train_config.img_h = int(recipe['image_height'])
         self.state.train_config.img_w = int(recipe['image_width'])
