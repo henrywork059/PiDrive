@@ -29,7 +29,7 @@ Existing `ErrorReporter` records can include raw absolute filenames, exception m
 - The **9/9 exact committed PiSD Node callbacks passed** through a V8 compatibility harness using current live GitHub source; across the entire R47 UI group **28/28** committed callbacks passed. This is **not native `node --test`** or a real browser.
 - Python diagnostic-redaction expression was compiled with real Python `re` and exercised on quoted relative, Windows and Linux paths. The initial quoting error in the new source literal was corrected before final checks.
 - **20 committed Python tests** (15 request-hook + 5 error-export) are **not executed** on a checkout of the latest branch; Flask is not installed locally. There were **no actual Raspberry Pi motor/camera/AI/recording or full Python test runs**.
-- Direct GitHub parent comparison/rollback audit must be performed and recorded in PR before merging; no test suite is claimed as hardware-tested.
+- **Direct-parent GitHub comparison completed:** PiSD R47 is **14 commits ahead, 0 behind** R46 PR #67, with **11 changed files (5 new, 6 modified), no removals and no cross-component paths**. Motor/camera/recording/AI services, config defaults, R35 global STOP, R36 responsive CSS and R43 MJPEG connection logic are untouched. No test suite is claimed as hardware-tested.
 
 ## Known limits / release gate
 - New failure ID is generated only for failed JSON/API mutations, not read-only GET, successful POST or browser network failures where server has never received the request. Correlation IDs from client headers are ignored.
