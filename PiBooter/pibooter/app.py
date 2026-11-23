@@ -43,6 +43,13 @@ HTML_SHELL = """<!doctype html>
     .status-connecting {{ background: #fef3c7; color: #92400e; }}
     .status-error {{ background: #fee2e2; color: #b91c1c; }}
     .status-idle, .status-starting {{ background: #e5e7eb; color: #374151; }}
+    .status-ready {{ background: #dbeafe; color: #1d4ed8; }}
+    .status-scanning {{ background: #e0e7ff; color: #3730a3; }}
+    .status-failed, .status-window_closing {{ background: #fee2e2; color: #991b1b; }}
+    .onboarding-next {{ margin: 10px 0 0; padding: 10px 12px; border-left: 3px solid #2563eb; background: #eff6ff; color: #1e3a8a; border-radius: 0 8px 8px 0; line-height: 1.4; }}
+    .onboarding-next[data-state="failed"], .onboarding-next[data-state="window_closing"] {{ border-left-color: #b91c1c; background: #fef2f2; color: #991b1b; }}
+    .onboarding-next strong {{ display: block; margin-bottom: 3px; }}
+    button:focus-visible, input:focus-visible, a:focus-visible {{ outline: 3px solid #2563eb; outline-offset: 3px; }}
     h2 {{ margin-top: 0; font-size: 1.1rem; }}
     dl {{ margin: 0; }}
     dt {{ font-weight: 700; margin-top: 10px; }}
@@ -98,7 +105,7 @@ HTML_SHELL = """<!doctype html>
     async function refreshStatus() {{
       try {{
         const response = await fetch('/api/status');
-        if (!response.ok) return;
+        if (!response.ok) throw new Error('PiBooter status request failed');
         const data = await response.json();
         const setText = (id, value) => {{
           const el = document.getElementById(id);
@@ -106,21 +113,47 @@ HTML_SHELL = """<!doctype html>
         }};
         const status = document.getElementById('runtime-status');
         if (status) {{
-          status.textContent = (data.phase || 'idle').toUpperCase();
-          status.className = 'status-pill status-' + (data.phase || 'idle');
+          const view = data.onboarding || {{}};
+          const step = ['scanning', 'connecting', 'connected', 'failed', 'window_closing', 'ready', 'starting'].includes(view.state)
+            ? view.state : 'starting';
+          status.textContent = view.headline || 'Checking PiBooter';
+          status.className = 'status-pill status-' + step;
         }}
-        setText('runtime-message', data.message || '');
+        setText('runtime-message', data.onboarding?.summary || data.message || '');
+        setText('setup-next-action', data.onboarding?.next_action || 'Check PiBooter status on the Raspberry Pi.');
+        const guidance = document.getElementById('setup-guidance');
+        if (guidance) guidance.dataset.state = data.onboarding?.state || 'starting';
         setText('active-ip', data.primary_ip || 'Not assigned yet');
         setText('active-connection', data.active_connection || 'None');
-        setText('startup-remaining', data.startup_remaining_s == null ? 'Locked' : String(data.startup_remaining_s));
+        setText('startup-remaining', data.session_active ? 'Held open by detected setup activity' : String(data.startup_remaining_s ?? 0) + 's before automatic exit');
         setText('session-state', data.session_active ? 'Locked open' : 'Waiting for first client');
         if (data.last_status) {{
           setText('last-ssid', data.last_status.last_ssid || 'None yet');
           setText('last-known-ip', data.last_status.last_known_ip || 'None yet');
           setText('last-updated', data.last_status.updated_at || '');
         }}
-      }} catch (error) {{}}
+      }} catch (error) {{
+        const hint = document.getElementById('setup-next-action');
+        if (hint) hint.textContent = 'PiBooter status is unavailable. The Pi may be changing networks or the setup window may have closed. Reconnect to the hotspot if present, or restart PiBooter locally.';
+      }}
     }}
+    function showSubmittedState(phase, summary) {{
+      const pill = document.getElementById('runtime-status');
+      if (pill) {{
+        pill.textContent = phase === 'scanning' ? 'Scanning nearby Wi-Fi' : 'Connecting to Wi-Fi';
+        pill.className = 'status-pill status-' + phase;
+      }}
+      const message = document.getElementById('runtime-message');
+      if (message) message.textContent = summary;
+      const hint = document.getElementById('setup-next-action');
+      if (hint) hint.textContent = phase === 'scanning'
+        ? 'Waiting for results. You can enter an SSID manually if it is missing.'
+        : 'Connection request submitted. The setup hotspot may disconnect during Wi-Fi handover.';
+    }}
+    const scanForm = document.querySelector('form[action="/rescan"]');
+    if (scanForm) scanForm.addEventListener('submit', () => showSubmittedState('scanning', 'Requesting a fresh Wi-Fi scan.'));
+    const connectForm = document.querySelector('form[action="/connect"]');
+    if (connectForm) connectForm.addEventListener('submit', () => showSubmittedState('connecting', 'Sending the Wi-Fi connection request.'));
     refreshStatus();
     {status_timer}
   </script>
@@ -681,12 +714,15 @@ class RequestHandler(BaseHTTPRequestHandler):
         return f'<div class="notice {level_class}">{html.escape(message)}</div>'
 
     def render_index_body(self, snapshot: dict[str, Any]) -> str:
-        phase = snapshot.get("phase", "idle")
+        onboarding = project_onboarding(snapshot)
+        phase = onboarding["state"]
         status_class = {
             "connected": "status-connected",
-            "hotspot": "status-hotspot",
+            "ready": "status-ready",
+            "scanning": "status-scanning",
             "connecting": "status-connecting",
-            "error": "status-error",
+            "failed": "status-failed",
+            "window_closing": "status-window_closing",
             "starting": "status-starting",
         }.get(phase, "status-idle")
         network = snapshot.get("network", {})
@@ -706,9 +742,11 @@ class RequestHandler(BaseHTTPRequestHandler):
         known_table = self.render_known_connections(snapshot.get("known_connections", []), self.controller.csrf_token)
         logs_text = self.render_logs(snapshot.get("logs", []))
         csrf_input = f'<input type="hidden" name="csrf_token" value="{html.escape(self.controller.csrf_token, quote=True)}">'
-        chip_message = html.escape(snapshot.get("message", ""))
+        chip_message = html.escape(onboarding["summary"])
+        guidance_text = html.escape(onboarding["next_action"])
         session_state = "Locked open" if snapshot.get("session_active") else "Waiting for first client"
-        startup_remaining = "Locked" if snapshot.get("session_active") else str(snapshot.get("startup_remaining_s", 0))
+        startup_remaining = ("Held open by detected setup activity" if snapshot.get("session_active")
+                             else f"{snapshot.get('startup_remaining_s', 0)}s before automatic exit")
 
         hotspot_block = ""
         if hotspot:
@@ -766,8 +804,11 @@ class RequestHandler(BaseHTTPRequestHandler):
         <div class="grid">
           <div class="card">
             <h2>Current status</h2>
-            <p><span id="runtime-status" class="status-pill {status_class}">{html.escape(phase.upper())}</span></p>
+            <p><span id="runtime-status" class="status-pill {status_class}">{html.escape(onboarding["headline"])}</span></p>
             <p id="runtime-message">{chip_message}</p>
+            <div class="onboarding-next" id="setup-guidance" data-state="{html.escape(phase, quote=True)}" role="status" aria-live="polite">
+              <strong>Next action</strong><span id="setup-next-action">{guidance_text}</span>
+            </div>
             <dl>
               <dt>Active connection</dt><dd id="active-connection">{html.escape(active_connection)}</dd>
               <dt>Primary IP</dt><dd id="active-ip" class="mono">{html.escape(primary_ip)}</dd>
@@ -778,7 +819,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             <h2>Boot window</h2>
             <dl>
               <dt>Session state</dt><dd id="session-state">{html.escape(session_state)}</dd>
-              <dt>First-client wait</dt><dd><span id="startup-remaining">{html.escape(startup_remaining)}</span> second(s)</dd>
+              <dt>First-client wait</dt><dd id="startup-remaining">{html.escape(startup_remaining)}</dd>
               <dt>Rule</dt><dd class="small">PiBooter exits if no hotspot client and no web request arrives within {int(self.controller.config['server']['startup_wait_s'])} seconds.</dd>
             </dl>
           </div>
@@ -905,6 +946,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         payload = {
             "phase": snapshot.get("phase"),
             "message": snapshot.get("message"),
+            "onboarding": project_onboarding(snapshot),
             "primary_ip": snapshot.get("primary_ip"),
             "active_connection": snapshot.get("active_connection"),
             "connection_attempt": snapshot.get("connection_attempt"),
