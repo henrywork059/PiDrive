@@ -5,6 +5,7 @@ from datetime import datetime
 from pathlib import Path
 
 from ...app_state import ExportConfig, TrainConfig
+from ...utils.model_manifest import make_manifest, write_manifest
 from ...utils.path_utils import ensure_dir, safe_filename
 from ...utils.tf_log_utils import CapturedTensorFlowOutput, quiet_tensorflow_output
 from ..train.dataset_service import make_tf_dataset
@@ -250,4 +251,27 @@ def export_model_artifacts(model, export_config: ExportConfig, train_df, train_c
 
     if not created:
         raise RuntimeError("No export target selected.")
+
+    # Publish a checksum-bound contract beside every completed artifact.
+    # A failure is visible to the operator rather than pretending an
+    # unverified model is ready to deploy.
+    for artifact in created:
+        model_path = Path(artifact.path)
+        quant_mode = ("dynamic" if artifact.kind == ".tflite" and export_config.quantize_int8
+                      else "float32")
+        metadata = make_manifest(
+            model_path,
+            model_kind="steering_control",
+            width=int(train_config.img_w),
+            height=int(train_config.img_h),
+            quantization=quant_mode,
+            output_interpretation="steering_throttle",
+            training_seed=int(train_config.seed),
+        )
+        try:
+            write_manifest(model_path, metadata)
+        except (OSError, ValueError) as exc:
+            raise RuntimeError(
+                f"Exported {model_path.name} but could not publish its model manifest: {exc}"
+            ) from exc
     return created

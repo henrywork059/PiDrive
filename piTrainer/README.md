@@ -1,5 +1,27 @@
 # piTrainer
 
+## Model deployment manifests (0.11.3, U27)
+
+Exporting a steering model as `.keras` or `.tflite`, or using the
+**Save Trained Model** action, now writes an adjacent
+`<model filename>.manifest.json` file. It records steering-control family,
+the RGB/NHWC input geometry, [0,1] normalization, ordered
+`[steering, throttle]` interpretation, quantization mode, training seed,
+and a SHA-256 checksum of the exported model bytes. An export reports a
+clear error if its manifest cannot be saved; it never claims that a
+manifest-less new export was fully deployed.
+
+Transfer **both files** to PiSD or PiServer, and keep them together when
+renaming/copying the model. If you intentionally use an older sidecar-free
+model, the runtime warns and performs available tensor-shape checks instead.
+A manifest that is present but inconsistent, corrupted, from the wrong model
+family, or bound to a different checksum is rejected.
+
+This does not change the accepted training architecture, seed defaults,
+non-overwriting model names, exports, data split, or validation workflow.
+Run actual TensorFlow conversion and Pi hardware preflight on the target
+machines before trusting a deployment.
+
 `piTrainer` is a PySide6 desktop app for PiCar steering/throttle workflows: dataset curation, preprocessing, model training, validation, and export.
 
 ## What you can do in piTrainer
