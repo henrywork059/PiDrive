@@ -222,8 +222,8 @@ function renderArmConfig(armConfig) {
   }
 
   document.getElementById('armPoseSettle').value = armConfig?.pose_settle_s ?? 0.45;
-  document.getElementById('armGripYRatio').value = fmtShort((Number(armConfig?.grip_trigger_y_ratio ?? 0.30) || 0) * 100, 0);
-  document.getElementById('armDropoffYRatio').value = fmtShort((Number(armConfig?.dropoff_trigger_y_ratio ?? 0.30) || 0) * 100, 0);
+  document.getElementById('armGripYRatio').value = triggerGuidePercent(armConfig?.grip_trigger_y_ratio ?? 0.30);
+  document.getElementById('armDropoffYRatio').value = triggerGuidePercent(armConfig?.dropoff_trigger_y_ratio ?? 0.30);
 }
 
 function clampTriggerPercent(raw, fallback = 30) {
@@ -693,7 +693,8 @@ function triggerGuideY(ratio, height) {
 
 function triggerGuidePercent(ratio) {
   const parsed = Number(ratio);
-  return Math.round((Number.isFinite(parsed) ? Math.max(0, Math.min(1, parsed)) : 0.3) * 100);
+  // Backend persists 0.001 ratio units, equal to 0.1 percentage point.
+  return Math.round((Number.isFinite(parsed) ? Math.max(0, Math.min(1, parsed)) : 0.3) * 1000) / 10;
 }
 
 function triggerGuideValues(status) {
@@ -701,10 +702,10 @@ function triggerGuideValues(status) {
   const savedGrip = triggerGuidePercent(arm.grip_trigger_y_ratio ?? 0.3);
   const savedDropoff = triggerGuidePercent(arm.dropoff_trigger_y_ratio ?? 0.3);
   const grip = triggerPreviewEdited
-    ? clampTriggerPercent(document.getElementById('armGripYRatio')?.value, savedGrip)
+    ? clampTriggerPercent(document.getElementById('armGripYRatio')?.value)
     : savedGrip;
   const dropoff = triggerPreviewEdited
-    ? clampTriggerPercent(document.getElementById('armDropoffYRatio')?.value, savedDropoff)
+    ? clampTriggerPercent(document.getElementById('armDropoffYRatio')?.value)
     : savedDropoff;
   const preview = triggerPreviewEdited && (grip !== savedGrip || dropoff !== savedDropoff);
   return { grip, dropoff, savedGrip, savedDropoff, preview };
