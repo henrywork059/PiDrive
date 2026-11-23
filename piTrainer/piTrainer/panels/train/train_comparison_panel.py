@@ -114,12 +114,21 @@ class TrainComparisonPanel(QGroupBox):
             return
         record, message = inspect_model_experiment(path)
         if record is None:
+            self.table.setRowCount(0)
             self.info.setText(f"{message}\nSelected model: {Path(path).expanduser().resolve()}")
             return
         run_id = record["run_id"]
-        self.info.setText(f"{message}\nModel: {Path(path).expanduser().resolve()}\nRun ID: {run_id}")
         if run_id not in self._records:
             self._records[run_id] = record
             label = f"External model | {run_id[:8]}"
+            self.run_a.blockSignals(True)
+            self.run_b.blockSignals(True)
             self.run_a.addItem(label, run_id)
             self.run_b.addItem(label, run_id)
+            self.run_a.blockSignals(False)
+            self.run_b.blockSignals(False)
+        index = self.run_a.findData(run_id)
+        if index >= 0:
+            self.run_a.setCurrentIndex(index)
+        self._render()
+        self.info.setText(f"{message}\nModel: {Path(path).expanduser().resolve()}\nRun ID: {run_id}")
