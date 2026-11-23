@@ -30,6 +30,7 @@ class DataPageFilterEditMixin:
             steering_range=self.filter_panel.steering_range() if self.filter_panel.steering_filter_enabled() else None,
         )
         self.preview_panel.set_dataframe(filtered_preview)
+        self._refresh_selection_scope()
         if select_identity:
             self.preview_panel.select_record_identity(select_identity)
         self.plot_panel.set_dataframe(filtered_preview)
