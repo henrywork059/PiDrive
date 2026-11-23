@@ -13,8 +13,9 @@ remains legible on narrow displays. The scale is the existing U24 convention:
   Mission 1's center-origin gate remains `H × (p − 0.5)`.
 - The two independent backend settings are
   `arm.grip_trigger_y_ratio` and `arm.dropoff_trigger_y_ratio`.
-  Existing saved values are retained and normalized to 0–1; the 0%
-  value now also remains 0 when the runtime computes the actual pickup
+  Existing saved values are retained and normalized to 0–1; the form,
+  readout and guide support **0.1%** precision (matching the backend's
+  three-decimal stored ratio). The 0% value now also remains 0 when the runtime computes the actual pickup
   and drop-off gate (previously a falsy-value fallback turned it into 30%).
 - Editing **Grip trigger Y** moves **only the grip guide**; editing
   **Drop-off trigger Y** moves **only the drop-off guide**. Before saving,
