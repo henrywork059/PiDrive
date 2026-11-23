@@ -809,7 +809,11 @@
         snapshots: collections.snapshots || [],
       };
       renderFileOptions();
-      if (recordingCollections.recordings.length || recordingCollections.snapshots.length) {
+      // Keep the actionable empty notice when the currently selected kind
+      // has no folders, even if the other collection contains saved data.
+      const selectedKind = fileKind?.value === 'snapshot' ? 'snapshot' : 'recording';
+      const visibleItems = selectedKind === 'snapshot' ? recordingCollections.snapshots : recordingCollections.recordings;
+      if (visibleItems.length) {
         showFilesNotice(`Loaded ${recordingCollections.recordings.length} recordings and ${recordingCollections.snapshots.length} snapshot folders.`, payload.code);
       }
     } catch (err) {
