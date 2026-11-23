@@ -50,7 +50,6 @@ def build_preflight(
     camera_real = camera_backend in {"picamera2", "opencv"}
     gpio = motor.get("gpio_available") is True
     latched = safety.get("latched") is True
-    simulated = not gpio
     mode = "hardware-adapter" if gpio else "simulation"
     checks = [
         _check("mode", "Service mode", "ready" if gpio else "simulation",
