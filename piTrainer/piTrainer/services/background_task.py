@@ -69,6 +69,7 @@ class BackgroundTaskRunner(QObject):
         worker.succeeded.connect(lambda result: self._success(result, on_success))
         worker.failed.connect(lambda message: self._failure(message, on_failure))
         worker.finished.connect(self._finished)
+        worker.finished.connect(worker.deleteLater)
         worker.start()
         return True
 
