@@ -1128,12 +1128,9 @@
   function shortcutBlocked() {
     const active = document.activeElement;
     if (!active || active === document.body || active === document.documentElement || active === els.aiCorrectionPad || active === els.aiManualDrivePad || active === els.aiAssistPad) return false;
-    const tag = String(active.tagName || '').toLowerCase();
-    if (tag === 'input') {
-      const type = String(active.type || '').toLowerCase();
-      return !['checkbox', 'button', 'submit', 'reset'].includes(type);
-    }
-    if (['select', 'textarea'].includes(tag)) return true;
+    // R35: native button/checkbox/field activation must not become a motor
+    // shortcut while keyboard focus is inside a control.
+    if (active.closest?.('button, a[href], input, select, textarea, [role="button"], [role="tab"], [role="checkbox"], [role="switch"]')) return true;
     return Boolean(active.isContentEditable);
   }
 
