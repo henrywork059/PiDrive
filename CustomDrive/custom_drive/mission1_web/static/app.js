@@ -6,6 +6,8 @@ let frameTimer = null;
 let frameRequestInFlight = false;
 let latestFrameRequestId = 0;
 let currentStatus = null;
+let statusFailures = 0;
+let frameFailures = 0;
 
 function shouldShowLiveFrame(status) {
   if (!status) return false;
@@ -14,14 +16,32 @@ function shouldShowLiveFrame(status) {
   return Boolean(camera.running) && phase.startsWith('ai');
 }
 
-function scheduleRefresh(delay = STATUS_REFRESH_MS) {
-  if (refreshTimer) clearTimeout(refreshTimer);
-  refreshTimer = setTimeout(refresh, delay);
+// R43: only browser observation intervals change; motor/arm/mission timing is untouched.
+function statusRefreshDelay() {
+  if (document.hidden) return 5000;
+  const active = Boolean(currentStatus?.running) ||
+    String(currentStatus?.phase || '').startsWith('ai');
+  const base = active ? STATUS_REFRESH_MS : 2500;
+  return Math.min(8000, base * Math.pow(2, Math.min(4, statusFailures)));
 }
-
-function scheduleFrameRefresh(delay = FRAME_REFRESH_MS) {
+function frameRefreshDelay() {
+  if (document.hidden) return 5000;
+  if (!shouldShowLiveFrame(currentStatus)) return 2000;
+  return Math.min(4000, FRAME_REFRESH_MS * Math.pow(2, Math.min(4, frameFailures)));
+}
+function scheduleRefresh(delay = statusRefreshDelay()) {
+  if (refreshTimer) clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(() => {
+    refreshTimer = null;
+    void refresh();
+  }, delay);
+}
+function scheduleFrameRefresh(delay = frameRefreshDelay()) {
   if (frameTimer) clearTimeout(frameTimer);
-  frameTimer = setTimeout(refreshFrame, delay);
+  frameTimer = setTimeout(() => {
+    frameTimer = null;
+    refreshFrame();
+  }, delay);
 }
 
 async function fetchJSON(path, options = undefined) {
@@ -724,6 +744,10 @@ function renderViewer(status) {
   const liveFrameVisible = shouldShowLiveFrame(status);
   const pipelineFps = fmt(status.pipeline?.fps || 0, 2);
   const detectionCount = String((status.detections || []).length);
+  const serverAt = Number(status.server_status_at_ms);
+  stats.title = Number.isFinite(serverAt) && serverAt > 0
+    ? `Server status as of ${new Date(serverAt).toLocaleTimeString()} (server clock)`
+    : 'Server status freshness unavailable';
   stats.innerHTML = `
     <span class="stat-pill">Objects ${escapeHtml(detectionCount)}</span>
     <span class="stat-pill">FPS ${escapeHtml(pipelineFps)}</span>
@@ -870,15 +894,19 @@ async function saveMotorConfig(payload) {
 
 
 async function refresh() {
-  if (refreshInFlight) {
+  if (document.hidden) {
+    scheduleRefresh(); // no background HTTP status reads
     return;
   }
+  if (refreshInFlight) return;
   refreshInFlight = true;
   try {
     const status = await fetchJSON('/api/status');
+    statusFailures = 0;
     currentStatus = status;
     renderStatus(status);
   } catch (err) {
+    statusFailures = Math.min(4, statusFailures + 1);
     setMessage('configMessage', err.message || 'Refresh failed.', true);
     const progressRoot = document.getElementById('missionTimeline');
     if (progressRoot) {
@@ -893,6 +921,10 @@ async function refresh() {
 }
 
 function refreshFrame() {
+  if (document.hidden) {
+    scheduleFrameRefresh();
+    return;
+  }
   const video = document.getElementById('videoFeed');
   const svg = document.getElementById('viewerOverlay');
   if (!shouldShowLiveFrame(currentStatus)) {
@@ -918,17 +950,24 @@ function refreshFrame() {
 
   frameRequestInFlight = true;
   const requestId = ++latestFrameRequestId;
-  const finish = () => {
-    if (requestId === latestFrameRequestId) {
-      frameRequestInFlight = false;
-    }
+  let timeoutId = null;
+  const finish = (success = true) => {
+    if (requestId !== latestFrameRequestId || !frameRequestInFlight) return;
+    frameRequestInFlight = false;
+    frameFailures = success ? 0 : Math.min(4, frameFailures + 1);
+    if (timeoutId !== null) window.clearTimeout(timeoutId);
+    scheduleFrameRefresh(); // one request at a time; no recurring overlap
   };
-
-  video.onload = finish;
-  video.onerror = finish;
+  video.onload = () => finish(true);
+  video.onerror = () => finish(false);
   video.src = `/api/frame.jpg?t=${Date.now()}`;
-  window.setTimeout(finish, Math.max(800, FRAME_REFRESH_MS * 3));
-  scheduleFrameRefresh();
+  timeoutId = window.setTimeout(() => {
+    if (requestId === latestFrameRequestId && frameRequestInFlight) {
+      // Abandon a stalled image load rather than issuing overlapping requests.
+      video.removeAttribute('src');
+      finish(false);
+    }
+  }, Math.max(1000, FRAME_REFRESH_MS * 4));
 }
 
 async function init() {
@@ -942,6 +981,21 @@ async function init() {
   }
   await refresh();
   scheduleFrameRefresh();
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      const video = document.getElementById('videoFeed');
+      ++latestFrameRequestId;
+      frameRequestInFlight = false;
+      if (video) video.removeAttribute('src');
+      scheduleRefresh(); // no HTTP while hidden; do not change mission motor safety
+      scheduleFrameRefresh();
+    } else {
+      statusFailures = 0;
+      frameFailures = 0;
+      scheduleRefresh(0);
+      scheduleFrameRefresh(0);
+    }
+  });
 }
 
 document.getElementById('saveConfigBtn').onclick = saveConfig;
