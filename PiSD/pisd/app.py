@@ -687,7 +687,9 @@ def create_app(hardware_enabled: bool = False):
                     severity="warning",
                 )
                 return jsonify(report_payload(False, report, ai=ai_drive_service.status())), 400
-            result = ai_drive_service.upload_model(uploaded.filename, uploaded.stream)
+            sidecar = request.files.get("manifest")
+            result = ai_drive_service.upload_model(uploaded.filename, uploaded.stream,
+                                                   sidecar.stream if sidecar is not None else None)
             return jsonify(result), 201 if result.get("ok") else 400
         except Exception as exc:
             report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"AI upload-model API failed: {exc}", exc=exc)

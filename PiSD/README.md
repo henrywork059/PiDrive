@@ -1,6 +1,34 @@
 # PiSD
 
-`PiSD_0_11_11` recording-storage safety update — layered on the current PiSD 0.11.10 diagnostic branch while retaining accepted 0.11.x UI/settings changes.
+## Model compatibility and rollback (0.11.12, U27)
+
+PiSD understands optional `<model>.tflite.manifest.json` and
+`<model>.keras.manifest.json` sidecars. New piTrainer exports contain
+the steering model family, RGB/NHWC geometry, input normalization, ordered
+steering/throttle output semantics, quantization mode, training seed and
+SHA-256 checksum. A present manifest with the wrong family, altered bytes
+or mismatched shape is **rejected before activation**. A sidecar-free legacy
+model remains loadable with a visible warning and tensor inspection.
+
+PiSD now tests a replacement model with a synthetic input before changing
+the working interpreter or saved model ID. Unsupported YOLO detectors, wrong
+shapes, non-finite outputs and invalid quantization are refused. If
+preflight fails, the previous active model stays selected. Stop AI preview
+or driving before attempting a model swap.
+
+The upload API accepts an optional multipart `manifest` file alongside
+`model`. The manifest is verified against the uploaded model bytes; a
+failure leaves the existing model selection untouched. Deleting a model
+also removes its matching sidecar. For offline deployments, copy the
+model and sidecar together into `PiSD/models/`. Old models remain
+supported; the extra file is not mandatory.
+
+Real Raspberry Pi model loading, TensorFlow Lite implementation differences,
+safety-stop timing, and browser upload workflows require on-device tests.
+This update does not bypass the accepted AI camera-staleness latch, motor
+safety, storage limits or recording recovery.
+
+`PiSD_0_11_12` model-deployment safety update — layered on the current PiSD 0.11.10 diagnostic branch while retaining accepted 0.11.x UI/settings changes.
 
 PiSD is a clean sandbox under `PiDrive/PiSD` for rebuilding and testing PiServer GUI and runtime functions from square one.
 
@@ -10,7 +38,7 @@ Future bug-fix patches after this package should use `PiSD_0_11_x_patch` naming 
 
 ## Current version
 
-`PiSD_0_11_11` forward patch. The uploaded `PiSD_0_11_0.zip` is a historical full baseline; the active GitHub branch includes the accepted 0.11.7–0.11.10 changes. This patch keeps the AI preview/manual-recording separation, then adds the AI workflow settings popup, camera FPS control, manual-release preview preservation, and moves the motor confirmation into the AI workflow panel.
+`PiSD_0_11_12` forward patch. The uploaded `PiSD_0_11_0.zip` is a historical full baseline; the active GitHub branch includes the accepted 0.11.7–0.11.10 changes. This patch keeps the AI preview/manual-recording separation, then adds the AI workflow settings popup, camera FPS control, manual-release preview preservation, and moves the motor confirmation into the AI workflow panel.
 
 Use the latest accepted GitHub patch branch as the source-of-truth for forward changes; do not revert to the historical 0.11.0 ZIP.
 
