@@ -520,6 +520,9 @@ function renderMotorPositionPanel(status) {
 function renderMissionTimeline(status) {
   const root = document.getElementById('missionTimeline');
   if (!root) return;
+  root.dataset.connection = 'live';
+  const disconnection = root.querySelector('.mission-progress-disconnected');
+  if (disconnection) disconnection.hidden = true;
   const progress = window.CustomDriveMissionTimeline.project(status);
   const summary = JSON.stringify(progress);
   if (root.dataset.snapshot === summary) return;
@@ -536,6 +539,7 @@ function renderMissionTimeline(status) {
     </li>`;
   }).join('');
   root.innerHTML = `
+    <p class="mission-progress-disconnected" role="alert" hidden>Backend status unavailable. Progress below is the last confirmed snapshot, not live.</p>
     <div class="mission-progress-head">
       <h3>Mission progress</h3>
       <span class="mission-progress-outcome" data-outcome="${escapeHtml(progress.outcome)}">${escapeHtml(progress.outcome)}</span>
@@ -867,6 +871,12 @@ async function refresh() {
     renderStatus(status);
   } catch (err) {
     setMessage('configMessage', err.message || 'Refresh failed.', true);
+    const progressRoot = document.getElementById('missionTimeline');
+    if (progressRoot) {
+      progressRoot.dataset.connection = 'disconnected';
+      const warning = progressRoot.querySelector('.mission-progress-disconnected');
+      if (warning) warning.hidden = false;
+    }
   } finally {
     refreshInFlight = false;
     scheduleRefresh();
