@@ -32,7 +32,7 @@ def safe_diagnostic_text(value: Any, *, limit: int = 240) -> str:
     result = str(value or "")
     result = _URLS.sub("[redacted URL]", result)
     result = _SECRET_VALUES.sub("[redacted credential]", result)
-    result = re.sub(r"(?i)\b(?:path|filepath|file|directory)\s*[:=]\s*(?:\\"[^\\"]*\\"|\'[^\']*\'|\S+)", "[redacted path]", result)
+    result = re.sub(r"(?i)\b(?:path|filepath|file|directory)\s*[:=]\s*(?:\"[^\"]*\"|'[^']*'|\S+)", "[redacted path]", result)
     result = _BEARER.sub("Bearer [redacted]", result)
     result = _ABSOLUTE_PATHS.sub("[redacted path]", result)
     result = re.sub(r"[\r\n\t]+", " ", result)
