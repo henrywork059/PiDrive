@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 from PySide6.QtWidgets import QApplication, QMessageBox
+from ..services.data.selection_scope import selected_visible_impact
 
 from ..services.data.edit_service import update_frame_controls_many
 from ..services.data.model_deploy_service import run_model_deploy
@@ -175,7 +176,10 @@ class DataPageDeployMixin:
         confirm = QMessageBox.warning(
             self,
             'Apply AI Output?',
-            f'This overwrites steering and speed labels for {len(eligible)} selected frame(s) using deployed AI output.\n\nContinue?',
+            f'This overwrites steering and speed labels for {len(eligible)} selected visible frame(s) using deployed AI output.\n'
+            f'{selected_visible_impact(eligible)}\n'
+            f'Skipped selected frames without usable AI output: {len(records) - len(eligible)}.\n'
+            f'All active loaded frames: {len(self.state.dataset_df)} (not all targeted).\n\nContinue?',
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No,
         )
