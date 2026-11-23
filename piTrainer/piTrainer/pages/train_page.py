@@ -145,6 +145,12 @@ class TrainPage(DockPage):
             return None
         return self._model_run, self._model_run_root
 
+    def note_model_run_artifacts(self, model, linked: dict) -> None:
+        if model is self._provenance_model and self._model_run is not None:
+            if linked.get('run_id') == self._model_run.get('run_id'):
+                self._model_run = linked
+                self.refresh_run_comparison()
+
     def refresh_from_state(self) -> None:
         self.split_summary_panel.set_counts(
             total_rows=len(self.state.filtered_df),
