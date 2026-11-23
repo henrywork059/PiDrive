@@ -662,3 +662,27 @@ input[type='range'] {
     outline: 3px solid Highlight !important;
   }
 }
+
+/* R36: phone toolbar must grow rather than overlap the workspace. */
+@media (max-width: 600px) {
+  .topbar {
+    height: auto;
+    min-height: 54px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+  .toolbar-actions { width: 100%; min-width: 0; flex-wrap: wrap; }
+  .toolbar-actions button, #manualStopBtn {
+    min-height: 44px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .workspace-shell { height: auto; min-height: 0; overflow: visible; }
+  .modal-backdrop { padding: 8px; overflow-y: auto; }
+  .modal-window {
+    min-width: 0;
+    max-height: calc(100dvh - 16px);
+  }
+  .modal-body { min-height: 0; flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; }
+  .modal-actions-wrap > button { max-width: 100%; min-width: 0; white-space: normal; }
+}
