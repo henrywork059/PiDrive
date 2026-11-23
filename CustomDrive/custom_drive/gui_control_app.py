@@ -24,7 +24,7 @@ from piserver.services.motor_service import MotorService  # noqa: E402
 from piserver.services.recorder_service import RecorderService  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent / 'gui_web'
-APP_VERSION = '0_3_14'
+APP_VERSION = '0_3_15'
 OD_MODEL_ROOT = CUSTOMDRIVE_ROOT / 'models' / 'object_detection'
 
 
@@ -170,6 +170,7 @@ class GuiControlContext:
         payload['camera_config'] = self.camera_service.get_config()
         payload['arm_status'] = self.arm_service.status()
         payload['ai_status'] = self.object_detection_service.get_status(include_models=False)
+        payload['server_status_at_ms'] = int(time.time() * 1000)
         payload['app'] = 'gui_control'
         return payload
 
