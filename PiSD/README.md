@@ -1,5 +1,34 @@
 # PiSD
 
+## Hidden-tab MJPEG bandwidth (0.11.18, R43)
+
+Manual Drive and AI Mode close their browser `/video_feed` MJPEG connection
+when the tab becomes hidden, and restore it on visibility **only if live
+preview was still selected**. The legacy bench dashboard follows the same
+behavior. The server-side camera, recording and motor services are **not**
+stopped by this display-only change. The existing Manual Drive fail-safe
+STOP on hide and AI correction/manual/assist/AI stop handlers run before
+the stream is paused. The existing per-page preview-FPS polls and readiness
+checks remain guarded.
+
+PiSD already supplies server `timestamp_utc` status freshness and measured
+frame sequence/age via `/api/camera/fps-stats`; R43 does not replace these
+with client wall-clock guesses.
+
+**Expected bandwidth profile:** a visible live MJPEG connection keeps a
+single long-lived HTTP response continuously streaming JPEG frames; a
+hidden tab now closes that response, targeting **zero hidden-tab MJPEG
+payload bytes**. There is no meaningful requests-per-minute value for a
+single long-lived stream. Actual bytes/sec saved depend on the camera
+codec, frame size/rate and browser connection lifetime and are **not
+measured** in this environment.
+
+Run `node --test PiSD/scripts/test_adaptive_stream_r43.cjs` from the
+monorepo root. Before release, capture HTTP/network bytes for active,
+hidden and visible-again scenarios and verify immediate fresh server frame
+sequence/age, motor STOP/Space STOP, AI stop, recording continuity and
+the latest R35/R36 responsive layouts on actual Raspberry Pi hardware.
+
 ## Model compatibility and rollback (0.11.12, U27)
 
 PiSD understands optional `<model>.tflite.manifest.json` and
