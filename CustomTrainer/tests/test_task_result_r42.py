@@ -85,6 +85,35 @@ class TaskResultTests(unittest.TestCase):
         output.write_bytes(b"good model")
         self.assertIsNone(run.verified_path())  # Failed run must never enable Open Location.
 
+    def test_input_model_cannot_be_reported_as_exported_result(self):
+        run = self.begin(kind="export", mode="export")
+        run.observe(f"[export] {self.model}")
+        run.finish(0)
+        self.assertEqual(run.state, "Failed")
+        self.assertIn("equals the input", run.reason)
+
+    def test_prediction_source_cannot_be_reported_as_output(self):
+        source = self.put_output("input_images", "frame.jpg")
+        run = TaskResult.begin("native", "predict", str(self.model), str(source), self.root)
+        run.observe(f"[save-dir] {source}")
+        run.finish(0)
+        self.assertEqual(run.state, "Failed")
+
+    def test_validation_requires_directory(self):
+        file = self.root / "results.csv"
+        file.write_text("valid")
+        run = self.begin()
+        run.observe(f"[save-dir] {file}")
+        run.finish(0)
+        self.assertEqual(run.state, "Failed")
+
+    def test_stop_request_displays_stopping_before_completion(self):
+        run = self.begin()
+        run.request_stop()
+        self.assertEqual(run.state, "Stopping")
+        run.finish(0)
+        self.assertEqual(run.state, "Cancelled")
+
     def test_export_success_shows_exact_file(self):
         output = self.root / "model.onnx"
         output.write_bytes(b"good model")
