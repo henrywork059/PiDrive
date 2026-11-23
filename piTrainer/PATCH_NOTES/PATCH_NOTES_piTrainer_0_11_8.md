@@ -21,9 +21,9 @@ The existing V11 guide describes roles and profile ownership, but future page pa
 
 ## Verification actually performed
 - Inspected current GitHub source and latest 4 component notes, not the old baseline ZIP. Verified central stylesheet calls `stylesheet_tokens(density)` and roles map to `THEME_COLORS`.
-- Tested central source/role/placeholder invariants by live-source static inspection in the connected GitHub workspace; these are **not** Qt screenshot or code-execution tests.
+- Ran **15/15 live-GitHub-source static contract assertions**, including 57 distinct stylesheet placeholders all resolvable from the 61 color tokens + eight layout token keys, documented density thresholds, palette roles, preserved central styling source hashes and forward version marker. This is an executed static inspection in V8, **not** execution of the committed Python AST test module or Qt UI.
 - The new **15 Python tests were committed but not run as a standalone Python test suite** against a local checkout; PySide6/TensorFlow GUI, real Windows screenshots and full piTrainer suite are not tested here.
-- Run final GitHub branch compare against R40 parent before draft PR; preserve no-file-deletion, no unrelated-component and no style/runtime-file-touch guarantees.
+- Completed direct-parent GitHub compare: **4 changed files**, **0 behind** R40, **0 removed**, **0 outside piTrainer**, **no changes to `ui/formatting.py`, `ui/styles.py`, `ui/theme.py`, or R37–R40 page/service files**. There are two new files (test and note), two modified (guide/version).
 
 ## Release gate and limitations
 1. From `piTrainer/`, run `python -m unittest discover -s tests -p 'test_ui_style_contract_r45.py' -v`, then the full test suite.
