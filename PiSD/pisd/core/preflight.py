@@ -49,6 +49,8 @@ def build_preflight(
     motor_hw = motor.get("hardware_enabled") is True
     latched = safety.get("latched") is True
     model_ready = ai.get("model_loaded") is True and ai.get("model_ready") is True
+    runtime = ai.get("runtime_support") if isinstance(ai.get("runtime_support"), dict) else {}
+    tflite_available = runtime.get("tflite") is True
     mode = "hardware-requested" if hardware_requested else "simulation-requested"
     checks = [
         _item("mode", "Service mode",
@@ -70,9 +72,14 @@ def build_preflight(
               else "Check Pi camera setup, then Start live."),
         _item("model", "AI model", "ready" if model_ready else "attention",
               "AI model loaded and backend marked ready; no inference run."
-              if model_ready else "No ready AI model; manual driving remains available.",
+              if model_ready else
+              "TFLite runtime missing in this Python environment; AI model unavailable."
+              if not tflite_available else
+              "No ready AI model; manual driving remains available.",
               "Verify AI inference with the car secured." if model_ready
-              else "Upload/select a compatible TFLite model in AI Mode."),
+              else "Install tflite-runtime, restart PiSD, then load a model."
+              if not tflite_available else
+              "Upload/select a compatible TFLite model in AI Mode."),
         _item("motor", "Motor adapter",
               "attention" if latched or (hardware_requested and not motor_hw) else
               ("ready" if motor_hw else "simulation"),
