@@ -45,14 +45,18 @@ def verified_output(path: str | Path | None, kind: str) -> Path | None:
             return candidate
         if candidate.is_dir():
             if kind == "export":
-                return candidate if any(candidate.iterdir()) else None
+                return candidate if any(item.is_file() and item.stat().st_size > 0
+                                        and not item.name.endswith(".manifest.json")
+                                        and item.suffix.lower() != ".tmp"
+                                        for item in candidate.rglob("*")) else None
             if kind == "predict":
                 return candidate if any(
                     item.is_file() and item.suffix.lower() in IMAGE_EXTENSIONS
                     and item.stat().st_size > 0 for item in candidate.iterdir()
                 ) else None
             if kind == "val":
-                return candidate if any(candidate.iterdir()) else None
+                return candidate if any(item.is_file() and item.stat().st_size > 0
+                                        for item in candidate.rglob("*")) else None
     except (OSError, ValueError, RuntimeError):
         return None
     return None
@@ -106,6 +110,8 @@ class TaskResult:
 
     def request_stop(self) -> None:
         self.stop_requested = True
+        self.state = "Stopping"
+        self.reason = "Stop requested; waiting for the worker to terminate."
 
     def finish(self, exit_code: int) -> None:
         self.finished_at = _now()
