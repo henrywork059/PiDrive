@@ -269,10 +269,14 @@ class TrainPage(DockPage):
             return
         train_df, val_df = prepared
         try:
+            preprocess_page = getattr(self.main_window, 'preprocess_page', None)
+            applied_recipe = (
+                self.state.preprocess_recipe
+                if getattr(preprocess_page, '_preprocess_applied', False) else None
+            )
             self._active_run = create_run_snapshot(
                 train_df, val_df, self.state.train_config,
-                self.state.preprocess_recipe, self.state.selected_sessions,
-                self.state.last_saved_preprocess_path,
+                applied_recipe, self.state.selected_sessions,
             )
             self._active_run_root = self.state.out_dir_path
         except Exception as exc:
