@@ -171,11 +171,15 @@ class DataPageVisibilityMixin:
         metadata_rows_changed = int(result.get('metadata_rows_changed', 0) or 0)
         failed_messages = list(result.get('failed_messages', []))
 
+        if failed_messages:
+            # A partial metadata failure can leave the disk total uncertain.
+            # Explicitly request a reload rather than displaying a false zero
+            # or an optimistic increment in the selection-scope toolbar.
+            self._loaded_hidden_count = None
+        elif hidden_count and self._loaded_hidden_count is not None:
+            self._loaded_hidden_count += hidden_count
+
         if hidden_count:
-            # The hidden count was sourced from the loaded session JSONL
-            # metadata; only a successful hide changes that cached count.
-            if self._loaded_hidden_count is not None:
-                self._loaded_hidden_count += hidden_count
             self._hide_records_from_loaded_data(identities)
             self.stats_panel.set_stats(calculate_basic_stats(self.state.filtered_df))
             self.apply_preview_filter()
