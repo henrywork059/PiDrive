@@ -33,6 +33,7 @@ const state = {
   aiModels: [],
   aiLabelFiles: [],
   statusInFlight: false,
+  statusFailures: 0,
   previewTimer: null,
   previewInFlight: false,
   previewObjectUrl: null,
@@ -655,6 +656,13 @@ function updateStatusUi(data) {
   setText('systemArmLift', `${Number(data.arm_status?.servo0_angle ?? data.arm_status?.lift_angle ?? 0).toFixed(0)}° / ${Number(data.arm_status?.servo1_angle ?? 0).toFixed(0)}°`);
   setText('systemMotorDir', `${data.motor_left_direction ?? 1} / ${data.motor_right_direction ?? 1} / ${data.motor_steering_direction ?? 1}`);
   setBanner('statusBanner', data.system_message || 'Ready.', data.safety_stop ? 'warn' : 'muted');
+  const statusBanner = document.getElementById('statusBanner');
+  if (statusBanner) {
+    const serverAt = Number(data.server_status_at_ms);
+    statusBanner.title = Number.isFinite(serverAt) && serverAt > 0
+      ? `Server status as of ${new Date(serverAt).toLocaleTimeString()} (server clock).`
+      : 'Server status freshness timestamp unavailable.';
+  }
   setBanner('systemMessage', data.last_error ? `Last error: ${data.last_error}` : (data.system_message || 'System ready.'), data.last_error ? 'warn' : 'muted');
   state.estopEnabled = Boolean(data.safety_stop);
   syncEstopToggle(state.estopEnabled);
@@ -670,16 +678,43 @@ function updateStatusUi(data) {
   renderAiDebug(null, aiStatus, { appendHistory: true });
 }
 
+// R43: visual status only. Motor-control dispatch and safety STOP are unchanged.
+function statusPollDelayMs() {
+  if (document.hidden) return 5000;
+  const active = Math.abs(state.manualSteering) > 0.001 ||
+    Math.abs(state.manualThrottle) > 0.001 ||
+    Boolean(state.latestStatus?.camera_preview_live) ||
+    Boolean(state.controlInFlight) || Boolean(state.pendingControl);
+  const base = active ? 1500 : 4000;
+  return Math.min(10000, base * Math.pow(2, Math.min(3, state.statusFailures)));
+}
+
+function scheduleStatusPoll(delayMs = statusPollDelayMs()) {
+  if (state.statusTimer) window.clearTimeout(state.statusTimer);
+  state.statusTimer = window.setTimeout(() => {
+    state.statusTimer = null;
+    void pollStatus();
+  }, delayMs);
+}
+
 async function pollStatus() {
+  if (document.hidden) {
+    scheduleStatusPoll();
+    return;
+  }
   if (state.statusInFlight) return;
   state.statusInFlight = true;
   try {
     const data = await fetchJson('/api/status');
+    state.statusFailures = 0;
+    state.latestStatus = data;
     updateStatusUi(data);
   } catch (error) {
+    state.statusFailures = Math.min(3, state.statusFailures + 1);
     setBanner('systemMessage', error.message || 'Status refresh failed.', 'warn');
   } finally {
     state.statusInFlight = false;
+    scheduleStatusPoll();
   }
 }
 
@@ -1191,7 +1226,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.addEventListener('visibilitychange', () => {
     previewHealth.setPaused(!state.previewEnabled || document.hidden);
     renderPreviewHealth();
-    if (!document.hidden && state.previewEnabled) schedulePreviewPoll(0);
+    if (!document.hidden) {
+      if (state.previewEnabled) schedulePreviewPoll(0);
+      scheduleStatusPoll(0); // return to tab: refresh immediately
+    } else {
+      scheduleStatusPoll(); // skip hidden HTTP reads; safety STOP is independent
+    }
   });
   window.addEventListener('beforeunload', () => {
     window.clearTimeout(state.previewTimer);
@@ -1199,5 +1239,5 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   window.setInterval(renderPreviewHealth, 250);
   if (state.statusTimer) window.clearInterval(state.statusTimer);
-  state.statusTimer = window.setInterval(pollStatus, 1500);
+  scheduleStatusPoll(1500);
 });
