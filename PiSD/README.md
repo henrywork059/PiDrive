@@ -1,5 +1,33 @@
 # PiSD
 
+## R48 read-only startup preflight (0.11.21)
+
+The PiSD **front page** now has a collapsed **Startup preflight** with
+**Refresh checks**. Its only request is `GET /api/preflight`. The server
+reads the existing camera/motor/AI status snapshots and passive
+`shutil.disk_usage`; no camera start, motor update/stop, model load,
+settings reset, subprocess or new network probe occurs.
+
+Six concise rows show requested vs actual service mode (simulation and
+hardware **must not** be conflated), whether the Picamera2 camera is
+actually running, whether an AI model is ready and TFLite runtime imports
+appear available, actual GPIO adapter vs simulation/fallback and the
+camera-fault safety latch, available recording disk space, and HTTP reachability
+**to this PiSD process only**. Internet/router/Wi-Fi connectivity is not
+claimed, and unknown disk data contains no exception/absolute path.
+
+To run targeted tests from repository root:
+```bash
+cd PiSD
+python -m unittest discover -s scripts -p 'test_preflight_r48.py' -v
+cd ..
+node --test PiSD/scripts/test_preflight_ui_r48.cjs
+```
+Release requires real Pi hardware/simulation checks, TFLite installed/missing,
+camera off/on, missing model and low disk, plus R35 STOP, R43 hidden-tab
+MJPEG and complete PiSD regression suites. The existing PiSD.py launcher
+and `pisd.service` hardware selection are not modified.
+
 ## R47 failed-request trace IDs and safe PiSD error history (0.11.20)
 
 Each unsuccessful `/api/*` mutation (including `HTTP 200` with
