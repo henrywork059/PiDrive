@@ -850,3 +850,7 @@ code {
 .mission-progress-step[data-step-state="interrupted"] .mission-progress-marker {background:#fbbf24; border-color:#fbbf24;}
 .mission-progress-empty {color:var(--muted); font-size:.81rem; margin:0;}
 @media (max-width:680px) { .mission-progress-summary {grid-template-columns:1fr;} .mission-progress-step {max-width:calc(50% - 8px);} }
+
+.mission-progress-disconnected { color:#fda4af; margin:0 0 10px; font-size:.8rem; font-weight:650; }
+.mission-progress-disconnected[hidden] { display:none !important; }
+.mission-progress[data-connection="disconnected"] { border-color:rgba(239,68,68,.5); }
