@@ -209,6 +209,7 @@ function openStyleSettings() {
   syncStyleInputsFromCurrentVars();
   modal.classList.remove("hidden");
   modal.setAttribute("aria-hidden", "false");
+  document.getElementById("closeStyleSettingsBtn")?.focus();
 }
 
 function closeStyleSettings() {
@@ -218,6 +219,7 @@ function closeStyleSettings() {
   manager?.applyTheme?.(manager.getCurrentTheme?.());
   modal.classList.add("hidden");
   modal.setAttribute("aria-hidden", "true");
+  document.getElementById("openStyleSettingsBtn")?.focus();
 }
 
 function resetStyleSettings() {
@@ -475,6 +477,7 @@ function renderActivePage(page) {
   document.body.dataset.page = page;
   document.querySelectorAll(".tab-btn").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.page === page);
+    btn.setAttribute("aria-pressed", String(btn.dataset.page === page));
   });
   const visible = new Set(pagePanels[page] || pagePanels.manual);
   panelEls().forEach((panel) => {
@@ -1529,7 +1532,7 @@ function setupManualControls() {
   window.addEventListener("keydown", (event) => {
     if (!(pagePanels[state.page] || []).includes("manual")) return;
     const tag = (event.target?.tagName || "").toLowerCase();
-    if (["input", "select", "textarea", "button"].includes(tag)) return;
+    if (["input", "select", "textarea", "button"].includes(tag) || event.target?.isContentEditable) return;
     const key = String(event.key || "").toLowerCase();
     let handled = true;
     if (key === "w" || key === "arrowup") setStepInput("up", true);
@@ -1582,6 +1585,21 @@ function setupEvents() {
 
   document.getElementById("closeStyleSettingsBtn")?.addEventListener("click", () => {
     closeStyleSettings();
+  });
+  document.getElementById("styleSettingsModal")?.addEventListener("keydown", (event) => {
+    if (event.key !== "Tab") return;
+    const modal = document.getElementById("styleSettingsModal");
+    if (!modal || modal.classList.contains("hidden")) return;
+    const focusable = Array.from(modal.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), a[href], [tabindex="0"]'))
+      .filter((el) => el.getClientRects().length);
+    if (!focusable.length) return;
+    if (event.shiftKey && document.activeElement === focusable[0]) {
+      event.preventDefault();
+      focusable[focusable.length - 1].focus();
+    } else if (!event.shiftKey && document.activeElement === focusable[focusable.length - 1]) {
+      event.preventDefault();
+      focusable[0].focus();
+    }
   });
 
   document.querySelectorAll("[data-close-style-modal]").forEach((el) => {
