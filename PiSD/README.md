@@ -1,5 +1,35 @@
 # PiSD
 
+## R47 failed-request trace IDs and safe PiSD error history (0.11.20)
+
+Each unsuccessful `/api/*` mutation (including `HTTP 200` with
+`ok:false`) keeps the previous error/status-code contract and gains a
+server-issued `correlation_id`, `operation` and `X-Correlation-ID`
+response header. A matching bounded log line is emitted as
+`api_mutation_failure id=<ID> operation=<name> http_status=<status>`.
+Neither the request body nor operator secrets/paths are logged by this
+hook. Lookup is via the PiSD process log (e.g. `journalctl -u pisd` if
+that service name is configured). IDs are not accepted from clients.
+
+Manual Drive and AI Mode expose **Error details** next to existing
+status/log text, limited to the reference, operation, HTTP status and
+existing PiSD error code. Rejected camera Start, STOP, driving or recording
+commands are not incorrectly reported as confirmed. Existing latched
+safety, hardware-control and R43 hidden MJPEG handling are untouched.
+`ErrorReport.as_dict()` now scrubs credential/absolute path values from
+`/api/errors`, error status histories and embedded `error` diagnostics;
+traceback text is never exported, even in explicitly requested history
+views. No new persistent error stores or cloud exports.
+
+Tests (repo root):
+```bash
+python -m unittest discover -s PiSD/scripts -p 'test_request_trace_r47.py' -v
+node --test PiSD/scripts/test_request_trace_ui_r47.cjs
+```
+Review actual Pi response status and physical safety behavior on device:
+invalid settings, rejected camera Start, motor STOP fail and AI preview/drive
+safety, HTTP 200/400/500 errors, and error-history redaction.
+
 ## Hidden-tab MJPEG bandwidth (0.11.18, R43)
 
 Manual Drive and AI Mode close their browser `/video_feed` MJPEG connection
