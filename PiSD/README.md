@@ -1,6 +1,6 @@
 # PiSD
 
-`PiSD_0_11_9` recording-recovery update — layered on the PiSD 0.11.8 safety branch, retaining the original 0.11.0 uploaded baseline and all accepted 0.11.x UI/settings changes.
+`PiSD_0_11_11` recording-storage safety update — layered on the current PiSD 0.11.10 diagnostic branch while retaining accepted 0.11.x UI/settings changes.
 
 PiSD is a clean sandbox under `PiDrive/PiSD` for rebuilding and testing PiServer GUI and runtime functions from square one.
 
@@ -10,9 +10,9 @@ Future bug-fix patches after this package should use `PiSD_0_11_x_patch` naming 
 
 ## Current version
 
-`PiSD_0_11_9` forward patch. The uploaded `PiSD_0_11_0.zip` is the historical full baseline; the live GitHub 0.11.8 branch already contains 0.11.7 Snapshot/tab fixes and 0.11.8 AI stale-frame protection. This patch keeps the AI preview/manual-recording separation, then adds the AI workflow settings popup, camera FPS control, manual-release preview preservation, and moves the motor confirmation into the AI workflow panel.
+`PiSD_0_11_11` forward patch. The uploaded `PiSD_0_11_0.zip` is a historical full baseline; the active GitHub branch includes the accepted 0.11.7–0.11.10 changes. This patch keeps the AI preview/manual-recording separation, then adds the AI workflow settings popup, camera FPS control, manual-release preview preservation, and moves the motor confirmation into the AI workflow panel.
 
-Use `PiSD_0_11_0` as the source-of-truth baseline for this patch unless the user promotes a newer full baseline.
+Use the latest accepted GitHub patch branch as the source-of-truth for forward changes; do not revert to the historical 0.11.0 ZIP.
 
 Included accepted work:
 
@@ -193,6 +193,45 @@ image → steering, throttle, overlay_settings
 ```
 
 Use `records.jsonl` only for full debug metadata, filtering, or advanced training options. If a frame-level overlay value is missing, fall back to `records.jsonl`, then `manifest.json`, then trainer defaults.
+
+## PiSD 0.11.11 — Recording disk-space protection (U26)
+
+PiSD now checks recording filesystem capacity before starting a session, before
+saving single captures and before writing each recording JPEG/JSONL pair.
+The defaults are **512 MiB warning** and **256 MiB critical reserve**, plus
+the estimated next JPEG/metadata write. Configure them through the service
+environment without resetting persistent PiSD settings:
+
+```bash
+export PISD_RECORDING_WARN_FREE_MB=512
+export PISD_RECORDING_MIN_FREE_MB=256
+```
+
+The existing `GET /api/recording/status` (and general status) includes a
+`recording.storage` object with `state` (ok/warning/critical/unavailable),
+`free_bytes`, `total_bytes`, `session_size_bytes` and the last five write
+errors. The session-size scan is cached for two seconds to avoid repeated SD
+card directory walks. A warning does not stop recording; **critical or
+unavailable space refuses new writes**. If an existing recording's write fails,
+the recording thread stops and attempts to finalise its manifest; a failed
+finalisation remains recoverable with the 0.11.9 offline recovery utility.
+
+**Motor driving, camera preview, and AI output are not stopped by a
+recording-only storage failure.** For actual motion safety, existing e-stop
+and watchdog behavior still applies. A stopped recording does not automatically
+resume after space is freed; start it explicitly.
+
+**No automatic cleanup.** Download or back up recordings first. The existing
+file-library GUI asks for confirmation and the delete API now requires
+`{"kind":"recording","id":"...","confirm":true}` (or a selected
+snapshot folder). Only the selected non-active folder can be deleted.
+Never manually remove an active recording folder.
+
+A disk-full failure during a multi-file save may leave an orphan JPEG or
+unmatched JSONL row. The existing U20 offline recovery tool remains the
+correct way to inspect and reconcile that session; this is not a database
+transaction. Check the storage status on a Raspberry Pi before tuning the
+reserve for an SD card.
 
 ## PiSD 0.11.10 — Runtime latency diagnostics (U23)
 

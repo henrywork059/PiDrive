@@ -639,6 +639,12 @@ def create_app(hardware_enabled: bool = False):
         if json_error is not None:
             return jsonify(report_payload(False, json_error)), 400
         try:
+            if data.get("confirm") is not True:
+                report = APP_ERRORS.report(
+                    PiSDErrorCodes.RECORDING_DELETE_FAILED,
+                    "Explicit deletion confirmation required; no recording files were removed.",
+                )
+                return jsonify(report_payload(False, report)), 400
             result = recording_service.delete_collection(data.get("kind", ""), data.get("id", ""))
             if result.get("ok"):
                 return jsonify(result), 200
