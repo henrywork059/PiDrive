@@ -525,7 +525,11 @@ async function fetchJson(url, options = {}) {
     if (response.status === 401) {
       window.location.assign("/login");
     }
-    throw new Error(data.message || data.error || "Request failed");
+    const nextStep = response.status === 403 ? "Permission denied. Sign in with an authorized account."
+      : response.status === 401 ? "Session expired. Sign in again."
+      : response.status >= 500 ? "PiServer unavailable. Check the connection, then retry."
+      : `Request failed (${response.status}). Check the inputs and retry.`;
+    throw new Error(data.message || data.error || nextStep);
   }
   return data;
 }
@@ -741,7 +745,7 @@ function updateSessionExportUi() {
     if (!state.sessions.length) {
       const opt = document.createElement("option");
       opt.value = "";
-      opt.textContent = "No session or snapshot folders yet";
+      opt.textContent = "No saved folders — record or capture a frame";
       select.appendChild(opt);
     } else {
       state.sessions.forEach((item) => {
@@ -792,7 +796,7 @@ function updateSessionSelectionFromStatus(data) {
 function downloadSelectedSession() {
   const session = findSelectedSession();
   if (!session) {
-    setBanner("sessionExportMessage", "No folder selected.", "muted");
+    setBanner("sessionExportMessage", "Record or capture a frame, then Refresh folders.", "muted");
     return;
   }
   const url = `/api/record/download?session=${encodeURIComponent(session.name)}`;
@@ -808,7 +812,7 @@ function downloadSelectedSession() {
 async function deleteSelectedSession() {
   const session = findSelectedSession();
   if (!session) {
-    setBanner("sessionExportMessage", "No folder selected.", "muted");
+    setBanner("sessionExportMessage", "Record or capture a frame, then Refresh folders.", "muted");
     return;
   }
   const label = getSelectedSessionLabel(session);
@@ -949,6 +953,13 @@ async function refreshModels() {
   const select = document.getElementById("modelSelect");
   if (!select) return;
   select.innerHTML = "";
+  if (!(data.models || []).length) {
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = "No .tflite models — upload a model";
+    select.appendChild(option);
+    setBanner("modelMessage", "No models on Pi. Upload a .tflite model first.", "muted");
+  }
   (data.models || []).forEach((name) => {
     const option = document.createElement("option");
     option.value = name;
@@ -976,7 +987,7 @@ async function loadSelectedModel() {
   const select = document.getElementById("modelSelect");
   const filename = select?.value || "";
   if (!filename) {
-    setBanner("modelMessage", "Choose a model first.", "muted");
+    setBanner("modelMessage", "No model selected. Upload a .tflite file or choose a listed model.", "muted");
     return;
   }
   const data = await fetchJson("/api/model/load", {
@@ -994,7 +1005,7 @@ async function deleteSelectedModel() {
   const select = document.getElementById("modelSelect");
   const filename = select?.value || "";
   if (!filename) {
-    setBanner("modelMessage", "Choose a model first.", "muted");
+    setBanner("modelMessage", "No model selected. Choose a listed model to delete.", "muted");
     return;
   }
   const ok = window.confirm(`Delete ${filename}? This permanently removes the model file from the Pi.`);
