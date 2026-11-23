@@ -18,7 +18,7 @@ from piserver.services.recorder_service import RecorderService
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 WEB_DIR = Path(__file__).resolve().parent / "web"
-APP_VERSION = "0_4_15"
+APP_VERSION = "0_4_16"
 
 
 def mjpeg_generator(camera_service):
@@ -204,6 +204,8 @@ def create_app() -> Flask:
         session_name = str(data.get("session", "")).strip()
         if not session_name:
             return jsonify({"ok": False, "message": "Choose a session folder first."}), 400
+        if data.get("confirm") is not True:
+            return jsonify({"ok": False, "message": "Explicit deletion confirmation required. No recording files were removed."}), 400
         ok, message = recorder_service.delete_folder(session_name)
         code = 200 if ok else 409
         return jsonify({"ok": ok, "message": message, "sessions": recorder_service.list_sessions(), "state": control_service.snapshot()}), code

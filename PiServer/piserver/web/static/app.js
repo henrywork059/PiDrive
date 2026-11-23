@@ -811,7 +811,7 @@ async function deleteSelectedSession() {
   const data = await fetchJson("/api/record/delete", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ session: session.name })
+    body: JSON.stringify({ session: session.name, confirm: true })
   });
   state.sessions = Array.isArray(data.sessions) ? data.sessions : [];
   state.selectedSession = state.sessions.some((item) => item.name === state.selectedSession)
