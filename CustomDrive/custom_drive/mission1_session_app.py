@@ -553,13 +553,21 @@ class Mission1SessionContext:
         arm_status = self.arm_service.status()
         self._record(arm_status.get('last_message', 'Mission arm ready.'), event_type='arm', level='info' if arm_status.get('available') else 'warning')
 
+    def _observe_mission_timeline(self) -> None:
+        """Diagnostic-only observation, safe for legacy minimal test contexts."""
+        timeline = getattr(self, '_mission_timeline', None)
+        if timeline is not None:
+            timeline.observe(
+                self.current_phase, self.mission_state,
+                outcome=self.mission_outcome,
+                failure_reason=self.failure_reason,
+                failure_stage=self.failure_stage,
+                last_error=self.last_error,
+            )
+
     def _record(self, message: str, *, level: str = 'info', event_type: str = 'runtime', **fields: Any) -> None:
-        # R33: only record the phase already reached. No mission transitions here.
-        self._mission_timeline.observe(self.current_phase, self.mission_state,
-                                      outcome=self.mission_outcome,
-                                      failure_reason=self.failure_reason,
-                                      failure_stage=self.failure_stage,
-                                      last_error=self.last_error)
+        # R33: the observer cannot change any mission stage or motor command.
+        self._observe_mission_timeline()
         append_event(self.events, message, level=level, event_type=event_type, limit=250, **fields)
 
     def _selected_model_name(self) -> str:
@@ -668,7 +676,7 @@ class Mission1SessionContext:
         deadline = time.monotonic() + duration_s
         self.current_phase = 'ai_reverse_reset'
         self.mission_state = 'reverse_reset'
-        self._mission_timeline.observe(self.current_phase, self.mission_state)
+        self._observe_mission_timeline()
         self._set_motion_state('reverse_reset', turn='backward', target_side='reverse')
         self.detail = f'Release complete. Reversing for {duration_s:.2f}s before pickup search restart.'
         self.last_output_summary = self.detail
@@ -790,7 +798,7 @@ class Mission1SessionContext:
         self.current_phase = current_phase
         self.mission_state = mission_state
         # Record this short-lived phase before blocking arm-settle updates.
-        self._mission_timeline.observe(self.current_phase, self.mission_state)
+        self._observe_mission_timeline()
         self._set_motion_state('hold_stop', turn='stopped', target_side='center')
         self._stop_with_note(note)
         self.detail = detail
@@ -1109,7 +1117,7 @@ class Mission1SessionContext:
             self.pickup_target_class_id = None
             self.mission_state = 'pickup_search'
             self._mission_timeline.reset(self._session_report_id)
-            self._mission_timeline.observe(self.current_phase, self.mission_state)
+            self._observe_mission_timeline()
             self.started_at = time.monotonic()
             self._stop_event.clear()
             self._thread = threading.Thread(target=self._run_session, name='mission1-session', daemon=True)
@@ -1471,7 +1479,7 @@ class Mission1SessionContext:
             if frame is None:
                 self.current_phase = 'ai_wait_frame'
                 self.mission_state = 'wait_frame'
-                self._mission_timeline.observe(self.current_phase, self.mission_state)
+                self._observe_mission_timeline()
                 self.target_found = False
                 self.target_side = 'no frame'
                 self.car_turn_direction = 'stopped'
@@ -1508,7 +1516,7 @@ class Mission1SessionContext:
                     self._search_watchdog('dropoff', False, now=loop_started)
                     self.current_phase = 'ai_dropoff_search'
                     self.mission_state = 'dropoff_search'
-                    self._mission_timeline.observe(self.current_phase, self.mission_state)
+                    self._observe_mission_timeline()
                     self.target_found = False
                     self._set_motion_state('search_rotate_clockwise', turn='right', target_side='search')
                     self.arm_target_lock_engaged = False
@@ -1522,7 +1530,7 @@ class Mission1SessionContext:
                     self._search_watchdog('dropoff', True, now=loop_started)
                     self.current_phase = 'ai_dropoff_track'
                     self.mission_state = 'dropoff_track'
-                    self._mission_timeline.observe(self.current_phase, self.mission_state)
+                    self._observe_mission_timeline()
                     self.target_found = True
                     target_x = float(target['center']['x'])
                     target_y = float(target['center']['y'])
@@ -1541,7 +1549,7 @@ class Mission1SessionContext:
                         )
                         self.current_phase = 'ai_dropoff_release'
                         self.mission_state = 'dropoff_release'
-                        self._mission_timeline.observe(self.current_phase, self.mission_state)
+                        self._observe_mission_timeline()
                         self._set_motion_state('release_pose', turn='stopped', target_side='center')
                         self._require_arm_role_pose('release', reason=f'drop-off class {desired_dropoff} reached', settle=True, frame_snapshot=frame)
                         self._record(
@@ -1566,7 +1574,7 @@ class Mission1SessionContext:
                         self._require_arm_role_pose('starting_position', reason='pickup search restart after release', settle=True)
                         self.current_phase = 'ai_pickup_search'
                         self.mission_state = 'pickup_search'
-                        self._mission_timeline.observe(self.current_phase, self.mission_state)
+                        self._observe_mission_timeline()
                         self._set_motion_state('search_rotate_clockwise', turn='right', target_side='search')
                         self.detail = f'Release and reverse complete. Restarting pickup search after dropping class {released_class}.'
                         self.last_output_summary = self.detail
@@ -1606,7 +1614,7 @@ class Mission1SessionContext:
                     self._search_watchdog('pickup', False, now=loop_started)
                     self.current_phase = 'ai_pickup_search'
                     self.mission_state = 'pickup_search'
-                    self._mission_timeline.observe(self.current_phase, self.mission_state)
+                    self._observe_mission_timeline()
                     self.target_found = False
                     self._set_motion_state('search_rotate_clockwise', turn='right', target_side='search')
                     self.pickup_target_class_id = None
@@ -1630,7 +1638,7 @@ class Mission1SessionContext:
                     if close_enough:
                         self.current_phase = 'ai_pickup_stop'
                         self.mission_state = 'pickup_stop_for_grip'
-                        self._mission_timeline.observe(self.current_phase, self.mission_state)
+                        self._observe_mission_timeline()
                         self.arm_target_lock_engaged = True
                         self._stop_for_pose_transition(
                             mission_state='pickup_stop_for_grip',
@@ -1641,13 +1649,13 @@ class Mission1SessionContext:
                         )
                         self.current_phase = 'ai_pickup_grip'
                         self.mission_state = 'pickup_grip'
-                        self._mission_timeline.observe(self.current_phase, self.mission_state)
+                        self._observe_mission_timeline()
                         self._set_motion_state('grip_pose', turn='stopped', target_side='center')
                         if not self._arm_stage_at_least('grip_loaded'):
                             self._require_arm_role_pose('grip', reason=f'pickup class {locked_class} centered and y={target_y:.1f}', settle=True, frame_snapshot=frame)
                         self.current_phase = 'ai_pickup_lift'
                         self.mission_state = 'pickup_lift'
-                        self._mission_timeline.observe(self.current_phase, self.mission_state)
+                        self._observe_mission_timeline()
                         self._set_motion_state('grip_and_lift_pose', turn='stopped', target_side='center')
                         if not self._arm_stage_at_least('grip_and_lift_loaded'):
                             self._require_arm_role_pose('grip_and_lift', reason=f'pickup class {locked_class} grip complete', settle=True, frame_snapshot=frame)
@@ -1663,7 +1671,7 @@ class Mission1SessionContext:
                         )
                         self.current_phase = 'ai_dropoff_search'
                         self.mission_state = 'dropoff_search'
-                        self._mission_timeline.observe(self.current_phase, self.mission_state)
+                        self._observe_mission_timeline()
                         self.target_found = False
                         self._set_motion_state('search_rotate_clockwise', turn='right', target_side='search')
                         self.arm_target_lock_engaged = False
@@ -1686,7 +1694,7 @@ class Mission1SessionContext:
                     else:
                         self.current_phase = 'ai_pickup_track'
                         self.mission_state = 'pickup_track'
-                        self._mission_timeline.observe(self.current_phase, self.mission_state)
+                        self._observe_mission_timeline()
                         self.arm_target_lock_engaged = True
                         self._maybe_log_gate_status(
                             'pickup',
@@ -1956,11 +1964,7 @@ class Mission1SessionContext:
 
     def status_payload(self) -> dict[str, Any]:
         # Read-only observation: never drives the mission forward or touches motors.
-        self._mission_timeline.observe(self.current_phase, self.mission_state,
-                                      outcome=self.mission_outcome,
-                                      failure_reason=self.failure_reason,
-                                      failure_stage=self.failure_stage,
-                                      last_error=self.last_error)
+        self._observe_mission_timeline()
         thread = self._thread
         camera_service = self.camera_service
         ready, backend_message = self.detector.backend_ready()
@@ -1983,7 +1987,8 @@ class Mission1SessionContext:
             'mission_outcome': self.mission_outcome,
             'mission_timeline': self._mission_timeline.snapshot(
                 outcome=self.mission_outcome, detail=self.detail,
-                arm_sequence={'state': self.arm_sequence_state, 'note': self.arm_sequence_note}),
+                arm_sequence={'state': self.arm_sequence_state, 'note': self.arm_sequence_note})
+                if hasattr(self, '_mission_timeline') else None,
             'failure_reason': self.failure_reason,
             'failure_stage': self.failure_stage,
             'target_loss_count': self.target_loss_count,
