@@ -247,11 +247,18 @@ function previewStyleOverridesFromInputs() {
   });
 }
 
+const modalFocusIds = {
+  driveSettingsModal: ['openDriveSettingsBtn', 'closeDriveSettingsBtn'],
+  aiSettingsModal: ['openAiSettingsBtn', 'closeAiSettingsBtn'],
+  styleSettingsModal: ['openStyleSettingsBtn', 'closeStyleSettingsBtn'],
+};
+
 function openModal(id) {
   const modal = document.getElementById(id);
   if (!modal) return;
   modal.classList.remove('hidden');
   modal.setAttribute('aria-hidden', 'false');
+  document.getElementById(modalFocusIds[id]?.[1])?.focus();
 }
 
 function closeModal(id) {
@@ -259,6 +266,34 @@ function closeModal(id) {
   if (!modal) return;
   modal.classList.add('hidden');
   modal.setAttribute('aria-hidden', 'true');
+  document.getElementById(modalFocusIds[id]?.[0])?.focus();
+}
+
+function setupModalKeyboard() {
+  document.addEventListener('keydown', (event) => {
+    const id = Object.keys(modalFocusIds).find(name => {
+      const modal = document.getElementById(name);
+      return modal && !modal.classList.contains('hidden');
+    });
+    if (!id) return;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeModal(id);
+      return;
+    }
+    if (event.key !== 'Tab') return;
+    const modal = document.getElementById(id);
+    const elements = Array.from(modal.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex="0"]'))
+      .filter(el => el.getClientRects().length);
+    if (!elements.length) return;
+    if (event.shiftKey && document.activeElement === elements[0]) {
+      event.preventDefault();
+      elements[elements.length - 1].focus();
+    } else if (!event.shiftKey && document.activeElement === elements[elements.length - 1]) {
+      event.preventDefault();
+      elements[0].focus();
+    }
+  });
 }
 
 function syncManualReadout() {
@@ -746,6 +781,7 @@ function bindHoldAction(buttonId, actionStart, actionStop) {
   if (!button) return;
   let activePointerId = null;
   let active = false;
+  let startRequest = null;
 
   const stop = async (event = null) => {
     const pointerId = event && typeof event.pointerId === 'number' ? event.pointerId : null;
@@ -762,6 +798,11 @@ function bindHoldAction(buttonId, actionStart, actionStop) {
       }
     }
     try {
+      // Stop is ordered after any in-flight start request, so a quick key
+      // release never leaves a late start running after the stop.
+      if (startRequest) {
+        try { await startRequest; } catch (_error) { /* start already reported failure */ }
+      }
       if (actionStop) await postJson('/api/arm/action', { action: actionStop });
       await pollStatus();
     } catch (error) {
@@ -781,14 +822,33 @@ function bindHoldAction(buttonId, actionStart, actionStop) {
       }
     }
     try {
-      await postJson('/api/arm/action', { action: actionStart });
+      startRequest = postJson('/api/arm/action', { action: actionStart });
+      await startRequest;
       await pollStatus();
     } catch (error) {
       active = false;
       activePointerId = null;
       setBanner('armMessage', error.message || 'Arm action failed.', 'warn');
+    } finally {
+      startRequest = null;
     }
   };
+
+  button.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    if (!event.repeat) start(event);
+  });
+  button.addEventListener('keyup', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    stop();
+  });
+  button.addEventListener('blur', () => stop());
+  window.addEventListener('blur', () => stop());
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) stop();
+  });
 
   button.addEventListener('pointerdown', (event) => {
     event.preventDefault();
@@ -1088,7 +1148,10 @@ function setupDrivePad() {
   area.addEventListener('pointermove', (event) => {
     if (event.buttons) applyDrivePadPosition(event.clientX, event.clientY);
   });
-  ['pointerup', 'pointerleave', 'pointercancel'].forEach((name) => area.addEventListener(name, releaseDrivePad));
+  ['pointerup', 'pointerleave', 'pointercancel', 'lostpointercapture'].forEach((name) => area.addEventListener(name, releaseDrivePad));
+  document.getElementById('manualStopBtn')?.addEventListener('click', releaseDrivePad);
+  window.addEventListener('blur', releaseDrivePad);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) releaseDrivePad(); });
   syncManualReadout();
 }
 
@@ -1109,6 +1172,7 @@ function setupSystemActions() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+  setupModalKeyboard();
   setupStyleSettings();
   setupDriveSettings();
   setupAiSettings();
