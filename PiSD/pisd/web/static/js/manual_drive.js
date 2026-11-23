@@ -1085,13 +1085,10 @@
     // leave browser-side keyboard steering state inconsistent on the Pi.
     if (overlaySettingsPopup && !overlaySettingsPopup.hidden) return true;
     const active = document.activeElement;
-    if (!active || active === document.body || active === document.documentElement || active === pad || active === arm) return false;
-    const tag = String(active.tagName || '').toLowerCase();
-    if (tag === 'input') {
-      const type = String(active.type || '').toLowerCase();
-      return !['checkbox', 'button', 'submit', 'reset'].includes(type);
-    }
-    if (['select', 'textarea'].includes(tag)) return true;
+    if (!active || active === document.body || active === document.documentElement || active === pad) return false;
+    // R35: buttons, links, safety checkboxes and form fields keep native
+    // keyboard controls. Driving shortcuts only belong to the page/pad.
+    if (active.closest?.('button, a[href], input, select, textarea, [role="button"], [role="tab"], [role="checkbox"], [role="switch"]')) return true;
     return Boolean(active.isContentEditable);
   }
 
