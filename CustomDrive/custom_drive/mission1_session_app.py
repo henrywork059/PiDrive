@@ -36,7 +36,7 @@ from piserver.services.camera_service import CameraService  # noqa: E402
 from piserver.services.motor_service import MotorService  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent / 'mission1_web'
-APP_VERSION = '0_5_19'
+APP_VERSION = '0_5_20'
 MISSION1_CONFIG_PATH = CONFIG_DIR / 'mission1_session.json'
 MISSION1_MODEL_DIR = CUSTOMDRIVE_ROOT / 'models' / 'mission1'
 
@@ -535,6 +535,7 @@ class Mission1SessionContext:
         self.failure_reason = ''
         self.failure_stage = ''
         self.mission_outcome = 'idle'
+        self._safety_fault_latched = False
         self.grip_confirmation = 'not_sensor_confirmed'
         self.target_loss_count = 0
         self.mission_report_path = ''
@@ -1034,6 +1035,8 @@ class Mission1SessionContext:
 
     def start_session(self, route_text: str | None = None) -> tuple[bool, str]:
         with self._lock:
+            if self._safety_fault_latched:
+                return False, 'Mission safety fault latched; explicitly rearm before starting.'
             if self._thread and self._thread.is_alive():
                 return False, 'Mission 1 session is already running.'
         route_text = str(route_text or self.get_config().get('session', {}).get('route_text', '') or '').strip()
@@ -1298,6 +1301,8 @@ class Mission1SessionContext:
                 self.current_phase = 'failed'
                 self.mission_state = 'failed'
                 self.mission_outcome = 'failed'
+                with self._lock:
+                    self._safety_fault_latched = True
                 self.detail = f'Mission 1 session failed ({self.failure_reason}): {exc}'
                 self._record(self.detail, level='error', event_type='session', reason=self.failure_reason, stage=self.failure_stage)
             self._stop_event.set()
@@ -1886,6 +1891,45 @@ class Mission1SessionContext:
             'intended_motion': self.intended_motion,
         }
 
+    def safety_status(self) -> dict[str, Any]:
+        with self._lock:
+            latched = bool(self._safety_fault_latched)
+            thread = self._thread
+            worker_alive = bool(thread and thread.is_alive())
+            running = bool(worker_alive and not self._stop_event.is_set())
+            return {
+                'schema_version': 1,
+                'component': 'CustomDrive',
+                'state': 'latched' if latched else ('running' if running else 'ready'),
+                'latched': latched,
+                'motion_allowed': not latched,
+                'rearm_required': latched,
+                'rearm_available': bool(latched and not worker_alive),
+                'reason': str(self.failure_reason or self.last_error or 'Mission 1 fault') if latched else '',
+            }
+
+    def rearm_safety(self, *, confirm: Any = False) -> tuple[bool, str]:
+        if confirm is not True:
+            return False, 'Explicit confirm=true is required to rearm.'
+        with self._lock:
+            if not self._safety_fault_latched:
+                return True, 'No active Mission 1 fault.'
+        ok, message = self.stop_session(join=True)
+        if not ok:
+            return False, f'Rearm refused: {message}'
+        try:
+            self.motor_service.stop()
+        except Exception as exc:
+            return False, f'Rearm refused: motor stop failed: {exc}'
+        with self._lock:
+            if self._thread and self._thread.is_alive():
+                return False, 'Rearm refused: mission worker is still running.'
+            self._safety_fault_latched = False
+            self.last_command = {'mode': 'stop', 'steering': 0.0, 'throttle': 0.0, 'left': 0.0, 'right': 0.0, 'note': 'rearmed'}
+            self.intended_motion = 'stopped'
+        self._record('Mission safety rearmed; new Start required.', event_type='safety')
+        return True, 'Mission safety rearmed at zero; use Start for a new session.'
+
     def status_payload(self) -> dict[str, Any]:
         thread = self._thread
         camera_service = self.camera_service
@@ -1960,6 +2004,7 @@ class Mission1SessionContext:
             'motor_status': self._motor_status_payload(),
             'motor_config': self.motor_service.get_config(),
             'last_error': self.last_error,
+            'safety': self.safety_status(),
             'app_version': APP_VERSION,
         }
 
@@ -1981,6 +2026,19 @@ def create_mission1_session_app() -> Flask:
     @app.route('/api/status')
     def api_status():
         return jsonify(ctx.status_payload())
+
+    @app.route('/api/safety/status')
+    def api_safety_status():
+        return jsonify({'ok': True, 'safety': ctx.safety_status()})
+
+    @app.route('/api/safety/rearm', methods=['POST'])
+    def api_safety_rearm():
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({'ok': False, 'message': 'Expected a JSON object.'}), 400
+        ok, message = ctx.rearm_safety(confirm=data.get('confirm'))
+        return jsonify({'ok': ok, 'message': message, 'safety': ctx.safety_status(),
+                        'status': ctx.status_payload()}), 200 if ok else 409
 
     @app.route('/api/frame.jpg')
     def api_frame_jpg():
@@ -2038,6 +2096,8 @@ def create_mission1_session_app() -> Flask:
 
     @app.route('/api/arm/load_role', methods=['POST'])
     def api_arm_load_role():
+        if ctx.safety_status()['latched']:
+            return jsonify({'ok': False, 'message': 'Mission fault latched; rearm before moving the arm.'}), 423
         data = request.get_json(silent=True) or {}
         role = str(data.get('role') or '').strip()
         if not role:

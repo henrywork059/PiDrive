@@ -730,6 +730,18 @@ async function stopMission() {
   }
 }
 
+async function rearmMission() {
+  if (!window.confirm('Rearm mission safety at zero? This does not restart the mission.')) return;
+  try {
+    const result = await postJSON('/api/safety/rearm', { confirm: true });
+    setMessage('configMessage', result.message || 'Mission fault rearmed.');
+    await refresh();
+  } catch (err) {
+    setMessage('configMessage', err.message || 'Rearm failed.', true);
+    await refresh();
+  }
+}
+
 async function uploadModel() {
   const input = document.getElementById('modelUpload');
   const file = input.files && input.files[0];
@@ -871,6 +883,7 @@ async function init() {
 document.getElementById('saveConfigBtn').onclick = saveConfig;
 document.getElementById('startBtn').onclick = startMission;
 document.getElementById('stopBtn').onclick = stopMission;
+document.getElementById('rearmBtn').onclick = rearmMission;
 document.getElementById('uploadModelBtn').onclick = uploadModel;
 document.getElementById('loadModelBtn').onclick = loadSelectedModel;
 document.querySelectorAll('.arm-load-role').forEach((button) => {

@@ -23,6 +23,8 @@ def create_app(mode: str | None = None) -> Flask:
     state: dict[str, Any] = {
         'run_settings': load_run_settings(),
         'runtime': None,
+        'safety_fault_latched': False,
+        'safety_fault_reason': '',
     }
     if mode is not None:
         state['run_settings']['runtime_mode'] = str(mode).strip().lower()
@@ -57,6 +59,8 @@ def create_app(mode: str | None = None) -> Flask:
         should_start = bool(run_cfg.get('auto_start_gui', False) if autostart is None else autostart)
         if not should_start and was_running:
             should_start = True
+        if state['safety_fault_latched']:
+            should_start = False
         if should_start:
             tick_s = clamp_float(run_cfg.get('gui_tick_s', 0.2), 0.2, 0.02, 10.0)
             runtime.start_background(tick_s=tick_s)
@@ -82,6 +86,23 @@ def create_app(mode: str | None = None) -> Flask:
                 'max_cycles': current_run_settings().get('max_cycles', 2),
                 'last_error': str(exc),
             }
+        if str(payload.get('state', '')).lower() == 'failed':
+            state['safety_fault_latched'] = True
+            state['safety_fault_reason'] = str(payload.get('last_error') or payload.get('detail') or 'Mission failed')
+        latched = bool(state['safety_fault_latched'])
+        running = bool(payload.get('running'))
+        worker = getattr(runtime, '_thread', None)
+        worker_alive = bool(worker is not None and worker.is_alive())
+        payload['safety'] = {
+            'schema_version': 1,
+            'component': 'CustomDrive',
+            'state': 'latched' if latched else ('running' if running else 'ready'),
+            'latched': latched,
+            'motion_allowed': not latched,
+            'rearm_required': latched,
+            'rearm_available': bool(latched and not running and not worker_alive),
+            'reason': str(state['safety_fault_reason']) if latched else '',
+        }
         payload['mode_requested'] = getattr(runtime, 'mode_requested', payload.get('mode', 'sim'))
         payload['fallback_reason'] = getattr(runtime, 'fallback_reason', '')
         payload['run_settings'] = current_run_settings()
@@ -96,6 +117,41 @@ def create_app(mode: str | None = None) -> Flask:
     @app.route('/api/status')
     def api_status():
         return jsonify(safe_status_payload())
+
+    @app.route('/api/safety/status')
+    def api_safety_status():
+        return jsonify({'ok': True, 'safety': safe_status_payload()['safety']})
+
+    @app.route('/api/safety/rearm', methods=['POST'])
+    def api_safety_rearm():
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({'ok': False, 'message': 'Expected a JSON object.'}), 400
+        status = safe_status_payload()
+        if data.get('confirm') is not True:
+            return jsonify({'ok': False, 'message': 'Explicit confirm=true is required.',
+                            'safety': status['safety']}), 409
+        if not state['safety_fault_latched']:
+            return jsonify({'ok': True, 'message': 'No active mission fault.', 'safety': status['safety']})
+        runtime = current_runtime()
+        try:
+            runtime.stop_background(join=True)
+            worker = getattr(runtime, '_thread', None)
+            if runtime.status().get('running') or (worker is not None and worker.is_alive()):
+                raise RuntimeError('Mission worker is still running.')
+            motor = getattr(runtime, 'motor_service', None)
+            if motor is not None:
+                motor.stop()
+            runtime.reset()
+            if runtime.status().get('state') == 'failed' or runtime.status().get('running'):
+                raise RuntimeError('Mission reset did not reach a stopped, safe state.')
+        except Exception as exc:
+            return jsonify({'ok': False, 'message': f'Rearm refused: {exc}',
+                            'safety': safe_status_payload()['safety']}), 409
+        state['safety_fault_latched'] = False
+        state['safety_fault_reason'] = ''
+        return jsonify({'ok': True, 'message': 'Mission rearmed at zero; send a new Start command.',
+                        'safety': safe_status_payload()['safety']})
 
     @app.route('/api/frame.jpg')
     def api_frame_jpg():
@@ -139,6 +195,7 @@ def create_app(mode: str | None = None) -> Flask:
 
     @app.route('/api/run-settings', methods=['POST'])
     def api_run_settings_save():
+        safe_status_payload()
         data = request.get_json(silent=True) or {}
         merged = dict(current_run_settings())
         for key, value in data.items():
@@ -160,6 +217,7 @@ def create_app(mode: str | None = None) -> Flask:
 
     @app.route('/api/runtime/rebuild', methods=['POST'])
     def api_runtime_rebuild():
+        safe_status_payload()
         runtime = current_runtime()
         data = request.get_json(silent=True) or {}
         autostart = data.get('autostart')
@@ -173,6 +231,9 @@ def create_app(mode: str | None = None) -> Flask:
 
     @app.route('/api/start', methods=['POST'])
     def api_start():
+        if safe_status_payload()['safety']['latched']:
+            return jsonify({'ok': False, 'message': 'Mission fault latched; explicitly rearm before starting.',
+                            'status': safe_status_payload()}), 423
         runtime = current_runtime()
         run_cfg = current_run_settings()
         data = request.get_json(silent=True) or {}
@@ -188,12 +249,16 @@ def create_app(mode: str | None = None) -> Flask:
 
     @app.route('/api/step', methods=['POST'])
     def api_step():
+        if safe_status_payload()['safety']['latched']:
+            return jsonify({'ok': False, 'message': 'Mission fault latched; explicitly rearm before stepping.',
+                            'status': safe_status_payload()}), 423
         runtime = current_runtime()
         runtime.step()
         return jsonify({'ok': True, 'status': safe_status_payload(), 'run_settings': current_run_settings()})
 
     @app.route('/api/reset', methods=['POST'])
     def api_reset():
+        safe_status_payload()
         runtime = current_runtime()
         run_cfg = current_run_settings()
         data = request.get_json(silent=True) or {}
