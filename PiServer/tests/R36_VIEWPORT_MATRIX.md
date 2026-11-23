@@ -89,10 +89,13 @@ Verified launch entry points:
 6. Screenshot files may contain camera views, private Wi-Fi SSIDs and local IPs:
    **do not commit raw captures** until reviewed and redacted.
 
-The runner is a passive capture and reachability utility. It does not issue
+The runner is a read-only script at the request level: it does not issue
 Wi-Fi `/rescan`, `/connect`, motor, servo, mission, Save or STOP API commands.
-Opening a local settings panel is a presentation-only operation; verify this
-assumption for the actual running version.
+However, loading a real page may trigger its **normal backend initialization**
+or active first-client handshake. **PiBooter is opt-in**: when authorized,
+include `--acknowledge-booter-visit`; simply visiting its page from a permitted
+client may activate/hold the original setup session. Opening a local settings
+panel is intended to be presentation-only; verify this for the running version.
 
 **Merge gate:** Every R36 PR remains **draft** pending the real-browser
 baseline/patch screenshot review. Source-only checks are not a sign-off.
