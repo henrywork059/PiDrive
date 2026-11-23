@@ -57,7 +57,8 @@ test("401/403 keep login/permission recovery while preserving security redirect"
   assert.match(app,/window\.location\.assign\("\/login"\)/);
 });
 test("both HTTP errors and ok:false/saved:false rejected",()=>{
-  assert.match(app,/!response\.ok \|\| data\?\.ok === false \|\| data\?\.saved === false/);
+  assert.match(app,/!response\.ok \|\| data\?\.ok === false/);
+  assert.match(app,/data\?\.saved === false && !\["GET", "HEAD"\]/);
 });
 test("camera and motor Apply catches append trace after setting the short banner",()=>{
   assert.match(app,/setBanner\("cameraMessage", error\.message[^;]*;\s*appendRequestTrace\("cameraMessage", error\)/);
