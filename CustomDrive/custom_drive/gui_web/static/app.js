@@ -182,16 +182,53 @@ function schedulePreviewPoll(delayMs = 180) {
   state.previewTimer = window.setTimeout(setPreviewImageSource, delayMs);
 }
 
+// R47: no request bodies, file paths or backend exception text in trace details.
+function tracedRequestError(payload, status, url, fallback) {
+  const id = String(payload?.correlation_id || '');
+  if (!/^[0-9a-f]{16}$/.test(id)) return new Error(payload?.message || fallback);
+  const actions = {
+    '/api/motor/apply': 'Motor Apply failed. Check settings, then retry.',
+    '/api/gui/runtime/save': 'Drive Save failed. Check Pi status, then retry.',
+    '/api/ai/deploy': 'Deploy to Pi failed. Check the selected model, then retry.',
+    '/api/ai/config': 'AI Save failed. Check settings, then retry.',
+    '/api/arm/action': 'Arm command failed. Check arm safety status.',
+  };
+  const error = new Error(status === 401 || status === 403
+    ? fallback : (actions[url] || 'Pi command failed. Check status, then retry.'));
+  error.trace = {
+    id,
+    operation: /^[a-zA-Z0-9_.-]{1,64}$/.test(String(payload?.operation || ''))
+      ? payload.operation : 'unknown',
+    status: Number(status) || 0,
+    code: /^[A-Z0-9_-]{1,48}$/.test(String(payload?.code || '')) ? payload.code : '',
+  };
+  return error;
+}
+function appendRequestTrace(id, error) {
+  const parent = document.getElementById(id);
+  if (!parent || !error?.trace?.id) return;
+  const details = document.createElement('details');
+  const summary = document.createElement('summary');
+  summary.textContent = 'Error details';
+  const message = document.createElement('span');
+  const info = error.trace;
+  message.textContent = ' Ref ' + info.id + ' · ' + info.operation +
+    ' · HTTP ' + info.status + (info.code ? ' · ' + info.code : '');
+  details.appendChild(summary);
+  details.appendChild(message);
+  parent.appendChild(details);
+}
+
 async function fetchJson(url, options = undefined) {
   const response = await fetch(url, options);
   let data = {};
   try { data = await response.json(); } catch {}
-  if (!response.ok) {
+  if (!response.ok || data?.ok === false || data?.saved === false) {
     const fallback = response.status === 403 ? 'Permission denied. Use an authorized Pi account.'
         : response.status === 401 ? 'Sign in to the Pi, then retry.'
         : response.status >= 500 ? 'Pi service unavailable. Check the Pi connection, then retry.'
         : `Request failed (${response.status}). Check the input, then retry.`;
-    throw new Error(data.message || fallback);
+    throw tracedRequestError(data, response.status, url, fallback);
   }
   return data;
 }
@@ -778,6 +815,7 @@ async function saveDriveSettings() {
   } catch (error) {
     feedback.fail(token, error.message);
     setBanner('driveSettingsMessage', error.message || 'Drive settings failed.', 'warn');
+    appendRequestTrace('driveSettingsMessage', error);
   } finally { renderSettingsFeedback('drive'); }
 }
 
@@ -1046,6 +1084,7 @@ async function deployAiModel() {
     renderAiDebug(null, data.ai_status, { appendHistory: true, forceSnapshot: true });
   } catch (error) {
     setBanner('aiSettingsMessage', error.message || 'Deploy failed. Check model files, then retry Deploy.', 'warn');
+    appendRequestTrace('aiSettingsMessage', error);
   }
 }
 
