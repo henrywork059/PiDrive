@@ -1044,6 +1044,46 @@ function applyStreamQualityPreset() {
   document.getElementById("cameraPreviewQuality").value = preset.preview_quality;
 }
 
+const settingsFeedback = {
+  camera: window.PiDriveSettingsFeedback.createSettingsFeedback(),
+  motor: window.PiDriveSettingsFeedback.createSettingsFeedback()
+};
+function renderSettingsFeedback(kind) {
+  const info = settingsFeedback[kind].snapshot();
+  const badge = document.getElementById(kind + 'ApplyState');
+  const detail = document.getElementById(kind + 'ApplyDetail');
+  const retry = document.getElementById(kind + 'RetryApply');
+  const apply = document.getElementById(kind === 'camera' ? 'cameraApplyBtn' : 'motorApplyBtn');
+  if (badge) {
+    badge.textContent = info.phase;
+    badge.dataset.state = info.phase.toLowerCase();
+  }
+  if (detail) detail.textContent = info.detail;
+  if (retry) retry.hidden = !info.retry;
+  if (apply) apply.disabled = info.busy;
+}
+function settingsChanged(kind) {
+  settingsFeedback[kind].edit();
+  renderSettingsFeedback(kind);
+}
+const settingsReadbackMatches = window.PiDriveSettingsFeedback.matchesSubset;
+async function confirmedConfig(path, requested, response, kind) {
+  if (response?.ok !== true || response?.saved !== true) {
+    throw new Error(response?.message || kind + ' settings were not saved.');
+  }
+  const current = await fetchJson(path);
+  if (current?.ok !== true || !current.config || !response.config) {
+    throw new Error(kind + ' configuration readback failed.');
+  }
+  // Compare only submitted settings. Camera/motor telemetry can change
+  // between responses even while the saved configuration stays identical.
+  const accepted = Object.fromEntries(Object.keys(requested)
+    .map(key => [key, response.config[key]]));
+  if (!settingsReadbackMatches(accepted, current.config)) {
+    throw new Error(kind + ' settings did not match backend readback.');
+  }
+  return current.config;
+}
 function readCameraForm() {
   return {
     width: Number(document.getElementById("cameraWidth").value || 426),
@@ -1096,16 +1136,33 @@ async function loadCameraConfig() {
 }
 
 async function applyCameraConfig() {
+  const feedback = settingsFeedback.camera;
+  const token = feedback.begin();
+  if (token === null) return;
+  renderSettingsFeedback('camera');
   const payload = readCameraForm();
-  const data = await fetchJson("/api/camera/apply", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  });
-  state.cameraConfig = data.config || payload;
-  setBanner("cameraMessage", data.message || "Camera settings applied.", "muted");
-  refreshVideoFeed();
-  await pollStatus();
+  try {
+    const data = await fetchJson("/api/camera/apply", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const confirmed = await confirmedConfig('/api/camera/config', payload, data, 'Camera');
+    if (feedback.snapshot().revision === token) {
+      state.cameraConfig = confirmed;
+      fillCameraForm(confirmed);
+    }
+    feedback.complete(token, true,
+      settingsReadbackMatches(payload, confirmed)
+        ? 'Camera runtime and saved settings confirmed by backend.'
+        : 'Camera settings normalized by backend; effective values shown.');
+    setBanner("cameraMessage", data.message || "Camera settings applied.", "muted");
+    refreshVideoFeed();
+    await pollStatus();
+  } catch (error) {
+    feedback.fail(token, error.message);
+    setBanner("cameraMessage", error.message || "Camera settings failed.", "muted");
+  } finally { renderSettingsFeedback('camera'); }
 }
 
 function readMotorForm() {
@@ -1146,16 +1203,32 @@ async function loadMotorConfig() {
 }
 
 async function applyMotorConfig() {
+  const feedback = settingsFeedback.motor;
+  const token = feedback.begin();
+  if (token === null) return;
+  renderSettingsFeedback('motor');
   const payload = readMotorForm();
-  const data = await fetchJson("/api/motor/apply", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  });
-  state.motorConfig = data.config || payload;
-  fillMotorForm(state.motorConfig, true);
-  setBanner("motorMessage", data.message || "Motor settings applied.", "muted");
-  await pollStatus();
+  try {
+    const data = await fetchJson("/api/motor/apply", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const confirmed = await confirmedConfig('/api/motor/config', payload, data, 'Motor');
+    if (feedback.snapshot().revision === token) {
+      state.motorConfig = confirmed;
+      fillMotorForm(confirmed, true);
+    }
+    feedback.complete(token, true,
+      settingsReadbackMatches(payload, confirmed)
+        ? 'Motor runtime and saved settings confirmed by backend.'
+        : 'Motor settings normalized by backend; effective values shown.');
+    setBanner("motorMessage", data.message || "Motor settings applied.", "muted");
+    await pollStatus();
+  } catch (error) {
+    feedback.fail(token, error.message);
+    setBanner("motorMessage", error.message || "Motor settings failed.", "muted");
+  } finally { renderSettingsFeedback('motor'); }
 }
 
 const previewHealth = window.PiDrivePreviewFreshness.createPreviewFreshness(() => performance.now());
@@ -1680,6 +1753,27 @@ function setupEvents() {
   });
 
   document.getElementById("cameraResolutionPreset").addEventListener("change", applyCameraResolutionPreset);
+  document.getElementById('cameraRetryApply')?.addEventListener('click', applyCameraConfig);
+  document.getElementById('motorRetryApply')?.addEventListener('click', applyMotorConfig);
+  const cameraInputs = ['cameraResolutionPreset', 'cameraWidth', 'cameraHeight', 'cameraFps', 'cameraPreviewFps',
+    'cameraPreviewQuality', 'cameraFormat', 'cameraStreamQuality', 'cameraAutoExposure', 'cameraAwb',
+    'cameraExposureUs', 'cameraAnalogueGain', 'cameraExposureComp', 'cameraBrightness', 'cameraContrast',
+    'cameraSaturation', 'cameraSharpness'];
+  cameraInputs.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', () => settingsChanged('camera'));
+    el.addEventListener('change', () => settingsChanged('camera'));
+  });
+  ['leftDirection', 'rightDirection', 'steeringDirection', 'leftMaxSpeed', 'rightMaxSpeed', 'leftBias', 'rightBias']
+    .forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('input', () => settingsChanged('motor'));
+      el.addEventListener('change', () => settingsChanged('motor'));
+    });
+  renderSettingsFeedback('camera');
+  renderSettingsFeedback('motor');
   document.getElementById("cameraStreamQuality").addEventListener("change", applyStreamQualityPreset);
   document.getElementById("cameraWidth").addEventListener("change", setCameraResolutionPreset);
   document.getElementById("cameraHeight").addEventListener("change", setCameraResolutionPreset);

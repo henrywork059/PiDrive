@@ -400,8 +400,11 @@
           <section class="panel-section panel-section-footer">
             <div class="stack-row panel-actions">
               <button id="cameraApplyBtn">Apply + restart</button>
+              <span id="cameraApplyState" class="settings-apply-state" data-state="unsaved" role="status" aria-live="polite">Unsaved</span>
+              <button id="cameraRetryApply" type="button" class="ghost-btn" hidden>Retry apply</button>
             </div>
             <div id="cameraMessage" class="banner muted">Load saved camera settings.</div>
+            <div id="cameraApplyDetail" class="small-note">Settings have not been confirmed by the backend.</div>
             <div class="small-note priority-low">Picamera2 supports more controls than the OpenCV fallback.</div>
           </section>
         </div>
@@ -461,8 +464,11 @@
           <section class="panel-section panel-section-footer">
             <div class="stack-row panel-actions">
               <button id="motorApplyBtn">Apply</button>
+              <span id="motorApplyState" class="settings-apply-state" data-state="unsaved" role="status" aria-live="polite">Unsaved</span>
+              <button id="motorRetryApply" type="button" class="ghost-btn" hidden>Retry apply</button>
             </div>
             <div id="motorMessage" class="banner muted">Load saved motor settings.</div>
+            <div id="motorApplyDetail" class="small-note">Settings have not been confirmed by the backend.</div>
           </section>
         </div>
         <div class="resize-handle"></div>
@@ -471,6 +477,7 @@
   </main>
 
   <script src="{{ url_for('static', filename='preview_freshness.js') }}?v={{ app_version }}"></script>
+  <script src="{{ url_for('static', filename='settings_feedback.js') }}?v={{ app_version }}"></script>
   <script src="{{ url_for('static', filename='app.js') }}?v={{ app_version }}"></script>
 
 
