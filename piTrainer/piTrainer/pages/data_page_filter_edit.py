@@ -9,6 +9,18 @@ from ..services.data.stats_service import calculate_basic_stats
 
 
 class DataPageFilterEditMixin:
+    def _show_metadata_save_error(self, title: str, error: Exception) -> None:
+        # Each JSONL file is atomic, but a two-file labels/records update is not
+        # a transaction. Alert the operator to reload before further changes.
+        message = (
+            f'Unable to save recording metadata safely: {error}\n\n'
+            'Existing files were not truncated. An earlier file in the same '
+            'operation may already have been updated. Reload the selected '
+            'sessions before retrying.'
+        )
+        QMessageBox.critical(self, title, message)
+        self.main_window.set_status_message(f'Metadata save failed: {error}')
+
     def apply_preview_filter(self, select_identity: tuple[str, str, str, str] | None = None) -> None:
         filtered_preview = filter_preview_dataframe(
             self.current_preview_source_df,
@@ -68,7 +80,11 @@ class DataPageFilterEditMixin:
         current_record = self.preview_panel.selected_record()
         current_identity = self._record_identity(current_record) if current_record else None
 
-        result = update_frame_controls_many(self.state.records_root_path, records)
+        try:
+            result = update_frame_controls_many(self.state.records_root_path, records)
+        except (OSError, RuntimeError) as exc:
+            self._show_metadata_save_error('Edit Frame Data', exc)
+            return
         matched_key_set = {tuple(key) for key in result.get('matched_keys', [])}
         updated_records = [
             record for record in records
@@ -218,14 +234,18 @@ class DataPageFilterEditMixin:
             self.main_window.set_status_message(f'Bulk {field_label} edit cancelled.')
             return
 
-        result = update_frame_controls_batch(
-            self.state.records_root_path,
-            records,
-            steering=value if field_name == 'steering' else 0.0,
-            throttle=value if field_name == 'throttle' else 0.0,
-            update_steering=(field_name == 'steering'),
-            update_throttle=(field_name == 'throttle'),
-        )
+        try:
+            result = update_frame_controls_batch(
+                self.state.records_root_path,
+                records,
+                steering=value if field_name == 'steering' else 0.0,
+                throttle=value if field_name == 'throttle' else 0.0,
+                update_steering=(field_name == 'steering'),
+                update_throttle=(field_name == 'throttle'),
+            )
+        except (OSError, RuntimeError) as exc:
+            self._show_metadata_save_error(f'Bulk {field_label.title()} Edit', exc)
+            return
 
         matched_key_set = {tuple(key) for key in result.get('matched_keys', [])}
         updated_identities = [

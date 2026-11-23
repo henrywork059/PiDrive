@@ -192,7 +192,11 @@ class DataPageDeployMixin:
             updated['throttle'] = pred_throttle
             update_records.append(updated)
 
-        result = update_frame_controls_many(self.state.records_root_path, update_records)
+        try:
+            result = update_frame_controls_many(self.state.records_root_path, update_records)
+        except (OSError, RuntimeError) as exc:
+            self._show_metadata_save_error('Apply AI Output', exc)
+            return
         matched_key_set = {tuple(key) for key in result.get('matched_keys', [])}
         updated_records = [
             record for record in update_records

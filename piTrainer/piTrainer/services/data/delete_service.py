@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import Any, Iterable
 
+from .jsonl_atomic_service import file_signature, replace_jsonl_lines
 from .record_loader_service import IMAGE_KEYS, _resolve_image_path
 from .session_service import resolve_session_dir
 from .visibility_service import hidden_timestamp, is_record_hidden, mark_record_hidden, unmark_record_hidden, utc_timestamp
@@ -105,6 +106,7 @@ def _hide_in_jsonl(path: Path, targets: list[dict[str, str]], *, hidden_at_utc: 
     changed_rows = 0
     matched_targets: set[tuple[str, str, str, str]] = set()
     output_lines: list[str] = []
+    expected_signature = file_signature(path)
     with path.open('r', encoding='utf-8') as handle:
         for raw_line in handle:
             line = raw_line.strip()
@@ -130,8 +132,7 @@ def _hide_in_jsonl(path: Path, targets: list[dict[str, str]], *, hidden_at_utc: 
             output_lines.append(_with_newline(raw_line))
 
     if changed_rows:
-        with path.open('w', encoding='utf-8') as handle:
-            handle.writelines(output_lines)
+        replace_jsonl_lines(path, output_lines, expected_signature=expected_signature)
     return changed_rows, matched_targets
 
 
@@ -264,6 +265,7 @@ def recover_hidden_frames(records_root: Path, sessions: Iterable[str], *, recove
         paths_by_session_file[(str(ref['session']), Path(ref['path']))] = Path(ref['session_dir'])
 
     for (session_name, path), _session_dir in paths_by_session_file.items():
+        expected_signature = file_signature(path)
         output_lines: list[str] = []
         changed_rows = 0
         for _line_no, raw_line, record in _jsonl_records(path) or []:
@@ -278,8 +280,7 @@ def recover_hidden_frames(records_root: Path, sessions: Iterable[str], *, recove
                     continue
             output_lines.append(_with_newline(raw_line))
         if changed_rows:
-            with path.open('w', encoding='utf-8') as handle:
-                handle.writelines(output_lines)
+            replace_jsonl_lines(path, output_lines, expected_signature=expected_signature)
             metadata_rows_changed += changed_rows
             files_changed.append(f'{session_name}/{path.name}')
 
@@ -377,6 +378,7 @@ def purge_hidden_frames(records_root: Path, sessions: Iterable[str]) -> dict[str
             path = session_dir / filename
             if not path.exists():
                 continue
+            expected_signature = file_signature(path)
             output_lines: list[str] = []
             removed_rows = 0
             for _line_no, raw_line, record in _jsonl_records(path) or []:
@@ -385,8 +387,7 @@ def purge_hidden_frames(records_root: Path, sessions: Iterable[str]) -> dict[str
                     continue
                 output_lines.append(_with_newline(raw_line))
             if removed_rows:
-                with path.open('w', encoding='utf-8') as handle:
-                    handle.writelines(output_lines)
+                replace_jsonl_lines(path, output_lines, expected_signature=expected_signature)
                 metadata_rows_removed += removed_rows
                 files_changed.append(f'{session_name}/{filename}')
 
