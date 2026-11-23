@@ -12,6 +12,7 @@ from piserver.core.config_store import ConfigStore
 from piserver.core.access_control import install_access_control
 from piserver.core.request_trace import install_mutation_trace
 from piserver.core.preflight import build_preflight
+from piserver.core.recent_events import RecentEventRing, record_api_response
 from piserver.services.camera_service import CameraService
 from piserver.services.control_service import ControlService
 from piserver.services.model_service import ModelService
@@ -20,7 +21,7 @@ from piserver.services.recorder_service import RecorderService
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 WEB_DIR = Path(__file__).resolve().parent / "web"
-APP_VERSION = "0_4_27"
+APP_VERSION = "0_4_28"
 
 
 def mjpeg_generator(camera_service):
@@ -46,6 +47,27 @@ def create_app() -> Flask:
     )
     install_access_control(app)
     install_mutation_trace(app)
+    recent_events = RecentEventRing(capacity=128)
+    event_routes = {
+        "api_camera_preview_state": "camera_preview",
+        "api_camera_apply": "camera_apply",
+        "api_motor_apply": "motor_apply",
+        "api_model_upload": "model_upload",
+        "api_model_load": "model_load",
+        "api_model_delete": "model_delete",
+        "api_record_toggle": "record_toggle",
+        "api_record_capture_once": "record_capture",
+        "api_record_delete": "record_delete",
+        "api_config_save": "config_save",
+        "api_config_reload": "config_reload",
+        "api_estop": "safety_stop",
+        "api_safety_rearm": "safety_rearm",
+    }
+
+    @app.after_request
+    def record_operator_event(response):
+        return record_api_response(recent_events, response, request, event_routes)
+
 
     config_store = ConfigStore(BASE_DIR / "config" / "runtime.json")
     initial_config = config_store.load()
@@ -69,6 +91,7 @@ def create_app() -> Flask:
         loop_hz=20,
     )
     control_service.start()
+    recent_events.record("startup", "observed")
 
     def cleanup_services():
         try:
@@ -158,6 +181,10 @@ def create_app() -> Flask:
             safety=control_service.safety_status(),
             disk_root=BASE_DIR,
         ))
+
+    @app.get("/api/recent-events")
+    def api_recent_events():
+        return jsonify({"ok": True, "capacity": recent_events.capacity, "events": recent_events.snapshot()})
 
     @app.route("/api/algorithms")
     def api_algorithms():
