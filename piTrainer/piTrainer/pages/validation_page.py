@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from ..app_state import TrainConfig
 import pandas as pd
 
 from ..app_state import AppState
 from ..panels.common.log_panel import LogPanel
+from ..panels.common.task_progress_panel import TaskProgressPanel
+from ..services.background_task import BackgroundTaskRunner
 from ..panels.validation.validation_actions_panel import ValidationActionsPanel
 from ..panels.validation.validation_config_panel import ValidationConfigPanel
 from ..panels.validation.validation_frame_review_panel import ValidationFrameReviewPanel
@@ -33,6 +36,9 @@ class ValidationPage(DockPage):
         self.plot_panel = ValidationPlotPanel()
         self.frame_review_panel = ValidationFrameReviewPanel(edit_in_data_callback=self.main_window.open_validation_frame_in_data_editor)
         self.log_panel = LogPanel('Validation Log')
+        self.task_progress = TaskProgressPanel()
+        self.actions_panel.layout().addWidget(self.task_progress)
+        self.task_runner = BackgroundTaskRunner(self.task_progress, self)
 
         self.build_default_layout()
         self.restore_layout()
@@ -113,6 +119,8 @@ class ValidationPage(DockPage):
         return without_hidden_rows(self.state.filtered_df)
 
     def validate_model(self) -> None:
+        if self.task_runner.active:
+            return
         dataset_df = self._selected_dataset()
         if dataset_df.empty:
             message = 'No rows available for the selected validation dataset.'
@@ -121,35 +129,47 @@ class ValidationPage(DockPage):
             return
 
         self.config_panel.push_to_state()
-        self.log_panel.append_line(
-            f"Running validation on {len(dataset_df)} row(s) using {self.config_panel.model_source()}..."
-        )
-        try:
-            result = run_validation(
-                dataset_df=dataset_df,
-                train_config=self.state.train_config,
-                in_memory_model=self.state.model,
-                model_source=self.config_panel.model_source(),
-                model_path=self.config_panel.model_path(),
-                batch_size=self.config_panel.batch_size(),
-                max_rows=self.config_panel.max_rows(),
-            )
-        except Exception as exc:
-            message = f'Validation failed: {exc}'
-            self.log_panel.append_line(message)
-            self.main_window.set_status_message('Validation failed.')
-            return
+        source = self.config_panel.model_source()
+        model_path = self.config_panel.model_path()
+        in_memory_model = self.state.model
+        train_config = TrainConfig(**vars(self.state.train_config))
+        batch_size = self.config_panel.batch_size()
+        max_rows = self.config_panel.max_rows()
+        snapshot = dataset_df.copy(deep=True)
+        self.log_panel.append_line(f'Running validation on {len(snapshot)} row(s) using {source}...')
 
-        self.last_result = result
-        self.summary_panel.set_result_text(build_validation_summary_text(result))
-        self.plot_panel.set_result(result)
-        self.frame_review_panel.set_result(result)
-        self.log_panel.append_line(
-            'Validation complete: '
-            f"rows={result['rows_used']}, steering_mae={result['steering_mae']:.4f}, speed_mae={result['throttle_mae']:.4f}"
+        def work(report):
+            report('Loading model and checking predictions', None)
+            return run_validation(
+                dataset_df=snapshot, train_config=train_config,
+                in_memory_model=in_memory_model, model_source=source,
+                model_path=model_path, batch_size=batch_size, max_rows=max_rows,
+            )
+
+        def completed(result):
+            self.last_result = result
+            self.summary_panel.set_result_text(build_validation_summary_text(result))
+            self.plot_panel.set_result(result)
+            self.frame_review_panel.set_result(result)
+            self.log_panel.append_line(
+                'Validation complete: '
+                f"rows={result['rows_used']}, steering_mae={result['steering_mae']:.4f}, speed_mae={result['throttle_mae']:.4f}"
+            )
+            self.main_window.set_status_message('Validation complete.')
+            self.refresh_from_state()
+            return (f"Validation completed: {result['rows_used']} rows", ())
+
+        def failed(error):
+            self.log_panel.append_line(f'Validation failed: {error}')
+            self.main_window.set_status_message('Validation failed.')
+
+        self.task_runner.start(
+            'Model validation', work, completed, on_failure=failed,
+            controls=(self.actions_panel.run_button, self.actions_panel.clear_button, self.actions_panel.browse_button, self.config_panel),
         )
-        self.main_window.set_status_message('Validation complete.')
-        self.refresh_from_state()
+
+    def has_active_task(self) -> bool:
+        return self.task_runner.active
 
     def clear_results(self) -> None:
         self.last_result = None
