@@ -307,7 +307,8 @@ class PreprocessPage(DockPage):
 
         self.task_runner.start(
             'Apply preprocessing', work, completed,
-            on_failure=lambda error: self.log_panel.append_line(f'Preprocess failed: {error}'),
+            on_failure=lambda error: (self.result_panel.set_status_warning(f'Preprocess failed: {error}'),
+                                      self.log_panel.append_line(f'Preprocess failed: {error}')),
             controls=(self.actions_panel, self.filter_panel, self.config_panel),
         )
 
