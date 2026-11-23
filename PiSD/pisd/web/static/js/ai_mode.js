@@ -582,7 +582,7 @@
         if (!models.length) {
           const opt = document.createElement('option');
           opt.value = '';
-          opt.textContent = 'No model files found in PiSD/models';
+          opt.textContent = 'No models on Pi — upload .keras or .tflite';
           els.aiModelSelect.appendChild(opt);
         } else {
           models.forEach((model) => {
@@ -593,7 +593,7 @@
           });
         }
       }
-      log('Model list refreshed.', { count: models.length, supported_extensions: data.supported_extensions });
+      log(models.length ? 'Model list refreshed.' : 'No AI models on Pi. Upload a .keras or .tflite file.', { count: models.length, supported_extensions: data.supported_extensions });
       return models;
     } catch (err) {
       log(err.message, err.payload || {});
@@ -1199,7 +1199,7 @@
       : mode === 'snapshot'
         ? 'Snapshot preview loaded. Run AI preview/predict once to update the AI model overlay.'
         : mode === 'error'
-          ? 'Preview error.'
+          ? 'Camera preview unavailable. Check camera, then Start live again.'
           : 'Preview is idle. Start live first, then use AI preview to see the model-predicted safe path overlay before enabling AI drive.';
   }
 
@@ -1277,7 +1277,7 @@
   async function deleteSelectedModel() {
     const modelId = els.aiModelSelect?.value || '';
     if (!modelId) {
-      log('No model selected to delete.');
+      log('No model selected. Choose a model from the list first.');
       return;
     }
     const ok = window.confirm(`Delete model from PiSD/models?\n\n${modelId}`);
