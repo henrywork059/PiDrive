@@ -23,6 +23,7 @@ except Exception:  # pragma: no cover
 
 from .arm_service import ArmService
 from .debug_tools import append_event, clamp_float, clamp_int
+from .request_trace import install_mutation_trace
 from .manual_control_config import load_manual_control_config
 from .mission1_tflite_detector import Mission1TFLiteDetector
 from .mission_safety import MissionAbort, save_mission_report
@@ -37,7 +38,7 @@ from piserver.services.camera_service import CameraService  # noqa: E402
 from piserver.services.motor_service import MotorService  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent / 'mission1_web'
-APP_VERSION = '0_5_27'
+APP_VERSION = '0_5_28'
 MISSION1_CONFIG_PATH = CONFIG_DIR / 'mission1_session.json'
 MISSION1_MODEL_DIR = CUSTOMDRIVE_ROOT / 'models' / 'mission1'
 
@@ -2055,6 +2056,7 @@ def create_mission1_session_app() -> Flask:
         template_folder=str(WEB_DIR / 'templates'),
         static_folder=str(WEB_DIR / 'static'),
     )
+    install_mutation_trace(app)
     ctx = Mission1SessionContext()
     app.config['mission1_ctx'] = ctx
 
