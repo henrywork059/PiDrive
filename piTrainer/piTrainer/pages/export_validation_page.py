@@ -101,7 +101,7 @@ class ExportValidationPage(DockPage):
             self.plot_panel.set_result(self.last_result)
             self.frame_review_panel.set_result(self.last_result)
         else:
-            self.summary_panel.set_result_text('No TFLite check yet. Choose a .tflite file and run the check.')
+            self.summary_panel.set_result_text('No TFLite check yet. Choose a .tflite model, then Run TFLite Check.')
             self.plot_panel.set_result(None)
             self.frame_review_panel.set_result(None)
 
@@ -128,7 +128,7 @@ class ExportValidationPage(DockPage):
             return
         dataset_df = self._selected_dataset()
         if dataset_df.empty:
-            message = 'No rows available for the selected check dataset.'
+            message = 'No rows in this dataset. Load sessions in Data, then choose a populated split.'
             self.log_panel.append_line(message)
             self.main_window.set_status_message(message)
             return
@@ -179,7 +179,7 @@ class ExportValidationPage(DockPage):
 
         def failed(error):
             self.log_panel.append_line(f'TFLite check failed: {error}')
-            self.main_window.set_status_message('TFLite check failed.')
+            self.main_window.set_status_message('TFLite check failed. Review the Check Log, then retry.')
 
         self.task_runner.start(
             'TFLite validation', work, completed, on_failure=failed,
