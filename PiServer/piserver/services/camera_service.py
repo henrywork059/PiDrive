@@ -4,6 +4,10 @@ import io
 import threading
 import time
 from typing import Optional
+from pathlib import Path
+
+from piserver.core.hardware_ownership import claim_hardware
+from piserver.services.motor_service import GPIO_AVAILABLE
 
 try:
     import cv2
@@ -72,6 +76,7 @@ class CameraService:
         self._capture_lock = threading.Lock()
         self._service_lock = threading.RLock()
         self._running = False
+        self._hardware_lease = None
         self._fps = 0.0
         self._capture = None
         self._picam2 = None
@@ -350,10 +355,25 @@ class CameraService:
         with self._service_lock:
             if self._running:
                 return
-            self._open_backend_locked()
-            self._running = True
-            self._thread = threading.Thread(target=self._loop, daemon=True)
-            self._thread.start()
+            if self._thread is not None and self._thread.is_alive():
+                raise RuntimeError("Previous camera capture thread is still active; restart refused.")
+            # Avoid camera contention during CustomDrive startup: camera can
+            # open before the motor service in both the PiServer and GUI paths.
+            # On desktop without Pi camera hardware, retain simulation mode.
+            needs_ownership = Picamera2 is not None or GPIO_AVAILABLE or Path("/proc/device-tree/model").exists()
+            if needs_ownership and self._hardware_lease is None:
+                self._hardware_lease = claim_hardware("camera")
+            try:
+                self._open_backend_locked()
+                self._running = True
+                self._thread = threading.Thread(target=self._loop, daemon=True)
+                self._thread.start()
+            except BaseException:
+                self._release_backends_locked()
+                if self._hardware_lease is not None:
+                    self._hardware_lease.release()
+                    self._hardware_lease = None
+                raise
 
     def restart(self) -> tuple[bool, str, dict]:
         self.close()
@@ -719,7 +739,17 @@ class CameraService:
 
         if thread is not None and thread.is_alive() and thread is not threading.current_thread():
             thread.join(timeout=1.0)
+            if thread.is_alive():
+                # The capture thread may still be using Picamera2. Do not
+                # release the cross-process lease while it is alive.
+                self.last_error = "Camera thread did not stop; hardware lease retained."
+                with self._service_lock:
+                    self._thread = thread
+                raise RuntimeError(self.last_error)
 
         with self._service_lock:
             self._release_backends_locked()
             self.preview_live = False
+            if self._hardware_lease is not None:
+                self._hardware_lease.release()
+                self._hardware_lease = None
