@@ -26,7 +26,7 @@ A model can be uploaded while the correct Python TFLite runtime is absent, a Pi 
 - **7/7 exact committed PiSD preflight browser test callbacks passed** against the exact GitHub branch contents in a V8-compatible fake DOM/fetch runner. Combined PiServer/PiSD/CustomDrive GUI/Mission browser preflight suites passed **28/28**. This is **not native `node --test`** or a real browser.
 - Executed live source checks confirming six named states, pure read-only formatter without motor/camera/settings writes, GET route, template/script wiring and successful JS parse.
 - **12 new Python tests were committed but not run** on a checkout of the exact PR; no Raspberry Pi camera, real motor, network interface, disk quota or complete Python integration tests were performed.
-- Direct-parent GitHub compare and anti-rollback audit required before opening draft PR.
+- **Direct-parent GitHub compare completed** against R47 PR #73: **10 commits ahead, 0 behind; 9 component-local files changed (5 new, 4 modified); 0 deletions; 0 cross-component paths**. Existing motor/camera/AI/recording services, R47 error redaction, R43 hidden MJPEG, R35 STOP, R36 styling and user runtime/config values were not modified.
 
 ## Known limits / release gate
 - A running Picamera2 backend is not proof of fresh frames. A GPIO motor adapter being initialized is not a physical movement test, and read-only preflight never arms or rearms motors. TFLite import-spec availability is not a completed model inference. This does not replace an operator-controlled guarded test.
