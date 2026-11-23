@@ -1,5 +1,14 @@
 # PiServer
 
+## R45 visual style contract (0_4_24)
+
+New web panels should follow [UI_DESIGN_TOKENS.md](UI_DESIGN_TOKENS.md):
+semantic status colors, compact spacing, concise STOP/Apply labels, and
+icon-size guidance. The real CSS/theme engine and the existing
+`PiServerStyleCustom:v0_3_5` preference key are unchanged. Run
+`node --test PiServer/tests/test_ui_style_tokens_r45.cjs` from repo root.
+This is a design-policy/smoke-test update, not a layout reset.
+
 ## Adaptive status polling and bandwidth (0_4_23, R43)
 
 The PiServer web UI still uses its R30 single-in-flight, decoded-JPEG,
