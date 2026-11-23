@@ -37,5 +37,8 @@ The original Mission 1 browser showed raw `phase`, `mission_state`, `arm_sequenc
 - Backend Python unit test source added but **not executed** in the connected GitHub environment.
 - GitHub compare against main and unchanged main-file spot checks listed in draft PR.
 
+## U22/U28 regression compatibility
+Some existing hardware-free recovery tests deliberately instantiate `Mission1SessionContext.__new__` without its constructor and mock `_record`. The timeline observer therefore checks for the optional tracker and becomes a no-op for those minimal contexts. Normal initialized mission sessions still construct and reset the tracker. No existing test fixture or behavior was rewritten.
+
 ## Known limitations / next steps
 Backend phase observation is process-local and is not a reboot-persistent audit log; the existing U22 mission JSON report remains separate. The last completed step reflects successful progression *to* a new phase, not independent camera/servo sensor verification. Faster changes are captured at explicit backend state assignments, but this patch does not add a real-time event stream. Physical camera/arm/motor validation, Flask/browser integration testing, and full CustomDrive suite must be run before promoting from draft.
