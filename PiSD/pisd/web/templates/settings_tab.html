@@ -24,10 +24,13 @@
         <button id="stLoadSettings" class="st-button">Load saved</button>
         <button id="stSaveSettings" class="st-button st-primary">Save only</button>
         <button id="stApplySettings" class="st-button st-primary">Save and apply</button>
+        <span id="stApplyState" class="st-apply-state" data-state="unsaved" role="status" aria-live="polite">Unsaved</span>
+        <button id="stRetryApply" class="st-button" type="button" hidden>Retry apply</button>
         <button id="stResetSettings" class="st-button st-danger">Reset defaults</button>
         <button id="stExportSettings" class="st-button">Export</button>
         <label class="st-import">Import <input id="stImportSettings" type="file" accept="application/json"></label>
       </div>
+      <p id="stApplyDetail" class="st-help">Settings have not been confirmed by the backend.</p>
       <p class="st-help">Panel presentation, manual drive defaults, camera, and motor settings use one global source: <code>config/runtime_settings.json</code>. Pages may mirror loaded values for display, but saved settings must come from the backend settings API.</p>
     </section>
 
@@ -113,6 +116,7 @@
 
   <script src="{{ static_asset('js/global_space_stop.js') }}"></script>
   <script id="settingsInitialStatus" type="application/json">{{ initial_status | tojson }}</script>
+  <script src="{{ static_asset('js/settings_feedback.js') }}"></script>
   <script src="{{ static_asset('js/settings_tab.js') }}"></script>
 </body>
 </html>
