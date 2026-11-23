@@ -1,9 +1,9 @@
 """Small reusable read-only result panel for Validate, Export and Export Validate."""
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, QUrl
+from PySide6.QtCore import QUrl
 from PySide6.QtGui import QDesktopServices
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QMessageBox, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QMessageBox, QPlainTextEdit, QPushButton, QVBoxLayout, QWidget
 
 from custom_trainer.services.task_result_summary import TaskResult
 
@@ -14,9 +14,11 @@ class TaskResultPanel(QWidget):
         self.record: TaskResult | None = None
         self.heading = QLabel("Last result: Not run", self)
         self.heading.setProperty("role", "muted")
-        self.detail = QLabel("Start an operation to see the exact model, dataset, status and output path.", self)
-        self.detail.setWordWrap(True)
-        self.detail.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.detail = QPlainTextEdit(self)
+        self.detail.setReadOnly(True)
+        self.detail.setLineWrapMode(QPlainTextEdit.NoWrap)
+        self.detail.setMaximumHeight(150)
+        self.detail.setPlainText("Start an operation to see the exact model, dataset, status and output path.")
         self.open_button = QPushButton("Open Location", self)
         self.open_button.setEnabled(False)
         self.open_button.clicked.connect(self.open_location)
@@ -32,7 +34,7 @@ class TaskResultPanel(QWidget):
     def show_result(self, record: TaskResult) -> None:
         self.record = record
         self.heading.setText(f"Last result: {record.state}")
-        self.detail.setText(record.display_text())
+        self.detail.setPlainText(record.display_text())
         self.open_button.setEnabled(record.verified_path() is not None)
 
     def open_location(self) -> None:
