@@ -8,6 +8,7 @@ from ..app_state import AppState
 from ..panels.common.log_panel import LogPanel
 from ..panels.common.task_progress_panel import TaskProgressPanel
 from ..services.background_task import BackgroundTaskRunner
+from ..services.task_outputs import confirmed_model_paths
 from ..panels.train.split_summary_panel import SplitSummaryPanel
 from ..panels.train.train_config_panel import TrainConfigPanel
 from ..panels.train.train_control_panel import TrainControlPanel
@@ -285,9 +286,7 @@ class TrainPage(DockPage):
             return candidate
 
         def completed(candidate):
-            manifest_path = Path(str(candidate) + '.manifest.json')
-            if not candidate.is_file() or not manifest_path.is_file():
-                raise RuntimeError(f'Completed model or manifest missing: {candidate}')
+            output_paths = confirmed_model_paths((candidate,))
             self.state.last_saved_model_path = str(candidate)
             guard_message = ''
             if guard_notes:
@@ -304,7 +303,7 @@ class TrainPage(DockPage):
             self.main_window.validation_page.config_panel.set_saved_model_path(str(candidate))
             self.main_window.validation_page.refresh_from_state()
             self.main_window.set_status_message(f'Saved .keras model to {candidate}')
-            return ('Trained model saved', (str(candidate), str(manifest_path)))
+            return ('Trained model saved', output_paths)
 
         def failed(error):
             self.control_panel.set_save_status(f'Could not save model to:\n{candidate}\n{error}', success=False)
