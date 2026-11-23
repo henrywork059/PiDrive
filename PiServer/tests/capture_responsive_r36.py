@@ -2,8 +2,10 @@
 """R36 passive viewport screenshot/geometry audit for active PiDrive web UIs.
 
 Run from a desktop against the CURRENT checked-out branch and its running
-web server. This script does NOT start cameras, motors, missions, scans, saves,
-or the Wi-Fi setup session. It only opens non-mutating presentation dialogs.
+web server. The script itself never POSTs camera/motor/mission/scan/Save
+commands. Rendering a page may have its normal runtime side effects, and
+visiting PiBooter from a recognized client may activate its existing setup
+session. It only clicks non-mutating presentation dialogs.
 It deliberately makes no claim that a static HTML fixture is the live runtime.
 
 Install for development: python -m pip install playwright
@@ -206,7 +208,11 @@ def main() -> int:
     p.add_argument("--label", choices=("baseline", "patched"), required=True)
     p.add_argument("--revision", required=True, help="Exact running git commit/tag; recorded in matrix")
     p.add_argument("--baseline-dir", type=Path, help="Directory with previous baseline PNGs for review")
+    p.add_argument("--acknowledge-booter-visit", action="store_true",
+                   help="Required for PiBooter: visiting from a permitted client may hold its setup session open")
     args = p.parse_args()
+    if args.suite == "pibooter" and not args.acknowledge_booter_visit:
+        p.error("PiBooter GET may activate the existing first-client session; pass --acknowledge-booter-visit only when authorized")
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
