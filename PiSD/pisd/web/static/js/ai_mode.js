@@ -38,6 +38,7 @@
   };
 
   let statusTimer = null;
+  let statusPollInFlight = false;
   let aiRunning = false;
   let recordingRunning = Boolean(initial.recording?.running);
   let overlayEnabled = true;
@@ -1389,10 +1390,18 @@
   function startStatusLoop() {
     if (statusTimer) return;
     statusTimer = setInterval(async () => {
-      const data = await refreshStatus();
-      if (!((data || {}).ai || {}).running) {
-        clearInterval(statusTimer);
-        statusTimer = null;
+      // R43: this is read-only UI observation, NOT the AI prediction/control loop.
+      // The existing tab-hide safety stop still runs independently.
+      if (document.hidden || statusPollInFlight) return;
+      statusPollInFlight = true;
+      try {
+        const data = await refreshStatus();
+        if (data && !((data || {}).ai || {}).running) {
+          clearInterval(statusTimer);
+          statusTimer = null;
+        }
+      } finally {
+        statusPollInFlight = false;
       }
     }, 250);
   }
@@ -1772,6 +1781,7 @@
         }
       } else if (els.aiPreviewFrame?.dataset.previewMode === 'live' && els.aiPreviewImage) {
         els.aiPreviewImage.src = `/video_feed?t=${Date.now()}`;
+        void refreshStatus(); // immediate full UI state after hidden stop
         void pollOperatingReadiness(); // immediate fresh server state
       }
     });
