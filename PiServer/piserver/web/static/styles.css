@@ -3557,3 +3557,21 @@ button.active,
 .settings-apply-state[data-state="applying"] { color:#bae6fd; }
 .settings-apply-state[data-state="failed"] { color:#fecdd3; border-color:rgba(251,113,133,.6); }
 .panel-actions button[hidden] { display:none !important; }
+
+/* R35 keyboard focus and motion preferences (only presentation, not motor logic). */
+:where(button, a[href], input, select, textarea, [tabindex="0"]):focus-visible {
+  outline: 3px solid #ffca65 !important;
+  outline-offset: 3px !important;
+}
+.a11y-drive-hint { margin: 6px 0; font-size: .8rem; line-height: 1.4; color: var(--muted, #cbd5e1); }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+@media (forced-colors: active) {
+  :where(button, a[href], input, select, textarea, [tabindex="0"]):focus-visible { outline: 3px solid Highlight !important; }
+}
