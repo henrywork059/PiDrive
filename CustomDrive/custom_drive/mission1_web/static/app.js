@@ -951,7 +951,7 @@ async function uploadModel() {
       body: formData,
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
+    if (!res.ok || data?.ok === false) {
       throw tracedRequestError(data, res.status, '/api/models/upload', 'Model upload failed. Check the Pi, then retry.');
     }
     input.value = '';
