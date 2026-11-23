@@ -549,6 +549,22 @@ class ExportValidatePage(QWidget):
             return
         if dataset_summary is not None:
             self.log(f'[dataset] {dataset_summary.describe()}')
+            for line in dataset_summary.session_quality:
+                self.log(f'[dataset/session] {line}')
+            for warning in dataset_summary.warnings:
+                self.log(f'[dataset/warning] {warning}')
+            for issue in dataset_summary.annotation_issues:
+                self.log(f'[dataset/invalid] {issue}')
+            if not dataset_summary.has_validation_holdout:
+                QMessageBox.warning(
+                    self,
+                    'No independent validation holdout',
+                    'Validation requires images independent of the training sessions.\n\n'
+                    'Add another independent recording session with distinct images before running this task.\n\n'
+                    f'{dataset_summary.describe()}',
+                )
+                return
+
             if dataset_summary.migrated_labels:
                 self.log(f'[dataset] Migrated {dataset_summary.migrated_labels} legacy label file(s) into canonical YOLO paths.')
             if not dataset_summary.has_usable_labels:
