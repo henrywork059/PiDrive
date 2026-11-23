@@ -10,6 +10,7 @@ from typing import Any
 from pisd import __version__
 from pisd.core.errors import ErrorReporter, PiSDErrorCodes, ok_payload, report_payload
 from pisd.core.request_trace import install_mutation_trace
+from pisd.core.preflight import build_preflight
 from pisd.core.panel_contracts import build_panel_testing_manifest, get_panel_contracts
 from pisd.core.presentation_registry import build_presentation_manifest
 from pisd.core.settings_manager import SettingsManager
@@ -410,6 +411,18 @@ def create_app(hardware_enabled: bool = False):
     @app.get("/api/status")
     def api_status():
         return jsonify(build_status())
+
+    @app.get("/api/preflight")
+    def api_preflight():
+        # No camera.start(), motor.update(), AI model load or settings writes.
+        return jsonify(build_preflight(
+            hardware_requested=bool(hardware_enabled),
+            camera=camera_service.status(),
+            motor=motor_service.status(),
+            ai=ai_drive_service.status(),
+            safety=ai_drive_service.safety_status(),
+            project_root=PROJECT_ROOT,
+        ))
 
     @app.get("/api/safety/status")
     def api_safety_status():
