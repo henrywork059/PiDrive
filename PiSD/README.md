@@ -521,3 +521,8 @@ Main UI/runtime update:
 - AI Mode and Manual Drive listen for the shared `pisd:space-stop` event to reset their local pad/readout state after the global stop.
 
 Rollback safety: this patch preserves the accepted Start live workflow, AI snapshot/record buttons and `r`/`s` shortcuts, additive correction equation, fixed-throttle-after-correction behaviour, and full Manual pad takeover mode.
+
+
+### U28 camera-fault rearm (0.11.13)
+
+The additive `safety` object in `GET /api/status` and `GET /api/ai/status` uses schema version 1, also available from `GET /api/safety/status`. If a camera-frame timeout latches during AI operation, stop AI and restore advancing camera frames. `POST /api/safety/rearm` with JSON `{"confirm":true}` clears that latch **only** after verifying a stopped AI worker, a newly arriving JPEG and a motor stop. AI start, manual nonzero output and motor test/tuning reject latched motion; STOP remains available. AI motor output still requires a fresh acknowledgement per start. Hardware verification required before deployment.

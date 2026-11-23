@@ -118,6 +118,7 @@ def create_app(hardware_enabled: bool = False):
             "settings": settings_manager.get(),
             "recording": recording_service.status(),
             "ai_mode": ai_drive_service.status(),
+            "safety": ai_drive_service.safety_status(),
         }
 
     def get_json_payload() -> tuple[dict[str, Any], Any | None]:
@@ -406,6 +407,20 @@ def create_app(hardware_enabled: bool = False):
     def api_status():
         return jsonify(build_status())
 
+    @app.get("/api/safety/status")
+    def api_safety_status():
+        return jsonify({"ok": True, "safety": ai_drive_service.safety_status()})
+
+    @app.post("/api/safety/rearm")
+    def api_safety_rearm():
+        data, json_error = get_json_payload()
+        if json_error is not None:
+            return jsonify(report_payload(False, json_error)), 400
+        result = ai_drive_service.rearm_camera_fault(
+            camera_service, motor_service, confirm=data.get("confirm")
+        )
+        return jsonify(result), 200 if result.get("ok") else 409
+
     @app.get("/api/errors")
     def api_errors():
         return jsonify(ok_payload("Recent PiSD error reports.", errors=all_errors(limit=25)))
@@ -660,6 +675,7 @@ def create_app(hardware_enabled: bool = False):
         return jsonify(ok_payload(
             "AI mode status loaded.",
             ai=ai_drive_service.status(),
+            safety=ai_drive_service.safety_status(),
             motor=motor_service.status(),
             camera=camera_service.status(),
             settings=settings_manager.get(),
@@ -820,6 +836,8 @@ def create_app(hardware_enabled: bool = False):
         if json_error is not None:
             return jsonify(report_payload(False, json_error)), 400
         try:
+            if ai_drive_service.safety_status()["latched"]:
+                return jsonify({"ok": False, "message": "Camera fault latched; rearm before motor testing.", "safety": ai_drive_service.safety_status()}), 423
             if motor_service.hardware_enabled and not bool(data.get("enable_motor_output", False)):
                 report = motor_service.errors.report(
                     PiSDErrorCodes.MOTOR_TEST_UNARMED,
@@ -849,6 +867,8 @@ def create_app(hardware_enabled: bool = False):
             requested_steering = clamp_float(data.get("steering", 0.0), -1.0, 1.0, 0.0)
             requested_throttle = clamp_float(data.get("throttle", 0.0), -1.0, 1.0, 0.0)
             duration_s = clamp_float(data.get("duration", 0.75), 0.05, 10.0, 0.75)
+            if ai_drive_service.safety_status()["latched"]:
+                return jsonify({"ok": False, "message": "Camera fault latched; rearm before motor tuning.", "safety": ai_drive_service.safety_status()}), 423
             if motor_service.hardware_enabled and (abs(requested_steering) > 1e-6 or abs(requested_throttle) > 1e-6):
                 if not bool(data.get("safety_ack", False)) or not bool(data.get("enable_motor_output", False)):
                     report = motor_service.errors.report(
@@ -880,6 +900,8 @@ def create_app(hardware_enabled: bool = False):
         try:
             requested_steering = clamp_float(data.get("steering", 0.0), -1.0, 1.0, 0.0)
             requested_throttle = clamp_float(data.get("throttle", 0.0), -1.0, 1.0, 0.0)
+            if ai_drive_service.safety_status()["latched"] and (abs(requested_steering) > 1e-6 or abs(requested_throttle) > 1e-6):
+                return jsonify({"ok": False, "message": "Camera fault latched; rearm before manual movement.", "safety": ai_drive_service.safety_status()}), 423
             if motor_service.hardware_enabled and (abs(requested_steering) > 1e-6 or abs(requested_throttle) > 1e-6):
                 if not bool(data.get("safety_ack", False)) or not bool(data.get("enable_motor_output", False)):
                     report = motor_service.errors.report(
