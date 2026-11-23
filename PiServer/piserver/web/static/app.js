@@ -941,7 +941,7 @@ async function pollStatus() {
     syncControlsFromStatus(data);
   } catch (error) {
     state.statusFailures = Math.min(3, state.statusFailures + 1);
-    setBanner("statusBanner", error.message || "Status unavailable.", "muted");
+    setBanner("statusBanner", error.message || "Pi status unavailable. Check connection, then retry.", "muted");
   } finally {
     state.statusInFlight = false;
     scheduleStatusPoll();
