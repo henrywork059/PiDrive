@@ -1,5 +1,35 @@
 # PiServer
 
+## R47 failed-operation trace references (0_4_26)
+
+A failed `POST`/`PUT`/`PATCH`/`DELETE` to `/api/*` returns its
+original HTTP status and JSON fields **plus** `correlation_id` (16 server-
+generated hexadecimal characters) and `operation` (safe server endpoint
+name). The response also includes `X-Correlation-ID`. This covers legacy
+`HTTP 200 + ok:false` and `saved:false` failures; successes do not get
+a new trace ID. One log line per failed mutation is emitted with
+`api_mutation_failure id=<ID> operation=<name> http_status=<status>`.
+Look up the displayed reference in the PiServer process log; never paste
+passwords, bearer tokens, full request bodies or arbitrary paths into the
+diagnostic log.
+
+Camera/Motor Apply now shows a short error and collapsible **Error details**
+containing only ID, endpoint, HTTP status and safe error code. Login/CSRF
+enforcement and saved settings readback are unchanged. The tracing hook
+redacts credentials and absolute/explicit file paths in the failure
+`message`/`error` diagnostic fields, not legitimate successful model/config
+responses. No remote telemetry or persistent event storage is added.
+
+Regression checks (from repo root):
+```bash
+python -m unittest discover -s PiServer/tests -p 'test_request_trace_r47.py' -v
+node --test PiServer/tests/test_request_trace_ui_r47.cjs
+```
+The Python suite uses a hardware-free Flask response stand-in, so it does
+not create motors or camera services. Check login 401/403, failed Apply,
+backend restart, and actual browser Error details on the real Pi before
+merging a draft.
+
 ## R45 visual style contract (0_4_24)
 
 New web panels should follow [UI_DESIGN_TOKENS.md](UI_DESIGN_TOKENS.md):
