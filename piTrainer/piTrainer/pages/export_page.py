@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from ..app_state import ExportConfig, TrainConfig
 
 from ..app_state import AppState
