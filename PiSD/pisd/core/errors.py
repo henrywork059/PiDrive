@@ -6,6 +6,8 @@ from datetime import datetime, timezone
 from threading import RLock
 from typing import Any
 
+from pisd.core.request_trace import safe_diagnostic, safe_diagnostic_text
+
 OK_CODE = "PISD-OK-000"
 
 
@@ -119,16 +121,16 @@ class ErrorReport:
     def as_dict(self, include_traceback: bool = False) -> dict[str, Any]:
         data: dict[str, Any] = {
             "code": self.code,
-            "message": self.message,
+            "message": safe_diagnostic_text(self.message),
             "component": self.component,
             "severity": self.severity,
             "timestamp_utc": self.timestamp_utc,
-            "context": dict(self.context),
+            "context": safe_diagnostic(self.context),
         }
         if self.exception_type:
             data["exception_type"] = self.exception_type
         if include_traceback and self.traceback:
-            data["traceback"] = self.traceback
+            data["traceback"] = "[redacted: traceback not exported]"
         return data
 
 
@@ -185,7 +187,7 @@ class ErrorReporter:
         latest = self.latest()
         return {
             "last_error_code": latest.code if latest else OK_CODE,
-            "last_error": latest.message if latest else "",
+            "last_error": safe_diagnostic_text(latest.message) if latest else "",
             "last_error_severity": latest.severity if latest else "ok",
             "recent_errors": self.history(limit=limit),
         }
@@ -204,7 +206,7 @@ def report_payload(ok: bool, report: ErrorReport | None, message: str | None = N
         payload = {
             "ok": bool(ok),
             "code": report.code,
-            "message": message or report.message,
+            "message": safe_diagnostic_text(message or report.message),
             "error": report.as_dict(),
         }
     payload.update(fields)
