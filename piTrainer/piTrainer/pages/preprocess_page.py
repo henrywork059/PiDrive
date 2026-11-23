@@ -217,6 +217,8 @@ class PreprocessPage(DockPage):
         self.apply_recipe(source_df=source_df, message_prefix='Auto preprocessing complete')
 
     def preview_recipe(self, *, message_prefix: str = 'Preview ready') -> None:
+        if not self.main_window.can_start_task(self):
+            return
         if self.task_runner.active:
             self.log_panel.append_line('A preprocessing task is already running.')
             return
@@ -254,6 +256,8 @@ class PreprocessPage(DockPage):
         )
 
     def apply_recipe(self, *, source_df: pd.DataFrame | None = None, message_prefix: str = 'Preprocess applied') -> None:
+        if not self.main_window.can_start_task(self):
+            return
         if source_df is None:
             source_df = self._source_df()
         if source_df.empty:
@@ -363,6 +367,8 @@ class PreprocessPage(DockPage):
         self.main_window.set_status_message('Saved preprocess settings.')
 
     def save_processed_data(self) -> None:
+        if not self.main_window.can_start_task(self):
+            return
         if self.task_runner.active:
             self.log_panel.append_line('A preprocessing task is already running.')
             return
