@@ -1,0 +1,26 @@
+'use strict';
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const guiCss = fs.readFileSync(path.join(__dirname,'../custom_drive/gui_web/static/styles.css'),'utf8');
+const missionCss = fs.readFileSync(path.join(__dirname,'../custom_drive/mission1_web/static/styles.css'),'utf8');
+const guiHtml = fs.readFileSync(path.join(__dirname,'../custom_drive/gui_web/templates/index.html'),'utf8');
+const missionHtml = fs.readFileSync(path.join(__dirname,'../custom_drive/mission1_web/templates/index.html'),'utf8');
+const guiVersion = fs.readFileSync(path.join(__dirname,'../custom_drive/gui_control_app.py'),'utf8');
+const missionVersion = fs.readFileSync(path.join(__dirname,'../custom_drive/mission1_session_app.py'),'utf8');
+let n=0;function test(name,fn){fn();n++;process.stdout.write('PASS '+name+'\n');}
+test('GUI header can grow on phone width',()=>assert.equal(guiCss.includes('@media (max-width: 600px)')&&guiCss.includes('height: auto;\n    min-height: 54px;'),true));
+test('GUI workspace is independently scrollable on phones',()=>assert.equal(guiCss.includes('.workspace-shell { height: auto; min-height: 0; overflow: visible; }'),true));
+test('manual STOP added by R35 stays available',()=>assert.equal(guiHtml.includes('id="manualStopBtn"')&&guiHtml.includes('id="estopToggle"'),true));
+test('GUI manual drag pad keeps square aspect',()=>assert.equal(guiCss.includes('aspect-ratio: 1 / 1'),true));
+test('GUI dialog Save scrolls into reach',()=>assert.equal(guiCss.includes('.modal-body { min-height: 0; flex: 1 1 auto; overflow-y: auto;'),true));
+test('GUI dialog size fits dynamic phone viewport',()=>assert.equal(guiCss.includes('max-height: calc(100dvh - 16px)'),true));
+test('GUI Save Drive Settings still exists',()=>assert.equal(guiHtml.includes('id="saveDriveSettingsBtn"'),true));
+test('Mission1 preview stays 16:9',()=>assert.equal(missionCss.includes('aspect-ratio: 16 / 9'),true));
+test('Mission1 Stop and Save are present',()=>assert.equal(missionHtml.includes('id="stopBtn"')&&missionHtml.includes('id="saveConfigBtn"'),true));
+test('Mission1 table permits horizontal scrolling',()=>assert.equal(missionCss.includes('.table-wrap, .arm-table-wrap { max-width: 100%; overflow-x: auto; }'),true));
+test('R33 mission timeline retained through R36',()=>assert.equal(missionHtml.includes('id="missionTimeline"')&&missionCss.includes('.mission-progress-summary'),true));
+test('Mission1 button labels wrap',()=>assert.equal(missionCss.includes('.button-row > button')&&missionCss.includes('overflow-wrap: anywhere'),true));
+test('R35 GUI version moved forward',()=>assert.equal(guiVersion.includes("APP_VERSION = '0_3_14'"),true));
+test('R35 Mission1 version moved forward',()=>assert.equal(missionVersion.includes("APP_VERSION = '0_5_23'"),true));
+console.log(n+'/14 CustomDrive R36 responsive checks passed');
