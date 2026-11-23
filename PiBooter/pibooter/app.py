@@ -18,6 +18,7 @@ from urllib.parse import parse_qs, urlencode, urlparse
 from .config import ConfigStore
 from .network import CommandResult, NetworkManagerBackend
 from .onboarding_status import project_onboarding
+from .recent_events import project_recent_events
 from .provisioning_security import authorized_setup_client, hotspot_password_safe, request_token_matches, trusted_post_origin
 from .state import RuntimeState
 from .status_store import LastStatusStore
@@ -600,7 +601,7 @@ class PiBooterController:
 
 class RequestHandler(BaseHTTPRequestHandler):
     controller: PiBooterController
-    server_version = "PiBooter/0.1.7"
+    server_version = "PiBooter/0.1.8"
 
     def do_GET(self) -> None:  # noqa: N802
         self.controller.note_http_activity(self.path, self.client_address[0])
@@ -611,6 +612,9 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
         if path == "/api/status":
             self.handle_status_json()
+            return
+        if path == "/api/recent-events":
+            self.handle_recent_events_json()
             return
         if path == "/api/networks":
             self.handle_networks_json()
@@ -769,7 +773,11 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         networks_table = self.render_scan_results(snapshot.get("scan_results", []))
         known_table = self.render_known_connections(snapshot.get("known_connections", []), self.controller.csrf_token)
-        logs_text = self.render_logs(snapshot.get("logs", []))
+        safe_events = project_recent_events(snapshot.get("logs", []))
+        logs_text = "\n".join(
+            f"{event['timestamp_utc']} · {event['title']} · {event['outcome']}"
+            for event in safe_events
+        ) or "No relevant operator events yet."
         csrf_input = f'<input type="hidden" name="csrf_token" value="{html.escape(self.controller.csrf_token, quote=True)}">'
         chip_message = html.escape(onboarding["summary"])
         guidance_text = html.escape(onboarding["next_action"])
@@ -909,8 +917,16 @@ class RequestHandler(BaseHTTPRequestHandler):
           </div>
         </div>
         <div class="card">
-          <h2>Recent log</h2>
-          <pre>{html.escape(logs_text)}</pre>
+          <details id="recent-events-panel">
+            <summary>Recent operator events (sanitized)</summary>
+            <p class="muted small">Only recognized actions and outcomes; Wi-Fi names, passwords, client addresses and raw network tool errors are omitted. This component does not control motors.</p>
+            <div class="btn-row">
+              <button class="btn-secondary" id="refresh-recent-events" type="button">Refresh events</button>
+              <button class="btn-secondary" id="copy-recent-events" type="button">Copy events</button>
+            </div>
+            <p id="recent-events-status" role="status" aria-live="polite"></p>
+            <pre id="recent-events-output" tabindex="0">{html.escape(logs_text)}</pre>
+          </details>
         </div>
         """
 
@@ -991,6 +1007,15 @@ class RequestHandler(BaseHTTPRequestHandler):
             "startup_remaining_s": snapshot.get("startup_remaining_s"),
         }
         self.send_json(payload)
+
+    def handle_recent_events_json(self) -> None:
+        # Read only the already bounded RuntimeState log; never scan or reconnect Wi-Fi.
+        snapshot = self.controller.state.snapshot()
+        self.send_json({
+            "ok": True, "capacity": 80,
+            "events": project_recent_events(snapshot.get("logs", [])),
+            "note": "Sanitized recent operator transitions only; no motor controls in PiBooter.",
+        })
 
     def handle_networks_json(self) -> None:
         snapshot = self.controller.state.snapshot()
