@@ -327,6 +327,26 @@ function queueControlSend() {
 }
 queueControlSend._timer = null;
 
+const settingsFeedback = {
+  drive: window.PiDriveSettingsFeedback.createSettingsFeedback(),
+  ai: window.PiDriveSettingsFeedback.createSettingsFeedback()
+};
+const settingsMatch = window.PiDriveSettingsFeedback.matchesSubset;
+function renderSettingsFeedback(kind) {
+  const info = settingsFeedback[kind].snapshot();
+  const badge = document.getElementById(kind + 'ApplyState');
+  const detail = document.getElementById(kind + 'ApplyDetail');
+  const retry = document.getElementById(kind + 'RetryApply');
+  const button = document.getElementById(kind === 'drive' ? 'saveDriveSettingsBtn' : 'aiRetryApply');
+  if (badge) { badge.textContent = info.phase; badge.dataset.state = info.phase.toLowerCase(); }
+  if (detail) detail.textContent = info.detail;
+  if (retry) retry.hidden = !info.retry;
+  if (button && kind === 'drive') button.disabled = info.busy;
+}
+function markSettingsDirty(kind) {
+  settingsFeedback[kind].edit();
+  renderSettingsFeedback(kind);
+}
 function populateDriveSettings(status) {
   const motor = status.motor_config || {};
   state.maxThrottle = Number(status.max_throttle ?? state.maxThrottle ?? 0.55);
@@ -629,31 +649,62 @@ async function pollStatus() {
 }
 
 async function saveDriveSettings() {
+  const feedback = settingsFeedback.drive;
+  const token = feedback.begin();
+  if (token === null) return;
+  renderSettingsFeedback('drive');
+  const drive = {
+    max_throttle: clamp(Number(document.getElementById('driveMaxThrottle').value || 55) / 100, 0.05, 1),
+    steer_mix: clamp(Number(document.getElementById('driveSteerMix').value || 50) / 100, 0, 1),
+    steer_bias: clamp(Number(document.getElementById('driveSteerBias').value || 0) / 100, -0.5, 0.5),
+  };
+  const motor = {
+    left_direction: Number(document.getElementById('leftDirection').value || 1),
+    right_direction: Number(document.getElementById('rightDirection').value || 1),
+    steering_direction: Number(document.getElementById('steeringDirection').value || 1),
+    left_max_speed: Number(document.getElementById('leftMaxSpeed').value || 1),
+    right_max_speed: Number(document.getElementById('rightMaxSpeed').value || 1),
+    left_bias: Number(document.getElementById('leftBias').value || 0),
+    right_bias: Number(document.getElementById('rightBias').value || 0),
+  };
   try {
-    state.maxThrottle = clamp(Number(document.getElementById('driveMaxThrottle').value || 55) / 100, 0.05, 1);
-    state.steerMix = clamp(Number(document.getElementById('driveSteerMix').value || 50) / 100, 0, 1);
-    state.steerBias = clamp(Number(document.getElementById('driveSteerBias').value || 0) / 100, -0.5, 0.5);
-    await postJson('/api/motor/apply', {
-      left_direction: Number(document.getElementById('leftDirection').value || 1),
-      right_direction: Number(document.getElementById('rightDirection').value || 1),
-      steering_direction: Number(document.getElementById('steeringDirection').value || 1),
-      left_max_speed: Number(document.getElementById('leftMaxSpeed').value || 1),
-      right_max_speed: Number(document.getElementById('rightMaxSpeed').value || 1),
-      left_bias: Number(document.getElementById('leftBias').value || 0),
-      right_bias: Number(document.getElementById('rightBias').value || 0),
+    // Retain accepted order: motor apply first (stops motors), control update second.
+    const appliedMotor = await postJson('/api/motor/apply', motor);
+    if (appliedMotor?.ok !== true || appliedMotor?.saved !== true) {
+      throw new Error(appliedMotor?.message || 'Motor settings were not persisted.');
+    }
+    const control = await postJson('/api/control', {
+      ...drive, steering: state.manualSteering, throttle: state.manualThrottle
     });
-    await postJson('/api/control', {
-      max_throttle: state.maxThrottle,
-      steer_mix: state.steerMix,
-      steer_bias: state.steerBias,
-      steering: state.manualSteering,
-      throttle: state.manualThrottle,
-    });
-    setBanner('driveSettingsMessage', 'Drive settings saved.', 'good');
+    if (control?.ok !== true) throw new Error(control?.message || 'Runtime control settings were rejected.');
+    // Persist the now-applied runtime settings without sending another motor command.
+    const saved = await postJson('/api/gui/runtime/save', {});
+    const acceptedMotor = Object.fromEntries(Object.keys(motor)
+      .map(key => [key, appliedMotor.config?.[key]]));
+    if (saved?.ok !== true || saved?.saved !== true || !saved.config || !appliedMotor.config
+      || !settingsMatch(drive, saved.config) || !settingsMatch(acceptedMotor, saved.config.motor || {})) {
+      throw new Error(saved?.message || 'Saved runtime settings did not match the requested values.');
+    }
+    const [backendMotor, backendState] = await Promise.all([
+      fetchJson('/api/motor/config'), fetchJson('/api/status')
+    ]);
+    if (backendMotor?.ok !== true || !settingsMatch(acceptedMotor, backendMotor.config || {})
+      || !settingsMatch(drive, backendState || {})) {
+      throw new Error('Drive settings did not match live backend readback.');
+    }
+    if (feedback.snapshot().revision === token) {
+      populateDriveSettings({ ...backendState, motor_config: backendMotor.config });
+    }
+    feedback.complete(token, true,
+      settingsMatch(motor, appliedMotor.config)
+        ? 'Drive settings saved and confirmed by live and persisted backend readback.'
+        : 'Backend normalized motor settings; saved and live readback confirmed.');
+    setBanner('driveSettingsMessage', 'Drive settings confirmed.', 'good');
     await pollStatus();
   } catch (error) {
+    feedback.fail(token, error.message);
     setBanner('driveSettingsMessage', error.message || 'Drive settings failed.', 'warn');
-  }
+  } finally { renderSettingsFeedback('drive'); }
 }
 
 async function togglePreview() {
@@ -789,11 +840,21 @@ function setupDriveSettings() {
   });
   document.getElementById('closeDriveSettingsBtn').addEventListener('click', () => closeModal('driveSettingsModal'));
   document.getElementById('saveDriveSettingsBtn').addEventListener('click', saveDriveSettings);
+  document.getElementById('driveRetryApply')?.addEventListener('click', saveDriveSettings);
+  ['leftDirection','rightDirection','steeringDirection','leftMaxSpeed','rightMaxSpeed','leftBias','rightBias']
+    .forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('input', () => markSettingsDirty('drive'));
+      el.addEventListener('change', () => markSettingsDirty('drive'));
+    });
+  renderSettingsFeedback('drive');
   ['driveMaxThrottle', 'driveSteerMix', 'driveSteerBias'].forEach((id) => {
     document.getElementById(id).addEventListener('input', () => {
       if (id === 'driveMaxThrottle') setText('driveMaxThrottleValue', fmt(Number(document.getElementById(id).value) / 100));
       if (id === 'driveSteerMix') setText('driveSteerMixValue', fmt(Number(document.getElementById(id).value) / 100));
       if (id === 'driveSteerBias') setText('driveSteerBiasValue', fmt(Number(document.getElementById(id).value) / 100));
+      markSettingsDirty('drive');
     });
   });
 }
@@ -907,27 +968,61 @@ async function stopAiDeployment() {
 }
 
 async function saveAiConfigOnly() {
+  const feedback = settingsFeedback.ai;
+  const token = feedback.begin();
+  if (token === null) { state.aiConfigResaveQueued = true; return; }
+  renderSettingsFeedback('ai');
+  const requested = {
+    perception_backend: document.getElementById('aiBackend').value || 'color',
+    deployed_model: state.aiDeployedModel || 'none',
+    labels_file: document.getElementById('aiLabelsSelect').value || '',
+    input_size: Number(document.getElementById('aiInputSize').value || 0),
+    confidence_threshold: Number(document.getElementById('aiConfidenceThreshold').value || 0.25),
+    iou_threshold: Number(document.getElementById('aiIouThreshold').value || 0.45),
+    overlay_enabled: document.getElementById('aiOverlayEnabled').value === 'true',
+    max_overlay_fps: Number(state.aiOverlayFps || 6.0),
+    overlay_frame_skip: Number(document.getElementById('aiOverlayFrameSkip').value || 5),
+  };
   try {
-    const currentModel = state.aiDeployedModel || 'none';
-    const data = await postJson('/api/ai/config', {
-      perception_backend: document.getElementById('aiBackend').value || 'color',
-      deployed_model: currentModel,
-      labels_file: document.getElementById('aiLabelsSelect').value || '',
-      input_size: Number(document.getElementById('aiInputSize').value || 0),
-      confidence_threshold: Number(document.getElementById('aiConfidenceThreshold').value || 0.25),
-      iou_threshold: Number(document.getElementById('aiIouThreshold').value || 0.45),
-      overlay_enabled: document.getElementById('aiOverlayEnabled').value === 'true',
-      max_overlay_fps: Number(state.aiOverlayFps || 6.0),
-      overlay_frame_skip: Number(document.getElementById('aiOverlayFrameSkip').value || 5),
-    });
-    setBanner('aiSettingsMessage', data.message || 'Overlay settings saved.', 'good');
+    const data = await postJson('/api/ai/config', requested);
+    if (data?.ok !== true || !data.config) throw new Error(data?.message || 'AI settings rejected.');
+    const verified = await fetchJson('/api/manual-config');
+    const actual = verified?.config?.ai;
+    if (verified?.ok !== true || !actual
+      || !settingsMatch(data.config, actual)) {
+      throw new Error('AI settings did not match saved backend readback.');
+    }
+    if (feedback.snapshot().revision === token) {
+      const fields = {
+        aiConfidenceThreshold: actual.confidence_threshold,
+        aiIouThreshold: actual.iou_threshold,
+        aiOverlayFrameSkip: actual.overlay_frame_skip,
+        aiOverlayEnabled: String(actual.overlay_enabled),
+      };
+      Object.entries(fields).forEach(([id, value]) => {
+        if (value !== undefined) document.getElementById(id).value = String(value);
+      });
+    }
+    feedback.complete(token, true,
+      settingsMatch(requested, actual)
+        ? 'AI configuration saved and confirmed by backend.'
+        : 'Backend normalized AI configuration; effective values shown.');
+    setBanner('aiSettingsMessage', data.message || 'AI settings confirmed.', 'good');
     await pollStatus();
   } catch (error) {
+    feedback.fail(token, error.message);
     setBanner('aiSettingsMessage', error.message || 'AI settings save failed.', 'warn');
+  } finally {
+    renderSettingsFeedback('ai');
+    if (state.aiConfigResaveQueued) {
+      state.aiConfigResaveQueued = false;
+      if (feedback.snapshot().phase === 'Unsaved') scheduleAiConfigSave();
+    }
   }
 }
 
 function scheduleAiConfigSave() {
+  markSettingsDirty('ai');
   window.clearTimeout(state.aiConfigTimer);
   state.aiConfigTimer = window.setTimeout(() => { saveAiConfigOnly(); }, 700);
 }
@@ -950,6 +1045,8 @@ function setupAiSettings() {
     openModal('aiSettingsModal');
   });
   document.getElementById('closeAiSettingsBtn').addEventListener('click', () => closeModal('aiSettingsModal'));
+  document.getElementById('aiRetryApply')?.addEventListener('click', () => { window.clearTimeout(state.aiConfigTimer); saveAiConfigOnly(); });
+  renderSettingsFeedback('ai');
   document.getElementById('uploadAiFilesBtn').addEventListener('click', uploadAiFiles);
   document.getElementById('runAiDebugBtn').addEventListener('click', () => runAiDebug(true));
   document.getElementById('toggleAiDebugFreezeBtn').addEventListener('click', toggleAiDebugFreeze);
@@ -971,6 +1068,8 @@ function setupAiSettings() {
     const el = document.getElementById(id);
     if (!el) return;
     const notifyPendingDeploy = () => {
+      // Model choice is staged for Deploy, never described as runtime Applied.
+      markSettingsDirty('ai');
       setBanner('aiSettingsMessage', 'Model, labels, and input size changes take effect after Deploy.', 'muted');
     };
     el.addEventListener('change', notifyPendingDeploy);

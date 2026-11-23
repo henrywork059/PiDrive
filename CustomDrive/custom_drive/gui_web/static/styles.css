@@ -635,3 +635,10 @@ input[type='range'] {
 .preview-health.delayed, .preview-health.paused { color: #fff4d5; background: rgba(106,70,14,.94); }
 .preview-health.disconnected { color: #fff0f0; background: rgba(132,26,29,.95); }
 .viewer-frame.preview-is-stale #videoFeed { filter: grayscale(.45) brightness(.64); }
+
+/* R31: settings feedback without modal/workspace redesign. */
+.settings-apply-state { display:inline-flex; align-items:center; border:1px solid rgba(200,200,200,.3); border-radius:999px; padding:5px 9px; color:#fef3c7; font-size:.82rem; font-weight:700; }
+.settings-apply-state[data-state="applied"] { color:#bbf7d0; border-color:rgba(52,211,153,.5); }
+.settings-apply-state[data-state="applying"] { color:#bae6fd; }
+.settings-apply-state[data-state="failed"] { color:#fecdd3; border-color:rgba(251,113,133,.6); }
+.panel-actions button[hidden] { display:none !important; }
