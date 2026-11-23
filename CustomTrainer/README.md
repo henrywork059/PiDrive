@@ -1,5 +1,49 @@
 # CustomTrainer
 
+## Marking annotation workflow (0_2_15, R41)
+
+The Marking tab keeps the compact **280-pixel maximum right-side pane** and its
+large central frame preview, Quick Deploy Selected / Current, and existing
+auto-save on frame switch. New edit/navigation commands are scoped to Marking:
+
+- **A / D** or **PageUp / PageDown**: previous / next image; existing
+  unsaved-label auto-save policy still applies.
+- **B / Shift+B**: select next / previous bounding box. Right-click still
+  selects a box; right-drag moves the selected box.
+- **W / S**: cycle classes; **1–9** chooses class ID 0–8 (only when that
+  class exists) and applies it to the selected box, or sets the active class
+  for newly drawn boxes. Existing class list and class storage are unchanged.
+- **Arrow keys**: nudge selected box by one source-image pixel, **Shift+Arrows**
+  by 10 pixels; movement remains inside the image.
+- **Ctrl+Z**: undo; **Ctrl+Y / Ctrl+Shift+Z**: redo creation, deletion,
+  movement, class changes, nudges, and replacement of the current canvas
+  annotations from Quick Deploy. The last 50 committed edits are retained
+  **for the current image only**. Switching or reloading the frame resets
+  undo/redo; editing another frame cannot undo the previous frame's edits.
+- **Ctrl+mouse-wheel**: zoom around the pointer (1×–8×); **middle-button drag**
+  pans the zoomed image; **Ctrl+Plus / Ctrl+Minus / Ctrl+0** zooms or resets.
+  Zoom/pan changes only the viewport, not YOLO label coordinates or images.
+- **X**: delete selected frame(s) using the existing confirmation;
+  **Delete**: remove selected bounding box; **Ctrl+S**: save labels;
+  **F1**: full shortcut Help.
+
+Marking letter/number/annotation shortcuts are disabled while a text editor,
+path input, class combo box or numeric editor has keyboard focus, **before**
+Qt can intercept typed keys. Shortcuts from the previous main-window scope
+that duplicated Marking commands were consolidated onto the Marking page.
+
+Undo and redo modify the **current unsaved annotations** only; they do not
+restore a frame that was deleted from disk, undo already persisted edits to
+another frame, or roll back Quick Deploy's batch writes to other frames.
+The existing explicit Save Labels and save-before-switch behavior still
+controls persistent YOLO label writes.
+
+Regression checks: `cd CustomTrainer && python -m unittest discover -s
+tests -p 'test_marking_efficiency_r41.py' -v`. The optional PySide6 tests
+require a GUI-capable workstation; verify text entry, fast frame switching,
+box coordinates after zoom/pan, class selection, undo across multiple
+moves, and Quick Deploy before promoting this draft PR.
+
 ## YOLO model manifests and Pi preflight (0_2_14, U27)
 
 A successful TFLite export now writes `<model>.tflite.manifest.json`,
