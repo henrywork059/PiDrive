@@ -561,7 +561,7 @@ async function fetchJson(url, options = {}) {
   }
   const response = await fetch(url, requestOptions);
   const data = await response.json();
-  if (!response.ok || data?.ok === false || data?.saved === false) {
+  if (!response.ok || data?.ok === false || (data?.saved === false && !["GET", "HEAD"].includes(String(requestOptions.method || "GET").toUpperCase()))) {
     if (response.status === 401) {
       window.location.assign("/login");
     }
