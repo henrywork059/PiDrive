@@ -101,6 +101,12 @@ class ReadOnlyCustomDrivePreflightR48(unittest.TestCase):
         self.assertIn("unavailable", row["detail"])
         self.assertIn("Upload", row["next_step"])
 
+    def test_mission_running_keeps_simulated_hardware_disclosure(self):
+        self.motor["gpio_available"] = False
+        data = self.mission(running=True)
+        self.assertEqual(data["mode"], "simulation-running")
+        self.assertEqual(self.rows(data)["motor"]["state"], "simulation")
+
     def test_mission_live_model_reports_ready_without_inference_run(self):
         row = self.rows(self.mission(selected=True, loaded=True))["model"]
         self.assertEqual(row["state"], "ready")
