@@ -136,6 +136,23 @@ class MissionTimelineTests(unittest.TestCase):
         t.observe('ai_reverse_reset')
         self.assertEqual(t.snapshot()['last_completed_step']['id'], 'release')
 
+    def test_release_directly_into_next_pickup_marks_release_complete(self):
+        t = timeline()
+        t.observe('ai_dropoff_release')
+        t.observe('ai_pickup_search')
+        snap = t.snapshot()
+        self.assertEqual(snap['last_completed_step']['id'], 'release')
+        self.assertEqual(snap['current_step']['cycle'], 1)
+
+    def test_reset_into_new_pickup_marks_reset_complete(self):
+        t = timeline()
+        t.observe('ai_pickup_search')
+        t.observe('ai_reverse_reset')
+        t.observe('ai_pickup_search')
+        snap = t.snapshot()
+        self.assertEqual(snap['last_completed_step']['id'], 'reset')
+        self.assertEqual(snap['current_step']['cycle'], 2)
+
     def test_completed_outcome_marks_current_step(self):
         t = timeline()
         t.observe('ai_dropoff_release')
