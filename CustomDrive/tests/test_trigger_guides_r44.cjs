@@ -96,6 +96,25 @@ test("editing drop-off changes drop-off guide without touching grip", () => {
   assert.equal(g.savedGrip, 30); assert.equal(g.savedDropoff, 70);
   assert.equal(g.preview, true);
 });
+test("fractional server setting 33.5% preserves marker position", () => {
+  const { context, status, elements } = sandbox();
+  status.config.arm.grip_trigger_y_ratio = 0.335;
+  const g = context.triggerGuideValues(status);
+  assert.equal(g.grip, 33.5);
+  context.renderOverlay(status);
+  assert.match(elements.viewerOverlay.group.innerHTML,
+    /y1="239" x2="640" y2="239" class="overlay-trigger overlay-trigger-pickup"/);
+});
+test("blank draft input matches the eventual Save fallback, not stale saved value", () => {
+  const { context, status, elements } = sandbox();
+  context.triggerPreviewEdited = true;
+  status.config.arm.grip_trigger_y_ratio = .70;
+  elements.armGripYRatio.value = "";
+  const g = context.triggerGuideValues(status);
+  assert.equal(g.savedGrip, 70);
+  assert.equal(g.grip, 30);
+  assert.equal(g.preview, true);
+});
 test("reverting unsaved input to the server values exits preview mode", () => {
   const { context, status } = sandbox();
   context.triggerPreviewEdited = true;
@@ -162,6 +181,8 @@ test("marker/readout DOM and responsive layout remain present", () => {
   assert.match(css, /\.overlay-frame-scale \.overlay-scale-label/);
   assert.match(css, /\.trigger-guide-readout\s*\{[^}]*flex-wrap: wrap/s);
   assert.match(css, /\.viewer-stage\s*\{[^}]*aspect-ratio: 16 \/ 9/s);
+  assert.match(html, /id="armGripYRatio"[^>]*step="0\.1"/);
+  assert.match(html, /id="armDropoffYRatio"[^>]*step="0\.1"/);
 });
 test("R43 mission polling and stop routes are untouched", () => {
   assert.match(script, /const STATUS_REFRESH_MS = 600;/);
