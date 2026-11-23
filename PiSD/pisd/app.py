@@ -929,6 +929,7 @@ def create_app(hardware_enabled: bool = False):
             left, right = motor_service.update(
                 steering=requested_steering,
                 throttle=safe_throttle,
+                control_source="manual_assist" if isinstance(data.get("ai_assist"), dict) and data.get("ai_assist") else "manual",
             )
             report = motor_service.errors.latest() if motor_service.last_error else None
             motor_status = motor_service.status()
