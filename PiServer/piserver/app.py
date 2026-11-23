@@ -10,6 +10,7 @@ from flask import Flask, Response, jsonify, render_template, request, send_file
 from piserver.algorithms import build_registry
 from piserver.core.config_store import ConfigStore
 from piserver.core.access_control import install_access_control
+from piserver.core.request_trace import install_mutation_trace
 from piserver.services.camera_service import CameraService
 from piserver.services.control_service import ControlService
 from piserver.services.model_service import ModelService
@@ -18,7 +19,7 @@ from piserver.services.recorder_service import RecorderService
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 WEB_DIR = Path(__file__).resolve().parent / "web"
-APP_VERSION = "0_4_25"
+APP_VERSION = "0_4_26"
 
 
 def mjpeg_generator(camera_service):
@@ -43,6 +44,7 @@ def create_app() -> Flask:
         static_folder=str(WEB_DIR / "static"),
     )
     install_access_control(app)
+    install_mutation_trace(app)
 
     config_store = ConfigStore(BASE_DIR / "config" / "runtime.json")
     initial_config = config_store.load()
