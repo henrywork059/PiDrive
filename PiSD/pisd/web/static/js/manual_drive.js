@@ -781,10 +781,10 @@
     if (!list.length) {
       const option = document.createElement('option');
       option.value = '';
-      option.textContent = kind === 'snapshot' ? 'No snapshot folders' : 'No recording folders';
+      option.textContent = kind === 'snapshot' ? 'No snapshots — capture a frame' : 'No recordings — start a recording';
       fileSelect.appendChild(option);
       updateSelectedFileDetails();
-      showFilesNotice(kind === 'snapshot' ? 'No snapshot folders found.' : 'No recording folders found.');
+      showFilesNotice(kind === 'snapshot' ? 'No snapshots yet. Start live and capture a frame.' : 'No recordings yet. Start live, then Record.');
       return;
     }
     for (const item of list) {
@@ -809,9 +809,11 @@
         snapshots: collections.snapshots || [],
       };
       renderFileOptions();
-      showFilesNotice(`Loaded ${recordingCollections.recordings.length} recordings and ${recordingCollections.snapshots.length} snapshot folders.`, payload.code);
+      if (recordingCollections.recordings.length || recordingCollections.snapshots.length) {
+        showFilesNotice(`Loaded ${recordingCollections.recordings.length} recordings and ${recordingCollections.snapshots.length} snapshot folders.`, payload.code);
+      }
     } catch (err) {
-      showFilesNotice(`Folder list failed: ${String(err)}`, 'PISD-REC-007');
+      showFilesNotice('Could not load saved folders. Check the Pi connection, then Refresh.', 'PISD-REC-007');
       writeLog('recording items failed', { ok: false, code: 'PISD-REC-007', message: String(err) });
     }
   }
