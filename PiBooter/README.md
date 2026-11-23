@@ -181,6 +181,21 @@ For optional offline checks run
 `python3 -m unittest discover -s tests -p 'test_onboarding_status.py' -v`.
 This web guidance does not test real Wi-Fi reception or servo/motor hardware.
 
+## Keyboard and low-motion setup (0_1_5)
+
+The PiBooter phone setup page can also be used from a keyboard: press
+**Tab** to move among Wi-Fi names, Connect, Refresh scan, Clear password and
+saved-network actions, then use **Enter** or **Space** as supported by the
+native focused button. **Skip to setup** appears when keyboard-focused and
+moves past the page header directly into the setup landmark.
+
+Buttons for nearby networks now include the chosen SSID in their accessible
+name; Forget buttons include the stored profile name to avoid ambiguous
+repeated announcements. A visible keyboard focus ring, high-contrast fallback
+and reduced-motion scrolling are provided. These changes do not create
+keyboard shortcuts to alter Wi-Fi, relax hotspot security, or lengthen the
+original short first-client window.
+
 ## Manual run
 
 ```bash
