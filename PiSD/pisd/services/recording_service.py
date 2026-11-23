@@ -3,6 +3,7 @@ from __future__ import annotations
 import atexit
 import json
 import math
+import re
 import shutil
 import threading
 import time
@@ -258,6 +259,13 @@ class RecordingService:
             self._stop_event.set()
         if thread is not None:
             thread.join(timeout=3.0)
+            if thread.is_alive():
+                report = self._record_error(
+                    PiSDErrorCodes.RECORDING_STOP_FAILED,
+                    "Recording capture thread did not exit; session was not finalised.",
+                    context={"session": session},
+                )
+                return report_payload(False, report, recording=self.status())
         with self._lock:
             try:
                 self._finalise_manifest_locked()
@@ -764,7 +772,11 @@ class RecordingService:
         records_file = session_dir / "records.jsonl"
         manifest_file = session_dir / "manifest.json"
         frames_dir.mkdir(parents=True, exist_ok=True)
-        frame_index = self._count_jsonl_records(records_file) + 1
+        # A failed write can leave a JPEG without either JSONL row. Do not
+        # reuse its ordinal on the next daily snapshot.
+        existing_indices = [int(m.group(1)) for item in frames_dir.glob("frame_*.jpg")
+                            if (m := re.match(r"frame_(\d+)_", item.name))]
+        frame_index = max([self._count_jsonl_records(records_file), *existing_indices], default=0) + 1
         session = {
             "session_id": session_id,
             "label": label,
