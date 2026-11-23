@@ -8,6 +8,7 @@ import shlex
 import tempfile
 import threading
 import time
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +23,7 @@ from .arm_service import ArmService
 from .debug_tools import append_event, clamp_float, clamp_int
 from .manual_control_config import load_manual_control_config
 from .mission1_tflite_detector import Mission1TFLiteDetector
+from .mission_safety import MissionAbort, save_mission_report
 from .models import Detection
 from .project_paths import CONFIG_DIR, CUSTOMDRIVE_ROOT, PISERVER_RUNTIME_PATH, ensure_piserver_import_paths
 
@@ -32,7 +34,7 @@ from piserver.services.camera_service import CameraService  # noqa: E402
 from piserver.services.motor_service import MotorService  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent / 'mission1_web'
-APP_VERSION = '0_5_17'
+APP_VERSION = '0_5_18'
 MISSION1_CONFIG_PATH = CONFIG_DIR / 'mission1_session.json'
 MISSION1_MODEL_DIR = CUSTOMDRIVE_ROOT / 'models' / 'mission1'
 
@@ -90,6 +92,8 @@ DEFAULT_MISSION1_CONFIG: dict[str, Any] = {
         'route_forward_speed': 0.22,
         'route_backward_speed': 0.18,
         'route_turn_speed': 0.75,
+        'search_timeout_s': 20.0,
+        'frame_timeout_s': 2.0,
     },
     'ai': {
         'selected_model': '',
@@ -398,6 +402,8 @@ def normalize_mission1_config(data: dict[str, Any] | None) -> dict[str, Any]:
             'route_forward_speed': round(clamp_float(mission.get('route_forward_speed', drive.get('forward_speed', 0.22)), drive.get('forward_speed', 0.22), 0.0, 1.0), 3),
             'route_backward_speed': round(clamp_float(mission.get('route_backward_speed', mission.get('reverse_speed', 0.18)), mission.get('reverse_speed', 0.18), 0.0, 1.0), 3),
             'route_turn_speed': round(clamp_float(mission.get('route_turn_speed', drive.get('turn_speed_max', drive.get('max_steering', 0.75))), drive.get('turn_speed_max', drive.get('max_steering', 0.75)), 0.05, 1.0), 3),
+            'search_timeout_s': round(clamp_float(mission.get('search_timeout_s', 20.0), 20.0, 2.0, 300.0), 2),
+            'frame_timeout_s': round(clamp_float(mission.get('frame_timeout_s', 2.0), 2.0, 0.25, 30.0), 2),
         },
         'ai': {
             'selected_model': selected_model,
@@ -523,6 +529,17 @@ class Mission1SessionContext:
         self.mission_state = 'pickup_search'
         self._last_pickup_gate_log_at = 0.0
         self._last_dropoff_gate_log_at = 0.0
+        self.failure_reason = ''
+        self.failure_stage = ''
+        self.mission_outcome = 'idle'
+        self.grip_confirmation = 'not_sensor_confirmed'
+        self.target_loss_count = 0
+        self.mission_report_path = ''
+        self._session_report_id = ''
+        self._report_written = False
+        self._no_frame_since: float | None = None
+        self._search_started_at: float | None = None
+        self._search_kind = ''
 
         self._apply_motor_defaults()
         ready, message = self.detector.backend_ready()
@@ -810,6 +827,75 @@ class Mission1SessionContext:
             self.arm_sequence_note = message
         return ok, message
 
+    def _require_arm_role_pose(self, role: str, *, reason: str, settle: bool = True, frame_snapshot=None) -> None:
+        ok, message = self._load_arm_role_pose(role, reason=reason, settle=settle, frame_snapshot=frame_snapshot)
+        if not ok:
+            self._stop_with_note(f'arm unavailable for {role}')
+            raise MissionAbort('arm_unavailable', f'{role}: {message}')
+        if self._stop_event.is_set():
+            raise MissionAbort('operator_stopped', 'Operator stopped during arm pose transition.')
+
+    def _fail_if_stale_frame(self, age_s: float | None, *, now: float, frame_present: bool) -> None:
+        mission_cfg = self._mission_config()
+        timeout = float(mission_cfg.get('frame_timeout_s', 2.0))
+        if frame_present:
+            self._no_frame_since = None
+            if age_s is not None and age_s > timeout:
+                self._stop_with_note('camera frame expired')
+                raise MissionAbort('frame_stale', f'Camera frame age {age_s:.2f}s exceeds {timeout:.2f}s.')
+        else:
+            if self._no_frame_since is None:
+                self._no_frame_since = now
+            if now - self._no_frame_since > timeout:
+                self._stop_with_note('camera frame timeout')
+                raise MissionAbort('frame_stale', f'No fresh camera frame for over {timeout:.2f}s.')
+
+    def _search_watchdog(self, kind: str, target_found: bool, *, now: float) -> None:
+        if target_found:
+            self._search_started_at = None
+            self._search_kind = ''
+            return
+        if kind != self._search_kind:
+            self._search_kind = kind
+            self._search_started_at = now
+        if self._search_started_at is None:
+            self._search_started_at = now
+        timeout = float(self._mission_config().get('search_timeout_s', 20.0))
+        if now - self._search_started_at > timeout:
+            self._stop_with_note(f'{kind} search timed out')
+            raise MissionAbort('retry_exhausted', f'{kind} search exceeded the {timeout:.1f}s limit; operator restart required.')
+
+    def _handle_target_loss(self, kind: str) -> None:
+        if not self.arm_target_lock_engaged:
+            return
+        self.target_loss_count += 1
+        self._stop_with_note(f'{kind} target lost')
+        # There is no reliable spatial back-out path without fresh perception.
+        # Fail closed instead of automatically resuming from a target-loss event.
+        raise MissionAbort('target_lost', f'{kind} target disappeared after lock; stop and restart the mission explicitly.')
+
+    def _save_session_report(self) -> None:
+        if self._report_written or not self._session_report_id:
+            return
+        payload = {
+            'schema_version': 1,
+            'session_id': self._session_report_id,
+            'result': self.mission_outcome,
+            'phase': self.current_phase,
+            'mission_state': self.mission_state,
+            'failure_reason': self.failure_reason,
+            'failure_stage': self.failure_stage,
+            'detail': self.detail,
+            'target_loss_count': self.target_loss_count,
+            'held_class_id': self.held_class_id,
+            'grip_confirmation': self.grip_confirmation,
+            'start_route': self.route_text,
+            'runtime_seconds': round(max(0.0, time.monotonic() - self.started_at), 3),
+            'events': copy.deepcopy(self.events[-40:]),
+        }
+        self.mission_report_path = str(save_mission_report(CUSTOMDRIVE_ROOT / 'mission_reports', payload))
+        self._report_written = True
+
     def _stop_with_note(self, note: str) -> None:
         self.motor_service.stop()
         self.last_command = {'mode': 'stop', 'steering': 0.0, 'throttle': 0.0, 'left': 0.0, 'right': 0.0, 'note': str(note)}
@@ -890,7 +976,11 @@ class Mission1SessionContext:
             pass
 
     def close(self) -> None:
-        self.stop_session(join=True)
+        stopped, _message = self.stop_session(join=True)
+        if not stopped:
+            # The mission worker may still be using the physical camera/arm.
+            # Do not close shared hardware behind an active worker.
+            return
         self._shutdown_camera()
         try:
             self.motor_service.close()
@@ -951,7 +1041,9 @@ class Mission1SessionContext:
         if selected_model not in self.list_models():
             return False, f'Selected model does not exist: {selected_model}'
 
-        self.stop_session(join=True)
+        stopped, stop_message = self.stop_session(join=True)
+        if not stopped:
+            return False, stop_message
         self._apply_motor_defaults()
         arm_status = self._reload_arm_backend()
         self._record(arm_status.get('last_message', 'Mission arm backend refreshed.'), event_type='arm', level='info' if arm_status.get('available') else 'warning')
@@ -969,6 +1061,17 @@ class Mission1SessionContext:
             self.car_turn_direction = 'stopped'
             self.intended_motion = 'queued'
             self.last_error = ''
+            self.failure_reason = ''
+            self.failure_stage = ''
+            self.mission_outcome = 'running'
+            self.grip_confirmation = 'not_sensor_confirmed'
+            self.target_loss_count = 0
+            self.mission_report_path = ''
+            self._session_report_id = uuid.uuid4().hex
+            self._report_written = False
+            self._no_frame_since = None
+            self._search_started_at = None
+            self._search_kind = ''
             self.control_target = None
             self.annotated_jpeg = None
             self.pipeline_fps = 0.0
@@ -997,6 +1100,14 @@ class Mission1SessionContext:
         thread = self._thread
         if join and thread and thread.is_alive() and thread is not threading.current_thread():
             thread.join(timeout=3.0)
+            if thread.is_alive():
+                try:
+                    self.motor_service.stop()
+                except Exception:
+                    pass
+                return False, 'Mission capture thread is still active; hardware remains owned and restart is blocked.'
+        if thread and thread.is_alive() and thread is not threading.current_thread():
+            return False, 'Cannot release mission hardware while capture thread is active.'
         self._thread = None
         try:
             self.motor_service.stop()
@@ -1012,6 +1123,12 @@ class Mission1SessionContext:
             self.car_turn_direction = 'stopped'
             self.intended_motion = 'stopped'
             self.last_command = {'mode': 'stop', 'steering': 0.0, 'throttle': 0.0, 'left': 0.0, 'right': 0.0, 'note': 'stopped'}
+        if self._session_report_id and self.mission_outcome == 'running':
+            self.mission_outcome = 'stopped'
+        try:
+            self._save_session_report()
+        except Exception as exc:
+            self._record(f'Mission report save failed: {exc}', level='error', event_type='report')
         return True, 'Mission 1 session stopped.'
 
     def _set_route_drive(self, steering: float, throttle: float, note: str) -> None:
@@ -1103,7 +1220,7 @@ class Mission1SessionContext:
             return False
 
         if not self._arm_stage_at_least('grip_ready_loaded'):
-            self._load_arm_role_pose('grip_ready', reason=f'class {target_class_id} detected', settle=True)
+            self._require_arm_role_pose('grip_ready', reason=f'class {target_class_id} detected', settle=True)
 
         grip_trigger_y_px = self._pickup_trigger_y_px(frame_h)
         centered = abs(target_x) < deadband_px
@@ -1127,9 +1244,9 @@ class Mission1SessionContext:
             self.car_turn_direction = 'stopped'
             self._stop_with_note(f'class {target_class_id} centered and low in frame -> arm grip sequence')
             if not self._arm_stage_at_least('grip_loaded'):
-                self._load_arm_role_pose('grip', reason=f'class {target_class_id} centered and y={target_y:.1f}', settle=True)
+                self._require_arm_role_pose('grip', reason=f'class {target_class_id} centered and y={target_y:.1f}', settle=True)
             if not self._arm_stage_at_least('grip_and_lift_loaded'):
-                self._load_arm_role_pose('grip_and_lift', reason=f'class {target_class_id} grip complete', settle=True)
+                self._require_arm_role_pose('grip_and_lift', reason=f'class {target_class_id} grip complete', settle=True)
             self.detail = (
                 f'Target class {target_class_id} is in the forward path and y={target_y:.1f} px '
                 f'(<= {grip_trigger_y_px:.1f}). '
@@ -1142,7 +1259,7 @@ class Mission1SessionContext:
 
     def _run_session(self) -> None:
         try:
-            self._load_arm_role_pose('starting_position', reason='mission start', settle=True)
+            self._require_arm_role_pose('starting_position', reason='mission start', settle=True)
             if self._stop_event.is_set():
                 return
             self._run_start_route()
@@ -1156,10 +1273,21 @@ class Mission1SessionContext:
                 return
             self._run_detection_loop()
         except Exception as exc:
-            self.last_error = str(exc)
-            self.current_phase = 'failed'
-            self.detail = f'Mission 1 session failed: {exc}'
-            self._record(self.detail, level='error', event_type='session')
+            if isinstance(exc, MissionAbort) and exc.reason == 'operator_stopped':
+                self.mission_outcome = 'stopped'
+                self.current_phase = 'stopped'
+                self.detail = str(exc)
+                self._record(self.detail, event_type='session')
+            else:
+                self.failure_reason = exc.reason if isinstance(exc, MissionAbort) else 'runtime_error'
+                self.failure_stage = self.mission_state
+                self.last_error = str(exc)
+                self.current_phase = 'failed'
+                self.mission_state = 'failed'
+                self.mission_outcome = 'failed'
+                self.detail = f'Mission 1 session failed ({self.failure_reason}): {exc}'
+                self._record(self.detail, level='error', event_type='session', reason=self.failure_reason, stage=self.failure_stage)
+            self._stop_event.set()
         finally:
             try:
                 self.motor_service.stop()
@@ -1174,6 +1302,12 @@ class Mission1SessionContext:
                 self.target_side = 'none'
                 self.car_turn_direction = 'stopped'
                 self.last_command = {'mode': 'stop', 'steering': 0.0, 'throttle': 0.0, 'left': 0.0, 'right': 0.0, 'note': 'stopped'}
+            if self._session_report_id and self.mission_outcome == 'running':
+                self.mission_outcome = 'stopped'
+            try:
+                self._save_session_report()
+            except Exception as exc:
+                self._record(f'Mission report save failed: {exc}', level='error', event_type='report')
             self._thread = None
 
     def _run_start_route(self) -> None:
@@ -1299,6 +1433,8 @@ class Mission1SessionContext:
                 raise RuntimeError('Camera service is not available.')
 
             frame = camera_service.get_latest_frame(copy=True)
+            frame_age = camera_service.get_raw_frame_age() if hasattr(camera_service, 'get_raw_frame_age') else None
+            self._fail_if_stale_frame(frame_age, now=loop_started, frame_present=frame is not None)
             if frame is None:
                 self.current_phase = 'ai_wait_frame'
                 self.mission_state = 'wait_frame'
@@ -1334,6 +1470,8 @@ class Mission1SessionContext:
                 self.last_detections = detection_rows
 
                 if target is None:
+                    self._handle_target_loss('dropoff')
+                    self._search_watchdog('dropoff', False, now=loop_started)
                     self.current_phase = 'ai_dropoff_search'
                     self.mission_state = 'dropoff_search'
                     self.target_found = False
@@ -1346,14 +1484,15 @@ class Mission1SessionContext:
                     )
                     self.detail = self.last_output_summary
                 else:
+                    self._search_watchdog('dropoff', True, now=loop_started)
                     self.current_phase = 'ai_dropoff_track'
                     self.mission_state = 'dropoff_track'
                     self.target_found = True
                     target_x = float(target['center']['x'])
                     target_y = float(target['center']['y'])
                     tracking_deadband_px = self._tracking_deadband_px(frame_w)
-                    pickup_trigger_y_px = self._pickup_trigger_y_px(frame_h)
-                    close_enough, capture_deadband_px, trigger_y_px = self._target_close_enough(target_x, target_y, frame_w, pickup_trigger_y_px)
+                    dropoff_trigger_y_px = self._dropoff_trigger_y_px(frame_h)
+                    close_enough, capture_deadband_px, trigger_y_px = self._target_close_enough(target_x, target_y, frame_w, dropoff_trigger_y_px)
                     self.target_side = self._update_target_side(target_x, tracking_deadband_px)
                     if close_enough:
                         self.arm_target_lock_engaged = True
@@ -1367,7 +1506,7 @@ class Mission1SessionContext:
                         self.current_phase = 'ai_dropoff_release'
                         self.mission_state = 'dropoff_release'
                         self._set_motion_state('release_pose', turn='stopped', target_side='center')
-                        self._load_arm_role_pose('release', reason=f'drop-off class {desired_dropoff} reached', settle=True, frame_snapshot=frame)
+                        self._require_arm_role_pose('release', reason=f'drop-off class {desired_dropoff} reached', settle=True, frame_snapshot=frame)
                         self._record(
                             f'Released held class {self.held_class_id} at drop-off class {desired_dropoff}.',
                             event_type='mission',
@@ -1381,12 +1520,13 @@ class Mission1SessionContext:
                         self.detail = self.last_output_summary
                         released_class = self.held_class_id
                         self.held_class_id = None
+                        self.grip_confirmation = 'not_sensor_confirmed'
                         self.dropoff_target_class_id = None
                         self.pickup_target_class_id = None
                         self._reverse_after_release()
                         if self._stop_event.is_set():
                             break
-                        self._load_arm_role_pose('starting_position', reason='pickup search restart after release', settle=True)
+                        self._require_arm_role_pose('starting_position', reason='pickup search restart after release', settle=True)
                         self.current_phase = 'ai_pickup_search'
                         self.mission_state = 'pickup_search'
                         self._set_motion_state('search_rotate_clockwise', turn='right', target_side='search')
@@ -1424,6 +1564,8 @@ class Mission1SessionContext:
                 self.last_detections = detection_rows
 
                 if target is None:
+                    self._handle_target_loss('pickup')
+                    self._search_watchdog('pickup', False, now=loop_started)
                     self.current_phase = 'ai_pickup_search'
                     self.mission_state = 'pickup_search'
                     self.target_found = False
@@ -1434,17 +1576,18 @@ class Mission1SessionContext:
                     self.last_output_summary = 'No class 1/2 detected. Rotating clockwise to search the pickup area.'
                     self.detail = self.last_output_summary
                 else:
+                    self._search_watchdog('pickup', True, now=loop_started)
                     locked_class = self._class_id_int(target)
                     self.pickup_target_class_id = locked_class
                     target_x = float(target['center']['x'])
                     target_y = float(target['center']['y'])
                     tracking_deadband_px = self._tracking_deadband_px(frame_w)
-                    dropoff_trigger_y_px = self._dropoff_trigger_y_px(frame_h)
-                    close_enough, capture_deadband_px, trigger_y_px = self._target_close_enough(target_x, target_y, frame_w, dropoff_trigger_y_px)
+                    pickup_trigger_y_px = self._pickup_trigger_y_px(frame_h)
+                    close_enough, capture_deadband_px, trigger_y_px = self._target_close_enough(target_x, target_y, frame_w, pickup_trigger_y_px)
                     self.target_found = True
                     self.target_side = self._update_target_side(target_x, tracking_deadband_px)
                     if not self._arm_stage_at_least('grip_ready_loaded') or self.arm_last_pose_role == 'starting_position':
-                        self._load_arm_role_pose('grip_ready', reason=f'pickup class {locked_class} detected', settle=True, frame_snapshot=frame)
+                        self._require_arm_role_pose('grip_ready', reason=f'pickup class {locked_class} detected', settle=True, frame_snapshot=frame)
                     if close_enough:
                         self.current_phase = 'ai_pickup_stop'
                         self.mission_state = 'pickup_stop_for_grip'
@@ -1460,17 +1603,18 @@ class Mission1SessionContext:
                         self.mission_state = 'pickup_grip'
                         self._set_motion_state('grip_pose', turn='stopped', target_side='center')
                         if not self._arm_stage_at_least('grip_loaded'):
-                            self._load_arm_role_pose('grip', reason=f'pickup class {locked_class} centered and y={target_y:.1f}', settle=True, frame_snapshot=frame)
+                            self._require_arm_role_pose('grip', reason=f'pickup class {locked_class} centered and y={target_y:.1f}', settle=True, frame_snapshot=frame)
                         self.current_phase = 'ai_pickup_lift'
                         self.mission_state = 'pickup_lift'
                         self._set_motion_state('grip_and_lift_pose', turn='stopped', target_side='center')
                         if not self._arm_stage_at_least('grip_and_lift_loaded'):
-                            self._load_arm_role_pose('grip_and_lift', reason=f'pickup class {locked_class} grip complete', settle=True, frame_snapshot=frame)
+                            self._require_arm_role_pose('grip_and_lift', reason=f'pickup class {locked_class} grip complete', settle=True, frame_snapshot=frame)
+                        self.grip_confirmation = 'pose_applied_unverified'
                         self.held_class_id = locked_class
                         self.dropoff_target_class_id = self._dropoff_class_for(locked_class)
                         self.pickup_target_class_id = None
                         self._record(
-                            f'Picked up class {locked_class}. Now searching for drop-off class {self.dropoff_target_class_id}.',
+                            f'Grip/lift poses applied for class {locked_class} (not sensor-confirmed). Searching for drop-off class {self.dropoff_target_class_id}.',
                             event_type='mission',
                             held_class_id=self.held_class_id,
                             dropoff_class_id=self.dropoff_target_class_id,
@@ -1482,7 +1626,7 @@ class Mission1SessionContext:
                         self.arm_target_lock_engaged = False
                         self.last_output_summary = (
                             f'Class {locked_class} is centered and close enough. Grip and lift pose loaded. '
-                            f'Holding class {locked_class}; next search class {self.dropoff_target_class_id}.'
+                            f'Class {locked_class} assumed held (not sensor-confirmed); next search class {self.dropoff_target_class_id}.'
                         )
                         self.detail = self.last_output_summary
                         if self.dropoff_target_class_id is not None:
@@ -1746,6 +1890,12 @@ class Mission1SessionContext:
             'car_turn_direction': self.car_turn_direction,
             'intended_motion': self.intended_motion,
             'mission_state': self.mission_state,
+            'mission_outcome': self.mission_outcome,
+            'failure_reason': self.failure_reason,
+            'failure_stage': self.failure_stage,
+            'target_loss_count': self.target_loss_count,
+            'grip_confirmation': self.grip_confirmation,
+            'mission_report_path': self.mission_report_path,
             'held_class_id': self.held_class_id,
             'dropoff_target_class_id': self.dropoff_target_class_id,
             'pickup_target_class_id': self.pickup_target_class_id,

@@ -334,7 +334,7 @@ function renderSummaryCards(status) {
     { label: 'Mission state', value: status.mission_state || '-', theme: stageTheme },
     { label: 'Objects', value: String(detections.length), theme: stageTheme },
     { label: 'Target side', value: status.target_side || '-', theme: motionTheme },
-    { label: 'Holding', value: status.held_class_id ?? '-', theme: armTheme },
+    { label: 'Assumed held', value: status.held_class_id ?? '-', theme: armTheme },
     { label: 'Car turn', value: status.car_turn_direction || '-', theme: motionTheme },
     { label: 'Intended motion', value: status.intended_motion || '-', theme: motionTheme },
     { label: 'Target X', value: fmtShort(targetCenter.x, 1), theme: motionTheme },
@@ -550,8 +550,12 @@ function renderStatus(status) {
       <div class="status-label">Pi pipeline FPS</div><div>${fmt(pipeline.fps || 0, 2)} fps | ${fmt(pipeline.cycle_time_ms || 0, 1)} ms/cycle</div>
       <div class="status-label">Camera</div><div>${escapeHtml(camera.backend || 'offline')} | live=${escapeHtml(camera.preview_live ?? false)} | camera_fps=${fmt(camera.fps || 0, 1)}</div>
       <div class="status-label">Mission state</div><div>${escapeHtml(status.mission_state || '-')}</div>
+      <div class="status-label">Outcome</div><div>${escapeHtml(status.mission_outcome || '-')}</div>
+      <div class="status-label">Failure reason</div><div>${escapeHtml(status.failure_reason || '-')} ${status.failure_stage ? `at ${escapeHtml(status.failure_stage)}` : ''}</div>
+      <div class="status-label">Grip confirmation</div><div>${escapeHtml(status.grip_confirmation || 'not_sensor_confirmed')}</div>
+      <div class="status-label">Mission report</div><div>${escapeHtml(status.mission_report_path ? 'Saved on Pi: ' + status.mission_report_path : 'Pending end of run')}</div>
       <div class="status-label">Pickup classes</div><div>${escapeHtml((status.pickup_classes || []).join('/'))}</div>
-      <div class="status-label">Holding class</div><div>${escapeHtml(status.held_class_id ?? '-')}</div>
+      <div class="status-label">Assumed held class (unverified)</div><div>${escapeHtml(status.held_class_id ?? '-')}</div>
       <div class="status-label">Drop-off class</div><div>${escapeHtml(status.dropoff_target_class_id ?? '-')}</div>
       <div class="status-label">Pickup lock</div><div>${escapeHtml(status.pickup_target_class_id ?? '-')}</div>
       <div class="status-label">Target found</div><div>${escapeHtml(status.target_found)}</div>
@@ -666,7 +670,7 @@ function renderViewer(status) {
     <span class="stat-pill">Objects ${escapeHtml(detectionCount)}</span>
     <span class="stat-pill">FPS ${escapeHtml(pipelineFps)}</span>
     <span class="stat-pill themed-pill" style="${escapeHtml(themeToCssVars(status.stage_theme || {}))}">State ${escapeHtml(status.mission_state || 'idle')}</span>
-    <span class="stat-pill">Holding ${escapeHtml(status.held_class_id ?? '-')}</span>
+    <span class="stat-pill">Assumed held ${escapeHtml(status.held_class_id ?? '-')}</span>
     <span class="stat-pill">Target ${escapeHtml(status.target_side || 'none')}</span>
     <span class="stat-pill">Turn ${escapeHtml(status.car_turn_direction || 'stopped')}</span>
     <span class="stat-pill themed-pill" style="${escapeHtml(themeToCssVars(status.motion_theme || {}))}">Motion ${escapeHtml(status.intended_motion || 'idle')}</span>
@@ -677,7 +681,7 @@ function renderViewer(status) {
     video.style.display = 'block';
     svg.style.display = 'block';
     renderOverlay(status);
-    note.textContent = `Showing the Pi-generated annotated frame with a live mission-status overlay and a light guide overlay. Mission state: ${status.mission_state || 'idle'}. Intended motion: ${status.intended_motion || 'idle'}. Holding class: ${status.held_class_id ?? '-'}. Drop-off class: ${status.dropoff_target_class_id ?? '-'}. Target side: ${status.target_side || 'none'}. Car turn: ${status.car_turn_direction || 'stopped'}. Arm stage: ${status.arm_sequence?.state || 'idle'}.`;
+    note.textContent = `Showing the Pi-generated annotated frame with a live mission-status overlay and a light guide overlay. Mission state: ${status.mission_state || 'idle'}. Intended motion: ${status.intended_motion || 'idle'}. Assumed held class (not sensor-confirmed): ${status.held_class_id ?? '-'}. Drop-off class: ${status.dropoff_target_class_id ?? '-'}. Target side: ${status.target_side || 'none'}. Car turn: ${status.car_turn_direction || 'stopped'}. Arm stage: ${status.arm_sequence?.state || 'idle'}.`;
   } else if (phase === 'start_route' || phase === 'route_pending') {
     video.style.display = 'none';
     svg.style.display = 'none';
