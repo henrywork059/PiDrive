@@ -16,6 +16,7 @@ from PySide6.QtCore import QItemSelectionModel
 
 from ...services.data.preview_service import dataframe_preview_rows, preview_columns
 from ...services.data.selection_scope import SelectionScope
+from ...services.data.visibility_service import is_synthetic_record
 from .preview_model import RecordPreviewModel
 from .preview_table import CyclingPreviewTable
 
@@ -117,10 +118,7 @@ class PreviewPanel(QGroupBox):
             all_active=self._scope_all_active,
             hidden=self._scope_hidden,
             generated_active=self._scope_generated_active,
-            selected_generated=sum(
-                bool(record.get('is_synthetic')) or str(record.get('frame_id', '')).lower().startswith('s_')
-                for record in selected
-            ),
+            selected_generated=sum(is_synthetic_record(record) for record in selected),
         )
         self.scope_label.setText(scope.toolbar_text())
         self.scope_label.setToolTip(scope.detail_text())
