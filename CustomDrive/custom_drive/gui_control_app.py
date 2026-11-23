@@ -24,7 +24,7 @@ from piserver.services.motor_service import MotorService  # noqa: E402
 from piserver.services.recorder_service import RecorderService  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent / 'gui_web'
-APP_VERSION = '0_3_11'
+APP_VERSION = '0_3_12'
 OD_MODEL_ROOT = CUSTOMDRIVE_ROOT / 'models' / 'object_detection'
 
 
@@ -292,6 +292,27 @@ def create_app() -> Flask:
         elif save_error:
             message += f' Settings were not saved: {save_error}'
         return jsonify({'ok': True, 'saved': saved, 'message': message, 'config': config, 'state': ctx.status_payload()})
+
+    @app.route('/api/gui/runtime/save', methods=['POST'])
+    def api_gui_runtime_save():
+        """Persist already-applied GUI controls without sending motor commands."""
+        try:
+            current = ctx.control_service.save_runtime_config()
+            persisted = ctx.config_store.load()
+            keys = ('max_throttle', 'steer_mix', 'steer_bias')
+            for key in keys:
+                if abs(float(current[key]) - float(persisted[key])) > 1e-6:
+                    raise ValueError(f'Runtime setting {key} was not persisted')
+            motor_keys = ('left_direction', 'right_direction', 'steering_direction',
+                          'left_max_speed', 'right_max_speed', 'left_bias', 'right_bias')
+            for key in motor_keys:
+                expected = current.get('motor', {}).get(key)
+                actual = persisted.get('motor', {}).get(key)
+                if expected is None or actual is None or abs(float(expected) - float(actual)) > 1e-6:
+                    raise ValueError(f'Motor setting {key} was not persisted')
+        except (OSError, RuntimeError, ValueError, KeyError, TypeError) as exc:
+            return jsonify({'ok': False, 'saved': False, 'message': f'Runtime save/readback failed: {exc}'}), 500
+        return jsonify({'ok': True, 'saved': True, 'config': persisted, 'state': ctx.status_payload()})
 
     @app.route('/api/arm/action', methods=['POST'])
     def api_arm_action():
