@@ -679,21 +679,21 @@ async function saveDriveSettings() {
     if (control?.ok !== true) throw new Error(control?.message || 'Runtime control settings were rejected.');
     // Persist the now-applied runtime settings without sending another motor command.
     const saved = await postJson('/api/gui/runtime/save', {});
-    if (saved?.ok !== true || saved?.saved !== true || !saved.config
-      || !settingsMatch(drive, saved.config) || !settingsMatch(appliedMotor.config, saved.config.motor || {})) {
+    const acceptedMotor = Object.fromEntries(Object.keys(motor)
+      .map(key => [key, appliedMotor.config?.[key]]));
+    if (saved?.ok !== true || saved?.saved !== true || !saved.config || !appliedMotor.config
+      || !settingsMatch(drive, saved.config) || !settingsMatch(acceptedMotor, saved.config.motor || {})) {
       throw new Error(saved?.message || 'Saved runtime settings did not match the requested values.');
     }
     const [backendMotor, backendState] = await Promise.all([
       fetchJson('/api/motor/config'), fetchJson('/api/status')
     ]);
-    if (backendMotor?.ok !== true || !settingsMatch(appliedMotor.config, backendMotor.config || {})
+    if (backendMotor?.ok !== true || !settingsMatch(acceptedMotor, backendMotor.config || {})
       || !settingsMatch(drive, backendState || {})) {
       throw new Error('Drive settings did not match live backend readback.');
     }
     if (feedback.snapshot().revision === token) {
-      state.maxThrottle = drive.max_throttle;
-      state.steerMix = drive.steer_mix;
-      state.steerBias = drive.steer_bias;
+      populateDriveSettings({ ...backendState, motor_config: backendMotor.config });
     }
     feedback.complete(token, true,
       settingsMatch(motor, appliedMotor.config)
@@ -992,10 +992,21 @@ async function saveAiConfigOnly() {
       || !settingsMatch(data.config, actual)) {
       throw new Error('AI settings did not match saved backend readback.');
     }
+    if (feedback.snapshot().revision === token) {
+      const fields = {
+        aiConfidenceThreshold: actual.confidence_threshold,
+        aiIouThreshold: actual.iou_threshold,
+        aiOverlayFrameSkip: actual.overlay_frame_skip,
+        aiOverlayEnabled: String(actual.overlay_enabled),
+      };
+      Object.entries(fields).forEach(([id, value]) => {
+        if (value !== undefined) document.getElementById(id).value = String(value);
+      });
+    }
     feedback.complete(token, true,
       settingsMatch(requested, actual)
         ? 'AI configuration saved and confirmed by backend.'
-        : 'Backend normalized AI configuration; accepted values confirmed.');
+        : 'Backend normalized AI configuration; effective values shown.');
     setBanner('aiSettingsMessage', data.message || 'AI settings confirmed.', 'good');
     await pollStatus();
   } catch (error) {
