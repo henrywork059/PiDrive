@@ -23,3 +23,6 @@ Save only confirms storage by GET readback and shows Unsaved with an explicit sa
 
 ## Limits
 Readback proves settings persistence reported by API, not actual camera exposure or motor movement. A partial multi-service apply error can leave some persisted groups applied; retry from current form is operator-controlled, not automatic. Existing save-before-apply behavior is unchanged. Avoid using Save only to claim runtime applied.
+
+## Accepted-value normalization
+The backend may clamp or normalize submitted values. R31 checks the backend-accepted response against independent readback, then displays effective values or an explicit normalization notice rather than treating valid clamping as a persistence failure. A rejected response or mismatched accepted-value readback still shows Failed.
