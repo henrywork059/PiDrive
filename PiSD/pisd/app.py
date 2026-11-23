@@ -9,6 +9,7 @@ from typing import Any
 
 from pisd import __version__
 from pisd.core.errors import ErrorReporter, PiSDErrorCodes, ok_payload, report_payload
+from pisd.core.request_trace import install_mutation_trace
 from pisd.core.panel_contracts import build_panel_testing_manifest, get_panel_contracts
 from pisd.core.presentation_registry import build_presentation_manifest
 from pisd.core.settings_manager import SettingsManager
@@ -81,6 +82,7 @@ def create_app(hardware_enabled: bool = False):
     )
     app.config["pisd_services"] = {"camera": camera_service, "motor": motor_service, "settings": settings_manager, "recording": recording_service, "ai_drive": ai_drive_service}
     app.config["pisd_errors"] = APP_ERRORS
+    install_mutation_trace(app)
 
     @app.context_processor
     def inject_pisd_asset_helpers():
