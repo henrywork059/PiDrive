@@ -323,6 +323,7 @@ class TrainPage(DockPage):
         self.state.last_error = message
         self.control_panel.set_running(False)
         self.task_progress.fail(message)
+        self.control_panel.set_save_status('Training failed; no new model was accepted.', success=False)
         self.log_panel.append_line(f'ERROR: {message}')
         self.main_window.set_status_message('Training failed.')
 
@@ -340,6 +341,7 @@ class TrainPage(DockPage):
     def _on_training_cancelled(self, _history: dict) -> None:
         self.control_panel.set_running(False)
         self.task_progress.cancel('Training stopped at an epoch boundary; unsaved weights from this run were discarded.')
+        self.control_panel.set_save_status('Training cancelled; no new model was accepted.', success=False)
         self.log_panel.append_line('Training cancelled by user; no new model was accepted or saved.')
         self.main_window.set_status_message('Training cancelled.')
 
