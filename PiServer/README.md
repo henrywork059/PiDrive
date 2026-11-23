@@ -1,5 +1,34 @@
 # PiServer
 
+## R48 passive startup preflight (0_4_27)
+
+The existing Status dock has a **collapsed, read-only Startup preflight**.
+On page load (and on **Refresh checks**), the browser sends **GET**
+`/api/preflight` only. The endpoint reads already-running camera, motor,
+model and safety service getters plus `shutil.disk_usage` for the PiServer
+project volume. It does **not** start or stop motors/camera, load a model,
+probe another device, restart a service or save/reset settings.
+
+The six checks cover service mode, camera backend, AI model, GPIO motor
+adapter/safety latch, disk free space and browser-to-PiServer HTTP reachability.
+**Simulation** is explicitly separate from hardware adapter presence;
+**adapter detected** does *not* certify safe motor output or fresh camera
+frames. "Network observed" means only this HTTP GET reached PiServer,
+not that Wi-Fi/router or internet access works. Unknown disk data is shown
+without exporting any absolute file path or exception text.
+
+Commands from the repository root:
+```bash
+cd PiServer
+python -m unittest discover -s tests -p 'test_preflight_r48.py' -v
+cd ..
+node --test PiServer/tests/test_preflight_ui_r48.cjs
+```
+The R48 Python checks import the pure formatter (no Flask, motor or camera
+initialization). On the real Pi, confirm behavior in hardware, simulation,
+low-disk and missing-model states, and confirm moving the car is impossible
+through the preflight UI. Existing STOP and Apply controls are unchanged.
+
 ## R47 failed-operation trace references (0_4_26)
 
 A failed `POST`/`PUT`/`PATCH`/`DELETE` to `/api/*` returns its
