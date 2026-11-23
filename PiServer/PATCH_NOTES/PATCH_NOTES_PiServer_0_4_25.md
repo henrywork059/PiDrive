@@ -20,7 +20,7 @@ An empty model dropdown, unhelpful `No model action` and `No folder selected` te
 
 ## Verification actually performed
 - 7/7 exact committed JS test callbacks executed in isolated V8 compatibility harness against live GitHub files, including JavaScript syntax parsing and STOP/polling/freshness source guards.
-- Direct-parent GitHub comparison and no-rollback checks must be completed before opening the draft PR; do not claim checks not performed.
+- **Direct-parent GitHub comparison completed:** 5 files changed (2 new, 3 modified); 0 commits behind R45, no deleted paths or edits outside PiServer; camera/motor/config services, theme, R43 status/preview scheduling and R45 preference code untouched.
 - Tests that **remain outstanding**: native `node --test` or Python `unittest` on a checked-out current branch, full component suites, browser interaction/screenshots, live Raspberry Pi motor/camera/network or Windows Qt integration. V8 test callbacks are not native Node's test runner.
 - Version marker only advances this component's existing version series; saved config and user data stay intact.
 
