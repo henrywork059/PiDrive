@@ -186,7 +186,7 @@ class PreviewSortIdentityTests(unittest.TestCase):
         preview.set_scope_totals(all_active=5, generated_active=2, hidden=1)
         selection = preview.table.selectionModel()
         selection.clearSelection()
-        flags = QItemSelectionModel.Select | QItemSelectionModel.Rows
+        flags = preview._selection_flags('Select', 'Rows')
         for source_row in (0, 2):
             selection.select(preview.model.index(preview.model.view_row_for_source_row(source_row), 0), flags)
         self.app.processEvents()
@@ -197,6 +197,11 @@ class PreviewSortIdentityTests(unittest.TestCase):
         self.assertEqual(before, after)
         self.assertIn('Selected visible: 2', preview.scope_label.text())
         self.assertIn('All active: 5', preview.scope_label.text())
+        # Validation's Edit in Data path targets a source-frame identity,
+        # not whatever row a sorting operation moved into the old position.
+        target_identity = preview.record_identity(rows.iloc[1].to_dict())
+        self.assertTrue(preview.select_record_identity(target_identity))
+        self.assertEqual(preview.record_identity(preview.selected_record()), target_identity)
         preview.deleteLater()
 
 
