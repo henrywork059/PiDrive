@@ -11,7 +11,7 @@ from typing import Any, Iterable
 
 import pandas as pd
 
-from .visibility_service import is_synthetic_record, synthetic_row_mask
+from .visibility_service import synthetic_row_mask
 
 
 @dataclass(frozen=True)
@@ -43,6 +43,11 @@ class SelectionScope:
         )
 
 
+def count_selected_generated(records: list[dict[str, Any]]) -> int:
+    """Use the shared NaN-safe dataframe mask for selected source rows."""
+    return int(synthetic_row_mask(pd.DataFrame(records)).sum()) if records else 0
+
+
 def summarize_selection(
     active_df: pd.DataFrame,
     preview_df: pd.DataFrame,
@@ -61,14 +66,14 @@ def summarize_selection(
         all_active=len(active),
         hidden=max(0, int(hidden_count)) if hidden_count is not None else None,
         generated_active=generated_total,
-        selected_generated=sum(bool(is_synthetic_record(record)) for record in records),
+        selected_generated=count_selected_generated(records),
     )
 
 
 def selected_visible_impact(records: Iterable[dict[str, Any]]) -> str:
     """Exact selected-view row count; never implies all active rows are targeted."""
     selected = list(records)
-    generated = sum(bool(is_synthetic_record(record)) for record in selected)
+    generated = count_selected_generated(selected)
     return (
         f'Affected scope: {len(selected)} selected visible frame(s). '
         f'Generated derivatives included: {generated} of {len(selected)}. '
