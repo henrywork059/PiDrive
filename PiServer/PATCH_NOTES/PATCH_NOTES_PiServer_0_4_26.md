@@ -24,7 +24,7 @@ Existing failed mutations returned JSON (`ok:false`, HTTP 400/403/500), and some
 - Parsed **all 5 changed browser scripts across the R47 series** using V8: **5/5 passed**.
 - Ran **9/9 actual committed PiServer browser test callbacks** against exact GitHub source in an isolated V8 compatibility harness, plus executable DOM/helper checks. Across all three R47 UI components **28/28** callbacks passed. This is **not native `node --test`**.
 - Validated the Python path-redaction regex with real Python `re` against quoted relative, Linux and Windows path examples; the initial malformed expression was corrected before final verification. **The full 15 committed Python test cases were not run** in a GitHub checkout. Flask is absent in the local environment; full backend integration, real auth, network captures, camera/motor tests and actual browser screenshots have not been performed.
-- GitHub direct-parent compare and protected-path rollback audit must be completed before opening the PR; record results in the PR body.
+- **Direct-parent GitHub comparison completed:** PiServer R47 is **11 commits ahead, 0 behind** R46 PR #66, with **7 changed files (4 new, 3 modified), no deletions and no files outside PiServer**. Access-control logic, motor/camera services, responsive CSS/theme, R43 preview and R45 style overrides remain untouched.
 
 ## Known limits and next steps
 - Existing normal `state` or successful config/model payloads are not rewritten. R47 sanitizes **new trace diagnostics and failed mutation `message`/`error` fields**, not every pre-existing data field emitted by all APIs. No credential values are accepted from `X-Correlation-ID` headers.
