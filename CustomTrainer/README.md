@@ -16,7 +16,9 @@ validation metrics, and the exact output file or folder emitted by the worker.
 - Export reads the existing `[export] <path>` CLI marker, ignoring the
   separate manifest marker. Validation and prediction read `[save-dir]`;
   validation metrics read `[metrics]`. A successful process exit is **not**
-  by itself enough to confirm an output. Existing on-screen frame browsers,
+  by itself enough to confirm an output. Metrics-only validation may still
+  succeed with no saved plot directory, but Open Location remains disabled.
+  Existing on-screen frame browsers,
   validation charts, logs and immutable YOLO dataset cache are unchanged.
 - An output is confirmed only when the reported file exists and is nonempty,
   or a reported output directory contains actual nonempty result files.
