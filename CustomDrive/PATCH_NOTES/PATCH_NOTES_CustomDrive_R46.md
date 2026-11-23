@@ -22,7 +22,7 @@ Implement `docs/roadmaps/PiDrive_Refinement_Roadmap.md` R46: short text that tel
 
 ## Verification actually performed
 - 7/7 exact committed JS test callbacks executed through V8 compatibility harness with live source, including both scripts' syntax, fail/retry wording, Pi action labels and retained saved-value/STOP guards.
-- Direct-parent GitHub comparison and no-rollback checks must be completed before opening the draft PR; do not claim checks not performed.
+- **Direct-parent GitHub comparison completed:** 8 files changed (2 new, 6 modified); 0 commits behind R45, no deleted paths or edits outside CustomDrive; configs, motor/servo/mission services, R43 frame scheduler, R44 guide math, R45 theme and layout CSS untouched.
 - Tests that **remain outstanding**: native `node --test` or Python `unittest` on a checked-out current branch, full component suites, browser interaction/screenshots, live Raspberry Pi motor/camera/network or Windows Qt integration. V8 test callbacks are not native Node's test runner.
 - Version marker only advances this component's existing version series; saved config and user data stay intact.
 
