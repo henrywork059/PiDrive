@@ -6,6 +6,7 @@ let frameTimer = null;
 let frameRequestInFlight = false;
 let latestFrameRequestId = 0;
 let currentStatus = null;
+let triggerPreviewEdited = false; // draft frame guide only; never writes server config
 let statusFailures = 0;
 let frameFailures = 0;
 
@@ -225,6 +226,13 @@ function renderArmConfig(armConfig) {
   document.getElementById('armDropoffYRatio').value = fmtShort((Number(armConfig?.dropoff_trigger_y_ratio ?? 0.30) || 0) * 100, 0);
 }
 
+function clampTriggerPercent(raw, fallback = 30) {
+  // Preserve valid zero; blank and invalid inputs use the previous safe default.
+  if (raw == null || String(raw).trim() === '') return fallback;
+  const value = Number(raw);
+  return Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : fallback;
+}
+
 function collectArmConfig() {
   const positions = {};
   document.querySelectorAll('#armPositionsBody input.arm-angle').forEach((input) => {
@@ -239,8 +247,8 @@ function collectArmConfig() {
   return {
     enabled: true,
     pose_settle_s: Number(document.getElementById('armPoseSettle').value || 0.45),
-    grip_trigger_y_ratio: Number(document.getElementById('armGripYRatio').value || 30) / 100,
-    dropoff_trigger_y_ratio: Number(document.getElementById('armDropoffYRatio').value || 30) / 100,
+    grip_trigger_y_ratio: clampTriggerPercent(document.getElementById('armGripYRatio').value) / 100,
+    dropoff_trigger_y_ratio: clampTriggerPercent(document.getElementById('armDropoffYRatio').value) / 100,
     positions,
     roles: {
       starting_position: Number(document.getElementById('armRoleStarting').value || 1),
@@ -642,8 +650,8 @@ function renderStatus(status) {
       <div class="status-label">Target center</div><div>x=${fmt(targetCenter.x, 1)} y=${fmt(targetCenter.y, 1)}</div>
       <div class="status-label">Target box</div><div>w=${fmt(targetBox.width, 1)} h=${fmt(targetBox.height, 1)}</div>
       <div class="status-label">Forward deadband</div><div>${fmt(deadbandRatio * 100, 1)}% of frame width</div>
-      <div class="status-label">Grip trigger Y</div><div>${fmt((Number(armConfig.grip_trigger_y_ratio || 0) * 100), 0)}% (100=top, 0=bottom)</div>
-      <div class="status-label">Drop-off trigger Y</div><div>${fmt((Number(armConfig.dropoff_trigger_y_ratio || 0) * 100), 0)}% (100=top, 0=bottom)</div>
+      <div class="status-label">Saved grip trigger Y</div><div>${triggerGuidePercent(armConfig.grip_trigger_y_ratio ?? 0.3)}% (100=top, 0=bottom)</div>
+      <div class="status-label">Saved drop-off trigger Y</div><div>${triggerGuidePercent(armConfig.dropoff_trigger_y_ratio ?? 0.3)}% (100=top, 0=bottom)</div>
       <div class="status-label">Backward after drop-off</div><div>${fmt(Number(status.config?.mission?.reverse_after_release_s || 0.9), 2)} s</div>
       <div class="status-label">Arm backend</div><div>enabled=${escapeHtml(armStatus.enabled ?? false)} | available=${escapeHtml(armStatus.available ?? false)} | ${escapeHtml(armStatus.backend || 'disabled')}</div>
       <div class="status-label">Arm sequence</div><div>${escapeHtml(armSequence.state || 'idle')} | ${escapeHtml(armSequence.note || '-')}</div>
@@ -688,7 +696,37 @@ function triggerGuidePercent(ratio) {
   return Math.round((Number.isFinite(parsed) ? Math.max(0, Math.min(1, parsed)) : 0.3) * 100);
 }
 
-function renderOverlay(status) {
+function triggerGuideValues(status) {
+  const arm = status.config?.arm || {};
+  const savedGrip = triggerGuidePercent(arm.grip_trigger_y_ratio ?? 0.3);
+  const savedDropoff = triggerGuidePercent(arm.dropoff_trigger_y_ratio ?? 0.3);
+  const grip = triggerPreviewEdited
+    ? clampTriggerPercent(document.getElementById('armGripYRatio')?.value, savedGrip)
+    : savedGrip;
+  const dropoff = triggerPreviewEdited
+    ? clampTriggerPercent(document.getElementById('armDropoffYRatio')?.value, savedDropoff)
+    : savedDropoff;
+  const preview = triggerPreviewEdited && (grip !== savedGrip || dropoff !== savedDropoff);
+  return { grip, dropoff, savedGrip, savedDropoff, preview };
+}
+
+function renderTriggerReadout(guides) {
+  const root = document.getElementById('triggerGuideReadout');
+  if (!root) return;
+  const grip = document.getElementById('triggerGripValue');
+  const dropoff = document.getElementById('triggerDropoffValue');
+  const status = document.getElementById('triggerGuideState');
+  if (grip) grip.textContent = `Grip ${guides.grip}%`;
+  if (dropoff) dropoff.textContent = `Drop-off ${guides.dropoff}%`;
+  root.dataset.mode = guides.preview ? 'preview' : 'saved';
+  if (status) {
+    status.textContent = guides.preview
+      ? `Preview only — server still uses Grip ${guides.savedGrip}%, Drop-off ${guides.savedDropoff}%. Save config to apply.`
+      : 'Saved on server · 100% top / 50% middle / 0% bottom';
+  }
+}
+
+function renderOverlay(status, guides = triggerGuideValues(status)) {
   const svg = document.getElementById('viewerOverlay');
   const frame = status.frame || {};
   const width = Math.max(1, Number(frame.width || 640));
@@ -698,27 +736,36 @@ function renderOverlay(status) {
   const deadbandWidth = width * deadbandRatio;
   const leftBand = width / 2 - deadbandWidth;
   const rightBand = width / 2 + deadbandWidth;
-  const armConfig = status.config?.arm || {};
-  const pickupRatio = armConfig.grip_trigger_y_ratio ?? 0.3;
-  const dropoffRatio = armConfig.dropoff_trigger_y_ratio ?? 0.3;
-  const pickupY = triggerGuideY(pickupRatio, height);
-  const dropoffY = triggerGuideY(dropoffRatio, height);
-  const pickupTextY = Math.max(12, Math.min(height - 4, pickupY - 6));
-  const dropoffTextY = Math.max(12, Math.min(height - 4, dropoffY - 6));
+  const pickupY = triggerGuideY(guides.grip / 100, height);
+  const dropoffY = triggerGuideY(guides.dropoff / 100, height);
+  const pickupTextY = Math.max(12, Math.min(height - 5, pickupY - 6));
+  const dropoffTextY = Math.max(12, Math.min(height - 5, dropoffY - 6));
+  const scale = [100, 50, 0].map((pct) => {
+    const y = triggerGuideY(pct / 100, height);
+    const labelY = Math.max(14, Math.min(height - 6, y + 4));
+    return `<line x1="43" y1="${y}" x2="55" y2="${y}" class="overlay-scale-tick" />
+      <text x="39" y="${labelY}" text-anchor="end" class="overlay-scale-label">${pct}%</text>`;
+  }).join('');
 
   svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
   svg.innerHTML = '';
 
   const guideGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
   guideGroup.setAttribute('class', 'overlay-guides');
+  guideGroup.dataset.guideMode = guides.preview ? 'preview' : 'saved';
   guideGroup.innerHTML = `
     <rect x="${leftBand}" y="0" width="${rightBand - leftBand}" height="${height}" class="overlay-deadband" />
     <line x1="${width / 2}" y1="0" x2="${width / 2}" y2="${height}" class="overlay-axis" />
     <line x1="0" y1="${height / 2}" x2="${width}" y2="${height / 2}" class="overlay-axis" />
-    <line x1="0" y1="${pickupY}" x2="${width}" y2="${pickupY}" class="overlay-trigger overlay-trigger-pickup" />
-    <text x="6" y="${pickupTextY}" class="overlay-trigger-label overlay-trigger-pickup-label">Grip ${triggerGuidePercent(pickupRatio)}%</text>
-    <line x1="0" y1="${dropoffY}" x2="${width}" y2="${dropoffY}" class="overlay-trigger overlay-trigger-dropoff" />
-    <text x="${width - 6}" y="${dropoffTextY}" text-anchor="end" class="overlay-trigger-label overlay-trigger-dropoff-label">Drop-off ${triggerGuidePercent(dropoffRatio)}%</text>
+    <g class="overlay-frame-scale" aria-hidden="true">
+      <rect x="0" y="0" width="59" height="${height}" class="overlay-scale-backdrop" />
+      <line x1="49" y1="0" x2="49" y2="${height}" class="overlay-scale-spine" />
+      ${scale}
+    </g>
+    <line x1="59" y1="${pickupY}" x2="${width}" y2="${pickupY}" class="overlay-trigger overlay-trigger-pickup" />
+    <text x="68" y="${pickupTextY}" class="overlay-trigger-label overlay-trigger-pickup-label">Grip ${guides.grip}%</text>
+    <line x1="59" y1="${dropoffY}" x2="${width}" y2="${dropoffY}" class="overlay-trigger overlay-trigger-dropoff" />
+    <text x="${width - 8}" y="${dropoffTextY}" text-anchor="end" class="overlay-trigger-label overlay-trigger-dropoff-label">Drop-off ${guides.dropoff}%</text>
   `;
   svg.appendChild(guideGroup);
 
@@ -742,6 +789,8 @@ function renderViewer(status) {
   const stats = document.getElementById('viewerStats');
   const phase = status.phase || '';
   const liveFrameVisible = shouldShowLiveFrame(status);
+  const guides = triggerGuideValues(status);
+  renderTriggerReadout(guides);
   const pipelineFps = fmt(status.pipeline?.fps || 0, 2);
   const detectionCount = String((status.detections || []).length);
   const serverAt = Number(status.server_status_at_ms);
@@ -762,7 +811,7 @@ function renderViewer(status) {
   if (liveFrameVisible) {
     video.style.display = 'block';
     svg.style.display = 'block';
-    renderOverlay(status);
+    renderOverlay(status, guides);
     note.textContent = `Showing the Pi-generated annotated frame with a live mission-status overlay and a light guide overlay. Mission state: ${status.mission_state || 'idle'}. Intended motion: ${status.intended_motion || 'idle'}. Assumed held class (not sensor-confirmed): ${status.held_class_id ?? '-'}. Drop-off class: ${status.dropoff_target_class_id ?? '-'}. Target side: ${status.target_side || 'none'}. Car turn: ${status.car_turn_direction || 'stopped'}. Arm stage: ${status.arm_sequence?.state || 'idle'}.`;
   } else if (phase === 'start_route' || phase === 'route_pending') {
     video.style.display = 'none';
@@ -780,19 +829,28 @@ function renderViewer(status) {
 async function saveConfig() {
   try {
     const data = await postJSON('/api/config', collectConfig());
-    populateConfig(data.config || {});
+    if (data.ok !== true || !data.config || !data.status) {
+      throw new Error(data.message || 'Server did not confirm saved trigger settings.');
+    }
+    triggerPreviewEdited = false; // only a server-confirmed save removes draft overlay
+    populateConfig(data.config);
+    currentStatus = data.status;
+    renderStatus(data.status); // immediately show backend-applied marker positions
     setMessage('configMessage', data.message || 'Mission 1 config saved.');
-    setMessage('armMessage', 'Mission 1 arm pose config saved.');
+    setMessage('armMessage', 'Arm trigger values confirmed by server.');
     await refresh();
+    return true;
   } catch (err) {
     setMessage('configMessage', err.message || 'Failed to save config.', true);
     setMessage('armMessage', err.message || 'Failed to save Mission 1 arm pose config.', true);
+    if (currentStatus) renderViewer(currentStatus); // retain clearly labelled unsaved preview
+    return false;
   }
 }
 
 async function startMission() {
   try {
-    await saveConfig();
+    if (!await saveConfig()) return; // never start a mission with unconfirmed trigger edits
     const route_text = document.getElementById('routeText').value || '';
     const data = await postJSON('/api/session/start', { route_text });
     setMessage('configMessage', data.message || 'Mission 1 session started.');
@@ -999,6 +1057,12 @@ async function init() {
 }
 
 document.getElementById('saveConfigBtn').onclick = saveConfig;
+for (const id of ['armGripYRatio', 'armDropoffYRatio']) {
+  document.getElementById(id)?.addEventListener('input', () => {
+    triggerPreviewEdited = true;
+    if (currentStatus) renderViewer(currentStatus); // visual only; no POST or motor command
+  });
+}
 document.getElementById('startBtn').onclick = startMission;
 document.getElementById('stopBtn').onclick = stopMission;
 document.getElementById('rearmBtn').onclick = rearmMission;
