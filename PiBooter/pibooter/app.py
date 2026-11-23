@@ -36,7 +36,7 @@ HTML_SHELL = """<!doctype html>
     .hero h1 {{ margin: 0 0 8px; font-size: 1.8rem; }}
     .hero p {{ margin: 0; opacity: 0.95; }}
     .card {{ background: #fff; border-radius: 14px; padding: 16px; margin-bottom: 14px; box-shadow: 0 2px 10px rgba(15, 23, 42, 0.08); }}
-    .grid {{ display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }}
+    .grid {{ display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); }}
     .status-pill {{ display: inline-block; padding: 6px 10px; border-radius: 999px; font-weight: 700; font-size: 0.9rem; }}
     .status-connected {{ background: #dcfce7; color: #166534; }}
     .status-hotspot {{ background: #dbeafe; color: #1d4ed8; }}
@@ -77,6 +77,10 @@ HTML_SHELL = """<!doctype html>
     .btn-secondary {{ background: #e5e7eb; color: #111827; }}
     .btn-danger {{ background: #dc2626; color: #fff; }}
     table {{ width: 100%; border-collapse: collapse; }}
+    .network-table-wrap {{ width: 100%; max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; }}
+    .network-table-wrap:focus-visible {{ outline: 3px solid #2563eb; outline-offset: 3px; }}
+    .scan-network-table, .saved-profile-table {{ min-width: 340px; }}
+    .scan-network-table button, .saved-profile-table button {{ min-height: 44px; white-space: normal; overflow-wrap: anywhere; }}
     th, td {{ text-align: left; padding: 10px 8px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }}
     th {{ font-size: 0.9rem; color: #52606d; }}
     pre {{ white-space: pre-wrap; word-break: break-word; background: #f8fafc; padding: 12px; border-radius: 10px; border: 1px solid #e5e7eb; max-height: 320px; overflow: auto; }}
@@ -88,7 +92,16 @@ HTML_SHELL = """<!doctype html>
       body {{ background: #eef2f7; }}
       .wrap {{ padding: 12px; }}
       .card, .hero {{ border-radius: 12px; }}
-      th:nth-child(4), td:nth-child(4), th:nth-child(5), td:nth-child(5) {{ display: none; }}
+      /* Device connection and scan channel can be hidden; the fifth scanned
+         Wi-Fi column contains the essential Use this network action. */
+      .device-table th:nth-child(4), .device-table td:nth-child(4),
+      .scan-network-table th:nth-child(4), .scan-network-table td:nth-child(4) {{ display: none; }}
+      .scan-network-table th:last-child, .scan-network-table td:last-child {{
+        position: sticky; right: 0; background: #fff; z-index: 1;
+      }}
+      .wrap {{ max-width: 100%; }}
+      .card, .hero {{ min-width: 0; }}
+      .btn-row button {{ min-height: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }}
     }}
   </style>
 </head>
@@ -587,7 +600,7 @@ class PiBooterController:
 
 class RequestHandler(BaseHTTPRequestHandler):
     controller: PiBooterController
-    server_version = "PiBooter/0.1.5"
+    server_version = "PiBooter/0.1.6"
 
     def do_GET(self) -> None:  # noqa: N802
         self.controller.note_http_activity(self.path, self.client_address[0])
@@ -885,7 +898,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         <div class="grid">
           <div class="card">
             <h2>Network devices</h2>
-            <table>
+            <table class="device-table">
               <thead><tr><th>Device</th><th>Type</th><th>State</th><th>Connection</th></tr></thead>
               <tbody>{device_rows}</tbody>
             </table>
@@ -924,8 +937,9 @@ class RequestHandler(BaseHTTPRequestHandler):
                 "</tr>"
             )
         return (
-            "<table><thead><tr><th>SSID</th><th>Signal</th><th>Security</th><th>Channel</th><th></th></tr></thead>"
-            f"<tbody>{''.join(rows)}</tbody></table>"
+            "<div class='network-table-wrap' role='region' aria-label='Nearby Wi-Fi networks, horizontally scrollable' tabindex='0'>"
+            "<table class='scan-network-table'><thead><tr><th>SSID</th><th>Signal</th><th>Security</th><th>Channel</th><th>Choose network</th></tr></thead>"
+            f"<tbody>{''.join(rows)}</tbody></table></div>"
         )
 
     @staticmethod
@@ -947,7 +961,9 @@ class RequestHandler(BaseHTTPRequestHandler):
                 "</td>"
                 "</tr>"
             )
-        return "<table><thead><tr><th>Name</th><th>Autoconnect</th><th></th></tr></thead>" f"<tbody>{''.join(rows)}</tbody></table>"
+        return ("<div class='network-table-wrap' role='region' aria-label='Saved Wi-Fi profiles, horizontally scrollable' tabindex='0'>"
+                "<table class='saved-profile-table'><thead><tr><th>Name</th><th>Autoconnect</th><th>Forget profile</th></tr></thead>"
+                f"<tbody>{''.join(rows)}</tbody></table></div>")
 
     @staticmethod
     def render_logs(logs: list[dict[str, Any]]) -> str:
