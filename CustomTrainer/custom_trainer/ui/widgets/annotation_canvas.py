@@ -126,7 +126,8 @@ class AnnotationCanvas(QWidget):
         zoom = min(8.0, max(1.0, float(value)))
         if abs(zoom - self.zoom_factor) < 1e-6:
             return
-        anchor = anchor or QPointF(self.width() / 2, self.height() / 2)
+        if anchor is None:
+            anchor = QPointF(self.width() / 2, self.height() / 2)
         old_rect = self.display_rect()
         u = (anchor.x() - old_rect.x()) / max(1.0, old_rect.width())
         v = (anchor.y() - old_rect.y()) / max(1.0, old_rect.height())
