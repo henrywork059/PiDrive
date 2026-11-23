@@ -22,8 +22,8 @@ The current PiServer CSS contains fallback `:root` values and dynamic `theme.js`
 
 ## Verification actually performed
 - Inspected and **executed the live current theme.js** in an isolated V8 mock document/localStorage for PiServer and CustomDrive GUI. **18/18 combined live-theme assertions passed** (9 per component), including original semantics, derived font scale, custom override retention across apply/reload, explicit reset and safe corrupt storage behavior. This was a runtime theme-function execution **without a real browser**, not a visual screenshot.
-- Committed the 12-case Node test file, but **the standalone `node --test` suite has not been run** from a checkout of the exact GitHub branch. No real Pi/Chrome screenshots, UI screenshots, hardware or Python suite performed.
-- Final direct-parent GitHub compare and anti-rollback inspection must be performed before opening the draft.
+- The **12/12 exact committed Node test callbacks also passed** in a V8 Node-API compatibility harness backed by the exact current GitHub theme, CSS, documentation and test sources. This **does not substitute for native `node --test`**, which has not been run from a GitHub checkout. No real Pi/Chrome screenshots, hardware or Python suite performed. The first smoke assertion incorrectly required legacy `--warn`/`--ok` CSS consumption; it was corrected to check their actual definitions without changing CSS.
+- Final direct-parent GitHub compare completed: **5 changed files, 0 commits behind, 0 removed files, 0 paths outside PiServer**, no CSS/theme/motor/camera/preview/saved-setting source modified. R43 parent remains open draft and unchanged.
 
 ## Known limits and release gate
 - New-icon size guidance is normative for *future* icons only; no existing SVG/CSS/icon dimensions are changed. Tests guard semantic identities and persistence, not pixel-level screenshot stability.
