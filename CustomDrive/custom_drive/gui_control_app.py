@@ -7,6 +7,7 @@ from typing import Any
 
 from flask import Flask, Response, jsonify, render_template, request
 from .request_trace import install_mutation_trace
+from .preflight import build_gui_preflight
 
 from .arm_service import ArmService
 from .manual_control_config import load_manual_control_config, save_manual_control_config
@@ -25,7 +26,7 @@ from piserver.services.motor_service import MotorService  # noqa: E402
 from piserver.services.recorder_service import RecorderService  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent / 'gui_web'
-APP_VERSION = '0_3_18'
+APP_VERSION = '0_3_19'
 OD_MODEL_ROOT = CUSTOMDRIVE_ROOT / 'models' / 'object_detection'
 
 
@@ -240,6 +241,18 @@ def create_app() -> Flask:
     @app.route('/api/status')
     def api_status():
         return jsonify(ctx.status_payload())
+
+    @app.get('/api/preflight')
+    def api_preflight():
+        # Read from already active services; never touch GPIO/PWM or model loading.
+        return jsonify(build_gui_preflight(
+            camera=ctx.camera_service.get_config(),
+            motor=ctx.motor_service.get_config(),
+            ai=ctx.object_detection_service.get_status(include_models=False),
+            arm=ctx.arm_service.status(),
+            safety=ctx.control_service.safety_status(),
+            project_root=CUSTOMDRIVE_ROOT,
+        ))
 
     @app.route('/api/control', methods=['POST'])
     def api_control():
