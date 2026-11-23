@@ -147,6 +147,40 @@ compromise, use an isolated physical setup network and consider a separate
 operator approval or HTTPS/VPN. NetworkManager may pass credentials in local
 process arguments; protecting local process inspection remains follow-up work.
 
+## Onboarding status and failure recovery (0_1_4)
+
+The phone setup page now uses the backend's **read-only onboarding status**,
+alongside its existing network/runtime details:
+
+- **Scanning nearby Wi-Fi:** a refresh scan is in progress. Some adapters cannot
+  rescan while hosting a hotspot; manually enter the SSID if it is absent.
+- **Connecting to Wi-Fi:** one connection request is in progress. Wait for the
+  NetworkManager handover; your phone may briefly lose the PiBooter hotspot.
+- **Connected to Wi-Fi:** reconnect your phone to the router network; use the
+  saved *last known* IP or locate the current Pi address from your router.
+  PiBooter exits normally after completing setup.
+- **Wi-Fi setup failed:** if the setup hotspot has returned, rejoin it, verify
+  the SSID/password and submit again; the failed password is **not** retained
+  by the form. If the hotspot cannot be restored, restart PiBooter locally,
+  or reboot the Pi, to open a fresh setup session.
+- **Setup window closing:** no eligible first client has activated the
+  configured short startup window. PiBooter stops the hotspot and exits; the
+  page does not extend the window automatically.
+
+**Do not change** the configured `server.startup_wait_s` merely to keep the
+hotspot open: the normal first-client policy remains the default **5 seconds**,
+and the page polls only to report state. The status API adds a credential-free
+`onboarding` object with `state`, `headline`, `summary`,
+`next_action` and remaining-window information; existing API fields stay
+available. Invalid public hotspot credentials still require local
+`--provision-hotspot-password` as described above.
+
+The normal launch entry point remains
+`cd ~/PiDrive/PiBooter && sudo python3 run_pibooter.py --config config/settings.json`.
+For optional offline checks run
+`python3 -m unittest discover -s tests -p 'test_onboarding_status.py' -v`.
+This web guidance does not test real Wi-Fi reception or servo/motor hardware.
+
 ## Manual run
 
 ```bash
