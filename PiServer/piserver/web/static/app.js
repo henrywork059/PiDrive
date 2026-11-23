@@ -511,6 +511,46 @@ async function getCsrfToken() {
   return csrfTokenPromise;
 }
 
+// R47: show only server-issued trace metadata, never request bodies or paths.
+function tracedRequestError(payload, status, url, fallback) {
+  const traceId = String(payload?.correlation_id || '');
+  if (!/^[0-9a-f]{16}$/.test(traceId)) {
+    return new Error(payload?.message || payload?.error || fallback);
+  }
+  const actions = {
+    '/api/motor/apply': 'Motor Apply failed. Check the settings, then retry.',
+    '/api/camera/apply': 'Camera Apply failed. Check the camera, then retry.',
+    '/api/model/load': 'Model load failed. Check the model, then retry.',
+    '/api/model/upload': 'Model upload failed. Choose a .tflite file, then retry.',
+  };
+  const error = new Error(status === 403 || status === 401
+    ? fallback : (actions[url] || 'Pi request failed. Check Pi status, then retry.'));
+  error.trace = {
+    id: traceId,
+    operation: /^[a-zA-Z0-9_.-]{1,64}$/.test(String(payload?.operation || ''))
+      ? payload.operation : 'unknown',
+    status: Number(status) || 0,
+    code: /^[A-Z0-9_-]{1,48}$/.test(String(payload?.code || ''))
+      ? payload.code : '',
+  };
+  return error;
+}
+
+function appendRequestTrace(id, error) {
+  const target = document.getElementById(id);
+  if (!target || !error?.trace?.id) return;
+  const details = document.createElement('details');
+  const title = document.createElement('summary');
+  title.textContent = 'Error details';
+  const data = document.createElement('span');
+  const trace = error.trace;
+  data.textContent = ' Ref ' + trace.id + ' · ' + trace.operation +
+    ' · HTTP ' + trace.status + (trace.code ? ' · ' + trace.code : '');
+  details.appendChild(title);
+  details.appendChild(data);
+  target.appendChild(details);
+}
+
 async function fetchJson(url, options = {}) {
   const requestOptions = { ...options, credentials: "same-origin" };
   if (requestOptions.method && !["GET", "HEAD", "OPTIONS"].includes(String(requestOptions.method).toUpperCase())) {
@@ -521,7 +561,7 @@ async function fetchJson(url, options = {}) {
   }
   const response = await fetch(url, requestOptions);
   const data = await response.json();
-  if (!response.ok) {
+  if (!response.ok || data?.ok === false || data?.saved === false) {
     if (response.status === 401) {
       window.location.assign("/login");
     }
@@ -529,7 +569,7 @@ async function fetchJson(url, options = {}) {
       : response.status === 401 ? "Session expired. Sign in again."
       : response.status >= 500 ? "PiServer unavailable. Check the connection, then retry."
       : `Request failed (${response.status}). Check the inputs and retry.`;
-    throw new Error(data.message || data.error || nextStep);
+    throw tracedRequestError(data, response.status, url, nextStep);
   }
   return data;
 }
@@ -1216,6 +1256,7 @@ async function applyCameraConfig() {
   } catch (error) {
     feedback.fail(token, error.message);
     setBanner("cameraMessage", error.message || "Camera settings failed.", "muted");
+    appendRequestTrace("cameraMessage", error);
   } finally { renderSettingsFeedback('camera'); }
 }
 
@@ -1282,6 +1323,7 @@ async function applyMotorConfig() {
   } catch (error) {
     feedback.fail(token, error.message);
     setBanner("motorMessage", error.message || "Motor settings failed.", "muted");
+    appendRequestTrace("motorMessage", error);
   } finally { renderSettingsFeedback('motor'); }
 }
 
