@@ -45,6 +45,43 @@ function scheduleFrameRefresh(delay = frameRefreshDelay()) {
   }, delay);
 }
 
+// R47: only server-generated trace metadata, no raw request payloads.
+function tracedRequestError(payload, status, path, fallback) {
+  const id = String(payload?.correlation_id || '');
+  if (!/^[0-9a-f]{16}$/.test(id)) return new Error(payload?.message || fallback);
+  const actions = {
+    '/api/config': 'Mission 1 Save failed. Check settings, then retry.',
+    '/api/session/start': 'Mission 1 Start failed. Check readiness and retry.',
+    '/api/models/upload': 'Model upload failed. Choose a .tflite file, then retry.',
+    '/api/model/select': 'Model selection failed. Check the model, then retry.',
+    '/api/arm/load_role': 'Arm pose failed. Check safety and rearm status.',
+  };
+  const error = new Error(status === 401 || status === 403
+    ? fallback : (actions[path] || 'Mission 1 request failed. Check Pi status, then retry.'));
+  error.trace = {
+    id,
+    operation: /^[a-zA-Z0-9_.-]{1,64}$/.test(String(payload?.operation || ''))
+      ? payload.operation : 'unknown',
+    status: Number(status) || 0,
+    code: /^[A-Z0-9_-]{1,48}$/.test(String(payload?.code || '')) ? payload.code : '',
+  };
+  return error;
+}
+function appendRequestTrace(id, error) {
+  const parent = document.getElementById(id);
+  if (!parent || !error?.trace?.id) return;
+  const details = document.createElement('details');
+  const summary = document.createElement('summary');
+  summary.textContent = 'Error details';
+  const message = document.createElement('span');
+  const info = error.trace;
+  message.textContent = ' Ref ' + info.id + ' · ' + info.operation +
+    ' · HTTP ' + info.status + (info.code ? ' · ' + info.code : '');
+  details.appendChild(summary);
+  details.appendChild(message);
+  parent.appendChild(details);
+}
+
 async function fetchJSON(path, options = undefined) {
   const res = await fetch(path, options);
   let data = {};
@@ -53,12 +90,12 @@ async function fetchJSON(path, options = undefined) {
   } catch (_err) {
     data = {};
   }
-  if (!res.ok) {
+  if (!res.ok || data?.ok === false || data?.saved === false) {
     const fallback = res.status === 403 ? 'Permission denied. Open Mission 1 using an authorized Pi connection.'
       : res.status === 401 ? 'Session expired. Reconnect to the Pi, then retry.'
       : res.status >= 500 ? 'Mission 1 service unavailable. Check the Pi, then Refresh.'
       : `Request failed (${res.status}). Check inputs, then retry.`;
-    throw new Error(data.message || fallback);
+    throw tracedRequestError(data, res.status, path, fallback);
   }
   return data;
 }
@@ -151,10 +188,11 @@ function servoBarPercent(angle) {
   return Math.max(0, Math.min(100, (num / 180) * 100));
 }
 
-function setMessage(id, message, isError = false) {
+function setMessage(id, message, isError = false, error = null) {
   const el = document.getElementById(id);
   el.textContent = message || '';
   el.classList.toggle('error', Boolean(isError));
+  if (isError) appendRequestTrace(id, error);
 }
 
 function defaultArmPositions() {
@@ -857,8 +895,8 @@ async function saveConfig() {
     await refresh();
     return true;
   } catch (err) {
-    setMessage('configMessage', err.message || 'Failed to save config.', true);
-    setMessage('armMessage', err.message || 'Failed to save Mission 1 arm pose config.', true);
+    setMessage('configMessage', err.message || 'Failed to save config.', true, err);
+    setMessage('armMessage', err.message || 'Failed to save Mission 1 arm pose config.', true, err);
     if (currentStatus) renderViewer(currentStatus); // retain clearly labelled unsaved preview
     return false;
   }
@@ -872,7 +910,7 @@ async function startMission() {
     setMessage('configMessage', data.message || 'Mission 1 session started.');
     await refresh();
   } catch (err) {
-    setMessage('configMessage', err.message || 'Failed to start Mission 1 session.', true);
+    setMessage('configMessage', err.message || 'Failed to start Mission 1 session.', true, err);
   }
 }
 
@@ -914,13 +952,13 @@ async function uploadModel() {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      throw new Error(data.message || `Request failed: ${res.status}`);
+      throw tracedRequestError(data, res.status, '/api/models/upload', 'Model upload failed. Check the Pi, then retry.');
     }
     input.value = '';
     setMessage('modelMessage', data.message || 'Model uploaded and selected.');
     await refresh();
   } catch (err) {
-    setMessage('modelMessage', err.message || 'Failed to upload model.', true);
+    setMessage('modelMessage', err.message || 'Failed to upload model.', true, err);
   }
 }
 
@@ -935,7 +973,7 @@ async function loadSelectedModel() {
     setMessage('modelMessage', data.message || 'Model selected.');
     await refresh();
   } catch (err) {
-    setMessage('modelMessage', err.message || 'Failed to set model.', true);
+    setMessage('modelMessage', err.message || 'Failed to set model.', true, err);
   }
 }
 
@@ -946,7 +984,7 @@ async function loadArmRole(role) {
     setMessage('armMessage', data.message || `Loaded ${role} pose.`);
     await refresh();
   } catch (err) {
-    setMessage('armMessage', err.message || `Failed to load ${role} pose.`, true);
+    setMessage('armMessage', err.message || `Failed to load ${role} pose.`, true, err);
   }
 }
 
