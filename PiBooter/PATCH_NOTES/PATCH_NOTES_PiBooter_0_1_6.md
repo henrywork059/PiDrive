@@ -13,6 +13,7 @@ The generic mobile media query at ≤640 px used `th:nth-child(4), td:nth-child(
 
 ## Exact files and behavior
 - `PiBooter/pibooter/app.py`: scope mobile column hiding to the fourth **device connection** and fourth **scan channel** columns only; preserve the fifth scan action cell and sticky-position it on the right of its own scrollable table at ≤640 px. Add labelled keyboard-focusable horizontal scroll wrappers for scanned SSIDs and saved-profile tables, with text wrapping and 44 px minimum target height. Use overflow-safe CSS grid tracks and page card min-width; leave form action URLs, CSRF tokens, network commands, session policy and credentials untouched. Advance existing server marker **PiBooter/0.1.5 → PiBooter/0.1.6**.
+- `PiBooter/README.md`: describe reachable phone-width selection and saved-profile scrolling, plus authorized-capture caveat.
 - `PiBooter/tests/test_responsive_r36.cjs` (new): 12 source-level cases for the fifth action visibility regression, scrolling, existing CSRF and five-second shutdown condition, version and no password in HTML shell.
 - `PiBooter/PATCH_NOTES/PATCH_NOTES_PiBooter_0_1_6.md`: this note.
 
