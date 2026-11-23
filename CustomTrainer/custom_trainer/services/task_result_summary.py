@@ -32,6 +32,8 @@ def verified_output(path: str | Path | None, kind: str) -> Path | None:
     try:
         candidate = Path(path).expanduser().resolve()
         if candidate.is_file():
+            if kind == "val":
+                return None  # Ultralytics validation reports a results directory.
             if candidate.stat().st_size == 0:
                 return None
             if kind == "predict" and candidate.suffix.lower() not in IMAGE_EXTENSIONS:
@@ -123,6 +125,12 @@ class TaskResult:
             self.state = "Failed"
             self.reason = self.reason or f"Process exited with code {exit_code}."
             return
+        if (self.kind == "export" and self.output_path == self.model) or (
+            self.kind == "predict" and self.output_path == self.dataset
+        ):
+            self.state = "Failed"
+            self.reason = "Output path equals the input; no distinct generated artifact was verified."
+            return
         if verified_output(self.output_path, self.kind) is None:
             self.state = "Failed"
             self.reason = "Task returned success, but its output was not reported or could not be verified."
@@ -164,8 +172,6 @@ class TaskResult:
             parts.append(f"Export format: {self.export_format}")
         if self.kind == "val":
             parts.append(f"Reported metrics: {self.metrics or 'Unknown'}")
-        if self.kind == "export" and self.export_format:
-            parts.append(f"Exported as: {self.export_format}")
         output_label = "Verified output path" if self.state == "Succeeded" else "Reported output path (unconfirmed)"
         parts.append(f"{output_label}: {self.output_path or 'Unknown'}")
         if self.reason:
