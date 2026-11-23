@@ -517,6 +517,50 @@ function renderMotorPositionPanel(status) {
 }
 
 
+function renderMissionTimeline(status) {
+  const root = document.getElementById('missionTimeline');
+  if (!root) return;
+  const progress = window.CustomDriveMissionTimeline.project(status);
+  const summary = JSON.stringify(progress);
+  if (root.dataset.snapshot === summary) return;
+  root.dataset.snapshot = summary;
+  const currentState = ['failed','interrupted','completed','current'].includes(progress.currentState)
+    ? progress.currentState : 'idle';
+  const steps = progress.items.map(item => {
+    const cycle = item.cycle ? ` · cycle ${item.cycle}` : '';
+    return `<li class="mission-progress-step" data-step-state="${item.state}"
+      title="${escapeHtml(item.phase)}">
+      <span class="mission-progress-marker" aria-hidden="true"></span>
+      <span class="mission-progress-name">${escapeHtml(item.label)}</span>
+      <span class="mission-progress-meta">${escapeHtml(item.state)}${escapeHtml(cycle)}</span>
+    </li>`;
+  }).join('');
+  root.innerHTML = `
+    <div class="mission-progress-head">
+      <h3>Mission progress</h3>
+      <span class="mission-progress-outcome" data-outcome="${escapeHtml(progress.outcome)}">${escapeHtml(progress.outcome)}</span>
+    </div>
+    <div class="mission-progress-summary">
+      <div class="mission-progress-reading" data-current-state="${currentState}">
+        <span>Current step</span><strong aria-live="polite">${escapeHtml(progress.current)}</strong>
+      </div>
+      <div class="mission-progress-reading">
+        <span>Last completed</span><strong>${escapeHtml(progress.lastCompleted)}</strong>
+      </div>
+      <div class="mission-progress-reading" data-failure="${progress.failure === 'None' ? 'none' : 'present'}">
+        <span>Last failure</span><strong>${escapeHtml(progress.failure)}</strong>
+      </div>
+    </div>
+    <div class="mission-progress-context">
+      <span>${escapeHtml(progress.detail)}</span>
+      ${progress.arm && progress.arm !== '—' ? `<span>Arm: ${escapeHtml(progress.arm)}</span>` : ''}
+    </div>
+    <ol class="mission-progress-track" aria-label="Backend-observed stages">
+      ${steps || '<li class="mission-progress-empty">No stage entered yet.</li>'}
+    </ol>
+  `;
+}
+
 function renderStatus(status) {
   const statusEl = document.getElementById('status');
   const camera = status.camera || {};
@@ -589,6 +633,7 @@ function renderStatus(status) {
     return `[${fmt(entry.timestamp, 2)}] ${String(entry.level || 'info').toUpperCase()} ${entry.type || 'runtime'}: ${entry.message}${extra ? ` | ${extra}` : ''}`;
   }).join('\n');
 
+  renderMissionTimeline(status);
   renderArmPositionPanel(status);
   renderMotorPositionPanel(status);
   renderModelList(status);
