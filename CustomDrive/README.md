@@ -1,5 +1,60 @@
 # CustomDrive
 
+## Mission 1 trigger threshold ruler and live readout (0_5_25, R44)
+
+Mission 1's existing camera preview now shows a small **100 / 50 / 0%**
+vertical frame scale, with separate **green Grip** and **amber Drop-off**
+horizontal guides. The numeric readout immediately beneath the preview
+remains legible on narrow displays. The scale is the existing U24 convention:
+
+- **100% = frame top**, **50% = frame center**, **0% = frame bottom**.
+  For frame height `H` pixels and threshold fraction `p` between 0 and 1,
+  the browser guide position is `H × (1 − p)` pixels down from the top;
+  Mission 1's center-origin gate remains `H × (p − 0.5)`.
+- The two independent backend settings are
+  `arm.grip_trigger_y_ratio` and `arm.dropoff_trigger_y_ratio`.
+  Existing saved values are retained and normalized to 0–1; the 0%
+  value now also remains 0 when the runtime computes the actual pickup
+  and drop-off gate (previously a falsy-value fallback turned it into 30%).
+- Editing **Grip trigger Y** moves **only the grip guide**; editing
+  **Drop-off trigger Y** moves **only the drop-off guide**. Before saving,
+  dashed overlay guides and the readout explicitly say **Preview only**
+  and show both values last reported by the server. No HTTP request or
+  motor command is sent by a field edit.
+- **Save Mission 1 Config** reads back the new normalized values from
+  both `config` and `status.config` in the save response. The readout
+  switches to **Saved on server** only when those values agree; the
+  live status panel and guides then use that same returned server status.
+  A failed/mismatched save retains the unsaved preview. Start Mission 1
+  and Load arm pose no longer proceed after an unconfirmed config save.
+
+Existing fixed 16:9 frame geometry, AI/object boxes, Mission 1 timeline,
+U24 gate direction and separate drop-off logic, U28 safety/rearm, R35/R36
+accessibility/layout, and R43 adaptive polling are not redesigned. GUI
+`0_3_15` is unchanged; Mission 1 alone advances `0_5_24 → 0_5_25`.
+
+Launch from the verified entrypoint:
+
+```bash
+cd CustomDrive
+python run_mission1_stage_test_demo.py
+```
+
+Regression checks from the monorepo root:
+
+```bash
+node --test CustomDrive/tests/test_trigger_guides_r44.cjs
+cd CustomDrive
+python -m unittest discover -s tests -p 'test_trigger_runtime_r44.py' -v
+```
+
+Before promoting the draft, verify actual Mission 1 HTTP config readback
+and live preview at 0/50/100%, change one field while the other stays
+constant, confirm failure leaves the old effective threshold, and
+physically check motor/arm STOP, trigger transitions, preview width and
+phone readability. The committed tests and actual Pi hardware checks
+must be executed on an appropriate workstation.
+
 ## Adaptive browser polling and bandwidth (R43)
 
 Both CustomDrive web apps retain their original backend mission/motor rates
