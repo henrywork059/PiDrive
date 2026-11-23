@@ -15,6 +15,8 @@ from .model_service import build_model, compile_model
 class TrainingWorker(QThread):
     log_message = Signal(str)
     progress_changed = Signal(int)
+    step_changed = Signal(str, int)
+    training_cancelled = Signal(dict)
     epoch_metrics = Signal(dict)
     epoch_review = Signal(dict)
     error_message = Signal(str)
@@ -26,6 +28,7 @@ class TrainingWorker(QThread):
         self.val_df = val_df.copy()
         self.config = TrainConfig(**vars(config))
         self._stop_requested = False
+        self._cancel_honoured = False
         self._review_rows = None
         self._review_x = None
 
@@ -155,6 +158,7 @@ class TrainingWorker(QThread):
             return
 
         try:
+            self.step_changed.emit('Configuring training device', -1)
             self._configure_tensorflow_device(tf)
 
             if self.train_df.empty:
@@ -164,16 +168,19 @@ class TrainingWorker(QThread):
             random.seed(seed); np.random.seed(seed); tf.keras.utils.set_random_seed(seed)
             self.log_message.emit(f'Set training random seed to {seed}.')
 
+            self.step_changed.emit("Building TensorFlow datasets", -1)
             self.log_message.emit("Building TensorFlow datasets...")
             train_ds = make_tf_dataset(self.train_df, img_h=self.config.img_h, img_w=self.config.img_w, batch_size=self.config.batch_size, shuffle=self.config.shuffle, augment=self.config.augment)
             val_ds = None
             if not self.val_df.empty:
                 val_ds = make_tf_dataset(self.val_df, img_h=self.config.img_h, img_w=self.config.img_w, batch_size=self.config.batch_size, shuffle=False, augment=False)
 
+            self.step_changed.emit('Preparing epoch review frames', -1)
             self._prepare_review_batch()
             if self._review_rows is not None:
                 self.log_message.emit(f'Prepared {len(self._review_rows)} review frame(s) for epoch best/worst inspection.')
 
+            self.step_changed.emit("Building and compiling model", -1)
             self.log_message.emit(f"Building model ({self.config.model_size})...")
             model = build_model(
                 self.config.img_h,
@@ -198,6 +205,15 @@ class TrainingWorker(QThread):
             monitor = 'val_loss' if val_ds is not None else 'loss'
 
             class EpochCallback(tf.keras.callbacks.Callback):
+                def on_epoch_begin(self, epoch, logs=None):
+                    if worker._stop_requested:
+                        self.model.stop_training = True
+                        worker._cancel_honoured = True
+                        worker._cancel_honoured = True
+                    else:
+                        progress = int(epoch * 100 / max(1, worker.config.epochs))
+                        worker.step_changed.emit(f'Training epoch {epoch + 1}/{worker.config.epochs}', progress)
+
                 def on_epoch_end(self, epoch, logs=None):
                     logs = logs or {}
                     payload = {"epoch": int(epoch) + 1}
@@ -209,6 +225,7 @@ class TrainingWorker(QThread):
                     worker.epoch_metrics.emit(payload)
                     progress = int(((epoch + 1) / max(1, worker.config.epochs)) * 100)
                     worker.progress_changed.emit(progress)
+                    worker.step_changed.emit(f'Completed epoch {epoch + 1}/{worker.config.epochs}', progress)
                     worker.log_message.emit(
                         "Epoch " f"{epoch + 1}/{worker.config.epochs} — " + ", ".join(f"{k}={v:.5f}" for k, v in payload.items() if k != "epoch")
                     )
@@ -226,7 +243,14 @@ class TrainingWorker(QThread):
                 callbacks.append(tf.keras.callbacks.ReduceLROnPlateau(monitor=monitor, patience=max(1, int(getattr(self.config, 'reduce_lr_patience', 2) or 2)), factor=float(getattr(self.config, 'reduce_lr_factor', 0.5) or 0.5), min_lr=1e-6, verbose=0))
                 self.log_message.emit(f'Enabled reduce-on-plateau on {monitor} with patience {max(1, int(getattr(self.config, "reduce_lr_patience", 2) or 2))} and factor {float(getattr(self.config, "reduce_lr_factor", 0.5) or 0.5):.2f}.')
 
+            if self._stop_requested:
+                self.training_cancelled.emit({})
+                return
+            self.step_changed.emit('Running TensorFlow training', 0)
             history = model.fit(train_ds, validation_data=val_ds, epochs=self.config.epochs, verbose=0, callbacks=callbacks)
-            self.training_finished.emit(model, history.history)
+            if self._cancel_honoured:
+                self.training_cancelled.emit(history.history)
+            else:
+                self.training_finished.emit(model, history.history)
         except Exception as exc:
             self.error_message.emit(str(exc))
