@@ -129,6 +129,13 @@ class TaskResult:
             return None
         return verified_output(self.output_path, self.kind)
 
+    def _model_file_status(self) -> str:
+        try:
+            path = Path(self.model)
+            return "Verified nonempty file" if path.is_file() and path.stat().st_size > 0 else "Not verified (original model reference only)"
+        except (OSError, ValueError):
+            return "Not verified (original model reference only)"
+
     def display_text(self) -> str:
         description = {
             ("native", "val"): "Native-model validation (.pt)",
@@ -143,14 +150,18 @@ class TaskResult:
             f"Finished: {self.finished_at or 'Not finished'}",
             f"Model: {Path(self.model).name if self.model != 'Unknown' else 'Unknown'}",
             f"Model path: {self.model}",
+            f"Model file at path: {self._model_file_status()}",
             f"Dataset/source: {Path(self.dataset).name if self.dataset != 'Unknown' else 'Unknown'}",
             f"Dataset/source path: {self.dataset}",
         ]
         if self.export_format:
             parts.append(f"Export format: {self.export_format}")
-        if self.metrics:
-            parts.append(f"Reported metrics: {self.metrics}")
-        parts.append(f"Output path: {self.output_path or 'Unknown'}")
+        if self.kind == "val":
+            parts.append(f"Reported metrics: {self.metrics or 'Unknown'}")
+        if self.kind == "export" and self.export_format:
+            parts.append(f"Exported as: {self.export_format}")
+        output_label = "Verified output path" if self.state == "Succeeded" else "Reported output path (unconfirmed)"
+        parts.append(f"{output_label}: {self.output_path or 'Unknown'}")
         if self.reason:
             parts.append(f"Result detail: {self.reason}")
         return "\n".join(parts)
