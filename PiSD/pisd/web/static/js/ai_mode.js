@@ -795,6 +795,7 @@
     if (!tab) return;
     tab.classList.toggle('is-active', Boolean(active));
     tab.setAttribute('aria-selected', String(Boolean(active)));
+    tab.tabIndex = active ? 0 : -1;
   }
 
   function resetCorrectionKeyboardState() {
@@ -1467,6 +1468,18 @@
     if (els.aiCorrectionTab) els.aiCorrectionTab.addEventListener('click', () => setOutputPanel('correction', true));
     if (els.aiManualDriveTab) els.aiManualDriveTab.addEventListener('click', () => setOutputPanel('manual', true));
     if (els.aiAssistTab) els.aiAssistTab.addEventListener('click', () => setOutputPanel('assist', true));
+    // R35: ARIA tablist uses arrow/Home/End navigation. Activation goes through
+    // the same existing click handler; no new motor or authorization path.
+    const outputTabs = [els.aiManualDriveTab, els.aiAssistTab, els.aiCorrectionTab, els.aiLimiterTab].filter(Boolean);
+    outputTabs.forEach((tab, index) => tab.addEventListener('keydown', event => {
+      const key = event.key;
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(key)) return;
+      event.preventDefault();
+      const target = key === 'Home' ? 0 : key === 'End' ? outputTabs.length - 1
+        : (index + (key === 'ArrowRight' ? 1 : -1) + outputTabs.length) % outputTabs.length;
+      outputTabs[target].focus();
+      outputTabs[target].click();
+    }));
     if (els.aiCorrectionPad) {
       els.aiCorrectionPad.addEventListener('pointerdown', (event) => {
         if (!correctionPanelActive) return;
