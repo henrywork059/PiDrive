@@ -18,7 +18,8 @@ test("no snapshots has a capture next step",()=>{
  assert.match(manual,/No snapshots — capture a frame/);
 });
 test("empty folders are not mislabeled as loaded after refreshing",()=>{
- assert.match(manual,/if \(recordingCollections\.recordings\.length \|\| recordingCollections\.snapshots\.length\)/);
+ assert.match(manual,/const selectedKind = fileKind\?\.value === 'snapshot'/);
+ assert.match(manual,/if \(visibleItems\.length\)/);
 });
 test("offline folder refresh says what to do without losing diagnostics",()=>{
  assert.match(manual,/Could not load saved folders\. Check the Pi connection, then Refresh/);
