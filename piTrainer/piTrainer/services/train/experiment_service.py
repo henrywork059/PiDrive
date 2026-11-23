@@ -105,6 +105,11 @@ def create_run_snapshot(train_df, val_df, config, recipe: dict | None,
              "validation_rows": val_counts.get(name, 0)}
             for name in sorted(set(train_counts) | set(val_counts))
         ]
+    # Match the current split_service/TrainingWorker fallback: seed=0 uses 42.
+    # Sequential splitting does not use a random seed, while training still does.
+    configured_seed = settings.get("seed")
+    effective_seed = int(configured_seed or 42)
+    split_mode = settings.get("split_mode")
     return {
         "schema_version": SCHEMA_VERSION,
         "run_id": uuid4().hex,
@@ -116,8 +121,10 @@ def create_run_snapshot(train_df, val_df, config, recipe: dict | None,
         "train_rows": len(train_df),
         "validation_rows": len(val_df),
         "split": {
-            "mode": settings.get("split_mode"),
-            "seed": settings.get("seed"),
+            "mode": split_mode,
+            "configured_seed": configured_seed,
+            "seed": None if split_mode == "Sequential rows" else effective_seed,
+            "training_seed_effective": effective_seed,
             "validation_ratio": settings.get("val_ratio"),
             "identity_label_sha256": _partition_fingerprint(train_df, val_df),
         },
@@ -317,7 +324,9 @@ def comparison_rows(left: dict | None, right: dict | None) -> list[tuple[str, st
         ("Run ID", ("run_id",)), ("Status", ("status",)),
         ("Started UTC", ("started_at_utc",)),
         ("Training rows", ("train_rows",)), ("Validation rows", ("validation_rows",)),
-        ("Split mode", ("split", "mode")), ("Split seed", ("split", "seed")),
+        ("Configured split mode", ("split", "mode")),
+        ("Effective split seed", ("split", "seed")),
+        ("Training seed", ("split", "training_seed_effective")),
         ("Validation ratio", ("split", "validation_ratio")),
         ("Split identity/label SHA-256", ("split", "identity_label_sha256")),
         ("Preprocessing SHA-256", ("preprocessing_sha256",)),
