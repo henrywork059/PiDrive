@@ -37,7 +37,7 @@ from piserver.services.camera_service import CameraService  # noqa: E402
 from piserver.services.motor_service import MotorService  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent / 'mission1_web'
-APP_VERSION = '0_5_24'
+APP_VERSION = '0_5_25'
 MISSION1_CONFIG_PATH = CONFIG_DIR / 'mission1_session.json'
 MISSION1_MODEL_DIR = CUSTOMDRIVE_ROOT / 'models' / 'mission1'
 
@@ -728,10 +728,10 @@ class Mission1SessionContext:
         return (-frame_half_h) + (float(frame_h) * clamped_ratio)
 
     def _pickup_trigger_y_px(self, frame_h: int) -> float:
-        return self._trigger_y_px(frame_h, float(self._arm_config().get('grip_trigger_y_ratio', 0.3) or 0.3))
+        return self._trigger_y_px(frame_h, float(self._arm_config().get('grip_trigger_y_ratio', 0.3)))
 
     def _dropoff_trigger_y_px(self, frame_h: int) -> float:
-        return self._trigger_y_px(frame_h, float(self._arm_config().get('dropoff_trigger_y_ratio', self._arm_config().get('grip_trigger_y_ratio', 0.3)) or 0.3))
+        return self._trigger_y_px(frame_h, float(self._arm_config().get('dropoff_trigger_y_ratio', self._arm_config().get('grip_trigger_y_ratio', 0.3))))
 
     def _target_close_enough(self, target_x: float, target_y: float, frame_w: int, trigger_y_px: float) -> tuple[bool, float, float]:
         capture_deadband_px = self._capture_deadband_px(frame_w)
