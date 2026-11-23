@@ -24,6 +24,7 @@ except Exception:  # pragma: no cover
 from .arm_service import ArmService
 from .debug_tools import append_event, clamp_float, clamp_int
 from .request_trace import install_mutation_trace
+from .preflight import build_mission1_preflight
 from .manual_control_config import load_manual_control_config
 from .mission1_tflite_detector import Mission1TFLiteDetector
 from .mission_safety import MissionAbort, save_mission_report
@@ -38,7 +39,7 @@ from piserver.services.camera_service import CameraService  # noqa: E402
 from piserver.services.motor_service import MotorService  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent / 'mission1_web'
-APP_VERSION = '0_5_28'
+APP_VERSION = '0_5_29'
 MISSION1_CONFIG_PATH = CONFIG_DIR / 'mission1_session.json'
 MISSION1_MODEL_DIR = CUSTOMDRIVE_ROOT / 'models' / 'mission1'
 
@@ -2067,6 +2068,24 @@ def create_mission1_session_app() -> Flask:
     @app.route('/api/status')
     def api_status():
         return jsonify(ctx.status_payload())
+
+    @app.get('/api/preflight')
+    def api_preflight():
+        # The mission camera may be None until route completion: do not start it.
+        camera = ctx.camera_service
+        selected = str(ctx.selected_model_name or 'none').strip().lower()
+        loaded = str(ctx.loaded_model_name or 'none').strip().lower()
+        worker = ctx._thread
+        return jsonify(build_mission1_preflight(
+            camera=camera.get_config() if camera is not None else None,
+            motor=ctx.motor_service.get_config(),
+            model_selected=selected not in {'', 'none'},
+            model_loaded=loaded not in {'', 'none'},
+            arm=ctx.arm_service.status(),
+            safety=ctx.safety_status(),
+            mission_running=bool(worker and worker.is_alive()),
+            project_root=CUSTOMDRIVE_ROOT,
+        ))
 
     @app.route('/api/safety/status')
     def api_safety_status():
