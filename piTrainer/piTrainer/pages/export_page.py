@@ -8,6 +8,7 @@ from ..app_state import AppState
 from ..panels.common.log_panel import LogPanel
 from ..panels.common.task_progress_panel import TaskProgressPanel
 from ..services.background_task import BackgroundTaskRunner
+from ..services.task_outputs import confirmed_model_paths
 from ..panels.export.export_actions_panel import ExportActionsPanel
 from ..panels.export.export_options_panel import ExportOptionsPanel
 from ..panels.export.model_status_panel import ModelStatusPanel
@@ -113,11 +114,7 @@ class ExportPage(DockPage):
         def completed(created):
             if not created:
                 raise RuntimeError('Exporter returned no completed artifacts.')
-            for item in created:
-                path = Path(item.path)
-                sidecar = Path(str(path) + '.manifest.json')
-                if not path.is_file() or not sidecar.is_file():
-                    raise RuntimeError(f'Output or manifest missing after export: {path}')
+            output_paths = confirmed_model_paths(item.path for item in created)
             latest_tflite_path = ''
             saved_lines: list[str] = []
             for item in created:
@@ -150,9 +147,6 @@ class ExportPage(DockPage):
                 'Export saved: ' + '; '.join(saved_lines) if saved_lines else 'Export finished. Next: 6 TFLite Check.'
             )
 
-            output_paths = []
-            for item in created:
-                output_paths.extend((str(item.path), str(item.path) + '.manifest.json'))
             return (f"Export complete: {len(created)} model(s)", output_paths)
 
         def failed(error):
