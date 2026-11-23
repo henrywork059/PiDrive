@@ -9,6 +9,8 @@ from typing import Callable
 from PySide6.QtCore import QThread, Qt
 from PySide6.QtGui import QKeySequence, QPixmap, QShortcut
 from PySide6.QtWidgets import (
+    QApplication,
+    QAbstractSpinBox,
     QComboBox,
     QFileDialog,
     QAbstractItemView,
@@ -22,6 +24,7 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QMessageBox,
     QPlainTextEdit,
+    QTextEdit,
     QPushButton,
     QSplitter,
     QVBoxLayout,
@@ -103,7 +106,6 @@ class MarkingPage(QWidget):
         if latest_best is not None:
             self.deploy_weights_edit.setText(str(latest_best))
             self._update_deploy_status('Loaded latest best.pt for quick deploy.')
-        QShortcut(QKeySequence('X'), self.image_list, activated=self.delete_selected_frames)
 
     def _build(self) -> None:
         source_box = QGroupBox('Session Source', self)
@@ -182,14 +184,11 @@ class MarkingPage(QWidget):
         tools_layout.addWidget(self.quick_deploy_latest_button, 4, 0, 1, 2)
         tools_layout.addWidget(self.quick_deploy_button, 5, 0, 1, 2)
         help_label = QLabel(
-            'Draw: left-drag\n'
-            'Select / drag box: right-click, then drag\n'
-            'Move selected box: Arrow keys (Shift = faster)\n'
-            'Change frame: A / D (auto-save current labels)\n'
-            'Cycle class: W / S\n'
-            'Delete selected frame(s): X\n'
-            'Delete selected box: Delete\n'
-            'Quick deploy: choose a .pt model, then run it on all selected frames (or the current frame if none are selected). Predictions are written back as labels and the current frame is loaded into the main canvas.',
+            'Left-drag draw • Right-click select / drag\n'
+            'A / D frames • B / Shift+B boxes • W / S classes\n'
+            '1–9 assign class • Ctrl+Z / Ctrl+Y undo / redo\n'
+            'Ctrl+Wheel zoom • Middle-drag pan • Ctrl+0 reset\n'
+            'F1: full shortcuts help; Quick Deploy keeps selected/current targets.',
             tools_box,
         )
         help_label.setProperty('role', 'muted')
@@ -276,22 +275,77 @@ class MarkingPage(QWidget):
         self.deploy_source_edit.textChanged.connect(self._reset_prediction_preview)
 
     def _setup_shortcuts(self) -> None:
+        # Scoped to Marking, and disabled while editing text BEFORE Qt dispatches
+        # shortcuts. A callback-only check would swallow actual typed letters.
         self._shortcuts: list[QShortcut] = []
-        for sequence, callback in (
+        commands = (
             ('A', self.prev_image),
             ('D', self.next_image),
+            ('PageUp', self.prev_image),
+            ('PageDown', self.next_image),
             ('W', self.cycle_class_up),
             ('S', self.cycle_class_down),
+            ('B', self.select_next_box),
+            ('Shift+B', self.select_previous_box),
+            ('X', self.delete_selected_frames),
             ('Delete', self.delete_selected_box),
-        ):
+            ('Ctrl+S', self.save_current_labels),
+            ('Ctrl+Z', self.undo_annotation),
+            ('Ctrl+Y', self.redo_annotation),
+            ('Ctrl+Shift+Z', self.redo_annotation),
+            ('Ctrl+Plus', self.canvas.zoom_in),
+            ('Ctrl+Minus', self.canvas.zoom_out),
+            ('Ctrl+0', self.canvas.reset_zoom),
+        )
+        commands += tuple((str(i + 1), lambda index=i: self.assign_class_shortcut(index)) for i in range(9))
+        for sequence, callback in commands:
             shortcut = QShortcut(QKeySequence(sequence), self)
             shortcut.setContext(Qt.WidgetWithChildrenShortcut)
             shortcut.activated.connect(callback)
             self._shortcuts.append(shortcut)
+        app = QApplication.instance()
+        if app is not None:
+            app.focusChanged.connect(self._update_shortcut_state)
+        self._update_shortcut_state()
 
     def _shortcut_target_is_text_input(self) -> bool:
-        widget = self.focusWidget()
-        return isinstance(widget, (QLineEdit, QPlainTextEdit))
+        widget = QApplication.focusWidget()
+        while widget is not None:
+            if isinstance(widget, (QLineEdit, QPlainTextEdit, QTextEdit,
+                                   QAbstractSpinBox, QComboBox)):
+                return True
+            if widget is self:
+                break
+            widget = widget.parentWidget()
+        return False
+
+    def _update_shortcut_state(self, *_args) -> None:
+        enabled = not self._shortcut_target_is_text_input()
+        for shortcut in getattr(self, '_shortcuts', []):
+            shortcut.setEnabled(enabled)
+
+    def undo_annotation(self) -> None:
+        if not self._shortcut_target_is_text_input() and self.canvas.undo_edit():
+            self.set_status('Undid box edit on current frame.')
+
+    def redo_annotation(self) -> None:
+        if not self._shortcut_target_is_text_input() and self.canvas.redo_edit():
+            self.set_status('Redid box edit on current frame.')
+
+    def select_next_box(self) -> None:
+        if not self._shortcut_target_is_text_input():
+            self.canvas.select_next_box(1)
+
+    def select_previous_box(self) -> None:
+        if not self._shortcut_target_is_text_input():
+            self.canvas.select_next_box(-1)
+
+    def assign_class_shortcut(self, combo_index: int) -> None:
+        if self._shortcut_target_is_text_input() or not 0 <= combo_index < self.class_combo.count():
+            return
+        self._set_active_class_index(combo_index)
+        if self.canvas.selected_index is not None:
+            self.apply_class_to_selected()
 
     def _set_active_class_index(self, combo_index: int) -> None:
         if self.class_combo.count() == 0:
@@ -507,8 +561,8 @@ class MarkingPage(QWidget):
                 self.log(f'Quick deploy predictions for {image_name}: 0 box(es); existing annotations kept')
             self.refresh_deploy_preview()
             return True
-        self.canvas.set_scene(self.current_image_path, cloned_boxes)
-        self.is_dirty = True
+        if self.canvas.replace_boxes(cloned_boxes):
+            self.is_dirty = True
         self.selection_info.setText(f'Loaded {count} predicted box(es) into Marking for {image_name}. Adjust boxes, then save labels.')
         if announce:
             self.set_status(f'Loaded {count} predicted box(es) into Marking.')
