@@ -3,6 +3,8 @@ const stActionLog = document.getElementById('stActionLog');
 const SETTINGS_STORAGE_KEY = 'pisd.runtimeSettings.v2';
 const settingsFeedback = window.PiDriveSettingsFeedback.createSettingsFeedback();
 const settingsMatch = window.PiDriveSettingsFeedback.matchesSubset;
+let settingsRetryAction = () => saveSettings(true);
+let settingsRetryLabel = 'Retry apply';
 function renderSettingsFeedback() {
   const info = settingsFeedback.snapshot();
   const badge = document.getElementById('stApplyState');
@@ -10,7 +12,7 @@ function renderSettingsFeedback() {
   const retry = document.getElementById('stRetryApply');
   if (badge) { badge.textContent = info.phase; badge.dataset.state = info.phase.toLowerCase(); }
   if (detail) detail.textContent = info.detail;
-  if (retry) retry.hidden = !info.retry;
+  if (retry) { retry.hidden = !info.retry; retry.textContent = settingsRetryLabel; }
   ['stSaveSettings', 'stApplySettings', 'stResetSettings'].forEach(id => {
     const button = document.getElementById(id);
     if (button) button.disabled = info.busy;
@@ -86,6 +88,8 @@ async function loadSettings() {
       setSettingsCode('settings', payload.code);
     }
   } catch (error) {
+    settingsRetryAction = loadSettings;
+    settingsRetryLabel = 'Retry load';
     const token = settingsFeedback.begin();
     if (token !== null) settingsFeedback.fail(token, error.message);
     throw error;
@@ -116,6 +120,8 @@ async function saveSettings(apply = false) {
         : (normalized ? 'Backend saved normalized settings; runtime application is not confirmed.' : 'Saved to backend storage; runtime application is not confirmed.'),
       apply);
   } catch (error) {
+    settingsRetryAction = () => saveSettings(apply);
+    settingsRetryLabel = apply ? 'Retry apply' : 'Retry save';
     settingsFeedback.fail(token, error.message);
     logResponse('R31 settings failure', {ok:false, message:error.message});
   } finally { renderSettingsFeedback(); }
@@ -137,6 +143,8 @@ async function resetSettings() {
     }
     settingsFeedback.complete(token, true, 'Default settings applied and read back from the backend.');
   } catch (error) {
+    settingsRetryAction = resetSettings;
+    settingsRetryLabel = 'Retry reset';
     settingsFeedback.fail(token, error.message);
     logResponse('R31 reset failure', {ok:false, message:error.message});
   } finally { renderSettingsFeedback(); }
@@ -147,7 +155,7 @@ document.getElementById('stLoadSettings')?.addEventListener('click', loadSetting
 document.getElementById('stSaveSettings')?.addEventListener('click', () => saveSettings(false));
 document.getElementById('stApplySettings')?.addEventListener('click', () => saveSettings(true));
 document.getElementById('stResetSettings')?.addEventListener('click', resetSettings);
-document.getElementById('stRetryApply')?.addEventListener('click', () => saveSettings(true));
+document.getElementById('stRetryApply')?.addEventListener('click', () => settingsRetryAction());
 document.getElementById('stExportSettings')?.addEventListener('click', exportSettings);
 document.getElementById('stImportSettings')?.addEventListener('change', e => { if(e.target.files?.[0]) importSettings(e.target.files[0]); });
 document.getElementById('stStopAll')?.addEventListener('click', () => settingsApi('POST','/api/control/stop',{}));
