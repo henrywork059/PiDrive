@@ -219,7 +219,29 @@
     return `...${text.slice(-69)}`;
   }
 
+  // R47: display only bounded server-supplied tracing metadata.
+  function appendRequestTrace(payload, status) {
+    const id = String(payload?.correlation_id || '');
+    const short = $('mdrvShortStatus');
+    if (!/^[0-9a-f]{16}$/.test(id) || !short?.parentNode) return;
+    const details = document.createElement('details');
+    details.id = 'mdrvTraceDetails';
+    const summary = document.createElement('summary');
+    summary.textContent = 'Error details';
+    const text = document.createElement('span');
+    const operation = String(payload?.operation || '');
+    const safeOperation = /^[a-zA-Z0-9_.-]{1,64}$/.test(operation) ? operation : 'unknown';
+    const code = String(payload?.code || '');
+    text.textContent = ' Ref ' + id + ' · ' + safeOperation +
+      ' · HTTP ' + Number(status || 0) +
+      (/^[A-Z0-9_-]{1,48}$/.test(code) ? ' · ' + code : '');
+    details.appendChild(summary);
+    details.appendChild(text);
+    short.parentNode.insertBefore(details, short.nextSibling);
+  }
+
   function setShortStatus(message, code = 'PISD-OK-000') {
+    $('mdrvTraceDetails')?.remove();
     const short = $('mdrvShortStatus');
     if (short) {
       short.textContent = message;
@@ -958,8 +980,12 @@
     const code = payload?.code || (httpStatus >= 400 ? 'PISD-API-002' : 'PISD-OK-000');
     setGlobalCode(code);
     setCode('log', code);
-    if (log) log.textContent = JSON.stringify({ action, http_status: httpStatus, response: payload }, null, 2);
-    setShortStatus(`${action}: ${code} ${payload?.message || ''}`.trim(), code);
+    const failed = Number(httpStatus) >= 400 || payload?.ok === false;
+    // Avoid exporting raw server errors, runtime config and file paths in the log.
+    const safeResponse = failed ? { ok: false, code, correlation_id: payload?.correlation_id || '', operation: payload?.operation || '' } : payload;
+    if (log) log.textContent = JSON.stringify({ action, http_status: httpStatus, response: safeResponse }, null, 2);
+    setShortStatus(failed ? `${action} failed. Check Pi status, then retry.` : `${action}: ${code} ${payload?.message || ''}`.trim(), code);
+    if (failed) appendRequestTrace(payload, httpStatus);
   }
 
   async function api(method, path, body, codeTarget = 'log') {
@@ -1273,6 +1299,7 @@
   async function startLiveCamera() {
     try {
       const { payload } = await api('POST', '/api/camera/start', {}, 'camera');
+      if (payload?.ok === false) return; // keep failed Start/trace visible; never claim camera started
       livePreview();
       setShortStatus(`Start live: ${payload?.code || 'PISD-OK-000'} ${payload?.message || ''}`.trim(), payload?.code || 'PISD-OK-000');
       await refreshStatus();
