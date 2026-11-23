@@ -148,6 +148,13 @@ class PiBooterController:
         self._session_started_at = 0.0
         self.state.update(last_status=self.status_store.snapshot(), startup_wait_s=self.config["server"]["startup_wait_s"])
         self.state.log("PiBooter controller initialised.")
+        if self.config_store.load_error:
+            backup = self.config_store.recovery_backup
+            recovery_msg = self.config_store.load_error
+            if backup is not None:
+                recovery_msg += f" Recovery copy: {backup.name}."
+            self.state.log(recovery_msg, level="error")
+            self.state.update(config_recovery_error=recovery_msg)
         self.initial_refresh(force_rescan=True)
         self._monitor_thread = threading.Thread(target=self._monitor_loop, name="PiBooterMonitor", daemon=True)
         self._monitor_thread.start()
@@ -592,6 +599,9 @@ class RequestHandler(BaseHTTPRequestHandler):
             elif attempt.get("status") == "error":
                 message = attempt.get("message", message)
                 level = "error"
+        if snapshot.get("config_recovery_error"):
+            message = str(snapshot["config_recovery_error"])
+            level = "error"
         if not message:
             return ""
         level_class = {"info": "notice-info", "warn": "notice-warn", "error": "notice-error"}.get(level, "notice-info")
@@ -912,6 +922,9 @@ def main(argv: list[str] | None = None) -> int:
 
     config_store = ConfigStore(args.config)
     if args.write_default_config:
+        if config_store.load_error:
+            print(f"Cannot normalize invalid config in place: {config_store.load_error}")
+            return 1
         config_store.runtime_status_path().parent.mkdir(parents=True, exist_ok=True)
         print(f"Wrote default config to {config_store.path}")
         return 0

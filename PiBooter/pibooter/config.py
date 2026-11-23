@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import os
+import shutil
 import socket
+import tempfile
 from copy import deepcopy
 from pathlib import Path
 from typing import Any
@@ -69,25 +73,75 @@ def _sanitize_int(value: Any, default: int, minimum: int, maximum: int) -> int:
 class ConfigStore:
     def __init__(self, path: str | Path):
         self.path = Path(path)
+        self.load_error = ""
+        self.recovery_backup: Path | None = None
         self.data = self.load()
 
+    def _write_atomic(self, data: dict[str, Any]) -> None:
+        """Replace only a complete serialized file; protect credentials on new files."""
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        temp_path: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w", encoding="utf-8", dir=self.path.parent,
+                prefix=f".{self.path.name}.", suffix=".tmp", delete=False,
+            ) as stream:
+                temp_path = Path(stream.name)
+                stream.write(json.dumps(data, indent=2, sort_keys=True) + "\n")
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temp_path, self.path)
+        finally:
+            if temp_path is not None:
+                temp_path.unlink(missing_ok=True)
+
+    def _backup_invalid(self) -> None:
+        """Never rename or delete the user's original invalid config."""
+        try:
+            raw = self.path.read_bytes()
+            digest = hashlib.sha256(raw).hexdigest()[:16]
+            backup = self.path.with_name(f"{self.path.name}.corrupt-{digest}")
+            if backup.exists():
+                if backup.read_bytes() != raw:
+                    raise OSError("existing recovery copy does not match the source")
+            else:
+                shutil.copy2(self.path, backup)
+            self.recovery_backup = backup
+        except OSError as exc:
+            self.load_error += f" Backup could not be created: {exc}"
+
     def load(self) -> dict[str, Any]:
+        self.load_error = ""
+        self.recovery_backup = None
         data = deepcopy(DEFAULT_CONFIG)
         if self.path.exists():
             try:
                 loaded = json.loads(self.path.read_text(encoding="utf-8"))
-                if isinstance(loaded, dict):
-                    data = _deep_merge(data, loaded)
-            except (OSError, json.JSONDecodeError):
-                pass
+                if not isinstance(loaded, dict):
+                    raise ValueError("The root must be a JSON object")
+                for section in ("server", "network", "runtime", "ui"):
+                    if section in loaded and not isinstance(loaded[section], dict):
+                        raise ValueError(f"'{section}' must be a JSON object")
+                data = _deep_merge(data, loaded)
+            except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as exc:
+                # Defaults are usable for diagnostics but NEVER overwrite the bad file.
+                self.load_error = f"Settings could not be loaded: {exc}. Original preserved."
+                self._backup_invalid()
+                return self._normalize(data)
+            data = self._normalize(data)
+            if data != loaded:
+                self._write_atomic(data)
+            return data
+
         data = self._normalize(data)
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        self._write_atomic(data)
         return data
 
-    def save(self) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(json.dumps(self.data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    def save(self, *, replace_invalid: bool = False) -> None:
+        if self.load_error and self.path.exists() and not replace_invalid:
+            raise RuntimeError("Invalid settings are preserved; restore or repair the original before saving, or explicitly use replace_invalid=True.")
+        self._write_atomic(self.data)
+        self.load_error = ""
 
     def reload(self) -> dict[str, Any]:
         self.data = self.load()
