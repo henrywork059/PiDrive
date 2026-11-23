@@ -14,13 +14,13 @@
       <div class="brand-subtitle">runtime control workspace</div>
     </div>
 
-    <div class="page-tabs" id="pageTabs">
-      <button class="tab-btn active" data-page="manual">Manual</button>
-      <button class="tab-btn" data-page="training">Training</button>
-      <button class="tab-btn" data-page="auto">Auto</button>
-      <button class="tab-btn" data-page="camera">Camera</button>
-      <button class="tab-btn" data-page="motor">Motor</button>
-    </div>
+    <nav class="page-tabs" id="pageTabs" aria-label="PiServer pages">
+      <button class="tab-btn active" data-page="manual" aria-pressed="true">Manual</button>
+      <button class="tab-btn" data-page="training" aria-pressed="false">Training</button>
+      <button class="tab-btn" data-page="auto" aria-pressed="false">Auto</button>
+      <button class="tab-btn" data-page="camera" aria-pressed="false">Camera</button>
+      <button class="tab-btn" data-page="motor" aria-pressed="false">Motor</button>
+    </nav>
 
     <div class="toolbar-actions">
       <div id="maintenanceBadge" class="badge off">run</div>
@@ -204,13 +204,14 @@
         <div class="panel-body scroll-body manual-body">
           <section class="panel-section panel-section-strong manual-shell">
             <div class="manual-layout manual-layout-single">
-              <div id="joystickArea" class="joystick-area">
+              <div id="joystickArea" class="joystick-area" role="group" tabindex="0" aria-label="Manual steering and throttle pad" aria-describedby="joystickKeyboardHint">
                 <div class="joystick-crosshair"></div>
                 <div id="joystickDot" class="joystick-dot"></div>
               </div>
 
               <div class="manual-side manual-side-single">
                 <div class="manual-readout value-text" id="joystickText">Steering 0.00 · Throttle 0.00</div>
+                <p id="joystickKeyboardHint" class="a11y-drive-hint">Manual pad: drag or use W/A/S/D or arrow keys; Space returns manual target to zero. Existing server permissions still apply.</p>
                 <div class="manual-feel-grid">
                   <div class="field compact-field">
                     <label for="steerCurve">Steer curve</label>
@@ -483,11 +484,11 @@
 
     <div id="styleSettingsModal" class="style-modal hidden" aria-hidden="true">
       <div class="style-modal-backdrop" data-close-style-modal></div>
-      <section class="style-modal-card" role="dialog" aria-modal="true" aria-labelledby="styleSettingsTitle">
+      <section class="style-modal-card" role="dialog" aria-modal="true" aria-labelledby="styleSettingsTitle" aria-describedby="styleSettingsHelp">
         <div class="style-modal-head">
           <div>
             <div id="styleSettingsTitle" class="style-modal-title">Web style settings</div>
-            <div class="style-modal-subtitle">These changes are saved in this browser only.</div>
+            <div class="style-modal-subtitle" id="styleSettingsHelp">These changes are saved in this browser only. Press Escape to close.</div>
           </div>
           <button class="ghost-btn" id="closeStyleSettingsBtn" type="button">Close</button>
         </div>
