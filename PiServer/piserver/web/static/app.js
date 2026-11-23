@@ -91,6 +91,7 @@ const state = {
   latestStatus: null,
   statusTimer: null,
   statusInFlight: false,
+  statusPollingReady: false,
   statusFailures: 0,
   cameraConfig: null,
   motorConfig: null,
@@ -1398,10 +1399,10 @@ function syncPreviewActivity() {
   sendPreviewState(enabled);
   if (enabled) {
     schedulePreviewFrame(true);
-    scheduleStatusPoll(0); // recover status immediately after returning to tab
+    if (state.statusPollingReady) scheduleStatusPoll(0); // refresh immediately on return
   } else {
     stopPreviewLoop(false);
-    scheduleStatusPoll(); // parked while hidden, no HTTP status requests
+    if (state.statusPollingReady) scheduleStatusPoll(); // parked while hidden
   }
 }
 
@@ -1917,6 +1918,7 @@ async function init() {
   updateStatusUi(status);
   syncControlsFromStatus(status);
   applyManualState();
+  state.statusPollingReady = true;
   scheduleStatusPoll(800);
   state.previewHealthTimer = setInterval(renderPreviewHealth, 250);
 }
