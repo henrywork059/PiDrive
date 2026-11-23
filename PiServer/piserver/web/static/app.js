@@ -1072,8 +1072,14 @@ async function confirmedConfig(path, requested, response, kind) {
     throw new Error(response?.message || kind + ' settings were not saved.');
   }
   const current = await fetchJson(path);
-  if (current?.ok !== true || !current.config
-    || !settingsReadbackMatches(response.config, current.config)) {
+  if (current?.ok !== true || !current.config || !response.config) {
+    throw new Error(kind + ' configuration readback failed.');
+  }
+  // Compare only submitted settings. Camera/motor telemetry can change
+  // between responses even while the saved configuration stays identical.
+  const accepted = Object.fromEntries(Object.keys(requested)
+    .map(key => [key, response.config[key]]));
+  if (!settingsReadbackMatches(accepted, current.config)) {
     throw new Error(kind + ' settings did not match backend readback.');
   }
   return current.config;
