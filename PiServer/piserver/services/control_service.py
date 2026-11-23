@@ -6,6 +6,7 @@ import time
 from typing import Any
 
 from piserver.core.runtime_state import RuntimeState
+from piserver.core.latency_metrics import RollingLatency
 from piserver.core.value_utils import parse_finite_float
 
 
@@ -51,6 +52,7 @@ class ControlService:
         self._processing_enabled_cached = None
         # A manual command is a short lease, not a persistent motor setpoint.
         # Deliberately not written to the user's runtime.json.
+        self.performance = RollingLatency(('controller_loop', 'motor_apply'))
         self.manual_command_timeout_s = 0.85
         self._manual_command_at: float | None = None
         self._manual_command_timed_out = False
@@ -103,6 +105,7 @@ class ControlService:
         period = 1.0 / self.loop_hz
         while self.running:
             start = time.time()
+            cycle_started = self.performance.start()
             with self.lock:
                 self.state.fps = self.camera_service.get_fps()
                 self.state.camera_backend = getattr(self.camera_service, "backend", "unknown")
@@ -160,11 +163,13 @@ class ControlService:
                     )
 
                 try:
+                    motor_started = self.performance.start()
                     left, right = self.motor_service.update(
                         steering=steer,
                         throttle=throttle,
                         steer_mix=self.state.steer_mix,
                     )
+                    self.performance.observe_elapsed('motor_apply', motor_started)
                 except Exception as exc:
                     left, right = 0.0, 0.0
                     steer, throttle = 0.0, 0.0
@@ -185,6 +190,7 @@ class ControlService:
                 frame = self.camera_service.get_latest_frame(copy=True)
                 self.recorder_service.maybe_record(frame, snapshot)
 
+            self.performance.observe_elapsed('controller_loop', cycle_started)
             elapsed = time.time() - start
             if elapsed < period:
                 time.sleep(period - elapsed)
@@ -192,6 +198,7 @@ class ControlService:
     def snapshot(self) -> dict:
         with self.lock:
             data = self.state.snapshot()
+            data["performance"] = self.performance.snapshot()
             data["manual_command_timeout_s"] = self.manual_command_timeout_s
             data["manual_command_age_s"] = (
                 round(max(0.0, time.monotonic() - self._manual_command_at), 3)

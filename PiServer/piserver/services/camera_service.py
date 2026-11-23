@@ -7,6 +7,7 @@ from typing import Optional
 from pathlib import Path
 
 from piserver.core.hardware_ownership import claim_hardware
+from piserver.core.latency_metrics import RollingLatency
 from piserver.services.motor_service import GPIO_AVAILABLE
 
 try:
@@ -85,6 +86,7 @@ class CameraService:
         self._retry_interval_s = 2.0
         self._capture_failures = 0
         self._reopen_after_failures = 2
+        self.performance = RollingLatency(('capture',))
 
         self._jpeg_frame: Optional[bytes] = None
         self._jpeg_seq = 0
@@ -506,6 +508,7 @@ class CameraService:
         last_preview_emit = 0.0
         while True:
             start_time = time.time()
+            capture_started = self.performance.start()
             with self._service_lock:
                 if not self._running:
                     break
@@ -539,6 +542,7 @@ class CameraService:
                     self.preview_live = False
                     self.last_error = error_text
                     self._capture_failures += 1
+                    self.performance.count('dropped_frames')
                     should_reopen = (
                         (self._picam2 is not None or self._capture is not None)
                         and self._capture_failures >= self._reopen_after_failures
@@ -581,6 +585,7 @@ class CameraService:
                 with self._frame_lock:
                     self._frame = preview_source
 
+            self.performance.observe_elapsed('capture', capture_started)
             elapsed = time.time() - start_time
             sleep_time = max(0.0, (1.0 / max(target_fps, 1)) - elapsed)
             if sleep_time > 0:
@@ -602,6 +607,9 @@ class CameraService:
         if shape is not None:
             return {"type": type(value).__name__, "shape": list(shape)}
         return repr(value)
+
+    def get_performance(self) -> dict:
+        return self.performance.snapshot()
 
     def get_diagnostics(self) -> dict:
         details = {
