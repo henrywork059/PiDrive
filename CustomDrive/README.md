@@ -1,5 +1,14 @@
 # CustomDrive
 
+## R45 UI token contracts (GUI 0_3_16 / Mission 1 0_5_26)
+
+Use [UI_DESIGN_TOKENS.md](UI_DESIGN_TOKENS.md) for new GUI or Mission 1
+panels. Their palettes and status meanings remain component-owned, and
+`theme.js`, existing CSS, saved style preferences, servo controls, timeline,
+and trigger guides are untouched. Run
+`node --test CustomDrive/tests/test_ui_style_tokens_r45.cjs` from repo root.
+This is a style-policy/drift-check update, not a theme migration.
+
 ## Mission 1 trigger threshold ruler and live readout (0_5_25, R44)
 
 Mission 1's existing camera preview now shows a small **100 / 50 / 0%**
