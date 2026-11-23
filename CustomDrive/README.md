@@ -1,5 +1,33 @@
 # CustomDrive
 
+## R47 failed-action tracing (GUI 0_3_18 / Mission 1 0_5_28)
+
+The general GUI and separate Mission 1 web app each install the same
+component-owned **failure-only** Flask response hook. Failed `/api/*`
+mutations return `correlation_id`, `operation`, and `X-Correlation-ID`
+while keeping the existing HTTP status and output keys, including
+`ok:false`/HTTP 200 and unsuccessful `saved:false` readbacks. A server log
+line `api_mutation_failure id=<ID> operation=<name> http_status=<status>`
+is generated once per failure, without the request body or credential/
+file-path values. No shared runtime module with PiServer/PiSD is required.
+
+GUI Drive Apply / AI Deploy and Mission 1 Save / Start / Upload / Arm pose
+display short error guidance with expandable **Error details**. Details
+show only the ID, server operation, HTTP status and bounded code. The
+frontends do not display arbitrary backend exception or request-body text
+for traced failures. R44's grip/drop-off readback confirmation and Mission
+Start/servo Save guard, R43 polling, R35 STOP, R33 timeline and user configs
+are unchanged. This is not a background telemetry exporter.
+
+Tests (repo root):
+```bash
+python -m unittest discover -s CustomDrive/tests -p 'test_request_trace_r47.py' -v
+node --test CustomDrive/tests/test_request_trace_ui_r47.cjs
+```
+Validate real Flask/GUI and Mission 1 pages on a Pi, failed Deploy and
+failed Start/Save, invalid config, 401/403 and unavailable server behavior,
+physical STOP, and consistency between displayed ID and one log entry.
+
 ## R45 UI token contracts (GUI 0_3_16 / Mission 1 0_5_26)
 
 Use [UI_DESIGN_TOKENS.md](UI_DESIGN_TOKENS.md) for new GUI or Mission 1
