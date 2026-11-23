@@ -823,3 +823,30 @@ code {
     grid-template-columns: 1fr;
   }
 }
+
+/* R33: compact server-observed mission timeline inside the existing viewer panel. */
+.mission-progress { margin: 12px 0; padding: 11px 12px; border-radius: 12px; border: 1px solid var(--border); background: rgba(12, 20, 37, .72); min-width: 0; }
+.mission-progress-head { display:flex; gap: 10px; align-items: center; justify-content: space-between; margin-bottom: 9px; }
+.mission-progress-head h3 { margin:0; font-size:.96rem; font-weight:700; }
+.mission-progress-outcome { border:1px solid var(--border); padding:3px 9px; border-radius:999px; font-size:.74rem; color:var(--muted); text-transform:capitalize; }
+.mission-progress-outcome[data-outcome="failed"] {color:#fda4af; border-color:rgba(239,68,68,.5);}
+.mission-progress-outcome[data-outcome="running"] {color:#86efac; border-color:rgba(34,197,94,.4);}
+.mission-progress-summary {display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px;}
+.mission-progress-reading {display:grid; gap:3px; min-width:0;}
+.mission-progress-reading > span {font-size:.72rem; color:var(--muted);}
+.mission-progress-reading > strong {font-size:.87rem; font-weight:700; line-height:1.35; overflow-wrap:anywhere;}
+.mission-progress-reading[data-current-state="failed"] strong, .mission-progress-reading[data-failure="present"] strong {color:#fda4af;}
+.mission-progress-reading[data-current-state="current"] strong {color:#7dd3fc;}
+.mission-progress-context {display:flex; flex-wrap:wrap; gap:3px 14px; margin-top:9px; color:var(--muted); font-size:.78rem; line-height:1.35;}
+.mission-progress-context span {min-width:0; overflow-wrap:anywhere;}
+.mission-progress-track {list-style:none; display:flex; flex-wrap:wrap; gap:7px 15px; padding:0; margin:11px 0 0; }
+.mission-progress-step {position:relative; display:grid; grid-template-columns:10px minmax(0,1fr); column-gap:6px; align-items:start; min-width:0; max-width:200px; font-size:.78rem;}
+.mission-progress-marker {width:9px; height:9px; border-radius:50%; border:2px solid #64748b; background:#0c1425; margin-top:3px;}
+.mission-progress-name {color:var(--text); font-weight:650; overflow-wrap:anywhere; line-height:1.25;}
+.mission-progress-meta {grid-column:2; font-size:.68rem; color:var(--muted);}
+.mission-progress-step[data-step-state="current"] .mission-progress-marker {background:#38bdf8; border-color:#38bdf8;}
+.mission-progress-step[data-step-state="completed"] .mission-progress-marker {background:#22c55e; border-color:#22c55e;}
+.mission-progress-step[data-step-state="failed"] .mission-progress-marker {background:#f87171; border-color:#f87171;}
+.mission-progress-step[data-step-state="interrupted"] .mission-progress-marker {background:#fbbf24; border-color:#fbbf24;}
+.mission-progress-empty {color:var(--muted); font-size:.81rem; margin:0;}
+@media (max-width:680px) { .mission-progress-summary {grid-template-columns:1fr;} .mission-progress-step {max-width:calc(50% - 8px);} }
