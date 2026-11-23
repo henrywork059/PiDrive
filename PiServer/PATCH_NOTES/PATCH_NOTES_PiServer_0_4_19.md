@@ -17,9 +17,14 @@ Built directly on unmerged **PR #33**, branch `update/piserver-0_4_18-safety-con
 
 ## Exact behavior
 Fresh = last unique decoded live JPEG younger than 1.5 s; Delayed = 1.5–6 s old or a recent failed request; Disconnected = >=6 s old, no successful frame, or backend reports offline. Display frame age in seconds using browser `performance.now()` (not wall-clock time). Repeated cached JPEG sequences do not update age; invalid/empty/decode-failed JPEGs cannot claim Live. Last good JPEG stays visible with `STALE` state and visual dimming. Sequential failures retry from 250 ms to 4 s with deterministic exponential backoff; a fresh unique JPEG resets retry delay and restores Live without user interaction. Hidden tabs retain the existing preview pause semantics and manual STOP-on-hide behavior. The legacy JPEG response body, route, access controls, cache headers and other camera APIs remain unchanged.
+- 3-second browser request timeout and missing/invalid JPEG sequence header rejection; neither hung network calls nor incomplete metadata can keep the preview marked Live.
 
-## Verification
-Client syntax and state-machine deterministic execution and Git tree anti-rollback compare are recorded in the corresponding draft PR. Node/Flask hardware-integration and camera sensor freshness testing are not represented as completed unless separately executed.
+## Verification actually performed
+- Executed the **exact 14 deterministic state tests** from `PiServer/tests/test_preview_freshness.cjs` in the connector's V8 runtime with a small CommonJS/assert adapter: **14/14 passed** (fresh, delayed, disconnected, recovery, repeated/invalid sequence, offline backend, failure, pause, bounded backoff).
+- Parsed the complete final `piserver/web/static/app.js` and `preview_freshness.js` with V8 JavaScript compilation: passed.
+- GitHub compare against immediate parent PR #33: all changes confined to PiServer; 7 paths (4 modified, 3 added), no deletions or unexpected restores; the E-stop confirmation and manual stop-on-hide hooks remain.
+- Reviewed the actual `PiServer/server.py` launcher and the existing `/api/camera/frame.jpg`, `/api/camera/preview_state`, `/api/status` endpoints. No motor/controller or config path changed.
+- **Not run:** `node tests/test_preview_freshness.cjs` as a Node process, Python compilation or Flask end-to-end tests against this GitHub branch, browser image-decode integration, Raspberry Pi camera or motor tests. V8 checks are not a substitute for device testing.
 
 ## Limits
 Sequence measures *published preview JPEG changes*, not physical sensor exposure time; backend Live validity is a separate signal. The server may hold a JPEG published just before a camera fault until it reports disconnected. The browser preserves the last decoded image only; no historical frames are written. Raspberry Pi camera, real reconnection and physical motor safety are unverified.
