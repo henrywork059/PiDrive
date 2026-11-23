@@ -1,5 +1,35 @@
 # PiBooter
 
+## R49 — Safe recent Wi-Fi events (0_1_8)
+
+PiBooter's existing `RuntimeState` already bounds its internal log using
+the configured `server.log_limit`. Its web UI now displays only an
+**allowlisted, sanitized projection**: Wi-Fi scan, connection success/failure,
+saved profile removal, hotspot start/stop, setup-window lifecycle and
+monitor errors. The page's old raw Recent log is replaced by a collapsed
+**Recent operator events (sanitized)** view with **Refresh events** and
+**Copy events**. The read-only `GET /api/recent-events` returns at most
+**80** events selected from the newest 200 internal log entries. No stored
+password, SSID, hotspot key, IP/MAC, connection name, raw nmcli output,
+exception text or filesystem path appears in this event export.
+
+This is intentionally a *projection*, not a new storage layer. The
+original private/local troubleshooting log, CSRF/origin restrictions,
+short startup setup window, existing NetworkManager actions and saved
+connection settings remain unchanged. PiBooter **does not control
+motors**; safety STOP event logging applies to PiServer/CustomDrive,
+not Wi-Fi onboarding. The browser fetch is on-demand when the collapsed
+view expands, with an optional Copy; no cloud telemetry or timer.
+
+From repository root:
+```bash
+cd PiBooter && python -m unittest discover -s tests -p 'test_recent_events_r49.py' -v
+cd ..
+node --test PiBooter/tests/test_recent_events_ui_r49.cjs
+```
+Review on a real Pi and confirm Wi-Fi password/SSID/paths are absent from
+exported history while scan/connect/failure events remain interpretable.
+
 PiBooter is a Raspberry Pi boot-time Wi-Fi onboarding service.
 
 When the Pi powers on and **does not already have a saved network active**, PiBooter can bring up a local setup hotspot so that you can use a **phone, tablet, or laptop** to tell the Pi which Wi-Fi network it should join.
