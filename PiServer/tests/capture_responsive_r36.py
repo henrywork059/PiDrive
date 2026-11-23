@@ -14,6 +14,8 @@ Example:
 
 Use the same output root for comparable baseline/patch shots. Do not click
 physical drive/STOP/arm controls during unattended screenshot collection.
+Screenshots may reveal private Wi-Fi names, LAN IPs or camera views: keep these
+output folders local and do not commit them as PR artifacts without redaction.
 """
 from __future__ import annotations
 
@@ -103,6 +105,7 @@ def capture_case(browser, config, suite: str, url: str, width: int,
         response = page.goto(url, wait_until="domcontentloaded", timeout=25000)
         if response is None or response.status >= 400:
             result["errors"].append("Page did not load successfully")
+            result["result"] = "fail"
             return result
         page.wait_for_timeout(350)
         result["document"] = page.evaluate("""() => ({
