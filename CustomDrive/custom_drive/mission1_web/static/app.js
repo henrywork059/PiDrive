@@ -329,7 +329,7 @@ function renderDetections(status) {
   const detections = status.detections || [];
   body.innerHTML = '';
   if (!detections.length) {
-    body.innerHTML = '<tr><td colspan="7" class="empty-cell">No detections in the latest AI output.</td></tr>';
+    body.innerHTML = '<tr><td colspan="7" class="empty-cell">No detections yet. Check the AI preview and model.</td></tr>';
     return;
   }
   for (const det of detections) {
@@ -580,7 +580,7 @@ function renderMissionTimeline(status) {
     </li>`;
   }).join('');
   root.innerHTML = `
-    <p class="mission-progress-disconnected" role="alert" hidden>Backend status unavailable. Progress below is the last confirmed snapshot, not live.</p>
+    <p class="mission-progress-disconnected" role="alert" hidden>Pi status unavailable. Reconnect to the Pi, then Refresh. Stages below are last confirmed.</p>
     <div class="mission-progress-head">
       <h3>Mission progress</h3>
       <span class="mission-progress-outcome" data-outcome="${escapeHtml(progress.outcome)}">${escapeHtml(progress.outcome)}</span>
