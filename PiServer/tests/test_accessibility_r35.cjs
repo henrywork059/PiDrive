@@ -1,0 +1,30 @@
+'use strict';
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const root = path.join(__dirname,'../piserver/web');
+const app = fs.readFileSync(path.join(root,'static/app.js'),'utf8');
+const html = fs.readFileSync(path.join(root,'templates/index.html'),'utf8');
+const css = fs.readFileSync(path.join(root,'static/styles.css'),'utf8');
+let count=0;
+function test(name,fn){fn();count++;process.stdout.write('PASS '+name+'\n');}
+new Function(app);
+const functions = app.slice(app.indexOf('function openStyleSettings() {'),app.indexOf('function resetStyleSettings() {'));
+const modal = {attributes:{},classList:{classes:new Set(['hidden']),add(key){this.classes.add(key);},remove(key){this.classes.delete(key);}},setAttribute(k,v){this.attributes[k]=v;}};
+const focus = {open:0,close:0};
+const elements={styleSettingsModal:modal,openStyleSettingsBtn:{focus(){focus.open++;}},closeStyleSettingsBtn:{focus(){focus.close++;}}};
+const document={getElementById(id){return elements[id];}};
+const modalApi=new Function('document','syncStyleInputsFromCurrentVars','styleManager',functions+'\nreturn {openStyleSettings,closeStyleSettings};')(
+  document,()=>{},()=>({applyTheme(){},getCurrentTheme(){return {};}}));
+test('style modal opens and focuses keyboard close',()=>{modalApi.openStyleSettings();assert.equal(focus.close,1);assert.equal(modal.attributes['aria-hidden'],'false');});
+test('style modal closes and restores opener focus',()=>{modalApi.closeStyleSettings();assert.equal(focus.open,1);assert.equal(modal.attributes['aria-hidden'],'true');});
+test('modal has labelled accessible dialog',()=>assert.equal(html.includes('role="dialog" aria-modal="true" aria-labelledby="styleSettingsTitle" aria-describedby="styleSettingsHelp"'),true));
+test('modal focus trap registered',()=>assert.equal(app.includes('event.shiftKey && document.activeElement === focusable[0]'),true));
+test('keyboard page navigation is named',()=>assert.equal(html.includes('<nav class="page-tabs" id="pageTabs" aria-label="PiServer pages">'),true));
+test('active page exposed as pressed',()=>assert.equal(app.includes('btn.setAttribute("aria-pressed"'),true));
+test('manual drive pad keyboard focus and description',()=>assert.equal(html.includes('id="joystickArea" class="joystick-area" role="group" tabindex="0"')&&html.includes('id="joystickKeyboardHint"'),true));
+test('motor keydown ignores native inputs and editable',()=>assert.equal(app.includes('event.target?.isContentEditable'),true));
+test('focus visible for all controls',()=>assert.equal(css.includes('[tabindex="0"]):focus-visible')&&css.includes('outline: 3px solid #ffca65'),true));
+test('reduced motion media query present',()=>assert.equal(css.includes('@media (prefers-reduced-motion: reduce)'),true));
+test('no new control fetch endpoint introduced',()=>assert.equal(!functions.includes('fetch(')&&!functions.includes('sendControlUpdate('),true));
+console.log(count+'/11 PiServer R35 accessibility tests passed');
