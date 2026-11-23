@@ -1219,8 +1219,10 @@ async function requestPreviewFrame() {
     return;
   }
   state.previewInFlight = true;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 3000);
   try {
-    const response = await fetch(`/api/camera/frame.jpg?t=${Date.now()}`, { cache: "no-store" });
+    const response = await fetch(`/api/camera/frame.jpg?t=${Date.now()}`, { cache: "no-store", signal: controller.signal });
     if (response.status === 204) throw new Error('No camera frame');
     if (!response.ok) throw new Error(`Preview request failed (${response.status})`);
     const live = response.headers.get('X-Preview-Live') === '1';
@@ -1251,6 +1253,7 @@ async function requestPreviewFrame() {
     // A failed request or JPEG decode never replaces the last successful frame.
     previewHealth.fail();
   } finally {
+    clearTimeout(timeoutId);
     state.previewInFlight = false;
     renderPreviewHealth();
     schedulePreviewFrame(false, previewHealth.retryDelay(previewDelayMs()));
