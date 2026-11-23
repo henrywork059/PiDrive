@@ -832,6 +832,17 @@ async function saveConfig() {
     if (data.ok !== true || !data.config || !data.status) {
       throw new Error(data.message || 'Server did not confirm saved trigger settings.');
     }
+    // Distinguish a successful HTTP/Save response from the effective Mission 1
+    // status used by the runtime. The two independently returned values must agree.
+    const savedArm = data.config.arm || {};
+    const effectiveArm = data.status.config?.arm || {};
+    for (const key of ['grip_trigger_y_ratio', 'dropoff_trigger_y_ratio']) {
+      const saved = Number(savedArm[key]);
+      const effective = Number(effectiveArm[key]);
+      if (!Number.isFinite(saved) || !Number.isFinite(effective) || Math.abs(saved - effective) > 0.0001) {
+        throw new Error(`Server readback disagrees on ${key}; trigger preview remains unsaved.`);
+      }
+    }
     triggerPreviewEdited = false; // only a server-confirmed save removes draft overlay
     populateConfig(data.config);
     currentStatus = data.status;
@@ -925,7 +936,7 @@ async function loadSelectedModel() {
 
 async function loadArmRole(role) {
   try {
-    await saveConfig();
+    if (!await saveConfig()) return; // never move a servo after an unconfirmed config save
     const data = await postJSON('/api/arm/load_role', { role });
     setMessage('armMessage', data.message || `Loaded ${role} pose.`);
     await refresh();
