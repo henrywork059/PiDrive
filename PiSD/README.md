@@ -9,7 +9,9 @@ behavior. The server-side camera, recording and motor services are **not**
 stopped by this display-only change. The existing Manual Drive fail-safe
 STOP on hide and AI correction/manual/assist/AI stop handlers run before
 the stream is paused. The existing per-page preview-FPS polls and readiness
-checks remain guarded.
+checks remain guarded. AI Mode's 250 ms **read-only UI status timer** skips
+hidden tabs and coalesces in-flight reads; it does not change the actual
+AI model inference or motor-control loop frequency.
 
 PiSD already supplies server `timestamp_utc` status freshness and measured
 frame sequence/age via `/api/camera/fps-stats`; R43 does not replace these
