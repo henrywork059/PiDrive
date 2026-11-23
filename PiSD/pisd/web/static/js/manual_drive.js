@@ -1250,7 +1250,7 @@
     lastPreviewSeq = null;
     lastPreviewSeqAt = 0;
     lastPreviewFps = null;
-    if (preview) preview.src = `/video_feed?t=${Date.now()}`;
+    if (preview && !document.hidden) preview.src = `/video_feed?t=${Date.now()}`;
     updatePreviewDebug({ mode: 'live', cameraRunning: true, frameAgeMs: null, fps: null, loopActive: Boolean(previewMetricsTimer), state: 'active' });
     startPreviewMetricsLoop();
     setShortStatus('Live MJPEG preview selected. Metrics loop is guarded so only one status/FPS poller runs.', 'PISD-OK-000');
@@ -1446,7 +1446,24 @@
     });
     window.addEventListener('pagehide', () => { stopPreviewMetricsLoop(); sendFailSafeStop('pagehide'); });
     window.addEventListener('beforeunload', () => sendFailSafeStop('beforeunload'));
-    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') { stopPreviewMetricsLoop(); sendFailSafeStop('visibility-hidden'); } else if (currentPreviewMode === 'live' || currentPreviewMode === 'snapshot') { startPreviewMetricsLoop(); } });
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        // R43: release the MJPEG HTTP response while hidden. Stop/authorization
+        // handling remains independent and always has priority.
+        stopPreviewMetricsLoop();
+        sendFailSafeStop('visibility-hidden');
+        if (currentPreviewMode === 'live' && preview) {
+          preview.src = PREVIEW_IDLE_SRC;
+          updatePreviewDebug({ mode: 'live', state: 'paused', loopActive: false });
+        }
+      } else if (currentPreviewMode === 'live' || currentPreviewMode === 'snapshot') {
+        if (currentPreviewMode === 'live' && preview) {
+          preview.src = `/video_feed?t=${Date.now()}`;
+        }
+        startPreviewMetricsLoop();
+        void pollOperatingReadiness();
+      }
+    });
     speed?.addEventListener('input', () => { updateSliderLabels(); persistManualSettings(); setKnobForCommand(lastPayload.steering, lastPayload.throttle); });
     bindPad();
     bindKeyboardDrive();
