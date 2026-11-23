@@ -1192,7 +1192,7 @@
     els.aiPreviewFrame.dataset.previewState = mode;
     els.aiPreviewFrame.dataset.previewMode = mode;
     els.aiPreviewImage.dataset.previewMode = mode;
-    els.aiPreviewImage.src = src || IDLE_PREVIEW_SRC;
+    els.aiPreviewImage.src = mode === 'live' && document.hidden ? IDLE_PREVIEW_SRC : (src || IDLE_PREVIEW_SRC);
     els.aiPreviewCaption.textContent = mode === 'live'
       ? 'Live stream running. The overlay is drawn from the latest corrected AI safe command.'
       : mode === 'snapshot'
@@ -1760,7 +1760,21 @@
       if (aiAssistPanelActive()) navigator.sendBeacon?.('/api/control/stop', new Blob([JSON.stringify({ reason: 'ai-assist-pagehide' })], { type: 'application/json' }));
       if (aiRunning) navigator.sendBeacon?.('/api/ai/stop', new Blob([JSON.stringify({})], { type: 'application/json' }));
     });
-    document.addEventListener('visibilitychange', () => { if (document.hidden) { resetManualCorrection('ai-correction-hidden'); if (manualDrivePanelActive()) stopFullManualDrive('ai-manual-hidden'); if (aiAssistPanelActive()) stopAssistDrive('ai-assist-hidden'); if (aiRunning) navigator.sendBeacon?.('/api/ai/stop', new Blob([JSON.stringify({})], { type: 'application/json' })); } });
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        // Existing safety STOP paths take precedence over stream throttling.
+        resetManualCorrection('ai-correction-hidden');
+        if (manualDrivePanelActive()) stopFullManualDrive('ai-manual-hidden');
+        if (aiAssistPanelActive()) stopAssistDrive('ai-assist-hidden');
+        if (aiRunning) navigator.sendBeacon?.('/api/ai/stop', new Blob([JSON.stringify({})], { type: 'application/json' }));
+        if (els.aiPreviewFrame?.dataset.previewMode === 'live' && els.aiPreviewImage) {
+          els.aiPreviewImage.src = IDLE_PREVIEW_SRC; // close hidden MJPEG HTTP stream
+        }
+      } else if (els.aiPreviewFrame?.dataset.previewMode === 'live' && els.aiPreviewImage) {
+        els.aiPreviewImage.src = `/video_feed?t=${Date.now()}`;
+        void pollOperatingReadiness(); // immediate fresh server state
+      }
+    });
   }
 
   enforceFullScaleThrottleRanges();
