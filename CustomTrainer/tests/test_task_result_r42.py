@@ -184,14 +184,22 @@ class TaskResultTests(unittest.TestCase):
         run.observe("[save-dir] runs/not-yet-created")
         run.finish(0)
         self.assertEqual(run.state, "Failed")
-        self.assertIn("could not be verified", run.reason)
+        self.assertIn("neither a completed output nor validation metrics", run.reason)
 
-    def test_metrics_without_output_not_success(self):
+    def test_metrics_without_output_succeeds_without_open_location(self):
         run = self.begin()
         run.observe("[metrics] mAP50=0.9")
         run.finish(0)
-        self.assertEqual(run.state, "Failed")
+        self.assertEqual(run.state, "Succeeded")
+        self.assertIsNone(run.verified_path())
         self.assertIn("mAP50=0.9", run.display_text())
+        self.assertIn("Reported output path (unconfirmed)", run.display_text())
+
+    def test_validation_without_metrics_or_files_is_failure(self):
+        run = self.begin()
+        run.finish(0)
+        self.assertEqual(run.state, "Failed")
+        self.assertIsNone(run.verified_path())
 
     def test_missing_validation_metrics_show_unknown(self):
         out = self.put_output()
