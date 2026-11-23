@@ -153,6 +153,6 @@ def build_mission1_preflight(
         disk_check(project_root),
         _network_row(),
     ]
-    return _common_result("CustomDrive Mission 1",
-                          "running" if mission_running else
-                          "hardware-adapter" if gpio else "simulation", checks)
+    # Preserve physical-vs-simulated distinction even while a mission runs.
+    mode = ("hardware-adapter" if gpio else "simulation") + ("-running" if mission_running else "")
+    return _common_result("CustomDrive Mission 1", mode, checks)
