@@ -216,20 +216,40 @@ class PreprocessPage(DockPage):
         self.apply_recipe(source_df=source_df, message_prefix='Auto preprocessing complete')
 
     def preview_recipe(self, *, message_prefix: str = 'Preview ready') -> None:
+        if self.task_runner.active:
+            self.log_panel.append_line('A preprocessing task is already running.')
+            return
         self._preprocess_applied = False
-        source_df = self._source_df()
+        source_df = self._source_df().copy(deep=True)
         recipe = self.current_recipe()
-        result_df, summary = apply_preprocessing_recipe(source_df, recipe)
-        preview_text = format_preprocess_preview(summary, recipe)
-        self.result_panel.set_preview_text(preview_text)
-        self.result_panel.set_status_preview(
-            f"Preview ready: {summary['rows_after']} active row(s), {summary['generated_rows']} generated. Not applied yet."
-        )
-        self.summary_panel.set_preview_counts(summary)
-        self._activate_preview_tab()
-        self.main_window.set_status_message(f'{message_prefix}: {len(result_df)} active row(s) after synthesis.')
-        self.log_panel.append_line(
-            f"{message_prefix} -> {summary['rows_after']} active row(s), generated {summary['generated_rows']} synthetic row(s)."
+        source_identity = (id(self.state.dataset_df), id(self.state.filtered_df), tuple(self.state.selected_sessions))
+
+        def work(report):
+            report('Calculating preprocessing preview', None)
+            return apply_preprocessing_recipe(source_df, recipe)
+
+        def completed(result):
+            if source_identity != (id(self.state.dataset_df), id(self.state.filtered_df), tuple(self.state.selected_sessions)):
+                raise RuntimeError('Dataset changed during preview; discard the stale result and preview again.')
+            result_df, summary = result
+            preview_text = format_preprocess_preview(summary, recipe)
+            self.result_panel.set_preview_text(preview_text)
+            self.result_panel.set_status_preview(
+                f"Preview ready: {summary['rows_after']} active row(s), {summary['generated_rows']} generated. Not applied yet."
+            )
+            self.summary_panel.set_preview_counts(summary)
+            self._activate_preview_tab()
+            self.main_window.set_status_message(f'{message_prefix}: {len(result_df)} active row(s) after synthesis.')
+            self.log_panel.append_line(
+                f"{message_prefix} -> {summary['rows_after']} active row(s), generated {summary['generated_rows']} synthetic row(s)."
+            )
+            return ('Preview ready — not applied', ())
+
+        self.task_runner.start(
+            'Preview preprocessing', work, completed,
+            on_failure=lambda error: (self.result_panel.set_status_warning(f'Preprocess preview failed: {error}'),
+                                      self.log_panel.append_line(f'Preprocess preview failed: {error}')),
+            controls=(self.actions_panel, self.filter_panel, self.config_panel),
         )
 
     def apply_recipe(self, *, source_df: pd.DataFrame | None = None, message_prefix: str = 'Preprocess applied') -> None:
