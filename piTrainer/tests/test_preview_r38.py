@@ -296,5 +296,54 @@ class PreviewGenerationTests(unittest.TestCase):
         self.assertEqual(panel.image_label.image, ('paint', 'flipped.jpg', 'flipped'))
 
 
+# Optional genuine Qt pixel/overlay tests, in addition to the 13 pure-Python
+# policy tests above. Do not treat skipped tests as hardware/GUI validation.
+try:
+    os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
+    from PySide6.QtGui import QColor, QImage
+    from PySide6.QtWidgets import QApplication
+    from piTrainer.utils.image_utils import load_scaled_pixmap as qt_load_scaled_pixmap
+    from piTrainer.services.data.overlay_service import apply_overlays
+except ImportError:
+    QApplication = None
+
+
+@unittest.skipUnless(QApplication is not None, 'real PySide6 Qt runtime unavailable')
+class RealQtImageTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.app = QApplication.instance() or QApplication([])
+
+    def test_left_right_flip_reverses_pixels_not_labels(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = QImage(8, 4, QImage.Format_RGB32)
+            for y in range(4):
+                for x in range(8):
+                    image.setPixelColor(x, y, QColor('red' if x < 4 else 'blue'))
+            path = str(Path(tmp) / 'orientation.png')
+            self.assertTrue(image.save(path))
+            normal = qt_load_scaled_pixmap(path, 80, 40)
+            flipped = qt_load_scaled_pixmap(path, 80, 40, flip_lr=True)
+            self.assertGreater(normal.toImage().pixelColor(4, 20).red(), 200)
+            self.assertGreater(flipped.toImage().pixelColor(4, 20).blue(), 200)
+
+    def test_existing_overlay_keeps_scaled_image_dimensions(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = QImage(426, 240, QImage.Format_RGB32)
+            image.fill(QColor('#304050'))
+            path = str(Path(tmp) / 'overlay.png')
+            self.assertTrue(image.save(path))
+            base = qt_load_scaled_pixmap(path, 640, 360)
+            options = {
+                'path_preview': True, 'legacy_path_preview': False,
+                'speed_vertical': True, 'steering_horizontal': False,
+                'steering_arc': True, 'drive_arrow': False,
+            }
+            overlaid = apply_overlays(
+                base, {'steering': 0.3, 'throttle': 0.4, 'overlay_settings': {}}, options)
+            self.assertFalse(overlaid.isNull())
+            self.assertEqual(overlaid.size(), base.size())
+
+
 if __name__ == '__main__':
     unittest.main()
