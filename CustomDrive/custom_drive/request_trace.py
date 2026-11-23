@@ -11,7 +11,7 @@ import secrets
 from typing import Any
 
 _MUTATION_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
-_SECRET_KEYS = re.compile(r"password|passwd|passphrase|secret|token|authorization|cookie|api[_-]?key|credential", re.I)
+_SECRET_KEYS = re.compile(r"password|passwd|passphrase|secret|token|authorization|cookie|api[_-]?key|credential|traceback|stack", re.I)
 _PATH_KEYS = re.compile(r"(?:^|_)(?:path|directory|dirname|filename|file_path)(?:$|_)", re.I)
 _SECRET_VALUES = re.compile(
     r"(?:\b(?:password|passwd|passphrase|secret|token|authorization|api[_-]?key)\s*[:=]\s*)(?:\"[^\"]*\"|'[^']*'|\S+)",
@@ -32,6 +32,7 @@ def safe_diagnostic_text(value: Any, *, limit: int = 240) -> str:
     result = str(value or "")
     result = _URLS.sub("[redacted URL]", result)
     result = _SECRET_VALUES.sub("[redacted credential]", result)
+    result = re.sub(r"(?i)\b(?:path|filepath|file|directory)\s*[:=]\s*(?:\\"[^\\"]*\\"|\'[^\']*\'|\S+)", "[redacted path]", result)
     result = _BEARER.sub("Bearer [redacted]", result)
     result = _ABSOLUTE_PATHS.sub("[redacted path]", result)
     result = re.sub(r"[\r\n\t]+", " ", result)
