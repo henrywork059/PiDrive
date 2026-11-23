@@ -85,6 +85,8 @@ class ExportPage(DockPage):
         )
 
     def export_model(self) -> None:
+        if not self.main_window.can_start_task(self):
+            return
         if self.task_runner.active:
             self.log_panel.append_line('Export is already running.')
             return
