@@ -87,11 +87,11 @@ class ExportPage(DockPage):
         if not self.main_window.can_start_task(self):
             return
         if self.task_runner.active:
-            self.log_panel.append_line('Export is already running.')
+            self.log_panel.append_line('Export in progress. Wait for completion before starting another export.')
             return
         self.options_panel.push_to_state()
         if self.state.model is None:
-            self.log_panel.append_line('No trained model available. Train a model first.')
+            self.log_panel.append_line('No model to export. Open Train and complete training first.')
             return
         train_page = getattr(self.main_window, 'train_page', None)
         if train_page is not None and train_page.has_active_task():
@@ -169,7 +169,7 @@ class ExportPage(DockPage):
         def failed(error):
             self.actions_panel.set_export_status(f'Export failed:\n{error}', success=False)
             self.log_panel.append_line(f'ERROR: {error}')
-            self.main_window.set_status_message('Export failed. Incomplete files are not confirmed as exports.')
+            self.main_window.set_status_message('Export failed. Review Export Log, then retry; partial files are not confirmed.')
 
         self.task_runner.start(
             'Model export', work, completed, on_failure=failed,
