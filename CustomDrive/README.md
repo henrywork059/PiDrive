@@ -1,5 +1,40 @@
 # CustomDrive
 
+## R48 passive GUI and Mission 1 preflight (GUI 0_3_19 / Mission 1 0_5_29)
+
+The general **Status / System** panel and the separate Mission 1 **Setup**
+panel now each contain a collapsed, read-only **Startup preflight**.
+Page load and **Refresh checks** call only `GET /api/preflight` in the
+respective Flask app, using already-created service status getters and
+`shutil.disk_usage`. No physical or simulated motor/servo command, camera
+start, AI model load, mission start, configuration save or external network
+probe is part of the preflight handler.
+
+Seven checks show mode, camera, model/AI, GPIO motor adapter and safety,
+**arm servo** backend (disabled / simulated / physical-but-unproven),
+disk space, and browser-to-server HTTP reachability. A Mission 1 camera
+not yet created before route completion is reported as **deferred/expected**
+rather than silently started. The selected model is also distinguished
+from one actually loaded later during mission stages. Even while a mission
+runs, the response mode remains `simulation-running` vs
+`hardware-adapter-running` to avoid false physical readiness. Existing
+R44 Grip/Drop-off trigger positions, STOP, rearm and Save-before-Start
+guards remain authoritative.
+
+Targeted tests, from repo root:
+```bash
+cd CustomDrive
+python -m unittest discover -s tests -p 'test_preflight_r48.py' -v
+cd ..
+node --test CustomDrive/tests/test_preflight_gui_ui_r48.cjs
+node --test CustomDrive/tests/test_preflight_mission_ui_r48.cjs
+```
+On real hardware, verify both pages at mobile and desktop widths, status
+during motor/arm simulation and missing I2C, deferred camera, missing
+Mission model, low disk and 401/403/500. Run previous R33/R35/R36/
+R43/R44/R45/R46/R47 checks. No cross-component UI stylesheet or config
+migration is introduced.
+
 ## R47 failed-action tracing (GUI 0_3_18 / Mission 1 0_5_28)
 
 The general GUI and separate Mission 1 web app each install the same
