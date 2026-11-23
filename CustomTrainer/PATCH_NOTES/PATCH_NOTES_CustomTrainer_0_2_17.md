@@ -21,7 +21,7 @@ Native/Export Validate preview placeholders gave only `No preview` and task-bloc
 
 ## Verification actually performed
 - 18/18 actual source-contract checks passed against live GitHub files, including task-result panel preservation and separate native/exported vocabulary. Eight Python AST cases committed but not run against exact checkout.
-- Direct-parent GitHub comparison and no-rollback checks must be completed before opening the draft PR; do not claim checks not performed.
+- **Direct-parent GitHub comparison completed:** 6 files changed (2 new, 4 modified); 0 commits behind R42, no deleted paths or edits outside CustomTrainer; R41 annotation state, R42 result and verified-output widget, U27 manifest, U25 dataset cache and worker logic untouched.
 - Tests that **remain outstanding**: native `node --test` or Python `unittest` on a checked-out current branch, full component suites, browser interaction/screenshots, live Raspberry Pi motor/camera/network or Windows Qt integration. V8 test callbacks are not native Node's test runner.
 - Version marker only advances this component's existing version series; saved config and user data stay intact.
 
