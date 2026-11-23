@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+from pathlib import Path
+
+from ..app_state import ExportConfig, TrainConfig
 
 from ..app_state import AppState
 from ..panels.common.log_panel import LogPanel
+from ..panels.common.task_progress_panel import TaskProgressPanel
+from ..services.background_task import BackgroundTaskRunner
 from ..panels.export.export_actions_panel import ExportActionsPanel
 from ..panels.export.export_options_panel import ExportOptionsPanel
 from ..panels.export.model_status_panel import ModelStatusPanel
@@ -22,6 +27,9 @@ class ExportPage(DockPage):
         self.options_panel = ExportOptionsPanel(self.state)
         self.actions_panel = ExportActionsPanel(self.export_model)
         self.log_panel = LogPanel('Export Log')
+        self.task_progress = TaskProgressPanel()
+        self.actions_panel.layout().addWidget(self.task_progress)
+        self.task_runner = BackgroundTaskRunner(self.task_progress, self)
         self.build_default_layout()
         self.restore_layout()
 
@@ -76,51 +84,86 @@ class ExportPage(DockPage):
         )
 
     def export_model(self) -> None:
+        if self.task_runner.active:
+            self.log_panel.append_line('Export is already running.')
+            return
         self.options_panel.push_to_state()
         if self.state.model is None:
             self.log_panel.append_line('No trained model available. Train a model first.')
             return
-        try:
-            created = export_model_artifacts(
-                model=self.state.model,
-                export_config=self.state.export_config,
-                train_df=self.state.train_df,
-                train_config=self.state.train_config,
-            )
-        except Exception as exc:
-            self.actions_panel.set_export_status(f'Export failed:\n{exc}', success=False)
-            self.log_panel.append_line(f'ERROR: {exc}')
-            self.main_window.set_status_message('Export failed.')
+        train_page = getattr(self.main_window, 'train_page', None)
+        if train_page is not None and train_page.has_active_task():
+            self.log_panel.append_line('Wait for training to finish before exporting the model.')
             return
 
-        latest_tflite_path = ''
-        saved_lines: list[str] = []
-        for item in created:
-            size_label = getattr(item, 'size_label', '')
-            suffix = f' ({size_label})' if size_label else ''
-            kind = getattr(item, "kind", "artifact")
-            path = getattr(item, "path", item)
-            self.log_panel.append_line(f'Created {kind}: {path}{suffix}')
-            saved_lines.append(f'{kind} -> {path}{suffix}')
-            if str(kind).lower() == '.tflite' or str(path).lower().endswith('.tflite'):
-                latest_tflite_path = str(path)
-            for note in getattr(item, 'notes', ()): 
-                self.log_panel.append_line(f'  Note: {note}')
-        if saved_lines:
-            self.actions_panel.set_export_status(
-                'Saved exported model file(s):\n' + '\n'.join(saved_lines),
-                success=True,
+        model = self.state.model
+        export_config = ExportConfig(**vars(self.state.export_config))
+        train_config = TrainConfig(**vars(self.state.train_config))
+        train_df = self.state.train_df.copy(deep=True)
+        self.actions_panel.set_export_status('Export running — no output confirmed yet.')
+
+        def work(report):
+            report('Preparing model export', None)
+            return export_model_artifacts(
+                model=model, export_config=export_config,
+                train_df=train_df, train_config=train_config,
+                progress_callback=report,
             )
-            self.log_panel.append_line('Saved exported model file(s):')
-            for line in saved_lines:
-                self.log_panel.append_line(f'  {line}')
-        if latest_tflite_path:
-            self.state.last_exported_tflite_path = latest_tflite_path
-            export_validation_page = getattr(self.main_window, 'export_validation_page', None)
-            if export_validation_page is not None:
-                export_validation_page.set_exported_tflite_path(latest_tflite_path)
-            self.log_panel.append_line(f'Linked exported TFLite model to 6 TFLite Check: {latest_tflite_path}')
-        self.log_panel.append_line('Export finished. TensorFlow converter details are summarised above; non-fatal internal converter chatter is suppressed.')
-        self.main_window.set_status_message(
-            'Export saved: ' + '; '.join(saved_lines) if saved_lines else 'Export finished. Next: 6 TFLite Check.'
+
+        def completed(created):
+            if not created:
+                raise RuntimeError('Exporter returned no completed artifacts.')
+            for item in created:
+                path = Path(item.path)
+                sidecar = Path(str(path) + '.manifest.json')
+                if not path.is_file() or not sidecar.is_file():
+                    raise RuntimeError(f'Output or manifest missing after export: {path}')
+            latest_tflite_path = ''
+            saved_lines: list[str] = []
+            for item in created:
+                size_label = getattr(item, 'size_label', '')
+                suffix = f' ({size_label})' if size_label else ''
+                kind = getattr(item, "kind", "artifact")
+                path = getattr(item, "path", item)
+                self.log_panel.append_line(f'Created {kind}: {path}{suffix}')
+                saved_lines.append(f'{kind} -> {path}{suffix}')
+                if str(kind).lower() == '.tflite' or str(path).lower().endswith('.tflite'):
+                    latest_tflite_path = str(path)
+                for note in getattr(item, 'notes', ()): 
+                    self.log_panel.append_line(f'  Note: {note}')
+            if saved_lines:
+                self.actions_panel.set_export_status(
+                    'Saved exported model file(s):\n' + '\n'.join(saved_lines),
+                    success=True,
+                )
+                self.log_panel.append_line('Saved exported model file(s):')
+                for line in saved_lines:
+                    self.log_panel.append_line(f'  {line}')
+            if latest_tflite_path:
+                self.state.last_exported_tflite_path = latest_tflite_path
+                export_validation_page = getattr(self.main_window, 'export_validation_page', None)
+                if export_validation_page is not None:
+                    export_validation_page.set_exported_tflite_path(latest_tflite_path)
+                self.log_panel.append_line(f'Linked exported TFLite model to 6 TFLite Check: {latest_tflite_path}')
+            self.log_panel.append_line('Export finished. TensorFlow converter details are summarised above; non-fatal internal converter chatter is suppressed.')
+            self.main_window.set_status_message(
+                'Export saved: ' + '; '.join(saved_lines) if saved_lines else 'Export finished. Next: 6 TFLite Check.'
+            )
+
+            output_paths = []
+            for item in created:
+                output_paths.extend((str(item.path), str(item.path) + '.manifest.json'))
+            return (f"Export complete: {len(created)} model(s)", output_paths)
+
+        def failed(error):
+            self.actions_panel.set_export_status(f'Export failed:\n{error}', success=False)
+            self.log_panel.append_line(f'ERROR: {error}')
+            self.main_window.set_status_message('Export failed. Incomplete files are not confirmed as exports.')
+
+        self.task_runner.start(
+            'Model export', work, completed, on_failure=failed,
+            controls=(self.actions_panel.export_btn, self.options_panel),
         )
+
+    def has_active_task(self) -> bool:
+        return self.task_runner.active
