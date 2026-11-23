@@ -54,7 +54,11 @@ async function fetchJSON(path, options = undefined) {
     data = {};
   }
   if (!res.ok) {
-    throw new Error(data.message || `Request failed: ${res.status}`);
+    const fallback = res.status === 403 ? 'Permission denied. Open Mission 1 using an authorized Pi connection.'
+      : res.status === 401 ? 'Session expired. Reconnect to the Pi, then retry.'
+      : res.status >= 500 ? 'Mission 1 service unavailable. Check the Pi, then Refresh.'
+      : `Request failed (${res.status}). Check inputs, then retry.`;
+    throw new Error(data.message || fallback);
   }
   return data;
 }
@@ -307,7 +311,7 @@ function renderModelList(status) {
   if (!models.length) {
     const option = document.createElement('option');
     option.value = '';
-    option.textContent = 'No uploaded models';
+    option.textContent = 'No models on Pi — upload a .tflite model';
     select.appendChild(option);
     return;
   }
@@ -898,7 +902,7 @@ async function uploadModel() {
   const input = document.getElementById('modelUpload');
   const file = input.files && input.files[0];
   if (!file) {
-    setMessage('modelMessage', 'Choose a .tflite model first.', true);
+    setMessage('modelMessage', 'Choose a .tflite file to upload to the Pi.', true);
     return;
   }
   const formData = new FormData();
@@ -923,7 +927,7 @@ async function uploadModel() {
 async function loadSelectedModel() {
   const select = document.getElementById('modelSelect');
   if (!select.value) {
-    setMessage('modelMessage', 'No uploaded model selected.', true);
+    setMessage('modelMessage', 'No model selected. Upload a .tflite model, then choose it.', true);
     return;
   }
   try {
@@ -977,7 +981,7 @@ async function refresh() {
     renderStatus(status);
   } catch (err) {
     statusFailures = Math.min(4, statusFailures + 1);
-    setMessage('configMessage', err.message || 'Refresh failed.', true);
+    setMessage('configMessage', err.message || 'Cannot refresh Mission 1. Check the Pi connection, then Refresh.', true);
     const progressRoot = document.getElementById('missionTimeline');
     if (progressRoot) {
       progressRoot.dataset.connection = 'disconnected';
