@@ -7,6 +7,7 @@ from ..panels.common.log_panel import LogPanel
 from ..panels.common.task_progress_panel import TaskProgressPanel
 from ..services.background_task import BackgroundTaskRunner
 from ..services.task_outputs import confirmed_model_paths
+from ..services.train.experiment_service import attach_model_artifact
 from ..panels.export.export_actions_panel import ExportActionsPanel
 from ..panels.export.export_options_panel import ExportOptionsPanel
 from ..panels.export.model_status_panel import ModelStatusPanel
@@ -102,19 +103,35 @@ class ExportPage(DockPage):
         train_config = TrainConfig(**vars(self.state.train_config))
         train_df = self.state.train_df.copy(deep=True)
         self.actions_panel.set_export_status('Export running — no output confirmed yet.')
+        provenance = train_page.provenance_for_model(model) if train_page is not None else None
 
         def work(report):
             report('Preparing model export', None)
-            return export_model_artifacts(
+            created = export_model_artifacts(
                 model=model, export_config=export_config,
                 train_df=train_df, train_config=train_config,
                 progress_callback=report,
             )
+            linked = None
+            experiment_paths = []
+            if provenance is not None:
+                linked, root = provenance
+                for artifact in created:
+                    report(f'Linking experiment provenance: {artifact.kind}', None)
+                    linked, sidecar = attach_model_artifact(root, linked, artifact.path)
+                    experiment_paths.append(str(sidecar))
+            return created, linked, experiment_paths
 
-        def completed(created):
+        def completed(result):
+            created, linked, experiment_paths = result
             if not created:
                 raise RuntimeError('Exporter returned no completed artifacts.')
             output_paths = confirmed_model_paths(item.path for item in created)
+            if linked is not None and train_page is not None:
+                train_page.note_model_run_artifacts(model, linked)
+                output_paths = (*output_paths, *experiment_paths)
+            elif provenance is None:
+                self.log_panel.append_line('Experiment provenance: Unknown (model has no tracked R40 training run).')
             latest_tflite_path = ''
             saved_lines: list[str] = []
             for item in created:
