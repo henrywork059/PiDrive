@@ -90,7 +90,7 @@ async function fetchJSON(path, options = undefined) {
   } catch (_err) {
     data = {};
   }
-  if (!res.ok || data?.ok === false || data?.saved === false) {
+  if (!res.ok || data?.ok === false || (data?.saved === false && !['GET', 'HEAD'].includes(String(options?.method || 'GET').toUpperCase()))) {
     const fallback = res.status === 403 ? 'Permission denied. Open Mission 1 using an authorized Pi connection.'
       : res.status === 401 ? 'Session expired. Reconnect to the Pi, then retry.'
       : res.status >= 500 ? 'Mission 1 service unavailable. Check the Pi, then Refresh.'
