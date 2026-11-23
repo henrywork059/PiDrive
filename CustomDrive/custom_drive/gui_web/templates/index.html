@@ -82,7 +82,7 @@
             <button id="armCloseBtn" class="control-btn arm-btn arm-grip-btn secondary-btn" type="button">Close</button>
           </div>
           <div class="small-note">Hold the direct buttons to move servo 0 and servo 1. Open / Close still control servo 2.</div>
-          <div id="armMessage" class="banner muted">Arm ready.</div>
+          <div id="armMessage" class="banner muted" role="status" aria-live="polite">Arm ready.</div>
         </div>
       </article>
 
@@ -107,13 +107,14 @@
         </div>
         <div class="panel-body scroll-body manual-body">
           <div class="manual-readout" id="joystickText">Steering 0.00 · Throttle 0.00</div>
-          <div id="joystickArea" class="joystick-area" aria-label="Drag pad for manual drive">
+          <div id="joystickArea" class="joystick-area" role="group" aria-label="Pointer-operated steering and throttle pad" aria-describedby="drivePadHelp">
             <div class="pad-axis axis-x"></div>
             <div class="pad-axis axis-y"></div>
             <div id="joystickDot" class="joystick-dot"></div>
           </div>
-          <div class="pad-note">Drag to steer and throttle. Release to stop.</div>
-          <div id="driveMessage" class="banner muted">Manual drive ready.</div>
+          <div class="pad-note" id="drivePadHelp">Drag or touch to steer and throttle. Release to stop. Keyboard users can activate STOP manual output below. Keyboard motor-driving shortcuts are intentionally not enabled.</div>
+          <button id="manualStopBtn" class="danger-btn" type="button">STOP manual output</button>
+          <div id="driveMessage" class="banner muted" role="status" aria-live="polite">Manual drive ready.</div>
         </div>
       </article>
 
@@ -121,9 +122,9 @@
   </main>
 
   <div id="driveSettingsModal" class="modal-backdrop hidden" aria-hidden="true">
-    <div class="modal-window">
+    <div class="modal-window" role="dialog" aria-modal="true" aria-labelledby="driveSettingsDialogTitle">
       <div class="panel-head">
-        <span>Drive Settings</span>
+        <span id="driveSettingsDialogTitle">Drive Settings</span>
         <button class="ghost-btn" id="closeDriveSettingsBtn" type="button">Close</button>
       </div>
       <div class="panel-body scroll-body modal-body">
@@ -186,9 +187,9 @@
   </div>
 
   <div id="aiSettingsModal" class="modal-backdrop hidden" aria-hidden="true">
-    <div class="modal-window ai-modal-window">
+    <div class="modal-window ai-modal-window" role="dialog" aria-modal="true" aria-labelledby="aiSettingsDialogTitle">
       <div class="panel-head">
-        <span>AI Settings</span>
+        <span id="aiSettingsDialogTitle">AI Settings</span>
         <button class="ghost-btn" id="closeAiSettingsBtn" type="button">Close</button>
       </div>
       <div class="panel-body scroll-body modal-body ai-modal-body">
@@ -300,9 +301,9 @@
   </div>
 
   <div id="styleSettingsModal" class="modal-backdrop hidden" aria-hidden="true">
-    <div class="modal-window">
+    <div class="modal-window" role="dialog" aria-modal="true" aria-labelledby="styleSettingsDialogTitle">
       <div class="panel-head">
-        <span>Style Settings</span>
+        <span id="styleSettingsDialogTitle">Style Settings</span>
         <button class="ghost-btn" id="closeStyleSettingsBtn" type="button">Close</button>
       </div>
       <div class="panel-body scroll-body modal-body">
