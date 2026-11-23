@@ -680,13 +680,13 @@ async function saveDriveSettings() {
     // Persist the now-applied runtime settings without sending another motor command.
     const saved = await postJson('/api/gui/runtime/save', {});
     if (saved?.ok !== true || saved?.saved !== true || !saved.config
-      || !settingsMatch(drive, saved.config) || !settingsMatch(motor, saved.config.motor || {})) {
+      || !settingsMatch(drive, saved.config) || !settingsMatch(appliedMotor.config, saved.config.motor || {})) {
       throw new Error(saved?.message || 'Saved runtime settings did not match the requested values.');
     }
     const [backendMotor, backendState] = await Promise.all([
       fetchJson('/api/motor/config'), fetchJson('/api/status')
     ]);
-    if (backendMotor?.ok !== true || !settingsMatch(motor, backendMotor.config || {})
+    if (backendMotor?.ok !== true || !settingsMatch(appliedMotor.config, backendMotor.config || {})
       || !settingsMatch(drive, backendState || {})) {
       throw new Error('Drive settings did not match live backend readback.');
     }
@@ -695,7 +695,10 @@ async function saveDriveSettings() {
       state.steerMix = drive.steer_mix;
       state.steerBias = drive.steer_bias;
     }
-    feedback.complete(token, true, 'Drive settings saved and confirmed by live and persisted backend readback.');
+    feedback.complete(token, true,
+      settingsMatch(motor, appliedMotor.config)
+        ? 'Drive settings saved and confirmed by live and persisted backend readback.'
+        : 'Backend normalized motor settings; saved and live readback confirmed.');
     setBanner('driveSettingsMessage', 'Drive settings confirmed.', 'good');
     await pollStatus();
   } catch (error) {
@@ -986,10 +989,13 @@ async function saveAiConfigOnly() {
     const verified = await fetchJson('/api/manual-config');
     const actual = verified?.config?.ai;
     if (verified?.ok !== true || !actual
-      || !settingsMatch(requested, actual) || !settingsMatch(data.config, actual)) {
+      || !settingsMatch(data.config, actual)) {
       throw new Error('AI settings did not match saved backend readback.');
     }
-    feedback.complete(token, true, 'AI configuration saved and confirmed by backend.');
+    feedback.complete(token, true,
+      settingsMatch(requested, actual)
+        ? 'AI configuration saved and confirmed by backend.'
+        : 'Backend normalized AI configuration; accepted values confirmed.');
     setBanner('aiSettingsMessage', data.message || 'AI settings confirmed.', 'good');
     await pollStatus();
   } catch (error) {
