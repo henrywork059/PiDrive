@@ -3,13 +3,14 @@
 ## Training run comparison and provenance (0.11.7, R40)
 
 The **Train → Compare** tab lists recorded runs from the current working
-folder's \`training_runs/\` directory. Select two runs by their stable 32-character
+folder's `training_runs/` directory. Select two runs by their stable 32-character
 **run IDs** to compare the actual training/validation row counts, source-session
-groups, effective split mode/seed/ratio, input identity-and-label SHA-256,
+groups, configured split mode, effective split/training seeds, validation
+ratio, and input identity-and-label SHA-256,
 applied preprocessing **recipe-settings SHA-256**, model settings, epoch count,
 loss curves' final/best metrics, and linked model paths.
 
-- Each run produces \`training_runs/<run_id>.json\` with explicit
+- Each run produces `training_runs/<run_id>.json` with explicit
   **succeeded**, **failed**, or **cancelled** status. Partial training histories
   are flagged as partial; they are never silently treated as a successful model.
   Experiment summaries are written with a same-directory staged file and
@@ -17,23 +18,23 @@ loss curves' final/best metrics, and linked model paths.
   previous records. The training plot and R39 stop/progress behavior are unchanged.
 - A model saved with **Save Model** or exported while it is the currently
   tracked in-memory trained model gets an additional
-  \`<model filename>.experiment.json\` sidecar. This references the run ID
+  `<model filename>.experiment.json` sidecar. This references the run ID
   and the **verified model SHA-256** from the pre-existing
-  \`<model filename>.manifest.json\`. It does not replace or modify that
+  `<model filename>.manifest.json`. It does not replace or modify that
   deployment compatibility manifest. Multiple exports append to the
   same run's artifact list.
 - **Inspect Model** in Compare reads the experiment sidecar of any selected
-  \`.keras\` or \`.tflite\` file. It validates its exact path and U27 model
+  `.keras` or `.tflite` file. It validates its exact path and U27 model
   checksum before displaying the related run ID. Models without an R40
   experiment sidecar, or whose metadata cannot be verified, display
   **Unknown** rather than guessing which training session they came from.
 - A preprocessing SHA-256 identifies the **applied recipe settings** when
   available. It does **not** hash raw image bytes or guarantee the underlying
   recording files have remained unchanged. The separate
-  \`identity_label_sha256\` fingerprint records the effective train/validation
+  `identity_label_sha256` fingerprint records the effective train/validation
   row identities and steering/throttle values, not the image content.
   Absent input fields, val_loss or historical records are **Unknown**, not 0.
-  \`final_val_loss\` reflects the final reported training epoch; with restored
+  `final_val_loss` reflects the final reported training epoch; with restored
   best weights, it need not equal the loss measured on the saved model.
 - This first iteration keeps lightweight JSON sidecars, **no database**. It
   records training-history validation losses, not additional post-training
@@ -42,14 +43,14 @@ loss curves' final/best metrics, and linked model paths.
 
 Run the focused tests locally:
 
-\`\`\`bash
+```bash
 cd piTrainer
 python -m unittest discover -s tests -p "test_train_runs_r40.py" -v
 python -m unittest discover -s tests -v
-\`\`\`
+```
 
 Before promoting from draft, check actual Windows PySide6 UI comparison,
-model save/export including \`.experiment.json\` linkage, a failed/cancelled
+model save/export including `.experiment.json` linkage, a failed/cancelled
 training run, corrupt/missing historical files, navigation between working
 folders, and prior R37–R39 data/preview/task behavior.
 
