@@ -125,7 +125,8 @@ class OnboardingHtmlTests(unittest.TestCase):
                     'network':{'hotspot_url':'http://192.168.4.1/'}})
 
     def test_failed_markup_has_explicit_next_step_not_private_error(self):
-        data=status(connection_attempt={'status':'error','message':'password-here'})
+        data=status(connection_attempt={'status':'error','message':'password-here'},
+                    known_connections=[{'name':'saved-home','autoconnect':'yes'}])
         page=self.handler.render_index_body(data)
         self.assertIn('Wi-Fi setup failed',page)
         self.assertIn('Check the Wi-Fi name and password',page)
