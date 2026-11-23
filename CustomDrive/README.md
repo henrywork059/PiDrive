@@ -1,5 +1,37 @@
 # CustomDrive
 
+## R49 — Bounded GUI / Mission 1 operator events (GUI 0_3_20; Mission 1 0_5_30)
+
+The independent GUI and Mission 1 Flask apps now each provide
+`GET /api/recent-events`, serving at most 80 entries from their own
+**128-item in-memory, thread-safe ring**. Both pages expose a collapsed
+**Recent operator events** view near their existing preflight panel,
+with Refresh and Copy. All entries consist only of UTC timestamp,
+predefined category/title/operation and outcome. No cloud telemetry,
+request body, route text, model name/path, Wi-Fi password, motor values,
+exception output, image data or entire runtime status is stored in
+the new ring.
+
+The general GUI records major Apply/Save/Deploy/Arm operations and
+**Emergency STOP**, but explicitly excludes high-frequency manual-drive
+POSTs. Mission 1 records Start/STOP, rearm, model selection/upload, Save,
+arm role actions and **coarse mission/arm stage transitions**, projecting
+the existing bounded `debug_tools.append_event` calls without copying
+raw message/route/pose or detection fields. The original Mission Trace
+remains unchanged, and the new view is a separate safe summary.
+Outcome `partial` covers `saved:false`; the original backend response
+and safety behavior remain authoritative.
+
+Run tests from repository root:
+```bash
+cd CustomDrive && python -m unittest discover -s tests -p 'test_recent_events_r49.py' -v
+cd ..
+node --test CustomDrive/tests/test_recent_events_gui_ui_r49.cjs
+node --test CustomDrive/tests/test_recent_events_mission_ui_r49.cjs
+```
+Test physical STOP, rearm, servo commands, Mission start/stop, unchanged
+R44 grip/drop-off Save confirmations and clipboard behavior on a real Pi.
+
 ## R48 passive GUI and Mission 1 preflight (GUI 0_3_19 / Mission 1 0_5_29)
 
 The general **Status / System** panel and the separate Mission 1 **Setup**
