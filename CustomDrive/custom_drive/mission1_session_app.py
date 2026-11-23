@@ -25,6 +25,7 @@ from .arm_service import ArmService
 from .debug_tools import append_event, clamp_float, clamp_int
 from .request_trace import install_mutation_trace
 from .preflight import build_mission1_preflight
+from .recent_events import RecentEventRing, record_api_response
 from .manual_control_config import load_manual_control_config
 from .mission1_tflite_detector import Mission1TFLiteDetector
 from .mission_safety import MissionAbort, save_mission_report
@@ -39,7 +40,7 @@ from piserver.services.camera_service import CameraService  # noqa: E402
 from piserver.services.motor_service import MotorService  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent / 'mission1_web'
-APP_VERSION = '0_5_29'
+APP_VERSION = '0_5_30'
 MISSION1_CONFIG_PATH = CONFIG_DIR / 'mission1_session.json'
 MISSION1_MODEL_DIR = CUSTOMDRIVE_ROOT / 'models' / 'mission1'
 
@@ -501,6 +502,7 @@ class Mission1SessionContext:
         self.arm_service = ArmService(load_manual_control_config().get('arm', {}))
 
         self.events: list[dict[str, Any]] = []
+        self.recent_events = RecentEventRing(capacity=128)
         self.current_phase = 'idle'
         self.detail = 'Mission 1 session ready.'
         self.last_command = {'mode': 'stop', 'steering': 0.0, 'throttle': 0.0, 'left': 0.0, 'right': 0.0, 'note': 'idle'}
@@ -571,6 +573,13 @@ class Mission1SessionContext:
         # R33: the observer cannot change any mission stage or motor command.
         self._observe_mission_timeline()
         append_event(self.events, message, level=level, event_type=event_type, limit=250, **fields)
+        # A separate bounded, sanitized summary: never forward mission text,
+        # route coordinates, paths, names or arbitrary event fields.
+        if event_type in {'mission', 'route', 'session', 'camera', 'model', 'arm'}:
+            self.recent_events.record(
+                'arm_transition' if event_type == 'arm' else 'mission_transition',
+                'failed' if level in {'warning', 'error'} else 'observed',
+            )
 
     def _selected_model_name(self) -> str:
         ai_cfg = self.config.get('ai') if isinstance(self.config.get('ai'), dict) else {}
@@ -2059,6 +2068,22 @@ def create_mission1_session_app() -> Flask:
     )
     install_mutation_trace(app)
     ctx = Mission1SessionContext()
+    event_routes = {
+        'api_safety_rearm': 'safety_rearm',
+        'api_config_save': 'config_save',
+        'api_models_upload': 'model_upload',
+        'api_model_select': 'model_select',
+        'api_arm_load_role': 'arm_action',
+        'api_motor_config_save': 'motor_apply',
+        'api_session_start': 'mission_start',
+        'api_session_stop': 'mission_stop',
+    }
+
+    @app.after_request
+    def capture_operator_event(response):
+        return record_api_response(ctx.recent_events, response, request, event_routes)
+
+    ctx.recent_events.record('startup', 'observed')
     app.config['mission1_ctx'] = ctx
 
     @app.route('/')
@@ -2086,6 +2111,11 @@ def create_mission1_session_app() -> Flask:
             mission_running=bool(worker and worker.is_alive()),
             project_root=CUSTOMDRIVE_ROOT,
         ))
+
+    @app.get('/api/recent-events')
+    def api_recent_events():
+        ring = ctx.recent_events
+        return jsonify({'ok': True, 'capacity': ring.capacity, 'events': ring.snapshot()})
 
     @app.route('/api/safety/status')
     def api_safety_status():
