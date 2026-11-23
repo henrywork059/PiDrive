@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from flask import Flask, Response, jsonify, render_template, request
+from .request_trace import install_mutation_trace
 
 from .arm_service import ArmService
 from .manual_control_config import load_manual_control_config, save_manual_control_config
@@ -24,7 +25,7 @@ from piserver.services.motor_service import MotorService  # noqa: E402
 from piserver.services.recorder_service import RecorderService  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent / 'gui_web'
-APP_VERSION = '0_3_17'
+APP_VERSION = '0_3_18'
 OD_MODEL_ROOT = CUSTOMDRIVE_ROOT / 'models' / 'object_detection'
 
 
@@ -182,6 +183,7 @@ def create_app() -> Flask:
         static_folder=str(WEB_DIR / 'static'),
     )
 
+    install_mutation_trace(app)
     ctx = GuiControlContext()
     app.config['gui_ctx'] = ctx
     app.config['services'] = {
