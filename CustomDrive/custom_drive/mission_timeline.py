@@ -106,7 +106,8 @@ class MissionProgressTimeline:
             previous = self._current
             if previous is not None and self._history:
                 old_rank = PHASE_STEPS.get(previous['phase'], ('', '', None))[2]
-                if rank is not None and old_rank is not None and rank > old_rank:
+                finished_cycle = key == 'pickup_search' and previous['id'] in {'release', 'reset'}
+                if finished_cycle or (rank is not None and old_rank is not None and rank > old_rank):
                     self._history[-1]['state'] = 'completed'
                     self._last_completed = copy.deepcopy(self._history[-1])
                 else:
