@@ -187,7 +187,11 @@ async function fetchJson(url, options = undefined) {
   let data = {};
   try { data = await response.json(); } catch {}
   if (!response.ok) {
-    throw new Error(data.message || `Request failed (${response.status})`);
+    const fallback = response.status === 403 ? 'Permission denied. Use an authorized Pi account.'
+        : response.status === 401 ? 'Sign in to the Pi, then retry.'
+        : response.status >= 500 ? 'Pi service unavailable. Check the Pi connection, then retry.'
+        : `Request failed (${response.status}). Check the input, then retry.`;
+    throw new Error(data.message || fallback);
   }
   return data;
 }
@@ -431,7 +435,7 @@ function renderAiModelOptions(selectedName = 'none') {
   select.innerHTML = '';
   const noneOpt = document.createElement('option');
   noneOpt.value = 'none';
-  noneOpt.textContent = 'None';
+  noneOpt.textContent = models.length ? 'None (AI not deployed)' : 'No models — upload a .tflite file';
   select.appendChild(noneOpt);
   models.forEach((model) => {
     const opt = document.createElement('option');
@@ -1017,7 +1021,7 @@ async function deleteAiModel() {
 async function deployAiModel() {
   const model = document.getElementById('aiModelSelect').value;
   if (!model || model === 'none') {
-    setBanner('aiSettingsMessage', 'Select a model to deploy.', 'warn');
+    setBanner('aiSettingsMessage', 'No model selected. Upload a .tflite model, then Deploy.', 'warn');
     return;
   }
   try {
@@ -1041,7 +1045,7 @@ async function deployAiModel() {
     await refreshAiModels(model);
     renderAiDebug(null, data.ai_status, { appendHistory: true, forceSnapshot: true });
   } catch (error) {
-    setBanner('aiSettingsMessage', error.message || 'Deploy failed.', 'warn');
+    setBanner('aiSettingsMessage', error.message || 'Deploy failed. Check model files, then retry Deploy.', 'warn');
   }
 }
 
