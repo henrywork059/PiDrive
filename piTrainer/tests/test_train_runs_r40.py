@@ -69,6 +69,19 @@ class ExperimentServiceTests(unittest.TestCase):
         self.assertEqual(record["split"]["seed"], 17)
         self.assertEqual(record["model_settings"]["epochs"], 50)
 
+    def test_zero_configured_seed_records_existing_effective_fallback(self):
+        self.config.seed = 0
+        record = self.snapshot()
+        self.assertEqual(record["split"]["configured_seed"], 0)
+        self.assertEqual(record["split"]["seed"], 42)
+        self.assertEqual(record["split"]["training_seed_effective"], 42)
+
+    def test_sequential_split_seed_is_not_fabricated(self):
+        self.config.split_mode = "Sequential rows"
+        record = self.snapshot()
+        self.assertIsNone(record["split"]["seed"])
+        self.assertEqual(record["split"]["training_seed_effective"], 17)
+
     def test_recipe_hash_order_independent(self):
         self.assertEqual(preprocessing_hash({"b": 2, "a": 1}),
                          preprocessing_hash({"a": 1, "b": 2}))
@@ -160,7 +173,7 @@ class ExperimentServiceTests(unittest.TestCase):
         rows = dict((name, (a, b)) for name, a, b
                     in comparison_rows(self.snapshot(), None))
         self.assertEqual(rows["Final validation loss"], ("Unknown", "Unknown"))
-        self.assertEqual(rows["Split seed"][0], "17")
+        self.assertEqual(rows["Effective split seed"][0], "17")
         self.assertEqual(rows["Preprocessing SHA-256"], ("Unknown", "Unknown"))
 
     def test_successful_comparison_uses_observed_val_loss(self):
