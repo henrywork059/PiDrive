@@ -180,6 +180,55 @@ HTML_SHELL = """<!doctype html>
     if (scanForm) scanForm.addEventListener('submit', () => showSubmittedState('scanning', 'Requesting a fresh Wi-Fi scan.'));
     const connectForm = document.querySelector('form[action="/connect"]');
     if (connectForm) connectForm.addEventListener('submit', () => showSubmittedState('connecting', 'Sending the Wi-Fi connection request.'));
+    async function refreshRecentEvents() {{
+      const output = document.getElementById('recent-events-output');
+      const status = document.getElementById('recent-events-status');
+      if (!output || !status) return;
+      status.textContent = 'Reading sanitized events…';
+      try {{
+        const response = await fetch('/api/recent-events', {{ method: 'GET', cache: 'no-store' }});
+        if (!response.ok) throw new Error('Recent events unavailable');
+        const data = await response.json();
+        if (data.ok !== true || !Array.isArray(data.events)) throw new Error('Unexpected event response');
+        const rows = data.events.slice(-80);
+        output.textContent = rows.map((event) => {{
+          const time = String(event.timestamp_utc || '');
+          const title = String(event.title || 'Operator action');
+          const outcome = String(event.outcome || 'observed');
+          return time + ' · ' + title + ' · ' + outcome;
+        }}).join('\n') || 'No relevant operator events yet.';
+        status.textContent = rows.length + ' sanitized events; oldest entries automatically expire.';
+      }} catch (_error) {{
+        status.textContent = 'Event history unavailable. Check the PiBooter connection.';
+      }}
+    }}
+    async function copyRecentEvents() {{
+      const output = document.getElementById('recent-events-output');
+      const status = document.getElementById('recent-events-status');
+      if (!output || !status) return;
+      try {{
+        if (navigator.clipboard?.writeText) {{
+          await navigator.clipboard.writeText(output.textContent || '');
+        }} else {{
+          const selection = window.getSelection();
+          const range = document.createRange();
+          range.selectNodeContents(output);
+          selection.removeAllRanges();
+          selection.addRange(range);
+          if (!document.execCommand('copy')) throw new Error('Clipboard unavailable');
+          selection.removeAllRanges();
+        }}
+        status.textContent = 'Sanitized event history copied.';
+      }} catch (_error) {{
+        status.textContent = 'Clipboard unavailable. Select the event text to copy manually.';
+      }}
+    }}
+    const eventPanel = document.getElementById('recent-events-panel');
+    if (eventPanel) eventPanel.addEventListener('toggle', () => {{
+      if (eventPanel.open) void refreshRecentEvents();
+    }});
+    document.getElementById('refresh-recent-events')?.addEventListener('click', refreshRecentEvents);
+    document.getElementById('copy-recent-events')?.addEventListener('click', copyRecentEvents);
     refreshStatus();
     {status_timer}
   </script>
