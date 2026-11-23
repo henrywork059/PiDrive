@@ -163,7 +163,7 @@ class SessionSourcePanel(QGroupBox):
         path_row.addWidget(browse_btn)
         path_row.addWidget(refresh_btn)
 
-        self.summary_label = QLabel('No sessions scanned yet.')
+        self.summary_label = QLabel('No sessions loaded. Choose a records root, then Refresh.')
         self.summary_label.setWordWrap(True)
         self.summary_label.setProperty('role', 'muted')
 
@@ -362,6 +362,6 @@ class SessionSourcePanel(QGroupBox):
             self.summary_label.setText('Choose a records root to find sessions.')
             return
         if total == 0:
-            self.summary_label.setText(f"Root: {root} | No sessions found.")
+            self.summary_label.setText(f"Root: {root} | No sessions found. Choose another folder, then Refresh.")
             return
         self.summary_label.setText(f"Root: {root} | Found: {total} | Selected: {selected}")
