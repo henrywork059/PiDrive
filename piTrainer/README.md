@@ -1,5 +1,32 @@
 # piTrainer
 
+## Data selection scope (0.11.4, R37)
+
+The **Records** review table now shows a compact read-only scope strip:
+**Visible**, **Selected visible**, **All active**, **Hidden**, and
+**Generated**. Visible frames are filtered source rows currently in the
+Records table. Selected visible means the actual selected table rows, even
+after sorting. All active means all non-hidden frames loaded from the
+currently loaded sessions (including generated variants and frames excluded
+by the preview filter). Hidden counts distinct frames marked hidden in the
+loaded sessions' JSONL metadata. Generated is the number of active
+synthetic derivatives; they are normally excluded from editable Data review.
+If hidden metadata cannot be read, the strip shows **Unavailable**, not 0.
+
+**Bulk Edit, Hide Selected, and Apply AI Output** operate on selected visible
+rows, **not all active frames**. Their confirmation messages say how many
+selected visible rows are targeted and explicitly disclose whether generated
+derivatives are present. Multi-frame Hide Selected requires an additional
+confirmation; existing Confirm Hide and Confirm Overwrite safety checkboxes
+remain mandatory. **Select Visible** selects just the currently filtered
+preview rows. Sort order, source-row identities, Validation → Edit in Data →
+Return navigation, and the read-only QAbstractTableModel are unchanged.
+
+Hidden metadata is counted when the sessions are loaded or reloaded after
+recovery; it is not re-scanned on every selection change. If an external
+program changes JSONL files during a session, reload the sessions to refresh
+the hidden total before performing a bulk operation.
+
 ## Model deployment manifests (0.11.3, U27)
 
 Exporting a steering model as `.keras` or `.tflite`, or using the
