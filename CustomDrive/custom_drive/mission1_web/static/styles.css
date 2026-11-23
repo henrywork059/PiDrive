@@ -281,6 +281,66 @@ button.danger {
   stroke-dasharray: 5 5;
 }
 
+/* R44: fixed 100/50/0 frame ruler; percentage is measured upward
+   from frame bottom, matching U24. The scale overlays but cannot consume clicks. */
+.overlay-frame-scale .overlay-scale-backdrop {
+  fill: rgba(3, 7, 18, 0.58);
+}
+.overlay-frame-scale .overlay-scale-spine,
+.overlay-frame-scale .overlay-scale-tick {
+  stroke: rgba(203, 213, 225, 0.82);
+  stroke-width: 1.25;
+  vector-effect: non-scaling-stroke;
+}
+.overlay-frame-scale .overlay-scale-label {
+  fill: #f8fafc;
+  font: 700 11px ui-sans-serif, system-ui, sans-serif;
+  paint-order: stroke fill;
+  stroke: rgba(3, 7, 18, 0.96);
+  stroke-width: 2px;
+  stroke-linejoin: round;
+}
+.overlay-guides[data-guide-mode="preview"] .overlay-trigger {
+  stroke-dasharray: 4 4;
+  opacity: 0.74;
+}
+.trigger-guide-readout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 9px;
+  row-gap: 5px;
+  margin: 8px 0 4px;
+  font-size: 0.78rem;
+  max-width: 100%;
+}
+.trigger-guide-pill {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 9px;
+  background: rgba(3, 7, 18, 0.42);
+  font-weight: 650;
+  white-space: nowrap;
+}
+.trigger-guide-grip {
+  color: #4ade80;
+  border-color: rgba(74, 222, 128, 0.5);
+}
+.trigger-guide-dropoff {
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.5);
+}
+.trigger-guide-state {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.trigger-guide-readout[data-mode="preview"] .trigger-guide-state {
+  color: #fbbf24;
+}
+
 .overlay-guides .overlay-trigger {
   stroke-width: 2;
   stroke-dasharray: 8 4;
