@@ -37,7 +37,7 @@ from piserver.services.camera_service import CameraService  # noqa: E402
 from piserver.services.motor_service import MotorService  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent / 'mission1_web'
-APP_VERSION = '0_5_23'
+APP_VERSION = '0_5_24'
 MISSION1_CONFIG_PATH = CONFIG_DIR / 'mission1_session.json'
 MISSION1_MODEL_DIR = CUSTOMDRIVE_ROOT / 'models' / 'mission1'
 
@@ -2043,6 +2043,7 @@ class Mission1SessionContext:
             'motor_config': self.motor_service.get_config(),
             'last_error': self.last_error,
             'safety': self.safety_status(),
+            'server_status_at_ms': int(time.time() * 1000),
             'app_version': APP_VERSION,
         }
 
