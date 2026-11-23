@@ -196,6 +196,22 @@ and reduced-motion scrolling are provided. These changes do not create
 keyboard shortcuts to alter Wi-Fi, relax hotspot security, or lengthen the
 original short first-client window.
 
+## Phone-width Wi-Fi results (0_1_6)
+
+At phone widths, the Wi-Fi scan table keeps **Use this network** available
+in its rightmost action column. Scan Channel and the device connection column
+can be hidden on narrow screens, but the network selection action is never
+hidden. If the network list is wider than the card, swipe horizontally within
+the labelled network-results region (or focus the region and scroll using
+keyboard controls). Saved-profile **Forget** controls use a similar scrollable
+table; existing CSRF and Wi-Fi setup authorization still apply.
+
+To review viewport reachability on an **authorized test setup**, see
+`PiServer/tests/R36_VIEWPORT_MATRIX.md` and the Playwright runner there.
+Visiting PiBooter from an authorized hotspot client can activate the existing
+first-client setup session. The default five-second session window is
+unchanged.
+
 ## Manual run
 
 ```bash
