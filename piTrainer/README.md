@@ -1,5 +1,45 @@
 # piTrainer
 
+## Preview performance and memory (0.11.5, R38)
+
+Image Preview now coalesces rapid row-navigation requests on the next Qt
+event-loop turn. When you change frames, the old image clears **before** the
+new frame's steering/speed labels appear; any superseded pending decode or
+resize render is cancelled. The existing 450 ms **metadata edit** debounce is
+not changed. This work does not move QPixmap/QPainter into a worker thread.
+
+The shared scaled-pixmap cache retains only unannotated image previews, with
+both its previous **96-item** cap and a new **64 MiB estimated decoded-pixel**
+budget. Cached entries include source filename, requested display size,
+horizontal-flip state, file modification time and file size. Replacing a
+source file at the same path therefore invalidates its stale cached preview.
+Overlay rendering still uses fresh copies and the existing PiSD road-guide
+geometry; horizontally flipped frames still use the original flip transform.
+The 64 MiB budget is **not** a cap on total process RSS or Qt/GPU allocations.
+
+Baseline performance was measured using the exact byte-identical
+`record_loader_service.py` from the 0.11.4 branch on Linux/Python 3.13,
+with generated 426×240 JPEG files: **250 frames** loaded in 15.69 ms
+(peak process RSS 96.02 MiB), **2,500** in 107.85 ms (98.39 MiB), and
+**10,000** in 501.21 ms (112.22 MiB). These are one-run controlled
+synthetic-session observations, **not** predictions of Windows or Pi
+performance. The loader's image-path resolution and dataframe schema were
+not changed by R38.
+
+Reproduce the loader/peak-RSS benchmark on the target workstation:
+
+```bash
+cd piTrainer
+python tests/benchmark_preview_r38.py --counts 250 2500 10000
+python tests/benchmark_preview_r38.py --counts 250 2500 10000 --qt-preview
+python -m unittest discover -s tests -p 'test_preview_r38.py' -v
+```
+
+The optional `--qt-preview` run uses an offscreen PySide6 application and
+actual scaled pixmaps; it is necessary to measure native Qt preview costs.
+Tests based on mock pixmaps validate the cache and cancellation policy but
+do not replace real Windows image, overlay and flip verification.
+
 ## Data selection scope (0.11.4, R37)
 
 The **Records** review table now shows a compact read-only scope strip:
