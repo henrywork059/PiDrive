@@ -69,6 +69,13 @@
           <button id="rearmBtn" class="secondary" type="button" title="Clear a latched mission fault while stopped; will not restart driving">Rearm after fault</button>
         </div>
         <div id="configMessage" class="message"></div>
+        <details data-preflight-root aria-label="Read-only startup preflight">
+                    <summary>Startup preflight (read-only)</summary>
+                    <p data-preflight-status role="status" aria-live="polite">Inspecting existing service state…</p>
+                    <button type="button" data-preflight-refresh>Refresh checks</button>
+                    <ul data-preflight-list aria-label="Service readiness checks"></ul>
+                    <small>Observation only: no motor, servo, camera start, AI load or settings changes.</small>
+                  </details>
         <div class="subtle">Coordinate system: frame centre is (0, 0). Left is negative x. Down is negative y. The current Mission 1 loop automatically searches class 1/2 for pickup, then class 3/4 for drop-off.</div>
       </section>
 
@@ -264,5 +271,6 @@
 
   <script src="{{ url_for('static', filename='mission_timeline.js') }}?v={{ app_version }}"></script>
   <script src="{{ url_for('static', filename='app.js') }}?v={{ app_version }}"></script>
+  <script src="{{ url_for('static', filename='preflight.js') }}?v={{ app_version }}"></script>
 </body>
 </html>
