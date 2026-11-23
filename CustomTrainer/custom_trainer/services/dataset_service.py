@@ -9,6 +9,9 @@ from typing import Iterable
 
 import yaml
 
+from custom_trainer.services.cache_lifecycle import (
+    new_cache_generation, publish_cache_generation, atomic_write_yaml,
+)
 from custom_trainer.services.session_service import SessionInfo, discover_sessions, sync_legacy_labels
 from custom_trainer.services.yolo_io import validate_yolo_label_file, write_yolo_label_file
 
@@ -32,6 +35,7 @@ class DatasetSummary:
     invalid_label_files: int
     migrated_labels: int
     cache_root: Path
+    cache_yaml_path: Path | None = None
     train_labeled_images: int = 0
     val_labeled_images: int = 0
     duplicate_images: int = 0
@@ -194,26 +198,22 @@ def _cache_label_path(cache_root: Path, session: SessionInfo, image_path: Path) 
 
 def _link_or_copy_file(source: Path, target: Path) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
-    if target.exists() or target.is_symlink():
-        target.unlink()
-    try:
-        os.link(source, target)
-        return
-    except Exception:
-        pass
+    # Snapshot bytes, not a hard link: editing a source image in place must
+    # never change a generation that an active YOLO task already references.
     shutil.copy2(source, target)
 
 
 
-def _build_dataset_spec(root: Path, class_names: Iterable[str]) -> tuple[dict, list[Path], list[Path], DatasetSummary]:
+def _build_dataset_spec_staged(
+    root: Path, class_names: Iterable[str], staged_root: Path, cache_root: Path,
+) -> tuple[dict, list[Path], list[Path], DatasetSummary]:
     sessions = discover_sessions(root)
     migrated_labels = sync_legacy_labels(sessions)
     image_paths = [image_path for session in sessions for image_path in session.image_paths]
     train_paths, val_paths, duplicate_images = _split_image_paths(image_paths, sessions)
 
-    cache_root = _dataset_cache_root(root)
-    shutil.rmtree(cache_root, ignore_errors=True)
-    cache_root.mkdir(parents=True, exist_ok=True)
+    # The published path is used in the lists, but all files are written to
+    # a private staging directory until validation and atomic promotion.
 
     cache_lookup: dict[Path, Path] = {}
     labeled_images = 0
@@ -235,12 +235,12 @@ def _build_dataset_spec(root: Path, class_names: Iterable[str]) -> tuple[dict, l
     for session in sessions:
         session_labeled = session_instances = session_empty = session_invalid_files = session_invalid_rows = 0
         for image_path in session.image_paths:
-            cache_image = _cache_image_path(cache_root, session, image_path)
+            cache_image = _cache_image_path(staged_root, session, image_path)
             _link_or_copy_file(image_path, cache_image)
-            cache_lookup[image_path] = cache_image
+            cache_lookup[image_path] = _cache_image_path(cache_root, session, image_path)
 
             canonical_label_path, _ = session.ensure_canonical_label_path(image_path)
-            cache_label = _cache_label_path(cache_root, session, image_path)
+            cache_label = _cache_label_path(staged_root, session, image_path)
             label_text = ''
             if canonical_label_path.exists() and canonical_label_path.is_file():
                 try:
@@ -287,8 +287,8 @@ def _build_dataset_spec(root: Path, class_names: Iterable[str]) -> tuple[dict, l
     train_cache_paths = [cache_lookup[path] for path in train_paths if path in cache_lookup]
     val_cache_paths = [cache_lookup[path] for path in val_paths if path in cache_lookup]
 
-    _write_image_list(cache_root / _TRAIN_LIST_NAME, train_cache_paths)
-    _write_image_list(cache_root / _VAL_LIST_NAME, val_cache_paths)
+    _write_image_list(staged_root / _TRAIN_LIST_NAME, train_cache_paths)
+    _write_image_list(staged_root / _VAL_LIST_NAME, val_cache_paths)
 
     spec = {
         'path': cache_root.resolve().as_posix(),
@@ -307,6 +307,7 @@ def _build_dataset_spec(root: Path, class_names: Iterable[str]) -> tuple[dict, l
         invalid_label_files=invalid_label_files,
         migrated_labels=migrated_labels,
         cache_root=cache_root,
+        cache_yaml_path=cache_root / 'dataset.yaml',
         train_labeled_images=train_labeled_images,
         val_labeled_images=val_labeled_images,
         duplicate_images=duplicate_images,
@@ -319,6 +320,18 @@ def _build_dataset_spec(root: Path, class_names: Iterable[str]) -> tuple[dict, l
 
 
 
+def _build_dataset_spec(root: Path, class_names: Iterable[str]) -> tuple[dict, list[Path], list[Path], DatasetSummary]:
+    staged, published = new_cache_generation(root)
+    try:
+        spec, train, val, summary = _build_dataset_spec_staged(root, class_names, staged, published)
+        publish_cache_generation(staged, published, spec,
+                                 image_count=summary.total_images, valid_labels=summary.labeled_images)
+        return spec, train, val, summary
+    finally:
+        if staged.exists():
+            shutil.rmtree(staged)
+
+
 def prepare_dataset_yaml(path: Path, class_names: Iterable[str]) -> tuple[Path, bool, DatasetSummary]:
     path.parent.mkdir(parents=True, exist_ok=True)
     created = not path.exists()
@@ -326,7 +339,7 @@ def prepare_dataset_yaml(path: Path, class_names: Iterable[str]) -> tuple[Path, 
     text = yaml.safe_dump(spec, sort_keys=False, allow_unicode=True)
     previous = path.read_text(encoding='utf-8') if path.exists() else None
     if previous != text:
-        path.write_text(text, encoding='utf-8')
+        atomic_write_yaml(path, spec)
     return path, created, summary
 
 

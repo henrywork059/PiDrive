@@ -533,11 +533,15 @@ class ValidatePage(QWidget):
             return
         dataset_summary = None
         if self.state.sessions_root is not None:
-            yaml_path, _created, dataset_summary = ensure_dataset_yaml_with_summary(
-                self.state.sessions_root,
-                self.state.class_names,
-                overwrite=True,
-            )
+            try:
+                yaml_path, _created, dataset_summary = ensure_dataset_yaml_with_summary(
+                    self.state.sessions_root,
+                    self.state.class_names,
+                    overwrite=True,
+                )
+            except (OSError, ValueError, RuntimeError) as exc:
+                QMessageBox.critical(self, 'Dataset preparation failed', f'Existing cache was preserved.\n\n{exc}')
+                return
             if yaml_path is not None and yaml_path.exists() and yaml_path.is_file():
                 self.yaml_edit.setText(str(yaml_path))
         if not self.yaml_edit.text().strip():
@@ -575,7 +579,7 @@ class ValidatePage(QWidget):
         project_dir, run_name = self._prediction_output_args('val')
         command = build_val_command(
             weights=self.weights_edit.text().strip(),
-            data=self.yaml_edit.text().strip(),
+            data=str(dataset_summary.cache_yaml_path if dataset_summary is not None else self.yaml_edit.text().strip()),
             imgsz=imgsz,
             device=self.current_device_value(),
             project=project_dir,
@@ -583,6 +587,8 @@ class ValidatePage(QWidget):
         )
         self.current_task_kind = 'val'
         self.last_metrics_text = ''
+        if dataset_summary is not None:
+            self.log(f'[dataset/cache] Task uses immutable YAML: {dataset_summary.cache_yaml_path}')
         self._launch(command, 'Validation started...')
 
     def start_predict(self) -> None:
