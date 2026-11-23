@@ -1,5 +1,57 @@
 # CustomTrainer
 
+## R42 — Exact operation results and artifact locations (0_2_16)
+
+**Validation**, **Export** and **Export Validate** now show a compact, scrollable
+**Last result** pane beside their existing Status message. The pane reports
+**Running / Stopping / Succeeded / Failed / Cancelled**, local start/finish
+timestamps, the exact input model name/path and dataset YAML or prediction
+source captured **at launch**, output format where applicable, reported
+validation metrics, and the exact output file or folder emitted by the worker.
+
+- **Native-model Validation** and **Exported-model Validation** have separate
+  labels so metrics are visibly linked to the specific model evaluated. The
+  selected model path and dataset/source are frozen at the start; changing an
+  input field while a task runs cannot relabel an old result.
+- Export reads the existing `[export] <path>` CLI marker, ignoring the
+  separate manifest marker. Validation and prediction read `[save-dir]`;
+  validation metrics read `[metrics]`. A successful process exit is **not**
+  by itself enough to confirm an output. Existing on-screen frame browsers,
+  validation charts, logs and immutable YOLO dataset cache are unchanged.
+- An output is confirmed only when the reported file exists and is nonempty,
+  or a reported output directory contains actual nonempty result files.
+  Prediction folders must contain an image. TFLite exports additionally
+  require their existing U27 checksum-bound YOLO manifest to verify.
+- **Open Location** opens the verified artifact's parent directory or the
+  verified result directory using the OS file manager. The button is
+  disabled for running/stopped/failed/unverified results, and validates the
+  path **again** when clicked in case files were moved or deleted. A cancelled
+  or failing subprocess can leave partial disk files; these are not reported
+  as successfully completed artifacts.
+- If the selected model path is unavailable (for example, an Ultralytics
+  name that the backend resolves or downloads), the summary explicitly says
+  **Not verified**, instead of claiming the entered path was confirmed.
+  Missing metrics are **Unknown**, never fabricated as zero. The output path
+  may be logged for troubleshooting when an operation fails, but it is
+  visibly labelled **unconfirmed** and cannot be opened through the action.
+
+This release does **not** alter PyTorch/Ultralytics training commands, split
+or cache semantics, export formats, existing window splitter proportions,
+Marking/Quick Deploy shortcuts, YOLO source labels or U27 metadata.
+
+Regression check on the workstation:
+
+```bash
+cd CustomTrainer
+python -m unittest discover -s tests -p 'test_task_result_r42.py' -v
+python -m unittest discover -s tests -v
+```
+
+Check real successful/failed/stopped native validation, exported-model
+validation, prediction and all supported exports, including exported TFLite
+sidecars and Windows **Open Location** behavior. The optional offscreen Qt
+smoke checks do not replace real Windows interaction testing.
+
 ## Marking annotation workflow (0_2_15, R41)
 
 The Marking tab keeps the compact **280-pixel maximum right-side pane** and its
