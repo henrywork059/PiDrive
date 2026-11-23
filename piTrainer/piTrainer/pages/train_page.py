@@ -203,6 +203,8 @@ class TrainPage(DockPage):
         return train_df, val_df
 
     def start_training(self) -> None:
+        if not self.main_window.can_start_task(self):
+            return
         if self.save_runner.active:
             self.log_panel.append_line('Wait until the model save completes before starting training.')
             return
@@ -245,6 +247,8 @@ class TrainPage(DockPage):
             self.log_panel.append_line('Stop requested. Training will stop at a safe epoch boundary.')
 
     def save_trained_model(self) -> None:
+        if not self.main_window.can_start_task(self):
+            return
         if self.save_runner.active or self.has_active_task():
             self.log_panel.append_line('Wait until the current operation completes before saving the model.')
             return
