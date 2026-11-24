@@ -35,6 +35,9 @@
   --pisd-palette-danger: #e11d48;
   --pisd-palette-recording: #ef4444;
   --pisd-palette-capture: #14b8a6;
+  --pisd-focus-ring: #fbbf24;
+  --pisd-focus-shadow: #111827;
+  --pisd-focus-width: 3px;
   --pisd-page-max: 1500px;
   --pisd-page-pad: clamp(8px, 0.9vw, 13px);
   --pisd-panel-gap: clamp(7px, var(--pisd-ui-gap, 10px), 18px);
@@ -646,9 +649,9 @@ body.manual-drive-page #manualDriveFilesPanel { grid-area: files !important; }
 /* R35 accessibility: shared across PiSD dashboard, manual, AI, setup, and testing.
    Do not modify motor actions or the existing layout/responsive grid. */
 :where(button, a[href], input, select, textarea, [tabindex="0"], [role="tab"]):focus-visible {
-  outline: 3px solid #fbbf24 !important;
+  outline: var(--pisd-focus-width) solid var(--pisd-focus-ring) !important;
   outline-offset: 3px !important;
-  box-shadow: 0 0 0 1px #111827 !important;
+  box-shadow: 0 0 0 1px var(--pisd-focus-shadow) !important;
 }
 :where(button, a[href], input, select, textarea, [tabindex="0"], [role="tab"]):focus:not(:focus-visible) {
   outline: none;

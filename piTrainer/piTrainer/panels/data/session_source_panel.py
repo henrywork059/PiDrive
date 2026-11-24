@@ -28,6 +28,7 @@ class SessionSourceRowWidget(QFrame):
         self.setObjectName('sessionRow')
         self.checkbox = QCheckBox()
         self.checkbox.setObjectName('sessionRowCheckbox')
+        self.checkbox.setAccessibleName(f'Select session {session}')
         self.checkbox.setChecked(checked)
         self.checkbox.setCursor(Qt.PointingHandCursor)
         self.name_label = QLabel(session)
@@ -56,8 +57,11 @@ class SessionListResizeHandle(QFrame):
         self.setObjectName('sessionListResizeHandle')
         self.setCursor(Qt.SizeVerCursor)
         self.setFixedHeight(10)
+        self.setFocusPolicy(Qt.StrongFocus)
+        self.setAccessibleName('Session list height')
+        self.setAccessibleDescription('Up or Down resizes the list; Home restores default height.')
         self.setToolTip(
-            'Drag up or down to resize the session list. Double-click to reset.'
+            'Drag up or down to resize the session list. Double-click to reset. Keyboard: Up/Down resize, Home resets.'
         )
         try:
             self.setFrameShape(QFrame.Shape.HLine)
@@ -106,6 +110,19 @@ class SessionListResizeHandle(QFrame):
             return
         super().mouseReleaseEvent(event)
 
+    def keyPressEvent(self, event) -> None:  # noqa: N802
+        if event.modifiers() == Qt.NoModifier:
+            if event.key() in (Qt.Key_Up, Qt.Key_Down):
+                delta = -20 if event.key() == Qt.Key_Up else 20
+                self._set_height(self._get_height() + delta, persist=True)
+                event.accept()
+                return
+            if event.key() == Qt.Key_Home:
+                self._reset_height()
+                event.accept()
+                return
+        super().keyPressEvent(event)
+
     def mouseDoubleClickEvent(self, event) -> None:  # noqa: N802
         if event.button() == Qt.LeftButton:
             self._drag_start_y = None
@@ -148,6 +165,7 @@ class SessionSourcePanel(QGroupBox):
 
         self.path_edit = QLineEdit(self._restore_last_root() or self.state.records_root)
         self.path_edit.setPlaceholderText('Records root folder')
+        self.path_edit.setAccessibleName('Records root folder')
         self.path_edit.editingFinished.connect(self._apply_path_only)
 
         browse_btn = QPushButton('Browse')

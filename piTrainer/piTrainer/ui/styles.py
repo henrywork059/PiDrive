@@ -208,6 +208,10 @@ def build_stylesheet(density: str = "comfortable") -> str:
         background: @COLOR_WARNING_ACTIVE@;
         color: @COLOR_TEXT_ON_WARNING@;
     }
+    QPushButton:focus, QPushButton[role]:focus, QPushButton#pageBannerNextButton:focus,
+    QCheckBox:focus, QFrame#sessionListResizeHandle:focus {
+        border: 1px solid @COLOR_INFO@;
+    }
     QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox, QListWidget, QTextEdit, QPlainTextEdit, QTableWidget, QTableView {
         min-height: @INPUT_MIN@px;
         background: @COLOR_BG_INPUT@;
