@@ -12,7 +12,7 @@ This is the current execution plan, replacing one-proposal-at-a-time scheduling.
 
 ## Current starting point
 
-[PR #86](https://github.com/henrywork059/PiDrive/pull/86) is the green active integration baseline ([CI 45354927996](https://github.com/henrywork059/PiDrive/actions/runs/45354927996)). [PR #87](https://github.com/henrywork059/PiDrive/pull/87) adds F4 validation and STOP fixes, U21 PiServer camera safety, and F2 PiSD manual-command watchdog in separate commits. The latest [CI run 45356933493](https://github.com/henrywork059/PiDrive/actions/runs/45356933493) passed all four jobs. Candidate versions: PiSD 0.11.24, PiServer 0.4.29, piTrainer 0.11.10. F3 is the remaining Batch 1 implementation. Neither candidate is merged or physically validated. See [PROGRESS.md](PROGRESS.md) for individual evidence and limits.
+[PR #86](https://github.com/henrywork059/PiDrive/pull/86) is the green active integration baseline ([CI 45354927996](https://github.com/henrywork059/PiDrive/actions/runs/45354927996)). [PR #87](https://github.com/henrywork059/PiDrive/pull/87) adds F4 validation and STOP fixes, U21 PiServer camera safety, and F2 PiSD manual-command watchdog in separate commits. The latest [CI run 45356933493](https://github.com/henrywork059/PiDrive/actions/runs/45356933493) passed all four jobs. Candidate versions: PiSD 0.11.24, PiServer 0.4.29, piTrainer 0.11.10. F3 access protection is implemented in PiSD 0.11.25 (413b938), [CI 45357578563](https://github.com/henrywork059/PiDrive/actions/runs/45357578563) pending; retain 0.11.24 as last green candidate. Neither candidate is merged or physically validated. See [PROGRESS.md](PROGRESS.md) for individual evidence and limits.
 
 ## Batch sequence
 
@@ -31,7 +31,7 @@ This is the current execution plan, replacing one-proposal-at-a-time scheduling.
 
 ### Batch 1 — Runtime safety and validation
 
-**Components:** PiSD, PiServer. **Status:** In progress (F2, F4, U21 passed scoped automated gates; F3 outstanding).
+**Components:** PiSD, PiServer. **Status:** In progress (F2, F4, U21 passed scoped automated gates; F3 implemented, CI pending).
 
 **Scope:** Finish the two PiSD standalone validation commands (F4); implement and test PiSD's server-side manual command lease/watchdog (F2); add PiSD LAN authorization/access protection with authorized STOP and explicit compatibility guidance (F3); audit and complete PiServer stale-camera autonomous-motion stop/rearm (U21). Separate each safety concern into a reviewable commit/subpatch.
 

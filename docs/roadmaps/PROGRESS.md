@@ -18,7 +18,7 @@ Implemented IDs: F1, F2, F4, F5, F6; U11, U12, U13, U14, U15, U17, U20, U21, U23
 
 | Partial ID | Remaining work |
 | --- | --- |
-| F3 | PiSD access policy; PiServer access control is present. |
+| F3 | PiSD 0.11.25 LAN access implementation committed (413b938); exact-commit CI gate pending. PiServer access control is present. |
 | R35 | Complete active desktop accessibility/input audit. |
 | R36 | Complete actual responsive screenshot/interaction acceptance at required widths. |
 | R45 | Finish PiSD token/drift audit. |
@@ -42,4 +42,6 @@ The original 30 outstanding IDs were organized into **9 development batches** (B
 | U21 | PiServer 0.4.29 | ea60df3 | [45356590242](https://github.com/henrywork059/PiDrive/actions/runs/45356590242): all four jobs passed; fresh raw frame, stale-frame and explicit rearm cases |
 | F2 | PiSD 0.11.24 | d7b1ef2 | [45356933493](https://github.com/henrywork059/PiDrive/actions/runs/45356933493): all four jobs passed; manual lease expiry, renew, STOP and owner changes |
 
-Current candidate: PiSD **0.11.24**, PiServer **0.4.29**, piTrainer **0.11.10**. F3 PiSD LAN authorization remains outstanding. Batch 1 is not complete. The in-process watchdog does not guarantee physical motor stop if drivers or the OS block; the PiServer frame guard does not independently stop during indefinitely stalled inference. No physical Raspberry Pi acceptance, native Windows UI acceptance, deployment or runtime merge is claimed. The progress counts describe candidate implementation, not a released main-branch runtime. No inactive component work.
+| F3 | PiSD 0.11.25 | 413b938 | [45357578563](https://github.com/henrywork059/PiDrive/actions/runs/45357578563): new access tests committed; automated gate pending |
+
+Current candidate: PiSD **0.11.25**, PiServer **0.4.29**, piTrainer **0.11.10**. F3 implementation is present; Batch 1 remains open until CI passes. Last verified green candidate is d7b1ef2 (PiSD 0.11.24). LAN startup now requires PISD_ACCESS_TOKEN, including existing systemd services; see PiSD README before deployment. The in-process watchdog does not guarantee physical motor stop if drivers or the OS block; the PiServer frame guard does not independently stop during indefinitely stalled inference. No physical Raspberry Pi acceptance, native Windows UI acceptance, deployment or runtime merge is claimed. The progress counts describe candidate implementation, not a released main-branch runtime. No inactive component work.
