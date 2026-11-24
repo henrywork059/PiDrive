@@ -34,7 +34,7 @@ class CapturingMotor:
         self.commands = []
         self.stop_count = 0
 
-    def update(self, *, steering, throttle):
+    def update(self, *, steering, throttle, control_source="other"):
         self.commands.append((steering, throttle))
         return throttle - steering, throttle + steering
 
