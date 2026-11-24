@@ -119,10 +119,10 @@ class DataPageSessionMixin:
             # reload still needs the complete list including the focus target.
             self.state.selected_sessions = sessions_to_load
             self._load_sessions(sessions_to_load)
-            if self.last_focus_redirected_to_source:
-                reloaded_target = self._find_source_record_for_synthetic(record)
-                if reloaded_target:
-                    target_record = reloaded_target
+            # Re-resolve after loading the target session. A synthetic frame
+            # can reference a source that was absent from the old Data scope;
+            # the first lookup cannot redirect until that session is loaded.
+            target_record = self._focus_target_record(dict(record))
         else:
             # Keep the user's multi-session checkbox selection intact. Do not
             # call set_selected_sessions() here, because that would clear any
