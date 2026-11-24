@@ -1315,21 +1315,24 @@
   }
 
   async function deleteSelectedModel() {
+    if (window.PiDriveDestructive.busy(els.aiDeleteModel)) return;
     const modelId = els.aiModelSelect?.value || '';
     if (!modelId) {
       log('No model selected. Choose a model from the list first.');
       return;
     }
-    const ok = window.confirm(`Delete model from PiSD/models?\n\n${modelId}`);
+    const ok = await window.PiDriveDestructive.confirm(els.aiDeleteModel, `Permanently delete this model from PiSD/models?\n\n${modelId}\n\nThe model and its associated manifest will be removed. This cannot be undone.`);
     if (!ok) return;
     try {
-      const data = await api('/api/ai/delete-model', { method: 'POST', body: { model_id: modelId } });
+      const data = await api('/api/ai/delete-model', { method: 'POST', body: { model_id: modelId, confirm: true } });
       log('Model deleted.', { deleted_model_id: data.deleted_model_id, unloaded_selected_model: data.unloaded_selected_model });
       await refreshModels();
       renderAI(data.ai || {});
     } catch (err) {
       renderAI((err.payload || {}).ai || lastAIStatus || {});
       log(err.message, err.payload || {});
+    } finally {
+      window.PiDriveDestructive.finish(els.aiDeleteModel);
     }
   }
 

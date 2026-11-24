@@ -300,7 +300,7 @@
     const running = Boolean(item?.running);
     if (downloadZipButton) downloadZipButton.disabled = !hasItem;
     if (deleteFolderButton) {
-      deleteFolderButton.disabled = !hasItem || running;
+      deleteFolderButton.disabled = !hasItem || running || window.PiDriveDestructive.busy(deleteFolderButton);
       deleteFolderButton.title = running
         ? 'Stop the active recording before deleting this folder.'
         : 'Delete the selected folder inside the PiSD recordings root.';
@@ -861,6 +861,7 @@
   }
 
   async function deleteSelectedFolder() {
+    if (window.PiDriveDestructive.busy(deleteFolderButton)) return;
     const { kind, id, item } = updateSelectedFileDetails();
     if (!id || !item) {
       showFilesNotice('Select a folder before deleting.', 'PISD-REC-008');
@@ -872,18 +873,19 @@
     }
     const label = item?.label || id;
     const details = `${Number(item.frame_count || 0)} frames, ${formatBytes(item.bytes)}, modified ${formatDateTime(item.modified_at_utc)}`;
-    const ok = window.confirm(`Delete ${kind} folder?\n\n${label}\n${id}\n${details}\n\nOnly this selected PiSD recordings folder will be removed. This cannot be undone.`);
+    const ok = await window.PiDriveDestructive.confirm(deleteFolderButton, `Delete ${kind} folder?\n\n${label}\n${id}\n${details}\n\nOnly this selected PiSD recordings folder will be removed. This cannot be undone.`);
     if (!ok) return;
     try {
       if (deleteFolderButton) deleteFolderButton.disabled = true;
       showFilesNotice(`Deleting ${kind}: ${id}`, 'PISD-OK-000');
-      const { payload } = await api('POST', '/api/recording/delete', { kind, id }, 'files');
+      const { payload } = await api('POST', '/api/recording/delete', { kind, id, confirm: true }, 'files');
       showFilesNotice(payload.ok ? `Deleted ${kind}: ${id}` : `Delete failed: ${payload.code} ${payload.message || ''}`.trim(), payload.code);
       await refreshRecordingItems();
     } catch (err) {
       showFilesNotice(`Delete failed: ${String(err)}`, 'PISD-REC-009');
       writeLog('recording delete failed', { ok: false, code: 'PISD-REC-009', message: String(err) });
     } finally {
+      window.PiDriveDestructive.finish(deleteFolderButton);
       updateSelectedFileDetails();
     }
   }

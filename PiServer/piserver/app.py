@@ -21,7 +21,7 @@ from piserver.services.recorder_service import RecorderService
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 WEB_DIR = Path(__file__).resolve().parent / "web"
-APP_VERSION = "0_4_30"
+APP_VERSION = "0_4_31"
 
 
 def mjpeg_generator(camera_service):
@@ -249,7 +249,9 @@ def create_app() -> Flask:
 
     @app.route("/api/record/delete", methods=["POST"])
     def api_record_delete():
-        data = request.get_json(silent=True) or {}
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({"ok": False, "message": "Expected a JSON object."}), 400
         session_name = str(data.get("session", "")).strip()
         if not session_name:
             return jsonify({"ok": False, "message": "Choose a session folder first."}), 400
@@ -281,8 +283,13 @@ def create_app() -> Flask:
 
     @app.route("/api/model/delete", methods=["POST"])
     def api_model_delete():
-        data = request.get_json(silent=True) or {}
-        ok, msg = model_service.delete_model(data.get("filename", ""))
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict) or data.get("confirm") is not True:
+            return jsonify({"ok": False, "message": "Explicit model deletion confirmation required; no model files were removed."}), 400
+        filename = data.get("filename", "")
+        if not isinstance(filename, str) or not filename or Path(filename).name != filename or "\\" in filename:
+            return jsonify({"ok": False, "message": "Choose an exact listed model filename."}), 400
+        ok, msg = model_service.delete_model(filename)
         code = 200 if ok else 404
         return jsonify({"ok": ok, "message": msg, "models": model_service.list_models(), "active": model_service.get_active_name()}), code
 

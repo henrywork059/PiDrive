@@ -15,7 +15,7 @@ function renderSettingsFeedback() {
   if (retry) { retry.hidden = !info.retry; retry.textContent = settingsRetryLabel; }
   ['stSaveSettings', 'stApplySettings', 'stResetSettings'].forEach(id => {
     const button = document.getElementById(id);
-    if (button) button.disabled = info.busy;
+    if (button) button.disabled = info.busy || window.PiDriveDestructive.busy(button);
   });
 }
 function requireConfirmedSettings(payload, action) {
@@ -132,11 +132,14 @@ async function saveSettings(apply = false) {
   } finally { renderSettingsFeedback(); }
 }
 async function resetSettings() {
+  const button = document.getElementById('stResetSettings');
+  if (settingsFeedback.snapshot().busy || window.PiDriveDestructive.busy(button)) return;
+  if (!await window.PiDriveDestructive.confirm(button, 'Replace all saved PiSD runtime settings with defaults?\n\nCamera, motor calibration, AI, Manual Drive and panel presentation settings will be replaced. Export your settings first if needed. There is no automatic undo.', 'Reset defaults')) return;
   const token = settingsFeedback.begin();
-  if (token === null) return;
+  if (token === null) { window.PiDriveDestructive.finish(button); renderSettingsFeedback(); return; }
   renderSettingsFeedback();
   try {
-    const payload = await settingsApi('POST','/api/settings/reset',{});
+    const payload = await settingsApi('POST','/api/settings/reset',{confirm:true});
     requireConfirmedSettings(payload, 'Reset');
     const verified = await settingsApi('GET','/api/settings');
     requireConfirmedSettings(verified, 'Reset readback');
@@ -152,7 +155,7 @@ async function resetSettings() {
     settingsRetryLabel = 'Retry reset';
     settingsFeedback.fail(token, error.message);
     logResponse('R31 reset failure', {ok:false, message:error.message});
-  } finally { renderSettingsFeedback(); }
+  } finally { window.PiDriveDestructive.finish(button); renderSettingsFeedback(); }
 }
 function exportSettings() { const blob = new Blob([JSON.stringify(gatherSettings(), null, 2)], {type:'application/json'}); const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='pisd_runtime_settings.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(url),500); }
 function importSettings(file) { const reader = new FileReader(); reader.onload = () => { try { const settings = JSON.parse(reader.result); fillAll(settings); storeLocal(settings); settingsFeedback.edit(); renderSettingsFeedback(); logResponse('import settings file', {ok:true, code:'PISD-OK-000', message:'Settings imported into form. Click Save and apply.'}); } catch(err) { logResponse('import settings file', {ok:false, code:'PISD-SET-003', message:String(err)}); } }; reader.readAsText(file); }

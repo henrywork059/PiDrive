@@ -329,7 +329,26 @@ def _record_image_path(session_dir: Path, record: dict[str, Any]) -> Path | None
     return image_path if image_path and image_path.exists() else None
 
 
-def purge_hidden_frames(records_root: Path, sessions: Iterable[str]) -> dict[str, Any]:
+def preview_hidden_purge(records_root: Path, sessions: Iterable[str]) -> dict[str, Any]:
+    """Capture exact session scope, hidden identities and metadata signatures."""
+    root = Path(records_root).resolve()
+    names = _selected_session_names(sessions)
+    signatures = {}
+    for name in names:
+        directory = resolve_session_dir(root, name)
+        for filename in ('labels.jsonl', 'records.jsonl'):
+            path = directory / filename
+            signatures[path] = file_signature(path) if path.exists() else None
+    refs = _hidden_refs(root, names)
+    keys = frozenset(tuple(ref['key']) for ref in refs)
+    for path, signature in signatures.items():
+        if (file_signature(path) if path.exists() else None) != signature:
+            raise RuntimeError('Metadata changed during deletion preview; reload and retry.')
+    return {'root': root, 'sessions': tuple(names), 'keys': keys, 'signatures': signatures,
+            'count': len(keys), 'rows': len(refs)}
+
+
+def purge_hidden_frames(records_root: Path, sessions: Iterable[str], *, confirmed_plan=None) -> dict[str, Any]:
     """Permanently remove hidden JSONL rows and their unreferenced image files.
 
     This is intentionally not exposed as a normal button. It is for the hidden
@@ -348,6 +367,10 @@ def purge_hidden_frames(records_root: Path, sessions: Iterable[str]) -> dict[str
             'failed_messages': ['No loaded/selected sessions are available to purge.'],
         }
 
+    if confirmed_plan is not None:
+        current = preview_hidden_purge(records_root, session_names)
+        if current != confirmed_plan:
+            raise RuntimeError('Hidden deletion targets changed; review and confirm again.')
     hidden_refs = _hidden_refs(records_root, session_names)
     if not hidden_refs:
         return {
@@ -362,6 +385,8 @@ def purge_hidden_frames(records_root: Path, sessions: Iterable[str]) -> dict[str
         }
 
     hidden_keys = {tuple(ref['key']) for ref in hidden_refs}
+    if confirmed_plan is not None and hidden_keys != confirmed_plan['keys']:
+        raise RuntimeError('Hidden deletion targets changed; review and confirm again.')
     hidden_image_paths: set[Path] = set()
     visible_image_paths: set[Path] = set()
     files_changed: list[str] = []
@@ -389,6 +414,8 @@ def purge_hidden_frames(records_root: Path, sessions: Iterable[str]) -> dict[str
             if not path.exists():
                 continue
             expected_signature = file_signature(path)
+            if confirmed_plan is not None and expected_signature != confirmed_plan['signatures'].get(path.resolve()):
+                raise RuntimeError('Metadata changed after deletion confirmation; reload and retry.')
             output_lines: list[str] = []
             removed_rows = 0
             for _line_no, raw_line, record in _jsonl_records(path) or []:

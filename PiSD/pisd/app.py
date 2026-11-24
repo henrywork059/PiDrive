@@ -405,6 +405,11 @@ def create_app(hardware_enabled: bool = False):
 
     @app.post("/api/settings/reset")
     def api_settings_reset():
+        data, json_error = get_json_payload()
+        if json_error is not None:
+            return jsonify(report_payload(False, json_error)), 400
+        if data.get('confirm') is not True:
+            return jsonify(ok=False, code=PiSDErrorCodes.SETTINGS_INVALID_PAYLOAD, message='Explicit reset confirmation required; no settings were changed.'), 400
         ok, settings, report = settings_manager.reset()
         if not ok:
             return jsonify(report_payload(False, report, "Runtime settings reset failed.", settings=settings)), 500
@@ -740,6 +745,8 @@ def create_app(hardware_enabled: bool = False):
         if json_error is not None:
             return jsonify(report_payload(False, json_error)), 400
         try:
+            if data.get('confirm') is not True:
+                return jsonify(ok=False, code=PiSDErrorCodes.API_INVALID_JSON, message='Explicit model deletion confirmation required; no model files were removed.'), 400
             result = ai_drive_service.delete_model(data.get("model_id") or data.get("id") or "")
             if result.get("ok") and result.get("unloaded_selected_model"):
                 saved, _, _ = settings_manager.save({"ai_mode": {**(settings_manager.get().get("ai_mode") or {}), "model_id": ""}})

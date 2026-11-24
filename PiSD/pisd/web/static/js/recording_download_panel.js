@@ -89,7 +89,7 @@
       const running = Boolean(item?.running);
       if (els.download) els.download.disabled = !hasItem;
       if (els.delete) {
-        els.delete.disabled = !hasItem || running;
+        els.delete.disabled = !hasItem || running || window.PiDriveDestructive.busy(els.delete);
         els.delete.title = running ? 'Stop the active recording before deleting this folder.' : 'Delete the selected folder inside the PiSD recordings root.';
       }
     }
@@ -163,6 +163,7 @@
     }
 
     async function deleteFolder() {
+      if (window.PiDriveDestructive.busy(els.delete)) return;
       const { kind, id: itemId, item } = updateDetails();
       if (!itemId || !item) {
         setNotice('Select a folder before deleting.', 'PISD-REC-008');
@@ -173,7 +174,7 @@
         return;
       }
       const details = `${Number(item.frame_count || 0)} frames, ${formatBytes(item.bytes)}, modified ${formatDateTime(item.modified_at_utc)}`;
-      const ok = window.confirm(`Delete ${kind} folder?\n\n${item.label || itemId}\n${itemId}\n${details}\n\nOnly this selected PiSD recordings folder will be removed. This cannot be undone.`);
+      const ok = await window.PiDriveDestructive.confirm(els.delete, `Delete ${kind} folder?\n\n${item.label || itemId}\n${itemId}\n${details}\n\nOnly this selected PiSD recordings folder will be removed. This cannot be undone.`);
       if (!ok) return;
       try {
         if (els.delete) els.delete.disabled = true;
@@ -183,6 +184,7 @@
       } catch (err) {
         setNotice(`Delete failed: ${String(err.message || err)}`, 'PISD-REC-009');
       } finally {
+        window.PiDriveDestructive.finish(els.delete);
         updateDetails();
       }
     }

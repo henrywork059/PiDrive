@@ -808,7 +808,7 @@ function updateSessionExportUi() {
   setText("sessionUpdatedAt", session ? formatDateTime(session.updated_at) : "--");
   setText("sessionPath", session ? (session.path || `records/${session.name}`) : "records");
   if (downloadBtn) downloadBtn.disabled = !session;
-  if (deleteBtn) deleteBtn.disabled = !session;
+  if (deleteBtn) deleteBtn.disabled = !session || window.PiDriveDestructive.busy(deleteBtn);
 }
 
 async function refreshSessions(preserveSelection = true) {
@@ -850,14 +850,17 @@ function downloadSelectedSession() {
 }
 
 async function deleteSelectedSession() {
+  const button = document.getElementById('deleteSessionBtn');
+  if (window.PiDriveDestructive.busy(button)) return;
   const session = findSelectedSession();
   if (!session) {
     setBanner("sessionExportMessage", "Record or capture a frame, then Refresh folders.", "muted");
     return;
   }
   const label = getSelectedSessionLabel(session);
-  const ok = window.confirm(`Delete ${session.name}? This permanently removes the ${label} from the Pi.`);
+  const ok = await window.PiDriveDestructive.confirm(button, `Permanently delete ${label}: ${session.name}?\n\n${session.image_count ?? 'Unknown number of'} images. This removes the named folder from the Pi and cannot be undone.`);
   if (!ok) return;
+  try {
   const data = await fetchJson("/api/record/delete", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -870,6 +873,7 @@ async function deleteSelectedSession() {
   updateSessionExportUi();
   if (data && data.state) updateStatusUi(data.state);
   setBanner("sessionExportMessage", data.message || `Deleted ${session.name}.`, "muted");
+  } finally { window.PiDriveDestructive.finish(button); updateSessionExportUi(); }
 }
 
 async function sendControlUpdate(extra = {}) {
@@ -1047,22 +1051,26 @@ async function loadSelectedModel() {
 }
 
 async function deleteSelectedModel() {
+  const button = document.getElementById('deleteModelBtn');
+  if (window.PiDriveDestructive.busy(button)) return;
   const select = document.getElementById("modelSelect");
   const filename = select?.value || "";
   if (!filename) {
     setBanner("modelMessage", "No model selected. Choose a listed model to delete.", "muted");
     return;
   }
-  const ok = window.confirm(`Delete ${filename}? This permanently removes the model file from the Pi.`);
+  const ok = await window.PiDriveDestructive.confirm(button, `Permanently delete model: ${filename}?\n\nThe model and its associated manifest will be removed from the Pi. This cannot be undone.`);
   if (!ok) return;
+  try {
   const data = await fetchJson("/api/model/delete", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ filename })
+    body: JSON.stringify({ filename, confirm: true })
   });
   setBanner("modelMessage", data.message || `Deleted ${filename}.`, "muted");
   await refreshModels();
   await pollStatus();
+  } finally { window.PiDriveDestructive.finish(button); }
 }
 
 async function toggleRecording() {

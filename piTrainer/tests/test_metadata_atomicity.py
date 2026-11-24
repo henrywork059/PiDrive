@@ -188,6 +188,26 @@ class MetadataWorkflowTests(unittest.TestCase):
         self.assertFalse(delete_service.is_record_hidden(self.load_rows(self.labels)[0]))
         self.assertEqual(list(self.session.glob('.*.tmp')), [])
 
+    def test_confirmed_purge_refuses_changed_hidden_scope(self):
+        delete_service.hide_frames_from_training(self.root, [self.record(0)])
+        plan = delete_service.preview_hidden_purge(self.root, ['session_one'])
+        self.assertEqual(plan['count'], 1)
+        self.assertEqual(plan['rows'], 2)
+        delete_service.hide_frames_from_training(self.root, [self.record(1)])
+        before = self.labels.read_bytes()
+        with self.assertRaisesRegex(RuntimeError, 'targets changed'):
+            delete_service.purge_hidden_frames(self.root, ['session_one'], confirmed_plan=plan)
+        self.assertEqual(self.labels.read_bytes(), before)
+        self.assertTrue((self.session / 'frames/001.jpg').exists())
+        self.assertTrue((self.session / 'frames/002.jpg').exists())
+
+    def test_confirmed_purge_uses_exact_preview(self):
+        delete_service.hide_frames_from_training(self.root, [self.record(0)])
+        plan = delete_service.preview_hidden_purge(self.root, ['session_one'])
+        self.assertEqual(delete_service.purge_hidden_frames(self.root, ['session_one'], confirmed_plan=plan)['purged_count'], 1)
+        self.assertFalse((self.session / 'frames/001.jpg').exists())
+        self.assertTrue((self.session / 'frames/002.jpg').exists())
+
     def test_permanent_hidden_delete_removes_only_hidden_metadata_and_images(self):
         delete_service.hide_frames_from_training(self.root, [self.record(0)])
         purged = delete_service.purge_hidden_frames(self.root, ['session_one'])

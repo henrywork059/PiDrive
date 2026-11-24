@@ -3,7 +3,7 @@ from __future__ import annotations
 import pandas as pd
 from PySide6.QtWidgets import QMessageBox
 
-from ..services.data.delete_service import hide_frames_from_training, purge_hidden_frames, recover_hidden_frames
+from ..services.data.delete_service import hide_frames_from_training, preview_hidden_purge, purge_hidden_frames, recover_hidden_frames
 from ..services.data.selection_scope import selected_visible_impact
 from ..services.data.stats_service import calculate_basic_stats
 
@@ -89,17 +89,36 @@ class DataPageVisibilityMixin:
         self.main_window.set_status_message('No hidden frames were recovered.')
 
     def purge_hidden_frames_shortcut(self) -> None:
+        if getattr(self, '_purge_pending', False):
+            return
+        self._purge_pending = True
+        try:
+            self._confirm_hidden_purge()
+        finally:
+            self._purge_pending = False
+
+    def _confirm_hidden_purge(self) -> None:
         self.preview_panel.stop_autoplay()
         sessions = self._active_session_names_for_visibility_actions()
         if not sessions:
             QMessageBox.information(self, 'Permanent Delete', 'Load or select a session first.')
             return
 
+        try:
+            plan = preview_hidden_purge(self.state.records_root_path, sessions)
+        except (OSError, RuntimeError) as exc:
+            self._show_metadata_save_error('Permanent Delete', exc)
+            return
+        if not plan['count']:
+            QMessageBox.information(self, 'Permanent Delete', 'No hidden frames in these sessions.')
+            return
         confirm = QMessageBox.warning(
             self,
             'Delete Hidden Frames Permanently?',
-            'This permanently deletes hidden rows and unreferenced image files from the loaded/selected sessions.\n\n'
-            'This cannot be undone. Continue?',
+            f"Root: {plan['root']}\nSessions:\n" + '\n'.join(plan['sessions'])
+            + f"\n\n{plan['count']} hidden frame(s), {plan['rows']} metadata row(s)."
+            + '\nOnly these hidden rows and eligible unreferenced image files will be removed.'
+              '\nThis cannot be undone. Recover hidden frames instead if you may need them. Continue?',
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No,
         )
@@ -108,7 +127,7 @@ class DataPageVisibilityMixin:
             return
 
         try:
-            result = purge_hidden_frames(self.state.records_root_path, sessions)
+            result = purge_hidden_frames(plan['root'], plan['sessions'], confirmed_plan=plan)
         except (OSError, RuntimeError) as exc:
             self._show_metadata_save_error('Permanent Delete', exc)
             return
