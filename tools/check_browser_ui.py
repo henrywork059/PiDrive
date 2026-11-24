@@ -134,6 +134,16 @@ def main():
                             expect(page.locator("#aiModelSelect")).to_have_value("")
                             expect(page.locator("#aiModelSelect option")).to_contain_text("No models")
                         if name == "dashboard":
+                            # R36: even when the dock is short/narrow, metric rows must
+                            # contain their labels and values rather than clipping them.
+                            metrics = page.locator(".dock-panel[data-panel='status'] .status-metric-grid > .metric-card")
+                            assert metrics.count() >= 8, "Status dock lost its metrics"
+                            for index in range(metrics.count()):
+                                card = metrics.nth(index)
+                                size = card.evaluate("(el) => ({content: el.scrollHeight, box: el.clientHeight})")
+                                assert size["content"] <= size["box"] + 2, (
+                                    "Status value clipped", index, size, width
+                                )
                             expect(page.locator("#modelSelect option")).to_contain_text("No .tflite models")
                             # PiServer deliberately creates a snapshots directory even
                             # before the first capture. Empty data means zero images,

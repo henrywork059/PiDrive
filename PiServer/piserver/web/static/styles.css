@@ -3545,6 +3545,12 @@ button.active,
   }
 }
 
+/* R36: preserve full label/value height in the existing scrollable Status dock.
+   Do not change saved panel sizes, styles, or drag-pad geometry. */
+.dock-panel[data-panel="status"] .status-metric-grid {
+  grid-auto-rows: max-content;
+}
+
 /* R30: freshness overlays retain the existing preview layout and theme settings. */
 .preview-health { position: absolute; top: 10px; right: 10px; z-index: 6; padding: 6px 10px; border-radius: 8px; font-size: .82rem; font-weight: 700; color: #e5fff1; background: rgba(10,75,42,.90); pointer-events: none; }
 .preview-health.delayed, .preview-health.paused { color: #fff4d5; background: rgba(106,70,14,.94); }
