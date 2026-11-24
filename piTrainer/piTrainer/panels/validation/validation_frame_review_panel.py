@@ -236,6 +236,11 @@ class ValidationFrameReviewPanel(QGroupBox):
         return marked
 
     def set_result(self, result: dict | None) -> None:
+        if result is not self.result:
+            # Edit markers mean "edited after this validation run". A new
+            # validation result (or Clear) starts a new marker lifetime.
+            # Refreshing the same result must retain existing markers.
+            self._edited_group_keys.clear()
         self.result = result
         self.all_rows = [self._apply_edit_marker_to_row(row) for row in validation_preview_rows(result)]
         self._apply_filters()
