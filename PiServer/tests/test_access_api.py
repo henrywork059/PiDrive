@@ -69,7 +69,10 @@ class AccessApiTests(unittest.TestCase):
         app, _ = self.build_app(token=self.TOKEN)
         with app.test_client() as client:
             headers = {"Authorization": "Bearer " + self.TOKEN}
-            self.assertEqual(client.get("/api/status", headers=headers).status_code, 200)
+            status = client.get("/api/status", headers=headers)
+            self.assertEqual(status.status_code, 200)
+            self.assertIn("camera_frame_age_s", status.json["performance_diagnostics"])
+            self.assertIsNone(status.json["performance_diagnostics"]["camera_frame_age_s"])
             resp = client.post("/api/control", json={"throttle": 0.15}, headers=headers)
             self.assertEqual(resp.status_code, 200)
             self.assertAlmostEqual(resp.json["manual_throttle"], 0.15)
