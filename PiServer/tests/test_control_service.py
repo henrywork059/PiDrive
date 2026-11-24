@@ -24,6 +24,10 @@ class DummyCamera:
     def get_fps(self):
         return 0.0
 
+    def get_raw_frame_age(self):
+        # No raw frame has been captured by this hardware-free camera.
+        return None
+
     def set_processing_enabled(self, enabled):
         self.processing_enabled_calls.append(bool(enabled))
 
@@ -348,7 +352,15 @@ class ControlServiceTests(unittest.TestCase):
         svc.set_safety_stop(True)
         self.run_one_tick(svc)
         self.assertEqual(motor.update_calls[-1][:2], (0.0, 0.0))
-        svc.set_safety_stop(False)
+        self.assertFalse(svc.set_safety_stop(False))
+        self.assertTrue(svc.state.safety_stop)
+        self.run_one_tick(svc)
+        self.assertEqual(motor.update_calls[-1][:2], (0.0, 0.0))
+        # run_one_tick simulates loop shutdown; explicit rearm requires running.
+        svc.running = True
+        ok, _ = svc.rearm_safety(confirm=True)
+        self.assertTrue(ok)
+        self.assertFalse(svc.state.safety_stop)
         self.run_one_tick(svc)
         self.assertEqual(motor.update_calls[-1][:2], (0.0, 0.0))
         svc.set_manual_controls(steering=0.1, throttle=0.5)

@@ -4,6 +4,7 @@ import pandas as pd
 from PySide6.QtWidgets import QMessageBox
 
 from ..services.data.edit_service import update_frame_controls_batch, update_frame_controls_many
+from ..services.data.selection_scope import selected_visible_impact
 from ..services.data.filter_service import filter_preview_dataframe
 from ..services.data.stats_service import calculate_basic_stats
 
@@ -30,6 +31,7 @@ class DataPageFilterEditMixin:
             steering_range=self.filter_panel.steering_range() if self.filter_panel.steering_filter_enabled() else None,
         )
         self.preview_panel.set_dataframe(filtered_preview)
+        self._refresh_selection_scope()
         if select_identity:
             self.preview_panel.select_record_identity(select_identity)
         self.plot_panel.set_dataframe(filtered_preview)
@@ -225,7 +227,9 @@ class DataPageFilterEditMixin:
         confirm = QMessageBox.warning(
             self,
             f'Confirm Bulk {field_label.title()} Edit',
-            f'This will overwrite {field_label} for {count} selected frame(s) with {value:.3f}.\n\n'
+            f'This will overwrite {field_label} for {count} selected visible frame(s) with {value:.3f}.\n\n'
+            f'{selected_visible_impact(records)}\n'
+            f'All active loaded frames: {len(self.state.dataset_df)} (not all targeted).\n\n'
             'The other control value stays unchanged. This cannot be undone in piTrainer. Continue?',
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No,

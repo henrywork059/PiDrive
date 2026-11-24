@@ -1,0 +1,3 @@
+# PiServer integration regression corrections (0_4_28)
+
+Initial PR #84 run (45342315514) passed access API and U28 rearm tests, but an older control test tried clearing E-stop through the intentionally rejected legacy method. tests/test_control_service.py now checks that refusal, explicit confirm=True rearm at zero, and new manual commands after rearm, preserving the actual safety behavior. tests/test_request_trace_ui_r47.cjs, tests/test_responsive_r36.cjs and tests/test_ui_copy_r46.cjs check the same version line with minimum patch, not an obsolete exact release. Based on integrated 0_4_28, reviewed camera fixture note and R49/R48/R47 notes. No runtime/config change or version bump. Corrected tests require rerun; no physical testing.

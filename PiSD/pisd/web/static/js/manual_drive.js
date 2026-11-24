@@ -219,7 +219,29 @@
     return `...${text.slice(-69)}`;
   }
 
+  // R47: display only bounded server-supplied tracing metadata.
+  function appendRequestTrace(payload, status) {
+    const id = String(payload?.correlation_id || '');
+    const short = $('mdrvShortStatus');
+    if (!/^[0-9a-f]{16}$/.test(id) || !short?.parentNode) return;
+    const details = document.createElement('details');
+    details.id = 'mdrvTraceDetails';
+    const summary = document.createElement('summary');
+    summary.textContent = 'Error details';
+    const text = document.createElement('span');
+    const operation = String(payload?.operation || '');
+    const safeOperation = /^[a-zA-Z0-9_.-]{1,64}$/.test(operation) ? operation : 'unknown';
+    const code = String(payload?.code || '');
+    text.textContent = ' Ref ' + id + ' · ' + safeOperation +
+      ' · HTTP ' + Number(status || 0) +
+      (/^[A-Z0-9_-]{1,48}$/.test(code) ? ' · ' + code : '');
+    details.appendChild(summary);
+    details.appendChild(text);
+    short.parentNode.insertBefore(details, short.nextSibling);
+  }
+
   function setShortStatus(message, code = 'PISD-OK-000') {
+    $('mdrvTraceDetails')?.remove();
     const short = $('mdrvShortStatus');
     if (short) {
       short.textContent = message;
@@ -781,10 +803,10 @@
     if (!list.length) {
       const option = document.createElement('option');
       option.value = '';
-      option.textContent = kind === 'snapshot' ? 'No snapshot folders' : 'No recording folders';
+      option.textContent = kind === 'snapshot' ? 'No snapshots — capture a frame' : 'No recordings — start a recording';
       fileSelect.appendChild(option);
       updateSelectedFileDetails();
-      showFilesNotice(kind === 'snapshot' ? 'No snapshot folders found.' : 'No recording folders found.');
+      showFilesNotice(kind === 'snapshot' ? 'No snapshots yet. Start live and capture a frame.' : 'No recordings yet. Start live, then Record.');
       return;
     }
     for (const item of list) {
@@ -809,9 +831,15 @@
         snapshots: collections.snapshots || [],
       };
       renderFileOptions();
-      showFilesNotice(`Loaded ${recordingCollections.recordings.length} recordings and ${recordingCollections.snapshots.length} snapshot folders.`, payload.code);
+      // Keep the actionable empty notice when the currently selected kind
+      // has no folders, even if the other collection contains saved data.
+      const selectedKind = fileKind?.value === 'snapshot' ? 'snapshot' : 'recording';
+      const visibleItems = selectedKind === 'snapshot' ? recordingCollections.snapshots : recordingCollections.recordings;
+      if (visibleItems.length) {
+        showFilesNotice(`Loaded ${recordingCollections.recordings.length} recordings and ${recordingCollections.snapshots.length} snapshot folders.`, payload.code);
+      }
     } catch (err) {
-      showFilesNotice(`Folder list failed: ${String(err)}`, 'PISD-REC-007');
+      showFilesNotice('Could not load saved folders. Check the Pi connection, then Refresh.', 'PISD-REC-007');
       writeLog('recording items failed', { ok: false, code: 'PISD-REC-007', message: String(err) });
     }
   }
@@ -952,8 +980,12 @@
     const code = payload?.code || (httpStatus >= 400 ? 'PISD-API-002' : 'PISD-OK-000');
     setGlobalCode(code);
     setCode('log', code);
-    if (log) log.textContent = JSON.stringify({ action, http_status: httpStatus, response: payload }, null, 2);
-    setShortStatus(`${action}: ${code} ${payload?.message || ''}`.trim(), code);
+    const failed = Number(httpStatus) >= 400 || payload?.ok === false;
+    // Avoid exporting raw server errors, runtime config and file paths in the log.
+    const safeResponse = failed ? { ok: false, code, correlation_id: payload?.correlation_id || '', operation: payload?.operation || '' } : payload;
+    if (log) log.textContent = JSON.stringify({ action, http_status: httpStatus, response: safeResponse }, null, 2);
+    setShortStatus(failed ? `${action} failed. Check Pi status, then retry.` : `${action}: ${code} ${payload?.message || ''}`.trim(), code);
+    if (failed) appendRequestTrace(payload, httpStatus);
   }
 
   async function api(method, path, body, codeTarget = 'log') {
@@ -1074,6 +1106,7 @@
     setDriveState(payload, lastMotorOutput, 'manual intent');
     try {
       const result = await api('POST', '/api/control/manual', payload, 'drive');
+      if (result.payload?.ok === false) return; // never label rejected motor action as live output
       renderMotorSignalsFromApiResponse(result.payload, payload, 'live status');
     }
     catch (err) { writeLog('manual drag failed', { ok: false, code: 'PISD-API-002', message: String(err) }); }
@@ -1085,13 +1118,10 @@
     // leave browser-side keyboard steering state inconsistent on the Pi.
     if (overlaySettingsPopup && !overlaySettingsPopup.hidden) return true;
     const active = document.activeElement;
-    if (!active || active === document.body || active === document.documentElement || active === pad || active === arm) return false;
-    const tag = String(active.tagName || '').toLowerCase();
-    if (tag === 'input') {
-      const type = String(active.type || '').toLowerCase();
-      return !['checkbox', 'button', 'submit', 'reset'].includes(type);
-    }
-    if (['select', 'textarea'].includes(tag)) return true;
+    if (!active || active === document.body || active === document.documentElement || active === pad) return false;
+    // R35: buttons, links, safety checkboxes and form fields keep native
+    // keyboard controls. Driving shortcuts only belong to the page/pad.
+    if (active.closest?.('button, a[href], input, select, textarea, [role="button"], [role="tab"], [role="checkbox"], [role="switch"]')) return true;
     return Boolean(active.isContentEditable);
   }
 
@@ -1240,6 +1270,7 @@
     setStoppedDriveState('stopped');
     try {
       const { payload } = await api('POST', '/api/control/stop', {}, target);
+      if (payload?.ok === false) return; // STOP outcome is unconfirmed; retain error reference
       renderMotorSignalsFromApiResponse(payload, STOP_COMMAND, 'stopped');
       setShortStatus(`STOP motors sent: ${payload?.code || 'PISD-OK-000'} ${payload?.message || ''}`.trim(), payload?.code || 'PISD-OK-000');
       await refreshStatus();
@@ -1253,7 +1284,7 @@
     lastPreviewSeq = null;
     lastPreviewSeqAt = 0;
     lastPreviewFps = null;
-    if (preview) preview.src = `/video_feed?t=${Date.now()}`;
+    if (preview && !document.hidden) preview.src = `/video_feed?t=${Date.now()}`;
     updatePreviewDebug({ mode: 'live', cameraRunning: true, frameAgeMs: null, fps: null, loopActive: Boolean(previewMetricsTimer), state: 'active' });
     startPreviewMetricsLoop();
     setShortStatus('Live MJPEG preview selected. Metrics loop is guarded so only one status/FPS poller runs.', 'PISD-OK-000');
@@ -1270,6 +1301,7 @@
   async function startLiveCamera() {
     try {
       const { payload } = await api('POST', '/api/camera/start', {}, 'camera');
+      if (payload?.ok === false) return; // keep failed Start/trace visible; never claim camera started
       livePreview();
       setShortStatus(`Start live: ${payload?.code || 'PISD-OK-000'} ${payload?.message || ''}`.trim(), payload?.code || 'PISD-OK-000');
       await refreshStatus();
@@ -1301,9 +1333,11 @@
     try {
       if (recordingRunning) {
         const { payload } = await api('POST', '/api/recording/stop', {}, 'camera');
+        if (payload?.ok === false) return;
         showCaptureNotice(`Recording stopped: ${payload?.code || 'PISD-OK-000'}`, payload?.code || 'PISD-OK-000');
       } else {
         const { payload } = await api('POST', '/api/recording/start', { label: 'manual_drive', fps: manual.recording_fps || DEFAULTS.recording_fps, overlay_settings: overlaySettingsForRecording() }, 'camera');
+        if (payload?.ok === false) return;
         const session = payload?.recording?.active_session || {};
         showCaptureNotice(`Recording started${session.session_id ? ': ' + session.session_id : ''}`, payload?.code || 'PISD-OK-000');
       }
@@ -1449,7 +1483,24 @@
     });
     window.addEventListener('pagehide', () => { stopPreviewMetricsLoop(); sendFailSafeStop('pagehide'); });
     window.addEventListener('beforeunload', () => sendFailSafeStop('beforeunload'));
-    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') { stopPreviewMetricsLoop(); sendFailSafeStop('visibility-hidden'); } else if (currentPreviewMode === 'live' || currentPreviewMode === 'snapshot') { startPreviewMetricsLoop(); } });
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        // R43: release the MJPEG HTTP response while hidden. Stop/authorization
+        // handling remains independent and always has priority.
+        stopPreviewMetricsLoop();
+        sendFailSafeStop('visibility-hidden');
+        if (currentPreviewMode === 'live' && preview) {
+          preview.src = PREVIEW_IDLE_SRC;
+          updatePreviewDebug({ mode: 'live', state: 'paused', loopActive: false });
+        }
+      } else if (currentPreviewMode === 'live' || currentPreviewMode === 'snapshot') {
+        if (currentPreviewMode === 'live' && preview) {
+          preview.src = `/video_feed?t=${Date.now()}`;
+        }
+        startPreviewMetricsLoop();
+        void pollOperatingReadiness();
+      }
+    });
     speed?.addEventListener('input', () => { updateSliderLabels(); persistManualSettings(); setKnobForCommand(lastPayload.steering, lastPayload.throttle); });
     bindPad();
     bindKeyboardDrive();

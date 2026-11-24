@@ -90,6 +90,9 @@ const state = {
   resizing: null,
   latestStatus: null,
   statusTimer: null,
+  statusInFlight: false,
+  statusPollingReady: false,
+  statusFailures: 0,
   cameraConfig: null,
   motorConfig: null,
   motorFormDirty: false,
@@ -209,6 +212,7 @@ function openStyleSettings() {
   syncStyleInputsFromCurrentVars();
   modal.classList.remove("hidden");
   modal.setAttribute("aria-hidden", "false");
+  document.getElementById("closeStyleSettingsBtn")?.focus();
 }
 
 function closeStyleSettings() {
@@ -218,6 +222,7 @@ function closeStyleSettings() {
   manager?.applyTheme?.(manager.getCurrentTheme?.());
   modal.classList.add("hidden");
   modal.setAttribute("aria-hidden", "true");
+  document.getElementById("openStyleSettingsBtn")?.focus();
 }
 
 function resetStyleSettings() {
@@ -475,6 +480,7 @@ function renderActivePage(page) {
   document.body.dataset.page = page;
   document.querySelectorAll(".tab-btn").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.page === page);
+    btn.setAttribute("aria-pressed", String(btn.dataset.page === page));
   });
   const visible = new Set(pagePanels[page] || pagePanels.manual);
   panelEls().forEach((panel) => {
@@ -505,6 +511,46 @@ async function getCsrfToken() {
   return csrfTokenPromise;
 }
 
+// R47: show only server-issued trace metadata, never request bodies or paths.
+function tracedRequestError(payload, status, url, fallback) {
+  const traceId = String(payload?.correlation_id || '');
+  if (!/^[0-9a-f]{16}$/.test(traceId)) {
+    return new Error(payload?.message || payload?.error || fallback);
+  }
+  const actions = {
+    '/api/motor/apply': 'Motor Apply failed. Check the settings, then retry.',
+    '/api/camera/apply': 'Camera Apply failed. Check the camera, then retry.',
+    '/api/model/load': 'Model load failed. Check the model, then retry.',
+    '/api/model/upload': 'Model upload failed. Choose a .tflite file, then retry.',
+  };
+  const error = new Error(status === 403 || status === 401
+    ? fallback : (actions[url] || 'Pi request failed. Check Pi status, then retry.'));
+  error.trace = {
+    id: traceId,
+    operation: /^[a-zA-Z0-9_.-]{1,64}$/.test(String(payload?.operation || ''))
+      ? payload.operation : 'unknown',
+    status: Number(status) || 0,
+    code: /^[A-Z0-9_-]{1,48}$/.test(String(payload?.code || ''))
+      ? payload.code : '',
+  };
+  return error;
+}
+
+function appendRequestTrace(id, error) {
+  const target = document.getElementById(id);
+  if (!target || !error?.trace?.id) return;
+  const details = document.createElement('details');
+  const title = document.createElement('summary');
+  title.textContent = 'Error details';
+  const data = document.createElement('span');
+  const trace = error.trace;
+  data.textContent = ' Ref ' + trace.id + ' · ' + trace.operation +
+    ' · HTTP ' + trace.status + (trace.code ? ' · ' + trace.code : '');
+  details.appendChild(title);
+  details.appendChild(data);
+  target.appendChild(details);
+}
+
 async function fetchJson(url, options = {}) {
   const requestOptions = { ...options, credentials: "same-origin" };
   if (requestOptions.method && !["GET", "HEAD", "OPTIONS"].includes(String(requestOptions.method).toUpperCase())) {
@@ -515,11 +561,15 @@ async function fetchJson(url, options = {}) {
   }
   const response = await fetch(url, requestOptions);
   const data = await response.json();
-  if (!response.ok) {
+  if (!response.ok || data?.ok === false || (data?.saved === false && !["GET", "HEAD"].includes(String(requestOptions.method || "GET").toUpperCase()))) {
     if (response.status === 401) {
       window.location.assign("/login");
     }
-    throw new Error(data.message || data.error || "Request failed");
+    const nextStep = response.status === 403 ? "Permission denied. Sign in with an authorized account."
+      : response.status === 401 ? "Session expired. Sign in again."
+      : response.status >= 500 ? "PiServer unavailable. Check the connection, then retry."
+      : `Request failed (${response.status}). Check the inputs and retry.`;
+    throw tracedRequestError(data, response.status, url, nextStep);
   }
   return data;
 }
@@ -735,7 +785,7 @@ function updateSessionExportUi() {
     if (!state.sessions.length) {
       const opt = document.createElement("option");
       opt.value = "";
-      opt.textContent = "No session or snapshot folders yet";
+      opt.textContent = "No saved folders — record or capture a frame";
       select.appendChild(opt);
     } else {
       state.sessions.forEach((item) => {
@@ -786,7 +836,7 @@ function updateSessionSelectionFromStatus(data) {
 function downloadSelectedSession() {
   const session = findSelectedSession();
   if (!session) {
-    setBanner("sessionExportMessage", "No folder selected.", "muted");
+    setBanner("sessionExportMessage", "Record or capture a frame, then Refresh folders.", "muted");
     return;
   }
   const url = `/api/record/download?session=${encodeURIComponent(session.name)}`;
@@ -802,7 +852,7 @@ function downloadSelectedSession() {
 async function deleteSelectedSession() {
   const session = findSelectedSession();
   if (!session) {
-    setBanner("sessionExportMessage", "No folder selected.", "muted");
+    setBanner("sessionExportMessage", "Record or capture a frame, then Refresh folders.", "muted");
     return;
   }
   const label = getSelectedSessionLabel(session);
@@ -888,16 +938,53 @@ function updateStatusUi(data) {
 
   updateToolbarBadge(data);
   setBanner("statusBanner", data.system_message || "Ready.", "muted");
+  const statusBanner = document.getElementById("statusBanner");
+  if (statusBanner) {
+    const serverAt = Number(data.server_status_at_ms);
+    statusBanner.title = Number.isFinite(serverAt) && serverAt > 0
+      ? `Server status as of ${new Date(serverAt).toLocaleTimeString()} (server clock); updated by read-only polling.`
+      : "Server status freshness timestamp unavailable.";
+  }
+}
+
+// R43: read-only UI status is deliberately independent of the 60 ms motor
+// control tick and server-side safety/watchdog. Only one request in flight.
+function statusPollDelayMs() {
+  if (document.hidden) return 5000; // no requests in hidden tabs
+  const status = state.latestStatus || {};
+  const active = !!(status.camera_preview_live || status.recording || status.ai_running ||
+    Math.abs(state.manualThrottle) > 0.001 || Math.abs(state.manualSteering) > 0.001 ||
+    state.pointerControl.active || Object.values(state.stepInputs).some(Boolean));
+  const base = active ? 800 : 2500;
+  return Math.min(8000, base * Math.pow(2, Math.min(state.statusFailures, 3)));
+}
+
+function scheduleStatusPoll(delayMs = statusPollDelayMs()) {
+  if (state.statusTimer) clearTimeout(state.statusTimer);
+  state.statusTimer = setTimeout(() => {
+    state.statusTimer = null;
+    void pollStatus();
+  }, delayMs);
 }
 
 async function pollStatus() {
-  if (document.hidden) return;
+  if (document.hidden) {
+    scheduleStatusPoll();
+    return;
+  }
+  if (state.statusInFlight) return;
+  state.statusInFlight = true;
   try {
     const data = await fetchJson("/api/status");
+    state.statusFailures = 0;
     updateStatusUi(data);
     syncControlsFromStatus(data);
   } catch (error) {
-    setBanner("statusBanner", error.message, "muted");
+    state.statusFailures = Math.min(3, state.statusFailures + 1);
+    setBanner("statusBanner", error.message || "Pi status unavailable. Check connection, then retry.", "muted");
+  } finally {
+    state.statusInFlight = false;
+    scheduleStatusPoll();
   }
 }
 
@@ -906,6 +993,13 @@ async function refreshModels() {
   const select = document.getElementById("modelSelect");
   if (!select) return;
   select.innerHTML = "";
+  if (!(data.models || []).length) {
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = "No .tflite models — upload a model";
+    select.appendChild(option);
+    setBanner("modelMessage", "No models on Pi. Upload a .tflite model first.", "muted");
+  }
   (data.models || []).forEach((name) => {
     const option = document.createElement("option");
     option.value = name;
@@ -933,7 +1027,7 @@ async function loadSelectedModel() {
   const select = document.getElementById("modelSelect");
   const filename = select?.value || "";
   if (!filename) {
-    setBanner("modelMessage", "Choose a model first.", "muted");
+    setBanner("modelMessage", "No model selected. Upload a .tflite file or choose a listed model.", "muted");
     return;
   }
   const data = await fetchJson("/api/model/load", {
@@ -951,7 +1045,7 @@ async function deleteSelectedModel() {
   const select = document.getElementById("modelSelect");
   const filename = select?.value || "";
   if (!filename) {
-    setBanner("modelMessage", "Choose a model first.", "muted");
+    setBanner("modelMessage", "No model selected. Choose a listed model to delete.", "muted");
     return;
   }
   const ok = window.confirm(`Delete ${filename}? This permanently removes the model file from the Pi.`);
@@ -1162,6 +1256,7 @@ async function applyCameraConfig() {
   } catch (error) {
     feedback.fail(token, error.message);
     setBanner("cameraMessage", error.message || "Camera settings failed.", "muted");
+    appendRequestTrace("cameraMessage", error);
   } finally { renderSettingsFeedback('camera'); }
 }
 
@@ -1228,6 +1323,7 @@ async function applyMotorConfig() {
   } catch (error) {
     feedback.fail(token, error.message);
     setBanner("motorMessage", error.message || "Motor settings failed.", "muted");
+    appendRequestTrace("motorMessage", error);
   } finally { renderSettingsFeedback('motor'); }
 }
 
@@ -1354,8 +1450,13 @@ function syncPreviewActivity() {
   previewHealth.setPaused(!enabled);
   renderPreviewHealth();
   sendPreviewState(enabled);
-  if (enabled) schedulePreviewFrame(true);
-  else stopPreviewLoop(false);
+  if (enabled) {
+    schedulePreviewFrame(true);
+    if (state.statusPollingReady) scheduleStatusPoll(0); // refresh immediately on return
+  } else {
+    stopPreviewLoop(false);
+    if (state.statusPollingReady) scheduleStatusPoll(); // parked while hidden
+  }
 }
 
 function setManualTargets(steering, throttle, options = {}) {
@@ -1529,7 +1630,7 @@ function setupManualControls() {
   window.addEventListener("keydown", (event) => {
     if (!(pagePanels[state.page] || []).includes("manual")) return;
     const tag = (event.target?.tagName || "").toLowerCase();
-    if (["input", "select", "textarea", "button"].includes(tag)) return;
+    if (["input", "select", "textarea", "button"].includes(tag) || event.target?.isContentEditable) return;
     const key = String(event.key || "").toLowerCase();
     let handled = true;
     if (key === "w" || key === "arrowup") setStepInput("up", true);
@@ -1582,6 +1683,21 @@ function setupEvents() {
 
   document.getElementById("closeStyleSettingsBtn")?.addEventListener("click", () => {
     closeStyleSettings();
+  });
+  document.getElementById("styleSettingsModal")?.addEventListener("keydown", (event) => {
+    if (event.key !== "Tab") return;
+    const modal = document.getElementById("styleSettingsModal");
+    if (!modal || modal.classList.contains("hidden")) return;
+    const focusable = Array.from(modal.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), a[href], [tabindex="0"]'))
+      .filter((el) => el.getClientRects().length);
+    if (!focusable.length) return;
+    if (event.shiftKey && document.activeElement === focusable[0]) {
+      event.preventDefault();
+      focusable[focusable.length - 1].focus();
+    } else if (!event.shiftKey && document.activeElement === focusable[focusable.length - 1]) {
+      event.preventDefault();
+      focusable[0].focus();
+    }
   });
 
   document.querySelectorAll("[data-close-style-modal]").forEach((el) => {
@@ -1855,7 +1971,8 @@ async function init() {
   updateStatusUi(status);
   syncControlsFromStatus(status);
   applyManualState();
-  state.statusTimer = setInterval(pollStatus, 800);
+  state.statusPollingReady = true;
+  scheduleStatusPoll(800);
   state.previewHealthTimer = setInterval(renderPreviewHealth, 250);
 }
 

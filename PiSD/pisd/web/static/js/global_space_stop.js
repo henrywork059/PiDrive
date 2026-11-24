@@ -11,12 +11,13 @@
     const element = active && active !== document.body ? active : target;
     if (!element || element === document.body || element === document.documentElement) return false;
     if (element.closest?.('[data-space-stop-ignore="true"]')) return true;
+    // R35: Space must keep its native activation semantics for a focused
+    // button, checkbox, tab or link. The dedicated STOP buttons remain
+    // keyboard-operable (and the backend still authorizes every action).
+    // On the document body and focused drive pads, Space remains global STOP.
+    if (element.closest?.('button, a[href], [role="button"], [role="tab"], [role="checkbox"], [role="radio"], [role="switch"]')) return true;
     const tag = String(element.tagName || '').toLowerCase();
-    if (tag === 'textarea' || tag === 'select') return true;
-    if (tag === 'input') {
-      const type = String(element.type || '').toLowerCase();
-      return !['button', 'checkbox', 'radio', 'submit', 'reset'].includes(type);
-    }
+    if (tag === 'textarea' || tag === 'select' || tag === 'input') return true;
     return Boolean(element.isContentEditable);
   }
 

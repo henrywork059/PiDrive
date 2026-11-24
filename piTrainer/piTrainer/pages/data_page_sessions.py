@@ -88,6 +88,8 @@ class DataPageSessionMixin:
         self.state.model = None
         self.state.history = {}
         self.current_preview_source_df = self._review_dataframe(filtered)
+        self._loaded_session_names = list(selected)
+        self._refresh_loaded_hidden_scope(self._loaded_session_names)
 
         sync_working_folder = getattr(self.main_window, 'sync_working_folder_from_loaded_sessions', None)
         if callable(sync_working_folder):

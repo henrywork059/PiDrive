@@ -6,6 +6,7 @@ import pandas as pd
 from PySide6.QtCore import QModelIndex, QSignalBlocker, QTimer, Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QFrame,
     QGroupBox,
     QHeaderView,
     QLabel,
@@ -14,6 +15,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import QItemSelectionModel
 
 from ...services.data.preview_service import dataframe_preview_rows, preview_columns
+from ...services.data.selection_scope import SelectionScope, count_selected_generated
 from .preview_model import RecordPreviewModel
 from .preview_table import CyclingPreviewTable
 
@@ -25,19 +27,43 @@ class PreviewPanel(QGroupBox):
         self.selection_callback = selection_callback
         self.playback_state_callback = playback_state_callback
         self._handling_selection = False
-        self._restore_after_sort_rows: list[int] = []
-        self._restore_after_sort_current_row = -1
+        self._sorting_layout = False
+        self._scope_all_active = 0
+        self._scope_generated_active = 0
+        self._scope_hidden: int | None = None
+
+        # R37: a lightweight read-only toolbar above the existing model/view
+        # table. It never changes the QTableView selection or source-row map.
+        self.scope_toolbar = QFrame(self)
+        self.scope_toolbar.setObjectName('dataSelectionScopeToolbar')
+        scope_layout = QVBoxLayout(self.scope_toolbar)
+        scope_layout.setContentsMargins(5, 3, 5, 3)
+        scope_layout.setSpacing(2)
+        self.scope_label = QLabel('Visible: 0  |  Selected visible: 0  |  All active: 0  |  Hidden: Unavailable  |  Generated: 0')
+        self.scope_label.setObjectName('dataSelectionScopeCounts')
+        self.scope_label.setProperty('role', 'summaryLine')
+        self.scope_label.setWordWrap(True)
+        self.scope_detail_label = QLabel(
+            'Bulk edits and Hide Selected target selected visible source rows only. '
+            'All active includes generated derivatives; generated rows are excluded from Data review by default.'
+        )
+        self.scope_detail_label.setProperty('role', 'muted')
+        self.scope_detail_label.setWordWrap(True)
+        scope_layout.addWidget(self.scope_label)
+        scope_layout.addWidget(self.scope_detail_label)
 
         self.summary_label = QLabel('Load sessions to show frames.')
         self.summary_label.setProperty('role', 'muted')
         self.summary_label.setWordWrap(True)
 
         self.model = RecordPreviewModel()
-        self.model.layoutAboutToBeChanged.connect(self._capture_selection_before_sort)
-        self.model.layoutChanged.connect(self._restore_selection_after_sort)
         self.table = CyclingPreviewTable(self)
         self.table.setObjectName('recordPreviewTable')
         self.table.setModel(self.model)
+        # Connect after the view's selection model: Qt restores its persistent
+        # selection before the panel refreshes the preview and scope counts.
+        self.model.layoutAboutToBeChanged.connect(self._begin_sort_layout)
+        self.model.layoutChanged.connect(self._finish_sort_layout)
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
@@ -59,6 +85,7 @@ class PreviewPanel(QGroupBox):
         self.autoplay_timer.timeout.connect(self._advance_autoplay)
 
         layout = QVBoxLayout(self)
+        layout.addWidget(self.scope_toolbar)
         layout.addWidget(self.summary_label)
         layout.addWidget(self.table)
         self._refresh_summary()
@@ -73,6 +100,28 @@ class PreviewPanel(QGroupBox):
             str(record.get('ts', '')),
             str(record.get('abs_image', '')),
         )
+
+    def set_scope_totals(
+        self, *, all_active: int, generated_active: int, hidden: int | None
+    ) -> None:
+        """Only display counts; keep selection/model/scroll state untouched."""
+        self._scope_all_active = max(0, int(all_active))
+        self._scope_generated_active = max(0, int(generated_active))
+        self._scope_hidden = None if hidden is None else max(0, int(hidden))
+        self._refresh_scope_toolbar()
+
+    def _refresh_scope_toolbar(self) -> None:
+        selected = self.selected_records()
+        scope = SelectionScope(
+            visible=len(self.df),
+            selected_visible=len(selected),
+            all_active=self._scope_all_active,
+            hidden=self._scope_hidden,
+            generated_active=self._scope_generated_active,
+            selected_generated=count_selected_generated(selected),
+        )
+        self.scope_label.setText(scope.toolbar_text())
+        self.scope_label.setToolTip(scope.detail_text())
 
     def set_dataframe(self, df: pd.DataFrame) -> None:
         self.stop_autoplay()
@@ -198,37 +247,11 @@ class PreviewPanel(QGroupBox):
                     pass
         self.table.setCurrentIndex(index)
 
-    def _capture_selection_before_sort(self) -> None:
-        self._restore_after_sort_rows = self.selected_source_rows()
-        self._restore_after_sort_current_row = self.current_row()
+    def _begin_sort_layout(self) -> None:
+        self._sorting_layout = True
 
-    def _restore_selection_after_sort(self) -> None:
-        if not self._restore_after_sort_rows:
-            self._schedule_first_column_visible()
-            return
-        selection_model = self.table.selectionModel()
-        if selection_model is None:
-            return
-
-        def restore() -> None:
-            self.table.clearSelection()
-            select_flags = self._selection_flags('Select', 'Rows')
-            for source_row in self._restore_after_sort_rows:
-                view_row = self._view_row_for_source_row(source_row)
-                if view_row < 0:
-                    continue
-                index = self.model.index(view_row, 0)
-                if select_flags is not None:
-                    selection_model.select(index, select_flags)
-                else:
-                    self.table.selectRow(view_row)
-            current_view_row = self._view_row_for_source_row(self._restore_after_sort_current_row)
-            if current_view_row < 0 and self._restore_after_sort_rows:
-                current_view_row = self._view_row_for_source_row(self._restore_after_sort_rows[0])
-            if current_view_row >= 0:
-                self._set_current_index(self.model.index(current_view_row, 0), no_update=True)
-
-        self._with_blocked_selection(restore)
+    def _finish_sort_layout(self) -> None:
+        self._sorting_layout = False
         self._schedule_first_column_visible()
         self._handle_selection_change()
 
@@ -420,7 +443,7 @@ class PreviewPanel(QGroupBox):
             QTimer.singleShot(delay_ms, self._keep_first_column_visible)
 
     def _handle_selection_change(self) -> None:
-        if self._handling_selection:
+        if self._handling_selection or self._sorting_layout:
             return
         self._handling_selection = True
         try:
@@ -440,6 +463,7 @@ class PreviewPanel(QGroupBox):
             self._handling_selection = False
 
     def _refresh_summary(self) -> None:
+        self._refresh_scope_toolbar()
         total = len(self.df)
         row = self.current_row()
         if total == 0:

@@ -1,0 +1,22 @@
+'use strict';
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const css = fs.readFileSync(path.join(__dirname,'../pisd/web/static/css/pisd_layout_system.css'),'utf8');
+const design = fs.readFileSync(path.join(__dirname,'../pisd/web/static/css/pisd_design_system.css'),'utf8');
+const manual = fs.readFileSync(path.join(__dirname,'../pisd/web/templates/manual_drive.html'),'utf8');
+const ai = fs.readFileSync(path.join(__dirname,'../pisd/web/templates/ai_mode.html'),'utf8');
+const version = fs.readFileSync(path.join(__dirname,'../pisd/__init__.py'),'utf8');
+let n=0;function test(name,fn){fn();n++;process.stdout.write('PASS '+name+'\n');}
+test('manual pad remains square',()=>assert.equal(design.includes('body.manual-drive-page .mdrv-drag-pad')&&manual.includes('id="mdrvDragPad"'),true));
+test('manual live preview remains aspect-aware',()=>assert.equal(css.includes('aspect-ratio: var(--pisd-ui-preview-aspect, 16 / 9)'),true));
+test('small layout retains status preview drive stop files log ordering',()=>assert.equal(css.includes('"status"')&&css.includes('"preview"')&&css.includes('"files"')&&css.includes('"stop"'),true));
+test('emergency stop remains in actual manual DOM',()=>assert.equal(manual.includes('id="mdrvStopBig"')&&manual.includes('id="mdrvStopTop"'),true));
+test('R36 emergency labels wrap on 390 px',()=>assert.equal(css.includes('#mdrvStopTop, #mdrvStopBig, #mdrvStopPad')&&css.includes('overflow-wrap: anywhere !important'),true));
+test('AI stop retained on narrow screens',()=>assert.equal(ai.includes('id="aiStopAll"')&&css.includes('#aiStopAll, #aiStop, #aiManualDriveStop, #aiAssistStop'),true));
+test('manual preview aspect ratio has no forced square override',()=>assert.equal(!css.includes('.mdrv-preview-frame { aspect-ratio: 1 / 1'),true));
+test('settings popup is constrained to dynamic viewport height',()=>assert.equal(css.includes('max-height: calc(100dvh - 16px) !important'),true));
+test('settings action row wraps',()=>assert.equal(css.includes('.mdrv-overlay-settings-actions')&&css.includes('flex-wrap: wrap !important'),true));
+test('R35 focus styles are kept',()=>assert.equal(design.includes('prefers-reduced-motion: reduce')&&design.includes('focus-visible'),true));
+test('version is 0.11.17 or later in the patch line',()=>{const m=version.match(/__version__\s*=\s*"0\.11\.(\d+)"/);assert.ok(m&&Number(m[1])>=17);});
+console.log(n+'/11 PiSD R36 responsive checks passed');

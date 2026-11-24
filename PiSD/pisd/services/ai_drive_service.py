@@ -658,7 +658,7 @@ class AIDriveService:
             self._prediction_reuse_count = 0
             self._last_fresh_frame_seq = 0
             self._last_fresh_frame_monotonic = None
-            self._camera_frame_fault_latched = False
+            # STOP clears transient state, not the fault latch. Only checked rearm clears it.
             self._last_prediction_at = ""
             self._last_inference_frame_seq = 0
         if stop_motors and motor_service is not None:

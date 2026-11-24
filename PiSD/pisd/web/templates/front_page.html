@@ -78,11 +78,19 @@
     <section class="fp-quick-actions">
       <button id="fpRefreshStatus" class="fp-button">Refresh status</button>
       <button id="fpStopAll" class="fp-button fp-danger">STOP motors</button>
+      <details data-preflight-root aria-label="Read-only startup preflight">
+                  <summary>Startup preflight (read-only)</summary>
+                  <p data-preflight-status role="status" aria-live="polite">Inspecting existing service state…</p>
+                  <button type="button" data-preflight-refresh>Refresh checks</button>
+                  <ul data-preflight-list aria-label="Service readiness checks"></ul>
+                  <small>Observation only: no motor, servo, camera start, AI load or settings changes.</small>
+                </details>
       <pre id="fpStatusJson" class="fp-console">{{ initial_status | tojson(indent=2) }}</pre>
     </section>
   </main>
   <script src="{{ static_asset('js/global_space_stop.js') }}"></script>
   <script id="frontPageInitialStatus" type="application/json">{{ initial_status | tojson }}</script>
   <script src="{{ static_asset('js/front_page.js') }}"></script>
+  <script src="{{ static_asset('js/preflight.js') }}"></script>
 </body>
 </html>

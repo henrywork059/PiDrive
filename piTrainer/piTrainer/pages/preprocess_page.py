@@ -6,6 +6,9 @@ import pandas as pd
 
 from ..app_state import AppState
 from ..panels.common.log_panel import LogPanel
+from ..panels.common.task_progress_panel import TaskProgressPanel
+from ..services.background_task import BackgroundTaskRunner
+from ..services.task_outputs import confirmed_dataset_paths
 from ..panels.preprocess.preprocess_actions_panel import PreprocessActionsPanel
 from ..panels.preprocess.preprocess_config_panel import PreprocessConfigPanel
 from ..panels.preprocess.preprocess_filter_panel import PreprocessFilterPanel
@@ -48,6 +51,9 @@ class PreprocessPage(DockPage):
         )
         self.result_panel = PreprocessResultPanel()
         self.log_panel = LogPanel('Preprocess Log')
+        self.task_progress = TaskProgressPanel()
+        self.result_panel.layout().insertWidget(1, self.task_progress)
+        self.task_runner = BackgroundTaskRunner(self.task_progress, self)
 
         self.build_default_layout()
         self.restore_layout()
@@ -187,11 +193,15 @@ class PreprocessPage(DockPage):
         return recipe
 
     def use_recommended_defaults(self) -> None:
+        if not self.main_window.can_start_task(self) or self.task_runner.active:
+            return
         self._set_recommended_defaults()
         self._preprocess_applied = False
         self.preview_recipe(message_prefix='Defaults loaded and previewed')
 
     def auto_preprocess(self) -> None:
+        if not self.main_window.can_start_task(self) or self.task_runner.active:
+            return
         self._set_recommended_defaults()
         source_df = self._source_df()
         if source_df.empty:
@@ -211,23 +221,47 @@ class PreprocessPage(DockPage):
         self.apply_recipe(source_df=source_df, message_prefix='Auto preprocessing complete')
 
     def preview_recipe(self, *, message_prefix: str = 'Preview ready') -> None:
+        if not self.main_window.can_start_task(self):
+            return
+        if self.task_runner.active:
+            self.log_panel.append_line('A preprocessing task is already running.')
+            return
         self._preprocess_applied = False
-        source_df = self._source_df()
+        source_df = self._source_df().copy(deep=True)
         recipe = self.current_recipe()
-        result_df, summary = apply_preprocessing_recipe(source_df, recipe)
-        preview_text = format_preprocess_preview(summary, recipe)
-        self.result_panel.set_preview_text(preview_text)
-        self.result_panel.set_status_preview(
-            f"Preview ready: {summary['rows_after']} active row(s), {summary['generated_rows']} generated. Not applied yet."
-        )
-        self.summary_panel.set_preview_counts(summary)
-        self._activate_preview_tab()
-        self.main_window.set_status_message(f'{message_prefix}: {len(result_df)} active row(s) after synthesis.')
-        self.log_panel.append_line(
-            f"{message_prefix} -> {summary['rows_after']} active row(s), generated {summary['generated_rows']} synthetic row(s)."
+        source_identity = (id(self.state.dataset_df), id(self.state.filtered_df), tuple(self.state.selected_sessions))
+
+        def work(report):
+            report('Calculating preprocessing preview', None)
+            return apply_preprocessing_recipe(source_df, recipe)
+
+        def completed(result):
+            if source_identity != (id(self.state.dataset_df), id(self.state.filtered_df), tuple(self.state.selected_sessions)):
+                raise RuntimeError('Dataset changed during preview; discard the stale result and preview again.')
+            result_df, summary = result
+            preview_text = format_preprocess_preview(summary, recipe)
+            self.result_panel.set_preview_text(preview_text)
+            self.result_panel.set_status_preview(
+                f"Preview ready: {summary['rows_after']} active row(s), {summary['generated_rows']} generated. Not applied yet."
+            )
+            self.summary_panel.set_preview_counts(summary)
+            self._activate_preview_tab()
+            self.main_window.set_status_message(f'{message_prefix}: {len(result_df)} active row(s) after synthesis.')
+            self.log_panel.append_line(
+                f"{message_prefix} -> {summary['rows_after']} active row(s), generated {summary['generated_rows']} synthetic row(s)."
+            )
+            return ('Preview ready — not applied', ())
+
+        self.task_runner.start(
+            'Preview preprocessing', work, completed,
+            on_failure=lambda error: (self.result_panel.set_status_warning(f'Preprocess preview failed: {error}'),
+                                      self.log_panel.append_line(f'Preprocess preview failed: {error}')),
+            controls=(self.actions_panel, self.filter_panel, self.config_panel),
         )
 
     def apply_recipe(self, *, source_df: pd.DataFrame | None = None, message_prefix: str = 'Preprocess applied') -> None:
+        if not self.main_window.can_start_task(self):
+            return
         if source_df is None:
             source_df = self._source_df()
         if source_df.empty:
@@ -244,47 +278,72 @@ class PreprocessPage(DockPage):
             self.main_window.set_status_message('No source rows to preprocess.')
             return
 
+        if self.task_runner.active:
+            self.log_panel.append_line('A preprocessing task is already running.')
+            return
         recipe = self.current_recipe()
-        result_df, summary = apply_preprocessing_recipe(source_df, recipe)
+        source_snapshot = source_df.copy(deep=True)
+        source_identity = (id(self.state.dataset_df), id(self.state.filtered_df), tuple(self.state.selected_sessions))
+        self.result_panel.set_status_running('Applying preprocessing recipe...')
+        self.task_progress.begin('Preprocess')
 
-        self.state.preprocess_recipe = recipe
-        self._preprocess_applied = True
-        self.state.filtered_df = result_df
-        self.state.train_df = result_df.iloc[0:0].copy() if not result_df.empty else pd.DataFrame()
-        self.state.val_df = result_df.iloc[0:0].copy() if not result_df.empty else pd.DataFrame()
-        self.state.model = None
-        self.state.history = {}
-        self.state.train_config.img_h = int(recipe['image_height'])
-        self.state.train_config.img_w = int(recipe['image_width'])
+        def work(report):
+            report('Filtering and generating preprocessing rows', None)
+            return apply_preprocessing_recipe(source_snapshot, recipe)
 
-        self.result_panel.set_preview_text(format_preprocess_preview(summary, recipe, applied=True))
-        self.result_panel.set_status_done(
-            f"✓ PREPROCESS DONE — {summary['rows_after']} active row(s) ready for training; {summary['generated_rows']} generated."
+        def completed(result):
+            if source_identity != (id(self.state.dataset_df), id(self.state.filtered_df), tuple(self.state.selected_sessions)):
+                raise RuntimeError('Dataset changed during preprocessing; results discarded. Run preprocessing again.')
+            result_df, summary = result
+            self.state.preprocess_recipe = recipe
+            self._preprocess_applied = True
+            self.state.filtered_df = result_df
+            self.state.train_df = result_df.iloc[0:0].copy() if not result_df.empty else pd.DataFrame()
+            self.state.val_df = result_df.iloc[0:0].copy() if not result_df.empty else pd.DataFrame()
+            self.state.model = None
+            self.state.history = {}
+            self.state.train_config.img_h = int(recipe['image_height'])
+            self.state.train_config.img_w = int(recipe['image_width'])
+
+            self.result_panel.set_preview_text(format_preprocess_preview(summary, recipe, applied=True))
+            self.result_panel.set_status_done(
+                f"✓ PREPROCESS DONE — {summary['rows_after']} active row(s) ready for training; {summary['generated_rows']} generated."
+            )
+            self.summary_panel.set_summary(
+                dataset_df=self.state.dataset_df,
+                filtered_df=self.state.filtered_df,
+                selected_sessions=self.state.selected_sessions,
+                train_config=self.state.train_config,
+                last_saved_preprocess_path=self.state.last_saved_preprocess_path,
+            )
+            self.summary_panel.set_preview_counts(summary)
+            self.main_window.train_page.config_panel.img_h.setValue(self.state.train_config.img_h)
+            self.main_window.train_page.config_panel.img_w.setValue(self.state.train_config.img_w)
+            self.main_window.data_page.refresh_from_state()
+            self.main_window.train_page.refresh_from_state()
+            self.main_window.export_page.refresh_from_state()
+            self.main_window.validation_page.refresh_from_state()
+            self._activate_preview_tab()
+            message = (
+                f"{message_prefix}: {summary['rows_after']} active row(s), including {summary['generated_rows']} synthetic row(s). "
+                f"Image size set to {recipe['image_width']}x{recipe['image_height']}. Train tab uses all active preprocessed rows; "
+                "Data review hides generated rows by default and shows their original source frames for editing."
+            )
+            self.main_window.set_status_message(message)
+            self.log_panel.append_line(message)
+
+            return (f"Preprocessing applied: {summary['rows_after']} active rows", ())
+
+        self.task_runner.start(
+            'Apply preprocessing', work, completed,
+            on_failure=lambda error: (self.result_panel.set_status_warning(f'Preprocess failed: {error}'),
+                                      self.log_panel.append_line(f'Preprocess failed: {error}')),
+            controls=(self.actions_panel, self.filter_panel, self.config_panel),
         )
-        self.summary_panel.set_summary(
-            dataset_df=self.state.dataset_df,
-            filtered_df=self.state.filtered_df,
-            selected_sessions=self.state.selected_sessions,
-            train_config=self.state.train_config,
-            last_saved_preprocess_path=self.state.last_saved_preprocess_path,
-        )
-        self.summary_panel.set_preview_counts(summary)
-        self.main_window.train_page.config_panel.img_h.setValue(self.state.train_config.img_h)
-        self.main_window.train_page.config_panel.img_w.setValue(self.state.train_config.img_w)
-        self.main_window.data_page.refresh_from_state()
-        self.main_window.train_page.refresh_from_state()
-        self.main_window.export_page.refresh_from_state()
-        self.main_window.validation_page.refresh_from_state()
-        self._activate_preview_tab()
-        message = (
-            f"{message_prefix}: {summary['rows_after']} active row(s), including {summary['generated_rows']} synthetic row(s). "
-            f"Image size set to {recipe['image_width']}x{recipe['image_height']}. Train tab uses all active preprocessed rows; "
-            "Data review hides generated rows by default and shows their original source frames for editing."
-        )
-        self.main_window.set_status_message(message)
-        self.log_panel.append_line(message)
 
     def reset_recipe(self) -> None:
+        if not self.main_window.can_start_task(self) or self.task_runner.active:
+            return
         self.filter_panel.reset_to_defaults()
         self.config_panel.reset_to_defaults()
         baseline = build_filtered_dataframe(self.state.dataset_df, self.state.train_config.only_manual)
@@ -314,26 +373,51 @@ class PreprocessPage(DockPage):
         self.main_window.set_status_message('Saved preprocess settings.')
 
     def save_processed_data(self) -> None:
-        active_df = self.state.filtered_df.copy()
+        if not self.main_window.can_start_task(self):
+            return
+        if self.task_runner.active:
+            self.log_panel.append_line('A preprocessing task is already running.')
+            return
+        active_df = self.state.filtered_df.copy(deep=True)
         if active_df.empty:
             self.log_panel.append_line('No active preprocessed rows to save. Confirm preprocessing first.')
             self.main_window.set_status_message('No active preprocessed rows to save.')
             return
-        recipe = self.state.preprocess_recipe or self.current_recipe()
-        folder = save_preprocessed_dataset(active_df, recipe, self.state.out_dir_path)
-        self.state.last_saved_preprocess_path = str(folder)
-        self.summary_panel.set_summary(
-            dataset_df=self.state.dataset_df,
-            filtered_df=self.state.filtered_df,
-            selected_sessions=self.state.selected_sessions,
-            train_config=self.state.train_config,
-            last_saved_preprocess_path=self.state.last_saved_preprocess_path,
+        recipe = dict(self.state.preprocess_recipe or self.current_recipe())
+        out_dir = self.state.out_dir_path
+
+        def work(report):
+            report('Writing CSV, JSONL and recipe files', None)
+            return save_preprocessed_dataset(active_df, recipe, out_dir)
+
+        def completed(folder):
+            output_paths = confirmed_dataset_paths(folder)
+            if self.state.out_dir_path == out_dir:
+                self.state.last_saved_preprocess_path = str(folder)
+            self.summary_panel.set_summary(
+                dataset_df=self.state.dataset_df,
+                filtered_df=self.state.filtered_df,
+                selected_sessions=self.state.selected_sessions,
+                train_config=self.state.train_config,
+                last_saved_preprocess_path=self.state.last_saved_preprocess_path,
+            )
+            self._activate_log_tab()
+            self.log_panel.append_line(f'Saved preprocessed dataset: {folder}')
+            self.main_window.set_status_message(f'Saved preprocessed dataset: {folder}')
+            return ('Preprocessed dataset saved', output_paths)
+
+        self.task_runner.start(
+            'Save preprocessed dataset', work, completed,
+            on_failure=lambda error: self.log_panel.append_line(f'Preprocess save failed: {error}'),
+            controls=(self.actions_panel, self.filter_panel, self.config_panel),
         )
-        self._activate_log_tab()
-        self.log_panel.append_line(f'Saved preprocessed dataset: {folder}')
-        self.main_window.set_status_message('Saved preprocessed dataset.')
+
+    def has_active_task(self) -> bool:
+        return self.task_runner.active
 
     def sync_image_size_to_train(self) -> None:
+        if not self.main_window.can_start_task(self) or self.task_runner.active:
+            return
         recipe = self.current_recipe()
         self.state.train_config.img_h = int(recipe['image_height'])
         self.state.train_config.img_w = int(recipe['image_width'])

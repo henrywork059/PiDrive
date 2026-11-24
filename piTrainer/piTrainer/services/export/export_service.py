@@ -225,17 +225,23 @@ def build_representative_dataset(train_df, train_config: TrainConfig):
     )
 
 
-def export_model_artifacts(model, export_config: ExportConfig, train_df, train_config: TrainConfig) -> list[ExportArtifact]:
+def export_model_artifacts(model, export_config: ExportConfig, train_df, train_config: TrainConfig, progress_callback=None) -> list[ExportArtifact]:
     out_dir = ensure_dir(Path(export_config.out_dir).expanduser().resolve())
     base_name = safe_filename(export_config.base_name or "picar_model")
     created: list[ExportArtifact] = []
 
+    def report(step: str, percent=None) -> None:
+        if progress_callback is not None:
+            progress_callback(step, percent)
+
     if export_config.export_keras:
+        report("Saving Keras model", None)
         default_keras_path = out_dir / f"{base_name}.keras"
         keras_path = next_available_model_artifact_path(out_dir, base_name, ".keras")
         created.append(save_keras_model(model, keras_path, overwrite_guard_notes(default_keras_path, keras_path)))
 
     if export_config.export_tflite:
+        report("Converting TFLite model", None)
         rep_ds = build_representative_dataset(train_df, train_config) if export_config.quantize_int8 else None
         suffix = "_int8" if export_config.quantize_int8 else ""
         tflite_stem = f"{base_name}{suffix}"
@@ -255,6 +261,7 @@ def export_model_artifacts(model, export_config: ExportConfig, train_df, train_c
     # Publish a checksum-bound contract beside every completed artifact.
     # A failure is visible to the operator rather than pretending an
     # unverified model is ready to deploy.
+    report("Writing and verifying model manifests", None)
     for artifact in created:
         model_path = Path(artifact.path)
         quant_mode = ("dynamic" if artifact.kind == ".tflite" and export_config.quantize_int8
@@ -274,4 +281,5 @@ def export_model_artifacts(model, export_config: ExportConfig, train_df, train_c
             raise RuntimeError(
                 f"Exported {model_path.name} but could not publish its model manifest: {exc}"
             ) from exc
+    report(f"Verified {len(created)} exported model(s) and manifests", 100)
     return created

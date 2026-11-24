@@ -41,6 +41,8 @@ class DataPage(
         self.state = state
         self.main_window = main_window
         self.current_preview_source_df = pd.DataFrame()
+        self._loaded_hidden_count: int | None = None
+        self._loaded_session_names: list[str] = []
         self.last_focus_redirected_to_source = False
         self.last_focus_source_frame_id = ''
         super().__init__('data')

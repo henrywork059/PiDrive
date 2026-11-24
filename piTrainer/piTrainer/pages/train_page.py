@@ -6,14 +6,21 @@ import pandas as pd
 
 from ..app_state import AppState
 from ..panels.common.log_panel import LogPanel
+from ..panels.common.task_progress_panel import TaskProgressPanel
+from ..services.background_task import BackgroundTaskRunner
+from ..services.task_outputs import confirmed_model_paths
 from ..panels.train.split_summary_panel import SplitSummaryPanel
 from ..panels.train.train_config_panel import TrainConfigPanel
 from ..panels.train.train_control_panel import TrainControlPanel
 from ..panels.train.train_epoch_review_panel import TrainEpochReviewPanel
 from ..panels.train.train_history_panel import TrainHistoryPanel
+from ..panels.train.train_comparison_panel import TrainComparisonPanel
 from ..services.export.export_service import next_available_model_artifact_path, overwrite_guard_notes, save_keras_model
 from ..utils.model_manifest import make_manifest, write_manifest
 from ..services.train.split_service import split_dataframe
+from ..services.train.experiment_service import (
+    attach_model_artifact, create_run_snapshot, finish_run, load_runs, save_run_record,
+)
 from ..services.data.augmentation_service import normalize_horizontal_flip_labels
 from ..services.data.visibility_service import without_hidden_rows
 from ..services.train.worker import TrainingWorker
@@ -31,6 +38,11 @@ class TrainPage(DockPage):
         self.state = state
         self.main_window = main_window
         self.worker: TrainingWorker | None = None
+        self._active_run: dict | None = None
+        self._active_run_root: Path | None = None
+        self._model_run: dict | None = None
+        self._model_run_root: Path | None = None
+        self._provenance_model = None
         super().__init__('train')
 
         self.split_summary_panel = SplitSummaryPanel()
@@ -42,11 +54,16 @@ class TrainPage(DockPage):
             save_model_callback=self.save_trained_model,
             default_save_dir=str(self.state.out_dir_path),
         )
+        self.task_progress = TaskProgressPanel()
+        self.control_panel.layout().addWidget(self.task_progress)
+        self.save_runner = BackgroundTaskRunner(self.task_progress, self)
         self.history_panel = TrainHistoryPanel()
+        self.comparison_panel = TrainComparisonPanel(self.refresh_run_comparison)
         self.epoch_review_panel = TrainEpochReviewPanel()
         self.log_panel = LogPanel('Training Log')
         self.build_default_layout()
         self.restore_layout()
+        self.refresh_run_comparison()
 
     def build_default_layout(self) -> None:
         self.clear_docks()
@@ -70,6 +87,7 @@ class TrainPage(DockPage):
         progress_stack = make_workflow_tabs([
             ('History', self.history_panel, 'Training loss and metric curves.'),
             ('Log', self.log_panel, 'Detailed training messages and errors.'),
+            ('Compare', self.comparison_panel, 'Compare recorded training runs by stable ID and inspect model provenance.'),
         ], object_name='trainProgressTabs')
 
         workspace = self.make_horizontal_splitter([
@@ -93,6 +111,45 @@ class TrainPage(DockPage):
 
     def set_model_save_dir(self, folder: str) -> None:
         self.control_panel.set_model_save_dir(folder)
+        self.refresh_run_comparison()
+
+    def refresh_run_comparison(self) -> None:
+        try:
+            records = load_runs(self.state.out_dir_path)
+        except (OSError, ValueError) as exc:
+            self.comparison_panel.info.setText(f'Unknown — run history could not be read: {exc}')
+            return
+        self.comparison_panel.set_records(records)
+
+    def _record_training_outcome(self, status: str, history: dict | None = None,
+                                 error: str | None = None) -> dict | None:
+        snapshot, root = self._active_run, self._active_run_root
+        self._active_run = None
+        self._active_run_root = None
+        if snapshot is None or root is None:
+            return None
+        record = finish_run(snapshot, status, history, error)
+        try:
+            destination = save_run_record(root, record)
+            self.log_panel.append_line(f'Training run {record["run_id"]}: {status}; summary: {destination}')
+            self.refresh_run_comparison()
+        except (OSError, ValueError) as exc:
+            self.log_panel.append_line(f'WARNING: Training completed with {status}, but experiment metadata could not be saved: {exc}')
+        if status == 'succeeded':
+            self._model_run = record
+            self._model_run_root = root
+        return record
+
+    def provenance_for_model(self, model) -> tuple[dict, Path] | None:
+        if model is not self._provenance_model or self._model_run is None or self._model_run_root is None:
+            return None
+        return self._model_run, self._model_run_root
+
+    def note_model_run_artifacts(self, model, linked: dict) -> None:
+        if model is self._provenance_model and self._model_run is not None:
+            if linked.get('run_id') == self._model_run.get('run_id'):
+                self._model_run = linked
+                self.refresh_run_comparison()
 
     def refresh_from_state(self) -> None:
         self.split_summary_panel.set_counts(
@@ -197,6 +254,11 @@ class TrainPage(DockPage):
         return train_df, val_df
 
     def start_training(self) -> None:
+        if not self.main_window.can_start_task(self):
+            return
+        if self.save_runner.active:
+            self.log_panel.append_line('Wait until the model save completes before starting training.')
+            return
         if self.worker is not None and self.worker.isRunning():
             self.log_panel.append_line('Training is already running.')
             return
@@ -206,6 +268,21 @@ class TrainPage(DockPage):
         if prepared is None:
             return
         train_df, val_df = prepared
+        try:
+            preprocess_page = getattr(self.main_window, 'preprocess_page', None)
+            applied_recipe = (
+                self.state.preprocess_recipe
+                if getattr(preprocess_page, '_preprocess_applied', False) else None
+            )
+            self._active_run = create_run_snapshot(
+                train_df, val_df, self.state.train_config,
+                applied_recipe, self.state.selected_sessions,
+            )
+            self._active_run_root = self.state.out_dir_path
+        except Exception as exc:
+            self._active_run = None
+            self._active_run_root = None
+            self.log_panel.append_line(f'WARNING: Could not capture training-run provenance: {exc}')
 
         self.history_panel.clear_history()
         self.epoch_review_panel.clear_review()
@@ -214,10 +291,14 @@ class TrainPage(DockPage):
             f'Starting training worker with {len(train_df)} train row(s) and {len(val_df)} validation row(s)...'
         )
         self.control_panel.set_running(True)
+        self.control_panel.set_progress(0)
+        self.task_progress.begin('Training')
 
         self.worker = TrainingWorker(train_df, val_df, self.state.train_config)
         self.worker.log_message.connect(self.log_panel.append_line)
         self.worker.progress_changed.connect(self.control_panel.set_progress)
+        self.worker.step_changed.connect(self.task_progress.set_step)
+        self.worker.training_cancelled.connect(self._on_training_cancelled)
         self.worker.epoch_metrics.connect(self.history_panel.append_epoch_metrics)
         self.worker.epoch_review.connect(self.epoch_review_panel.set_review)
         self.worker.error_message.connect(self._on_training_error)
@@ -227,9 +308,16 @@ class TrainPage(DockPage):
     def stop_training(self) -> None:
         if self.worker is not None and self.worker.isRunning():
             self.worker.request_stop()
-            self.log_panel.append_line('Stop requested. Training will stop after the current epoch.')
+            self.control_panel.stop_btn.setEnabled(False)
+            self.task_progress.stop_requested()
+            self.log_panel.append_line('Stop requested. Training will stop at a safe epoch boundary.')
 
     def save_trained_model(self) -> None:
+        if not self.main_window.can_start_task(self):
+            return
+        if self.save_runner.active or self.has_active_task():
+            self.log_panel.append_line('Wait until the current operation completes before saving the model.')
+            return
         if self.state.model is None:
             self.log_panel.append_line('No trained model available to save yet.')
             self.main_window.set_status_message('No trained model available to save.')
@@ -249,52 +337,100 @@ class TrainPage(DockPage):
         default_candidate = out_dir / f'{base_name}_trained.keras'
         candidate = next_available_model_artifact_path(out_dir, f'{base_name}_trained', '.keras')
         guard_notes = overwrite_guard_notes(default_candidate, candidate)
-        try:
-            save_keras_model(self.state.model, candidate, guard_notes)
+        model = self.state.model
+        width = int(self.state.train_config.img_w)
+        height = int(self.state.train_config.img_h)
+        seed = int(self.state.train_config.seed)
+        self.control_panel.set_save_status('Saving trained model — no output confirmed yet.')
+
+        provenance = self.provenance_for_model(model)
+
+        def work(report):
+            report('Writing trained Keras model', None)
+            save_keras_model(model, candidate, guard_notes)
+            report('Writing checksum-bound model manifest', None)
             metadata = make_manifest(
-                candidate, model_kind="steering_control",
-                width=int(self.state.train_config.img_w),
-                height=int(self.state.train_config.img_h),
-                quantization="float32", training_seed=int(self.state.train_config.seed),
+                candidate, model_kind='steering_control',
+                width=width, height=height,
+                quantization='float32', training_seed=seed,
             )
             write_manifest(candidate, metadata)
-        except Exception as exc:
-            self.control_panel.set_save_status(f'Could not save model to:\n{candidate}\n{exc}', success=False)
-            self.log_panel.append_line(f'Could not save trained model to {candidate}: {exc}')
+            if provenance is not None:
+                report('Linking experiment provenance to model', None)
+                experiment, root = provenance
+                linked, sidecar = attach_model_artifact(root, experiment, candidate)
+                return candidate, linked, sidecar
+            return candidate, None, None
+
+        def completed(result):
+            candidate, linked, sidecar = result
+            output_paths = confirmed_model_paths((candidate,))
+            if linked is not None:
+                self._model_run = linked
+                output_paths = (*output_paths, str(sidecar))
+                self.refresh_run_comparison()
+            else:
+                self.log_panel.append_line('Model has no linked R40 training run; experiment provenance is Unknown.')
+            self.state.last_saved_model_path = str(candidate)
+            guard_message = ''
+            if guard_notes:
+                guard_message = '\nDefault name already existed, so this was saved as a timestamped copy.'
+            save_message = (
+                'Saved trained .keras model to:\n'
+                f'{candidate}'
+                f'{guard_message}\n'
+                'Linked this file to 4 Validate.'
+            )
+            self.control_panel.set_save_status(save_message, success=True)
+            self.log_panel.append_line(f'Saved trained .keras model to: {candidate}')
+            self.log_panel.append_line(f'Linked saved model to 4 Validate: {candidate}')
+            self.main_window.validation_page.config_panel.set_saved_model_path(str(candidate))
+            self.main_window.validation_page.refresh_from_state()
+            self.main_window.set_status_message(f'Saved .keras model to {candidate}')
+            return ('Trained model saved', output_paths)
+
+        def failed(error):
+            self.control_panel.set_save_status(f'Could not save model to:\n{candidate}\n{error}', success=False)
+            self.log_panel.append_line(f'Could not save trained model to {candidate}: {error}')
             self.main_window.set_status_message('Could not save trained model.')
-            return
-        self.state.last_saved_model_path = str(candidate)
-        guard_message = ''
-        if guard_notes:
-            guard_message = '\nDefault name already existed, so this was saved as a timestamped copy.'
-        save_message = (
-            'Saved trained .keras model to:\n'
-            f'{candidate}'
-            f'{guard_message}\n'
-            'Linked this file to 4 Validate.'
+
+        self.save_runner.start(
+            'Save trained model', work, completed, on_failure=failed,
+            controls=(self.control_panel.save_model_btn, self.control_panel.start_btn, self.control_panel.browse_save_dir_btn),
         )
-        self.control_panel.set_save_status(save_message, success=True)
-        self.log_panel.append_line(f'Saved trained .keras model to: {candidate}')
-        self.log_panel.append_line(f'Linked saved model to 4 Validate: {candidate}')
-        self.main_window.validation_page.config_panel.set_saved_model_path(str(candidate))
-        self.main_window.validation_page.refresh_from_state()
-        self.main_window.set_status_message(f'Saved .keras model to {candidate}')
 
     def _on_training_error(self, message: str) -> None:
         self.state.last_error = message
         self.control_panel.set_running(False)
+        self.task_progress.fail(message)
+        self.control_panel.set_save_status('Training failed; no new model was accepted.', success=False)
         self.log_panel.append_line(f'ERROR: {message}')
         self.main_window.set_status_message('Training failed.')
+        self._record_training_outcome('failed', self.history_panel.history, message)
 
     def _on_training_finished(self, model, history: dict) -> None:
+        self._provenance_model = model
+        self._record_training_outcome('succeeded', history)
         self.state.model = model
         self.state.history = history
         self.control_panel.set_running(False)
         self.control_panel.set_progress(100)
+        self.task_progress.succeed('Training complete; use Save Model to generate a .keras file.')
         self.history_panel.set_history(history)
         self.log_panel.append_line('Training finished successfully.')
         self.refresh_from_state()
         self.main_window.on_training_finished()
+
+    def _on_training_cancelled(self, _history: dict) -> None:
+        self.control_panel.set_running(False)
+        self.task_progress.cancel('Training stopped at an epoch boundary; unsaved weights from this run were discarded.')
+        self.control_panel.set_save_status('Training cancelled; no new model was accepted.', success=False)
+        self.log_panel.append_line('Training cancelled by user; no new model was accepted or saved.')
+        self.main_window.set_status_message('Training cancelled.')
+        self._record_training_outcome('cancelled', _history)
+
+    def has_active_task(self) -> bool:
+        return self.save_runner.active or (self.worker is not None and self.worker.isRunning())
 
     def shutdown_worker(self) -> None:
         if self.worker is not None and self.worker.isRunning():
