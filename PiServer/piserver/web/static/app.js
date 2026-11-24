@@ -94,6 +94,7 @@ const state = {
   statusPollingReady: false,
   statusFailures: 0,
   statusVerified: false,
+  statusRevision: 0,
   cameraConfig: null,
   motorConfig: null,
   motorFormDirty: false,
@@ -955,6 +956,7 @@ function markStatusUnverified(error) {
 }
 
 function updateStatusUi(data) {
+  state.statusRevision += 1;
   state.latestStatus = data;
   state.statusVerified = true;
   const panelState = document.querySelector('.dock-panel[data-panel="status"] .panel-mini');
@@ -1043,12 +1045,17 @@ async function pollStatus() {
   }
   if (state.statusInFlight) return;
   state.statusInFlight = true;
+  // A mutation acknowledgement may supply a newer confirmed snapshot while
+  // this GET is pending. Never let an older request overwrite that snapshot.
+  const revisionAtStart = state.statusRevision;
   try {
     const data = await fetchJson("/api/status");
+    if (revisionAtStart !== state.statusRevision) return;
     state.statusFailures = 0;
     updateStatusUi(data);
     syncControlsFromStatus(data);
   } catch (error) {
+    if (revisionAtStart !== state.statusRevision) return;
     state.statusFailures = Math.min(3, state.statusFailures + 1);
     markStatusUnverified(error);
   } finally {

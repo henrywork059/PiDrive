@@ -98,6 +98,9 @@ def main():
                     bootstrap_offline = [name == "dashboard"]
                     stalled_initial_model = [name == "dashboard"]
                     stalled_status = [False]
+                    hold_status = [False]
+                    held_status = []
+                    acknowledge_stop = [False]
                     def route_request(route):
                         req = route.request
                         parsed = urlsplit(req.url)
@@ -106,6 +109,16 @@ def main():
                             return
                         if req.method != "GET":
                             mutations.append(parsed.path)
+                            if acknowledge_stop[0] and parsed.path == "/api/system/estop":
+                                assert req.post_data_json == {"enabled": True}
+                                assert len(held_status) == 1
+                                snapshot = dict(held_status[0][1], safety_stop=True,
+                                                system_message="Synthetic STOP acknowledgement",
+                                                applied_steering=0, applied_throttle=0,
+                                                motor_left=0, motor_right=0)
+                                # Synthetic success only; no backend mutation.
+                                route.fulfill(status=200, json={"ok": True, "state": snapshot})
+                                return
                             route.fulfill(status=503, content_type="application/json",
                                           body='{"ok":false,"message":"Synthetic rejected mutation"}')
                             return
@@ -118,6 +131,11 @@ def main():
                             stalled_initial_model[0] = False
                             return
                         if stalled_status[0] and parsed.path == "/api/status":
+                            return
+                        if hold_status[0] and parsed.path == "/api/status":
+                            hold_status[0] = False
+                            snapshot = client.get("/api/status", base_url=ORIGIN).get_json()
+                            held_status.append((route, snapshot))
                             return
                         if bootstrap_offline[0] and parsed.path in {
                             "/api/status", "/api/model/list", "/api/record/sessions",
@@ -208,6 +226,36 @@ def main():
                             page.evaluate("() => pollStatus()")
                             expect(page.locator("#maintenanceBadge")).not_to_have_text("offline")
                             expect(page.locator("#metricDriveState")).not_to_have_text("Unverified")
+                            # UX75: deliver a pre-STOP status sample AFTER a newer
+                            # synthetic STOP acknowledgement. The old sample must
+                            # not overwrite the confirmed stop or telemetry.
+                            page.wait_for_function("() => !state.statusInFlight")
+                            expect(page.locator(stop)).to_have_attribute("aria-pressed", "false")
+                            hold_status[0] = True
+                            with page.expect_request(lambda req: req.method == "GET"
+                                    and urlsplit(req.url).path == "/api/status"):
+                                page.evaluate("""() => {
+                                    if (state.statusTimer) clearTimeout(state.statusTimer);
+                                    state.statusTimer = null;
+                                    void pollStatus();
+                                }""")
+                            acknowledge_stop[0] = True
+                            page.locator(stop).click()
+                            expect(page.locator(stop)).to_have_attribute("aria-pressed", "true")
+                            expect(page.locator("#metricDriveState")).to_have_text("E-stop active")
+                            acknowledge_stop[0] = False
+                            assert len(held_status) == 1
+                            old_route, old_snapshot = held_status.pop()
+                            assert old_snapshot["safety_stop"] is False
+                            old_route.fulfill(status=200, json=old_snapshot)
+                            page.wait_for_function("() => !state.statusInFlight")
+                            expect(page.locator(stop)).to_have_attribute("aria-pressed", "true")
+                            expect(page.locator("#metricDriveState")).to_have_text("E-stop active")
+                            assert page.evaluate("() => state.statusTimer !== null")
+                            # The next new status request remains authoritative.
+                            # Fixture backend was never stopped; it still reports OFF.
+                            page.evaluate("() => pollStatus()")
+                            expect(page.locator(stop)).to_have_attribute("aria-pressed", "false")
                             # R36: even when the dock is short/narrow, metric rows must
                             # contain their labels and values rather than clipping them.
                             metrics = page.locator(".dock-panel[data-panel='status'] .status-metric-grid > .metric-card")

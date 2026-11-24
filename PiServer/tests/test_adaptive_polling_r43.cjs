@@ -56,3 +56,41 @@ test("modeled one-tab idle status rate declines 75 to 24 requests/minute", () =>
   assert.equal(current,24);
   assert.equal((1-current/previous)*100,68);
 });
+
+
+// Execute the real polling function with a controllable delayed response.
+function delayedPoll() {
+  const start = source.indexOf("async function pollStatus() {");
+  const end = source.indexOf("\nasync function refreshModels()", start);
+  assert.ok(start >= 0 && end > start);
+  const state = {statusInFlight:false, statusRevision:0, statusFailures:0};
+  let resolve, reject, updates=0, errors=0, syncs=0, scheduled=0;
+  const deferred = new Promise((ok, fail) => { resolve=ok; reject=fail; });
+  const ctx = vm.createContext({state, document:{hidden:false}, Math,
+    fetchJson:()=>deferred,
+    updateStatusUi:()=>{updates++;state.statusRevision++;},
+    syncControlsFromStatus:()=>{syncs++;},
+    markStatusUnverified:()=>{errors++;},
+    scheduleStatusPoll:()=>{scheduled++;}});
+  vm.runInContext(source.slice(start,end),ctx);
+  return {state, resolve, reject, poll:()=>ctx.pollStatus(),
+    counts:()=>({updates,errors,syncs,scheduled})};
+}
+test("a slow successful status read is applied when no newer snapshot exists", async () => {
+  const f=delayedPoll();const pending=f.poll();
+  f.resolve({safety_stop:false});await pending;
+  assert.deepEqual(f.counts(),{updates:1,errors:0,syncs:1,scheduled:1});
+  assert.equal(f.state.statusInFlight,false);
+});
+test("a delayed old success cannot overwrite a newer confirmed snapshot", async () => {
+  const f=delayedPoll();const pending=f.poll();
+  f.state.statusRevision++;f.resolve({safety_stop:false});await pending;
+  assert.deepEqual(f.counts(),{updates:0,errors:0,syncs:0,scheduled:1});
+  assert.equal(f.state.statusInFlight,false);
+});
+test("a delayed old failure cannot mark a newer confirmed snapshot unverified", async () => {
+  const f=delayedPoll();const pending=f.poll();
+  f.state.statusRevision++;f.reject(new Error("old timeout"));await pending;
+  assert.deepEqual(f.counts(),{updates:0,errors:0,syncs:0,scheduled:1});
+  assert.equal(f.state.statusInFlight,false);
+});
