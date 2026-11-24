@@ -69,7 +69,10 @@ class ResponsiveSplitter(QSplitter):
 
     def restoreState(self, state) -> bool:  # noqa: N802 - Qt API name
         ok = super().restoreState(state)
-        QTimer.singleShot(0, self.capture_current_ratios)
+        if ok:
+            # Capture restored sizes before an already queued responsive resize
+            # can reapply the constructor's default proportions.
+            self.capture_current_ratios()
         return ok
 
     def resizeEvent(self, event) -> None:  # noqa: N802 - Qt API name

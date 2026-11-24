@@ -22,7 +22,8 @@ class SplitterRestoreTests(unittest.TestCase):
             object_name="workspace",
         )
         page.set_workspace_widget(splitter)
-        page.resize(1000, 650)
+        screen = self.app.primaryScreen().availableGeometry()
+        page.resize(min(740, screen.width() - 40), min(600, screen.height() - 60))
         page.show()
         self.addCleanup(page.close)
         self.app.processEvents()
@@ -40,10 +41,18 @@ class SplitterRestoreTests(unittest.TestCase):
                 second, restored = self.make_page()
                 second.restore_layout()
                 self.app.processEvents()
-                for a, b in zip(source.sizes(), restored.sizes()):
-                    self.assertLessEqual(abs(a - b), 12)
-                proportions = [n / sum(restored.sizes()) for n in restored.sizes()]
-                second.resize(1320, 750)
+                # Qt may constrain window geometry to the available display.
+                # Test the saved proportions, not screen-dependent pixel sizes.
+                saved_sizes = source.sizes()
+                proportions = [n / sum(saved_sizes) for n in saved_sizes]
+                self.assertAlmostEqual(proportions[0], 0.4, delta=0.025)
+                self.assertAlmostEqual(proportions[1], 0.2, delta=0.025)
+                restored_sizes = restored.sizes()
+                self.assertTrue(all(n > 0 for n in restored_sizes))
+                for expected, actual in zip(proportions, [n / sum(restored_sizes) for n in restored_sizes]):
+                    self.assertAlmostEqual(expected, actual, delta=0.025,
+                                           msg=f"saved={saved_sizes}, restored={restored_sizes}")
+                second.resize(second.width() + 200, second.height() + 50)
                 self.app.processEvents()
                 sizes = restored.sizes()
                 self.assertTrue(all(n > 0 for n in sizes))
