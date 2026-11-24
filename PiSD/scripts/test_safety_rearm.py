@@ -67,6 +67,13 @@ class U28SafetyRearmTests(unittest.TestCase):
         self.assertTrue(self.ai.safety_status()["latched"])
         self.assertFalse(self.ai.safety_status()["motion_allowed"])
 
+    def test_explicit_false_motor_stop_does_not_clear_latch(self):
+        motor = FakeMotor()
+        motor.stop = lambda: False
+        self.assertFalse(self.ai.stop(motor)["ok"])
+        self.assertFalse(self.ai.rearm_camera_fault(FakeCamera(), motor, confirm=True)["ok"])
+        self.assertTrue(self.ai.safety_status()["latched"])
+
     def test_start_does_not_implicitly_rearm(self):
         result = self.ai.start(FakeCamera(), FakeMotor(), mode="drive", safety_ack=True, enable_motor_output=True)
         self.assertFalse(result.get("ok"))

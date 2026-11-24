@@ -976,17 +976,24 @@ def create_app(hardware_enabled: bool = False):
         try:
             keep_ai_preview = bool(data.get("keep_ai_preview", False))
             if keep_ai_preview:
-                # Manual pad release should only zero the motors. Keep the AI
-                # preview loop alive so the model overlay and AI recording labels
-                # continue updating while manual mode owns direct motor output.
-                motor_service.stop()
+                # Prevent AI drive from resuming motion after a preview-preserving STOP.
+                ai_result = ai_drive_service.keep_preview_for_manual_override(
+                    motor_service, stop_motors=False, reason="control_stop")
                 message = "Motors stopped; AI preview kept."
             else:
-                ai_drive_service.stop(motor_service, stop_motors=True)
-                motor_service.stop()
+                ai_result = ai_drive_service.stop(motor_service, stop_motors=True)
                 message = "Motors stopped."
-            report = motor_service.errors.latest() if motor_service.last_error else None
-            return jsonify(report_payload(True, report, message, motor=motor_service.status(), ai=ai_drive_service.status(), keep_ai_preview=keep_ai_preview))
+            stopped = motor_service.stop()
+            fields = {"motor": motor_service.status(), "ai": ai_drive_service.status(),
+                      "keep_ai_preview": keep_ai_preview}
+            if not stopped:
+                report = motor_service.errors.latest()
+                return jsonify(report_payload(False, report, "Motor stop was not confirmed.", **fields)), 503
+            if not ai_result.get("ok"):
+                return jsonify({**ai_result, **fields}), 503
+            # Previous motor errors remain visible in diagnostic history, but must
+            # not be misrepresented as this successful STOP's operation result.
+            return jsonify(report_payload(True, None, message, **fields))
         except Exception as exc:
             report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"Motor stop API failed: {exc}", exc=exc)
             return jsonify(report_payload(False, report)), 500

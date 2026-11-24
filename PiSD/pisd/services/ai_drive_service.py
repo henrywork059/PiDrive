@@ -180,7 +180,8 @@ class AIDriveService:
             new_frame, fresh_seq, _, _ = camera_service.wait_for_jpeg_frame(last_seq=last_seq, timeout=0.5)
             if new_frame is None or int(fresh_seq or 0) == int(last_seq or 0):
                 return {"ok": False, "message": "No new camera frame arrived; safety remains latched.", "safety": self.safety_status()}
-            motor_service.stop()
+            if motor_service.stop() is False:
+                raise RuntimeError("Motor adapter did not confirm zero output.")
         except Exception as exc:
             return {"ok": False, "message": f"Rearm refused: camera/motor check failed: {exc}", "safety": self.safety_status()}
         with self._lock:
@@ -616,7 +617,8 @@ class AIDriveService:
                 self._drive_output_enabled = False
         if stop_motors and motor_service is not None and was_drive:
             try:
-                motor_service.stop()
+                if motor_service.stop() is False:
+                    raise RuntimeError("Motor adapter did not confirm zero output.")
                 with self._lock:
                     self._last_motor = {"left": 0.0, "right": 0.0}
             except Exception as exc:
@@ -663,7 +665,8 @@ class AIDriveService:
             self._last_inference_frame_seq = 0
         if stop_motors and motor_service is not None:
             try:
-                motor_service.stop()
+                if motor_service.stop() is False:
+                    raise RuntimeError("Motor adapter did not confirm zero output.")
                 with self._lock:
                     self._last_motor = {"left": 0.0, "right": 0.0}
             except Exception as exc:

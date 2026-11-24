@@ -515,9 +515,10 @@ class MotorService:
             self._log_sim_command(steering, throttle, mix, output_left, output_right)
         return left, right
 
-    def stop(self) -> None:
+    def stop(self) -> bool:
+        """Return the current adapter stop result, independent of error history."""
         with self._lock:
-            self._stop_locked()
+            return self._stop_locked()
 
     def close(self) -> None:
         with self._lock:
@@ -596,7 +597,7 @@ class MotorService:
         value *= -1.0 if direction < 0 else 1.0
         return clamp_float(value, -1.0, 1.0, 0.0)
 
-    def _stop_locked(self) -> None:
+    def _stop_locked(self) -> bool:
         self.last_left = 0.0
         self.last_right = 0.0
         self.last_intended_left = 0.0
@@ -623,6 +624,7 @@ class MotorService:
                 "Motor stop command failed on one or more channels.",
                 context={"left_ok": left_ok, "right_ok": right_ok},
             )
+        return bool(left_ok and right_ok)
 
     def _rebuild_drivers_locked(self) -> None:
         self.left.close()

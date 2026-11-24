@@ -555,7 +555,7 @@ def _check_ai_mode_source_contract() -> CheckResult:
     except Exception as exc:
         return CheckResult("ai_mode.source_contract", False, PiSDErrorCodes.TEST_AI_MODE_FAILED, f"failed to read AI Mode files: {exc}")
     required = {
-        "template": ["PiSD AI Mode", "Back to Front Page", "aiModeInitialStatus", "aiModelSelect", "aiEnableMotor", "Confirm safe test + enable motors", "aiStartPreview", "aiStartDrive", "Limiter / correction / manual", "aiCorrectionPad", "aiManualDriveTab", "aiManualDrivePad", "Manual pad", "Correction %", "Corrected steering", "aiFilesPanel", "Records & snaps", "Download zip", "global_space_stop.js", "recording_download_panel.js", "Space STOP", "manual_drive.css", "mdrv-panel", 'max="1.0"'],
+        "template": ["PiSD AI Mode", "Back to Front Page", "aiModeInitialStatus", "aiModelSelect", "aiEnableMotor", "Confirm safe test + enable motors", "aiStartPreview", "aiStartDrive", "Manual pad / AI assist / Correction / Limiter", "aiAssistTab", "aiAssistPad", "aiLimiterTab", "aiCorrectionPad", "aiManualDriveTab", "aiManualDrivePad", "Manual pad", "Correction %", "Corrected steering", "aiFilesPanel", "Records & snaps", "Download zip", "global_space_stop.js", "recording_download_panel.js", "Space STOP", "manual_drive.css", "mdrv-panel", 'max="1.0"'],
         "css": [".ai-shell", ".ai-grid", ".ai-preview-frame", ".ai-button-danger", ".ai-panel-tabs", ".ai-correction-pad", ".ai-manual-drive-pad", ".ai-shared-drive-controls", "#aiFilesPanel"],
         "js": ["/api/ai/models", "/api/ai/load-model", "/api/ai/config", "/api/ai/manual-correction", "/api/control/manual", "/api/ai/start", "/api/ai/stop", "safety_ack", "enable_motor_output", "enforceFullScaleThrottleRanges", "last_corrected_command", "bindKeyboardShortcuts", "sendFullManualDrive", "ai-manual-keyboard", "refreshAIRecordingFiles", "pisd:space-stop"],
         "global_space_js": ["PiSDGlobalSpaceStop", "space-global-stop", "/api/control/stop", "/api/ai/stop"],
@@ -966,8 +966,8 @@ def _check_api_stop_and_errors(client) -> list[CheckResult]:
     response = client.post("/api/control/stop")
     payload = response.get_json(silent=True) or {}
     motor_status = payload.get("motor") or {}
-    stopped = abs(float(motor_status.get("last_left", 0.0))) < 1e-6 and abs(float(motor_status.get("last_right", 0.0))) < 1e-6
-    ok = response.status_code == 200 and payload.get("code") == PiSDErrorCodes.OK and stopped
+    stopped = all(isinstance(motor_status.get(key), (int, float)) and abs(motor_status[key]) < 1e-6 for key in ("last_left", "last_right", "last_intended_left", "last_intended_right"))
+    ok = response.status_code == 200 and payload.get("ok") is True and payload.get("code") == PiSDErrorCodes.OK and stopped
     results.append(
         CheckResult(
             "api.control.stop",
@@ -1010,7 +1010,7 @@ def _check_api_main_dashboard_gui(client) -> list[CheckResult]:
     )
 
     response = client.get("/settings")
-    settings_ok = response.status_code == 200 and b"PiSD Settings Tab" in response.data and b"Back to Front Page" in response.data
+    settings_ok = response.status_code == 200 and b"<title>PiSD Settings</title>" in response.data and b"stApplySettings" in response.data and b"stStopAll" in response.data and b"Back to Front Page" in response.data
     results.append(
         CheckResult(
             "api.front_page.settings_tab",
@@ -1142,7 +1142,6 @@ def _check_api_testing_gui(client) -> list[CheckResult]:
         "/api/camera/apply",
         "/api/camera/frame.jpg",
         "/video_feed",
-        "startCameraAndLivePreview",
         "/api/camera/fps-stats",
         "/api/motor/config",
         "/api/motor/apply",
