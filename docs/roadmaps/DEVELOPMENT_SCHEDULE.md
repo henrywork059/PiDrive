@@ -6,13 +6,13 @@ This is the current execution plan, replacing one-proposal-at-a-time scheduling.
 
 - Active: PiSD, PiServer, piTrainer. No new PiBooter/CustomTrainer/CustomDrive or legacy piCar work.
 - Original proposals: 75; retired exclusive proposals: 19; active: 56.
-- As of the current [progress audit](PROGRESS.md): 32 implemented, 4 partial, 20 without a dedicated update. **24 original proposal IDs remain** in **7 remaining development batches** (9 batches originally scheduled, 2 complete). The former PiBooter batch is removed; R48 remains implemented for the active runtimes.
+- As of the current [progress audit](PROGRESS.md): 32 implemented, 6 partial, 18 without a dedicated update. **24 original proposal IDs remain** in **7 remaining development batches** (9 batches originally scheduled, 2 complete). The former PiBooter batch is removed; R48 remains implemented for the active runtimes.
 - Batch numbers are planning units, not component versions, PR numbers, or calendar deadlines. Deliver related work together where safe, using separate component-owned commits, patch notes and patch-only archives when requested. No monolithic cross-component source rewrite.
 - Sequence is dependency- and acceptance-gated, not an invented time estimate. Independent work may proceed once its stated prerequisites are met; no unsafe parallel release or merging without authorization.
 
 ## Current starting point
 
-[PR #86](https://github.com/henrywork059/PiDrive/pull/86) is the original green active integration baseline. [PR #87](https://github.com/henrywork059/PiDrive/pull/87) completes Batch 1 (F2, F3, F4, U21) and Batch 2 (F7, UX74). The latest [CI run 45359079601](https://github.com/henrywork059/PiDrive/actions/runs/45359079601) passed all four jobs at 8c979f3. Candidate versions: PiSD 0.11.27, PiServer 0.4.31, piTrainer 0.11.11. Next: Batch 3 — release automation and anti-rollback. No candidate runtime merged or physically validated. See [PROGRESS.md](PROGRESS.md) for evidence and limits. Reconcile canonical main-branch roadmap before merging a candidate.
+[PR #86](https://github.com/henrywork059/PiDrive/pull/86) is the original green active integration baseline. [PR #87](https://github.com/henrywork059/PiDrive/pull/87) completes Batch 1 (F2, F3, F4, U21) and Batch 2 (F7, UX74). Batch 3 is in progress: initial R53 [CI 45379856839](https://github.com/henrywork059/PiDrive/actions/runs/45379856839) passed all four jobs at d202082. Current candidate aaca313: PiSD 0.11.28, PiServer 0.4.32, piTrainer 0.11.12. The combined [CI 45380376438](https://github.com/henrywork059/PiDrive/actions/runs/45380376438) is not yet verified. Finish Batch 3 before Batch 4. No candidate runtime merged or physically validated. See [PROGRESS.md](PROGRESS.md) for evidence and limits. Reconcile canonical main-branch roadmap before merging a candidate.
 
 ## Batch sequence
 
@@ -47,7 +47,7 @@ This is the current execution plan, replacing one-proposal-at-a-time scheduling.
 
 ### Batch 3 — Release automation and anti-rollback
 
-**Components:** Monorepo / three active components. **Status:** Planned.
+**Components:** Monorepo / three active components. **Status:** In progress; F9/R53 code committed, initial R53 gate green, combined candidate gate pending.
 
 **Scope:** Align dependency groups and launch instructions; add changed-file-only package manifests, base identifiers, hashes, allowed paths, cache/user-data exclusions and dry-run validation against accepted baseline and latest plus three preceding notes. Do not move components or modify persistent user settings.
 

@@ -8,22 +8,24 @@ This is a conservative planning audit based on the four original roadmap documen
 
 | Track | Active | Implemented | Partial | No dedicated update | Remaining |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| F1–F10 | 10 | 7 | 0 | 3 | 3 |
+| F1–F10 | 10 | 7 | 1 | 2 | 3 |
 | U11–U29 | 13 | 13 | 0 | 0 | 0 |
-| R30–R53 | 19 | 11 | 4 | 4 | 8 |
+| R30–R53 | 19 | 11 | 5 | 3 | 8 |
 | UX54–UX75 | 14 | 1 | 0 | 13 | 13 |
-| Total | 56 | 32 | 4 | 20 | 24 |
+| Total | 56 | 32 | 6 | 18 | 24 |
 
 Implemented IDs: F1, F2, F3, F4, F5, F6, F7; U11, U12, U13, U14, U15, U17, U20, U21, U23, U26, U27, U28, U29; R30, R31, R32, R37, R38, R39, R40, R43, R46, R47, R48; UX74. Evidence: merged PRs #9–42 (active portions), pending PRs #44–79 (active portions), and #81–87. F2, F3, F4, U21, F7 and UX74 have tested commits in #87. F5 uses the stale-camera timeout contract; F6 uses the passing active regression matrix.
 
 | Partial ID | Remaining work |
 | --- | --- |
+| F9 | Dependency groups and clean-install checks committed; combined candidate CI and trainer full/reduced install confirmation pending. |
+| R53 | Initial manifest and dry-run tests passed; actual candidate worktree and historical rollback regression gate pending. |
 | R35 | Complete active desktop accessibility/input audit. |
 | R36 | Complete actual responsive screenshot/interaction acceptance at required widths. |
 | R45 | Finish PiSD token/drift audit. |
 | R49 | Complete PiSD sanitized bounded operator event view. |
 
-No dedicated update: F8–F10 (refactoring, dependencies/packaging, full recording/model workflow); R50–R53 (visual/interaction tests, full provenance, modular extraction, release/anti-rollback checks); UX54–UX65, UX75. Prior CI, contract and provenance work overlaps several of these but is not treated as full completion.
+No dedicated update: F8, F10 (refactoring, full recording/model workflow); R50–R52 (visual/interaction tests, full provenance, modular extraction); UX54–UX65, UX75. Prior CI, contract and provenance work overlaps several of these but is not treated as full completion.
 
 ## Consolidated execution schedule
 
@@ -45,4 +47,14 @@ The original 30 outstanding IDs were organized into **9 development batches**. B
 | F7 | PiServer 0.4.30 | adf44de | [45358221582](https://github.com/henrywork059/PiDrive/actions/runs/45358221582): all four jobs passed; seven config-store cases and one real API recovery case |
 | UX74 | PiSD 0.11.27 / PiServer 0.4.31 / piTrainer 0.11.11 | 8c979f3 | [45359079601](https://github.com/henrywork059/PiDrive/actions/runs/45359079601): all four jobs passed; explicit confirmation, non-modal duplicate guard, exact trainer purge scope and stale-plan refusal |
 
-Current candidate: PiSD **0.11.27**, PiServer **0.4.31**, piTrainer **0.11.11**. Batches 1 and 2 have passed their scoped automated gates. Next: Batch 3 (F9/R53 dependency and release packaging safeguards). Last verified green candidate: 8c979f3. UX74 confirms exact targets, guards repeated UI submissions, retains soft-hide recovery and does not gate STOP. Actual browser/Windows acceptance is still outstanding; UI guards are not distributed idempotency. Before runtime merge, reconcile this canonical main-branch roadmap with the candidate's older documentation snapshots. LAN startup now requires PISD_ACCESS_TOKEN, including existing systemd services; see PiSD README before deployment. The in-process watchdog does not guarantee physical motor stop if drivers or the OS block; the PiServer frame guard does not independently stop during indefinitely stalled inference. No physical Raspberry Pi acceptance, native Windows UI acceptance, deployment or runtime merge is claimed. The progress counts describe candidate implementation, not a released main-branch runtime. No inactive component work.
+Current candidate: PiSD **0.11.28**, PiServer **0.4.32**, piTrainer **0.11.12** at aaca313. Batches 1 and 2 have passed their scoped automated gates; Batch 3 is in progress, not complete. Last verified fully green candidate: d202082 (0.11.27/0.4.31/0.11.11). UX74 confirms exact targets, guards repeated UI submissions, retains soft-hide recovery and does not gate STOP. Actual browser/Windows acceptance is still outstanding; UI guards are not distributed idempotency. Before runtime merge, reconcile this canonical main-branch roadmap with the candidate's older documentation snapshots. LAN startup now requires PISD_ACCESS_TOKEN, including existing systemd services; see PiSD README before deployment. The in-process watchdog does not guarantee physical motor stop if drivers or the OS block; the PiServer frame guard does not independently stop during indefinitely stalled inference. No physical Raspberry Pi acceptance, native Windows UI acceptance, deployment or runtime merge is claimed. The progress counts describe candidate implementation, not a released main-branch runtime. No inactive component work.
+
+## Batch 3 implementation evidence — gate pending
+
+| ID | Candidate commit | Verification |
+| --- | --- | --- |
+| R53 | [d202082](https://github.com/henrywork059/PiDrive/commit/d2020825a6521269c008a6c53720e2adfffa5ea2) | [CI 45379856839](https://github.com/henrywork059/PiDrive/actions/runs/45379856839): all four jobs passed, including patch manifest validation and deliberate invalid archives. |
+| F9 | [c532e1d](https://github.com/henrywork059/PiDrive/commit/c532e1d3730583dafe4207d49cfd0e528d51bfa2) | [CI 45380096413](https://github.com/henrywork059/PiDrive/actions/runs/45380096413): PiSD/PiServer clean dependency and regression steps passed; manifest job passed; piTrainer clean-install step cancelled by successor. |
+| F9/R53 | [aaca313](https://github.com/henrywork059/PiDrive/commit/aaca3132184495c92f13ae0f20e3d3ec4f7bb99f) | [CI 45380376438](https://github.com/henrywork059/PiDrive/actions/runs/45380376438): queued at inspection; adds actual candidate packages, historical blob rollback rejection, tracked-source dependency inventory and trainer reduced-profile smoke. |
+
+No completion increment until the combined gate is verified. Current code diff from 8c979f3 changes component dependency declarations, installation docs, patch notes and version constants only; remaining changes are shared release tooling/tests/CI/docs. No previous runtime or UI behavior removed; no persisted config/user files or inactive trees edited. Git-backed package checks require a trusted exact baseline/target, full history, and clean source preimages. They do not authenticate commits, detect all semantic rollbacks, guarantee absence of embedded secrets or apply a patch. Native Windows, OS-specific Pi dependencies, actual training, browser and physical acceptance remain separate. No production archive released. Next: finish Batch 3 gate before Batch 4.
