@@ -152,6 +152,16 @@ class PackageTests(unittest.TestCase):
                 self.git("checkout","--detach",self.base)
                 self.assertEqual(p.validate(self.root,c,self.base,target,archive)["component"],c)
 
+    def test_historical_source_reintroduction(self):
+        self.write("PiSD/PiSD.py", "print('newer launcher')\n")
+        newer = self.commit("accepted source improvement")
+        self.write("PiSD/PiSD.py", "print('launcher')\n")
+        self.write("PiSD/pisd/__init__.py", self.marker(self.c,(0,11,2)))
+        self.write(p.note_path(self.c,(0,11,2)), "new note\n")
+        rollback = self.commit("accidental old source")
+        with self.assertRaisesRegex(ValueError,"Exact historical file rollback"):
+            p.expected(self.root,self.c,newer,rollback)
+
     def test_historical_note_change(self):
         self.git("checkout","--detach",self.target)
         self.write(p.note_path(self.c,(0,11,1)),"rewritten")

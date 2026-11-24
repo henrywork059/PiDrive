@@ -35,7 +35,7 @@ See the [stabilization acceptance gate](docs/stabilization_acceptance.md) for th
 | PiServer | 3.10+ (3.11 preferred) | `pip install -r PiServer/requirements.txt` |
 | piTrainer | 3.10+ (3.11 preferred) | `pip install -r piTrainer/requirements.txt` |
 
-Pi-only optional runtime dependencies include `picamera2`, `RPi.GPIO`, and `tflite-runtime`.
+Pi-only optional runtime dependencies include `picamera2`, `RPi.GPIO` (or its rpi-lgpio alternative), and `tflite-runtime`. See [active dependency groups](docs/dependency_groups.md) and [candidate patch validation](docs/patch_package.md).
 
 ## Standard setup pattern
 

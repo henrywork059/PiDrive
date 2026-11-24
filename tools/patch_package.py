@@ -8,7 +8,7 @@ import stat
 import subprocess
 import sys
 from pathlib import Path
-from zipfile import ZIP_DEFLATED, ZipFile
+from zipfile import BadZipFile, ZIP_DEFLATED, ZipFile
 
 COMPONENTS = {
     "PiSD": ("PiSD.py", "pisd/__init__.py", "__version__", (0, 11), {"pisd", "scripts", "docs", "PATCH_NOTES"}),
@@ -96,6 +96,8 @@ def note_path(component, v):
 
 def expected(root, component, base, target):
     require(component in COMPONENTS, "Inactive or unknown component")
+    require(git(root, "rev-parse", "--is-shallow-repository").decode().strip() == "false",
+            "Full Git history required for rollback checks")
     check_commit(root, base)
     check_commit(root, target)
     require(base != target, "Empty forward patch")
@@ -130,6 +132,13 @@ def expected(root, component, base, target):
             require(prev_mode == mode, "Mode changes not supported")
             require(prev != data, "Unchanged file")
             before = digest(prev)
+            # Catch exact reintroduction of a prior file snapshot (not just stale archives).
+            history_commits = git(root, "log", "-5", "--format=%H", base, "--", path).decode().splitlines()
+            for earlier in history_commits:
+                if git(root, "ls-tree", "-z", earlier, "--", path):
+                    historical, _ = blob(root, earlier, path)
+                    require(historical == prev or historical != data,
+                            "Exact historical file rollback: " + path)
         records[path] = {"operation": status, "before_sha256": before,
                          "sha256": digest(data), "size": len(data), "mode": mode}
         payload[path] = data
@@ -204,7 +213,7 @@ def main():
             args.repo.resolve(), args.component, args.base, args.target, args.archive)
         print(f"{args.action}: {result['component']} {result['baseline_version']} -> "
               f"{result['target_version']}, {len(result['files'])} files; no patch applied")
-    except (ValueError, OSError, subprocess.CalledProcessError, KeyError, SyntaxError, RuntimeError) as exc:
+    except (BadZipFile, ValueError, OSError, subprocess.CalledProcessError, KeyError, SyntaxError, RuntimeError) as exc:
         print(f"Rejected: {exc}", file=sys.stderr)
         return 1
     return 0
