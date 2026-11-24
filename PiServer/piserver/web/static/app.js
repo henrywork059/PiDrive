@@ -95,6 +95,7 @@ const state = {
   statusFailures: 0,
   statusVerified: false,
   statusRevision: 0,
+  modelListRevision: 0,
   cameraConfig: null,
   motorConfig: null,
   motorFormDirty: false,
@@ -1064,10 +1065,19 @@ async function pollStatus() {
   }
 }
 
-async function refreshModels() {
-  const data = await fetchJson("/api/model/list");
+async function refreshModels(preserveSelection = false) {
+  const revision = ++state.modelListRevision;
+  let data;
+  try {
+    data = await fetchJson("/api/model/list");
+  } catch (error) {
+    if (revision !== state.modelListRevision) return;
+    throw error;
+  }
+  if (revision !== state.modelListRevision) return;
   const select = document.getElementById("modelSelect");
   if (!select) return;
+  const selected = preserveSelection ? select.value : "";
   select.innerHTML = "";
   if (!(data.models || []).length) {
     const option = document.createElement("option");
@@ -1083,6 +1093,10 @@ async function refreshModels() {
     if (data.active === name) option.selected = true;
     select.appendChild(option);
   });
+  if (selected && (data.models || []).includes(selected)) select.value = selected;
+  if (preserveSelection && (data.models || []).length) {
+    setBanner("modelMessage", "Model list refreshed.", "muted");
+  }
 }
 
 async function uploadModel() {
@@ -1916,7 +1930,13 @@ function setupEvents() {
     }
   });
 
-  document.getElementById("refreshModelsBtn").addEventListener("click", refreshModels);
+  document.getElementById("refreshModelsBtn").addEventListener("click", async () => {
+    try {
+      await refreshModels(true);
+    } catch (error) {
+      setBanner("modelMessage", `Cannot refresh models: ${error.message}. Retry after reconnecting.`, "muted");
+    }
+  });
   document.getElementById("loadModelBtn").addEventListener("click", async () => {
     try {
       await loadSelectedModel();

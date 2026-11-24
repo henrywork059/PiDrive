@@ -101,6 +101,8 @@ def main():
                     hold_status = [False]
                     held_status = []
                     acknowledge_stop = [False]
+                    model_reply = [None]
+                    model_workspace = [False]
                     def route_request(route):
                         req = route.request
                         parsed = urlsplit(req.url)
@@ -143,6 +145,14 @@ def main():
                         }:
                             route.fulfill(status=503, content_type="application/json",
                                           body='{"ok":false,"message":"Synthetic disconnected backend"}')
+                            return
+                        if parsed.path == "/api/model/list" and model_reply[0] is not None:
+                            status, payload = model_reply[0]
+                            route.fulfill(status=status, json=payload)
+                            return
+                        if model_workspace[0] and parsed.path == "/api/status":
+                            snapshot = client.get("/api/status", base_url=ORIGIN).get_json()
+                            route.fulfill(status=200, json=dict(snapshot, current_page="auto"))
                             return
                         result = client.get(parsed.path + ("?" + parsed.query if parsed.query else ""),
                                             base_url=ORIGIN)
@@ -274,6 +284,35 @@ def main():
                             expect(page.locator("#sessionSelect")).to_have_value("snapshots")
                             expect(page.locator("#sessionSelect option")).to_contain_text("snapshot folder")
                             expect(page.locator("#sessionImageCount")).to_have_text("0")
+                            # Real Refresh control: failed read, retry, retain user's
+                            # selection even when server reports another active model.
+                            model_workspace[0] = True
+                            page.locator('.tab-btn[data-page="auto"]').click()
+                            refresh = page.locator("#refreshModelsBtn")
+                            select = page.locator("#modelSelect")
+                            message = page.locator("#modelMessage")
+                            model_reply[0] = (200, {"models": ["a.tflite", "b.tflite"], "active": "a.tflite"})
+                            refresh.click()
+                            expect(message).to_have_text("Model list refreshed.")
+                            select.select_option("b.tflite")
+                            model_reply[0] = (503, {"ok": False, "message": "Synthetic model list failure"})
+                            refresh.click()
+                            expect(message).to_contain_text("Cannot refresh models")
+                            expect(select).to_have_value("b.tflite")
+                            expect(refresh).to_be_enabled()
+                            model_reply[0] = (200, {"models": ["a.tflite", "b.tflite"], "active": "a.tflite"})
+                            refresh.click()
+                            expect(message).to_have_text("Model list refreshed.")
+                            expect(select).to_have_value("b.tflite")
+                            assert message.get_attribute("role") == "status"
+                            model_reply[0] = (200, {"models": ["a.tflite"], "active": "a.tflite"})
+                            refresh.click()
+                            expect(select).to_have_value("a.tflite")
+                            model_reply[0] = None
+                            refresh.click()
+                            expect(select.locator("option")).to_contain_text("No .tflite models")
+                            model_workspace[0] = False
+                            page.locator('.tab-btn[data-page="manual"]').click()
                         # Start keyboard modality then focus STOP without activating it.
                         page.keyboard.press("Tab")
                         target = page.locator(stop)
