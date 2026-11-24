@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import atexit
+import secrets
 import threading
 import time
 from dataclasses import dataclass
@@ -215,6 +216,13 @@ class MotorService:
         self.last_error_code = PiSDErrorCodes.OK
         self.errors = ErrorReporter("motor")
         self._lock = threading.RLock()
+        self._lease_condition = threading.Condition(self._lock)
+        self.manual_command_timeout_s = 0.85
+        self._manual_lease_id = None
+        self._manual_lease_deadline = None
+        self._manual_command_timed_out = False
+        self._lease_thread = None
+        self._lease_closed = False
         self._last_sim_log_at = 0.0
         if hardware_enabled and not GPIO_AVAILABLE:
             self._record(
@@ -273,6 +281,9 @@ class MotorService:
                     "last_hardware_left": float(self.last_left),
                     "last_hardware_right": float(self.last_right),
                     "last_command": dict(self.last_command),
+                    "manual_command_timeout_s": self.manual_command_timeout_s,
+                    "manual_command_timed_out": self._manual_command_timed_out,
+                    "manual_lease_active": self._manual_lease_deadline is not None,
                     "last_error": str(self.last_error),
                     "last_error_code": str(self.last_error_code),
                 }
@@ -474,8 +485,61 @@ class MotorService:
                 self._rebuild_drivers_locked()
             return self.get_config()
 
+    def _clear_manual_lease_locked(self):
+        self._manual_lease_id = None
+        self._manual_lease_deadline = None
+        self._lease_condition.notify_all()
+
+    def _expire_manual_lease_locked(self, now=None):
+        now = time.monotonic() if now is None else now
+        if self._manual_lease_deadline is None or now < self._manual_lease_deadline:
+            return False
+        self._stop_locked()
+        self._manual_command_timed_out = True
+        return True
+
+    def _ensure_lease_worker_locked(self):
+        if self._lease_thread is None:
+            self._lease_thread = threading.Thread(target=self._manual_lease_loop,
+                                                  daemon=True, name="PiSDManualLease")
+            self._lease_thread.start()
+
+    def _manual_lease_loop(self):
+        with self._lease_condition:
+            while not self._lease_closed:
+                if self._manual_lease_deadline is None:
+                    self._lease_condition.wait()
+                    continue
+                if self._expire_manual_lease_locked():
+                    continue
+                remaining = self._manual_lease_deadline - time.monotonic()
+                self._lease_condition.wait(timeout=max(0.0, remaining))
+
+    def update_manual(self, steering, throttle, *, control_source="manual"):
+        """Return the applied output and its private, one-command renewal token."""
+        with self._lock:
+            left, right = self.update(steering, throttle, control_source=control_source)
+            return left, right, self._manual_lease_id
+
+    def renew_manual_lease(self, lease_id):
+        """Renew only existing live output; never start or replay motor commands."""
+        with self._lock:
+            now = time.monotonic()
+            self._expire_manual_lease_locked(now)
+            if (not isinstance(lease_id, str) or not self._manual_lease_id
+                    or self._manual_lease_deadline is None
+                    or not secrets.compare_digest(lease_id, self._manual_lease_id)):
+                return False
+            self._manual_lease_deadline = now + self.manual_command_timeout_s
+            self._lease_condition.notify_all()
+            return True
+
     def update(self, steering: float = 0.0, throttle: float = 0.0, steer_mix: float | None = None, *, control_source: str = "other") -> tuple[float, float]:
         with self._lock:
+            if self._lease_closed:
+                raise RuntimeError("Motor service is closed.")
+            self._clear_manual_lease_locked()
+            self._manual_command_timed_out = False
             steering = clamp_float(steering, -1.0, 1.0, 0.0)
             throttle = clamp_float(throttle, -1.0, 1.0, 0.0)
             mix = self.config.steer_mix if steer_mix is None else clamp_float(steer_mix, 0.0, 1.0, self.config.steer_mix)
@@ -491,6 +555,9 @@ class MotorService:
                     "Motor output command failed; last command retained for diagnosis.",
                     context={"left_ok": left_ok, "right_ok": right_ok, "left": output_left, "right": output_right, "target_left": left, "target_right": right},
                 )
+            if control_source in {"manual", "manual_assist"} and (not left_ok or not right_ok):
+                self._stop_locked()
+                raise RuntimeError("Manual motor output not confirmed; stop requested.")
             self.last_left = output_left
             self.last_right = output_right
             self.last_intended_left = left_intended
@@ -511,6 +578,15 @@ class MotorService:
                 "right_hardware_target": right,
                 "timestamp": time.time(),
             }
+            if control_source in {"manual", "manual_assist"} and (abs(left) > 1e-6 or abs(right) > 1e-6):
+                self._manual_lease_id = secrets.token_hex(16)
+                self._manual_lease_deadline = time.monotonic() + self.manual_command_timeout_s
+                try:
+                    self._ensure_lease_worker_locked()
+                except Exception:
+                    self._stop_locked()
+                    raise
+                self._lease_condition.notify_all()
         if not self.hardware_enabled:
             self._log_sim_command(steering, throttle, mix, output_left, output_right)
         return left, right
@@ -522,6 +598,10 @@ class MotorService:
 
     def close(self) -> None:
         with self._lock:
+            if self._lease_closed:
+                return
+            self._lease_closed = True
+            self._lease_condition.notify_all()
             try:
                 self._stop_locked()
                 self.left.close()
@@ -598,6 +678,7 @@ class MotorService:
         return clamp_float(value, -1.0, 1.0, 0.0)
 
     def _stop_locked(self) -> bool:
+        self._clear_manual_lease_locked()
         self.last_left = 0.0
         self.last_right = 0.0
         self.last_intended_left = 0.0

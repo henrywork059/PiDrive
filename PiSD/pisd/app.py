@@ -177,6 +177,7 @@ def create_app(hardware_enabled: bool = False):
                 {"method": "POST", "path": "/api/motor/test-channel", "purpose": "Test one motor side/direction/speed/duration."},
                 {"method": "POST", "path": "/api/motor/tune-run", "purpose": "Run a timed straight/turn tuning command through the normal motor steering algorithm, then stop."},
                 {"method": "POST", "path": "/api/control/manual", "purpose": "Send guarded manual steering/throttle command using saved Manual Drive speed policy."},
+                {"method": "POST", "path": "/api/control/heartbeat", "purpose": "Renew an existing manual command lease without replaying motor commands."},
                 {"method": "POST", "path": "/api/control/stop", "purpose": "Emergency stop / set outputs to zero."},
                 {"method": "GET", "path": "/api/recording/status", "purpose": "Read capture/recording state and output folders."},
                 {"method": "POST", "path": "/api/recording/capture", "purpose": "Save one traceable frame and JSON record."},
@@ -941,7 +942,7 @@ def create_app(hardware_enabled: bool = False):
             # steer_mix is intentionally not accepted as a Manual Drive policy
             # override here. MotorService will use the saved motor.steer_mix so
             # motor calibration remains the single source of truth.
-            left, right = motor_service.update(
+            left, right, lease_id = motor_service.update_manual(
                 steering=requested_steering,
                 throttle=safe_throttle,
                 control_source="manual_assist" if isinstance(data.get("ai_assist"), dict) and data.get("ai_assist") else "manual",
@@ -960,6 +961,7 @@ def create_app(hardware_enabled: bool = False):
                 right_hardware=right,
                 motor=motor_status,
                 manual_speed_limit=speed_limit,
+                manual_lease_id=lease_id,
                 ai=ai_drive_service.status(),
                 ai_manual_override=ai_manual_override.get("manual_override", {}),
                 ai_assist=data.get("ai_assist") if isinstance(data.get("ai_assist"), dict) else {},
@@ -967,6 +969,16 @@ def create_app(hardware_enabled: bool = False):
         except Exception as exc:
             report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"Manual control API failed: {exc}", exc=exc)
             return jsonify(report_payload(False, report)), 500
+
+    @app.post("/api/control/heartbeat")
+    def api_control_heartbeat():
+        data, json_error = get_json_payload()
+        if json_error is not None:
+            return jsonify(report_payload(False, json_error)), 400
+        if not motor_service.renew_manual_lease(data.get("lease_id")):
+            return jsonify({"ok": False, "code": PiSDErrorCodes.MOTOR_LEASE_EXPIRED,
+                            "message": "Manual command lease ended; new operator input required."}), 409
+        return jsonify(ok_payload("Manual lease renewed."))
 
     @app.post("/api/control/stop")
     def api_control_stop():

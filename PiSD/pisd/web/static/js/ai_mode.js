@@ -934,6 +934,11 @@
     return driveConfirmationEnabled();
   }
 
+  const manualLease = window.PiSDManualLease.create({
+    active: () => !document.hidden && fullManualOutputEnabled() && (manualDrivePanelActive() || aiAssistPanelActive()),
+    onLost: () => { if (manualDrivePanelActive()) void stopFullManualDrive('manual-lease-lost'); else if (aiAssistPanelActive()) void stopAssistDrive('assist-lease-lost'); },
+  });
+
   async function sendFullManualDrive(force = false, source = 'ai-manual-pad') {
     if (!manualDrivePanelActive()) return;
     if (!fullManualOutputEnabled()) {
@@ -943,6 +948,7 @@
     const now = performance.now();
     if (!force && now - manualDriveLastSentAt < CORRECTION_SEND_INTERVAL_MS) return;
     manualDriveLastSentAt = now;
+    const leaseTicket = manualLease.begin();
     try {
       const data = await api('/api/control/manual', {
         method: 'POST',
@@ -954,6 +960,7 @@
           source,
         },
       });
+      manualLease.finish(leaseTicket, data);
       if (data.ai) {
         renderAI(data.ai);
       } else {
@@ -963,12 +970,14 @@
       updateManualDriveStatus(`Manual S ${formatSigned(manualDriveSteering)} / T ${formatSigned(manualDriveThrottle)} sent.`, 'active');
       log('Full manual command sent from AI Mode.', { steering: manualDriveSteering, throttle: manualDriveThrottle, motor: data.motor || {} });
     } catch (err) {
+      manualLease.finish(leaseTicket, null);
       updateManualDriveStatus(`Manual send failed: ${err.message}`, 'locked');
       log(err.message, err.payload || {});
     }
   }
 
   async function stopFullManualDrive(reason = 'ai-manual-stop') {
+    manualLease.cancel();
     manualDriveDragging = false;
     manualDriveKeyboardSteering = 0;
     manualDriveKeyboardThrottle = 0;
@@ -1012,6 +1021,7 @@
     if (!force && now - assistLastSentAt < CORRECTION_SEND_INTERVAL_MS) return;
     assistLastSentAt = now;
     const payload = assistPayload();
+    const leaseTicket = manualLease.begin();
     try {
       const data = await api('/api/control/manual', {
         method: 'POST',
@@ -1024,17 +1034,20 @@
           ai_assist: payload,
         },
       });
+      manualLease.finish(leaseTicket, data);
       renderAI(data.ai || lastAIStatus || {});
       updateAssistReadout();
       updateAssistStatus(`Assist S ${formatSigned(payload.steering)} / T ${formatSigned(payload.throttle)} sent.`, 'active');
       log('AI assist manual command sent.', { assist: payload, motor: data.motor || {} });
     } catch (err) {
+      manualLease.finish(leaseTicket, null);
       updateAssistStatus(`AI assist send failed: ${err.message}`, 'locked');
       log(err.message, err.payload || {});
     }
   }
 
   async function stopAssistDrive(reason = 'ai-assist-stop') {
+    manualLease.cancel();
     assistDragging = false;
     assistKeyboardSteering = 0;
     assistKeyboardThrottle = 0;
@@ -1343,6 +1356,7 @@
   }
 
   async function stopAI() {
+    manualLease.cancel();
     try {
       const data = await api('/api/ai/stop', { method: 'POST', body: {} });
       renderAI(data.ai || {});
@@ -1757,6 +1771,7 @@
     });
     els.aiModelSelect?.addEventListener('change', () => renderOperatingReadiness());
     window.addEventListener('pisd:space-stop', () => {
+      manualLease.cancel();
       correctionKeyboardSteering = 0;
       correctionKeyboardThrottle = 0;
       correctionKeyboardLeftHeld = false;
@@ -1790,6 +1805,7 @@
     els.aiLive?.addEventListener('click', async () => { await api('/api/camera/start', { method: 'POST', body: {} }).catch((err) => log(err.message, err.payload)); setPreview('live', `/video_feed?t=${Date.now()}`); });
     els.aiStopCamera?.addEventListener('click', async () => { await api('/api/camera/stop', { method: 'POST', body: {} }).catch((err) => log(err.message, err.payload)); setPreview('idle', ''); });
     window.addEventListener('pagehide', () => {
+      manualLease.cancel();
       const zero = new Blob([JSON.stringify({ steering: 0, throttle: 0, source: 'ai-correction-pagehide' })], { type: 'application/json' });
       navigator.sendBeacon?.('/api/ai/manual-correction', zero);
       if (manualDrivePanelActive()) navigator.sendBeacon?.('/api/control/stop', new Blob([JSON.stringify({ reason: 'ai-manual-pagehide' })], { type: 'application/json' }));

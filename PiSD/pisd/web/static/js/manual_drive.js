@@ -170,6 +170,10 @@
   let keyboardRightHeld = false;
   let keyboardLoopHandle = 0;
   let keyboardLastFrameAt = 0;
+  const manualLease = window.PiSDManualLease.create({
+    active: () => !document.hidden && Boolean(arm?.checked) && (dragging || manualDriveActive),
+    onLost: () => { void resetKeyboardControl('manual-lease-lost'); },
+  });
 
   const OVERLAY_CONTROL_BINDINGS = [
     ['turn_rate_visual_scale', overlayTurnRateVisualScale],
@@ -998,7 +1002,8 @@
     const contentType = response.headers.get('content-type') || '';
     const payload = contentType.includes('application/json') ? await response.json() : { ok: response.ok, code: response.ok ? 'PISD-OK-000' : 'PISD-API-002', message: await response.text() };
     setCode(codeTarget, payload.code);
-    writeLog(`${method} ${path}`, payload, response.status);
+    const { manual_lease_id: _privateLease, ...loggedPayload } = payload;
+    writeLog(`${method} ${path}`, loggedPayload, response.status);
     return { response, payload };
   }
 
@@ -1104,12 +1109,14 @@
     if (!force && now - lastSentAt < interval) return;
     lastSentAt = now;
     setDriveState(payload, lastMotorOutput, 'manual intent');
+    const leaseTicket = manualLease.begin();
     try {
       const result = await api('POST', '/api/control/manual', payload, 'drive');
+      manualLease.finish(leaseTicket, result.payload);
       if (result.payload?.ok === false) return; // never label rejected motor action as live output
       renderMotorSignalsFromApiResponse(result.payload, payload, 'live status');
     }
-    catch (err) { writeLog('manual drag failed', { ok: false, code: 'PISD-API-002', message: String(err) }); }
+    catch (err) { manualLease.finish(leaseTicket, null); writeLog('manual drag failed', { ok: false, code: 'PISD-API-002', message: String(err) }); }
   }
 
   function keyboardControlBlocked() {
@@ -1258,15 +1265,20 @@
     }, { passive: false });
 
     window.addEventListener('blur', () => {
-      releaseKeyboardSteeringToCentre('Window lost focus');
+      void resetKeyboardControl('Window lost focus');
     });
 
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden) releaseKeyboardSteeringToCentre('Page hidden');
+      if (document.hidden) void resetKeyboardControl('Page hidden');
     });
   }
 
   async function stopAll(target = 'stop') {
+    manualLease.cancel();
+    dragging = false;
+    keyboardThrottle = keyboardSteering = 0;
+    keyboardLeftHeld = keyboardRightHeld = false;
+    stopKeyboardSteeringLoop();
     setStoppedDriveState('stopped');
     try {
       const { payload } = await api('POST', '/api/control/stop', {}, target);
@@ -1353,6 +1365,7 @@
     if (!manualDriveActive && !dragging && !driveStateIsMoving(lastPayload, lastMotorOutput)) return;
     if (failSafeStopSent) return;
     failSafeStopSent = true;
+    manualLease.cancel();
     dragging = false;
     setStoppedDriveState('stopped');
     const body = JSON.stringify({ reason, source: 'manual-drive-failsafe' });
@@ -1396,6 +1409,7 @@
 
 
   function handleGlobalSpaceStop() {
+    manualLease.cancel();
     dragging = false;
     manualDriveActive = false;
     keyboardThrottle = 0;
