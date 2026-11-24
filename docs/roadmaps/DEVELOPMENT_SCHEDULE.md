@@ -6,13 +6,13 @@ This is the current execution plan, replacing one-proposal-at-a-time scheduling.
 
 - Active: PiSD, PiServer, piTrainer. No new PiBooter/CustomTrainer/CustomDrive or legacy piCar work.
 - Original proposals: 75; retired exclusive proposals: 19; active: 56.
-- As of the current [progress audit](PROGRESS.md): 34 implemented, 6 partial, 16 without a dedicated update. **22 original proposal IDs remain** in **6 remaining development batches** (9 batches originally scheduled, 3 complete). The former PiBooter batch is removed; R48 remains implemented for the active runtimes.
+- As of the current [progress audit](PROGRESS.md): 35 implemented, 5 partial, 16 without a dedicated update. **21 original proposal IDs remain** in **6 remaining development batches** (9 batches originally scheduled, 3 complete). The former PiBooter batch is removed; R48 remains implemented for the active runtimes.
 - Batch numbers are planning units, not component versions, PR numbers, or calendar deadlines. Deliver related work together where safe, using separate component-owned commits, patch notes and patch-only archives when requested. No monolithic cross-component source rewrite.
 - Sequence is dependency- and acceptance-gated, not an invented time estimate. Independent work may proceed once its stated prerequisites are met; no unsafe parallel release or merging without authorization.
 
 ## Current starting point
 
-[PR #86](https://github.com/henrywork059/PiDrive/pull/86) is the original green active integration baseline. [PR #87](https://github.com/henrywork059/PiDrive/pull/87) completes Batch 1 (F2, F3, F4, U21) and Batch 2 (F7, UX74). Batch 3 (F9/R53) passed all four jobs in [CI 45380631288](https://github.com/henrywork059/PiDrive/actions/runs/45380631288) at 53b06b7. Batch 4 started at [793b3e2](https://github.com/henrywork059/PiDrive/commit/793b3e25b3100b05da0454ea3da56cf892f77aad): PiSD 0.11.29, PiServer 0.4.32, piTrainer 0.11.13. Initial [CI 45383964152](https://github.com/henrywork059/PiDrive/actions/runs/45383964152) passed 3/4; real browser tests identified Manual Drive startup ReferenceError. Corrected at [299960b](https://github.com/henrywork059/PiDrive/commit/299960b5bcefb033d85c8955087822802429e14a), strengthened readback and dialog geometry checks; [CI 45384279829](https://github.com/henrywork059/PiDrive/actions/runs/45384279829) pending. No candidate runtime merged or physically validated. See [PROGRESS.md](PROGRESS.md) for evidence and limits. Reconcile canonical main-branch roadmap before merging a candidate.
+[PR #86](https://github.com/henrywork059/PiDrive/pull/86) is the original green active integration baseline. [PR #87](https://github.com/henrywork059/PiDrive/pull/87) completes Batch 1 (F2, F3, F4, U21) and Batch 2 (F7, UX74). Batch 3 (F9/R53) passed all four jobs in [CI 45380631288](https://github.com/henrywork059/PiDrive/actions/runs/45380631288) at 53b06b7. Batch 4 started at [793b3e2](https://github.com/henrywork059/PiDrive/commit/793b3e25b3100b05da0454ea3da56cf892f77aad): PiSD 0.11.29, PiServer 0.4.32, piTrainer 0.11.13. Initial [CI 45383964152](https://github.com/henrywork059/PiDrive/actions/runs/45383964152) passed 3/4; real browser tests identified Manual Drive startup ReferenceError. Corrected at [299960b](https://github.com/henrywork059/PiDrive/commit/299960b5bcefb033d85c8955087822802429e14a), strengthened readback and dialog geometry checks; [CI 45384279829](https://github.com/henrywork059/PiDrive/actions/runs/45384279829) passed all four jobs (16/16 browser cases). R45 complete. New [d134c19](https://github.com/henrywork059/PiDrive/commit/d134c1970786e6c8b1071ab6a9e49936da84821d), PiSD 0.11.30, adds dialog focus and extended native tests; [CI 45396916022](https://github.com/henrywork059/PiDrive/actions/runs/45396916022) in progress. No candidate runtime merged or physically validated. See [PROGRESS.md](PROGRESS.md) for evidence and limits. Reconcile canonical main-branch roadmap before merging a candidate.
 
 ## Batch sequence
 
@@ -21,13 +21,13 @@ This is the current execution plan, replacing one-proposal-at-a-time scheduling.
 | 1 | P0 | Runtime safety and validation | F2, F3, F4, U21 | 0 | Green PR #86 baseline |
 | 2 | P1 | Configuration and data protection | F7, UX74 | 0 | 1 |
 | 3 | P1 | Release automation and anti-rollback | F9, R53 | 0 | 1–2 |
-| 4 | P1 | UI regression and accessibility foundation | R35, R36, R45, R50, UX75 | 5 | 1–3 |
+| 4 | P1 | UI regression and accessibility foundation | R35, R36, R45, R50, UX75 | 4 | 1–3 |
 | 5 | P1 | Training and deployment integration | F10, R51, UX62, UX64 | 4 | 1–4 |
 | 6 | P1 | piTrainer data-review workflow | UX61, UX63, UX65 | 3 | 4, 5 |
 | 7 | P1/P2 | PiSD driving interface | R49, UX54, UX55, UX56, UX57 | 5 | 1, 2, 4 |
 | 8 | P2 | Code modularization | F8, R52 | 2 | 1–4; rerun tests from completed batches |
 | 9 | P1/P2 | PiServer operator workspace | UX58, UX59, UX60 | 3 | 4, 8 |
-| Total | | | | 22 | |
+| Total | | | | 21 | |
 
 ### Batch 1 — Runtime safety and validation
 
@@ -55,7 +55,7 @@ This is the current execution plan, replacing one-proposal-at-a-time scheduling.
 
 ### Batch 4 — UI regression and accessibility foundation
 
-**Components:** All active interfaces. **Status:** In progress; native browser/Qt and token foundation committed, exact CI and visual/interaction review pending.
+**Components:** All active interfaces. **Status:** In progress; R45 complete, 299960b browser/Qt foundation green; extended modal/STOP/empty-state/splitter checks and visual review pending.
 
 **Scope:** Finish desktop accessibility audit and PiSD token/drift coverage; add native Qt and browser interaction/geometry smoke tests covering keyboard, touch, focus, no-data, failures and 390/768/1024/1440 widths. Record accepted baseline captures before visual changes. Use this suite for subsequent UI batches.
 

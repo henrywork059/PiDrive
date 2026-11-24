@@ -10,7 +10,7 @@ The original proposal IDs are retained for historical traceability. Ignore inact
 
 ## Progress tracking
 
-See [active roadmap progress](PROGRESS.md) for the scoped proposal count, partial items and remaining work. Original IDs are not renumbered. The current execution order is the [consolidated development schedule](DEVELOPMENT_SCHEDULE.md): 22 outstanding original proposals in 6 remaining dependency-gated batches (30 proposals in 9 batches originally scheduled; Batches 1–3 complete at the automated gate; Batch 4 in progress). Use that schedule rather than implementing each original proposal as a separate release.
+See [active roadmap progress](PROGRESS.md) for the scoped proposal count, partial items and remaining work. Original IDs are not renumbered. The current execution order is the [consolidated development schedule](DEVELOPMENT_SCHEDULE.md): 21 outstanding original proposals in 6 remaining dependency-gated batches (30 proposals in 9 batches originally scheduled; Batches 1–3 complete at the automated gate; Batch 4 in progress). Use that schedule rather than implementing each original proposal as a separate release.
 
 ## Roadmap documents
 
