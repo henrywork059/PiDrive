@@ -935,7 +935,8 @@
     if (!settings) settings = readRuntimeLocal();
     const serverManual = settings.manual_drive || {};
     latestMotorSettings = normaliseMotorOverlaySettings({ ...DEFAULT_MOTOR_SETTINGS, ...(settings.motor || {}) });
-    writeMotorStartControls(latestMotorSettings);
+    // Motor calibration controls live in Motor Tuning; Manual Drive only reads
+    // the saved motor geometry for its visual overlay.
     const limit = clamp(serverManual.max_speed_limit || DEFAULTS.max_speed_limit, 0.1, 1.0, DEFAULTS.max_speed_limit);
     const manual = {
       ...DEFAULTS,

@@ -36,6 +36,11 @@ def fixture(component, temp, stack):
         from pisd import app as module
         stack.enter_context(patch.object(module, "PROJECT_ROOT", temp))
         stack.enter_context(patch.object(module, "RUNTIME_SETTINGS_PATH", temp / "runtime.json"))
+        # Non-default synthetic settings expose partial/aborted page startup.
+        (temp / "runtime.json").write_text(json.dumps({"manual_drive": {
+            "speed": 0.43, "max_speed_limit": 0.63,
+            "overlay": {"path_length_scale": 1.35},
+        }}), encoding="utf-8")
         app = module.create_app(hardware_enabled=False)
         s = app.config["pisd_services"]
         stack.callback(s["camera"].stop)
@@ -111,6 +116,10 @@ def main():
                     try:
                         page.goto(ORIGIN + url, wait_until="domcontentloaded")
                         expect(page.locator(stop)).to_be_visible(timeout=8000)
+                        if name == "manual":
+                            expect(page.locator("#mdrvSpeed")).to_have_value("0.43", timeout=8000)
+                            expect(page.locator("#mdrvSpeed")).to_have_attribute("max", "0.63")
+                            assert page.locator("#mdrvOverlayLengthScale").evaluate("(el) => Number(el.value)") == 1.35
                         page.screenshot(path=str(args.output / f"{name}-{width}.png"), full_page=True, animations="disabled")
                         for label, selector in (("stop", stop), ("primary", primary), ("preview", preview)):
                             if selector:
@@ -136,6 +145,12 @@ def main():
                                 "dashboard": ".style-modal-card",
                             }[name])
                             expect(dialog).to_be_visible(timeout=8000)
+                            save = page.locator({
+                                "manual": "#mdrvOverlaySettingsApply",
+                                "ai": "#aiWorkflowSettingsApply",
+                                "dashboard": "#saveStyleSettingsBtn",
+                            }[name])
+                            case["geometry"]["dialog_save"] = check_geometry(save, width, height, "dialog Save/Apply")
                             page.screenshot(path=str(args.output / f"{name}-{width}-dialog.png"), animations="disabled")
                         if name == "settings":
                             target = page.locator("#stSaveSettings")

@@ -1,3 +1,6 @@
 # PiSD 0.11.29 — Batch 4 / R45 token drift and browser fixture
 
 Direct parent 53b06b7 (CI 45380631288 4/4). Reviewed actual design/layout CSS, templates and notes 0.11.28–25. Named existing keyboard focus values without changing rendered defaults; component token guide and Node contract added. Shared Chromium fixture uses real templates, synthetic data and intercepted mutations. Existing STOP, drive and settings semantics untouched. No persistent config changes. Exact candidate CI and visual review pending; no physical acceptance.
+
+## Real-browser startup correction
+CI 45383964152 found a ReferenceError on all four Manual Drive widths: loadSettings() invoked undefined writeMotorStartControls, so the remaining saved speed/limit, overlay and presentation initialization was skipped. The current template no longer contains the former motor-start controls; motor tuning has its own workspace. Remove only the obsolete invocation and retain normalized motor geometry for the overlay; no new motor command or save. Strengthen the browser regression with non-default temporary settings (0.43 speed, 0.63 limit, 1.35 path-length scale), plus visible modal Save/Apply geometry. AI and Settings passed all eight original Chromium cases; PiServer passed all four. Final rerun required. Same unreleased 0.11.29 candidate.
