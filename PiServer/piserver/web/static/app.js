@@ -552,27 +552,48 @@ function appendRequestTrace(id, error) {
   target.appendChild(details);
 }
 
+// UX75: read-only requests must not hang dashboard startup or permanently
+// hold the single in-flight status poll. Do not abort control/STOP/Save POSTs:
+// their completion is independently confirmed by server-side acknowledgments.
+const READ_ONLY_TIMEOUT_MS = 3500;
+
 async function fetchJson(url, options = {}) {
   const requestOptions = { ...options, credentials: "same-origin" };
-  if (requestOptions.method && !["GET", "HEAD", "OPTIONS"].includes(String(requestOptions.method).toUpperCase())) {
+  const method = String(requestOptions.method || "GET").toUpperCase();
+  if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
     const csrfToken = await getCsrfToken();
     if (csrfToken) {
       requestOptions.headers = { ...options.headers, "X-PiServer-CSRF": csrfToken };
     }
   }
-  const response = await fetch(url, requestOptions);
-  const data = await response.json();
-  if (!response.ok || data?.ok === false || (data?.saved === false && !["GET", "HEAD"].includes(String(requestOptions.method || "GET").toUpperCase()))) {
-    if (response.status === 401) {
-      window.location.assign("/login");
-    }
-    const nextStep = response.status === 403 ? "Permission denied. Sign in with an authorized account."
-      : response.status === 401 ? "Session expired. Sign in again."
-      : response.status >= 500 ? "PiServer unavailable. Check the connection, then retry."
-      : `Request failed (${response.status}). Check the inputs and retry.`;
-    throw tracedRequestError(data, response.status, url, nextStep);
+  const controller = method === "GET" && !requestOptions.signal ? new AbortController() : null;
+  let timeoutId = null;
+  if (controller) {
+    requestOptions.signal = controller.signal;
+    timeoutId = setTimeout(() => controller.abort(), READ_ONLY_TIMEOUT_MS);
   }
-  return data;
+  try {
+    const response = await fetch(url, requestOptions);
+    const data = await response.json();
+    if (!response.ok || data?.ok === false || (data?.saved === false && !["GET", "HEAD"].includes(method))) {
+      if (response.status === 401) {
+        window.location.assign("/login");
+      }
+      const nextStep = response.status === 403 ? "Permission denied. Sign in with an authorized account."
+        : response.status === 401 ? "Session expired. Sign in again."
+        : response.status >= 500 ? "PiServer unavailable. Check the connection, then retry."
+        : `Request failed (${response.status}). Check the inputs and retry.`;
+      throw tracedRequestError(data, response.status, url, nextStep);
+    }
+    return data;
+  } catch (error) {
+    if (controller?.signal.aborted) {
+      throw new Error("PiServer read-only request timed out. Check the connection, then retry.");
+    }
+    throw error;
+  } finally {
+    if (timeoutId !== null) clearTimeout(timeoutId);
+  }
 }
 
 function setBanner(id, text, tone = "muted") {

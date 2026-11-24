@@ -96,6 +96,8 @@ def main():
                     # its initial read-only APIs are temporarily unavailable.
                     # This is synthetic and never reaches a physical device.
                     bootstrap_offline = [name == "dashboard"]
+                    stalled_initial_model = [name == "dashboard"]
+                    stalled_status = [False]
                     def route_request(route):
                         req = route.request
                         parsed = urlsplit(req.url)
@@ -109,6 +111,13 @@ def main():
                             return
                         if parsed.path in {"/video_feed", "/api/camera/frame.jpg"}:
                             route.fulfill(status=204, body="")
+                            return
+                        if stalled_initial_model[0] and parsed.path == "/api/model/list":
+                            # Leave the real browser GET pending until its own
+                            # AbortController cancels it; this isn't an HTTP 503.
+                            stalled_initial_model[0] = False
+                            return
+                        if stalled_status[0] and parsed.path == "/api/status":
                             return
                         if bootstrap_offline[0] and parsed.path in {
                             "/api/status", "/api/model/list", "/api/record/sessions",
@@ -172,6 +181,33 @@ def main():
                             expect(page.locator("#maintenanceBadge")).not_to_have_text("offline")
                             expect(page.locator("#metricDriveState")).not_to_have_text("Unverified")
                             assert page.locator("#estopToggle").get_attribute("aria-pressed") in ("true", "false")
+                            # UX75: a pending status GET must time out and free the
+                            # single-flight guard; it must not leave stale motor
+                            # telemetry looking verified or permit an unverified
+                            # rearm. The route deliberately never fulfills.
+                            page.evaluate("""() => {
+                                if (state.statusTimer) clearTimeout(state.statusTimer);
+                                state.statusTimer = null;
+                            }""")
+                            stalled_status[0] = True
+                            page.evaluate("() => pollStatus()")
+                            expect(page.locator("#maintenanceBadge")).to_have_text("offline")
+                            expect(page.locator("#metricDriveState")).to_have_text("Unverified")
+                            expect(page.locator("#estopToggle")).to_have_attribute("aria-pressed", "mixed")
+                            expect(page.locator("#statusBanner")).to_contain_text("timed out")
+                            assert page.evaluate("() => !state.statusInFlight && state.statusTimer !== null"), (
+                                "timeout must release single-flight guard and schedule retry"
+                            )
+                            with page.expect_request(lambda req: req.method == "POST"
+                                    and urlsplit(req.url).path == "/api/system/estop") as timed_out_stop:
+                                page.locator(stop).click()
+                            assert timed_out_stop.value.post_data_json == {"enabled": True}, (
+                                "stalled status must never trigger an unverified rearm"
+                            )
+                            stalled_status[0] = False
+                            page.evaluate("() => pollStatus()")
+                            expect(page.locator("#maintenanceBadge")).not_to_have_text("offline")
+                            expect(page.locator("#metricDriveState")).not_to_have_text("Unverified")
                             # R36: even when the dock is short/narrow, metric rows must
                             # contain their labels and values rather than clipping them.
                             metrics = page.locator(".dock-panel[data-panel='status'] .status-metric-grid > .metric-card")
