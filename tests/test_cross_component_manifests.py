@@ -19,7 +19,6 @@ def load_helper(name, relative_path):
 
 
 STEERING_EXPORT = load_helper("steering_export", "piTrainer/piTrainer/utils/model_manifest.py")
-YOLO_EXPORT = load_helper("yolo_export", "CustomTrainer/custom_trainer/services/model_manifest.py")
 RUNTIMES = {
     "PiSD": load_helper("pisd_manifest", "PiSD/pisd/core/model_manifest.py"),
     "PiServer": load_helper("piserver_manifest", "PiServer/piserver/core/model_manifest.py"),
@@ -50,15 +49,12 @@ class CrossComponentManifestTests(unittest.TestCase):
                 self.assertEqual(observed, expected)
                 self.assertIn("verified", message.lower())
 
-    def test_yolo_export_type_and_class_order_preserved(self):
-        expected = self.publish(YOLO_EXPORT, "yolo_detection", class_names=["road", "cone"])
+    def test_nonsteering_manifest_rejected_by_active_runtimes(self):
+        # Construct foreign-family metadata with the active reader's own helper;
+        # no dependency on the retired CustomTrainer component.
         for name, reader in RUNTIMES.items():
             with self.subTest(runtime=name):
-                observed, _ = reader.inspect_manifest(
-                    self.model, expected_kind="yolo_detection", input_size=(160, 120)
-                )
-                self.assertEqual(observed, expected)
-                self.assertEqual(observed["class_names"], ["road", "cone"])
+                self.publish(reader, "yolo_detection", class_names=["cone"])
                 with self.assertRaises(ValueError):
                     reader.inspect_manifest(self.model, expected_kind="steering_control")
 

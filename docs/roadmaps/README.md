@@ -2,17 +2,11 @@
 
 These four planning documents contain **75 numbered proposals**, grouped by engineering correctness, additional improvements, refinements, and UI/UX. They are **recommendations**, not implemented patches or a claim that the current GitHub checkout has been retested.
 
-## Implementation status — 2026-11-22
+## Active implementation scope — 2026-11-24
 
-The roadmap is being implemented in small, component-isolated patches. **Draft PRs below are NOT yet merged, deployed, or Raspberry Pi hardware validated.** The plan numbering and source baselines remain unchanged.
+Active development: PiSD, PiServer, piTrainer and PiBooter only. CustomTrainer and CustomDrive are inactive historical components; do not create, reopen, merge or continue their component-specific updates unless explicitly requested. Preserve existing source and history. Shared active-runtime safety and model-family rejection checks remain in scope.
 
-| Roadmap IDs | Component | Proposed patch | Validation reported | Status |
-| --- | --- | --- | --- | --- |
-| F1, F2 (PiServer portion), U13 | PiServer | [PR #9 — 0_4_11 control safety](https://github.com/henrywork059/PiDrive/pull/9) | 43 local tests passed, 1 Flask test skipped; Python/JS syntax passed | Draft; hardware review required |
-| U16 | PiBooter | [PR #10 — 0_1_2 config recovery](https://github.com/henrywork059/PiDrive/pull/10) | 4 local tests passed; Python compilation passed | Draft; Pi-side review required |
-| U24 | CustomDrive | [PR #11 — 0_5_17 Mission 1 trigger guides](https://github.com/henrywork059/PiDrive/pull/11) | Node.js SVG tests, JS syntax and Python compilation passed | Draft; browser/Pi preview review required |
-
-All other proposals remain **planned**, not implemented. In particular, F3 LAN operator authentication and the corresponding PiSD/CustomDrive safety work remain outstanding. Do not mark those items complete based on these PRs.
+The original proposal IDs are retained for historical traceability. Ignore inactive-component-only tasks; for mixed proposals, implement only the active component portions. The 13 inactive-component drafts (#43, #47, #51, #57, #58, #60, #62, #65, #68, #70, #74, #77, #80) were closed unmerged; earlier merged history is unchanged. Consult [stabilization acceptance](../stabilization_acceptance.md) and the live GitHub PR list for active versions and test results. A draft or merged patch is not evidence of physical hardware validation.
 
 ## Roadmap documents
 
@@ -27,7 +21,7 @@ All other proposals remain **planned**, not implemented. In particular, F3 LAN o
 
 1. **Safety and integrity:** implement the identified motor-control fail-safes, input validation, AI verification repairs, and train/validation split safeguards before cosmetic updates.
 2. **Integration and reliability:** address model compatibility, ownership of Pi hardware, recording recovery, and configuration resilience.
-3. **Workflow and usability:** improve trainer data review, operational status visibility, mission setup, and diagnostic feedback.
+3. **Workflow and usability:** improve trainer data review, operational status visibility and diagnostic feedback.
 4. **Performance and long-term maintenance:** benchmark caching/polling, modularize high-complexity files where justified, and add CI/UI regression checks.
 
 Within a phase, prioritize by **risk, reproducibility, dependencies, and testability**, rather than proposal number alone.

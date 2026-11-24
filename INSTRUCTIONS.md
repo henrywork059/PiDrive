@@ -4,6 +4,8 @@ This guide defines how to maintain documentation, requirements references, and l
 
 ## 1) Scope and intent
 
+Active development: PiSD, PiServer, piTrainer and PiBooter only. CustomTrainer and CustomDrive are inactive historical components; do not create, reopen, merge or continue their component-specific updates unless explicitly requested. Preserve existing source and history. Shared active-runtime safety and model-family rejection checks remain in scope.
+
 Use this guide when you are:
 - updating instructional documentation
 - aligning run/setup commands with current entry points
@@ -16,13 +18,10 @@ If a change can affect robot motion, model outputs, network behavior, or persist
 
 Use these scripts as the source of truth when editing docs:
 
+- `PiSD/PiSD.py`
 - `PiServer/server.py`
 - `piTrainer/main.py`
-- `CustomTrainer/run_custom_trainer.py`
-- `CustomDrive/run_custom_drive_demo.py`
-- `CustomDrive/run_custom_drive_gui.py`
 - `PiBooter/run_pibooter.py`
-- `piCar_0_3_2/server.py` (legacy)
 
 ## 3) Current version markers (code-derived)
 
@@ -30,14 +29,14 @@ Verify these before publishing release notes or README updates:
 
 - PiServer app version: `PiServer/piserver/app.py`
 - PiServer UI layout-key version: `PiServer/piserver/web/static/app.js`
-- CustomDrive Mission 1 version marker: `CustomDrive/custom_drive/mission1_session_app.py`
-- CustomTrainer app title/version: `CustomTrainer/custom_trainer/ui/main_window.py`
+- PiSD version: `PiSD/pisd/__init__.py`
+- piTrainer version: `piTrainer/piTrainer/version.py`
 
 Do not assume the latest number from `PATCH_NOTES/` is active unless the corresponding code marker is updated.
 
 ## 4) Requirements synchronization policy
 
-For each project (`PiServer`, `piTrainer`, `CustomTrainer`, `CustomDrive`, `PiBooter`):
+For each project (`PiSD`, `PiServer`, `piTrainer`, `PiBooter`):
 
 1. Confirm `requirements.txt` exists.
 2. Ensure README install commands reference the correct file path.

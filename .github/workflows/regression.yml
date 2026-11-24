@@ -34,14 +34,6 @@ jobs:
             deps: '"pandas>=2.2,<3" "numpy>=1.26,<2" "Pillow>=10,<12"'
             python_tests: 'tests/test_dataset_integrity.py tests/test_metadata_atomicity.py tests/test_export_manifest.py tests/test_model_manifest.py'
             js_tests: ''
-          - component: CustomTrainer
-            deps: '"PyYAML>=6,<7" "numpy>=1.24,<2" "Pillow>=10,<12"'
-            python_tests: 'tests/test_dataset_integrity.py tests/test_cache_lifecycle.py tests/test_model_manifest.py'
-            js_tests: ''
-          - component: CustomDrive
-            deps: '"Flask>=3,<4" "numpy>=1.24,<2" "opencv-python-headless>=4.8,<4.12"'
-            python_tests: 'tests/test_u28_safety_contract.py tests/test_mission1_recovery.py tests/test_replay_mission.py tests/test_latency_metrics.py'
-            js_tests: 'tests/test_mission1_trigger_guides.cjs tests/test_preview_freshness.cjs tests/test_settings_feedback.cjs'
           - component: PiBooter
             deps: ''
             python_tests: 'tests/test_config.py tests/test_provisioning_security.py'
