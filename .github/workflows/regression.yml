@@ -1,0 +1,97 @@
+name: Hardware-free regression gate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: regression-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  regression:
+    name: ${{ matrix.component }} regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - component: PiSD
+            deps: '"Flask>=3,<4" "flask-cors>=4,<5" "waitress>=3,<4" "requests>=2.31,<3" "python-dotenv>=1,<2" "PyYAML>=6,<7" "psutil>=5.9,<8" "numpy>=1.24,<2" "Pillow>=10,<12" "opencv-python-headless>=4.8,<4.12"'
+            python_tests: 'scripts/test_safety_rearm.py scripts/test_operating_control_source.py scripts/test_ai_frame_timeout.py scripts/test_model_manifest.py scripts/test_recording_recovery.py scripts/test_recording_storage.py scripts/test_recording_storage_integration.py scripts/test_replay_session.py'
+            js_tests: 'scripts/test_operating_readiness.cjs scripts/test_settings_feedback.cjs'
+          - component: PiServer
+            deps: '"Flask>=3,<4" "numpy>=1.24,<2" "opencv-python-headless>=4.8,<4.12"'
+            python_tests: 'tests/test_access_api.py tests/test_api_control.py tests/test_control_service.py tests/test_hardware_ownership.py tests/test_safety_rearm_contract.py tests/test_model_compatibility.py tests/test_model_manifest.py tests/test_recorder_storage.py tests/test_recording_storage.py'
+            js_tests: 'tests/test_preview_freshness.cjs tests/test_settings_feedback.cjs'
+          - component: piTrainer
+            deps: '"pandas>=2.2,<3" "numpy>=1.26,<2" "Pillow>=10,<12"'
+            python_tests: 'tests/test_dataset_integrity.py tests/test_metadata_atomicity.py tests/test_export_manifest.py tests/test_model_manifest.py'
+            js_tests: ''
+          - component: CustomTrainer
+            deps: '"PyYAML>=6,<7" "numpy>=1.24,<2" "Pillow>=10,<12"'
+            python_tests: 'tests/test_dataset_integrity.py tests/test_cache_lifecycle.py tests/test_model_manifest.py'
+            js_tests: ''
+          - component: CustomDrive
+            deps: '"Flask>=3,<4" "numpy>=1.24,<2" "opencv-python-headless>=4.8,<4.12"'
+            python_tests: 'tests/test_u28_safety_contract.py tests/test_mission1_recovery.py tests/test_replay_mission.py tests/test_latency_metrics.py'
+            js_tests: 'tests/test_mission1_trigger_guides.cjs tests/test_preview_freshness.cjs tests/test_settings_feedback.cjs'
+          - component: PiBooter
+            deps: ''
+            python_tests: 'tests/test_config.py tests/test_provisioning_security.py'
+            js_tests: ''
+    defaults:
+      run:
+        working-directory: ${{ matrix.component }}
+    env:
+      PYTHONPATH: .
+      PYTHONDONTWRITEBYTECODE: '1'
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install test-only dependencies
+        run: python -m pip install "pytest>=8,<9" ${{ matrix.deps }}
+      - name: Run isolated Python regression files
+        env:
+          TEST_FILES: ${{ matrix.python_tests }}
+        run: |
+          set -euo pipefail
+          for file in $TEST_FILES; do
+            python -m pytest -q "$file" --junitxml="$RUNNER_TEMP/regression.xml"
+            python -c 'import sys, xml.etree.ElementTree as E; root=E.parse(sys.argv[1]).getroot(); tests=root.findall(".//testcase"); skipped=[t.attrib.get("name") for t in tests if t.find("skipped") is not None]; print("Cases:",len(tests),"Skipped:",skipped); sys.exit(not tests or bool(skipped))' "$RUNNER_TEMP/regression.xml"
+          done
+      - name: Run existing JavaScript regression files
+        env:
+          JS_TEST_FILES: ${{ matrix.js_tests }}
+        run: |
+          set -euo pipefail
+          for file in $JS_TEST_FILES; do
+            node "$file"
+          done
+
+  manifest-contract:
+    name: Trainer-to-runtime manifest compatibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m unittest discover -s tests -p test_cross_component_manifests.py -v

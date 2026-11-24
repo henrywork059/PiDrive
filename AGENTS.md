@@ -12,8 +12,8 @@ When instructions or files conflict, follow this order:
 
 1. Latest explicit user instruction in the current task
 2. Remembered project-specific baseline/version rules
-3. Latest uploaded relevant component zip or repo zip
-4. Actual files and folders currently in the repo
+3. Latest accepted working GitHub code and relevant stacked patch branch (unless an explicit newer uploaded baseline is designated)
+4. Uploaded component/repo ZIP snapshots and actual files, checked for age and compatibility
 5. Older notes, patch notes, or assumptions
 
 Do not guess paths, entry points, versions, or folder layout. Inspect the repo first.
@@ -24,6 +24,7 @@ Do not guess paths, entry points, versions, or folder layout. Inspect the repo f
 
 PiDrive is a monorepo with separate components. Common top-level folders include:
 
+- `PiSD/` — active Pi-side driving runtime and web control
 - `PiServer/` — current Pi-side runtime and web control server
 - `PiBooter/` — boot-time Wi-Fi onboarding service
 - `piTrainer/` — desktop trainer
@@ -55,6 +56,7 @@ Before editing README files, launch instructions, patch notes, setup files, or s
 
 Important known entry points include:
 
+- `PiSD/PiSD.py`
 - `PiServer/server.py`
 - `PiBooter/run_pibooter.py`
 - `piTrainer/main.py`
@@ -148,6 +150,7 @@ Do not invent a new version scheme.
 
 Known baseline/version rules:
 
+- `PiSD` and `piTrainer` accepted 0_11_0 archives are historical starting baselines; follow their 0_11_x lines and verify both merged and pending versions before allocating a patch.
 - `PiServer` stable baseline: `PiServer_0_4_0`; future bug-fix patches use `0_4_x`
 - `piCar` stable baseline: `piCar_0_3_0`; future patches use `0_3_x`
 - `piTrainer` patch zips should contain only changed/updated files and preserve exact structure
@@ -338,6 +341,8 @@ Also verify where practical:
 - Patch package contains only intended files
 
 Be honest about checks that could not be performed, especially hardware checks on Raspberry Pi.
+
+Use [the stabilization acceptance gate](docs/stabilization_acceptance.md) for cross-component regression and physical release checks. Merged, CI-tested, and hardware-validated are distinct states. Do not allocate duplicate versions already present on draft patch chains.
 
 ---
 
