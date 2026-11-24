@@ -17,6 +17,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from pisd.app import create_app, load_defaults  # noqa: E402
+from pisd.core.access_control import validate_bind_host  # noqa: E402
 from pisd.core.errors import ErrorReporter, PiSDErrorCodes  # noqa: E402
 from pisd.services.camera_service import CameraService  # noqa: E402
 from pisd.services.motor_service import MotorService  # noqa: E402
@@ -24,7 +25,7 @@ from pisd.services.motor_service import MotorService  # noqa: E402
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the PiSD hardware-service sandbox.")
-    parser.add_argument("--host", default="127.0.0.1", help="Host to bind. Use 0.0.0.0 on Pi LAN.")
+    parser.add_argument("--host", default="127.0.0.1", help="Host to bind. LAN binding requires PISD_ACCESS_TOKEN (32+ characters).")
     parser.add_argument("--port", type=int, default=5050, help="Port to bind.")
     parser.add_argument(
         "--hardware",
@@ -64,6 +65,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     try:
+        validate_bind_host(args.host)
         app = create_app(hardware_enabled=args.hardware)
     except RuntimeError as exc:
         reporter = ErrorReporter("launcher")

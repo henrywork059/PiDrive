@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PiSD operator access</title>
+  <style>
+    body{font-family:system-ui,sans-serif;background:#101722;color:#e6edf5;margin:0;min-height:100vh;display:grid;place-items:center}
+    main{width:min(25rem,calc(100% - 3rem));padding:1rem}
+    h1{font-size:1.6rem}p{line-height:1.5;color:#becbd9}
+    label,input,button{display:block;width:100%;box-sizing:border-box}
+    input,button{font:inherit;padding:.8rem;border-radius:.4rem;margin:.7rem 0 1rem}
+    input{color:inherit;background:#1c2838;border:1px solid #8290a0}
+    button{color:#fff;background:#17683f;border:1px solid #60a781;cursor:pointer;font-weight:600}
+    :focus-visible{outline:3px solid #efb54a;outline-offset:3px}
+    .error{color:#ffc5c5}
+  </style>
+</head>
+<body><main>
+  <h1>PiSD operator access</h1>
+  <p>Enter the access token configured on the Pi. Signing in does not start the camera or enable motor output.</p>
+  <form method="post" action="/login">
+    <label for="operatorToken">Operator token</label>
+    <input id="operatorToken" name="token" type="password" autocomplete="current-password" maxlength="4096" required autofocus>
+    {% if error %}<p role="alert" class="error">{{ error }}</p>{% endif %}
+    <button type="submit">Sign in</button>
+  </form>
+  <p>Use a trusted, isolated network or HTTPS. Keep the physical power disconnect accessible.</p>
+</main></body></html>

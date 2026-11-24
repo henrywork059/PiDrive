@@ -78,6 +78,7 @@
     <section class="fp-quick-actions">
       <button id="fpRefreshStatus" class="fp-button">Refresh status</button>
       <button id="fpStopAll" class="fp-button fp-danger">STOP motors</button>
+      {% if config.PISD_TOKEN_REQUIRED %}<form method="post" action="/logout"><button type="submit" class="fp-button">Stop motors and sign out</button></form>{% endif %}
       <details data-preflight-root aria-label="Read-only startup preflight">
                   <summary>Startup preflight (read-only)</summary>
                   <p data-preflight-status role="status" aria-live="polite">Inspecting existing service state…</p>

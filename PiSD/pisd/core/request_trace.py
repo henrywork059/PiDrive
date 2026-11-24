@@ -11,7 +11,7 @@ import secrets
 from typing import Any
 
 _MUTATION_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
-_SECRET_KEYS = re.compile(r"password|passwd|passphrase|secret|token|authorization|cookie|api[_-]?key|credential|traceback|stack", re.I)
+_SECRET_KEYS = re.compile(r"password|passwd|passphrase|secret|token|authorization|cookie|api[_-]?key|credential|lease_id|traceback|stack", re.I)
 _PATH_KEYS = re.compile(r"(?:^|_)(?:path|directory|dirname|filename|file_path)(?:$|_)", re.I)
 _SECRET_VALUES = re.compile(
     r"(?:\b(?:password|passwd|passphrase|secret|token|authorization|api[_-]?key)\s*[:=]\s*)(?:\"[^\"]*\"|'[^']*'|\S+)",

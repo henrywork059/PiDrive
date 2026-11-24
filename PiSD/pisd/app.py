@@ -10,6 +10,7 @@ from typing import Any
 from pisd import __version__
 from pisd.core.errors import ErrorReporter, PiSDErrorCodes, ok_payload, report_payload
 from pisd.core.request_trace import install_mutation_trace
+from pisd.core.access_control import configured_access_token, install_access_control
 from pisd.core.preflight import build_preflight
 from pisd.core.panel_contracts import build_panel_testing_manifest, get_panel_contracts
 from pisd.core.presentation_registry import build_presentation_manifest
@@ -67,6 +68,8 @@ def create_app(hardware_enabled: bool = False):
             "Run: python -m pip install -r requirements.txt"
         ) from exc
 
+    # Reject invalid access configuration before constructing hardware services.
+    access_token = configured_access_token()
     defaults = load_defaults()
     settings_manager = SettingsManager(RUNTIME_SETTINGS_PATH, defaults)
     runtime_settings = settings_manager.get()
@@ -84,6 +87,7 @@ def create_app(hardware_enabled: bool = False):
     app.config["pisd_services"] = {"camera": camera_service, "motor": motor_service, "settings": settings_manager, "recording": recording_service, "ai_drive": ai_drive_service}
     app.config["pisd_errors"] = APP_ERRORS
     install_mutation_trace(app)
+    install_access_control(app, access_token)
 
     @app.context_processor
     def inject_pisd_asset_helpers():
@@ -1009,6 +1013,20 @@ def create_app(hardware_enabled: bool = False):
         except Exception as exc:
             report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"Motor stop API failed: {exc}", exc=exc)
             return jsonify(report_payload(False, report)), 500
+
+    @app.post("/logout")
+    def pisd_logout():
+        from flask import redirect, session
+        if not app.config["PISD_TOKEN_REQUIRED"]:
+            return redirect("/")
+        # Signing out must not abandon a running autonomous drive. Use the
+        # existing STOP endpoint without clearing its safety latch.
+        response = app.make_response(api_control_stop())
+        payload = response.get_json(silent=True) or {}
+        if not response.status_code == 200 or payload.get("ok") is not True:
+            return response
+        session.clear()
+        return redirect("/login", code=303)
 
     @app.errorhandler(404)
     def api_not_found(_exc):
