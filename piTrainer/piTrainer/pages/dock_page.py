@@ -114,6 +114,57 @@ class ResponsiveSplitter(QSplitter):
         if total > 0:
             self._ratios = [size / total for size in sizes]
 
+    @staticmethod
+    def _allocate_preferred_sizes(
+        total: int, ratios: Sequence[float], minimums: Sequence[int]
+    ) -> list[int]:
+        """Keep the user's *whole-pane* ratios whenever soft minima permit.
+
+        The previous allocation added each minimum and then split only the
+        remaining pixels by full-pane ratios. That changed saved proportions
+        even when the preferred whole-pane sizes already exceeded the minima.
+
+        Freeze only panes whose preferred share is too small, then distribute
+        the remaining space among unfrozen panes in their original ratio.
+        Integer rounding assigns the final pixels by fractional remainder.
+        """
+        count = len(minimums)
+        remaining = set(range(count))
+        allocations = [0.0] * count
+        available = float(total)
+        while remaining:
+            weight = sum(max(0.0, ratios[i]) for i in remaining)
+            if weight <= 0:
+                weight = float(len(remaining))
+                shares = {i: 1.0 for i in remaining}
+            else:
+                shares = {i: max(0.0, ratios[i]) for i in remaining}
+            constrained = [
+                i for i in remaining
+                if available * shares[i] / weight < minimums[i]
+            ]
+            if not constrained:
+                for i in remaining:
+                    allocations[i] = available * shares[i] / weight
+                break
+            for i in constrained:
+                allocations[i] = float(minimums[i])
+                available -= minimums[i]
+                remaining.remove(i)
+
+        sizes = [max(minimums[i], int(allocations[i])) for i in range(count)]
+        remaining_pixels = total - sum(sizes)
+        # Feasible minima guarantee nonnegative slack. Round predictably,
+        # without pushing any pane below its soft minimum.
+        order = sorted(
+            range(count),
+            key=lambda i: allocations[i] - int(allocations[i]),
+            reverse=True,
+        )
+        for i in order[:max(0, remaining_pixels)]:
+            sizes[i] += 1
+        return sizes
+
     def apply_responsive_sizes(self) -> None:
         count = self.count()
         total = self._available_length()
@@ -128,8 +179,7 @@ class ResponsiveSplitter(QSplitter):
             weights = self._normalise_ratios(minimums) or ratios
             sizes = [max(40, int(round(total * weight))) for weight in weights]
         else:
-            free = total - min_sum
-            sizes = [minimums[i] + int(round(free * ratios[i])) for i in range(count)]
+            sizes = self._allocate_preferred_sizes(total, ratios, minimums)
         delta = total - sum(sizes)
         if sizes:
             sizes[-1] = max(40, sizes[-1] + delta)
