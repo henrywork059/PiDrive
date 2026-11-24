@@ -4,24 +4,21 @@ Scope: PiSD, PiServer and piTrainer. Count original proposal IDs once (not PRs o
 
 ## Implementation coverage
 
-This is a conservative planning audit based on the four original roadmap documents, merged/pending PR titles, relevant current source, and green integration PR #84 / CI run 45349043534. "Implemented" means a corresponding implementation is present in the candidate and no further active implementation gap was identified in this review; it is not a claim of exhaustive proposal acceptance, physical hardware testing, or merge into main. Partial means specific further work/verification remains. "No dedicated update" means no distinct PR implementing that proposal was identified; overlap from prior work is not counted as completion.
+This is a conservative planning audit based on the four original roadmap documents, merged/pending PR titles, relevant current source, and green active integration PR #86 plus Batch 1 follow-up PR #87 / CI run 45356933493. "Implemented" means a corresponding implementation is present in the candidate and no further active implementation gap was identified in this review; it is not a claim of exhaustive proposal acceptance, physical hardware testing, or merge into main. Partial means specific further work/verification remains. "No dedicated update" means no distinct PR implementing that proposal was identified; overlap from prior work is not counted as completion.
 
 | Track | Active | Implemented | Partial | No dedicated update | Remaining |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| F1–F10 | 10 | 3 | 3 | 4 | 7 |
-| U11–U29 | 13 | 12 | 1 | 0 | 1 |
+| F1–F10 | 10 | 5 | 1 | 4 | 5 |
+| U11–U29 | 13 | 13 | 0 | 0 | 0 |
 | R30–R53 | 19 | 11 | 4 | 4 | 8 |
 | UX54–UX75 | 14 | 0 | 0 | 14 | 14 |
-| Total | 56 | 26 | 8 | 22 | 30 |
+| Total | 56 | 29 | 5 | 22 | 27 |
 
-Implemented IDs: F1, F5, F6; U11, U12, U13, U14, U15, U17, U20, U23, U26, U27, U28, U29; R30, R31, R32, R37, R38, R39, R40, R43, R46, R47, R48. Evidence: merged PRs #9–42 (active portions), pending PRs #44–79 (active portions), and #81–84. F5 uses the stale-camera timeout contract; F6 uses the passing active regression matrix.
+Implemented IDs: F1, F2, F4, F5, F6; U11, U12, U13, U14, U15, U17, U20, U21, U23, U26, U27, U28, U29; R30, R31, R32, R37, R38, R39, R40, R43, R46, R47, R48. Evidence: merged PRs #9–42 (active portions), pending PRs #44–79 (active portions), and #81–87. F2, F4 and U21 have separate tested commits in #87. F5 uses the stale-camera timeout contract; F6 uses the passing active regression matrix.
 
 | Partial ID | Remaining work |
 | --- | --- |
-| F2 | PiSD server-side manual command lease; PiServer watchdog is present. |
 | F3 | PiSD access policy; PiServer access control is present. |
-| F4 | Both validation scripts imported missing helpers; follow-up patch targets actual production methods. Full standalone command success outstanding. |
-| U21 | PiServer autonomous stale-frame enforcement/rearm audit; PiSD guard is present. |
 | R35 | Complete active desktop accessibility/input audit. |
 | R36 | Complete actual responsive screenshot/interaction acceptance at required widths. |
 | R45 | Finish PiSD token/drift audit. |
@@ -31,11 +28,18 @@ No dedicated update: F7–F10 (config recovery, refactoring, dependencies/packag
 
 ## Consolidated execution schedule
 
-The 30 remaining original proposal IDs are now organized into **9 development batches** (Batch 1 in progress; 8 not started). See [DEVELOPMENT_SCHEDULE.md](DEVELOPMENT_SCHEDULE.md) for the complete mapping, dependencies and acceptance gates. All 30 IDs appear exactly once. The 26/56 implementation count reflects scope retirement, not new implementation. Track both original IDs and batch status after each update. No retired-component work or hardware acceptance claimed.
+The original 30 outstanding IDs were organized into **9 development batches** (Batch 1 in progress; 8 not started). Three have since passed the scoped automated implementation gate, leaving **27 outstanding**. See [DEVELOPMENT_SCHEDULE.md](DEVELOPMENT_SCHEDULE.md) for the complete mapping, dependencies and acceptance gates. All 30 scheduled IDs remain listed exactly once for traceability. Candidate implementation coverage is 29/56 (51.8%). Track both original IDs and batch status after each update. No retired-component work or hardware acceptance claimed.
 
-## Release candidate
-Previous PR #84: PiSD 0.11.22, PiServer 0.4.28, piTrainer 0.11.10 (then also PiBooter 0.1.8). CI run 45349043534: all five jobs passed. Main remains unchanged. The F4 follow-up is separately stacked on the green candidate; its CI run 45353829480 passed the four new math cases and other active jobs but failed the standalone PiSD validation step (standard validation 59 passed / 4 failed). F4 is still partial. The three-component replacement preserves active runtime fixes and the separate F4 follow-up; retirement does not fix these failures.
+## Release candidates and Batch 1 evidence
 
-## Current three-component candidates
+[PR #86](https://github.com/henrywork059/PiDrive/pull/86) remains the green three-component integration baseline: PiSD 0.11.22, PiServer 0.4.28, piTrainer 0.11.10; [CI 45354927996](https://github.com/henrywork059/PiDrive/actions/runs/45354927996), all four jobs passed.
 
-[PR #86](https://github.com/henrywork059/PiDrive/pull/86) passed all four jobs in [CI run 45354927996](https://github.com/henrywork059/PiDrive/actions/runs/45354927996). [PR #87](https://github.com/henrywork059/PiDrive/pull/87) retains the F4 validation follow-up; [CI run 45354955594](https://github.com/henrywork059/PiDrive/actions/runs/45354955594) passed three of four jobs but failed the PiSD standalone validation step. Neither candidate has been merged or physically accepted. The progress counts describe the candidate implementation, not a released main-branch runtime. Publishing this plan does not merge runtime code or increment any component version.
+[PR #87](https://github.com/henrywork059/PiDrive/pull/87) advances the candidate through three separately reviewable changes:
+
+| ID | Component/version | Commit | Verified automated gate |
+| --- | --- | --- | --- |
+| F4 | PiSD 0.11.23 | d4fc167 | [45356440576](https://github.com/henrywork059/PiDrive/actions/runs/45356440576): all four jobs passed; standard validation 63/63; STOP outcome and rearm regressions |
+| U21 | PiServer 0.4.29 | ea60df3 | [45356590242](https://github.com/henrywork059/PiDrive/actions/runs/45356590242): all four jobs passed; fresh raw frame, stale-frame and explicit rearm cases |
+| F2 | PiSD 0.11.24 | d7b1ef2 | [45356933493](https://github.com/henrywork059/PiDrive/actions/runs/45356933493): all four jobs passed; manual lease expiry, renew, STOP and owner changes |
+
+Current candidate: PiSD **0.11.24**, PiServer **0.4.29**, piTrainer **0.11.10**. F3 PiSD LAN authorization remains outstanding. Batch 1 is not complete. The in-process watchdog does not guarantee physical motor stop if drivers or the OS block; the PiServer frame guard does not independently stop during indefinitely stalled inference. No physical Raspberry Pi acceptance, native Windows UI acceptance, deployment or runtime merge is claimed. The progress counts describe candidate implementation, not a released main-branch runtime. No inactive component work.

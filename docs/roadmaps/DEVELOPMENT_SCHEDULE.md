@@ -6,21 +6,19 @@ This is the current execution plan, replacing one-proposal-at-a-time scheduling.
 
 - Active: PiSD, PiServer, piTrainer. No new PiBooter/CustomTrainer/CustomDrive or legacy piCar work.
 - Original proposals: 75; retired exclusive proposals: 19; active: 56.
-- As of the current [progress audit](PROGRESS.md): 26 implemented, 8 partial, 22 without a dedicated update. 30 original proposal IDs remain, consolidated into **9 development batches**. The former PiBooter batch is removed; R48 is implemented for the remaining active runtimes. No new implementation is claimed by this scope change.
+- As of the current [progress audit](PROGRESS.md): 29 implemented, 5 partial, 22 without a dedicated update. **27 original proposal IDs remain** in **9 development batches** (30 originally scheduled). The former PiBooter batch is removed; R48 remains implemented for the active runtimes.
 - Batch numbers are planning units, not component versions, PR numbers, or calendar deadlines. Deliver related work together where safe, using separate component-owned commits, patch notes and patch-only archives when requested. No monolithic cross-component source rewrite.
 - Sequence is dependency- and acceptance-gated, not an invented time estimate. Independent work may proceed once its stated prerequisites are met; no unsafe parallel release or merging without authorization.
 
 ## Current starting point
 
-Former PR #84 (PiSD 0.11.22, PiServer 0.4.28, piTrainer 0.11.10, then also PiBooter 0.1.8) passed all five jobs in [45349043534](https://github.com/henrywork059/PiDrive/actions/runs/45349043534). It is superseded by the clean three-component candidate and is not physically accepted. The F4 follow-up from PR #85 starts Batch 1. [45353829480](https://github.com/henrywork059/PiDrive/actions/runs/45353829480) passed the four new production-math cases and existing selected PiSD regressions, but the standalone validation step failed: standard validation 59 passed / 4 failed (AI source tokens, settings page marker, testing GUI manifest contract, control STOP assertion). Do not count F4 complete or bypass those checks. Other four jobs passed. No new runtime fixes are made by this scope update.
-
-The current [three-component integration PR #86](https://github.com/henrywork059/PiDrive/pull/86) passed all four jobs in [run 45354927996](https://github.com/henrywork059/PiDrive/actions/runs/45354927996). The replacement [F4 follow-up PR #87](https://github.com/henrywork059/PiDrive/pull/87) still fails its standalone PiSD validation step in [run 45354955594](https://github.com/henrywork059/PiDrive/actions/runs/45354955594); all other jobs passed. Batch 1 remains in progress. Neither candidate is merged or hardware-validated.
+[PR #86](https://github.com/henrywork059/PiDrive/pull/86) is the green active integration baseline ([CI 45354927996](https://github.com/henrywork059/PiDrive/actions/runs/45354927996)). [PR #87](https://github.com/henrywork059/PiDrive/pull/87) adds F4 validation and STOP fixes, U21 PiServer camera safety, and F2 PiSD manual-command watchdog in separate commits. The latest [CI run 45356933493](https://github.com/henrywork059/PiDrive/actions/runs/45356933493) passed all four jobs. Candidate versions: PiSD 0.11.24, PiServer 0.4.29, piTrainer 0.11.10. F3 is the remaining Batch 1 implementation. Neither candidate is merged or physically validated. See [PROGRESS.md](PROGRESS.md) for individual evidence and limits.
 
 ## Batch sequence
 
-| Batch | Priority | Focus | Original IDs | Count | Prerequisites |
+| Batch | Priority | Focus | Original IDs | Remaining | Prerequisites |
 | --- | --- | --- | --- | ---: | --- |
-| 1 | P0 | Runtime safety and validation | F2, F3, F4, U21 | 4 | Green PR #84 baseline |
+| 1 | P0 | Runtime safety and validation | F2, F3, F4, U21 | 1 | Green PR #86 baseline |
 | 2 | P1 | Configuration and data protection | F7, UX74 | 2 | 1 |
 | 3 | P1 | Release automation and anti-rollback | F9, R53 | 2 | 1–2 |
 | 4 | P1 | UI regression and accessibility foundation | R35, R36, R45, R50, UX75 | 5 | 1–3 |
@@ -29,11 +27,11 @@ The current [three-component integration PR #86](https://github.com/henrywork059
 | 7 | P1/P2 | PiSD driving interface | R49, UX54, UX55, UX56, UX57 | 5 | 1, 2, 4 |
 | 8 | P2 | Code modularization | F8, R52 | 2 | 1–4; rerun tests from completed batches |
 | 9 | P1/P2 | PiServer operator workspace | UX58, UX59, UX60 | 3 | 4, 8 |
-| Total | | | | 30 | |
+| Total | | | | 27 | |
 
 ### Batch 1 — Runtime safety and validation
 
-**Components:** PiSD, PiServer. **Status:** In progress (F4 follow-up pending).
+**Components:** PiSD, PiServer. **Status:** In progress (F2, F4, U21 passed scoped automated gates; F3 outstanding).
 
 **Scope:** Finish the two PiSD standalone validation commands (F4); implement and test PiSD's server-side manual command lease/watchdog (F2); add PiSD LAN authorization/access protection with authorized STOP and explicit compatibility guidance (F3); audit and complete PiServer stale-camera autonomous-motion stop/rearm (U21). Separate each safety concern into a reviewable commit/subpatch.
 
