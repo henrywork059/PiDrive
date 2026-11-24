@@ -15,3 +15,6 @@ Read the current launcher, branch HEAD and the latest four piTrainer patch notes
 
 ## Verification and limits
 Prior 1731528 was green (CI 45418879933). This update's exact CI result must be checked; source review is not an execution claim. Test writes only to a temporary directory and uses isolated QSettings; no real user recordings, model training, Windows native UI, Raspberry Pi hardware or motor actions were tested. Full Batch 4 / owner screenshot acceptance remains open and implementation counts must not advance without acceptance.
+
+## CI test dependency correction
+Exact first candidate [CI 45420759869](https://github.com/henrywork059/PiDrive/actions/runs/45420759869) failed in the piTrainer test collection stage before running the new integration test: DataPage imports DataPlotPanel which imports matplotlib; the CI minimal piTrainer test-only dependency set omitted matplotlib. The actual piTrainer requirements already declare matplotlib>=3.8,<4. Add that existing declared range only to the isolated piTrainer CI test dependencies; no app package schema or runtime source change. Re-run exact subsequent candidate and report real test outcomes. Previous registered tests all passed to the point of the import failure.
