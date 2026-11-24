@@ -135,7 +135,13 @@ def main():
                             expect(page.locator("#aiModelSelect option")).to_contain_text("No models")
                         if name == "dashboard":
                             expect(page.locator("#modelSelect option")).to_contain_text("No .tflite models")
-                            expect(page.locator("#sessionSelect option")).to_contain_text("No saved folders")
+                            # PiServer deliberately creates a snapshots directory even
+                            # before the first capture. Empty data means zero images,
+                            # not zero folders; preserve its actual storage contract.
+                            expect(page.locator("#sessionSelect option")).to_have_count(1)
+                            expect(page.locator("#sessionSelect")).to_have_value("snapshots")
+                            expect(page.locator("#sessionSelect option")).to_contain_text("snapshot folder")
+                            expect(page.locator("#sessionImageCount")).to_have_text("0")
                         # Start keyboard modality then focus STOP without activating it.
                         page.keyboard.press("Tab")
                         target = page.locator(stop)
