@@ -9,10 +9,11 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from PySide6.QtCore import QSettings
-from PySide6.QtWidgets import QApplication, QTabWidget
+from PySide6.QtWidgets import QApplication, QMainWindow, QTabWidget
 
 from piTrainer.app_state import AppState
 from piTrainer.main_window import MainWindow
@@ -76,6 +77,11 @@ class ValidationToDataTests(unittest.TestCase):
         review = ValidationFrameReviewPanel(
             edit_in_data_callback=lambda record:
             MainWindow.open_validation_frame_in_data_editor(shell, record)
+        )
+        shell.validation_page = SimpleNamespace(frame_review_panel=review)
+        shell.export_validation_page = None
+        shell.on_data_records_edited = lambda records: MainWindow.on_data_records_edited(
+            shell, records
         )
         shell.tabs.addTab(data, "1 Data")
         shell.tabs.addTab(review, "4 Validate")
@@ -158,6 +164,114 @@ class ValidationToDataTests(unittest.TestCase):
                              "session-a")
             self.assertEqual(state.selected_sessions, ["session-a", "session-b"])
             self.assertEqual(shell.load_events, 1)
+
+
+    def test_generated_source_edit_saves_exact_labels_and_highlights_return(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder) / "records"
+            self.create_session(root, "session-a")
+            self.create_session(root, "session-b")
+            labels_a = root / "session-a" / "labels.jsonl"
+            labels_b = root / "session-b" / "labels.jsonl"
+            original_a = labels_a.read_bytes()
+            settings = QSettings(str(Path(folder) / "trainer.ini"), QSettings.IniFormat)
+            shell, review, state = self.make_workspace(root, settings)
+            review.set_result(self.validation_row(
+                "session-b", "s_f01", source_frame_id="f01", variant="flip_lr"
+            ))
+            shell.tabs.setCurrentIndex(1)
+            review._edit_current_frame()
+            self.app.processEvents()
+            editor = shell.data_page.image_preview_panel
+            editor.set_controls_from_preview(0.625, 0.375)
+            self.assertTrue(editor.commit_timer.isActive())
+            self.assertEqual(json.loads(labels_b.read_text())["steering"], 0.15)
+            self.assertTrue(editor._flush_pending_commit())
+            self.assertFalse(editor.commit_timer.isActive())
+            self.assertEqual(editor._pending_edit_records, {})
+            saved = json.loads(labels_b.read_text(encoding="utf-8"))
+            self.assertAlmostEqual(saved["steering"], 0.625)
+            self.assertAlmostEqual(saved["throttle"], 0.375)
+            self.assertEqual(labels_a.read_bytes(), original_a)
+            rows_b = state.filtered_df[state.filtered_df["session"] == "session-b"]
+            self.assertAlmostEqual(float(rows_b.iloc[0]["steering"]), 0.625)
+            self.assertEqual(review.all_rows[0]["_validation_edit_status"], "mirrored")
+            shell.tabs.setCurrentIndex(1)
+            review.restore_pending_selection()
+            self.assertEqual(review.selected_row()["frame_id"], "s_f01")
+            self.assertEqual(review.selected_row()["session"], "session-b")
+
+    def test_failed_metadata_save_remains_queued_for_retry(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder) / "records"
+            self.create_session(root, "session-a")
+            self.create_session(root, "session-b")
+            labels = root / "session-a" / "labels.jsonl"
+            original = labels.read_bytes()
+            settings = QSettings(str(Path(folder) / "trainer.ini"), QSettings.IniFormat)
+            shell, _, _ = self.make_workspace(root, settings)
+            editor = shell.data_page.image_preview_panel
+            editor.set_controls_from_preview(-0.550, 0.220)
+            self.assertTrue(editor.commit_timer.isActive())
+            with patch("piTrainer.pages.data_page_filter_edit.update_frame_controls_many",
+                       return_value={"matched_keys": [],
+                                     "failed_messages": ["Fixture save rejected"]}):
+                self.assertFalse(editor._flush_pending_commit())
+            self.assertEqual(labels.read_bytes(), original)
+            self.assertEqual(len(editor._pending_edit_records), 1)
+            self.assertTrue(editor._flush_pending_commit())
+            self.assertEqual(editor._pending_edit_records, {})
+            saved = json.loads(labels.read_text(encoding="utf-8"))
+            self.assertAlmostEqual(saved["steering"], -0.550)
+            self.assertAlmostEqual(saved["throttle"], 0.220)
+
+
+class CloseHarness(MainWindow):
+    """Real Qt close-event dispatch without initializing unrelated workflow pages."""
+
+    def __init__(self, flush):
+        QMainWindow.__init__(self)
+        self.calls = []
+        self.data_page = SimpleNamespace(
+            image_preview_panel=SimpleNamespace(_flush_pending_commit=flush),
+            save_layout=lambda: self.calls.append("save data"),
+        )
+        self.preprocess_page = self._page("preprocess")
+        self.train_page = self._page("train")
+        self.train_page.shutdown_worker = lambda: self.calls.append("shutdown")
+        self.validation_page = self._page("validation")
+        self.export_page = self._page("export")
+        self.export_validation_page = self._page("tflite")
+
+    def _page(self, name):
+        return SimpleNamespace(
+            has_active_task=lambda: False,
+            save_layout=lambda: self.calls.append("save " + name),
+        )
+
+    def set_status_message(self, message):
+        self.calls.append(str(message))
+
+
+class PendingCloseTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.app = QApplication.instance() or QApplication([])
+
+    def test_close_refuses_failed_label_flush_and_allows_retry(self):
+        allow = [False]
+        window = CloseHarness(lambda: allow[0])
+        self.addCleanup(window.close)
+        window.show()
+        self.app.processEvents()
+        self.assertFalse(window.close())
+        self.assertTrue(window.isVisible())
+        self.assertNotIn("save data", window.calls)
+        self.assertTrue(any("were not saved" in x for x in window.calls))
+        allow[0] = True
+        self.assertTrue(window.close())
+        self.assertIn("save data", window.calls)
+        self.assertIn("shutdown", window.calls)
 
 
 if __name__ == "__main__":

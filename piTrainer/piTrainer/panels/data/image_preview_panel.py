@@ -381,17 +381,30 @@ class ImagePreviewPanel(QGroupBox):
         self._pending_edit_records[key] = dict(record)
         self.commit_timer.start()
 
-    def _emit_pending_record_edits(self) -> None:
-        if self.record_edited_callback is None or not self._pending_edit_records:
-            return
+    def _emit_pending_record_edits(self) -> bool:
+        if not self._pending_edit_records:
+            return True
+        if self.record_edited_callback is None:
+            return False
         pending = [dict(record) for record in self._pending_edit_records.values()]
         self._pending_edit_records.clear()
-        if len(pending) == 1:
-            self.record_edited_callback(pending[0])
-        else:
-            self.record_edited_callback(pending)
+        try:
+            outcome = self.record_edited_callback(
+                pending[0] if len(pending) == 1 else pending
+            )
+        except Exception:
+            # Retain edits on unexpected callback failures; never replace
+            # an even newer pending edit of the same source frame.
+            for record in pending:
+                self._pending_edit_records.setdefault(self._record_edit_key(record), record)
+            raise
+        if outcome is False:
+            for record in pending:
+                self._pending_edit_records.setdefault(self._record_edit_key(record), record)
+            return False
+        return True
 
-    def _flush_pending_commit(self) -> None:
+    def _flush_pending_commit(self) -> bool:
         if self.commit_timer.isActive():
             self.commit_timer.stop()
-        self._emit_pending_record_edits()
+        return self._emit_pending_record_edits()

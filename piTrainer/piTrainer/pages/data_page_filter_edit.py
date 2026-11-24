@@ -66,18 +66,17 @@ class DataPageFilterEditMixin:
             return
         self.image_preview_panel.set_record(record)
 
-    def on_image_record_edited(self, record: dict | list[dict]) -> None:
+    def on_image_record_edited(self, record: dict | list[dict]) -> bool:
         if not record:
-            return
+            return True
         if isinstance(record, list):
-            self.on_image_records_edited(record)
-            return
-        self.on_image_records_edited([record])
+            return self.on_image_records_edited(record)
+        return self.on_image_records_edited([record])
 
-    def on_image_records_edited(self, records: list[dict]) -> None:
+    def on_image_records_edited(self, records: list[dict]) -> bool:
         records = [dict(record) for record in records if record]
         if not records:
-            return
+            return True
         self.preview_panel.stop_autoplay()
         current_record = self.preview_panel.selected_record()
         current_identity = self._record_identity(current_record) if current_record else None
@@ -86,7 +85,7 @@ class DataPageFilterEditMixin:
             result = update_frame_controls_many(self.state.records_root_path, records)
         except (OSError, RuntimeError) as exc:
             self._show_metadata_save_error('Edit Frame Data', exc)
-            return
+            return False
         matched_key_set = {tuple(key) for key in result.get('matched_keys', [])}
         updated_records = [
             record for record in records
@@ -95,7 +94,7 @@ class DataPageFilterEditMixin:
         if not updated_records:
             failed_messages = list(result.get('failed_messages', []))
             self.main_window.set_status_message(failed_messages[0] if failed_messages else 'No frame edit was applied.')
-            return
+            return False
 
         needs_filter_rebuild = False
         for edited_record in updated_records:
@@ -145,6 +144,8 @@ class DataPageFilterEditMixin:
             self.main_window.on_data_records_edited(updated_records)
         if failed_messages:
             QMessageBox.warning(self, 'Edit Frame Data', '\n'.join(failed_messages[:8]))
+
+        return not failed_messages
 
     def _single_edit_needs_filter_rebuild(self, *, steering: float, throttle: float) -> bool:
         if self.filter_panel.speed_filter_enabled():

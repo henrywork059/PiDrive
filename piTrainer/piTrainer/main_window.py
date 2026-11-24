@@ -292,6 +292,18 @@ class MainWindow(QMainWindow):
             self.set_status_message('An operation is still finishing; close after it completes to avoid incomplete output.')
             event.ignore()
             return
+        # Closing the last window can stop a queued 450ms label-edit timer.
+        # Commit before closing; on failure leave the editor and data intact.
+        try:
+            edits_saved = self.data_page.image_preview_panel._flush_pending_commit()
+        except Exception as exc:
+            self.set_status_message(f'Pending frame edits could not be saved: {exc}')
+            event.ignore()
+            return
+        if not edits_saved:
+            self.set_status_message('Pending frame edits were not saved. Resolve the error before closing.')
+            event.ignore()
+            return
         self.data_page.save_layout()
         self.preprocess_page.save_layout()
         self.train_page.save_layout()
