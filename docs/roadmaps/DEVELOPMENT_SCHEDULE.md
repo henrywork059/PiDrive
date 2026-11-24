@@ -6,20 +6,20 @@ This is the current execution plan, replacing one-proposal-at-a-time scheduling.
 
 - Active: PiSD, PiServer, piTrainer. No new PiBooter/CustomTrainer/CustomDrive or legacy piCar work.
 - Original proposals: 75; retired exclusive proposals: 19; active: 56.
-- As of the current [progress audit](PROGRESS.md): 31 implemented, 4 partial, 21 without a dedicated update. **25 original proposal IDs remain** in **8 remaining development batches** (9 batches originally scheduled, 1 complete). The former PiBooter batch is removed; R48 remains implemented for the active runtimes.
+- As of the current [progress audit](PROGRESS.md): 32 implemented, 4 partial, 20 without a dedicated update. **24 original proposal IDs remain** in **7 remaining development batches** (9 batches originally scheduled, 2 complete). The former PiBooter batch is removed; R48 remains implemented for the active runtimes.
 - Batch numbers are planning units, not component versions, PR numbers, or calendar deadlines. Deliver related work together where safe, using separate component-owned commits, patch notes and patch-only archives when requested. No monolithic cross-component source rewrite.
 - Sequence is dependency- and acceptance-gated, not an invented time estimate. Independent work may proceed once its stated prerequisites are met; no unsafe parallel release or merging without authorization.
 
 ## Current starting point
 
-[PR #86](https://github.com/henrywork059/PiDrive/pull/86) is the original green active integration baseline. [PR #87](https://github.com/henrywork059/PiDrive/pull/87) completes Batch 1 (F2, F3, F4, U21) and F7 configuration recovery in separate commits. The latest [CI run 45358221582](https://github.com/henrywork059/PiDrive/actions/runs/45358221582) passed all four jobs at adf44de. Candidate versions: PiSD 0.11.26, PiServer 0.4.30, piTrainer 0.11.10. UX74 destructive-action safeguards remain in Batch 2. No candidate runtime merged or physically validated. See [PROGRESS.md](PROGRESS.md) for evidence and limits. Reconcile canonical main-branch roadmap before merging a candidate.
+[PR #86](https://github.com/henrywork059/PiDrive/pull/86) is the original green active integration baseline. [PR #87](https://github.com/henrywork059/PiDrive/pull/87) completes Batch 1 (F2, F3, F4, U21) and Batch 2 (F7, UX74). The latest [CI run 45359079601](https://github.com/henrywork059/PiDrive/actions/runs/45359079601) passed all four jobs at 8c979f3. Candidate versions: PiSD 0.11.27, PiServer 0.4.31, piTrainer 0.11.11. Next: Batch 3 — release automation and anti-rollback. No candidate runtime merged or physically validated. See [PROGRESS.md](PROGRESS.md) for evidence and limits. Reconcile canonical main-branch roadmap before merging a candidate.
 
 ## Batch sequence
 
 | Batch | Priority | Focus | Original IDs | Remaining | Prerequisites |
 | --- | --- | --- | --- | ---: | --- |
 | 1 | P0 | Runtime safety and validation | F2, F3, F4, U21 | 0 | Green PR #86 baseline |
-| 2 | P1 | Configuration and data protection | F7, UX74 | 1 | 1 |
+| 2 | P1 | Configuration and data protection | F7, UX74 | 0 | 1 |
 | 3 | P1 | Release automation and anti-rollback | F9, R53 | 2 | 1–2 |
 | 4 | P1 | UI regression and accessibility foundation | R35, R36, R45, R50, UX75 | 5 | 1–3 |
 | 5 | P1 | Training and deployment integration | F10, R51, UX62, UX64 | 4 | 1–4 |
@@ -27,7 +27,7 @@ This is the current execution plan, replacing one-proposal-at-a-time scheduling.
 | 7 | P1/P2 | PiSD driving interface | R49, UX54, UX55, UX56, UX57 | 5 | 1, 2, 4 |
 | 8 | P2 | Code modularization | F8, R52 | 2 | 1–4; rerun tests from completed batches |
 | 9 | P1/P2 | PiServer operator workspace | UX58, UX59, UX60 | 3 | 4, 8 |
-| Total | | | | 25 | |
+| Total | | | | 24 | |
 
 ### Batch 1 — Runtime safety and validation
 
@@ -39,7 +39,7 @@ This is the current execution plan, replacing one-proposal-at-a-time scheduling.
 
 ### Batch 2 — Configuration and data protection
 
-**Components:** All active components, where applicable. **Status:** In progress (F7 implemented and CI passed in PiSD/PiServer; UX74 outstanding).
+**Components:** All active components, where applicable. **Status:** Complete at scoped automated implementation gate (F7, UX74); real-browser and Windows acceptance remain separate.
 
 **Scope:** Complete corrupt-config preservation and recovery warnings in affected active runtimes; retain recovery copies, safe normalization and round trips. Pair with clear destructive-action confirmations, exact targets, duplicate-submit protection and truthful undo availability in each applicable interface. Never confirmation-gate emergency STOP.
 
