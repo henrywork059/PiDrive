@@ -24,7 +24,7 @@ jobs:
         include:
           - component: PiSD
             deps: '"Flask>=3,<4" "flask-cors>=4,<5" "waitress>=3,<4" "requests>=2.31,<3" "python-dotenv>=1,<2" "PyYAML>=6,<7" "psutil>=5.9,<8" "pandas>=2.2,<3" "numpy>=1.24,<2" "Pillow>=10,<12" "opencv-python-headless>=4.8,<4.12"'
-            python_tests: 'scripts/test_safety_rearm.py scripts/test_operating_control_source.py scripts/test_ai_frame_timeout.py scripts/test_model_manifest.py scripts/test_recording_recovery.py scripts/test_recording_storage.py scripts/test_recording_storage_integration.py scripts/test_replay_session.py scripts/test_error_export_r47.py scripts/test_preflight_r48.py scripts/test_request_trace_r47.py'
+            python_tests: 'scripts/test_safety_rearm.py scripts/test_operating_control_source.py scripts/test_ai_frame_timeout.py scripts/test_model_manifest.py scripts/test_recording_recovery.py scripts/test_recording_storage.py scripts/test_recording_storage_integration.py scripts/test_replay_session.py scripts/test_error_export_r47.py scripts/test_preflight_r48.py scripts/test_request_trace_r47.py scripts/test_ai_validation_math.py'
             js_tests: 'scripts/test_operating_readiness.cjs scripts/test_settings_feedback.cjs scripts/test_accessibility_r35.cjs scripts/test_adaptive_stream_r43.cjs scripts/test_preflight_ui_r48.cjs scripts/test_request_trace_ui_r47.cjs scripts/test_responsive_r36.cjs scripts/test_ui_copy_r46.cjs'
           - component: PiServer
             deps: '"Flask>=3,<4" "numpy>=1.24,<2" "opencv-python-headless>=4.8,<4.12"'
@@ -90,6 +90,14 @@ jobs:
             node "$file" || failed=1
             echo "::endgroup::"
           done
+          exit "$failed"
+
+      - name: Run restored PiSD standalone validation commands (simulation)
+        if: ${{ matrix.component == 'PiSD' && !cancelled() }}
+        run: |
+          failed=0
+          python scripts/test_ai_mode_page.py --output "$RUNNER_TEMP/ai-mode.json" || failed=1
+          python scripts/run_standard_validation.py --output "$RUNNER_TEMP/standard-validation.json" || failed=1
           exit "$failed"
 
   manifest-contract:

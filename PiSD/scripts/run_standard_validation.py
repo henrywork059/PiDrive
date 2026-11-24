@@ -29,8 +29,7 @@ from pisd.app import create_app, load_defaults  # noqa: E402
 from pisd.core.errors import PiSDErrorCodes, ok_payload, report_payload, ErrorReporter  # noqa: E402
 from pisd.core.panel_contracts import get_panel_contracts  # noqa: E402
 from pisd.core.settings_manager import SettingsManager  # noqa: E402
-from pisd.services.ai_correction import apply_additive_manual_correction, manual_correction_status  # noqa: E402
-from pisd.services.ai_safety import apply_ai_safety  # noqa: E402
+from scripts.ai_validation_math import correction_case, safety_case  # noqa: E402
 from pisd.services.camera_service import CameraService  # noqa: E402
 from pisd.services.motor_service import MotorService  # noqa: E402
 
@@ -193,14 +192,8 @@ def _check_imports() -> CheckResult:
 
 
 def _check_ai_helper_math() -> CheckResult:
-    manual = manual_correction_status(
-        {"manual_correction_enabled": True, "manual_mix_percent": 50.0, "manual_correction_timeout_s": 0.75},
-        {"steering": -0.6, "throttle": 0.4, "source": "standard-test", "updated_at_utc": ""},
-        20.0,
-        now_monotonic=20.1,
-    )
-    corrected = apply_additive_manual_correction(0.4, -0.2, {"manual_mix_percent": 50.0}, manual)
-    safe = apply_ai_safety(
+    corrected = correction_case(0.4, -0.2, -0.6, 0.4, gain_percent=50.0, age_s=0.1)
+    safe = safety_case(
         corrected.get("steering"),
         corrected.get("throttle"),
         {"output_mode": "steering_only", "fixed_throttle": 0.16, "max_steering": 1.0, "max_throttle": 1.0, "steering_smoothing": 0.0, "throttle_smoothing": 0.0},
@@ -209,7 +202,8 @@ def _check_ai_helper_math() -> CheckResult:
     ok = (
         abs(corrected.get("steering", 99.0) - 0.1) < 1e-9
         and abs(corrected.get("throttle", 99.0) - 0.0) < 1e-9
-        and corrected.get("equation") == "ai + manual * correction_gain"
+        and corrected.get("manual_active") is True
+        and abs(corrected.get("correction_gain", 99.0) - 0.5) < 1e-9
         and abs(safe.get("throttle", 99.0) - 0.16) < 1e-9
     )
     return CheckResult(

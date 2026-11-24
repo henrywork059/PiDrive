@@ -17,8 +17,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from pisd.app import create_app  # noqa: E402
 from pisd.core.errors import PiSDErrorCodes  # noqa: E402
-from pisd.services.ai_correction import apply_additive_manual_correction, manual_correction_status  # noqa: E402
-from pisd.services.ai_safety import apply_ai_safety  # noqa: E402
+from scripts.ai_validation_math import correction_case, safety_case  # noqa: E402
 from pisd.core.settings_manager import SettingsManager  # noqa: E402
 
 WEB_ROOT = PROJECT_ROOT / "pisd" / "web"
@@ -28,8 +27,7 @@ AI_JS = WEB_ROOT / "static" / "js" / "ai_mode.js"
 APP_PY = PROJECT_ROOT / "pisd" / "app.py"
 GLOBAL_SPACE_JS = WEB_ROOT / "static" / "js" / "global_space_stop.js"
 RECORDING_PANEL_JS = WEB_ROOT / "static" / "js" / "recording_download_panel.js"
-AI_CORRECTION_PY = PROJECT_ROOT / "pisd" / "services" / "ai_correction.py"
-AI_SAFETY_PY = PROJECT_ROOT / "pisd" / "services" / "ai_safety.py"
+AI_SERVICE_PY = PROJECT_ROOT / "pisd" / "services" / "ai_drive_service.py"
 OUTPUT_DIR = PROJECT_ROOT / "test_outputs" / "ai_mode_page"
 SUMMARY_PATH = OUTPUT_DIR / "summary.json"
 
@@ -59,7 +57,7 @@ def emit(result: Result) -> None:
 
 
 def check_files() -> list[Result]:
-    files = {"template": AI_TEMPLATE, "css": AI_CSS, "js": AI_JS, "global_space_js": GLOBAL_SPACE_JS, "recording_panel_js": RECORDING_PANEL_JS, "correction_helper": AI_CORRECTION_PY, "safety_helper": AI_SAFETY_PY}
+    files = {"template": AI_TEMPLATE, "css": AI_CSS, "js": AI_JS, "global_space_js": GLOBAL_SPACE_JS, "recording_panel_js": RECORDING_PANEL_JS, "ai_runtime_service": AI_SERVICE_PY}
     return [
         Result(
             f"ai_mode.file.{name}",
@@ -336,17 +334,11 @@ def check_settings_persistence() -> Result:
 
 def check_correction_math() -> list[Result]:
     """Check AI correction and safety math without camera, model, Flask, or motors."""
-    manual = manual_correction_status(
-        {"manual_correction_enabled": True, "manual_mix_percent": 50.0, "manual_correction_timeout_s": 0.75},
-        {"steering": -0.6, "throttle": 0.4, "source": "math-test", "updated_at_utc": ""},
-        10.0,
-        now_monotonic=10.2,
-    )
-    corrected = apply_additive_manual_correction(0.4, -0.2, {"manual_mix_percent": 50.0}, manual)
+    corrected = correction_case(0.4, -0.2, -0.6, 0.4, gain_percent=50.0, age_s=0.2)
     steering_ok = abs(corrected.get("steering", 99.0) - 0.1) < 1e-9
     throttle_ok = abs(corrected.get("throttle", 99.0) - 0.0) < 1e-9
     gain_ok = abs(corrected.get("correction_gain", corrected.get("manual_weight", 99.0)) - 0.5) < 1e-9
-    debug_ok = corrected.get("equation") == "ai + manual * correction_gain"
+    debug_ok = corrected.get("manual_active") is True
     first = Result(
         "ai_mode.correction_math.additive_50_percent",
         steering_ok and throttle_ok and gain_ok and debug_ok,
@@ -355,7 +347,7 @@ def check_correction_math() -> list[Result]:
         {"corrected": corrected, "expected": {"steering": 0.1, "throttle": 0.0, "correction_gain": 0.5}},
     )
 
-    full = apply_additive_manual_correction(0.3, 0.2, {"manual_mix_percent": 100.0}, {"active": True, "steering": 0.4, "throttle": -0.3})
+    full = correction_case(0.3, 0.2, 0.4, -0.3, gain_percent=100.0)
     second_ok = abs(full.get("steering", 99.0) - 0.7) < 1e-9 and abs(full.get("throttle", 99.0) - (-0.1)) < 1e-9
     second = Result(
         "ai_mode.correction_math.additive_100_percent",
@@ -365,7 +357,7 @@ def check_correction_math() -> list[Result]:
         {"corrected": full, "expected": {"steering": 0.7, "throttle": -0.1}},
     )
 
-    clamped = apply_additive_manual_correction(0.8, 0.9, {"manual_mix_percent": 60.0}, {"active": True, "steering": 0.5, "throttle": 0.5})
+    clamped = correction_case(0.8, 0.9, 0.5, 0.5, gain_percent=60.0)
     clamp_ok = abs(clamped.get("steering", 99.0) - 1.0) < 1e-9 and abs(clamped.get("throttle", 99.0) - 1.0) < 1e-9
     third = Result(
         "ai_mode.correction_math.clamps_corrected_command",
@@ -375,7 +367,7 @@ def check_correction_math() -> list[Result]:
         {"corrected": clamped, "expected": {"steering": 1.0, "throttle": 1.0}},
     )
 
-    fixed = apply_ai_safety(
+    fixed = safety_case(
         0.4,
         -0.8,
         {"output_mode": "steering_only", "fixed_throttle": 0.16, "max_steering": 1.0, "max_throttle": 1.0, "steering_smoothing": 0.0, "throttle_smoothing": 0.0},
