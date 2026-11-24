@@ -11,3 +11,6 @@ The real offscreen Qt integration test in PR #84, run 45342519579, reproduced a 
 
 ## Baseline and verification
 Based on the exact integrated 0.11.9 tree, parent bd9eabf817b808561123dd00384537c4939bc0e0. Reviewed 0.11.9 through 0.11.6 notes and the R37 selection test and implementation. Preserves source mapping, row ordering, bulk selection scope, playback, table layout, settings, and existing visibility/deletion semantics. Existing test failed under native Qt before this change. New commit requires CI rerun; no Windows desktop or physical hardware verification yet. No dataset mutation performed.
+
+## Follow-up CI correction
+Run 45342699744 verified all 19 selection-scope cases, including the real Qt sorting regression, and the other runtime suites. The only failure was the R46 test requiring exact 0.11.9 despite the accepted forward 0.11.10 bump. Updated tests/test_ui_copy_r46.py to enforce the 0.11.x series, minimum patch 9 and matching APP/PATCH versions. Existing UI copy assertions unchanged. No new runtime version needed. Full rerun required; physical and Windows verification remain outstanding.

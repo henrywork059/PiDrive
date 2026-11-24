@@ -1,6 +1,7 @@
 """R46 source-level copy regression. No Qt/TensorFlow imports required."""
 from __future__ import annotations
 import ast
+import re
 import unittest
 from pathlib import Path
 
@@ -50,8 +51,12 @@ class UserCopyR46(unittest.TestCase):
 
     def test_forward_version_preserves_existing_patcher(self):
         text = source("version.py")
-        self.assertIn('APP_VERSION = "0.11.9"', text)
-        self.assertIn('PATCH_VERSION = "piTrainer_0_11_9"', text)
+        app = re.search(r'APP_VERSION\s*=\s*"0\.11\.(\d+)"', text)
+        patch = re.search(r'PATCH_VERSION\s*=\s*"piTrainer_0_11_(\d+)"', text)
+        self.assertIsNotNone(app)
+        self.assertIsNotNone(patch)
+        self.assertGreaterEqual(int(app.group(1)), 9)
+        self.assertEqual(app.group(1), patch.group(1))
 
 
 if __name__ == "__main__":
