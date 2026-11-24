@@ -112,3 +112,5 @@ jobs:
         with:
           python-version: '3.11'
       - run: python -m unittest discover -s tests -p test_cross_component_manifests.py -v
+      - name: Verify changed-file patch package integrity
+        run: python -m unittest discover -s tests -p test_patch_package.py -v

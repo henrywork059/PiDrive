@@ -1,0 +1,164 @@
+import importlib.util
+import json
+import subprocess
+import tempfile
+import unittest
+import warnings
+from pathlib import Path
+from zipfile import ZipFile
+
+SPEC = importlib.util.spec_from_file_location("patch_package", Path(__file__).resolve().parents[1] / "tools" / "patch_package.py")
+p = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(p)
+
+
+class PackageTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        self.git("init", "-q")
+        self.git("config", "user.email", "test@example.invalid")
+        self.git("config", "user.name", "Fixture")
+        for c, (launcher, marker, name, family, _) in p.COMPONENTS.items():
+            v = (*family, 1)
+            self.write(c + "/" + launcher, "print('launcher')\n")
+            self.write(c + "/" + marker, self.marker(c, v))
+            self.write(p.note_path(c,v), "prior note\n")
+        self.base = self.commit("base")
+        self.c = "PiSD"
+        self.write("PiSD/pisd/__init__.py", self.marker(self.c,(0,11,2)))
+        self.write("PiSD/pisd/new.py", "VALUE = 42\n")
+        self.write(p.note_path(self.c,(0,11,2)), "new note\n")
+        self.target = self.commit("target")
+        self.archive = self.root / "patch.zip"
+        self.git("checkout","--detach",self.base)
+
+    def marker(self,c,v):
+        name = p.COMPONENTS[c][2]
+        s = ".".join(map(str,v))
+        if c == "PiServer":
+            s = s.replace(".","_")
+        return f"{name} = {s!r}\n" + (f"PATCH_VERSION = {'piTrainer_'+s.replace('.','_')!r}\n" if c=="piTrainer" else "")
+
+    def git(self,*args):
+        return subprocess.check_output(["git","-C",str(self.root),*args],stderr=subprocess.PIPE).decode().strip()
+
+    def write(self,path,content):
+        dest = self.root / path
+        dest.parent.mkdir(parents=True,exist_ok=True)
+        dest.write_text(content,encoding="utf-8")
+
+    def commit(self,msg):
+        self.git("add",".")
+        self.git("commit","-qm",msg)
+        return self.git("rev-parse","HEAD")
+
+    def build(self):
+        return p.build(self.root,self.c,self.base,self.target,self.archive)
+
+    def validate(self):
+        return p.validate(self.root,self.c,self.base,self.target,self.archive)
+
+    def rewrite(self, transform):
+        with ZipFile(self.archive) as z:
+            entries = [(i.filename,z.read(i)) for i in z.infolist()]
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore",UserWarning)
+            with ZipFile(self.archive,"w") as z:
+                for name,data in transform(entries):
+                    z.writestr(name,data)
+
+    def test_forward_and_no_writes(self):
+        m = self.build()
+        self.assertEqual(m,self.validate())
+        self.assertEqual(set(m["files"]),{"PiSD/pisd/__init__.py","PiSD/pisd/new.py",p.note_path(self.c,(0,11,2))})
+        self.assertFalse((self.root/"PiSD/pisd/new.py").exists())
+        self.assertEqual(self.git("rev-parse","HEAD"),self.base)
+
+    def test_stale_checkout(self):
+        self.build()
+        self.git("checkout","--detach",self.target)
+        with self.assertRaisesRegex(ValueError,"Stale"):
+            self.validate()
+
+    def test_wrong_component(self):
+        self.build()
+        with self.assertRaises(ValueError):
+            p.validate(self.root,"PiServer",self.base,self.target,self.archive)
+
+    def test_extra_duplicate_traversal_and_tampering(self):
+        for name in ("PiServer/server.py","../evil","PiSD/config/runtime.json","PiSD/pisd/new.py"):
+            with self.subTest(name=name):
+                if self.archive.exists():
+                    self.archive.unlink()
+                self.build()
+                self.rewrite(lambda entries: entries+[(name,b"x")])
+                with self.assertRaises(ValueError):
+                    self.validate()
+        self.archive.unlink()
+        self.build()
+        self.rewrite(lambda entries:[(n,b"bad" if n.endswith("new.py") else d) for n,d in entries])
+        with self.assertRaises(ValueError):
+            self.validate()
+
+    def test_manifest_tampering(self):
+        self.build()
+        def edit(entries):
+            result=[]
+            for n,d in entries:
+                if n==p.MANIFEST:
+                    m=json.loads(d)
+                    m["component"]="PiServer"
+                    d=p.encoded(m)
+                result.append((n,d))
+            return result
+        self.rewrite(edit)
+        with self.assertRaises(ValueError):
+            self.validate()
+
+    def test_local_change_and_new_collision(self):
+        self.build()
+        self.write("PiSD/pisd/new.py","local")
+        with self.assertRaisesRegex(ValueError,"already exists"):
+            self.validate()
+        (self.root/"PiSD/pisd/new.py").unlink()
+        self.write("PiSD/PiSD.py","changed")
+        with self.assertRaisesRegex(ValueError,"Locally modified"):
+            self.validate()
+
+    def test_forbidden_git_changes(self):
+        for path in ("PiSD/config/runtime.json","PiSD/pisd/__pycache__/x.pyc",
+                     "PiSD/models/model.tflite","PiSD/recordings/private.jpg",
+                     "PiSD/pisd/credentials.py"):
+            with self.subTest(path=path):
+                self.git("checkout","--detach",self.target)
+                self.write(path,"not distributable")
+                bad=self.commit("bad")
+                with self.assertRaisesRegex(ValueError,"Forbidden"):
+                    p.expected(self.root,self.c,self.base,bad)
+
+    def test_each_other_component(self):
+        for c in ("PiServer","piTrainer"):
+            with self.subTest(component=c):
+                self.git("checkout","--detach",self.base)
+                _,marker,_,family,_=p.COMPONENTS[c]
+                v=(*family,2)
+                self.write(c+"/"+marker,self.marker(c,v))
+                self.write(p.note_path(c,v),"new note")
+                target=self.commit("forward")
+                archive=self.root/(c+".zip")
+                p.build(self.root,c,self.base,target,archive)
+                self.git("checkout","--detach",self.base)
+                self.assertEqual(p.validate(self.root,c,self.base,target,archive)["component"],c)
+
+    def test_historical_note_change(self):
+        self.git("checkout","--detach",self.target)
+        self.write(p.note_path(self.c,(0,11,1)),"rewritten")
+        target=self.commit("bad history")
+        with self.assertRaisesRegex(ValueError,"Historical note"):
+            p.expected(self.root,self.c,self.base,target)
+
+
+if __name__ == "__main__":
+    unittest.main()
