@@ -24,6 +24,10 @@ class DummyCamera:
     def get_fps(self):
         return 0.0
 
+    def get_raw_frame_age(self):
+        # No raw frame has been captured by this hardware-free camera.
+        return None
+
     def set_processing_enabled(self, enabled):
         self.processing_enabled_calls.append(bool(enabled))
 

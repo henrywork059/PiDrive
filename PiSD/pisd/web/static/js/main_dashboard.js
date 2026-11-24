@@ -23,6 +23,7 @@ const driveButtons = Array.from(document.querySelectorAll('.md-drive-button[data
 const channelSubmit = document.querySelector('#mdMotorChannelForm button[type="submit"]');
 const DEFAULT_MANUAL_SPEED = 0.80;
 let manualSpeedSaveTimer = 0;
+let legacyLivePreviewRequested = false;
 
 function isOkCode(code) {
   return String(code || '').startsWith('PISD-OK');
@@ -216,8 +217,9 @@ async function refreshStatus() {
 // }
 
 function startLivePreview() {
+  legacyLivePreviewRequested = true;
   cameraPreview.dataset.mode = 'mjpeg';
-  cameraPreview.src = `/video_feed?t=${Date.now()}`;
+  if (!document.hidden) cameraPreview.src = `/video_feed?t=${Date.now()}`;
 }
 
 async function stopAll(panelName = 'safety-stop') {
@@ -319,6 +321,8 @@ function bindEvents() {
   });
   document.getElementById('mdCameraStop').addEventListener('click', async () => {
     await apiCall('POST', '/api/camera/stop', {}, 'camera-preview');
+    legacyLivePreviewRequested = false;
+    cameraPreview.removeAttribute('src');
     await refreshStatus();
   });
   if (overlayToggle) overlayToggle.addEventListener('click', () => setOverlayEnabled(!previewFrame.classList.contains('md-overlay-enabled')));
@@ -333,6 +337,15 @@ function bindEvents() {
   manualSpeed.addEventListener('change', saveGlobalManualSpeed);
   driveButtons.forEach((button) => button.addEventListener('click', () => sendManual(button)));
 }
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    cameraPreview?.removeAttribute('src'); // close passive MJPEG connection
+  } else if (legacyLivePreviewRequested && cameraPreview) {
+    cameraPreview.src = `/video_feed?t=${Date.now()}`;
+    void refreshStatus();
+  }
+});
 
 renderStatus(initialStatus);
 bindEvents();

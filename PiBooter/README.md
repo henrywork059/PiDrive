@@ -1,5 +1,35 @@
 # PiBooter
 
+## R49 — Safe recent Wi-Fi events (0_1_8)
+
+PiBooter's existing `RuntimeState` already bounds its internal log using
+the configured `server.log_limit`. Its web UI now displays only an
+**allowlisted, sanitized projection**: Wi-Fi scan, connection success/failure,
+saved profile removal, hotspot start/stop, setup-window lifecycle and
+monitor errors. The page's old raw Recent log is replaced by a collapsed
+**Recent operator events (sanitized)** view with **Refresh events** and
+**Copy events**. The read-only `GET /api/recent-events` returns at most
+**80** events selected from the newest 200 internal log entries. No stored
+password, SSID, hotspot key, IP/MAC, connection name, raw nmcli output,
+exception text or filesystem path appears in this event export.
+
+This is intentionally a *projection*, not a new storage layer. The
+original private/local troubleshooting log, CSRF/origin restrictions,
+short startup setup window, existing NetworkManager actions and saved
+connection settings remain unchanged. PiBooter **does not control
+motors**; safety STOP event logging applies to PiServer/CustomDrive,
+not Wi-Fi onboarding. The browser fetch is on-demand when the collapsed
+view expands, with an optional Copy; no cloud telemetry or timer.
+
+From repository root:
+```bash
+cd PiBooter && python -m unittest discover -s tests -p 'test_recent_events_r49.py' -v
+cd ..
+node --test PiBooter/tests/test_recent_events_ui_r49.cjs
+```
+Review on a real Pi and confirm Wi-Fi password/SSID/paths are absent from
+exported history while scan/connect/failure events remain interpretable.
+
 PiBooter is a Raspberry Pi boot-time Wi-Fi onboarding service.
 
 When the Pi powers on and **does not already have a saved network active**, PiBooter can bring up a local setup hotspot so that you can use a **phone, tablet, or laptop** to tell the Pi which Wi-Fi network it should join.
@@ -146,6 +176,71 @@ do not provide an additional login barrier. For full resistance to local
 compromise, use an isolated physical setup network and consider a separate
 operator approval or HTTPS/VPN. NetworkManager may pass credentials in local
 process arguments; protecting local process inspection remains follow-up work.
+
+## Onboarding status and failure recovery (0_1_4)
+
+The phone setup page now uses the backend's **read-only onboarding status**,
+alongside its existing network/runtime details:
+
+- **Scanning nearby Wi-Fi:** a refresh scan is in progress. Some adapters cannot
+  rescan while hosting a hotspot; manually enter the SSID if it is absent.
+- **Connecting to Wi-Fi:** one connection request is in progress. Wait for the
+  NetworkManager handover; your phone may briefly lose the PiBooter hotspot.
+- **Connected to Wi-Fi:** reconnect your phone to the router network; use the
+  saved *last known* IP or locate the current Pi address from your router.
+  PiBooter exits normally after completing setup.
+- **Wi-Fi setup failed:** if the setup hotspot has returned, rejoin it, verify
+  the SSID/password and submit again; the failed password is **not** retained
+  by the form. If the hotspot cannot be restored, restart PiBooter locally,
+  or reboot the Pi, to open a fresh setup session.
+- **Setup window closing:** no eligible first client has activated the
+  configured short startup window. PiBooter stops the hotspot and exits; the
+  page does not extend the window automatically.
+
+**Do not change** the configured `server.startup_wait_s` merely to keep the
+hotspot open: the normal first-client policy remains the default **5 seconds**,
+and the page polls only to report state. The status API adds a credential-free
+`onboarding` object with `state`, `headline`, `summary`,
+`next_action` and remaining-window information; existing API fields stay
+available. Invalid public hotspot credentials still require local
+`--provision-hotspot-password` as described above.
+
+The normal launch entry point remains
+`cd ~/PiDrive/PiBooter && sudo python3 run_pibooter.py --config config/settings.json`.
+For optional offline checks run
+`python3 -m unittest discover -s tests -p 'test_onboarding_status.py' -v`.
+This web guidance does not test real Wi-Fi reception or servo/motor hardware.
+
+## Keyboard and low-motion setup (0_1_5)
+
+The PiBooter phone setup page can also be used from a keyboard: press
+**Tab** to move among Wi-Fi names, Connect, Refresh scan, Clear password and
+saved-network actions, then use **Enter** or **Space** as supported by the
+native focused button. **Skip to setup** appears when keyboard-focused and
+moves past the page header directly into the setup landmark.
+
+Buttons for nearby networks now include the chosen SSID in their accessible
+name; Forget buttons include the stored profile name to avoid ambiguous
+repeated announcements. A visible keyboard focus ring, high-contrast fallback
+and reduced-motion scrolling are provided. These changes do not create
+keyboard shortcuts to alter Wi-Fi, relax hotspot security, or lengthen the
+original short first-client window.
+
+## Phone-width Wi-Fi results (0_1_6)
+
+At phone widths, the Wi-Fi scan table keeps **Use this network** available
+in its rightmost action column. Scan Channel and the device connection column
+can be hidden on narrow screens, but the network selection action is never
+hidden. If the network list is wider than the card, swipe horizontally within
+the labelled network-results region (or focus the region and scroll using
+keyboard controls). Saved-profile **Forget** controls use a similar scrollable
+table; existing CSRF and Wi-Fi setup authorization still apply.
+
+To review viewport reachability on an **authorized test setup**, see
+`PiServer/tests/R36_VIEWPORT_MATRIX.md` and the Playwright runner there.
+Visiting PiBooter from an authorized hotspot client can activate the existing
+first-client setup session. The default five-second session window is
+unchanged.
 
 ## Manual run
 

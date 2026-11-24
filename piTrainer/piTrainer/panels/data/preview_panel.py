@@ -6,6 +6,7 @@ import pandas as pd
 from PySide6.QtCore import QModelIndex, QSignalBlocker, QTimer, Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QFrame,
     QGroupBox,
     QHeaderView,
     QLabel,
@@ -14,6 +15,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import QItemSelectionModel
 
 from ...services.data.preview_service import dataframe_preview_rows, preview_columns
+from ...services.data.selection_scope import SelectionScope, count_selected_generated
 from .preview_model import RecordPreviewModel
 from .preview_table import CyclingPreviewTable
 
@@ -27,6 +29,29 @@ class PreviewPanel(QGroupBox):
         self._handling_selection = False
         self._restore_after_sort_rows: list[int] = []
         self._restore_after_sort_current_row = -1
+        self._scope_all_active = 0
+        self._scope_generated_active = 0
+        self._scope_hidden: int | None = None
+
+        # R37: a lightweight read-only toolbar above the existing model/view
+        # table. It never changes the QTableView selection or source-row map.
+        self.scope_toolbar = QFrame(self)
+        self.scope_toolbar.setObjectName('dataSelectionScopeToolbar')
+        scope_layout = QVBoxLayout(self.scope_toolbar)
+        scope_layout.setContentsMargins(5, 3, 5, 3)
+        scope_layout.setSpacing(2)
+        self.scope_label = QLabel('Visible: 0  |  Selected visible: 0  |  All active: 0  |  Hidden: Unavailable  |  Generated: 0')
+        self.scope_label.setObjectName('dataSelectionScopeCounts')
+        self.scope_label.setProperty('role', 'summaryLine')
+        self.scope_label.setWordWrap(True)
+        self.scope_detail_label = QLabel(
+            'Bulk edits and Hide Selected target selected visible source rows only. '
+            'All active includes generated derivatives; generated rows are excluded from Data review by default.'
+        )
+        self.scope_detail_label.setProperty('role', 'muted')
+        self.scope_detail_label.setWordWrap(True)
+        scope_layout.addWidget(self.scope_label)
+        scope_layout.addWidget(self.scope_detail_label)
 
         self.summary_label = QLabel('Load sessions to show frames.')
         self.summary_label.setProperty('role', 'muted')
@@ -59,6 +84,7 @@ class PreviewPanel(QGroupBox):
         self.autoplay_timer.timeout.connect(self._advance_autoplay)
 
         layout = QVBoxLayout(self)
+        layout.addWidget(self.scope_toolbar)
         layout.addWidget(self.summary_label)
         layout.addWidget(self.table)
         self._refresh_summary()
@@ -73,6 +99,28 @@ class PreviewPanel(QGroupBox):
             str(record.get('ts', '')),
             str(record.get('abs_image', '')),
         )
+
+    def set_scope_totals(
+        self, *, all_active: int, generated_active: int, hidden: int | None
+    ) -> None:
+        """Only display counts; keep selection/model/scroll state untouched."""
+        self._scope_all_active = max(0, int(all_active))
+        self._scope_generated_active = max(0, int(generated_active))
+        self._scope_hidden = None if hidden is None else max(0, int(hidden))
+        self._refresh_scope_toolbar()
+
+    def _refresh_scope_toolbar(self) -> None:
+        selected = self.selected_records()
+        scope = SelectionScope(
+            visible=len(self.df),
+            selected_visible=len(selected),
+            all_active=self._scope_all_active,
+            hidden=self._scope_hidden,
+            generated_active=self._scope_generated_active,
+            selected_generated=count_selected_generated(selected),
+        )
+        self.scope_label.setText(scope.toolbar_text())
+        self.scope_label.setToolTip(scope.detail_text())
 
     def set_dataframe(self, df: pd.DataFrame) -> None:
         self.stop_autoplay()
@@ -440,6 +488,7 @@ class PreviewPanel(QGroupBox):
             self._handling_selection = False
 
     def _refresh_summary(self) -> None:
+        self._refresh_scope_toolbar()
         total = len(self.df)
         row = self.current_row()
         if total == 0:

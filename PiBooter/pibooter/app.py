@@ -16,7 +16,9 @@ from typing import Any, Callable
 from urllib.parse import parse_qs, urlencode, urlparse
 
 from .config import ConfigStore
-from .network import NetworkManagerBackend
+from .network import CommandResult, NetworkManagerBackend
+from .onboarding_status import project_onboarding
+from .recent_events import project_recent_events
 from .provisioning_security import authorized_setup_client, hotspot_password_safe, request_token_matches, trusted_post_origin
 from .state import RuntimeState
 from .status_store import LastStatusStore
@@ -35,13 +37,28 @@ HTML_SHELL = """<!doctype html>
     .hero h1 {{ margin: 0 0 8px; font-size: 1.8rem; }}
     .hero p {{ margin: 0; opacity: 0.95; }}
     .card {{ background: #fff; border-radius: 14px; padding: 16px; margin-bottom: 14px; box-shadow: 0 2px 10px rgba(15, 23, 42, 0.08); }}
-    .grid {{ display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }}
+    .grid {{ display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); }}
     .status-pill {{ display: inline-block; padding: 6px 10px; border-radius: 999px; font-weight: 700; font-size: 0.9rem; }}
     .status-connected {{ background: #dcfce7; color: #166534; }}
     .status-hotspot {{ background: #dbeafe; color: #1d4ed8; }}
     .status-connecting {{ background: #fef3c7; color: #92400e; }}
     .status-error {{ background: #fee2e2; color: #b91c1c; }}
     .status-idle, .status-starting {{ background: #e5e7eb; color: #374151; }}
+    .status-ready {{ background: #dbeafe; color: #1d4ed8; }}
+    .status-scanning {{ background: #e0e7ff; color: #3730a3; }}
+    .status-failed, .status-window_closing {{ background: #fee2e2; color: #991b1b; }}
+    .onboarding-next {{ margin: 10px 0 0; padding: 10px 12px; border-left: 3px solid #2563eb; background: #eff6ff; color: #1e3a8a; border-radius: 0 8px 8px 0; line-height: 1.4; }}
+    .onboarding-next[data-state="failed"], .onboarding-next[data-state="window_closing"] {{ border-left-color: #b91c1c; background: #fef2f2; color: #991b1b; }}
+    .onboarding-next strong {{ display: block; margin-bottom: 3px; }}
+    button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible {{ outline: 3px solid #2563eb; outline-offset: 3px; }}
+    .skip-link {{ position: absolute; left: 12px; top: -80px; z-index: 50; padding: 9px 12px; color: #fff; background: #1d4ed8; border-radius: 8px; }}
+    .skip-link:focus-visible {{ top: 8px; }}
+    @media (prefers-reduced-motion: reduce) {{
+      *, *::before, *::after {{ animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }}
+    }}
+    @media (forced-colors: active) {{
+      button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible {{ outline: 3px solid Highlight !important; }}
+    }}
     h2 {{ margin-top: 0; font-size: 1.1rem; }}
     dl {{ margin: 0; }}
     dt {{ font-weight: 700; margin-top: 10px; }}
@@ -61,6 +78,10 @@ HTML_SHELL = """<!doctype html>
     .btn-secondary {{ background: #e5e7eb; color: #111827; }}
     .btn-danger {{ background: #dc2626; color: #fff; }}
     table {{ width: 100%; border-collapse: collapse; }}
+    .network-table-wrap {{ width: 100%; max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; }}
+    .network-table-wrap:focus-visible {{ outline: 3px solid #2563eb; outline-offset: 3px; }}
+    .scan-network-table, .saved-profile-table {{ min-width: 340px; }}
+    .scan-network-table button, .saved-profile-table button {{ min-height: 44px; white-space: normal; overflow-wrap: anywhere; }}
     th, td {{ text-align: left; padding: 10px 8px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }}
     th {{ font-size: 0.9rem; color: #52606d; }}
     pre {{ white-space: pre-wrap; word-break: break-word; background: #f8fafc; padding: 12px; border-radius: 10px; border: 1px solid #e5e7eb; max-height: 320px; overflow: auto; }}
@@ -72,18 +93,30 @@ HTML_SHELL = """<!doctype html>
       body {{ background: #eef2f7; }}
       .wrap {{ padding: 12px; }}
       .card, .hero {{ border-radius: 12px; }}
-      th:nth-child(4), td:nth-child(4), th:nth-child(5), td:nth-child(5) {{ display: none; }}
+      /* Device connection and scan channel can be hidden; the fifth scanned
+         Wi-Fi column contains the essential Use this network action. */
+      .device-table th:nth-child(4), .device-table td:nth-child(4),
+      .scan-network-table th:nth-child(4), .scan-network-table td:nth-child(4) {{ display: none; }}
+      .scan-network-table th:last-child, .scan-network-table td:last-child {{
+        position: sticky; right: 0; background: #fff; z-index: 1;
+      }}
+      .wrap {{ max-width: 100%; }}
+      .card, .hero {{ min-width: 0; }}
+      .btn-row button {{ min-height: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }}
     }}
   </style>
 </head>
 <body>
+  <a class="skip-link" href="#setup-content">Skip to setup</a>
   <div class="wrap">
     <div class="hero">
       <h1>{title}</h1>
       <p>{subtitle}</p>
     </div>
-    {notice}
-    {body}
+    <main id="setup-content" tabindex="-1">
+      {notice}
+      {body}
+    </main>
   </div>
   <script>
     function fillSsid(ssid) {{
@@ -92,12 +125,13 @@ HTML_SHELL = """<!doctype html>
       ssidField.value = ssid || '';
       var passField = document.getElementById('password');
       if (passField) passField.focus();
-      window.scrollTo({{ top: document.body.scrollHeight, behavior: 'smooth' }});
+      window.scrollTo({{ top: document.body.scrollHeight,
+        behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ? 'auto' : 'smooth' }});
     }}
     async function refreshStatus() {{
       try {{
         const response = await fetch('/api/status');
-        if (!response.ok) return;
+        if (!response.ok) throw new Error('PiBooter status request failed');
         const data = await response.json();
         const setText = (id, value) => {{
           const el = document.getElementById(id);
@@ -105,21 +139,96 @@ HTML_SHELL = """<!doctype html>
         }};
         const status = document.getElementById('runtime-status');
         if (status) {{
-          status.textContent = (data.phase || 'idle').toUpperCase();
-          status.className = 'status-pill status-' + (data.phase || 'idle');
+          const view = data.onboarding || {{}};
+          const step = ['scanning', 'connecting', 'connected', 'failed', 'window_closing', 'ready', 'starting'].includes(view.state)
+            ? view.state : 'starting';
+          status.textContent = view.headline || 'Checking PiBooter';
+          status.className = 'status-pill status-' + step;
         }}
-        setText('runtime-message', data.message || '');
+        setText('runtime-message', data.onboarding?.summary || data.message || '');
+        setText('setup-next-action', data.onboarding?.next_action || 'Check PiBooter status on the Raspberry Pi.');
+        const guidance = document.getElementById('setup-guidance');
+        if (guidance) guidance.dataset.state = data.onboarding?.state || 'starting';
         setText('active-ip', data.primary_ip || 'Not assigned yet');
         setText('active-connection', data.active_connection || 'None');
-        setText('startup-remaining', data.startup_remaining_s == null ? 'Locked' : String(data.startup_remaining_s));
+        setText('startup-remaining', data.session_active ? 'Held open by detected setup activity' : String(data.startup_remaining_s ?? 0) + 's before automatic exit');
         setText('session-state', data.session_active ? 'Locked open' : 'Waiting for first client');
         if (data.last_status) {{
           setText('last-ssid', data.last_status.last_ssid || 'None yet');
           setText('last-known-ip', data.last_status.last_known_ip || 'None yet');
           setText('last-updated', data.last_status.updated_at || '');
         }}
-      }} catch (error) {{}}
+      }} catch (error) {{
+        const hint = document.getElementById('setup-next-action');
+        if (hint) hint.textContent = 'PiBooter status is unavailable. The Pi may be changing networks or the setup window may have closed. Reconnect to the hotspot if present, or restart PiBooter locally.';
+      }}
     }}
+    function showSubmittedState(phase, summary) {{
+      const pill = document.getElementById('runtime-status');
+      if (pill) {{
+        pill.textContent = phase === 'scanning' ? 'Scanning nearby Wi-Fi' : 'Connecting to Wi-Fi';
+        pill.className = 'status-pill status-' + phase;
+      }}
+      const message = document.getElementById('runtime-message');
+      if (message) message.textContent = summary;
+      const hint = document.getElementById('setup-next-action');
+      if (hint) hint.textContent = phase === 'scanning'
+        ? 'Waiting for results. You can enter an SSID manually if it is missing.'
+        : 'Connection request submitted. The setup hotspot may disconnect during Wi-Fi handover.';
+    }}
+    const scanForm = document.querySelector('form[action="/rescan"]');
+    if (scanForm) scanForm.addEventListener('submit', () => showSubmittedState('scanning', 'Requesting a fresh Wi-Fi scan.'));
+    const connectForm = document.querySelector('form[action="/connect"]');
+    if (connectForm) connectForm.addEventListener('submit', () => showSubmittedState('connecting', 'Sending the Wi-Fi connection request.'));
+    async function refreshRecentEvents() {{
+      const output = document.getElementById('recent-events-output');
+      const status = document.getElementById('recent-events-status');
+      if (!output || !status) return;
+      status.textContent = 'Reading sanitized events…';
+      try {{
+        const response = await fetch('/api/recent-events', {{ method: 'GET', cache: 'no-store' }});
+        if (!response.ok) throw new Error('Recent events unavailable');
+        const data = await response.json();
+        if (data.ok !== true || !Array.isArray(data.events)) throw new Error('Unexpected event response');
+        const rows = data.events.slice(-80);
+        output.textContent = rows.map((event) => {{
+          const time = String(event.timestamp_utc || '');
+          const title = String(event.title || 'Operator action');
+          const outcome = String(event.outcome || 'observed');
+          return time + ' · ' + title + ' · ' + outcome;
+        }}).join('\\n') || 'No relevant operator events yet.';
+        status.textContent = rows.length + ' sanitized events; oldest entries automatically expire.';
+      }} catch (_error) {{
+        status.textContent = 'Event history unavailable. Check the PiBooter connection.';
+      }}
+    }}
+    async function copyRecentEvents() {{
+      const output = document.getElementById('recent-events-output');
+      const status = document.getElementById('recent-events-status');
+      if (!output || !status) return;
+      try {{
+        if (navigator.clipboard?.writeText) {{
+          await navigator.clipboard.writeText(output.textContent || '');
+        }} else {{
+          const selection = window.getSelection();
+          const range = document.createRange();
+          range.selectNodeContents(output);
+          selection.removeAllRanges();
+          selection.addRange(range);
+          if (!document.execCommand('copy')) throw new Error('Clipboard unavailable');
+          selection.removeAllRanges();
+        }}
+        status.textContent = 'Sanitized event history copied.';
+      }} catch (_error) {{
+        status.textContent = 'Clipboard unavailable. Select the event text to copy manually.';
+      }}
+    }}
+    const eventPanel = document.getElementById('recent-events-panel');
+    if (eventPanel) eventPanel.addEventListener('toggle', () => {{
+      if (eventPanel.open) void refreshRecentEvents();
+    }});
+    document.getElementById('refresh-recent-events')?.addEventListener('click', refreshRecentEvents);
+    document.getElementById('copy-recent-events')?.addEventListener('click', copyRecentEvents);
     refreshStatus();
     {status_timer}
   </script>
@@ -146,6 +255,7 @@ class PiBooterController:
         self._shutdown_callback: Callable[[], None] | None = None
         self._scan_cache: list[dict[str, Any]] = []
         self._scan_cache_ts = 0.0
+        self._scan_in_progress = False
         self._started_at = time.time()
         self._session_active = False
         self._session_source = ""
@@ -287,6 +397,7 @@ class PiBooterController:
             session_started_at=self._session_started_at,
             startup_wait_s=startup_wait_s,
             startup_remaining_s=startup_remaining_s,
+            scan_in_progress=bool(getattr(self, '_scan_in_progress', False)),
         )
         return self.state.snapshot()
 
@@ -381,7 +492,12 @@ class PiBooterController:
 
     def _run_connection_attempt(self, ssid: str, password: str, hidden: bool) -> None:
         with self._connection_lock:
-            result = self.network.connect_to_wifi(ssid=ssid, password=password, hidden=hidden)
+            try:
+                result = self.network.connect_to_wifi(ssid=ssid, password=password, hidden=hidden)
+            except Exception as exc:
+                # An unexpected NetworkManager error must not leave the UI
+                # stuck forever in the "connecting" state.
+                result = CommandResult(ok=False, stderr=f"NetworkManager connection error: {exc}")
             if result.ok:
                 lan_ip, gateway_ip = self._wait_for_router_ip()
                 last_status = self.status_store.save(
@@ -416,7 +532,18 @@ class PiBooterController:
                     time.sleep(delay_s)
                 self.request_shutdown(reason=f"Wi-Fi connected successfully. Saved last known IP: {success_target}.", stop_hotspot=False)
             else:
-                error_message = result.stderr or result.stdout or "Unknown nmcli error."
+                # A failed nmcli command may echo Wi-Fi secrets or command
+                # arguments in its stderr. Classify the failure instead of
+                # publishing raw process output to the phone UI or web logs.
+                raw_failure = str(result.stderr or result.stdout or "").lower()
+                if any(word in raw_failure for word in ("secrets", "password", "authentication", "auth failed")):
+                    error_message = "Wi-Fi authentication failed. Check the password and retry."
+                elif any(word in raw_failure for word in ("not found", "no network", "ssid")):
+                    error_message = "Wi-Fi network not found. Check the SSID and signal, then retry."
+                elif any(word in raw_failure for word in ("timed out", "timeout")):
+                    error_message = "Wi-Fi connection timed out. Check the signal and retry."
+                else:
+                    error_message = "NetworkManager could not connect. Check the network settings and retry."
                 self.state.log(f"Wi-Fi connection failed for {ssid}: {error_message}", level="error")
                 self.state.update(
                     connection_attempt={
@@ -473,8 +600,14 @@ class PiBooterController:
         return False, message
 
     def rescan(self) -> None:
-        self.get_scan_results(force_rescan=True)
-        self.refresh_state(ensure_hotspot=False)
+        # Diagnostic only: expose an in-flight scan, never change the setup
+        # session/window policy or use the scan to authorize a connection.
+        self._scan_in_progress = True
+        try:
+            self.get_scan_results(force_rescan=True)
+            self.refresh_state(ensure_hotspot=False)
+        finally:
+            self._scan_in_progress = False
 
     def request_shutdown(self, reason: str, stop_hotspot: bool = False) -> None:
         if self._shutdown_requested.is_set():
@@ -517,7 +650,7 @@ class PiBooterController:
 
 class RequestHandler(BaseHTTPRequestHandler):
     controller: PiBooterController
-    server_version = "PiBooter/0.1.3"
+    server_version = "PiBooter/0.1.8"
 
     def do_GET(self) -> None:  # noqa: N802
         self.controller.note_http_activity(self.path, self.client_address[0])
@@ -528,6 +661,9 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
         if path == "/api/status":
             self.handle_status_json()
+            return
+        if path == "/api/recent-events":
+            self.handle_recent_events_json()
             return
         if path == "/api/networks":
             self.handle_networks_json()
@@ -660,12 +796,15 @@ class RequestHandler(BaseHTTPRequestHandler):
         return f'<div class="notice {level_class}">{html.escape(message)}</div>'
 
     def render_index_body(self, snapshot: dict[str, Any]) -> str:
-        phase = snapshot.get("phase", "idle")
+        onboarding = project_onboarding(snapshot)
+        phase = onboarding["state"]
         status_class = {
             "connected": "status-connected",
-            "hotspot": "status-hotspot",
+            "ready": "status-ready",
+            "scanning": "status-scanning",
             "connecting": "status-connecting",
-            "error": "status-error",
+            "failed": "status-failed",
+            "window_closing": "status-window_closing",
             "starting": "status-starting",
         }.get(phase, "status-idle")
         network = snapshot.get("network", {})
@@ -679,15 +818,21 @@ class RequestHandler(BaseHTTPRequestHandler):
         device_rows = "".join(
             f"<tr><td>{html.escape(row.get('device', ''))}</td><td>{html.escape(row.get('type', ''))}</td><td>{html.escape(row.get('state', ''))}</td><td>{html.escape(row.get('connection', ''))}</td></tr>"
             for row in devices
-        ) or '<tr><td colspan="4" class="muted">No network devices reported yet.</td></tr>'
+        ) or '<tr><td colspan="4" class="muted">No network devices reported. Check the Pi Wi-Fi adapter.</td></tr>'
 
         networks_table = self.render_scan_results(snapshot.get("scan_results", []))
         known_table = self.render_known_connections(snapshot.get("known_connections", []), self.controller.csrf_token)
-        logs_text = self.render_logs(snapshot.get("logs", []))
+        safe_events = project_recent_events(snapshot.get("logs", []))
+        logs_text = "\n".join(
+            f"{event['timestamp_utc']} · {event['title']} · {event['outcome']}"
+            for event in safe_events
+        ) or "No relevant operator events yet."
         csrf_input = f'<input type="hidden" name="csrf_token" value="{html.escape(self.controller.csrf_token, quote=True)}">'
-        chip_message = html.escape(snapshot.get("message", ""))
+        chip_message = html.escape(onboarding["summary"])
+        guidance_text = html.escape(onboarding["next_action"])
         session_state = "Locked open" if snapshot.get("session_active") else "Waiting for first client"
-        startup_remaining = "Locked" if snapshot.get("session_active") else str(snapshot.get("startup_remaining_s", 0))
+        startup_remaining = ("Held open by detected setup activity" if snapshot.get("session_active")
+                             else f"{snapshot.get('startup_remaining_s', 0)}s before automatic exit")
 
         hotspot_block = ""
         if hotspot:
@@ -706,7 +851,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         client_rows = "".join(
             f"<tr><td class='mono'>{html.escape(row.get('ip', ''))}</td><td class='mono'>{html.escape(row.get('mac', ''))}</td><td>{html.escape(row.get('state', ''))}</td></tr>"
             for row in hotspot_clients
-        ) or '<tr><td colspan="3" class="muted">No hotspot client detected yet.</td></tr>'
+        ) or '<tr><td colspan="3" class="muted">No hotspot client yet. Connect your phone to the setup hotspot.</td></tr>'
 
         manual_form = f"""
         <div class="card">
@@ -745,8 +890,11 @@ class RequestHandler(BaseHTTPRequestHandler):
         <div class="grid">
           <div class="card">
             <h2>Current status</h2>
-            <p><span id="runtime-status" class="status-pill {status_class}">{html.escape(phase.upper())}</span></p>
+            <p><span id="runtime-status" class="status-pill {status_class}">{html.escape(onboarding["headline"])}</span></p>
             <p id="runtime-message">{chip_message}</p>
+            <div class="onboarding-next" id="setup-guidance" data-state="{html.escape(phase, quote=True)}" role="status" aria-live="polite">
+              <strong>Next action</strong><span id="setup-next-action">{guidance_text}</span>
+            </div>
             <dl>
               <dt>Active connection</dt><dd id="active-connection">{html.escape(active_connection)}</dd>
               <dt>Primary IP</dt><dd id="active-ip" class="mono">{html.escape(primary_ip)}</dd>
@@ -757,7 +905,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             <h2>Boot window</h2>
             <dl>
               <dt>Session state</dt><dd id="session-state">{html.escape(session_state)}</dd>
-              <dt>First-client wait</dt><dd><span id="startup-remaining">{html.escape(startup_remaining)}</span> second(s)</dd>
+              <dt>First-client wait</dt><dd id="startup-remaining">{html.escape(startup_remaining)}</dd>
               <dt>Rule</dt><dd class="small">PiBooter exits if no hotspot client and no web request arrives within {int(self.controller.config['server']['startup_wait_s'])} seconds.</dd>
             </dl>
           </div>
@@ -807,7 +955,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         <div class="grid">
           <div class="card">
             <h2>Network devices</h2>
-            <table>
+            <table class="device-table">
               <thead><tr><th>Device</th><th>Type</th><th>State</th><th>Connection</th></tr></thead>
               <tbody>{device_rows}</tbody>
             </table>
@@ -818,22 +966,32 @@ class RequestHandler(BaseHTTPRequestHandler):
           </div>
         </div>
         <div class="card">
-          <h2>Recent log</h2>
-          <pre>{html.escape(logs_text)}</pre>
+          <details id="recent-events-panel">
+            <summary>Recent operator events (sanitized)</summary>
+            <p class="muted small">Only recognized actions and outcomes; Wi-Fi names, passwords, client addresses and raw network tool errors are omitted. This component does not control motors.</p>
+            <div class="btn-row">
+              <button class="btn-secondary" id="refresh-recent-events" type="button">Refresh events</button>
+              <button class="btn-secondary" id="copy-recent-events" type="button">Copy events</button>
+            </div>
+            <p id="recent-events-status" role="status" aria-live="polite"></p>
+            <pre id="recent-events-output" tabindex="0">{html.escape(logs_text)}</pre>
+          </details>
         </div>
         """
 
     @staticmethod
     def render_scan_results(networks: list[dict[str, Any]]) -> str:
         if not networks:
-            return '<p class="muted">No nearby Wi-Fi networks are cached yet. Use the manual form below if needed.</p>'
+            return '<p class="muted">No Wi-Fi networks found. Select Refresh scan or enter the SSID below.</p>'
         rows = []
         for item in networks:
             ssid = item.get("ssid") or "(hidden network)"
             use_button = ""
             if item.get("ssid"):
                 quoted_ssid = html.escape(json.dumps(item.get("ssid")), quote=True)
-                use_button = f'<button class="btn-secondary" type="button" onclick="fillSsid({quoted_ssid})">Use this network</button>'
+                use_button = (f'<button class="btn-secondary" type="button" '
+                              f'aria-label="Use Wi-Fi network {html.escape(item.get("ssid", ""), quote=True)}" '
+                              f'onclick="fillSsid({quoted_ssid})">Use this network</button>')
             rows.append(
                 "<tr>"
                 f"<td><div class='network-name'>{html.escape(ssid)}</div></td>"
@@ -844,14 +1002,15 @@ class RequestHandler(BaseHTTPRequestHandler):
                 "</tr>"
             )
         return (
-            "<table><thead><tr><th>SSID</th><th>Signal</th><th>Security</th><th>Channel</th><th></th></tr></thead>"
-            f"<tbody>{''.join(rows)}</tbody></table>"
+            "<div class='network-table-wrap' role='region' aria-label='Nearby Wi-Fi networks, horizontally scrollable' tabindex='0'>"
+            "<table class='scan-network-table'><thead><tr><th>SSID</th><th>Signal</th><th>Security</th><th>Channel</th><th>Choose network</th></tr></thead>"
+            f"<tbody>{''.join(rows)}</tbody></table></div>"
         )
 
     @staticmethod
     def render_known_connections(connections: list[dict[str, str]], csrf_token: str = '') -> str:
         if not connections:
-            return '<p class="muted">No saved Wi-Fi profiles yet.</p>'
+            return '<p class="muted">No saved Wi-Fi profiles. Connect the Pi to Wi-Fi to create one.</p>'
         rows = []
         for item in connections:
             rows.append(
@@ -862,12 +1021,14 @@ class RequestHandler(BaseHTTPRequestHandler):
                 "<form method='post' action='/forget' style='display:inline;'>"
                 f"<input type='hidden' name='csrf_token' value='{html.escape(csrf_token, quote=True)}'>"
                 f"<input type='hidden' name='name' value='{html.escape(item.get('name', ''))}'>"
-                "<button class='btn-danger' type='submit'>Forget</button>"
+                f"<button class='btn-danger' type='submit' aria-label='Forget saved Wi-Fi {html.escape(item.get('name', ''), quote=True)}'>Forget</button>"
                 "</form>"
                 "</td>"
                 "</tr>"
             )
-        return "<table><thead><tr><th>Name</th><th>Autoconnect</th><th></th></tr></thead>" f"<tbody>{''.join(rows)}</tbody></table>"
+        return ("<div class='network-table-wrap' role='region' aria-label='Saved Wi-Fi profiles, horizontally scrollable' tabindex='0'>"
+                "<table class='saved-profile-table'><thead><tr><th>Name</th><th>Autoconnect</th><th>Forget profile</th></tr></thead>"
+                f"<tbody>{''.join(rows)}</tbody></table></div>")
 
     @staticmethod
     def render_logs(logs: list[dict[str, Any]]) -> str:
@@ -884,6 +1045,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         payload = {
             "phase": snapshot.get("phase"),
             "message": snapshot.get("message"),
+            "onboarding": project_onboarding(snapshot),
             "primary_ip": snapshot.get("primary_ip"),
             "active_connection": snapshot.get("active_connection"),
             "connection_attempt": snapshot.get("connection_attempt"),
@@ -894,6 +1056,15 @@ class RequestHandler(BaseHTTPRequestHandler):
             "startup_remaining_s": snapshot.get("startup_remaining_s"),
         }
         self.send_json(payload)
+
+    def handle_recent_events_json(self) -> None:
+        # Read only the already bounded RuntimeState log; never scan or reconnect Wi-Fi.
+        snapshot = self.controller.state.snapshot()
+        self.send_json({
+            "ok": True, "capacity": 80,
+            "events": project_recent_events(snapshot.get("logs", [])),
+            "note": "Sanitized recent operator transitions only; no motor controls in PiBooter.",
+        })
 
     def handle_networks_json(self) -> None:
         snapshot = self.controller.state.snapshot()

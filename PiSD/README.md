@@ -1,5 +1,94 @@
 # PiSD
 
+## R48 read-only startup preflight (0.11.21)
+
+The PiSD **front page** now has a collapsed **Startup preflight** with
+**Refresh checks**. Its only request is `GET /api/preflight`. The server
+reads the existing camera/motor/AI status snapshots and passive
+`shutil.disk_usage`; no camera start, motor update/stop, model load,
+settings reset, subprocess or new network probe occurs.
+
+Six concise rows show requested vs actual service mode (simulation and
+hardware **must not** be conflated), whether the Picamera2 camera is
+actually running, whether an AI model is ready and TFLite runtime imports
+appear available, actual GPIO adapter vs simulation/fallback and the
+camera-fault safety latch, available recording disk space, and HTTP reachability
+**to this PiSD process only**. Internet/router/Wi-Fi connectivity is not
+claimed, and unknown disk data contains no exception/absolute path.
+
+To run targeted tests from repository root:
+```bash
+cd PiSD
+python -m unittest discover -s scripts -p 'test_preflight_r48.py' -v
+cd ..
+node --test PiSD/scripts/test_preflight_ui_r48.cjs
+```
+Release requires real Pi hardware/simulation checks, TFLite installed/missing,
+camera off/on, missing model and low disk, plus R35 STOP, R43 hidden-tab
+MJPEG and complete PiSD regression suites. The existing PiSD.py launcher
+and `pisd.service` hardware selection are not modified.
+
+## R47 failed-request trace IDs and safe PiSD error history (0.11.20)
+
+Each unsuccessful `/api/*` mutation (including `HTTP 200` with
+`ok:false`) keeps the previous error/status-code contract and gains a
+server-issued `correlation_id`, `operation` and `X-Correlation-ID`
+response header. A matching bounded log line is emitted as
+`api_mutation_failure id=<ID> operation=<name> http_status=<status>`.
+Neither the request body nor operator secrets/paths are logged by this
+hook. Lookup is via the PiSD process log (e.g. `journalctl -u pisd` if
+that service name is configured). IDs are not accepted from clients.
+
+Manual Drive and AI Mode expose **Error details** next to existing
+status/log text, limited to the reference, operation, HTTP status and
+existing PiSD error code. Rejected camera Start, STOP, driving or recording
+commands are not incorrectly reported as confirmed. Existing latched
+safety, hardware-control and R43 hidden MJPEG handling are untouched.
+`ErrorReport.as_dict()` now scrubs credential/absolute path values from
+`/api/errors`, error status histories and embedded `error` diagnostics;
+traceback text is never exported, even in explicitly requested history
+views. No new persistent error stores or cloud exports.
+
+Tests (repo root):
+```bash
+python -m unittest discover -s PiSD/scripts -p 'test_request_trace_r47.py' -v
+node --test PiSD/scripts/test_request_trace_ui_r47.cjs
+```
+Review actual Pi response status and physical safety behavior on device:
+invalid settings, rejected camera Start, motor STOP fail and AI preview/drive
+safety, HTTP 200/400/500 errors, and error-history redaction.
+
+## Hidden-tab MJPEG bandwidth (0.11.18, R43)
+
+Manual Drive and AI Mode close their browser `/video_feed` MJPEG connection
+when the tab becomes hidden, and restore it on visibility **only if live
+preview was still selected**. The legacy bench dashboard follows the same
+behavior. The server-side camera, recording and motor services are **not**
+stopped by this display-only change. The existing Manual Drive fail-safe
+STOP on hide and AI correction/manual/assist/AI stop handlers run before
+the stream is paused. The existing per-page preview-FPS polls and readiness
+checks remain guarded. AI Mode's 250 ms **read-only UI status timer** skips
+hidden tabs and coalesces in-flight reads; it does not change the actual
+AI model inference or motor-control loop frequency.
+
+PiSD already supplies server `timestamp_utc` status freshness and measured
+frame sequence/age via `/api/camera/fps-stats`; R43 does not replace these
+with client wall-clock guesses.
+
+**Expected bandwidth profile:** a visible live MJPEG connection keeps a
+single long-lived HTTP response continuously streaming JPEG frames; a
+hidden tab now closes that response, targeting **zero hidden-tab MJPEG
+payload bytes**. There is no meaningful requests-per-minute value for a
+single long-lived stream. Actual bytes/sec saved depend on the camera
+codec, frame size/rate and browser connection lifetime and are **not
+measured** in this environment.
+
+Run `node --test PiSD/scripts/test_adaptive_stream_r43.cjs` from the
+monorepo root. Before release, capture HTTP/network bytes for active,
+hidden and visible-again scenarios and verify immediate fresh server frame
+sequence/age, motor STOP/Space STOP, AI stop, recording continuity and
+the latest R35/R36 responsive layouts on actual Raspberry Pi hardware.
+
 ## Model compatibility and rollback (0.11.12, U27)
 
 PiSD understands optional `<model>.tflite.manifest.json` and

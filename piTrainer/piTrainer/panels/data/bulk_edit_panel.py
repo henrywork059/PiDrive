@@ -40,12 +40,15 @@ class BulkEditPanel(QGroupBox):
         help_label.setProperty('role', 'muted')
         help_label.setWordWrap(True)
 
-        self.selected_label = QLabel('Selected: 0')
+        self.selected_label = QLabel('Selected visible: 0')
         self.selected_label.setProperty('role', 'summaryLine')
 
         self.select_all_btn = QPushButton('Select Visible')
         self.select_all_btn.setProperty('role', 'amber')
-        self.select_all_btn.setToolTip('Select every visible row before bulk editing.')
+        self.select_all_btn.setToolTip(
+            'Select every currently displayed Records row, not all active frames. '
+            'Generated derivatives are excluded from Data review by default.'
+        )
         self.select_all_btn.clicked.connect(self._select_all_visible_frames)
 
         self.confirm_bulk_check = QCheckBox('Confirm Overwrite')
@@ -113,7 +116,7 @@ class BulkEditPanel(QGroupBox):
     def set_selected_count(self, count: int) -> None:
         self._selected_count = max(0, int(count))
         noun = 'frame' if self._selected_count == 1 else 'frames'
-        self.selected_label.setText(f'Selected: {self._selected_count} {noun}')
+        self.selected_label.setText(f'Selected visible: {self._selected_count} {noun}')
         self._update_button_state()
 
     def bulk_edit_confirmed(self) -> bool:

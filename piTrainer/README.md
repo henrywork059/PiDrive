@@ -1,5 +1,170 @@
 # piTrainer
 
+## Training run comparison and provenance (0.11.7, R40)
+
+The **Train → Compare** tab lists recorded runs from the current working
+folder's `training_runs/` directory. Select two runs by their stable 32-character
+**run IDs** to compare the actual training/validation row counts, source-session
+groups, configured split mode, effective split/training seeds, validation
+ratio, and input identity-and-label SHA-256,
+applied preprocessing **recipe-settings SHA-256**, model settings, epoch count,
+loss curves' final/best metrics, and linked model paths.
+
+- Each run produces `training_runs/<run_id>.json` with explicit
+  **succeeded**, **failed**, or **cancelled** status. Partial training histories
+  are flagged as partial; they are never silently treated as a successful model.
+  Experiment summaries are written with a same-directory staged file and
+  atomic replacement. Repeated runs get unique IDs rather than overwriting
+  previous records. The training plot and R39 stop/progress behavior are unchanged.
+- A model saved with **Save Model** or exported while it is the currently
+  tracked in-memory trained model gets an additional
+  `<model filename>.experiment.json` sidecar. This references the run ID
+  and the **verified model SHA-256** from the pre-existing
+  `<model filename>.manifest.json`. It does not replace or modify that
+  deployment compatibility manifest. Multiple exports append to the
+  same run's artifact list.
+- **Inspect Model** in Compare reads the experiment sidecar of any selected
+  `.keras` or `.tflite` file. It validates its exact path and U27 model
+  checksum before displaying the related run ID. Models without an R40
+  experiment sidecar, or whose metadata cannot be verified, display
+  **Unknown** rather than guessing which training session they came from.
+- A preprocessing SHA-256 identifies the **applied recipe settings** when
+  available. It does **not** hash raw image bytes or guarantee the underlying
+  recording files have remained unchanged. The separate
+  `identity_label_sha256` fingerprint records the effective train/validation
+  row identities and steering/throttle values, not the image content.
+  Absent input fields, val_loss or historical records are **Unknown**, not 0.
+  `final_val_loss` reflects the final reported training epoch; with restored
+  best weights, it need not equal the loss measured on the saved model.
+- This first iteration keeps lightweight JSON sidecars, **no database**. It
+  records training-history validation losses, not additional post-training
+  Keras/TFLite inference scores. Model/manifest/experiment sidecars should
+  remain together when preserving reproducible experiment provenance.
+
+Run the focused tests locally:
+
+```bash
+cd piTrainer
+python -m unittest discover -s tests -p "test_train_runs_r40.py" -v
+python -m unittest discover -s tests -v
+```
+
+Before promoting from draft, check actual Windows PySide6 UI comparison,
+model save/export including `.experiment.json` linkage, a failed/cancelled
+training run, corrupt/missing historical files, navigation between working
+folders, and prior R37–R39 data/preview/task behavior.
+
+## Unified background-task progress (0.11.6, R39)
+
+The **Preprocess**, **Train**, **Validate**, **Export**, and **TFLite Check**
+pages now show the running operation and its current step. Preprocessing
+preview/application/dataset save, trained-model save, model export and both
+validation modes use background QThreads so their long calculation or file
+write does not synchronously block the Qt user interface. A single operation
+runs at a time across these pages to avoid concurrent model use and
+conflicting dataset changes. Attempting to close the window while a worker
+is active is refused until it finishes.
+
+Training continues to show a real percent complete after each epoch.
+The existing **Stop** button requests an orderly stop at an epoch boundary:
+a user-stopped run is **Cancelled**, not **Succeeded**, and its partial
+weights are not adopted as a new model. Normal early stopping is still a
+successful completion. Other long operations have no Stop button because
+their underlying image, TensorFlow conversion, validation and file-write
+functions cannot currently be safely interrupted. Their progress bar remains
+indeterminate rather than inventing a percentage.
+
+Saved trained models and exports are marked **Succeeded** only after both
+the model and its checksum-bound manifest exist and are nonempty. Saved
+preprocessed datasets require a nonempty CSV, JSONL, and recipe file.
+The progress display lists the **absolute folder and file paths** of
+confirmed outputs. Failures display **Failed** with no completed output
+confirmed; any partial files left by an interrupted exporter must not be
+treated as deployment-ready. Training and validation do not create files by
+themselves.
+
+On the Windows development workstation, verify with:
+
+```bash
+cd piTrainer
+python -m unittest discover -s tests -p "test_background_tasks_r39.py" -v
+python -m unittest discover -s tests -v
+```
+
+Also run real PySide6/TensorFlow smoke checks: preprocess 10,000 rows,
+save a CSV+JSONL+recipe dataset, cancel training after an epoch, complete an
+early-stopped run, save and export models with manifests, validate both
+Keras and TFLite, and try closing during an active export. Neither an
+indeterminate progress display nor unit tests prove Windows GUI thread or
+converter compatibility.
+
+## Preview performance and memory (0.11.5, R38)
+
+Image Preview now coalesces rapid row-navigation requests on the next Qt
+event-loop turn. When you change frames, the old image clears **before** the
+new frame's steering/speed labels appear; any superseded pending decode or
+resize render is cancelled. The existing 450 ms **metadata edit** debounce is
+not changed. This work does not move QPixmap/QPainter into a worker thread.
+
+The shared scaled-pixmap cache retains only unannotated image previews, with
+both its previous **96-item** cap and a new **64 MiB estimated decoded-pixel**
+budget. Cached entries include source filename, requested display size,
+horizontal-flip state, file modification time and file size. Replacing a
+source file at the same path therefore invalidates its stale cached preview.
+Overlay rendering still uses fresh copies and the existing PiSD road-guide
+geometry; horizontally flipped frames still use the original flip transform.
+The 64 MiB budget is **not** a cap on total process RSS or Qt/GPU allocations.
+
+Baseline performance was measured using the exact byte-identical
+`record_loader_service.py` from the 0.11.4 branch on Linux/Python 3.13,
+with generated 426×240 JPEG files: **250 frames** loaded in 15.69 ms
+(peak process RSS 96.02 MiB), **2,500** in 107.85 ms (98.39 MiB), and
+**10,000** in 501.21 ms (112.22 MiB). These are one-run controlled
+synthetic-session observations, **not** predictions of Windows or Pi
+performance. The loader's image-path resolution and dataframe schema were
+not changed by R38.
+
+Reproduce the loader/peak-RSS benchmark on the target workstation:
+
+```bash
+cd piTrainer
+python tests/benchmark_preview_r38.py --counts 250 2500 10000
+python tests/benchmark_preview_r38.py --counts 250 2500 10000 --qt-preview
+python -m unittest discover -s tests -p 'test_preview_r38.py' -v
+```
+
+The optional `--qt-preview` run uses an offscreen PySide6 application and
+actual scaled pixmaps; it is necessary to measure native Qt preview costs.
+Tests based on mock pixmaps validate the cache and cancellation policy but
+do not replace real Windows image, overlay and flip verification.
+
+## Data selection scope (0.11.4, R37)
+
+The **Records** review table now shows a compact read-only scope strip:
+**Visible**, **Selected visible**, **All active**, **Hidden**, and
+**Generated**. Visible frames are filtered source rows currently in the
+Records table. Selected visible means the actual selected table rows, even
+after sorting. All active means all non-hidden frames loaded from the
+currently loaded sessions (including generated variants and frames excluded
+by the preview filter). Hidden counts distinct frames marked hidden in the
+loaded sessions' JSONL metadata. Generated is the number of active
+synthetic derivatives; they are normally excluded from editable Data review.
+If hidden metadata cannot be read, the strip shows **Unavailable**, not 0.
+
+**Bulk Edit, Hide Selected, and Apply AI Output** operate on selected visible
+rows, **not all active frames**. Their confirmation messages say how many
+selected visible rows are targeted and explicitly disclose whether generated
+derivatives are present. Multi-frame Hide Selected requires an additional
+confirmation; existing Confirm Hide and Confirm Overwrite safety checkboxes
+remain mandatory. **Select Visible** selects just the currently filtered
+preview rows. Sort order, source-row identities, Validation → Edit in Data →
+Return navigation, and the read-only QAbstractTableModel are unchanged.
+
+Hidden metadata is counted when the sessions are loaded or reloaded after
+recovery; it is not re-scanned on every selection change. If an external
+program changes JSONL files during a session, reload the sessions to refresh
+the hidden total before performing a bulk operation.
+
 ## Model deployment manifests (0.11.3, U27)
 
 Exporting a steering model as `.keras` or `.tflite`, or using the

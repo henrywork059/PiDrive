@@ -4,6 +4,7 @@ import pandas as pd
 from PySide6.QtWidgets import QMessageBox
 
 from ..services.data.delete_service import hide_frames_from_training, purge_hidden_frames, recover_hidden_frames
+from ..services.data.selection_scope import selected_visible_impact
 from ..services.data.stats_service import calculate_basic_stats
 
 
@@ -146,6 +147,20 @@ class DataPageVisibilityMixin:
             )
             return
 
+        if len(records) > 1:
+            confirm = QMessageBox.warning(
+                self,
+                'Hide Selected Visible Frames?',
+                f'{selected_visible_impact(records)}\n'
+                f'All active loaded frames: {len(self.state.dataset_df)} (not all targeted).\n\n'
+                'The selected frames will be hidden from training; their images stay on disk. Continue?',
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No,
+            )
+            if confirm != QMessageBox.Yes:
+                self.main_window.set_status_message('Hide selected frames cancelled.')
+                return
+
         identities = [self._record_identity(record) for record in records]
         try:
             result = hide_frames_from_training(self.state.records_root_path, records)
@@ -155,6 +170,14 @@ class DataPageVisibilityMixin:
         hidden_count = int(result.get('hidden_count', 0) or 0)
         metadata_rows_changed = int(result.get('metadata_rows_changed', 0) or 0)
         failed_messages = list(result.get('failed_messages', []))
+
+        if failed_messages:
+            # A partial metadata failure can leave the disk total uncertain.
+            # Explicitly request a reload rather than displaying a false zero
+            # or an optimistic increment in the selection-scope toolbar.
+            self._loaded_hidden_count = None
+        elif hidden_count and self._loaded_hidden_count is not None:
+            self._loaded_hidden_count += hidden_count
 
         if hidden_count:
             self._hide_records_from_loaded_data(identities)

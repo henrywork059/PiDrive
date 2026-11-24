@@ -38,6 +38,7 @@
   };
 
   let statusTimer = null;
+  let statusPollInFlight = false;
   let aiRunning = false;
   let recordingRunning = Boolean(initial.recording?.running);
   let overlayEnabled = true;
@@ -163,7 +164,26 @@
   function log(message, payload) {
     const time = new Date().toLocaleTimeString();
     const body = payload ? `${message}\n${JSON.stringify(payload, null, 2)}` : message;
-    if (els.aiLog) els.aiLog.textContent = `[${time}] ${body}`;
+    if (els.aiLog) els.aiLog.textContent = '[' + time + '] ' + body;
+    // Only a validated server ID/operation/status enters the expandable UI.
+    document.getElementById('aiTraceDetails')?.remove();
+    const id = String(payload?.correlation_id || '');
+    if (els.aiLog?.parentNode && /^[0-9a-f]{16}$/.test(id)) {
+      const details = document.createElement('details');
+      details.id = 'aiTraceDetails';
+      const summary = document.createElement('summary');
+      summary.textContent = 'Error details';
+      const trace = document.createElement('span');
+      const operation = String(payload?.operation || '');
+      const safeOperation = /^[a-zA-Z0-9_.-]{1,64}$/.test(operation) ? operation : 'unknown';
+      const code = String(payload?.code || '');
+      trace.textContent = ' Ref ' + id + ' · ' + safeOperation +
+        ' · HTTP ' + Number(payload?.status || 0) +
+        (/^[A-Z0-9_-]{1,48}$/.test(code) ? ' · ' + code : '');
+      details.appendChild(summary);
+      details.appendChild(trace);
+      els.aiLog.parentNode.insertBefore(details, els.aiLog.nextSibling);
+    }
   }
 
 
@@ -218,8 +238,16 @@
     });
     const data = await response.json().catch(() => ({ ok: false, message: `HTTP ${response.status}` }));
     if (!response.ok || data.ok === false) {
-      const message = data.message || `Request failed: ${path}`;
-      throw Object.assign(new Error(message), { payload: data, status: response.status });
+      const traceId = String(data?.correlation_id || '');
+      const traced = /^[0-9a-f]{16}$/.test(traceId);
+      const message = traced
+        ? 'AI request failed. Check Pi readiness and the model, then retry.'
+        : (data.message || 'AI request failed. Check the Pi, then retry.');
+      const safePayload = traced
+        ? { ok: false, code: data.code || '', correlation_id: traceId,
+            operation: data.operation || '', status: response.status }
+        : data;
+      throw Object.assign(new Error(message), { payload: safePayload, status: response.status });
     }
     return data;
   }
@@ -581,7 +609,7 @@
         if (!models.length) {
           const opt = document.createElement('option');
           opt.value = '';
-          opt.textContent = 'No model files found in PiSD/models';
+          opt.textContent = 'No models on Pi — upload .keras or .tflite';
           els.aiModelSelect.appendChild(opt);
         } else {
           models.forEach((model) => {
@@ -592,7 +620,7 @@
           });
         }
       }
-      log('Model list refreshed.', { count: models.length, supported_extensions: data.supported_extensions });
+      log(models.length ? 'Model list refreshed.' : 'No AI models on Pi. Upload a .keras or .tflite file.', { count: models.length, supported_extensions: data.supported_extensions });
       return models;
     } catch (err) {
       log(err.message, err.payload || {});
@@ -795,6 +823,7 @@
     if (!tab) return;
     tab.classList.toggle('is-active', Boolean(active));
     tab.setAttribute('aria-selected', String(Boolean(active)));
+    tab.tabIndex = active ? 0 : -1;
   }
 
   function resetCorrectionKeyboardState() {
@@ -1128,12 +1157,9 @@
   function shortcutBlocked() {
     const active = document.activeElement;
     if (!active || active === document.body || active === document.documentElement || active === els.aiCorrectionPad || active === els.aiManualDrivePad || active === els.aiAssistPad) return false;
-    const tag = String(active.tagName || '').toLowerCase();
-    if (tag === 'input') {
-      const type = String(active.type || '').toLowerCase();
-      return !['checkbox', 'button', 'submit', 'reset'].includes(type);
-    }
-    if (['select', 'textarea'].includes(tag)) return true;
+    // R35: native button/checkbox/field activation must not become a motor
+    // shortcut while keyboard focus is inside a control.
+    if (active.closest?.('button, a[href], input, select, textarea, [role="button"], [role="tab"], [role="checkbox"], [role="switch"]')) return true;
     return Boolean(active.isContentEditable);
   }
 
@@ -1194,13 +1220,13 @@
     els.aiPreviewFrame.dataset.previewState = mode;
     els.aiPreviewFrame.dataset.previewMode = mode;
     els.aiPreviewImage.dataset.previewMode = mode;
-    els.aiPreviewImage.src = src || IDLE_PREVIEW_SRC;
+    els.aiPreviewImage.src = mode === 'live' && document.hidden ? IDLE_PREVIEW_SRC : (src || IDLE_PREVIEW_SRC);
     els.aiPreviewCaption.textContent = mode === 'live'
       ? 'Live stream running. The overlay is drawn from the latest corrected AI safe command.'
       : mode === 'snapshot'
         ? 'Snapshot preview loaded. Run AI preview/predict once to update the AI model overlay.'
         : mode === 'error'
-          ? 'Preview error.'
+          ? 'Camera preview unavailable. Check camera, then Start live again.'
           : 'Preview is idle. Start live first, then use AI preview to see the model-predicted safe path overlay before enabling AI drive.';
   }
 
@@ -1278,7 +1304,7 @@
   async function deleteSelectedModel() {
     const modelId = els.aiModelSelect?.value || '';
     if (!modelId) {
-      log('No model selected to delete.');
+      log('No model selected. Choose a model from the list first.');
       return;
     }
     const ok = window.confirm(`Delete model from PiSD/models?\n\n${modelId}`);
@@ -1391,10 +1417,18 @@
   function startStatusLoop() {
     if (statusTimer) return;
     statusTimer = setInterval(async () => {
-      const data = await refreshStatus();
-      if (!((data || {}).ai || {}).running) {
-        clearInterval(statusTimer);
-        statusTimer = null;
+      // R43: this is read-only UI observation, NOT the AI prediction/control loop.
+      // The existing tab-hide safety stop still runs independently.
+      if (document.hidden || statusPollInFlight) return;
+      statusPollInFlight = true;
+      try {
+        const data = await refreshStatus();
+        if (data && !((data || {}).ai || {}).running) {
+          clearInterval(statusTimer);
+          statusTimer = null;
+        }
+      } finally {
+        statusPollInFlight = false;
       }
     }, 250);
   }
@@ -1470,6 +1504,18 @@
     if (els.aiCorrectionTab) els.aiCorrectionTab.addEventListener('click', () => setOutputPanel('correction', true));
     if (els.aiManualDriveTab) els.aiManualDriveTab.addEventListener('click', () => setOutputPanel('manual', true));
     if (els.aiAssistTab) els.aiAssistTab.addEventListener('click', () => setOutputPanel('assist', true));
+    // R35: ARIA tablist uses arrow/Home/End navigation. Activation goes through
+    // the same existing click handler; no new motor or authorization path.
+    const outputTabs = [els.aiManualDriveTab, els.aiAssistTab, els.aiCorrectionTab, els.aiLimiterTab].filter(Boolean);
+    outputTabs.forEach((tab, index) => tab.addEventListener('keydown', event => {
+      const key = event.key;
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(key)) return;
+      event.preventDefault();
+      const target = key === 'Home' ? 0 : key === 'End' ? outputTabs.length - 1
+        : (index + (key === 'ArrowRight' ? 1 : -1) + outputTabs.length) % outputTabs.length;
+      outputTabs[target].focus();
+      outputTabs[target].click();
+    }));
     if (els.aiCorrectionPad) {
       els.aiCorrectionPad.addEventListener('pointerdown', (event) => {
         if (!correctionPanelActive) return;
@@ -1750,7 +1796,22 @@
       if (aiAssistPanelActive()) navigator.sendBeacon?.('/api/control/stop', new Blob([JSON.stringify({ reason: 'ai-assist-pagehide' })], { type: 'application/json' }));
       if (aiRunning) navigator.sendBeacon?.('/api/ai/stop', new Blob([JSON.stringify({})], { type: 'application/json' }));
     });
-    document.addEventListener('visibilitychange', () => { if (document.hidden) { resetManualCorrection('ai-correction-hidden'); if (manualDrivePanelActive()) stopFullManualDrive('ai-manual-hidden'); if (aiAssistPanelActive()) stopAssistDrive('ai-assist-hidden'); if (aiRunning) navigator.sendBeacon?.('/api/ai/stop', new Blob([JSON.stringify({})], { type: 'application/json' })); } });
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        // Existing safety STOP paths take precedence over stream throttling.
+        resetManualCorrection('ai-correction-hidden');
+        if (manualDrivePanelActive()) stopFullManualDrive('ai-manual-hidden');
+        if (aiAssistPanelActive()) stopAssistDrive('ai-assist-hidden');
+        if (aiRunning) navigator.sendBeacon?.('/api/ai/stop', new Blob([JSON.stringify({})], { type: 'application/json' }));
+        if (els.aiPreviewFrame?.dataset.previewMode === 'live' && els.aiPreviewImage) {
+          els.aiPreviewImage.src = IDLE_PREVIEW_SRC; // close hidden MJPEG HTTP stream
+        }
+      } else if (els.aiPreviewFrame?.dataset.previewMode === 'live' && els.aiPreviewImage) {
+        els.aiPreviewImage.src = `/video_feed?t=${Date.now()}`;
+        void refreshStatus(); // immediate full UI state after hidden stop
+        void pollOperatingReadiness(); // immediate fresh server state
+      }
+    });
   }
 
   enforceFullScaleThrottleRanges();

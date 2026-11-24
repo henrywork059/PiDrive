@@ -48,6 +48,25 @@ class U28SafetyRearmTests(unittest.TestCase):
         self.ai.stop()
         self.assertTrue(self.ai.safety_status()["latched"])
 
+    def test_repeated_stop_preserves_latch_until_checked_rearm(self):
+        camera, motor = FakeCamera(), FakeMotor()
+        for _ in range(2):
+            self.ai.stop(motor)
+            self.assertTrue(self.ai.safety_status()["latched"])
+            self.assertFalse(self.ai.safety_status()["motion_allowed"])
+        self.assertFalse(self.ai.rearm_camera_fault(
+            FakeCamera(progresses=False), motor, confirm=True)["ok"])
+        self.assertTrue(self.ai.safety_status()["latched"])
+        self.assertTrue(self.ai.rearm_camera_fault(camera, motor, confirm=True)["ok"])
+        self.assertFalse(self.ai.safety_status()["latched"])
+        self.assertEqual(motor.stops, 3)
+
+    def test_stop_motor_failure_does_not_clear_latch(self):
+        result = self.ai.stop(FakeMotor(fail=True))
+        self.assertFalse(result.get("ok"))
+        self.assertTrue(self.ai.safety_status()["latched"])
+        self.assertFalse(self.ai.safety_status()["motion_allowed"])
+
     def test_start_does_not_implicitly_rearm(self):
         result = self.ai.start(FakeCamera(), FakeMotor(), mode="drive", safety_ack=True, enable_motor_output=True)
         self.assertFalse(result.get("ok"))

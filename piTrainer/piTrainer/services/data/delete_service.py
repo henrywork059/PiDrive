@@ -205,6 +205,16 @@ def _hidden_refs(records_root: Path, sessions: Iterable[str]) -> list[dict[str, 
     return refs
 
 
+def count_hidden_frames(records_root: Path, sessions: Iterable[str]) -> int:
+    """Count distinct hidden frames in the loaded sessions.
+
+    A frame can appear in both labels.jsonl and records.jsonl. Reuse the
+    same source-identity keys as recover/purge, so it is never counted twice.
+    Called on session load, not on each Qt selection or sort event.
+    """
+    return len({tuple(ref['key']) for ref in _hidden_refs(records_root, sessions)})
+
+
 def _recover_target_keys(refs: list[dict[str, Any]], *, recover_all: bool, count: int) -> set[tuple[str, str, str, str]]:
     if recover_all:
         return {tuple(ref['key']) for ref in refs}

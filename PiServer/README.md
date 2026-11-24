@@ -1,5 +1,136 @@
 # PiServer
 
+## R49 — Bounded recent operator events (0_4_28)
+
+The existing Status dock now includes collapsed **Recent operator events** under
+Startup preflight. Expand it and choose **Refresh events** for a read-only GET
+`/api/recent-events`. **Copy events** copies the currently displayed sanitized
+rows to the clipboard; when clipboard access is denied, select the visible
+text manually. No telemetry or continuous polling runs.
+
+The server keeps at most **128** entries in a thread-safe in-memory deque.
+Its GET returns at most **80** entries. Each contains only a UTC timestamp,
+constant operation/category/title, and `succeeded`, `failed`, `partial`
+or `observed` outcome. The HTTP response hook records selected human
+actions such as Camera/Motor Apply, model upload/load, recording, Save,
+safety rearm, and **Emergency STOP**. The 60 ms manual drive command
+endpoint is **excluded** to avoid excessive logging. R47
+`correlation_id` remains on failures; the R49 ring does not copy failure
+payloads, camera frames, exceptions, model paths, tokens or settings.
+
+This is a volatile process-local event view; it resets on server restart.
+The existing runtime, hardware stop latch, HTTP status and config
+persistence are unchanged. The copy button is not a cloud exporter.
+
+From repository root:
+```bash
+cd PiServer && python -m unittest discover -s tests -p 'test_recent_events_r49.py' -v
+cd ..
+node --test PiServer/tests/test_recent_events_ui_r49.cjs
+```
+Check real STOP/rearm, Save failures including `saved:false`, recording,
+model loading, active camera/motor and browser clipboard behavior on a Pi.
+
+## R48 passive startup preflight (0_4_27)
+
+The existing Status dock has a **collapsed, read-only Startup preflight**.
+On page load (and on **Refresh checks**), the browser sends **GET**
+`/api/preflight` only. The endpoint reads already-running camera, motor,
+model and safety service getters plus `shutil.disk_usage` for the PiServer
+project volume. It does **not** start or stop motors/camera, load a model,
+probe another device, restart a service or save/reset settings.
+
+The six checks cover service mode, camera backend, AI model, GPIO motor
+adapter/safety latch, disk free space and browser-to-PiServer HTTP reachability.
+**Simulation** is explicitly separate from hardware adapter presence;
+**adapter detected** does *not* certify safe motor output or fresh camera
+frames. "Network observed" means only this HTTP GET reached PiServer,
+not that Wi-Fi/router or internet access works. Unknown disk data is shown
+without exporting any absolute file path or exception text.
+
+Commands from the repository root:
+```bash
+cd PiServer
+python -m unittest discover -s tests -p 'test_preflight_r48.py' -v
+cd ..
+node --test PiServer/tests/test_preflight_ui_r48.cjs
+```
+The R48 Python checks import the pure formatter (no Flask, motor or camera
+initialization). On the real Pi, confirm behavior in hardware, simulation,
+low-disk and missing-model states, and confirm moving the car is impossible
+through the preflight UI. Existing STOP and Apply controls are unchanged.
+
+## R47 failed-operation trace references (0_4_26)
+
+A failed `POST`/`PUT`/`PATCH`/`DELETE` to `/api/*` returns its
+original HTTP status and JSON fields **plus** `correlation_id` (16 server-
+generated hexadecimal characters) and `operation` (safe server endpoint
+name). The response also includes `X-Correlation-ID`. This covers legacy
+`HTTP 200 + ok:false` and `saved:false` failures; successes do not get
+a new trace ID. One log line per failed mutation is emitted with
+`api_mutation_failure id=<ID> operation=<name> http_status=<status>`.
+Look up the displayed reference in the PiServer process log; never paste
+passwords, bearer tokens, full request bodies or arbitrary paths into the
+diagnostic log.
+
+Camera/Motor Apply now shows a short error and collapsible **Error details**
+containing only ID, endpoint, HTTP status and safe error code. Login/CSRF
+enforcement and saved settings readback are unchanged. The tracing hook
+redacts credentials and absolute/explicit file paths in the failure
+`message`/`error` diagnostic fields, not legitimate successful model/config
+responses. No remote telemetry or persistent event storage is added.
+
+Regression checks (from repo root):
+```bash
+python -m unittest discover -s PiServer/tests -p 'test_request_trace_r47.py' -v
+node --test PiServer/tests/test_request_trace_ui_r47.cjs
+```
+The Python suite uses a hardware-free Flask response stand-in, so it does
+not create motors or camera services. Check login 401/403, failed Apply,
+backend restart, and actual browser Error details on the real Pi before
+merging a draft.
+
+## R45 visual style contract (0_4_24)
+
+New web panels should follow [UI_DESIGN_TOKENS.md](UI_DESIGN_TOKENS.md):
+semantic status colors, compact spacing, concise STOP/Apply labels, and
+icon-size guidance. The real CSS/theme engine and the existing
+`PiServerStyleCustom:v0_3_5` preference key are unchanged. Run
+`node --test PiServer/tests/test_ui_style_tokens_r45.cjs` from repo root.
+This is a design-policy/smoke-test update, not a layout reset.
+
+## Adaptive status polling and bandwidth (0_4_23, R43)
+
+The PiServer web UI still uses its R30 single-in-flight, decoded-JPEG,
+sequence-checked camera preview, and the separate **60 ms** manual-control
+tick remains unchanged. R43 schedules **read-only status** requests adaptively:
+
+- **Active** (camera preview live, recording, manual input or pressed controls):
+  status every **800 ms**, the previous period.
+- **Idle, visible**: status every **2,500 ms**.
+- **Hidden tab**: **zero periodic HTTP status requests**; the timer checks
+  visibility every 5 seconds without a fetch. The existing visibility
+  handler still issues a best-effort zero motor command as appropriate.
+- **Failures**: exponential retry capped at **8,000 ms**; a visible-tab
+  return triggers an immediate refresh and resets backoff on success.
+  Only one status request may be in flight.
+
+The backend now publishes the additive `server_status_at_ms` field, showing
+its actual generation time in the existing status banner tooltip. The camera
+preview continues to use backend `X-Preview-Seq` and `X-Preview-Live`
+headers, not browser cache timestamps, to determine frame freshness.
+
+**Modeled traffic profile, one visible idle tab for 60 seconds (status only):**
+before 800 ms = **75 requests/min**; after 2,500 ms = **24 requests/min**,
+a **68% reduction**. Active status remains 75/min. This is a deterministic
+schedule calculation, **not a measured browser/network capture**. Failed
+requests and control actions change realized counts.
+
+Run `node --test PiServer/tests/test_adaptive_polling_r43.cjs` at the
+repository root. For release, capture browser Network requests and frame
+bytes for 60 seconds each in active, idle, hidden and tab-return states;
+ensure real motor STOP/watchdog and video freshness are unchanged.
+
 ## Model compatibility and rollback (0.4.17, U27)
 
 PiServer checks optional adjacent `<model>.tflite.manifest.json`

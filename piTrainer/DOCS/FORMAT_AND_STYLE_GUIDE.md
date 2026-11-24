@@ -366,6 +366,46 @@ Use the existing role system:
 Do not add random one-off colour schemes inside panels. If a new colour is needed, add a semantic token to `theme.py`, then consume it through the central stylesheet or plotting helpers.
 
 
+## R45 UI token contract and visual drift checks (V11.8)
+
+This section is a review contract for **new** piTrainer panels. It does not
+override the existing V11 style guide, Qt widget roles, plot palette, saved
+splitter proportions or user choices. Review a new view against the real
+`piTrainer/ui/formatting.py`, `ui/styles.py`, and `ui/theme.py`, in that
+order for density/geometry, Qt stylesheet and semantic colours.
+
+| Concern | Existing central source | Contract for new panels |
+| --- | --- | --- |
+| Density | `DENSITY_PROFILES` in `ui/formatting.py` | `compact` for width under 1180, `comfortable` at 1180–1680, `spacious` above 1680. Use `get_density_profile()` and `set_box_layout_format()` rather than local padding numbers. |
+| Spacing | `page_margin`, `panel_margin`, `page_spacing`, `panel_spacing`, `form_*_spacing` | In the comfortable profile: page spacing 7 px, panel spacing 6 px, horizontal/vertical form spacing 9/6 px. Compact reduces those values. Respect existing splitter presets and scrollbars. |
+| Action roles | `BUTTON_ROLES` + selectors in `ui/styles.py` | `nextStep` and `primary` green, `amber` for prerequisites, `danger` for destructive actions, `secondary` for ordinary controls. Do not turn every secondary button green. |
+| Status text | `THEME_COLORS` in `ui/theme.py` | Use `success`, `warning`, `danger`, `info`, `text_muted` by meaning; include a short textual state, not colour alone. `theme_color()` is the plot colour entrypoint. |
+| Labels | V11 page banner and workflow rules above | Short action + object, e.g. `Load Selected`, `Start Training`, `Run Validation`; no `Next Step:` or `Show:` label prefixes. Preserve numbered workflow tabs and existing page names. |
+| Icons | No global icon-size token is currently defined | **New-icon guideline**, not a current hardcoded guarantee: prefer a 16 px glyph in compact density, 18 px in comfortable, 20 px in spacious; keep icon/text aligned and preserve the existing widget minimum height. Do not resize existing toolbar graphics just to satisfy this guideline. |
+| Readability | `layout_widgets.py`, `SPLITTER_PRESETS` | Keep long content in scrollable panel bodies and preserve user-resizable splitters; never reset saved splitter state to enforce density. |
+
+Colour meaning comes from semantic token *names*, not shared hex values
+between components. If a new state is needed, update `ui/theme.py` and the
+corresponding central stylesheet together. Avoid adding direct hex colours
+or ad-hoc pixel sizes to a page. For new icons, use text labels alongside
+symbols when an action would otherwise be ambiguous.
+
+### Change and acceptance gate
+
+- A style-only change should not modify Data table row identity, preview
+  cache, workflow steps, training workers, validation results, export paths,
+  TFLite metadata, persistence or the version access gate.
+- The R45 source-contract test checks all density profiles, semantic role
+  names, CSS-token replacement completeness, style guide terminology and
+  main-entry style wiring **without importing PySide6 or TensorFlow**.
+- Run from `piTrainer/`:
+  `python -m unittest discover -s tests -p 'test_ui_style_contract_r45.py' -v`.
+  Run the full piTrainer suite and real Windows Qt screenshots at compact,
+  comfortable and spacious widths before promoting a style-changing patch.
+- These checks flag unexpected drift. An intentional palette/spacing/role
+  redesign may update the contract *with review*; the checks should not
+  silently overwrite a user's preferred density or splitter state.
+
 ## Sliders
 
 Steering and speed sliders should not use the same fill logic when their value ranges are different.

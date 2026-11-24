@@ -14,13 +14,13 @@
       <div class="brand-subtitle">runtime control workspace</div>
     </div>
 
-    <div class="page-tabs" id="pageTabs">
-      <button class="tab-btn active" data-page="manual">Manual</button>
-      <button class="tab-btn" data-page="training">Training</button>
-      <button class="tab-btn" data-page="auto">Auto</button>
-      <button class="tab-btn" data-page="camera">Camera</button>
-      <button class="tab-btn" data-page="motor">Motor</button>
-    </div>
+    <nav class="page-tabs" id="pageTabs" aria-label="PiServer pages">
+      <button class="tab-btn active" data-page="manual" aria-pressed="true">Manual</button>
+      <button class="tab-btn" data-page="training" aria-pressed="false">Training</button>
+      <button class="tab-btn" data-page="auto" aria-pressed="false">Auto</button>
+      <button class="tab-btn" data-page="camera" aria-pressed="false">Camera</button>
+      <button class="tab-btn" data-page="motor" aria-pressed="false">Motor</button>
+    </nav>
 
     <div class="toolbar-actions">
       <div id="maintenanceBadge" class="badge off">run</div>
@@ -62,6 +62,23 @@
           </div>
 
           <div id="statusBanner" class="banner muted">Ready.</div>
+          <details data-preflight-root aria-label="Read-only startup preflight">
+                      <summary>Startup preflight (read-only)</summary>
+                      <p data-preflight-status role="status" aria-live="polite">Inspecting existing service state…</p>
+                      <button type="button" data-preflight-refresh>Refresh checks</button>
+                      <ul data-preflight-list aria-label="Service readiness checks"></ul>
+                      <small>Observation only: no motor, servo, camera start, AI load or settings changes.</small>
+                    </details>
+          <details data-recent-events-root aria-label="Sanitized recent operator events">
+            <summary>Recent operator events (read-only)</summary>
+            <p data-recent-status role="status" aria-live="polite">Expand to read local, sanitized events.</p>
+            <div>
+              <button type="button" data-recent-refresh>Refresh events</button>
+              <button type="button" data-recent-copy>Copy events</button>
+            </div>
+            <pre data-recent-output tabindex="0" style="max-height:160px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere">No events loaded.</pre>
+            <small>Bounded to 128 on-device events. Sensitive inputs and raw log messages are never included.</small>
+          </details>
         </div>
         <div class="resize-handle"></div>
       </article>
@@ -190,7 +207,7 @@
               <button id="loadModelBtn">Load</button>
               <button id="deleteModelBtn" class="danger-btn" type="button">Delete</button>
             </div>
-            <div id="modelMessage" class="banner muted">No model action.</div>
+            <div id="modelMessage" class="banner muted">No model loaded. Upload a .tflite model or choose one below.</div>
           </section>
         </div>
         <div class="resize-handle"></div>
@@ -204,13 +221,14 @@
         <div class="panel-body scroll-body manual-body">
           <section class="panel-section panel-section-strong manual-shell">
             <div class="manual-layout manual-layout-single">
-              <div id="joystickArea" class="joystick-area">
+              <div id="joystickArea" class="joystick-area" role="group" tabindex="0" aria-label="Manual steering and throttle pad" aria-describedby="joystickKeyboardHint">
                 <div class="joystick-crosshair"></div>
                 <div id="joystickDot" class="joystick-dot"></div>
               </div>
 
               <div class="manual-side manual-side-single">
                 <div class="manual-readout value-text" id="joystickText">Steering 0.00 · Throttle 0.00</div>
+                <p id="joystickKeyboardHint" class="a11y-drive-hint">Manual pad: drag or use W/A/S/D or arrow keys; Space returns manual target to zero. Existing server permissions still apply.</p>
                 <div class="manual-feel-grid">
                   <div class="field compact-field">
                     <label for="steerCurve">Steer curve</label>
@@ -293,7 +311,7 @@
               <div class="record-meta-card priority-medium"><label>Updated</label><strong id="sessionUpdatedAt">--</strong></div>
               <div class="record-meta-card record-meta-card-wide priority-low"><label>Path</label><strong id="sessionPath">records</strong></div>
             </div>
-            <div id="sessionExportMessage" class="banner muted">Choose a folder, then download or delete it.</div>
+            <div id="sessionExportMessage" class="banner muted">Select a saved folder to download or delete. Record a session if none exists.</div>
           </section>
         </div>
         <div class="resize-handle"></div>
@@ -479,15 +497,17 @@
   <script src="{{ url_for('static', filename='preview_freshness.js') }}?v={{ app_version }}"></script>
   <script src="{{ url_for('static', filename='settings_feedback.js') }}?v={{ app_version }}"></script>
   <script src="{{ url_for('static', filename='app.js') }}?v={{ app_version }}"></script>
+  <script src="{{ url_for('static', filename='preflight.js') }}?v={{ app_version }}"></script>
+  <script src="{{ url_for('static', filename='recent_events.js') }}?v={{ app_version }}"></script>
 
 
     <div id="styleSettingsModal" class="style-modal hidden" aria-hidden="true">
       <div class="style-modal-backdrop" data-close-style-modal></div>
-      <section class="style-modal-card" role="dialog" aria-modal="true" aria-labelledby="styleSettingsTitle">
+      <section class="style-modal-card" role="dialog" aria-modal="true" aria-labelledby="styleSettingsTitle" aria-describedby="styleSettingsHelp">
         <div class="style-modal-head">
           <div>
             <div id="styleSettingsTitle" class="style-modal-title">Web style settings</div>
-            <div class="style-modal-subtitle">These changes are saved in this browser only.</div>
+            <div class="style-modal-subtitle" id="styleSettingsHelp">These changes are saved in this browser only. Press Escape to close.</div>
           </div>
           <button class="ghost-btn" id="closeStyleSettingsBtn" type="button">Close</button>
         </div>
