@@ -12,8 +12,8 @@ When instructions or files conflict, follow this order:
 
 1. Latest explicit user instruction in the current task
 2. Remembered project-specific baseline/version rules
-3. Latest uploaded relevant component zip or repo zip
-4. Actual files and folders currently in the repo
+3. Latest accepted working GitHub code and relevant stacked patch branch (unless an explicit newer uploaded baseline is designated)
+4. Uploaded component/repo ZIP snapshots and actual files, checked for age and compatibility
 5. Older notes, patch notes, or assumptions
 
 Do not guess paths, entry points, versions, or folder layout. Inspect the repo first.
@@ -22,13 +22,16 @@ Do not guess paths, entry points, versions, or folder layout. Inspect the repo f
 
 ## 2. Repository structure
 
+**Active scope (2026-11-24):** Active development: PiSD, PiServer and piTrainer only. PiBooter, CustomTrainer and CustomDrive are inactive historical components; do not create, reopen, merge or continue their component-specific updates unless explicitly requested. Preserve existing source and history. Shared active-runtime safety and model-family rejection checks remain in scope.
+
 PiDrive is a monorepo with separate components. Common top-level folders include:
 
+- `PiSD/` — active Pi-side driving runtime and web control
 - `PiServer/` — current Pi-side runtime and web control server
-- `PiBooter/` — boot-time Wi-Fi onboarding service
+- `PiBooter/` — inactive historical Wi-Fi onboarding service
 - `piTrainer/` — desktop trainer
-- `CustomTrainer/` — YOLO-oriented desktop training workflow
-- `CustomDrive/` — custom drive/runtime workflow with GUI, headless, and web modes
+- `CustomTrainer/` — inactive historical YOLO workflow
+- `CustomDrive/` — inactive historical mission/runtime workflow
 - `piCar_0_3_2/` — legacy reference/fallback runtime
 
 Do not flatten, rename, reorganize, or merge these folders unless the user explicitly asks.
@@ -55,15 +58,10 @@ Before editing README files, launch instructions, patch notes, setup files, or s
 
 Important known entry points include:
 
+- `PiSD/PiSD.py`
 - `PiServer/server.py`
-- `PiBooter/run_pibooter.py`
 - `piTrainer/main.py`
-- `CustomTrainer/run_custom_trainer.py`
-- `CustomDrive/run_custom_drive_demo.py`
-- `CustomDrive/run_custom_drive_gui.py`
-- `CustomDrive/run_custom_drive_headless.py`
-- `CustomDrive/run_custom_drive_web.py`
-- `piCar_0_3_2/server.py`
+- Historical reference only: `PiBooter/run_pibooter.py`
 
 Do not leave docs pointing to stale launch commands.
 
@@ -148,6 +146,7 @@ Do not invent a new version scheme.
 
 Known baseline/version rules:
 
+- `PiSD` and `piTrainer` accepted 0_11_0 archives are historical starting baselines; follow their 0_11_x lines and verify both merged and pending versions before allocating a patch.
 - `PiServer` stable baseline: `PiServer_0_4_0`; future bug-fix patches use `0_4_x`
 - `piCar` stable baseline: `piCar_0_3_0`; future patches use `0_3_x`
 - `piTrainer` patch zips should contain only changed/updated files and preserve exact structure
@@ -223,9 +222,9 @@ Priorities:
 
 Do not break recent layout, style, settings, or runtime fixes.
 
-### 11.2 PiBooter
+### 11.2 Inactive PiBooter
 
-`PiBooter/` is separate from `PiServer/`.
+`PiBooter/` is separate from `PiServer/` and is inactive. Retain its merged source, configuration and history without new updates. The following rules apply only if explicitly reactivated.
 
 Respect:
 
@@ -261,44 +260,9 @@ Priorities:
 - Keep README/setup commands accurate
 - Package only changed/updated files for patch zips
 
-### 11.4 CustomTrainer
+### 11.4 Inactive PiBooter, CustomTrainer and CustomDrive
 
-`CustomTrainer/` is the YOLO-oriented desktop workflow.
-
-Respect:
-
-- `CustomTrainer/run_custom_trainer.py`
-- `CustomTrainer/custom_trainer/ui/`
-- `CustomTrainer/custom_trainer/services/`
-- `CustomTrainer/PATCH_NOTES/`
-
-Priorities:
-
-- Preserve runnable training, validation, prediction, and export flow
-- Keep Ultralytics/YOLO helper paths stable
-- Prefer robust UI behavior over flashy changes
-- Do not break documented launch commands
-
-### 11.5 CustomDrive
-
-`CustomDrive/` is a real runtime project with GUI, headless, demo, and web modes.
-
-Respect:
-
-- `CustomDrive/run_custom_drive_demo.py`
-- `CustomDrive/run_custom_drive_gui.py`
-- `CustomDrive/run_custom_drive_headless.py`
-- `CustomDrive/run_custom_drive_web.py`
-- `CustomDrive/config/`
-- `CustomDrive/custom_drive/`
-- `CustomDrive/PATCH_NOTES/`
-
-Priorities:
-
-- Keep shared settings behavior
-- Preserve GUI/headless/web mode separation
-- Keep simulation usable when live dependencies are unavailable
-- Do not describe it as placeholder-only if real code exists
+Retain their existing files, configurations, patch notes and Git history. Exclude them from active roadmaps, CI and new patches. Do not remove source folders or reopen their closed drafts without explicit user direction.
 
 ### 11.6 Legacy piCar
 
@@ -321,10 +285,8 @@ Useful checks include:
 
 ```bash
 python -m compileall PiServer
-python -m compileall PiBooter
 python -m compileall piTrainer
-python -m compileall CustomTrainer
-python -m compileall CustomDrive
+python -m compileall PiSD
 ```
 
 Use only the check relevant to the component being changed.
@@ -338,6 +300,8 @@ Also verify where practical:
 - Patch package contains only intended files
 
 Be honest about checks that could not be performed, especially hardware checks on Raspberry Pi.
+
+Use [the stabilization acceptance gate](docs/stabilization_acceptance.md) for cross-component regression and physical release checks. Merged, CI-tested, and hardware-validated are distinct states. Do not allocate duplicate versions already present on draft patch chains.
 
 ---
 
