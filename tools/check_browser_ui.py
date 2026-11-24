@@ -92,6 +92,10 @@ def main():
                     page = context.new_page()
                     mutations = []
                     errors = []
+                    # UX75: the real dashboard must start and recover while
+                    # its initial read-only APIs are temporarily unavailable.
+                    # This is synthetic and never reaches a physical device.
+                    bootstrap_offline = [name == "dashboard"]
                     def route_request(route):
                         req = route.request
                         parsed = urlsplit(req.url)
@@ -105,6 +109,13 @@ def main():
                             return
                         if parsed.path in {"/video_feed", "/api/camera/frame.jpg"}:
                             route.fulfill(status=204, body="")
+                            return
+                        if bootstrap_offline[0] and parsed.path in {
+                            "/api/status", "/api/model/list", "/api/record/sessions",
+                            "/api/camera/config", "/api/motor/config",
+                        }:
+                            route.fulfill(status=503, content_type="application/json",
+                                          body='{"ok":false,"message":"Synthetic disconnected backend"}')
                             return
                         result = client.get(parsed.path + ("?" + parsed.query if parsed.query else ""),
                                             base_url=ORIGIN)
@@ -134,6 +145,33 @@ def main():
                             expect(page.locator("#aiModelSelect")).to_have_value("")
                             expect(page.locator("#aiModelSelect option")).to_contain_text("No models")
                         if name == "dashboard":
+                            # All four viewport widths exercise a cold disconnected
+                            # startup and a confirmed recovery using real page code.
+                            expect(page.locator("#maintenanceBadge")).to_have_text("offline")
+                            expect(page.locator("#metricDriveState")).to_have_text("Unverified")
+                            expect(page.locator("#estopToggle")).to_have_attribute("aria-pressed", "mixed")
+                            expect(page.locator("#statusBanner")).to_contain_text("unverified")
+                            assert page.locator("#statusBanner").get_attribute("role") == "status"
+                            # Clicking emergency STOP while status is unknown must
+                            # never submit rearm {enabled:false}, even if a previous
+                            # status sample had indicated an engaged E-STOP.
+                            with page.expect_request(lambda req: req.method == "POST"
+                                    and urlsplit(req.url).path == "/api/system/estop") as stop_request:
+                                page.locator(stop).click()
+                            assert stop_request.value.post_data_json == {"enabled": True}, (
+                                "unverified E-STOP must only request engagement"
+                            )
+                            bootstrap_offline[0] = False
+                            page.evaluate("""async () => {
+                                await refreshModels();
+                                await refreshSessions(false);
+                                await loadCameraConfig();
+                                await loadMotorConfig();
+                                await pollStatus();
+                            }""")
+                            expect(page.locator("#maintenanceBadge")).not_to_have_text("offline")
+                            expect(page.locator("#metricDriveState")).not_to_have_text("Unverified")
+                            assert page.locator("#estopToggle").get_attribute("aria-pressed") in ("true", "false")
                             # R36: even when the dock is short/narrow, metric rows must
                             # contain their labels and values rather than clipping them.
                             metrics = page.locator(".dock-panel[data-panel='status'] .status-metric-grid > .metric-card")

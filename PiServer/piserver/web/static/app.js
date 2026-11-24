@@ -93,6 +93,7 @@ const state = {
   statusInFlight: false,
   statusPollingReady: false,
   statusFailures: 0,
+  statusVerified: false,
   cameraConfig: null,
   motorConfig: null,
   motorFormDirty: false,
@@ -604,6 +605,7 @@ function updateToolbarBadge(status) {
   if (!badge) return;
   const stopped = !!(status && status.safety_stop);
   badge.textContent = stopped ? "e-stop" : "run";
+  badge.classList.remove("unknown");
   badge.classList.toggle("on", stopped);
   badge.classList.toggle("off", !stopped);
 }
@@ -614,6 +616,7 @@ function setEstopToggle(enabled) {
   if (!btn) return;
   btn.classList.toggle("on", state.estopEnabled);
   btn.classList.toggle("off", !state.estopEnabled);
+  btn.removeAttribute("data-status");
   btn.setAttribute("aria-pressed", state.estopEnabled ? "true" : "false");
   const title = btn.querySelector(".estop-toggle-title");
   const subtitle = btn.querySelector(".estop-toggle-subtitle");
@@ -897,8 +900,44 @@ async function sendControlUpdate(extra = {}) {
   }
 }
 
+// UX75 / R35: a failed status read cannot prove E-STOP is off or on.
+// Keep the last confirmed server-side state internally, but do not present
+// cached telemetry as live. The E-STOP control remains available to request
+// STOP; rearm is forbidden until fresh status succeeds.
+function markStatusUnverified(error) {
+  state.statusVerified = false;
+  const badge = document.getElementById("maintenanceBadge");
+  if (badge) {
+    badge.textContent = "offline";
+    badge.classList.remove("on", "off");
+    badge.classList.add("unknown");
+  }
+  const panelState = document.querySelector('.dock-panel[data-panel="status"] .panel-mini');
+  if (panelState) panelState.textContent = "offline";
+  const toggle = document.getElementById("estopToggle");
+  if (toggle) {
+    toggle.setAttribute("data-status", "unknown");
+    toggle.setAttribute("aria-pressed", "mixed");
+    const title = toggle.querySelector(".estop-toggle-title");
+    const subtitle = toggle.querySelector(".estop-toggle-subtitle");
+    if (title) title.textContent = "E-STOP STATUS UNKNOWN";
+    if (subtitle) subtitle.textContent = "Request STOP · rearm unavailable";
+  }
+  for (const id of ["metricDriveState", "metricApplied", "metricWheels"]) {
+    const metric = document.getElementById(id);
+    if (metric) metric.textContent = "Unverified";
+  }
+  const message = error?.message || "PiServer status unavailable. Check the connection.";
+  setBanner("statusBanner", `${message} Live state unverified; STOP can be requested, never assumed.`, "muted");
+  const banner = document.getElementById("statusBanner");
+  if (banner) banner.title = "Last telemetry is not current. Motor and safety state must be confirmed by the server.";
+}
+
 function updateStatusUi(data) {
   state.latestStatus = data;
+  state.statusVerified = true;
+  const panelState = document.querySelector('.dock-panel[data-panel="status"] .panel-mini');
+  if (panelState) panelState.textContent = "live";
   setEstopToggle(!!data.safety_stop);
 
   const driveState = data.safety_stop ? "E-stop active"
@@ -990,7 +1029,7 @@ async function pollStatus() {
     syncControlsFromStatus(data);
   } catch (error) {
     state.statusFailures = Math.min(3, state.statusFailures + 1);
-    setBanner("statusBanner", error.message || "Pi status unavailable. Check connection, then retry.", "muted");
+    markStatusUnverified(error);
   } finally {
     state.statusInFlight = false;
     scheduleStatusPoll();
@@ -1867,7 +1906,8 @@ function setupEvents() {
 
   document.getElementById("estopToggle").addEventListener("click", async () => {
     try {
-      await setEstop(!state.estopEnabled);
+      // A stale cached "active" value must never cause an unverified rearm.
+      await setEstop(state.statusVerified ? !state.estopEnabled : true);
     } catch (error) {
       setBanner("statusBanner", error.message, "muted");
     }
@@ -1969,10 +2009,20 @@ async function init() {
   setupManualControls();
   setupManualPadSizing();
   setupEvents();
-  await refreshModels();
-  await refreshSessions(false);
-  await loadCameraConfig();
-  await loadMotorConfig();
+  // A temporary outage in an optional initial GET must not abort startup
+  // before the status polling loop and E-STOP safeguards are installed.
+  for (const [read, banner] of [
+    [refreshModels, "modelMessage"],
+    [() => refreshSessions(false), "sessionExportMessage"],
+    [loadCameraConfig, "cameraMessage"],
+    [loadMotorConfig, "motorMessage"],
+  ]) {
+    try {
+      await read();
+    } catch (error) {
+      setBanner(banner, `Cannot load data: ${error.message || "PiServer unreachable"}. Retry after reconnecting.`, "muted");
+    }
+  }
   syncPreviewActivity();
   document.addEventListener("visibilitychange", syncPreviewActivity);
   window.addEventListener("beforeunload", () => {
@@ -1980,12 +2030,9 @@ async function init() {
     stopPreviewLoop(false);
     if (state.stepTimer) clearInterval(state.stepTimer);
   });
-  const status = await fetchJson("/api/status");
-  updateStatusUi(status);
-  syncControlsFromStatus(status);
   applyManualState();
   state.statusPollingReady = true;
-  scheduleStatusPoll(800);
+  await pollStatus();
   state.previewHealthTimer = setInterval(renderPreviewHealth, 250);
 }
 
