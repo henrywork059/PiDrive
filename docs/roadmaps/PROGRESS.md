@@ -8,28 +8,28 @@ This is a conservative planning audit based on the four original roadmap documen
 
 | Track | Active | Implemented | Partial | No dedicated update | Remaining |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| F1–F10 | 10 | 7 | 1 | 2 | 3 |
+| F1–F10 | 10 | 8 | 0 | 2 | 2 |
 | U11–U29 | 13 | 13 | 0 | 0 | 0 |
-| R30–R53 | 19 | 11 | 5 | 3 | 8 |
-| UX54–UX75 | 14 | 1 | 0 | 13 | 13 |
-| Total | 56 | 32 | 6 | 18 | 24 |
+| R30–R53 | 19 | 12 | 5 | 2 | 7 |
+| UX54–UX75 | 14 | 1 | 1 | 12 | 13 |
+| Total | 56 | 34 | 6 | 16 | 22 |
 
-Implemented IDs: F1, F2, F3, F4, F5, F6, F7; U11, U12, U13, U14, U15, U17, U20, U21, U23, U26, U27, U28, U29; R30, R31, R32, R37, R38, R39, R40, R43, R46, R47, R48; UX74. Evidence: merged PRs #9–42 (active portions), pending PRs #44–79 (active portions), and #81–87. F2, F3, F4, U21, F7 and UX74 have tested commits in #87. F5 uses the stale-camera timeout contract; F6 uses the passing active regression matrix.
+Implemented IDs: F1, F2, F3, F4, F5, F6, F7, F9; U11, U12, U13, U14, U15, U17, U20, U21, U23, U26, U27, U28, U29; R30, R31, R32, R37, R38, R39, R40, R43, R46, R47, R48, R53; UX74. Evidence: merged PRs #9–42 (active portions), pending PRs #44–79 (active portions), and #81–87. F2, F3, F4, U21, F7 and UX74 have tested commits in #87. F5 uses the stale-camera timeout contract; F6 uses the passing active regression matrix.
 
 | Partial ID | Remaining work |
 | --- | --- |
-| F9 | Dependency groups and clean-install checks committed; combined candidate CI and trainer full/reduced install confirmation pending. |
-| R53 | Initial and expanded manifest tests and actual candidate worktree dry-runs passed; final combined regression gate pending. |
 | R35 | Complete active desktop accessibility/input audit. |
 | R36 | Complete actual responsive screenshot/interaction acceptance at required widths. |
-| R45 | Finish PiSD token/drift audit. |
+| R45 | PiSD token guide and drift checks committed; exact-candidate CI pending. |
+| R50 | Native Chromium and Qt foundation committed; baseline geometry, interaction and review gate pending. |
+| UX75 | Initial shared UI acceptance gate committed; full active user journeys and visual review remain. |
 | R49 | Complete PiSD sanitized bounded operator event view. |
 
-No dedicated update: F8, F10 (refactoring, full recording/model workflow); R50–R52 (visual/interaction tests, full provenance, modular extraction); UX54–UX65, UX75. Prior CI, contract and provenance work overlaps several of these but is not treated as full completion.
+No dedicated update: F8, F10 (refactoring, full recording/model workflow); R51–R52 (full provenance, modular extraction); UX54–UX65. Prior CI, contract and provenance work overlaps several of these but is not treated as full completion.
 
 ## Consolidated execution schedule
 
-The original 30 outstanding IDs were organized into **9 development batches**. Batches 1 and 2 are complete at the scoped automated implementation gate, and 7 batches remain. Six of the original 30 have passed, leaving **24 outstanding** in **7 remaining batches**. See [DEVELOPMENT_SCHEDULE.md](DEVELOPMENT_SCHEDULE.md) for the complete mapping, dependencies and acceptance gates. All 30 scheduled IDs remain listed exactly once for traceability. Candidate implementation coverage is 32/56 (57.1%). Track both original IDs and batch status after each update. No retired-component work or hardware acceptance claimed.
+The original 30 outstanding IDs were organized into **9 development batches**. Batches 1–3 are complete at the scoped automated implementation gate, and 6 batches remain. Eight of the original 30 have passed, leaving **22 outstanding** in **6 remaining batches**. See [DEVELOPMENT_SCHEDULE.md](DEVELOPMENT_SCHEDULE.md) for the complete mapping, dependencies and acceptance gates. All 30 scheduled IDs remain listed exactly once for traceability. Candidate implementation coverage is 34/56 (60.7%). Track both original IDs and batch status after each update. No retired-component work or hardware acceptance claimed.
 
 ## Release candidates and Batch 1–2 evidence
 
@@ -47,9 +47,9 @@ The original 30 outstanding IDs were organized into **9 development batches**. B
 | F7 | PiServer 0.4.30 | adf44de | [45358221582](https://github.com/henrywork059/PiDrive/actions/runs/45358221582): all four jobs passed; seven config-store cases and one real API recovery case |
 | UX74 | PiSD 0.11.27 / PiServer 0.4.31 / piTrainer 0.11.11 | 8c979f3 | [45359079601](https://github.com/henrywork059/PiDrive/actions/runs/45359079601): all four jobs passed; explicit confirmation, non-modal duplicate guard, exact trainer purge scope and stale-plan refusal |
 
-Current candidate: PiSD **0.11.28**, PiServer **0.4.32**, piTrainer **0.11.12** at 53b06b7. Batches 1 and 2 have passed their scoped automated gates; Batch 3 is in progress, not complete. Last verified fully green candidate: d202082 (0.11.27/0.4.31/0.11.11). UX74 confirms exact targets, guards repeated UI submissions, retains soft-hide recovery and does not gate STOP. Actual browser/Windows acceptance is still outstanding; UI guards are not distributed idempotency. Before runtime merge, reconcile this canonical main-branch roadmap with the candidate's older documentation snapshots. LAN startup now requires PISD_ACCESS_TOKEN, including existing systemd services; see PiSD README before deployment. The in-process watchdog does not guarantee physical motor stop if drivers or the OS block; the PiServer frame guard does not independently stop during indefinitely stalled inference. No physical Raspberry Pi acceptance, native Windows UI acceptance, deployment or runtime merge is claimed. The progress counts describe candidate implementation, not a released main-branch runtime. No inactive component work.
+Current candidate: PiSD **0.11.29**, PiServer **0.4.32**, piTrainer **0.11.13** at 793b3e2. Batches 1–3 have passed their scoped automated gates. Batch 4 in progress. Last verified fully green candidate: 53b06b7 (0.11.28/0.4.32/0.11.12). UX74 confirms exact targets, guards repeated UI submissions, retains soft-hide recovery and does not gate STOP. Actual browser/Windows acceptance is still outstanding; UI guards are not distributed idempotency. Before runtime merge, reconcile this canonical main-branch roadmap with the candidate's older documentation snapshots. LAN startup now requires PISD_ACCESS_TOKEN, including existing systemd services; see PiSD README before deployment. The in-process watchdog does not guarantee physical motor stop if drivers or the OS block; the PiServer frame guard does not independently stop during indefinitely stalled inference. No physical Raspberry Pi acceptance, native Windows UI acceptance, deployment or runtime merge is claimed. The progress counts describe candidate implementation, not a released main-branch runtime. No inactive component work.
 
-## Batch 3 implementation evidence — gate pending
+## Batch 3 implementation evidence — gate passed
 
 | ID | Candidate commit | Verification |
 | --- | --- | --- |
@@ -57,6 +57,10 @@ Current candidate: PiSD **0.11.28**, PiServer **0.4.32**, piTrainer **0.11.12** 
 | F9 | [c532e1d](https://github.com/henrywork059/PiDrive/commit/c532e1d3730583dafe4207d49cfd0e528d51bfa2) | [CI 45380096413](https://github.com/henrywork059/PiDrive/actions/runs/45380096413): PiSD/PiServer clean dependency and regression steps passed; manifest job passed; piTrainer clean-install step cancelled by successor. |
 | F9/R53 | [aaca313](https://github.com/henrywork059/PiDrive/commit/aaca3132184495c92f13ae0f20e3d3ec4f7bb99f) | [CI 45380376438](https://github.com/henrywork059/PiDrive/actions/runs/45380376438): 10 package tests and all three real forward worktree archives passed (7/6/6 files); PiSD clean audit passed, PiServer clean audit found undeclared Pillow in camera diagnostic fallback, trainer smoke cancelled by successor. |
 
-| F9 correction | [53b06b7](https://github.com/henrywork059/PiDrive/commit/53b06b7c5d2c063e21386daf1476856bbd5e01d3) | Declare Pillow in PiServer core requirements; preserve import inventory enforcement; update component patch notes with verified evidence. [CI 45380631288](https://github.com/henrywork059/PiDrive/actions/runs/45380631288) pending at inspection. |
+| F9 correction | [53b06b7](https://github.com/henrywork059/PiDrive/commit/53b06b7c5d2c063e21386daf1476856bbd5e01d3) | Declare Pillow in PiServer core requirements; preserve import inventory enforcement; update component patch notes with verified evidence. [CI 45380631288](https://github.com/henrywork059/PiDrive/actions/runs/45380631288) all four jobs passed, including all clean installs and real candidate dry-runs. |
 
-No completion increment until the combined gate is verified. Current code diff from 8c979f3 changes component dependency declarations, installation docs, patch notes and version constants only; remaining changes are shared release tooling/tests/CI/docs. No previous runtime or UI behavior removed; no persisted config/user files or inactive trees edited. Git-backed package checks require a trusted exact baseline/target, full history, and clean source preimages. They do not authenticate commits, detect all semantic rollbacks, guarantee absence of embedded secrets or apply a patch. Native Windows, OS-specific Pi dependencies, actual training, browser and physical acceptance remain separate. No production archive released. Next: finish Batch 3 gate before Batch 4.
+F9 and R53 completed at the scoped automated gate. Current code diff from 8c979f3 changes component dependency declarations, installation docs, patch notes and version constants only; remaining changes are shared release tooling/tests/CI/docs. No previous runtime or UI behavior removed; no persisted config/user files or inactive trees edited. Git-backed package checks require a trusted exact baseline/target, full history, and clean source preimages. They do not authenticate commits, detect all semantic rollbacks, guarantee absence of embedded secrets or apply a patch. Native Windows, OS-specific Pi dependencies, actual training, browser and physical acceptance remain separate. No production archive released. Next: Batch 4.
+
+## Batch 4 — initial implementation
+
+[793b3e2](https://github.com/henrywork059/PiDrive/commit/793b3e25b3100b05da0454ea3da56cf892f77aad): PiSD 0.11.29 token guide, named focus tokens with unchanged defaults and drift check; piTrainer 0.11.13 accessible session-root and checkbox names, keyboard list resize/reset with existing persistence and bounds, and native Qt tests; shared Chromium fixture on actual templates with blocked mutations, four viewport widths, keyboard/touch interaction, failure feedback and screenshot artifacts. Exact candidate CI pending. No owner visual acceptance, physical hardware, Windows, or complete active user-journey acceptance claimed. R35, R36, R45, R50 and UX75 remain outstanding; no Batch 4 completion increment.
