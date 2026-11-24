@@ -249,6 +249,11 @@ class CloseHarness(MainWindow):
             save_layout=lambda: self.calls.append("save " + name),
         )
 
+    def _apply_responsive_density(self):
+        # This fixture tests QMainWindow.closeEvent only, not density styling.
+        # Real MainWindow.__init__ initializes _ui_density and the full UI.
+        return None
+
     def set_status_message(self, message):
         self.calls.append(str(message))
 
