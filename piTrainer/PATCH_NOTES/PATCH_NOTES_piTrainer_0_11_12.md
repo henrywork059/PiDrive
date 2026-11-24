@@ -8,3 +8,6 @@ Component README, requirements files and existing version marker only. Direct pa
 
 ## Verification and limits
 Source inspection and prior four-job regression evidence 45359079601; exact new candidate CI and actual forward archive tests required. Clean dependency imports are not physical hardware, full browser, native Windows, real model training or deployment acceptance. Raspberry Pi OS camera/GPIO compatibility and interpreter availability must be checked on the actual device. No production release or runtime merge authorized.
+
+## Verification evidence before final gate
+The initial shared R53 commit d202082 passed all four jobs in 45379856839 (previous trainer version 0.11.11). Candidate 0.11.12 actual forward archive validation passed in 45380376438; clean full/reduced dependency smokes remain pending confirmation. No native Windows or real training acceptance.

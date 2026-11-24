@@ -8,3 +8,6 @@ Component README, requirements files and existing version marker only. Direct pa
 
 ## Verification and limits
 Source inspection and prior four-job regression evidence 45359079601; exact new candidate CI and actual forward archive tests required. Clean dependency imports are not physical hardware, full browser, native Windows, real model training or deployment acceptance. Raspberry Pi OS camera/GPIO compatibility and interpreter availability must be checked on the actual device. No production release or runtime merge authorized.
+
+## Clean-install audit follow-up
+CI 45380096413 passed the initial PiServer regression and clean launcher import. The expanded tracked-source audit in 45380376438 caught undeclared PIL in piserver/tools/camera_diagnostic.py (Image.fromarray(...).save fallback). Declare Pillow in the core requirements instead of exempting the import. The previous runtime regression steps passed; the expanded clean audit failed. The real candidate worktree package step passed. This is a correction within the same unreleased 0.4.32 candidate, not a separate release. Full rerun required.

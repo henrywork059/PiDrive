@@ -8,3 +8,6 @@ Component README, requirements files and existing version marker only. Direct pa
 
 ## Verification and limits
 Source inspection and prior four-job regression evidence 45359079601; exact new candidate CI and actual forward archive tests required. Clean dependency imports are not physical hardware, full browser, native Windows, real model training or deployment acceptance. Raspberry Pi OS camera/GPIO compatibility and interpreter availability must be checked on the actual device. No production release or runtime merge authorized.
+
+## Verification evidence before final gate
+CI 45380096413 passed PiSD regression and clean declared install/launcher smoke. CI 45380376438 passed PiSD regression, static runtime import inventory, clean smoke and actual forward package dry-run. The combined gate did not pass because PiServer's diagnostic dependency was undeclared; final rerun required. No physical hardware test.

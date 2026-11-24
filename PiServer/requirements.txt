@@ -2,3 +2,5 @@
 Flask>=3.0,<4.0
 numpy>=1.24,<2.0
 opencv-python>=4.8,<4.12
+# Camera diagnostic JPEG fallback (piserver/tools/camera_diagnostic.py).
+Pillow>=10.0,<12.0
