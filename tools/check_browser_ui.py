@@ -124,6 +124,18 @@ def main():
                         for label, selector in (("stop", stop), ("primary", primary), ("preview", preview)):
                             if selector:
                                 case["geometry"][label] = check_geometry(page.locator(selector).first, width, height, label)
+                        # Empty libraries are genuine fixture GET results, not hard-coded HTML.
+                        if name in ("manual", "ai"):
+                            prefix = "mdrv" if name == "manual" else "ai"
+                            expect(page.locator(f"#{prefix}FileSummary")).to_have_attribute("data-state", "empty")
+                            expect(page.locator(f"#{prefix}DownloadZip")).to_be_disabled()
+                            expect(page.locator(f"#{prefix}DeleteFolder")).to_be_disabled()
+                        if name == "ai":
+                            expect(page.locator("#aiModelSelect")).to_have_value("")
+                            expect(page.locator("#aiModelSelect option")).to_contain_text("No models")
+                        if name == "dashboard":
+                            expect(page.locator("#modelSelect option")).to_contain_text("No .tflite models")
+                            expect(page.locator("#sessionSelect option")).to_contain_text("No saved folders")
                         # Start keyboard modality then focus STOP without activating it.
                         page.keyboard.press("Tab")
                         target = page.locator(stop)
@@ -152,6 +164,20 @@ def main():
                             }[name])
                             case["geometry"]["dialog_save"] = check_geometry(save, width, height, "dialog Save/Apply")
                             page.screenshot(path=str(args.output / f"{name}-{width}-dialog.png"), animations="disabled")
+                            first = page.locator({
+                                "manual": "#mdrvOverlaySettingsClose",
+                                "ai": "#aiWorkflowSettingsClose",
+                                "dashboard": "#closeStyleSettingsBtn",
+                            }[name])
+                            # Verify both ends of the actual native Tab order.
+                            first.focus()
+                            page.keyboard.press("Shift+Tab")
+                            expect(save).to_be_focused()
+                            page.keyboard.press("Tab")
+                            expect(first).to_be_focused()
+                            page.keyboard.press("Escape")
+                            expect(dialog).to_be_hidden()
+                            expect(control).to_be_focused()
                         if name == "settings":
                             target = page.locator("#stSaveSettings")
                             target.focus()
@@ -159,6 +185,23 @@ def main():
                             expect(page.locator("#stApplyState")).to_have_text("Failed", timeout=8000)
                             expect(page.locator("#stRetryApply")).to_be_visible()
                             assert "/api/settings" in mutations
+                        if name in ("manual", "ai"):
+                            # Space on a drive pad still dispatches the existing global STOP.
+                            # No actual motor command is delivered by the fixture.
+                            pad = page.locator("#mdrvDragPad" if name == "manual" else "#aiManualDrivePad")
+                            if name == "ai":
+                                expect(page.locator("#aiManualDriveTab")).to_have_attribute("aria-selected", "true")
+                            pad.focus()
+                            before = len(mutations)
+                            with page.expect_request(lambda req: req.method == "POST" and urlsplit(req.url).path == "/api/control/stop"):
+                                page.keyboard.press("Space")
+                            # Wait for the intercepted network response, not a hardware acknowledgement.
+                            page.wait_for_timeout(100)
+                            assert "/api/control/stop" in mutations[before:]
+                        if name == "dashboard":
+                            # The E-STOP request is intercepted too; never treat a 503 as a physical stop.
+                            with page.expect_request(lambda req: req.method == "POST" and urlsplit(req.url).path == "/api/system/estop"):
+                                page.locator(stop).press("Enter")
                         case["page_errors"] = list(errors)
                         if errors:
                             raise AssertionError("Browser JavaScript errors: " + "; ".join(errors))

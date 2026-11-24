@@ -696,9 +696,9 @@
     els.aiWorkflowSettingsPopup.hidden = false;
     document.body.classList.add('mdrv-overlay-settings-open-body');
     setWorkflowSettingsStatus('Loading global rate settings...', 'ready');
-    loadWorkflowCameraSettings().finally(() => {
-      window.setTimeout(() => els.aiCameraCaptureFps?.focus?.(), 0);
-    });
+    // Focus immediately; the asynchronous readback must not steal focus later.
+    els.aiCameraCaptureFps?.focus?.();
+    void loadWorkflowCameraSettings();
   }
 
   function closeWorkflowSettingsPopup() {
@@ -1168,6 +1168,7 @@
   }
 
   function shortcutBlocked() {
+    if (els.aiWorkflowSettingsPopup && !els.aiWorkflowSettingsPopup.hidden) return true;
     const active = document.activeElement;
     if (!active || active === document.body || active === document.documentElement || active === els.aiCorrectionPad || active === els.aiManualDrivePad || active === els.aiAssistPad) return false;
     // R35: native button/checkbox/field activation must not become a motor
@@ -1749,6 +1750,7 @@
     els.aiWorkflowSettingsClose?.addEventListener('click', closeWorkflowSettingsPopup);
     els.aiWorkflowSettingsApply?.addEventListener('click', applyWorkflowCameraSettings);
     ['aiCameraCaptureFps', 'aiLivePreviewFps', 'aiAiPredictionFps'].forEach((id) => { els[id]?.addEventListener('keydown', (event) => { if (event.key === 'Enter') applyWorkflowCameraSettings(); }); });
+    window.PiSDDialogFocus.bind(els.aiWorkflowSettingsPopup);
     els.aiWorkflowSettingsPopup?.addEventListener('click', (event) => { if (event.target === els.aiWorkflowSettingsPopup) closeWorkflowSettingsPopup(); });
     els.aiRefreshModels?.addEventListener('click', refreshModels);
     els.aiLoadModel?.addEventListener('click', loadModel);

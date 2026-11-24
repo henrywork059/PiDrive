@@ -602,7 +602,7 @@
     overlaySettingsPopup.hidden = false;
     document.body.classList.add('mdrv-overlay-settings-open-body');
     setOverlaySettingsStatus('Ready - tune shape, then camera alignment, then opacity');
-    window.setTimeout(() => overlayTurnRateVisualScale?.focus?.(), 0);
+    overlayTurnRateVisualScale?.focus?.();
   }
 
   function closeOverlaySettingsPopup() {
@@ -1438,6 +1438,7 @@
     const applyOverlayNumberInput = () => {
       applyOverlayCalibration(readOverlayCalibrationFromControls(), true);
     };
+    window.PiSDDialogFocus.bind(overlaySettingsPopup);
     overlaySettingsOpen?.addEventListener('click', openOverlaySettingsPopup);
     overlaySettingsClose?.addEventListener('click', closeOverlaySettingsPopup);
     overlaySettingsPopup?.addEventListener('click', event => {
