@@ -251,8 +251,17 @@ source .venv/bin/activate
 Install dependencies:
 
 ```bash
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
+
+This is the full workflow install (including TensorFlow for training,
+validation, export and TFLite checks). For desktop-only data review, use
+`python -m pip install -r requirements-desktop.txt` instead; model operations
+requiring TensorFlow are not supported with that reduced install.
+`requirements-dev.txt` adds pytest to the full install. Python 3.11 is the
+clean CI reference; native Windows and real training remain separate
+acceptance checks. NumPy is constrained below 2 to align with the existing
+regression matrix and supported TensorFlow versions.
 
 ## Run
 

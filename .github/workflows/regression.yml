@@ -100,6 +100,27 @@ jobs:
           python scripts/run_standard_validation.py --output "$RUNNER_TEMP/standard-validation.json" || failed=1
           exit "$failed"
 
+      - name: Clean declared dependency install and launcher smoke
+        run: |
+          set -euo pipefail
+          python -m venv "$RUNNER_TEMP/release-smoke"
+          smoke="$RUNNER_TEMP/release-smoke/bin/python"
+          "$smoke" -m pip install -r requirements.txt
+          "$smoke" -m pip check
+          case "${{ matrix.component }}" in
+            PiSD)
+              "$smoke" PiSD.py --help
+              "$smoke" PiSD.py --status-only
+              "$smoke" scripts/check_service_imports.py
+              ;;
+            PiServer)
+              "$smoke" -c 'import server; assert server.app is not None; assert server.BIND_HOST == "127.0.0.1"'
+              ;;
+            piTrainer)
+              "$smoke" -c 'import main, tensorflow, matplotlib; from PySide6.QtWidgets import QApplication; app=QApplication([]); assert callable(main.run); print(tensorflow.__version__)'
+              ;;
+          esac
+
   manifest-contract:
     name: Trainer-to-runtime manifest compatibility
     runs-on: ubuntu-latest

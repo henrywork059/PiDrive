@@ -451,7 +451,7 @@ The shared safety acknowledgement and motor-output enable controls now sit outsi
 PiSD/
 ├── PiSD.py                       # main launcher
 ├── README.md                     # install/run overview
-├── requirements.txt              # single pip dependency file
+├── requirements.txt              # core web/simulation dependencies
 ├── config/
 │   └── defaults.json             # safe default camera/motor settings
 ├── pisd/
@@ -468,15 +468,44 @@ PiSD/
 
 ## Install / run on Raspberry Pi
 
-From the PiDrive root:
+Use the reviewed current checkout; never unzip an old baseline over newer code.
+For simulation on Python 3.11, from the component directory:
 
 ```bash
-cd ~/PiDrive
-unzip -o PiSD_0_10_0.zip
-cd ~/PiDrive/PiSD
-python3 -m pip install --break-system-packages -r requirements.txt
-python3 PiSD.py --host 0.0.0.0 --port 5050 --hardware  # requires PISD_ACCESS_TOKEN; see LAN setup below
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+python -m pip install -r requirements.txt
+python PiSD.py --status-only
+python PiSD.py
 ```
+
+On Raspberry Pi OS, use a separate environment with access to the OS camera packages.
+For a new Pi installation, install the distro packages (do not replace a working
+hardware environment blindly):
+
+```bash
+cd ~/PiDrive/PiSD
+sudo apt install python3-venv python3-picamera2 python3-libcamera python3-opencv python3-rpi.gpio
+python3 -m venv --system-site-packages .venv-pi
+source .venv-pi/bin/activate
+python -m pip install -r requirements.txt
+```
+
+The optional `requirements-pi.txt` installs rpi-lgpio as an **alternative**
+RPi.GPIO-compatible backend; do not install it alongside the distro RPi.GPIO
+implementation. Camera and GPIO imports need device-side verification.
+Use the existing AI runtime installer separately, and `requirements-dev.txt`
+for validation tooling. NumPy/OpenCV ranges follow the tested hardware-free
+matrix; OS camera ABI compatibility must still be verified on the actual Pi.
+
+After configuring the private PISD_ACCESS_TOKEN as described below, the existing
+hardware launcher remains:
+
+```bash
+python PiSD.py --host 0.0.0.0 --port 5050 --hardware
+```
+
+This guide does not migrate an existing systemd interpreter or environment.
 
 Open from another device on the same network:
 

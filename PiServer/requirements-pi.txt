@@ -1,0 +1,3 @@
+# Optional Pi-only GPIO compatibility backend. Do not combine with RPi.GPIO.
+# Install Picamera2/libcamera through Raspberry Pi OS; see README.
+rpi-lgpio>=0.6,<1.0

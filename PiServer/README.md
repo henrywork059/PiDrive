@@ -213,9 +213,20 @@ budgets must be measured on actual Pi 4 hardware, not guessed.
 cd PiServer
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 python server.py
 ```
+
+Python 3.11 is recommended. The core install supports the hardware-free
+runtime; on Raspberry Pi OS install Picamera2/libcamera and the appropriate
+GPIO backend through the OS. Use a separate `--system-site-packages` virtual
+environment when those OS bindings are required. `requirements-pi.txt`
+is an optional rpi-lgpio alternative to RPi.GPIO, not a second simultaneous
+GPIO implementation. A compatible TFLite interpreter is separately optional
+(`tflite-runtime`, or the TensorFlow fallback implemented by model_service.py).
+Use `requirements-dev.txt` for tests. NumPy/OpenCV constraints follow the
+hardware-free test matrix; confirm the OS camera ABI on the target device.
+Existing systemd deployments are not migrated by these instructions.
 
 ### Access protection (0.4.12)
 

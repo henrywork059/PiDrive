@@ -1,41 +1,12 @@
-# PiSD single dependency file.
-# Install with: python -m pip install -r requirements.txt
-
-# Web GUI / API scaffold
+# Core PiSD web/simulation dependencies (Python 3.11 recommended).
+# Hardware and development packages are separate.
 Flask>=3.0,<4.0
 flask-cors>=4.0,<5.0
 waitress>=3.0,<4.0
-
-# Runtime utilities
 requests>=2.31,<3.0
 python-dotenv>=1.0,<2.0
 PyYAML>=6.0,<7.0
 psutil>=5.9,<8.0
-
-# Image / camera processing experiments
-numpy>=1.24,<3.0
+numpy>=1.24,<2.0
 Pillow>=10.0,<12.0
-opencv-python>=4.8,<5.0
-
-# Raspberry Pi GPIO compatibility helper.
-# PiSD still imports RPi.GPIO style APIs so it can match the existing PiServer motor service.
-rpi-lgpio>=0.6,<1.0
-
-# Development and validation
-pytest>=8.0,<9.0
-ruff>=0.6,<1.0
-black>=24.0,<26.0
-
-# Raspberry Pi OS camera note:
-# Prefer apt packages for Picamera2/libcamera on the Pi, for example:
-#   sudo apt update
-#   sudo apt install -y python3-picamera2 python3-libcamera python3-opencv
-
-# AI model runtime note:
-# .tflite AI driving models need a TFLite interpreter installed on the Pi.
-# This is optional here because wheel availability depends on Python/OS/CPU.
-# Use the helper scripts after installing the normal requirements:
-#   python3 scripts/install_ai_runtime.py --runtime tflite-runtime
-#   python3 scripts/check_ai_runtime.py
-# Fallback on supported 64-bit Pi OS/Python combinations:
-#   python3 scripts/install_ai_runtime.py --runtime ai-edge-litert
+opencv-python>=4.8,<4.12

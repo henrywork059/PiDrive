@@ -1,6 +1,3 @@
-PySide6>=6.7,<6.9
-pandas>=2.2,<3.0
-numpy>=1.26,<3.0
-Pillow>=10.0,<12.0
-matplotlib>=3.8,<4.0
+# Full existing workflow, including training, validation and export.
+-r requirements-desktop.txt
 tensorflow>=2.15,<2.19
