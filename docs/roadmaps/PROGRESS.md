@@ -30,7 +30,9 @@ Implemented IDs: F1, F5, F6; U11, U12, U13, U14, U15, U16, U17, U19, U20, U23, U
 
 No dedicated update: F7–F10 (config recovery, refactoring, dependencies/packaging, full recording/model workflow); R50–R53 (visual/interaction tests, full provenance, modular extraction, release/anti-rollback checks); UX54–UX65, UX72–UX75. Prior CI, contract and provenance work overlaps several of these but is not treated as full completion.
 
-Next: F4 validation recovery, safety gaps F2/F3/U21, config integrity F7, release checks R53/F9, then remaining workflow and UI/UX work. Keep original numbers and update this ledger using evidence after each patch. 33 active proposal IDs remain for implementation, completion or verification; 24 have no dedicated update. No retired-component work. No hardware acceptance claimed.
+## Consolidated execution schedule
+
+The 33 remaining original proposal IDs are now organized into **10 development batches** (Batch 1 in progress; 9 not started). See [DEVELOPMENT_SCHEDULE.md](DEVELOPMENT_SCHEDULE.md) for the complete mapping, dependencies and acceptance gates. All 33 IDs appear exactly once. The 28/61 implementation count is unchanged; grouping work does not complete it. Track both original IDs and batch status after each update. No retired-component work or hardware acceptance claimed.
 
 ## Release candidate
-PR #84: PiSD 0.11.22, PiServer 0.4.28, piTrainer 0.11.10, PiBooter 0.1.8. CI run 45349043534: all five jobs passed. Main remains unchanged. The F4 follow-up is separately stacked on the green candidate; its CI status must be checked independently.
+PR #84: PiSD 0.11.22, PiServer 0.4.28, piTrainer 0.11.10, PiBooter 0.1.8. CI run 45349043534: all five jobs passed. Main remains unchanged. The F4 follow-up is separately stacked on the green candidate; its CI run 45353829480 passed the four new math cases and other active jobs but failed the standalone PiSD validation step (standard validation 59 passed / 4 failed). F4 is still partial. The schedule-only update does not fix these failures.
