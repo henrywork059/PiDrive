@@ -35,5 +35,5 @@ test("preserve safety stop, streaming, AI ownership and version",()=>{
  assert.match(ai,/stopFullManualDrive\('ai-manual-hidden'\)/);
  assert.match(ai,/stopAssistDrive\('ai-assist-hidden'\)/);
  assert.match(ai,/if \(document\.hidden \|\| statusPollInFlight\) return/);
- assert.match(version,/0\.11\.19/);
+ const m=version.match(/__version__\s*=\s*"0\.11\.(\d+)"/);assert.ok(m&&Number(m[1])>=19);
 });

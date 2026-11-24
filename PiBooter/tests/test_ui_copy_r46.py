@@ -1,6 +1,7 @@
 """R46 PiBooter empty/recovery copy checks without any network or Wi-Fi calls."""
 from __future__ import annotations
 import ast
+import re
 import unittest
 from pathlib import Path
 
@@ -36,7 +37,9 @@ class OnboardingCopyR46(unittest.TestCase):
         self.assertIn("Wi-Fi connection timed out. Check the signal and retry.", self.source)
 
     def test_forward_version_only(self):
-        self.assertIn('server_version = "PiBooter/0.1.7"', self.source)
+        version = re.search(r'server_version\s*=\s*"PiBooter/0\.1\.(\d+)"', self.source)
+        self.assertIsNotNone(version)
+        self.assertGreaterEqual(int(version.group(1)), 7)
 
 
 if __name__ == "__main__":

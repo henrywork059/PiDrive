@@ -109,13 +109,28 @@ class ReadOnlyPiSDPreflightR48(unittest.TestCase):
 
     def test_read_only_get_route_reuses_loaded_services(self):
         text = APP.read_text(encoding="utf-8")
-        ast.parse(text, filename=str(APP))
-        route = text.split('@app.get("/api/preflight")', 1)[1].split("    @app.get", 1)[0]
+        tree = ast.parse(text, filename=str(APP))
+        route_node = next(node for node in ast.walk(tree)
+                          if isinstance(node, ast.FunctionDef) and node.name == "api_preflight")
+        self.assertTrue(any(isinstance(d, ast.Call)
+                            and isinstance(d.func, ast.Attribute)
+                            and d.func.attr == "get"
+                            and any(isinstance(a, ast.Constant) and a.value == "/api/preflight"
+                                    for a in d.args)
+                            for d in route_node.decorator_list))
+        route = ast.unparse(route_node)
         for required in ("camera_service.status()", "motor_service.status()",
                          "ai_drive_service.status()", "ai_drive_service.safety_status()"):
             self.assertIn(required, route)
-        self.assertNotIn("start(", route)
-        self.assertNotIn("save(", route)
+        # Check actual calls, not explanatory comments containing forbidden names.
+        allowed = {"jsonify", "build_preflight", "bool", "status", "safety_status"}
+        for node in ast.walk(route_node):
+            if isinstance(node, ast.Call):
+                called = node.func.id if isinstance(node.func, ast.Name) else (
+                    node.func.attr if isinstance(node.func, ast.Attribute) else "")
+                if node in route_node.decorator_list:
+                    continue
+                self.assertIn(called, allowed, f"Unexpected preflight call: {ast.unparse(node)}")
 
 
 if __name__ == "__main__":

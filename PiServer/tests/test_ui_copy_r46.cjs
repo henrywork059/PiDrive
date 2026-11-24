@@ -35,5 +35,5 @@ test("status action labels and version retain hardware semantics",()=>{
  assert.match(html,/Apply \+ restart/);
  assert.match(html,/id="cameraApplyBtn"/);
  assert.match(html,/id="motorApplyBtn"/);
- assert.match(server,/APP_VERSION = "0_4_25"/);
+ const m=server.match(/APP_VERSION\s*=\s*"0_4_(\d+)"/);assert.ok(m&&Number(m[1])>=25);
 });

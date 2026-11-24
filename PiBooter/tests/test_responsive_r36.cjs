@@ -27,8 +27,10 @@ test('private hotspot credential not embedded in HTML shell',()=>{
 });
 test('consistent mobile button target height',()=>assert.equal(
   app.includes('min-height: 44px')&&app.includes('.btn-row button'),true));
-test('version increment remains on PiBooter patch scheme',()=>assert.equal(
-  app.includes('server_version = "PiBooter/0.1.6"'),true));
+test('version increment remains on PiBooter patch scheme',()=>{
+  const m=app.match(/server_version\s*=\s*"PiBooter\/0\.1\.(\d+)"/);
+  assert.ok(m&&Number(m[1])>=6);
+});
 test('existing R34 projected onboarding retained',()=>assert.equal(
   app.includes('"onboarding": project_onboarding(snapshot)'),true));
 console.log(n+'/12 PiBooter R36 responsive checks passed');

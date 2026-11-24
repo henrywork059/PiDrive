@@ -18,5 +18,5 @@ test('manual preview aspect ratio has no forced square override',()=>assert.equa
 test('settings popup is constrained to dynamic viewport height',()=>assert.equal(css.includes('max-height: calc(100dvh - 16px) !important'),true));
 test('settings action row wraps',()=>assert.equal(css.includes('.mdrv-overlay-settings-actions')&&css.includes('flex-wrap: wrap !important'),true));
 test('R35 focus styles are kept',()=>assert.equal(design.includes('prefers-reduced-motion: reduce')&&design.includes('focus-visible'),true));
-test('version 0.11.17',()=>assert.equal(version.includes('__version__ = "0.11.17"'),true));
+test('version is 0.11.17 or later in the patch line',()=>{const m=version.match(/__version__\s*=\s*"0\.11\.(\d+)"/);assert.ok(m&&Number(m[1])>=17);});
 console.log(n+'/11 PiSD R36 responsive checks passed');

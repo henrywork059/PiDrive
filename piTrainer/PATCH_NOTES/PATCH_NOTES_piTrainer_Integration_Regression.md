@@ -1,0 +1,3 @@
+# piTrainer integration regression corrections (0.11.9)
+
+Initial PR #84 run (45342315514) passed core data, metadata, export and run provenance tests, but the older R45 exact-version test failed on 0.11.9. tests/test_ui_style_contract_r45.py now checks same version family, minimum patch and matching APP/PATCH versions. CI adds Linux Qt platform libraries and an explicit QApplication offscreen import check; skipped real Qt tests remain failures, not waived. Based on integrated 0.11.9, reviewed 0.11.9, 0.11.8, 0.11.7 and 0.11.6 notes. No runtime/config changes. Corrected tests require rerun; Windows UI and actual training not tested.

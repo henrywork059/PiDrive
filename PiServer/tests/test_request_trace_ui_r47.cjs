@@ -68,5 +68,5 @@ test("R43 preview freshness and R31 saved readback remain",()=>{
   assert.match(app,/previewHealth\.isNew\(sequence\)/);
   assert.match(app,/confirmedConfig\('\/api\/motor\/config'/);
   assert.match(app,/confirmedConfig\('\/api\/camera\/config'/);
-  assert.match(server,/APP_VERSION = "0_4_26"/);
+  const m=server.match(/APP_VERSION\s*=\s*"0_4_(\d+)"/);assert.ok(m&&Number(m[1])>=26);
 });
