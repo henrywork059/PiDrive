@@ -81,9 +81,20 @@ class RecordPreviewModel(QAbstractTableModel):
         if column < 0 or column >= len(self.columns):
             return
         self.layoutAboutToBeChanged.emit()
+        # Qt's selection model creates persistent indexes while handling the
+        # about-to-change signal. Preserve their source-row identities across
+        # the reorder, before notifying Qt that the new layout is available.
+        old_indexes = self.persistentIndexList()
+        identities = [(self.source_row(index.row()), index.column())
+                      for index in old_indexes]
         self._sort_column = int(column)
         self._sort_order = order
         self._sort_rows_in_place()
+        view_rows = {source: row for row, source in enumerate(self._source_rows)}
+        new_indexes = [self.index(view_rows[source], column)
+                       if source in view_rows else QModelIndex()
+                       for source, column in identities]
+        self.changePersistentIndexList(old_indexes, new_indexes)
         self.layoutChanged.emit()
 
     def _sort_rows_in_place(self) -> None:

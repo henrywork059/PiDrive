@@ -27,8 +27,7 @@ class PreviewPanel(QGroupBox):
         self.selection_callback = selection_callback
         self.playback_state_callback = playback_state_callback
         self._handling_selection = False
-        self._restore_after_sort_rows: list[int] = []
-        self._restore_after_sort_current_row = -1
+        self._sorting_layout = False
         self._scope_all_active = 0
         self._scope_generated_active = 0
         self._scope_hidden: int | None = None
@@ -58,11 +57,13 @@ class PreviewPanel(QGroupBox):
         self.summary_label.setWordWrap(True)
 
         self.model = RecordPreviewModel()
-        self.model.layoutAboutToBeChanged.connect(self._capture_selection_before_sort)
-        self.model.layoutChanged.connect(self._restore_selection_after_sort)
         self.table = CyclingPreviewTable(self)
         self.table.setObjectName('recordPreviewTable')
         self.table.setModel(self.model)
+        # Connect after the view's selection model: Qt restores its persistent
+        # selection before the panel refreshes the preview and scope counts.
+        self.model.layoutAboutToBeChanged.connect(self._begin_sort_layout)
+        self.model.layoutChanged.connect(self._finish_sort_layout)
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
@@ -246,37 +247,11 @@ class PreviewPanel(QGroupBox):
                     pass
         self.table.setCurrentIndex(index)
 
-    def _capture_selection_before_sort(self) -> None:
-        self._restore_after_sort_rows = self.selected_source_rows()
-        self._restore_after_sort_current_row = self.current_row()
+    def _begin_sort_layout(self) -> None:
+        self._sorting_layout = True
 
-    def _restore_selection_after_sort(self) -> None:
-        if not self._restore_after_sort_rows:
-            self._schedule_first_column_visible()
-            return
-        selection_model = self.table.selectionModel()
-        if selection_model is None:
-            return
-
-        def restore() -> None:
-            self.table.clearSelection()
-            select_flags = self._selection_flags('Select', 'Rows')
-            for source_row in self._restore_after_sort_rows:
-                view_row = self._view_row_for_source_row(source_row)
-                if view_row < 0:
-                    continue
-                index = self.model.index(view_row, 0)
-                if select_flags is not None:
-                    selection_model.select(index, select_flags)
-                else:
-                    self.table.selectRow(view_row)
-            current_view_row = self._view_row_for_source_row(self._restore_after_sort_current_row)
-            if current_view_row < 0 and self._restore_after_sort_rows:
-                current_view_row = self._view_row_for_source_row(self._restore_after_sort_rows[0])
-            if current_view_row >= 0:
-                self._set_current_index(self.model.index(current_view_row, 0), no_update=True)
-
-        self._with_blocked_selection(restore)
+    def _finish_sort_layout(self) -> None:
+        self._sorting_layout = False
         self._schedule_first_column_visible()
         self._handle_selection_change()
 
@@ -468,7 +443,7 @@ class PreviewPanel(QGroupBox):
             QTimer.singleShot(delay_ms, self._keep_first_column_visible)
 
     def _handle_selection_change(self) -> None:
-        if self._handling_selection:
+        if self._handling_selection or self._sorting_layout:
             return
         self._handling_selection = True
         try:

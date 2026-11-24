@@ -158,7 +158,7 @@ class HiddenMetadataScopeTests(unittest.TestCase):
 
 
 try:
-    from PySide6.QtCore import Qt, QItemSelectionModel
+    from PySide6.QtCore import Qt, QItemSelectionModel, QPersistentModelIndex
     from PySide6.QtWidgets import QApplication
     from piTrainer.panels.data.preview_panel import PreviewPanel
 except ImportError:
@@ -191,16 +191,30 @@ class PreviewSortIdentityTests(unittest.TestCase):
             selection.select(preview.model.index(preview.model.view_row_for_source_row(source_row), 0), flags)
         self.app.processEvents()
         before = {(r['session'], r['frame_id'], r['abs_image']) for r in preview.selected_records()}
-        preview.table.sortByColumn(0, Qt.DescendingOrder)
-        self.app.processEvents()
-        after = {(r['session'], r['frame_id'], r['abs_image']) for r in preview.selected_records()}
-        self.assertEqual(before, after)
+        self.assertEqual(before, {('2026-01-01', 'f02', '/a/2.jpg'),
+                                  ('2026-01-02', 'f01', '/b/1.jpg')})
+        current = preview.model.index(preview.model.view_row_for_source_row(2), 0)
+        selection.setCurrentIndex(current, QItemSelectionModel.NoUpdate)
+        persistent = QPersistentModelIndex(current)
+        for order in (Qt.DescendingOrder, Qt.AscendingOrder, Qt.DescendingOrder):
+            preview.table.sortByColumn(0, order)
+            self.app.processEvents()
+            after = {(r['session'], r['frame_id'], r['abs_image']) for r in preview.selected_records()}
+            self.assertEqual(before, after)
+            self.assertEqual(preview.current_row(), 2)
+            self.assertEqual(preview.model.source_row(persistent.row()), 2)
         self.assertIn('Selected visible: 2', preview.scope_label.text())
         self.assertIn('All active: 5', preview.scope_label.text())
         # Validation's Edit in Data path targets a source-frame identity,
         # not whatever row a sorting operation moved into the old position.
         target_identity = preview.record_identity(rows.iloc[1].to_dict())
         self.assertTrue(preview.select_record_identity(target_identity))
+        self.assertEqual(preview.record_identity(preview.selected_record()), target_identity)
+        # Sorting an empty selection must not fabricate selected source rows.
+        selection.clearSelection()
+        preview.table.sortByColumn(0, Qt.AscendingOrder)
+        self.app.processEvents()
+        self.assertEqual(preview.selected_records(), [])
         self.assertEqual(preview.record_identity(preview.selected_record()), target_identity)
         preview.deleteLater()
 
