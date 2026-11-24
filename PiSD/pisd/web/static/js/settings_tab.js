@@ -166,7 +166,19 @@ document.getElementById('stResetSettings')?.addEventListener('click', resetSetti
 document.getElementById('stRetryApply')?.addEventListener('click', () => settingsRetryAction());
 document.getElementById('stExportSettings')?.addEventListener('click', exportSettings);
 document.getElementById('stImportSettings')?.addEventListener('change', e => { if(e.target.files?.[0]) importSettings(e.target.files[0]); });
-document.getElementById('stStopAll')?.addEventListener('click', () => settingsApi('POST','/api/control/stop',{}));
+document.getElementById('stStopAll')?.addEventListener('click', async () => {
+  try {
+    await settingsApi('POST', '/api/control/stop', {});
+  } catch (error) {
+    // An unsuccessful response cannot confirm that STOP reached the motor.
+    // Show a failure code instead of leaving an unhandled rejected Promise.
+    logResponse('STOP request not confirmed', {
+      ok: false,
+      code: 'PISD-API-STOP-FAILED',
+      message: String(error?.message || error),
+    });
+  }
+});
 document.querySelectorAll('form input, form select').forEach(el => {
   const edited = () => {
     updateOutputs(document);

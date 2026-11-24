@@ -187,10 +187,31 @@ def main():
                         if name == "settings":
                             target = page.locator("#stSaveSettings")
                             target.focus()
-                            target.press("Enter")
+                            with page.expect_response(lambda response: response.request.method == "POST"
+                                    and urlsplit(response.url).path == "/api/settings"):
+                                target.press("Enter")
                             expect(page.locator("#stApplyState")).to_have_text("Failed", timeout=8000)
                             expect(page.locator("#stRetryApply")).to_be_visible()
-                            assert "/api/settings" in mutations
+                            expect(page.locator("#stApplyDetail")).to_contain_text("Synthetic rejected mutation")
+                            first_attempts = mutations.count("/api/settings")
+                            assert first_attempts == 1, mutations
+                            # A rejected save remains retryable; a second rejected response
+                            # must not be presented as confirmation.
+                            with page.expect_response(lambda response: response.request.method == "POST"
+                                    and urlsplit(response.url).path == "/api/settings"):
+                                page.locator("#stRetryApply").click()
+                            expect(page.locator("#stApplyState")).to_have_text("Failed", timeout=8000)
+                            assert mutations.count("/api/settings") == first_attempts + 1, mutations
+                            expect(target).to_be_enabled()
+                            # Emergency STOP remains operable after the settings failure.
+                            # A rejected response must report an error rather than claim success
+                            # or cause an unhandled JavaScript Promise rejection.
+                            with page.expect_response(lambda response: response.request.method == "POST"
+                                    and urlsplit(response.url).path == "/api/control/stop"):
+                                page.locator("#stStopAll").click()
+                            expect(page.locator("#stGlobalCode")).to_have_text("PISD-API-STOP-FAILED")
+                            expect(page.locator("#stGlobalCode")).to_have_attribute("data-state", "error")
+                            expect(page.locator("#stActionLog")).to_contain_text("STOP request not confirmed")
                         if name in ("manual", "ai"):
                             # Space on a drive pad still dispatches the existing global STOP.
                             # No actual motor command is delivered by the fixture.
