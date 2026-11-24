@@ -8,6 +8,10 @@ Active development: PiSD, PiServer, piTrainer and PiBooter only. CustomTrainer a
 
 The original proposal IDs are retained for historical traceability. Ignore inactive-component-only tasks; for mixed proposals, implement only the active component portions. The 13 inactive-component drafts (#43, #47, #51, #57, #58, #60, #62, #65, #68, #70, #74, #77, #80) were closed unmerged; earlier merged history is unchanged. Consult [stabilization acceptance](../stabilization_acceptance.md) and the live GitHub PR list for active versions and test results. A draft or merged patch is not evidence of physical hardware validation.
 
+## Progress tracking
+
+See [active roadmap progress](PROGRESS.md) for the scoped proposal count, partial items and remaining work. Original IDs are not renumbered.
+
 ## Roadmap documents
 
 | Track | IDs | Document | Focus |
