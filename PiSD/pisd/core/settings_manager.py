@@ -8,6 +8,7 @@ from threading import RLock
 from typing import Any
 
 from pisd.core.errors import ErrorReporter, PiSDErrorCodes
+from pisd.core.config_recovery import ConfigRecovery
 # PiSD_0_4_1 cleanup: ok_payload/report_payload were imported here by an older settings API draft,
 # but SettingsManager does not build HTTP payloads directly. Keep them unused/commented out rather
 # than deleting the history of that planned path.
@@ -108,26 +109,45 @@ class SettingsManager:
         self.errors = ErrorReporter("settings")
         self._lock = RLock()
         self._settings = copy.deepcopy(self.defaults)
+        self._recovery = ConfigRecovery(self.path)
         self.load()
+
+    def _decode(self, raw: bytes) -> dict[str, Any]:
+        data = json.loads(raw.decode("utf-8"))
+        if not isinstance(data, dict):
+            raise ValueError("Settings must be an object.")
+        # Existing known groups must be objects. Preserve unknown keys through
+        # the existing normalizer instead of introducing a new schema.
+        for key in DEFAULT_RUNTIME_SETTINGS:
+            if key in data and not isinstance(data[key], dict):
+                raise ValueError("Invalid settings group.")
+        return self._normalise(data)
+
+    def recovery_status(self) -> dict[str, Any]:
+        with self._lock:
+            return self._recovery.status()
 
     def load(self) -> dict[str, Any]:
         with self._lock:
             try:
-                if not self.path.exists():
+                raw = self._recovery.read()
+                if raw is None:
                     self._settings = copy.deepcopy(self.defaults)
-                    return self.get()
-                with self.path.open("r", encoding="utf-8") as handle:
-                    data = json.load(handle)
-                if not isinstance(data, dict):
-                    self.errors.report(PiSDErrorCodes.SETTINGS_LOAD_FAILED, "runtime_settings.json did not contain an object; defaults loaded.", context={"path": str(self.path)})
-                    self._settings = copy.deepcopy(self.defaults)
-                    return self.get()
-                self._settings = self._normalise(data)
-                return self.get()
-            except Exception as exc:
-                self.errors.report(PiSDErrorCodes.SETTINGS_LOAD_FAILED, f"Failed to load runtime settings: {exc}", context={"path": str(self.path)}, exc=exc)
-                self._settings = copy.deepcopy(self.defaults)
-                return self.get()
+                else:
+                    try:
+                        candidate = self._decode(raw)
+                    except (ValueError, TypeError, AttributeError, KeyError, OverflowError):
+                        self._recovery.preserve(raw)
+                        raise ValueError("Malformed runtime configuration preserved.")
+                    self._settings = candidate
+                    self._recovery.write_blocked = False
+            except Exception:
+                # At startup this is the default state; a later failed load
+                # keeps the last effective in-memory configuration.
+                self.errors.report(PiSDErrorCodes.SETTINGS_LOAD_FAILED,
+                                   self._recovery.warning or "Runtime settings could not be loaded.",
+                                   severity="warning", context={"path": str(self.path)})
+            return self.get()
 
     def get(self) -> dict[str, Any]:
         with self._lock:
@@ -135,6 +155,24 @@ class SettingsManager:
 
     def schema(self) -> dict[str, Any]:
         return copy.deepcopy(SETTINGS_SCHEMA)
+
+    def _save_candidate(self, candidate):
+        try:
+            raw = self._recovery.read()
+            if raw is not None:
+                try:
+                    self._decode(raw)
+                except (ValueError, TypeError, AttributeError, KeyError, OverflowError):
+                    self._recovery.preserve(raw)
+            self._recovery.write(
+                (json.dumps(candidate, indent=2, sort_keys=True) + "\n").encode("utf-8"), raw)
+        except Exception:
+            report = self.errors.report(PiSDErrorCodes.SETTINGS_SAVE_FAILED,
+                self._recovery.warning or "Runtime settings could not be saved; previous settings retained.",
+                context={"path": str(self.path)})
+            return False, self.get(), report
+        self._settings = candidate
+        return True, self.get(), None
 
     def save(self, partial: dict[str, Any]) -> tuple[bool, dict[str, Any], Any | None]:
         if not isinstance(partial, dict):
@@ -145,23 +183,16 @@ class SettingsManager:
             report = self.errors.report(PiSDErrorCodes.SETTINGS_INVALID_PAYLOAD, f"Unknown settings group(s): {', '.join(unknown)}", context={"unknown": unknown})
             return False, self.get(), report
         with self._lock:
-            self._settings = self._normalise(deep_merge(self._settings, partial))
             try:
-                self.path.parent.mkdir(parents=True, exist_ok=True)
-                tmp = self.path.with_suffix(".tmp")
-                with tmp.open("w", encoding="utf-8") as handle:
-                    json.dump(self._settings, handle, indent=2, sort_keys=True)
-                    handle.write("\n")
-                tmp.replace(self.path)
-                return True, self.get(), None
-            except Exception as exc:
-                report = self.errors.report(PiSDErrorCodes.SETTINGS_SAVE_FAILED, f"Failed to save runtime settings: {exc}", context={"path": str(self.path)}, exc=exc)
+                candidate = self._normalise(deep_merge(self._settings, partial))
+            except (ValueError, TypeError, AttributeError, KeyError, OverflowError):
+                report = self.errors.report(PiSDErrorCodes.SETTINGS_INVALID_PAYLOAD, "Settings contain an invalid group or value.")
                 return False, self.get(), report
+            return self._save_candidate(candidate)
 
     def reset(self) -> tuple[bool, dict[str, Any], Any | None]:
         with self._lock:
-            self._settings = copy.deepcopy(self.defaults)
-        return self.save({})
+            return self._save_candidate(self._normalise(copy.deepcopy(self.defaults)))
 
 
     def _looks_like_old_awb_auto_camera_default(self, camera: dict[str, Any]) -> bool:

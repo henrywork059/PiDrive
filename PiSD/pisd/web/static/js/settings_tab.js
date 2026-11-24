@@ -74,6 +74,11 @@ async function settingsApi(method, path, body) {
   const res = await fetch(path, options);
   const payload = await res.json();
   logResponse(`${method} ${path}`, payload, res.status);
+  const recovery = document.getElementById("stConfigRecovery");
+  if (recovery && payload.config_recovery) {
+    recovery.textContent = payload.config_recovery.warning || "";
+    recovery.hidden = !recovery.textContent;
+  }
   if (!res.ok || payload?.ok !== true) throw new Error(payload?.message || `${method} ${path} failed (${res.status})`);
   return payload;
 }

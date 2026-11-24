@@ -123,6 +123,7 @@ def create_app(hardware_enabled: bool = False):
             "motor": motor_service.status(),
             "errors": all_errors(limit=5),
             "settings": settings_manager.get(),
+            "config_recovery": settings_manager.recovery_status(),
             "recording": recording_service.status(),
             "ai_mode": ai_drive_service.status(),
             "safety": ai_drive_service.safety_status(),
@@ -374,7 +375,7 @@ def create_app(hardware_enabled: bool = False):
 
     @app.get("/api/settings")
     def api_settings_get():
-        return jsonify(ok_payload("Runtime settings loaded.", settings=settings_manager.get(), schema=settings_manager.schema()))
+        return jsonify(ok_payload("Runtime settings loaded.", settings=settings_manager.get(), schema=settings_manager.schema(), config_recovery=settings_manager.recovery_status()))
 
     @app.get("/api/settings/schema")
     def api_settings_schema():
@@ -386,7 +387,7 @@ def create_app(hardware_enabled: bool = False):
         if json_error is not None:
             return jsonify(report_payload(False, json_error)), 400
         ok, settings, report = settings_manager.save(data)
-        return jsonify(report_payload(ok, report, "Runtime settings saved.", settings=settings)), 200 if ok else 400
+        return jsonify(report_payload(ok, report, "Runtime settings saved." if ok else "Runtime settings were not saved.", settings=settings, config_recovery=settings_manager.recovery_status())), 200 if ok else 400
 
     @app.post("/api/settings/apply")
     def api_settings_apply():
@@ -741,7 +742,11 @@ def create_app(hardware_enabled: bool = False):
         try:
             result = ai_drive_service.delete_model(data.get("model_id") or data.get("id") or "")
             if result.get("ok") and result.get("unloaded_selected_model"):
-                settings_manager.save({"ai_mode": {**(settings_manager.get().get("ai_mode") or {}), "model_id": ""}})
+                saved, _, _ = settings_manager.save({"ai_mode": {**(settings_manager.get().get("ai_mode") or {}), "model_id": ""}})
+                result["saved"] = saved
+                if not saved:
+                    result["message"] = "Model deleted, but clearing the saved selection failed."
+                result["config_recovery"] = settings_manager.recovery_status()
             return jsonify(result), 200 if result.get("ok") else 404
         except Exception as exc:
             report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"AI delete-model API failed: {exc}", exc=exc)
@@ -792,7 +797,11 @@ def create_app(hardware_enabled: bool = False):
         try:
             result = ai_drive_service.load_model(data.get("model_id") or data.get("id") or "")
             if result.get("ok"):
-                settings_manager.save({"ai_mode": {**(settings_manager.get().get("ai_mode") or {}), "model_id": (result.get("ai") or {}).get("model_id", "")}})
+                saved, _, _ = settings_manager.save({"ai_mode": {**(settings_manager.get().get("ai_mode") or {}), "model_id": (result.get("ai") or {}).get("model_id", "")}})
+                result["saved"] = saved
+                if not saved:
+                    result["message"] = "Model loaded, but selection was not saved."
+                result["config_recovery"] = settings_manager.recovery_status()
             return jsonify(result), 200 if result.get("ok") else 400
         except Exception as exc:
             report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"AI load-model API failed: {exc}", exc=exc)
@@ -845,9 +854,11 @@ def create_app(hardware_enabled: bool = False):
             return jsonify(report_payload(False, json_error)), 400
         try:
             config = motor_service.apply_settings(data)
-            settings_manager.save({"motor": motor_service.config.as_dict()})
+            saved, settings, save_report = settings_manager.save({"motor": motor_service.config.as_dict()})
+            if not saved:
+                return jsonify(report_payload(False, save_report, "Motor settings applied but not saved.", config=config, settings=settings, saved=False, config_recovery=settings_manager.recovery_status())), 500
             report = motor_service.errors.latest() if motor_service.last_error else None
-            return jsonify(report_payload(True, report, "Motor settings applied.", config=config, settings=settings_manager.get()))
+            return jsonify(report_payload(True, report, "Motor settings applied.", config=config, settings=settings, saved=True, config_recovery=settings_manager.recovery_status()))
         except Exception as exc:
             report = APP_ERRORS.report(PiSDErrorCodes.API_SERVICE_EXCEPTION, f"Motor apply API failed: {exc}", exc=exc)
             return jsonify(report_payload(False, report)), 500
