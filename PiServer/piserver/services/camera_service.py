@@ -73,6 +73,7 @@ class CameraService:
         self._frame = None
         self._raw_frame = None
         self._raw_frame_time = 0.0
+        self._raw_frame_monotonic = None
         self._frame_lock = threading.Lock()
         self._capture_lock = threading.Lock()
         self._service_lock = threading.RLock()
@@ -367,6 +368,8 @@ class CameraService:
                 self._hardware_lease = claim_hardware("camera")
             try:
                 self._open_backend_locked()
+                with self._frame_lock:
+                    self._raw_frame_monotonic = None
                 self._running = True
                 self._thread = threading.Thread(target=self._loop, daemon=True)
                 self._thread.start()
@@ -524,6 +527,7 @@ class CameraService:
 
             frame = None
             jpeg_bytes = None
+            capture_monotonic = time.monotonic()
             if using_picam:
                 frame, jpeg_bytes, live, error_text = self._capture_picamera_request(processing_enabled, preview_due)
             else:
@@ -563,6 +567,7 @@ class CameraService:
                 with self._frame_lock:
                     self._raw_frame = frame
                     self._raw_frame_time = now
+                    self._raw_frame_monotonic = capture_monotonic
                     self._frame = frame
                 fps_count += 1
                 now = time.time()
@@ -664,6 +669,7 @@ class CameraService:
             direct_frame = None
             live = False
             error_text = ""
+            capture_monotonic = time.monotonic()
             if using_picam:
                 direct_frame, _jpeg, live, error_text = self._capture_picamera_request(True, False)
             elif using_opencv:
@@ -674,6 +680,7 @@ class CameraService:
                 with self._frame_lock:
                     self._raw_frame = direct_frame
                     self._raw_frame_time = now
+                    self._raw_frame_monotonic = capture_monotonic
                     self._frame = direct_frame
                 with self._service_lock:
                     self.preview_live = bool(live)
@@ -712,6 +719,18 @@ class CameraService:
             if self._raw_frame is None:
                 return None
             return self._raw_frame.copy() if copy else self._raw_frame
+
+    def get_raw_frame_sample(self):
+        """Return an atomic real raw frame and conservative monotonic capture time.
+
+        Placeholder previews and stopped/disconnected camera buffers are not valid
+        autonomous perception inputs. Frames are replaced, not mutated in place.
+        """
+        with self._service_lock:
+            if not self._running or not self.preview_live:
+                return None, None
+            with self._frame_lock:
+                return self._raw_frame, self._raw_frame_monotonic
 
     def get_raw_frame_age(self) -> float | None:
         with self._frame_lock:

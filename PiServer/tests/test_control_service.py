@@ -4,6 +4,8 @@ import unittest
 from unittest.mock import patch
 
 from piserver.services.control_service import ControlService
+from piserver.algorithms.autopilot import AutopilotAlgorithm
+from piserver.algorithms.auto_steer import AutoSteerAlgorithm
 
 
 class DummyStateful:
@@ -20,6 +22,10 @@ class DummyCamera:
         self.last_error = ""
         self.processing_enabled_calls = []
         self.apply_settings_calls = []
+        self.sample = (None, None)
+
+    def get_raw_frame_sample(self):
+        return self.sample
 
     def get_fps(self):
         return 0.0
@@ -376,6 +382,63 @@ class ControlServiceTests(unittest.TestCase):
         self.run_one_tick(svc)
         self.assertEqual(motor.update_calls[-1][:2], (0.0, 0.0))
 
+
+    def test_auto_missing_frame_stays_zero_then_latches(self):
+        svc, camera, motor, _, _ = self.build_service(algorithms={"manual": ManualAlgo(), "autopilot": AutopilotAlgorithm()})
+        svc.select_algorithm("autopilot")
+        with patch("piserver.services.control_service.time.monotonic", return_value=10.0):
+            self.run_one_tick(svc)
+            self.assertFalse(svc.state.safety_stop)
+        self.assertEqual(motor.update_calls[-1][:2], (0.0, 0.0))
+        with patch("piserver.services.control_service.time.monotonic", return_value=10.8):
+            self.run_one_tick(svc)
+        self.assertTrue(svc.state.safety_stop)
+        self.assertTrue(svc._camera_fault_latched)
+
+    def test_auto_stale_frame_latches_and_fresh_frame_does_not_restart(self):
+        for name, algo in (("autopilot", AutopilotAlgorithm()), ("auto_steer", AutoSteerAlgorithm())):
+            with self.subTest(name=name):
+                svc, camera, motor, _, _ = self.build_service(algorithms={"manual": ManualAlgo(), name: algo})
+                frame = object()
+                camera.sample = (frame, 10.0)
+                svc.model_service.predict_uv_from_frame = lambda image: (0.2, 0.4) if image is frame else self.fail("wrong frame")
+                svc.select_algorithm(name)
+                svc.set_manual_controls(throttle=0.4)
+                with patch("piserver.services.control_service.time.monotonic", return_value=10.1):
+                    self.run_one_tick(svc)
+                self.assertGreater(motor.update_calls[-1][1], 0.0)
+                with patch("piserver.services.control_service.time.monotonic", return_value=10.8):
+                    self.run_one_tick(svc)
+                    svc.running = True
+                    self.assertFalse(svc.rearm_safety(confirm=True)[0])
+                self.assertTrue(svc.state.safety_stop)
+                self.assertEqual(motor.update_calls[-1][:2], (0.0, 0.0))
+                camera.sample = (frame, 11.0)
+                with patch("piserver.services.control_service.time.monotonic", return_value=11.1):
+                    self.run_one_tick(svc)
+                    self.assertTrue(svc.state.safety_stop)
+                    svc.running = True
+                    self.assertTrue(svc.rearm_safety(confirm=True)[0])
+                    self.run_one_tick(svc)
+                self.assertEqual(svc.state.active_algorithm, "manual")
+                self.assertEqual(motor.update_calls[-1][:2], (0.0, 0.0))
+
+    def test_old_inference_result_rejected_even_if_new_frame_arrives(self):
+        svc, camera, motor, _, _ = self.build_service(algorithms={"manual": ManualAlgo(), "autopilot": AutopilotAlgorithm()})
+        initial = object()
+        camera.sample = (initial, 10.0)
+        now = [10.1]
+        def predict(frame):
+            self.assertIs(frame, initial)
+            now[0] = 11.0
+            camera.sample = (object(), 11.0)
+            return 0.5, 0.5
+        svc.model_service.predict_uv_from_frame = predict
+        svc.select_algorithm("autopilot")
+        with patch("piserver.services.control_service.time.monotonic", side_effect=lambda: now[0]):
+            self.run_one_tick(svc)
+        self.assertTrue(svc.state.safety_stop)
+        self.assertEqual(motor.update_calls[-1][:2], (0.0, 0.0))
 
 
 if __name__ == "__main__":

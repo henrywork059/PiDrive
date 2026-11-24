@@ -56,6 +56,10 @@ class ControlService:
         self.manual_command_timeout_s = 0.85
         self._manual_command_at: float | None = None
         self._manual_command_timed_out = False
+        self.camera_frame_timeout_s = 0.75
+        self._camera_wait_started = None
+        self._camera_seen_fresh = False
+        self._camera_fault_latched = False
 
         self.apply_runtime_config(self.config_store.load(), initial=True)
 
@@ -101,6 +105,25 @@ class ControlService:
         self.state.motor_left_bias = float(cfg.get("left_bias", 0.0))
         self.state.motor_right_bias = float(cfg.get("right_bias", 0.0))
 
+    def _fresh_camera_sample(self):
+        try:
+            frame, captured_at = self.camera_service.get_raw_frame_sample()
+            age = time.monotonic() - float(captured_at)
+            if frame is not None and math.isfinite(age) and 0.0 <= age <= self.camera_frame_timeout_s:
+                return frame, captured_at
+        except (AttributeError, TypeError, ValueError, OverflowError, RuntimeError):
+            pass
+        return None, None
+
+    def _latch_camera_fault_locked(self):
+        self._camera_fault_latched = True
+        self.state.safety_stop = True
+        self._apply_safe_stop_locked()
+        self._manual_command_at = None
+        self._manual_command_timed_out = False
+        self.state.system_message = "Autonomous camera frame missing or stale; emergency stop engaged. Verify camera and explicitly rearm."
+        self._hard_stop_outputs()
+
     def _loop(self):
         period = 1.0 / self.loop_hz
         while self.running:
@@ -117,9 +140,11 @@ class ControlService:
                 self.state.active_model = self.model_service.get_active_name()
                 self._update_motor_state_locked()
 
-                processing_needed = (not self.state.safety_stop) and (
+                # Keep real raw capture active during a camera-fault latch so
+                # the explicit rearm check can observe actual recovery.
+                processing_needed = self._camera_fault_latched or ((not self.state.safety_stop) and (
                     self.state.active_algorithm != "manual" or bool(self.recorder_service.recording)
-                )
+                ))
                 if processing_needed != self._processing_enabled_cached:
                     try:
                         self.camera_service.set_processing_enabled(processing_needed)
@@ -141,10 +166,36 @@ class ControlService:
                         force_zero = True
 
                 steer, throttle = 0.0, 0.0
+                autonomous = self.state.active_algorithm in {"auto_steer", "autopilot"}
+                frame, captured_at = None, None
+                if not autonomous:
+                    self._camera_wait_started = None
+                    self._camera_seen_fresh = False
+                elif not force_zero:
+                    now = time.monotonic()
+                    if self._camera_wait_started is None:
+                        self._camera_wait_started = now
+                    frame, captured_at = self._fresh_camera_sample()
+                    if frame is None:
+                        # Initial processing can need a new frame. Hold zero
+                        # during that short grace period; never infer on a cache.
+                        force_zero = True
+                        if self._camera_seen_fresh or now - self._camera_wait_started >= self.camera_frame_timeout_s:
+                            self._latch_camera_fault_locked()
+                    else:
+                        self._camera_seen_fresh = True
                 if not force_zero:
                     algo = self.algorithms.get(self.state.active_algorithm, self.algorithms["manual"])
                     try:
-                        steer, throttle = algo.compute(self.state, self.camera_service, self.model_service)
+                        if autonomous:
+                            steer, throttle = algo.compute_from_frame(self.state, frame, self.model_service)
+                            age = time.monotonic() - float(captured_at)
+                            current_frame, _ = self._fresh_camera_sample()
+                            if current_frame is None or not math.isfinite(age) or not 0.0 <= age <= self.camera_frame_timeout_s:
+                                force_zero = True
+                                self._latch_camera_fault_locked()
+                        else:
+                            steer, throttle = algo.compute(self.state, self.camera_service, self.model_service)
                         if not (math.isfinite(float(steer)) and math.isfinite(float(throttle))):
                             raise ValueError("non-finite algorithm output")
                     except Exception as exc:
@@ -205,6 +256,8 @@ class ControlService:
                 if self._manual_command_at is not None else None
             )
             data["manual_command_timed_out"] = self._manual_command_timed_out
+            data["camera_frame_timeout_s"] = self.camera_frame_timeout_s
+            data["camera_fault_latched"] = self._camera_fault_latched
             # One lock-held view keeps legacy safety_stop and the U28 contract consistent.
             data["safety"] = self.safety_status()
         try:
@@ -311,7 +364,7 @@ class ControlService:
                 "motion_allowed": bool(self.running and not latched),
                 "rearm_required": latched,
                 "rearm_available": bool(latched and self.running),
-                "reason": str(self.state.system_message) if latched else "",
+                "reason": ("Autonomous camera fault; fresh raw frame and explicit rearm required." if getattr(self, "_camera_fault_latched", False) else str(self.state.system_message)) if latched else "",
             }
 
     def rearm_safety(self, *, confirm: Any = False) -> tuple[bool, str]:
@@ -327,6 +380,10 @@ class ControlService:
                 return True, "No active safety stop."
             if not self.running:
                 return False, "Control loop is not running; safety stop remains latched."
+            if getattr(self, "_camera_fault_latched", False):
+                frame, _ = self._fresh_camera_sample()
+                if frame is None:
+                    return False, "Camera recovery not verified; safety stop remains latched."
             self.state.active_algorithm = "manual"
             self._apply_safe_stop_locked()
             self._manual_command_at = None
@@ -338,6 +395,9 @@ class ControlService:
                 self.state.system_message = f"Rearm refused: motor zero-stop failed: {exc}"
                 self.state.safety_stop = True
                 return False, self.state.system_message
+            self._camera_fault_latched = False
+            self._camera_wait_started = None
+            self._camera_seen_fresh = False
             self.state.safety_stop = False
             self.state.system_message = "Safety rearmed at zero. New manual commands required."
         return True, "Safety rearmed at zero. New manual commands required."
