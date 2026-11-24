@@ -342,3 +342,7 @@ For layout versioning and compact-UI regression prevention practices, see:
 ### U28 safety status and explicit rearm (0_4_18)
 
 The existing `GET /api/status` includes an additive `safety` object (schema version 1). `GET /api/safety/status` returns the same object. After E-stop, send `POST /api/safety/rearm` with `{"confirm":true}` under the existing PiServer LAN authentication and CSRF requirements. The legacy E-stop toggle `{"enabled":false,"confirm":true}` uses the same checked rearm path; `{"enabled":false}` is refused. Successful rearm zeros motor commands, switches to manual mode, and does **not** resume prior motion. Retest on Pi hardware before production use.
+
+## Runtime configuration recovery (0_4_30)
+
+Malformed `config/runtime.json` is copied byte-for-byte into a private sibling `runtime.json.corrupt-<digest>.bak`; the original is not replaced until a successful save. Startup with an unreadable configuration uses defaults; a failed reload of a running service retains its effective settings and refuses to reapply defaults. The Status dock displays a recovery warning, with full local paths in the server log. Save refuses to replace unreadable data or malformed data without a verified backup. Review the recovery file before relying on fallback settings. Valid unknown keys are retained when saving runtime snapshots. Do not commit recovery files or remove them before recovery is confirmed.

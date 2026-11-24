@@ -467,5 +467,8 @@ class ControlService:
 
     def reload_runtime_config(self) -> dict:
         data = self.config_store.load()
+        recovery = getattr(self.config_store, "recovery_status", lambda: {})()
+        if recovery.get("load_failed"):
+            raise ValueError("Runtime configuration is damaged or unreadable; current settings retained.")
         self.apply_runtime_config(data)
         return self.get_runtime_config()

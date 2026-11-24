@@ -938,6 +938,11 @@ function updateStatusUi(data) {
 
   updateToolbarBadge(data);
   setBanner("statusBanner", data.system_message || "Ready.", "muted");
+  const recovery = document.getElementById("configRecoveryBanner");
+  if (recovery && data.config_recovery) {
+    recovery.textContent = data.config_recovery.warning || "";
+    recovery.hidden = !recovery.textContent;
+  }
   const statusBanner = document.getElementById("statusBanner");
   if (statusBanner) {
     const serverAt = Number(data.server_status_at_ms);

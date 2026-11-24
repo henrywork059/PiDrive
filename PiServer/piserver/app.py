@@ -21,7 +21,7 @@ from piserver.services.recorder_service import RecorderService
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 WEB_DIR = Path(__file__).resolve().parent / "web"
-APP_VERSION = "0_4_29"
+APP_VERSION = "0_4_30"
 
 
 def mjpeg_generator(camera_service):
@@ -168,6 +168,7 @@ def create_app() -> Flask:
             'camera_frame_age_s': camera_service.get_raw_frame_age(),
         }
         state["server_status_at_ms"] = int(time.time() * 1000)
+        state["config_recovery"] = getattr(config_store, "recovery_status", lambda: {})()
         return jsonify(state)
 
     @app.get("/api/preflight")
@@ -287,13 +288,23 @@ def create_app() -> Flask:
 
     @app.route("/api/config/save", methods=["POST"])
     def api_config_save():
-        config = control_service.save_runtime_config()
-        return jsonify({"ok": True, "config": config, "message": "Config saved."})
+        try:
+            config = control_service.save_runtime_config()
+        except (OSError, ValueError, TypeError):
+            return jsonify({"ok": False, "saved": False, "message": "Config not saved. Original file retained; check recovery status.",
+                            "config_recovery": getattr(config_store, "recovery_status", lambda: {})()}), 500
+        return jsonify({"ok": True, "config": config, "message": "Config saved.",
+                        "config_recovery": getattr(config_store, "recovery_status", lambda: {})()})
 
     @app.route("/api/config/reload", methods=["POST"])
     def api_config_reload():
-        config = control_service.reload_runtime_config()
-        return jsonify({"ok": True, "config": config, "message": "Config reloaded."})
+        try:
+            config = control_service.reload_runtime_config()
+        except (OSError, ValueError):
+            return jsonify({"ok": False, "message": "Config reload refused. Current settings retained; check recovery status.",
+                            "config_recovery": getattr(config_store, "recovery_status", lambda: {})()}), 409
+        return jsonify({"ok": True, "config": config, "message": "Config reloaded.",
+                        "config_recovery": getattr(config_store, "recovery_status", lambda: {})()})
 
     @app.route("/api/safety/status")
     def api_safety_status():
