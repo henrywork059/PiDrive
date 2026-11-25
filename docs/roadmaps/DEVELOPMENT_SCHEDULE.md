@@ -6,7 +6,7 @@ This is the current execution plan, replacing one-proposal-at-a-time scheduling.
 
 - Active: PiSD, PiServer, piTrainer. No new PiBooter/CustomTrainer/CustomDrive or legacy piCar work.
 - Original proposals: 75; retired exclusive proposals: 19; active: 56.
-- As of the current [progress audit](PROGRESS.md): 35 implemented, 5 partial, 16 without a dedicated update. **21 original proposal IDs remain** in **6 remaining development batches** (9 batches originally scheduled, 3 complete). The former PiBooter batch is removed; R48 remains implemented for the active runtimes.
+- As of the current [progress audit](PROGRESS.md): 35 implemented, 21 partial/candidate, 0 without a dedicated update. **21 original proposal IDs remain** in **6 remaining development batches** (9 batches originally scheduled, 3 complete). The former PiBooter batch is removed; R48 remains implemented for the active runtimes.
 - Batch numbers are planning units, not component versions, PR numbers, or calendar deadlines. Deliver related work together where safe, using separate component-owned commits, patch notes and patch-only archives when requested. No monolithic cross-component source rewrite.
 - Sequence is dependency- and acceptance-gated, not an invented time estimate. Independent work may proceed once its stated prerequisites are met; no unsafe parallel release or merging without authorization.
 
@@ -55,7 +55,7 @@ This is the current execution plan, replacing one-proposal-at-a-time scheduling.
 
 ### Batch 4 — UI regression and accessibility foundation
 
-**Components:** All active interfaces. **Status:** In progress; R45 complete. Latest verified candidate 8aabfef (PiSD 0.11.31 / PiServer 0.4.39 / piTrainer 0.11.18) passed CI 45518657406 (4/4 jobs). Saved-folder response ordering regression passed. Previous 7ec1be7 passed CI 45517818839 (4/4 jobs). Recording/snapshot acknowledgement recovery and failed folder-read feedback passed the regression gate. Previous 6b782f7 passed CI 45515079463 (4/4 jobs). Model-library explicit Refresh failure/retry and selection retention/fallback passed all four Chromium widths. The real Chromium PiServer tests now cover both disconnected HTTP 503 startup/recovery and genuinely pending GETs bounded by read-only timeouts, preserving STOP-only behavior while status is unverified at all four viewport widths; native Qt layout and label-save/close tests remain green. Rejected Settings Save/Retry/STOP feedback and Status metric intrinsic sizing are covered at all browser widths. Selected PiServer screenshots reviewed (390 and 1440 px), but full active-control audit, owner-approved golden captures, other slow-request and disconnected journeys, native Windows/owner visual acceptance and broader desktop accessibility remain outstanding. PiServer synthetic HTTP 503, indefinitely pending GET, superseded delayed status replies after a newer acknowledgement, and recovered-state paths, plus nonzero-minimum Qt layout tests now pass.
+**Components:** All active interfaces. **Status:** In progress; R45 complete. Latest fully verified candidate at inspection: 581c049 (PiSD 0.11.31 / PiServer 0.4.39 / piTrainer 0.11.19). See combined evidence below. Saved-folder response ordering regression passed. Previous 7ec1be7 passed CI 45517818839 (4/4 jobs). Recording/snapshot acknowledgement recovery and failed folder-read feedback passed the regression gate. Previous 6b782f7 passed CI 45515079463 (4/4 jobs). Model-library explicit Refresh failure/retry and selection retention/fallback passed all four Chromium widths. The real Chromium PiServer tests now cover both disconnected HTTP 503 startup/recovery and genuinely pending GETs bounded by read-only timeouts, preserving STOP-only behavior while status is unverified at all four viewport widths; native Qt layout and label-save/close tests remain green. Rejected Settings Save/Retry/STOP feedback and Status metric intrinsic sizing are covered at all browser widths. Selected PiServer screenshots reviewed (390 and 1440 px), but full active-control audit, owner-approved golden captures, other slow-request and disconnected journeys, owner visual acceptance and broader desktop accessibility remain outstanding. PiServer synthetic HTTP 503, indefinitely pending GET, superseded delayed status replies after a newer acknowledgement, and recovered-state paths, plus nonzero-minimum Qt layout tests now pass.
 
 **Scope:** Finish desktop accessibility audit and PiSD token/drift coverage; add native Qt and browser interaction/geometry smoke tests covering keyboard, touch, focus, no-data, failures and 390/768/1024/1440 widths. Record accepted baseline captures before visual changes. Use this suite for subsequent UI batches.
 
@@ -63,7 +63,7 @@ This is the current execution plan, replacing one-proposal-at-a-time scheduling.
 
 ### Batch 5 — Training and deployment integration
 
-**Components:** PiSD, piTrainer, PiServer. **Status:** Candidate implementation started at 581c049; dependent Batch 4 acceptance remains open. No proposal closure.
+**Components:** PiSD, piTrainer, PiServer. **Status:** Candidate implementation advanced through piTrainer 0.11.20; dependent Batch 4 acceptance remains open. No proposal closure.
 
 **Scope:** Synthetic current/legacy recording fixtures, label edit/hidden/flip/export contracts; link recording, preprocess, training, validation, export and loaded model provenance without invented historical fields; add compact tab readiness markers and readable plot/run/artifact context.
 
@@ -71,7 +71,7 @@ This is the current execution plan, replacing one-proposal-at-a-time scheduling.
 
 ### Batch 6 — piTrainer data-review workflow
 
-**Components:** piTrainer. **Status:** Planned.
+**Components:** piTrainer. **Status:** Forward candidate committed; remaining acceptance open (see combined evidence below).
 
 **Scope:** Contextual bulk-edit preview with exact count and representative old/new values; synchronized label/prediction comparison keyed to stable source-frame identity; contextual keyboard help without intercepting text entry. Preserve all 0.11.10 selection fixes and existing edit/hide/delete shortcuts.
 
@@ -79,7 +79,7 @@ This is the current execution plan, replacing one-proposal-at-a-time scheduling.
 
 ### Batch 7 — PiSD driving interface
 
-**Components:** PiSD. **Status:** Planned.
+**Components:** PiSD. **Status:** Forward candidate committed; remaining acceptance open (see combined evidence below).
 
 **Scope:** Finish sanitized bounded recent operator events; task-first front page; preview-first hierarchy with status and STOP reachable; recording mini-toolbar using confirmed counters/outcomes; geometry/appearance calibration grouping with scoped reset.
 
@@ -87,7 +87,7 @@ This is the current execution plan, replacing one-proposal-at-a-time scheduling.
 
 ### Batch 8 — Code modularization
 
-**Components:** Affected active modules, especially PiServer. **Status:** Planned.
+**Components:** Affected active modules, especially PiServer. **Status:** Forward candidate committed; remaining acceptance open (see combined evidence below).
 
 **Scope:** Characterize behavior before extracting pure parsing, formatting, validation and controller/DOM helpers. Keep stable public APIs, config paths, component boundaries and launchers. Prefer small staged extractions rather than a rewrite.
 
@@ -95,7 +95,7 @@ This is the current execution plan, replacing one-proposal-at-a-time scheduling.
 
 ### Batch 9 — PiServer operator workspace
 
-**Components:** PiServer. **Status:** Planned.
+**Components:** PiServer. **Status:** Forward candidate committed; remaining acceptance open (see combined evidence below).
 
 **Scope:** Tier status telemetry with essentials visible, distinguish hardware actions from layout and destructive actions, add non-destructive Driving/Camera tuning/Model testing presets with preview/cancel. Retain saved custom layout and theme.
 
@@ -105,7 +105,20 @@ This is the current execution plan, replacing one-proposal-at-a-time scheduling.
 
 [8aabfef](https://github.com/henrywork059/PiDrive/commit/8aabfef9efec8dfdac373aa3f97f1ebf9207e2b4) (PiServer 0.4.39) passed [CI 45518657406](https://github.com/henrywork059/PiDrive/actions/runs/45518657406), all four jobs. Nine saved-folder ordering cases cover selection at response, superseded success/failure and acknowledged deletion. Batch 4 still requires full active-control and owner visual acceptance.
 
-[581c049](https://github.com/henrywork059/PiDrive/commit/581c049154e06bb56d1ac671af9020729b370a65) advances piTrainer 0.11.19 with Batch 4/5 candidate work: validation accessible names, real-file-only TFLite selection, six-tab advisory input readiness, validation dataset/run/checksum context, mixed on-disk recording-to-dummy-export tests, four-width PiServer held-folder/acknowledged deletion scenario, and separate hosted native Windows Qt workflow. Exact candidate CI and visual acceptance pending; Batch 5 implementation has begun with no proposal closure. No actual training, physical deployment, or runtime merge.
+[581c049](https://github.com/henrywork059/PiDrive/commit/581c049154e06bb56d1ac671af9020729b370a65) advances piTrainer 0.11.19 with Batch 4/5 candidate work: validation accessible names, real-file-only TFLite selection, six-tab advisory input readiness, validation dataset/run/checksum context, mixed on-disk recording-to-dummy-export tests, four-width PiServer held-folder/acknowledged deletion scenario, and separate hosted native Windows Qt workflow. Exact candidate Linux and hosted Windows CI passed; owner visual acceptance and remaining Batch 5 work pending. No proposal closure. No actual training, physical deployment, or runtime merge.
+
+
+## Batches 4–9 — combined forward candidates (2026-11-25)
+
+Prior exact head [581c049](https://github.com/henrywork059/PiDrive/commit/581c049154e06bb56d1ac671af9020729b370a65) passed [Linux 45531850972](https://github.com/henrywork059/PiDrive/actions/runs/45531850972) (4/4) and [Windows native Qt 45531851593](https://github.com/henrywork059/PiDrive/actions/runs/45531851593) (1/1). Hosted Windows automated acceptance is now verified; owner visual acceptance is not. [PiSD captures](https://github.com/henrywork059/PiDrive/actions/runs/45531850972/artifacts/14985247338) and [PiServer captures](https://github.com/henrywork059/PiDrive/actions/runs/45531850972/artifacts/14985177533) are review artifacts, not approved golden baselines.
+
+- [a36e193](https://github.com/henrywork059/PiDrive/commit/a36e193c011053ebda60e84d40be464bc0895cae), piTrainer 0.11.20: selected-row bulk-edit preview, finite same-frame label/prediction comparison and live edit delta, validation plot context, contextual F1 help, focused helper tests.
+- [60be150](https://github.com/henrywork059/PiDrive/commit/60be150c39e21aca03ed0dc8254a28bb84ca22c6), PiSD 0.11.32: bounded allowlisted local event history, read/copy interface, task-first landing page and prominent STOP, confirmed recording count, scoped calibration draft resets.
+- [821def6](https://github.com/henrywork059/PiDrive/commit/821def6680f437b7e3afe5bddb42515fcd7f4c33), PiServer 0.4.40: local layout module, preset preview/cancel/save, essentials-only status toggle, four-width browser tests; also corrects PiSD alignment reset keys to existing base_y/horizon_y. Preset preview never switches operating mode. Prior custom layout, hardware routes and existing drag autosave outside preview retained.
+
+Exact current head: 821def6680f437b7e3afe5bddb42515fcd7f4c33. [Linux CI 45538852480](https://github.com/henrywork059/PiDrive/actions/runs/45538852480): in_progress (Trainer-to-runtime manifest compatibility: success; PiServer regression: in_progress; PiSD regression: success; piTrainer regression: success). [Windows CI 45538852452](https://github.com/henrywork059/PiDrive/actions/runs/45538852452): success. Last fully green candidate at inspection: 581c049 (PiSD 0.11.31 / PiServer 0.4.39 / piTrainer 0.11.19).
+
+Remaining acceptance: R35/R36/R50/UX75 comprehensive active-control audit and owner screenshot approval; F10 actual output-order/runtime fixture expansion, R51 portable recording-to-loaded-model provenance and stale training-run association handling, UX62 readiness completion states, UX64 training/export artifact context; UX61/63/65 broader native selection/mutation/shortcut checks; R49 browser copy/STOP history checks, UX54–57 front/preview/recording/calibration interaction and visual acceptance; F8/R52 further characterized modular extraction; UX58–60 full operator workspace keyboard, responsive, layout reload and visual review. No physical testing, real training, deployment or runtime merge. All outstanding batches have candidate work, but acceptance is not complete. Conservative accepted implementation count remains 35/56; 21 outstanding. Candidate diff from 581c049: three forward commits, 27 files added/modified, no file deletions or inactive component changes.
 
 ## Execution and reporting rules
 
