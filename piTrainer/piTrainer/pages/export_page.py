@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from ..app_state import ExportConfig, TrainConfig
 
 from ..app_state import AppState
@@ -21,6 +23,8 @@ class ExportPage(DockPage):
     def __init__(self, state: AppState, main_window) -> None:
         self.state = state
         self.main_window = main_window
+        self._confirmed_export_model = None
+        self._confirmed_export_paths = ()
         super().__init__('export')
 
         self.model_status_panel = ModelStatusPanel()
@@ -87,6 +91,15 @@ class ExportPage(DockPage):
             run_id=run.get('run_id') if run else None,
         )
 
+    def has_confirmed_export_for(self, model) -> bool:
+        if model is None or model is not self._confirmed_export_model or not self._confirmed_export_paths:
+            return False
+        try:
+            return all(Path(path).is_file() and Path(path).stat().st_size > 0
+                       for path in self._confirmed_export_paths)
+        except (OSError, ValueError):
+            return False
+
     def export_model(self) -> None:
         if not self.main_window.can_start_task(self):
             return
@@ -142,6 +155,8 @@ class ExportPage(DockPage):
                 output_paths = (*output_paths, *experiment_paths)
             elif provenance is None:
                 self.log_panel.append_line('Experiment provenance: Unknown (model has no tracked R40 training run).')
+            self._confirmed_export_model = model
+            self._confirmed_export_paths = tuple(output_paths)
             latest_tflite_path = ''
             saved_lines: list[str] = []
             for item in created:

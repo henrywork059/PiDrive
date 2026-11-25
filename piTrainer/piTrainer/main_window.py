@@ -86,7 +86,7 @@ class MainWindow(QMainWindow):
         self.refresh_workflow_readiness()
 
     def refresh_workflow_readiness(self, *_args) -> None:
-        """Advisory input markers only; never imply a model or run was verified."""
+        """Show confirmed local milestones separately from input readiness and historical results."""
         if not hasattr(self, 'tabs') or self.tabs.count() != 6:
             return
         state = self.state
@@ -123,12 +123,26 @@ class MainWindow(QMainWindow):
             3: getattr(self.validation_page, 'last_result', None),
             5: getattr(self.export_validation_page, 'last_result', None),
         }
+        preprocess = getattr(self, 'preprocess_page', None)
+        export = getattr(self, 'export_page', None)
+        completed = {
+            0: 'Usable recording rows loaded' if active else '',
+            1: 'Preprocessing applied to active rows' if active and getattr(preprocess, '_preprocess_applied', False) else '',
+            2: 'A trained model is held in memory; no deployment implied' if model else '',
+            4: 'Export files confirmed for this model; inference not implied'
+               if model and export is not None and export.has_confirmed_export_for(state.model) else '',
+        }
         for index, (ready, detail) in enumerate(statuses):
             if history.get(index):
                 detail += '; previous result available (may refer to different inputs)'
-            icon = self.style().standardIcon(QStyle.SP_DialogApplyButton if ready else QStyle.SP_MessageBoxInformation)
-            self.tabs.setTabIcon(index, icon)
-            self.tabs.setTabToolTip(index, ('Inputs available — ' if ready else 'Needs input — ') + detail)
+            if completed.get(index):
+                prefix, detail, symbol = 'Done — ', completed[index], QStyle.SP_DialogApplyButton
+            elif ready:
+                prefix, symbol = 'Inputs available — ', QStyle.SP_ArrowRight
+            else:
+                prefix, symbol = 'Needs input — ', QStyle.SP_MessageBoxInformation
+            self.tabs.setTabIcon(index, self.style().standardIcon(symbol))
+            self.tabs.setTabToolTip(index, prefix + detail)
 
     def resizeEvent(self, event) -> None:  # noqa: N802 - Qt API name
         super().resizeEvent(event)

@@ -15,6 +15,8 @@ from piTrainer.panels.validation.validation_config_panel import ValidationConfig
 from piTrainer.panels.train.train_config_panel import TrainConfigPanel
 from piTrainer.panels.export.model_status_panel import ModelStatusPanel
 from piTrainer.pages.export_page import ExportPage
+from piTrainer.panels.train.train_history_panel import TrainHistoryPanel
+from piTrainer.panels.validation.validation_plot_panel import ValidationPlotPanel
 from piTrainer.panels.export_validation.export_validation_config_panel import ExportValidationConfigPanel
 
 
@@ -60,7 +62,15 @@ class ValidationControlsTests(unittest.TestCase):
         shell.state.filtered_df=pd.DataFrame([{'frame_id':'fixture'}])
         shell.state.model=object()
         refresh()
-        self.assertTrue(all(shell.tabs.tabToolTip(i).startswith('Inputs available') for i in range(5)))
+        self.assertTrue(shell.tabs.tabToolTip(0).startswith('Done'))
+        self.assertTrue(shell.tabs.tabToolTip(2).startswith('Done'))
+        self.assertTrue(all(shell.tabs.tabToolTip(i).startswith('Inputs available') for i in (1, 3, 4)))
+        shell.preprocess_page = SimpleNamespace(_preprocess_applied=True)
+        refresh()
+        self.assertTrue(shell.tabs.tabToolTip(1).startswith('Done'))
+        shell.preprocess_page._preprocess_applied = False
+        refresh()
+        self.assertTrue(shell.tabs.tabToolTip(1).startswith('Inputs available'))
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / 'fixture.tflite'
             check.set_tflite_path(str(path))
@@ -91,6 +101,48 @@ class ValidationControlsTests(unittest.TestCase):
         refresh()
         self.assertTrue(shell.tabs.tabToolTip(3).startswith('Needs input'))
         self.assertEqual([shell.tabs.tabText(i) for i in range(6)],titles)
+
+    def test_confirmed_export_marker_belongs_to_model_and_existing_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            model = object()
+            path = Path(tmp) / 'export.tflite'
+            manifest = Path(str(path) + '.manifest.json')
+            shell = SimpleNamespace(_confirmed_export_model=model,
+                                    _confirmed_export_paths=(str(path), str(manifest)))
+            self.assertFalse(ExportPage.has_confirmed_export_for(shell, model))
+            path.write_bytes(b'model')
+            manifest.write_bytes(b'{}')
+            self.assertTrue(ExportPage.has_confirmed_export_for(shell, model))
+            self.assertFalse(ExportPage.has_confirmed_export_for(shell, object()))
+            manifest.unlink()
+            self.assertFalse(ExportPage.has_confirmed_export_for(shell, model))
+
+    def test_plot_context_does_not_retain_old_run_or_model(self):
+        history = TrainHistoryPanel()
+        self.addCleanup(history.close)
+        run = {'run_id': 'a'*32, 'status': 'succeeded', 'source_groups': [{}],
+               'train_rows': 13, 'validation_rows': 7, 'artifacts': [{'model_path':'example.keras'}]}
+        history.set_run_context(run)
+        self.assertIn('Train: 13', history.context_label.text())
+        self.assertIn('example.keras', history.context_label.text())
+        self.assertIn('a'*32, history.context_label.toolTip())
+        history.set_run_context(None)
+        self.assertNotIn('example.keras', history.context_label.text())
+        self.assertEqual(history.context_label.toolTip(), '')
+        panel = ValidationPlotPanel()
+        self.addCleanup(panel.close)
+        panel.set_result({'dataset_source':'Validation split', 'model_kind':'TFLite',
+                          'model_path':'fixture.tflite', 'experiment_context':{'run_id':'b'*32, 'model_sha256':'c'*64},
+                          'rows_used':2, 'steering_mae':.1, 'throttle_mae':.2,
+                          'steering_true':[0,.1], 'throttle_true':[.2,.3],
+                          'steering_pred':[0,.2], 'throttle_pred':[.2,.4],
+                          'steering_error':[0,.1], 'throttle_error':[0,.1]})
+        self.assertIn('fixture.tflite', panel.summary_label.text())
+        self.assertIn('c'*64, panel.summary_label.toolTip())
+        self.assertIn('normalized', panel.figure.axes[0].get_xlabel())
+        panel.set_result(None)
+        self.assertNotIn('fixture.tflite', panel.summary_label.text())
+        self.assertEqual(panel.summary_label.toolTip(), '')
 
     def test_training_fields_have_names_and_native_keyboard_input(self):
         state = AppState()

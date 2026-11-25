@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-from PySide6.QtWidgets import QGroupBox, QVBoxLayout
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QGroupBox, QLabel, QVBoxLayout
 
 from ...services.train.history_service import build_plot_series
 from ...ui.theme import theme_color
@@ -16,9 +17,34 @@ class TrainHistoryPanel(QGroupBox):
         self.canvas.setStyleSheet("background: transparent;")
         self.history: dict[str, list[float]] = {}
 
+        self.context_label = QLabel("Training run: Unknown")
+        self.context_label.setTextFormat(Qt.PlainText)
+        self.context_label.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard)
+        self.context_label.setWordWrap(True)
+        self.context_label.setAccessibleName("Training plot run and artifact context")
         layout = QVBoxLayout(self)
+        layout.addWidget(self.context_label)
         layout.addWidget(self.canvas)
         self._draw_empty()
+
+    def set_run_context(self, record: dict | None) -> None:
+        record = record or {}
+        run_id = record.get("run_id")
+        groups = record.get("source_groups")
+        group_count = len(groups) if isinstance(groups, list) else "Unknown"
+        train_rows = record.get("train_rows", "Unknown")
+        val_rows = record.get("validation_rows", "Unknown")
+        paths = [str(item["model_path"]) for item in (record.get("artifacts") or [])
+                 if isinstance(item, dict) and item.get("model_path")]
+        if run_id:
+            label = f"Run: {run_id[:12]}… | {record.get('status', 'Unknown')} | Train: {train_rows} | Val: {val_rows} | Sessions: {group_count}"
+            label += "\nArtifact: " + (paths[-1] if paths else "Not recorded")
+            tooltip = f"Run: {run_id}\n" + "\n".join(paths)
+        else:
+            label = "Training run: Unknown | Artifact: Unknown"
+            tooltip = ""
+        self.context_label.setText(label)
+        self.context_label.setToolTip(tooltip)
 
     def clear_history(self) -> None:
         self.history = {}

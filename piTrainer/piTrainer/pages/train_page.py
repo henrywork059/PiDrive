@@ -43,6 +43,7 @@ class TrainPage(DockPage):
         self._model_run: dict | None = None
         self._model_run_root: Path | None = None
         self._provenance_model = None
+        self._history_live = False
         super().__init__('train')
 
         self.split_summary_panel = SplitSummaryPanel()
@@ -126,9 +127,12 @@ class TrainPage(DockPage):
         snapshot, root = self._active_run, self._active_run_root
         self._active_run = None
         self._active_run_root = None
+        self._history_live = False
         if snapshot is None or root is None:
+            self.history_panel.set_run_context(None)
             return None
         record = finish_run(snapshot, status, history, error)
+        self.history_panel.set_run_context(record)
         try:
             destination = save_run_record(root, record)
             self.log_panel.append_line(f'Training run {record["run_id"]}: {status}; summary: {destination}')
@@ -149,6 +153,8 @@ class TrainPage(DockPage):
         if model is self._provenance_model and self._model_run is not None:
             if linked.get('run_id') == self._model_run.get('run_id'):
                 self._model_run = linked
+                if not self._history_live:
+                    self.history_panel.set_run_context(linked)
                 self.refresh_run_comparison()
 
     def refresh_from_state(self) -> None:
@@ -159,7 +165,10 @@ class TrainPage(DockPage):
             sessions=len(set(self.state.filtered_df.get('session', []))) if not self.state.filtered_df.empty else 0,
             model_ready=self.state.model is not None,
         )
-        self.history_panel.set_history(self.state.history)
+        if not self._history_live:
+            self.history_panel.set_history(self.state.history)
+            provenance = self.provenance_for_model(self.state.model)
+            self.history_panel.set_run_context(provenance[0] if provenance else None)
 
     def prepare_split(self) -> None:
         self.config_panel.push_to_state()
@@ -284,6 +293,8 @@ class TrainPage(DockPage):
             self._active_run_root = None
             self.log_panel.append_line(f'WARNING: Could not capture training-run provenance: {exc}')
 
+        self._history_live = True
+        self.history_panel.set_run_context(self._active_run)
         self.history_panel.clear_history()
         self.epoch_review_panel.clear_review()
         self.control_panel.set_save_status('Saved model: training is running; save after it finishes.')
@@ -371,7 +382,7 @@ class TrainPage(DockPage):
             candidate, linked, sidecar = result
             output_paths = confirmed_model_paths((candidate,))
             if linked is not None:
-                self._model_run = linked
+                self.note_model_run_artifacts(model, linked)
                 output_paths = (*output_paths, str(sidecar))
                 self.refresh_run_comparison()
             else:
