@@ -9,6 +9,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import pandas as pd
+from piTrainer.services.preprocess.applied_binding import AppliedPreprocessBinding
 from piTrainer.services.validation.validation_receipts import save_validation_receipt, load_validation_receipts, evaluated_rows_hash
 
 from piTrainer.services.train.experiment_service import (
@@ -76,6 +77,30 @@ class ExperimentServiceTests(unittest.TestCase):
         self.assertEqual(len(load_validation_receipts(self.root)), 3)
         path.write_text("{bad", encoding="utf-8")
         self.assertEqual(len(load_validation_receipts(self.root)), 2)
+
+    def test_applied_recipe_and_saved_path_follow_exact_active_metadata(self):
+        binding = AppliedPreprocessBinding()
+        recipe = {"mirror_enabled": True, "image_width": 160}
+        binding.capture(self.train_df, recipe)
+        recipe["image_width"] = 320
+        applied, path = binding.training_context(self.train_df.copy())
+        self.assertEqual(applied["image_width"], 160)
+        self.assertEqual(path, "")
+        folder = self.root / "preprocessed"
+        folder.mkdir()
+        for name in ("preprocessed_records.csv", "preprocessed_records.jsonl", "preprocess_recipe.json"):
+            (folder / name).write_text("fixture", encoding="utf-8")
+        binding.note_saved(self.train_df, recipe, folder)
+        self.assertEqual(binding.training_context(self.train_df)[1], "")
+        binding.note_saved(self.train_df, applied, folder)
+        self.assertEqual(binding.training_context(self.train_df)[1], str(folder.resolve()))
+        edited = self.train_df.copy()
+        edited.loc[0, "steering"] = -0.5
+        self.assertEqual(binding.training_context(edited), (None, ""))
+        (folder / "preprocess_recipe.json").unlink()
+        self.assertEqual(binding.training_context(self.train_df)[1], "")
+        binding.clear()
+        self.assertEqual(binding.training_context(self.train_df), (None, ""))
 
     def test_stable_uuid_run_id(self):
         record = self.snapshot()

@@ -3,7 +3,7 @@ from __future__ import annotations
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QComboBox, QGroupBox, QLabel, QVBoxLayout
+from PySide6.QtWidgets import QApplication, QComboBox, QGroupBox, QLabel, QPushButton, QVBoxLayout
 
 from ...services.validation.validation_service import render_validation_plot
 from ...ui.theme import theme_color
@@ -41,10 +41,15 @@ class ValidationPlotPanel(QGroupBox):
         self.canvas = FigureCanvas(self.figure)
         self.canvas.setMinimumHeight(180)
 
+        self._artifact_paths = []
+        self.copy_paths_btn = QPushButton('Copy artifact paths')
+        self.copy_paths_btn.setEnabled(False)
+        self.copy_paths_btn.clicked.connect(self.copy_artifact_paths)
         layout = QVBoxLayout(self)
         layout.addWidget(self.help_label)
         layout.addWidget(self.plot_type_combo)
         layout.addWidget(self.summary_label)
+        layout.addWidget(self.copy_paths_btn, 0, Qt.AlignRight)
         layout.addWidget(self.canvas, 1)
 
         self.refresh_plot()
@@ -53,7 +58,13 @@ class ValidationPlotPanel(QGroupBox):
         self.result = result
         self.refresh_plot()
 
+    def copy_artifact_paths(self) -> None:
+        if self._artifact_paths:
+            QApplication.clipboard().setText('\n'.join(self._artifact_paths))
+
     def refresh_plot(self) -> None:
+        self._artifact_paths = []
+        self.copy_paths_btn.setEnabled(False)
         self.figure.clear()
         ax = self.figure.add_subplot(111)
         plot_type = self.plot_type_combo.currentText() or self.PLOT_TYPES[0]
@@ -71,6 +82,8 @@ class ValidationPlotPanel(QGroupBox):
         model_path = self.result.get('model_path') or ''
         model_kind = self.result.get('model_kind') or 'Unknown'
         receipt = self.result.get('validation_receipt') or {}
+        self._artifact_paths = list(dict.fromkeys(str(path) for path in (model_path, receipt.get('path')) if path))
+        self.copy_paths_btn.setEnabled(bool(self._artifact_paths))
         self.summary_label.setText(
             f"Dataset: {self.result.get('dataset_source') or 'Unknown'} | Run: {run_label}\n"
             f"Rows used: {self.result['rows_used']} | Steering MAE: {self.result['steering_mae']:.4f} | "

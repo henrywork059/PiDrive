@@ -9,6 +9,7 @@ from ..panels.common.log_panel import LogPanel
 from ..panels.common.task_progress_panel import TaskProgressPanel
 from ..services.background_task import BackgroundTaskRunner
 from ..services.task_outputs import confirmed_dataset_paths
+from ..services.preprocess.applied_binding import AppliedPreprocessBinding
 from ..panels.preprocess.preprocess_actions_panel import PreprocessActionsPanel
 from ..panels.preprocess.preprocess_config_panel import PreprocessConfigPanel
 from ..panels.preprocess.preprocess_filter_panel import PreprocessFilterPanel
@@ -34,6 +35,7 @@ class PreprocessPage(DockPage):
         self.main_window = main_window
         self.output_tabs = None
         self._preprocess_applied = False
+        self._applied_binding = AppliedPreprocessBinding()
         super().__init__('preprocess')
 
         self.summary_panel = PreprocessSummaryPanel()
@@ -125,6 +127,7 @@ class PreprocessPage(DockPage):
         path = Path(working_dir).expanduser().resolve()
         self.state.last_saved_preprocess_settings_path = str(path / 'preprocess' / 'preprocess_settings.json')
         self._preprocess_applied = False
+        self._applied_binding.clear()
 
         # If the selected session already has preprocess settings, load them from
         # the session folder; otherwise keep the current/default recipe while
@@ -298,6 +301,7 @@ class PreprocessPage(DockPage):
             self.state.preprocess_recipe = recipe
             self._preprocess_applied = True
             self.state.filtered_df = result_df
+            self._applied_binding.capture(result_df, recipe)
             self.state.train_df = result_df.iloc[0:0].copy() if not result_df.empty else pd.DataFrame()
             self.state.val_df = result_df.iloc[0:0].copy() if not result_df.empty else pd.DataFrame()
             self.state.model = None
@@ -349,6 +353,7 @@ class PreprocessPage(DockPage):
         baseline = build_filtered_dataframe(self.state.dataset_df, self.state.train_config.only_manual)
         self.state.preprocess_recipe = {}
         self._preprocess_applied = False
+        self._applied_binding.clear()
         self.state.filtered_df = baseline
         self.state.train_df = baseline.iloc[0:0].copy() if not baseline.empty else pd.DataFrame()
         self.state.val_df = baseline.iloc[0:0].copy() if not baseline.empty else pd.DataFrame()
@@ -372,6 +377,9 @@ class PreprocessPage(DockPage):
         self.log_panel.append_line(f'Saved preprocess settings: {path}')
         self.main_window.set_status_message('Saved preprocess settings.')
 
+    def applied_training_context(self):
+        return self._applied_binding.training_context(self.state.filtered_df)
+
     def save_processed_data(self) -> None:
         if not self.main_window.can_start_task(self):
             return
@@ -383,7 +391,9 @@ class PreprocessPage(DockPage):
             self.log_panel.append_line('No active preprocessed rows to save. Confirm preprocessing first.')
             self.main_window.set_status_message('No active preprocessed rows to save.')
             return
-        recipe = dict(self.state.preprocess_recipe or self.current_recipe())
+        recipe = self._applied_binding.matching_recipe(active_df)
+        if recipe is None:
+            recipe = dict(self.state.preprocess_recipe or self.current_recipe())
         out_dir = self.state.out_dir_path
 
         def work(report):
@@ -394,6 +404,7 @@ class PreprocessPage(DockPage):
             output_paths = confirmed_dataset_paths(folder)
             if self.state.out_dir_path == out_dir:
                 self.state.last_saved_preprocess_path = str(folder)
+                self._applied_binding.note_saved(active_df, recipe, folder)
             self.summary_panel.set_summary(
                 dataset_df=self.state.dataset_df,
                 filtered_df=self.state.filtered_df,

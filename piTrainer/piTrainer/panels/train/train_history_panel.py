@@ -3,7 +3,7 @@ from __future__ import annotations
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QGroupBox, QLabel, QVBoxLayout
+from PySide6.QtWidgets import QApplication, QGroupBox, QLabel, QPushButton, QVBoxLayout
 
 from ...services.train.history_service import build_plot_series
 from ...ui.theme import theme_color
@@ -22,8 +22,13 @@ class TrainHistoryPanel(QGroupBox):
         self.context_label.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard)
         self.context_label.setWordWrap(True)
         self.context_label.setAccessibleName("Training plot run and artifact context")
+        self._artifact_paths = []
+        self.copy_paths_btn = QPushButton('Copy artifact paths')
+        self.copy_paths_btn.setEnabled(False)
+        self.copy_paths_btn.clicked.connect(self.copy_artifact_paths)
         layout = QVBoxLayout(self)
         layout.addWidget(self.context_label)
+        layout.addWidget(self.copy_paths_btn, 0, Qt.AlignRight)
         layout.addWidget(self.canvas)
         self._draw_empty()
 
@@ -36,15 +41,25 @@ class TrainHistoryPanel(QGroupBox):
         val_rows = record.get("validation_rows", "Unknown")
         paths = [str(item["model_path"]) for item in (record.get("artifacts") or [])
                  if isinstance(item, dict) and item.get("model_path")]
+        model_size = (record.get('model_settings') or {}).get('model_size') or 'Unknown'
+        summary = record.get('summary_path')
+        preprocess = record.get('preprocessed_dataset_path')
+        self._artifact_paths = list(dict.fromkeys(str(path) for path in [summary, preprocess, *paths] if path)) if run_id else []
+        self.copy_paths_btn.setEnabled(bool(self._artifact_paths))
         if run_id:
             label = f"Run: {run_id[:12]}… | {record.get('status', 'Unknown')} | Train: {train_rows} | Val: {val_rows} | Sessions: {group_count}"
-            label += "\nArtifact: " + (paths[-1] if paths else "Not recorded")
-            tooltip = f"Run: {run_id}\n" + "\n".join(paths)
+            label += f" | Model: {model_size}"
+            label += "\nArtifact: " + (paths[-1] if paths else summary or "Not recorded")
+            tooltip = f"Run: {run_id}\n" + "\n".join(self._artifact_paths)
         else:
             label = "Training run: Unknown | Artifact: Unknown"
             tooltip = ""
         self.context_label.setText(label)
         self.context_label.setToolTip(tooltip)
+
+    def copy_artifact_paths(self) -> None:
+        if self._artifact_paths:
+            QApplication.clipboard().setText('\n'.join(self._artifact_paths))
 
     def clear_history(self) -> None:
         self.history = {}

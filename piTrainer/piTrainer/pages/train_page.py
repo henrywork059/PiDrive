@@ -137,6 +137,8 @@ class TrainPage(DockPage):
         self.history_panel.set_run_context(record)
         try:
             destination = save_run_record(root, record)
+            record['summary_path'] = str(destination)
+            self.history_panel.set_run_context(record)
             self.log_panel.append_line(f'Training run {record["run_id"]}: {status}; summary: {destination}')
             self.refresh_run_comparison()
         except (OSError, ValueError) as exc:
@@ -281,13 +283,14 @@ class TrainPage(DockPage):
         train_df, val_df = prepared
         try:
             preprocess_page = getattr(self.main_window, 'preprocess_page', None)
-            applied_recipe = (
-                self.state.preprocess_recipe
-                if getattr(preprocess_page, '_preprocess_applied', False) else None
+            applied_recipe, preprocess_path = (
+                preprocess_page.applied_training_context()
+                if preprocess_page is not None and hasattr(preprocess_page, 'applied_training_context')
+                else (None, '')
             )
             self._active_run = create_run_snapshot(
                 train_df, val_df, self.state.train_config,
-                applied_recipe, self.state.selected_sessions,
+                applied_recipe, self.state.selected_sessions, preprocess_path,
             )
             self._active_run_root = self.state.out_dir_path
         except Exception as exc:
