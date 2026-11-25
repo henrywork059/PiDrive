@@ -1154,19 +1154,34 @@ async function deleteSelectedModel() {
   } finally { window.PiDriveDestructive.finish(button); }
 }
 
+async function refreshRecordedFolders() {
+  try {
+    await refreshSessions(true);
+    return true;
+  } catch (error) {
+    setBanner("sessionExportMessage", `Cannot refresh folders: ${error.message}. Retry after reconnecting.`, "muted");
+    return false;
+  }
+}
+
 async function toggleRecording() {
   const next = !state.recordEnabled;
   setRecordToggle(next, true);
+  let data;
   try {
-    const data = await fetchJson("/api/record/toggle", { method: "POST" });
-    setBanner("statusBanner", data.message || "Recording toggled.", "muted");
-    if (data && data.state) updateStatusUi(data.state);
-    else setRecordToggle(!!data.recording, false);
-    await refreshSessions(true);
-    await pollStatus();
+    data = await fetchJson("/api/record/toggle", { method: "POST" });
   } catch (error) {
     setRecordToggle(!next, false);
     throw error;
+  }
+  setBanner("statusBanner", data.message || "Recording toggled.", "muted");
+  if (data && data.state) updateStatusUi(data.state);
+  else setRecordToggle(!!data.recording, false);
+  // A failed optional read cannot undo an acknowledged recording command.
+  const foldersRefreshed = await refreshRecordedFolders();
+  await pollStatus();
+  if (!foldersRefreshed) {
+    setBanner("statusBanner", "Recording command acknowledged; folder refresh failed. Retry after reconnecting.", "muted");
   }
 }
 
@@ -1177,7 +1192,9 @@ async function captureOneShot() {
     triggerSnapshotFlash();
     setBanner("statusBanner", data.message || "Snapshot saved.", "muted");
     if (data && data.state) updateStatusUi(data.state);
-    await refreshSessions(true);
+    if (!await refreshRecordedFolders()) {
+      setBanner("statusBanner", "Snapshot saved; folder refresh failed. Retry after reconnecting.", "muted");
+    }
     return data;
   } finally {
     setCapturePending(false);

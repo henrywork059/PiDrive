@@ -103,6 +103,8 @@ def main():
                     acknowledge_stop = [False]
                     model_reply = [None]
                     model_workspace = [False]
+                    synthetic_recording = [None]
+                    reject_folder_read = [False]
                     def route_request(route):
                         req = route.request
                         parsed = urlsplit(req.url)
@@ -111,6 +113,14 @@ def main():
                             return
                         if req.method != "GET":
                             mutations.append(parsed.path)
+                            if synthetic_recording[0] is not None and parsed.path in {"/api/record/toggle", "/api/record/capture_once"}:
+                                if parsed.path == "/api/record/toggle":
+                                    synthetic_recording[0] = not synthetic_recording[0]
+                                snapshot = dict(client.get("/api/status", base_url=ORIGIN).get_json(),
+                                                recording=synthetic_recording[0])
+                                route.fulfill(status=200, json={"ok": True, "recording": synthetic_recording[0],
+                                                               "message": "Synthetic recording acknowledgement", "state": snapshot})
+                                return
                             if acknowledge_stop[0] and parsed.path == "/api/system/estop":
                                 assert req.post_data_json == {"enabled": True}
                                 assert len(held_status) == 1
@@ -145,6 +155,13 @@ def main():
                         }:
                             route.fulfill(status=503, content_type="application/json",
                                           body='{"ok":false,"message":"Synthetic disconnected backend"}')
+                            return
+                        if reject_folder_read[0] and parsed.path == "/api/record/sessions":
+                            route.fulfill(status=503, json={"ok": False, "message": "Synthetic folder refresh failure"})
+                            return
+                        if synthetic_recording[0] is not None and parsed.path == "/api/status":
+                            snapshot = client.get("/api/status", base_url=ORIGIN).get_json()
+                            route.fulfill(status=200, json=dict(snapshot, recording=synthetic_recording[0]))
                             return
                         if parsed.path == "/api/model/list" and model_reply[0] is not None:
                             status, payload = model_reply[0]
@@ -313,6 +330,27 @@ def main():
                             expect(select.locator("option")).to_contain_text("No .tflite models")
                             model_workspace[0] = False
                             page.locator('.tab-btn[data-page="manual"]').click()
+                            # Confirmed recording commands must not be reversed by
+                            # a later failed read of the saved-folder list.
+                            synthetic_recording[0] = False
+                            reject_folder_read[0] = True
+                            record = page.locator("#recordToggleBtn")
+                            for expected in ("true", "false"):
+                                record.click()
+                                expect(page.locator("#statusBanner")).to_contain_text("Recording command acknowledged; folder refresh failed")
+                                expect(record).to_have_attribute("aria-pressed", expected)
+                                expect(record).to_be_enabled()
+                                expect(page.locator("#sessionExportMessage")).to_contain_text("Cannot refresh folders")
+                            page.locator("#captureOnceBtn").click()
+                            expect(page.locator("#statusBanner")).to_contain_text("Snapshot saved; folder refresh failed")
+                            expect(page.locator("#captureOnceBtn")).to_be_enabled()
+                            synthetic_recording[0] = None
+                            reject_folder_read[0] = False
+                            # Rejected mutation still reports failure and restores OFF.
+                            record.click()
+                            expect(page.locator("#statusBanner")).to_contain_text("Synthetic rejected mutation")
+                            expect(record).to_have_attribute("aria-pressed", "false")
+                            expect(record).to_be_enabled()
                         # Start keyboard modality then focus STOP without activating it.
                         page.keyboard.press("Tab")
                         target = page.locator(stop)
