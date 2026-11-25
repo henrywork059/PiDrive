@@ -7,6 +7,7 @@ from PySide6.QtGui import QKeyEvent, QMouseEvent, QPixmap
 from PySide6.QtWidgets import QGroupBox, QHBoxLayout, QLabel, QSlider, QVBoxLayout, QWidget
 
 from ...services.data.augmentation_service import truthy_value
+from ...services.data.review_context import prediction_pair, comparison_text
 from ...services.data.overlay_primitives import DATA_OVERLAY_TEXT_COLOR, DATA_OVERLAY_TEXT_SCALE
 from ...services.data.overlay_service import apply_overlays, apply_prediction_comparison_overlay, clip_speed, clip_steering, drive_values_from_point
 from ...utils.image_utils import load_scaled_pixmap
@@ -275,6 +276,7 @@ class ImagePreviewPanel(QGroupBox):
         self.current_record['throttle'] = speed
         self._render_generation += 1
         self._update_value_labels(steering, speed)
+        self._update_overlay_meta_label(self.current_record)
         self.selection_render_timer.stop()
         self._render_preview()
         self._queue_pending_edit(self.current_record)
@@ -285,27 +287,14 @@ class ImagePreviewPanel(QGroupBox):
 
     @staticmethod
     def _has_deployed_output(record: dict[str, Any]) -> bool:
-        return (
-            isinstance(record, dict)
-            and 'pred_steering' in record
-            and ('pred_throttle' in record or 'pred_speed' in record)
-        )
+        return prediction_pair(record) is not None
 
     def _update_overlay_meta_label(self, record: dict[str, Any]) -> None:
         settings = record.get('overlay_settings') if isinstance(record, dict) else {}
         has_settings = bool(settings) if isinstance(settings, dict) else False
         schema = str(record.get('overlay_schema_version', '') if isinstance(record, dict) else '').strip()
         source = str(record.get('overlay_settings_source', '') if isinstance(record, dict) else '').strip()
-        prediction_suffix = ''
-        if self._has_deployed_output(record):
-            try:
-                prediction_suffix = (
-                    f" | AI Steering/Speed "
-                    f"{float(record.get('pred_steering', 0.0) or 0.0):.3f}/"
-                    f"{float(record.get('pred_throttle', record.get('pred_speed', 0.0)) or 0.0):.3f}"
-                )
-            except (TypeError, ValueError):
-                prediction_suffix = ' | AI output loaded'
+        prediction_suffix = f'\n{comparison_text(record)}' if record else ''
         if has_settings:
             count = len(settings)
             suffix = f' | {source}' if source else ''

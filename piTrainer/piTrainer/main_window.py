@@ -177,22 +177,21 @@ class MainWindow(QMainWindow):
             self.set_status_message('Current page layout reset to default.')
 
     def show_shortcuts(self) -> None:
-        lines = [
-            'Ctrl+1..Ctrl+6 -> Switch pages',
-            'Ctrl+Tab / Ctrl+Shift+Tab -> Next / previous page',
-            'F5 -> Refresh sessions',
-            'Ctrl+L -> Load selected sessions',
-            'Ctrl+A -> Select all sessions',
-            'Ctrl+Shift+A -> Clear selected sessions',
-            'Delete -> Hide selected frames after Confirm Hide is ticked',
-            'Ctrl+P -> Prepare split',
-            'Ctrl+R -> Start training',
-            'Esc -> Stop training',
-            'Ctrl+E -> Export model',
-            'Ctrl+Shift+E -> Run TFLite Check',
-            'Ctrl+Shift+R -> Reset current page layout',
-            'F1 -> Open this shortcut list',
-        ]
+        context = (
+            ['F5 → Refresh sessions', 'Ctrl+L → Load selected sessions',
+             'Ctrl+A / Ctrl+Shift+A → Select / clear sessions',
+             'Delete → Hide selected frames after Confirm Hide is ticked',
+             'Up / Down in frame table or preview → Previous / next frame'],
+            ['Use Auto Preprocess or Settings; no dedicated execution shortcut.'],
+            ['Ctrl+P → Prepare split', 'Ctrl+R → Start training', 'Esc → Stop training'],
+            ['Up / Down in frame table → Previous / next frame', 'Edit in Data → Open source frame'],
+            ['Ctrl+E → Export model'],
+            ['Ctrl+Shift+E → Run TFLite Check', 'Edit in Data → Open source frame'],
+        )
+        index = max(0, min(self.tabs.currentIndex(), len(context)-1))
+        lines = [self.tabs.tabText(index), *context[index], '', 'Global navigation',
+                 'Ctrl+1..Ctrl+6 → Switch pages', 'Ctrl+Tab / Ctrl+Shift+Tab → Next / previous page',
+                 'Ctrl+Shift+R → Reset current page layout', 'F1 → Open this help']
         QMessageBox.information(self, 'Shortcuts', chr(10).join(lines))
 
     def set_status_message(self, message: str) -> None:

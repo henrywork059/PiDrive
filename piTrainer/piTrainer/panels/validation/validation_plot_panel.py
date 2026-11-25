@@ -59,8 +59,13 @@ class ValidationPlotPanel(QGroupBox):
             return
 
         render_validation_plot(ax, self.result, plot_type)
+        context = self.result.get('experiment_context') or {}
+        run_id = context.get('run_id')
+        run_label = f'{run_id[:12]}…' if run_id else 'Unknown'
         self.summary_label.setText(
+            f"Dataset: {self.result.get('dataset_source') or 'Unknown'} | Run: {run_label}\n"
             f"Rows used: {self.result['rows_used']} | Steering MAE: {self.result['steering_mae']:.4f} | "
             f"Speed MAE: {self.result['throttle_mae']:.4f}"
         )
+        self.summary_label.setToolTip(f"Training run: {run_id or 'Unknown'}")
         self.canvas.draw_idle()
