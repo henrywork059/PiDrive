@@ -16,6 +16,7 @@ from piTrainer.panels.train.train_config_panel import TrainConfigPanel
 from piTrainer.panels.export.model_status_panel import ModelStatusPanel
 from piTrainer.pages.export_page import ExportPage
 from piTrainer.panels.train.train_history_panel import TrainHistoryPanel
+from piTrainer.panels.train.train_comparison_panel import TrainComparisonPanel
 from piTrainer.panels.validation.validation_plot_panel import ValidationPlotPanel
 from piTrainer.panels.export_validation.export_validation_config_panel import ExportValidationConfigPanel
 
@@ -117,6 +118,19 @@ class ValidationControlsTests(unittest.TestCase):
             manifest.unlink()
             self.assertFalse(ExportPage.has_confirmed_export_for(shell, model))
 
+    def test_single_run_inspection_shows_local_validation_receipts(self):
+        panel = TrainComparisonPanel(lambda: None)
+        self.addCleanup(panel.close)
+        run = {'run_id':'a'*32, 'status':'succeeded'}
+        panel.set_records([run], [{'training_run_id':'a'*32, 'receipt_path':'local-check.json'},
+                                  {'training_run_id':'b'*32, 'receipt_path':'unrelated.json'}])
+        self.assertGreater(panel.table.rowCount(), 0)
+        row = panel.table.rowCount() - 1
+        self.assertIn('local-check.json', panel.table.item(row, 1).text())
+        self.assertNotIn('unrelated.json', panel.table.item(row, 1).text())
+        panel.set_records([run], [])
+        self.assertIn('Unknown', panel.table.item(panel.table.rowCount()-1, 1).text())
+
     def test_plot_context_does_not_retain_old_run_or_model(self):
         history = TrainHistoryPanel()
         self.addCleanup(history.close)
@@ -133,11 +147,13 @@ class ValidationControlsTests(unittest.TestCase):
         self.addCleanup(panel.close)
         panel.set_result({'dataset_source':'Validation split', 'model_kind':'TFLite',
                           'model_path':'fixture.tflite', 'experiment_context':{'run_id':'b'*32, 'model_sha256':'c'*64},
+                          'validation_receipt':{'id':'d'*32, 'path':'local-check.json'},
                           'rows_used':2, 'steering_mae':.1, 'throttle_mae':.2,
                           'steering_true':[0,.1], 'throttle_true':[.2,.3],
                           'steering_pred':[0,.2], 'throttle_pred':[.2,.4],
                           'steering_error':[0,.1], 'throttle_error':[0,.1]})
         self.assertIn('fixture.tflite', panel.summary_label.text())
+        self.assertIn('local-check.json', panel.summary_label.text())
         self.assertIn('c'*64, panel.summary_label.toolTip())
         self.assertIn('normalized', panel.figure.axes[0].get_xlabel())
         panel.set_result(None)

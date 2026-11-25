@@ -14,6 +14,7 @@ from ..panels.validation.validation_plot_panel import ValidationPlotPanel
 from ..panels.validation.validation_summary_panel import ValidationSummaryPanel
 from ..services.data.visibility_service import without_hidden_rows
 from ..services.validation.validation_provenance import in_memory_context, file_context, stable_file_context
+from ..services.validation.validation_receipts import save_validation_receipt
 from ..services.validation.validation_service import build_validation_summary_text, run_validation
 from .dock_page import DockPage
 from ..ui.formatting import splitter_args
@@ -145,6 +146,7 @@ class ValidationPage(DockPage):
         batch_size = self.config_panel.batch_size()
         max_rows = self.config_panel.max_rows()
         snapshot = dataset_df.copy(deep=True)
+        receipt_root = self.state.out_dir_path
         self.log_panel.append_line(f'Running validation on {len(snapshot)} row(s) using {source}...')
 
         def work(report):
@@ -158,10 +160,21 @@ class ValidationPage(DockPage):
             result['experiment_context'] = (before if source == 'Current trained model'
                                             else stable_file_context(before, file_context(model_path)))
             result['dataset_source'] = dataset_source
+            try:
+                receipt, path = save_validation_receipt(receipt_root, result)
+                result['validation_receipt'] = {'id': receipt['validation_id'], 'path': str(path),
+                                                'rows_sha256': receipt['evaluated_rows_sha256']}
+            except (OSError, ValueError, TypeError) as exc:
+                result['validation_receipt_error'] = str(exc)
             return result
 
         def completed(result):
             self.last_result = result
+            receipt = result.get('validation_receipt')
+            if receipt:
+                self.log_panel.append_line(f"Validation summary saved: {receipt['path']}")
+            elif result.get('validation_receipt_error'):
+                self.log_panel.append_line(f"WARNING: Validation completed but summary could not be saved: {result['validation_receipt_error']}")
             self.summary_panel.set_result_text(build_validation_summary_text(result))
             self.plot_panel.set_result(result)
             self.frame_review_panel.set_result(result)

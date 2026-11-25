@@ -24,6 +24,7 @@ from ..services.train.experiment_service import (
 from ..services.data.augmentation_service import normalize_horizontal_flip_labels
 from ..services.data.visibility_service import without_hidden_rows
 from ..services.train.worker import TrainingWorker
+from ..services.validation.validation_receipts import load_validation_receipts
 from ..utils.path_utils import ensure_dir, safe_filename
 from .dock_page import DockPage
 from ..ui.formatting import splitter_args
@@ -117,10 +118,11 @@ class TrainPage(DockPage):
     def refresh_run_comparison(self) -> None:
         try:
             records = load_runs(self.state.out_dir_path)
+            receipts = load_validation_receipts(self.state.out_dir_path)
         except (OSError, ValueError) as exc:
             self.comparison_panel.info.setText(f'Unknown — run history could not be read: {exc}')
             return
-        self.comparison_panel.set_records(records)
+        self.comparison_panel.set_records(records, receipts)
 
     def _record_training_outcome(self, status: str, history: dict | None = None,
                                  error: str | None = None) -> dict | None:

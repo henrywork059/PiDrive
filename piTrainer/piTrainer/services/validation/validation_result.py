@@ -118,6 +118,13 @@ def build_validation_summary_text(result: dict) -> str:
         lines.append(f"Run association: {context.get('status') or 'Unknown'}")
         if context.get('model_sha256'):
             lines.append(f"Model SHA-256: {context['model_sha256']}")
+    receipt = result.get('validation_receipt') or {}
+    if receipt:
+        lines.append(f"Validation ID: {receipt.get('id') or 'Unknown'}")
+        lines.append(f"Validation summary: {receipt.get('path') or 'Unknown'}")
+        lines.append(f"Evaluated rows SHA-256: {receipt.get('rows_sha256') or 'Unknown'}")
+    elif result.get('validation_receipt_error'):
+        lines.append('Validation summary: Not saved — ' + str(result['validation_receipt_error']))
     lines.extend([
         f"Rows used: {result['rows_used']}",
         f"Steering MAE / RMSE / Bias: {result['steering_mae']:.4f} / {result['steering_rmse']:.4f} / {result['steering_bias']:.4f}",

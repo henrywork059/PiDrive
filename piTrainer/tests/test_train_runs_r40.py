@@ -9,6 +9,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import pandas as pd
+from piTrainer.services.validation.validation_receipts import save_validation_receipt, load_validation_receipts, evaluated_rows_hash
 
 from piTrainer.services.train.experiment_service import (
     attach_model_artifact, comparison_rows, create_run_snapshot, finish_run,
@@ -48,6 +49,33 @@ class ExperimentServiceTests(unittest.TestCase):
         return finish_run(self.snapshot({"mirror_enabled": True}),
                           "succeeded", {"loss": [1.2, 0.7],
                                          "val_loss": [1.5, 0.9]})
+
+    def test_validation_receipts_preserve_run_identity_and_actual_rows(self):
+        run = self.successful()
+        result = {"rows_used": 1, "sessions": ["s1"], "frame_ids": ["f1"],
+                  "source_frame_ids": [""], "abs_images": ["a.jpg"], "aug_flip_lr": [False],
+                  "steering_true": [.1], "throttle_true": [.5], "steering_mae": .03,
+                  "dataset_source": "Validation split", "model_kind": "Current trained model",
+                  "experiment_context": {"run_id": run["run_id"], "status": "Tracked in-memory training run."}}
+        first, path = save_validation_receipt(self.root, result)
+        before = path.read_bytes()
+        second, other = save_validation_receipt(self.root, result)
+        self.assertNotEqual(path, other)
+        self.assertEqual(path.read_bytes(), before)
+        self.assertEqual(first["training_run_id"], run["run_id"])
+        self.assertIsNone(first["model_sha256"])
+        self.assertEqual(first["evaluated_rows_sha256"], second["evaluated_rows_sha256"])
+        self.assertIsNone(first["metrics"]["throttle_rmse"])
+        result["steering_true"] = [.2]
+        self.assertNotEqual(evaluated_rows_hash(result), first["evaluated_rows_sha256"])
+        result["experiment_context"] = {"status": "Unknown"}
+        result["abs_images"] = []
+        unknown, _ = save_validation_receipt(self.root, result)
+        self.assertIsNone(unknown["training_run_id"])
+        self.assertIsNone(unknown["evaluated_rows_sha256"])
+        self.assertEqual(len(load_validation_receipts(self.root)), 3)
+        path.write_text("{bad", encoding="utf-8")
+        self.assertEqual(len(load_validation_receipts(self.root)), 2)
 
     def test_stable_uuid_run_id(self):
         record = self.snapshot()

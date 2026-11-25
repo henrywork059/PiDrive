@@ -16,8 +16,11 @@ class TrainComparisonPanel(QGroupBox):
     def __init__(self, refresh_callback) -> None:
         super().__init__("Compare Training Runs")
         self._records: dict[str, dict] = {}
+        self._validation_receipts: list[dict] = []
         self.run_a = QComboBox()
         self.run_b = QComboBox()
+        self.run_a.setAccessibleName("First training run")
+        self.run_b.setAccessibleName("Second training run")
         self.run_a.setToolTip("First training run (stable run ID)")
         self.run_b.setToolTip("Second training run (stable run ID)")
         self.refresh_btn = QPushButton("Refresh Runs")
@@ -26,7 +29,8 @@ class TrainComparisonPanel(QGroupBox):
         self.inspect_btn.clicked.connect(self.inspect_model)
         self.info = QLabel("No saved training run summaries found.")
         self.info.setWordWrap(True)
-        self.info.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.info.setTextFormat(Qt.PlainText)
+        self.info.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard)
 
         self.table = QTableWidget(0, 3)
         self.table.setHorizontalHeaderLabels(["Metric", "Run A", "Run B"])
@@ -55,7 +59,8 @@ class TrainComparisonPanel(QGroupBox):
         self.run_a.currentIndexChanged.connect(self._render)
         self.run_b.currentIndexChanged.connect(self._render)
 
-    def set_records(self, records: list[dict]) -> None:
+    def set_records(self, records: list[dict], receipts: list[dict] | None = None) -> None:
+        self._validation_receipts = list(receipts or [])
         old_a, old_b = self.run_a.currentData(), self.run_b.currentData()
         self._records = {r["run_id"]: r for r in records if isinstance(r, dict) and r.get("run_id")}
         self.run_a.blockSignals(True)
@@ -86,15 +91,20 @@ class TrainComparisonPanel(QGroupBox):
         if not left_id:
             self.info.setText("Unknown — no R40 run summaries in this working folder. Historical models are not inferred.")
             return
-        if not right_id or left_id == right_id:
-            self.info.setText("Select two different recorded run IDs to compare.")
-            return
-        a, b = self._records.get(left_id), self._records.get(right_id)
-        if not a or not b:
+        a = self._records.get(left_id)
+        b = self._records.get(right_id) if right_id != left_id else None
+        if not a:
             self.info.setText("Unknown — the selected run metadata is unavailable.")
             return
-        self.info.setText(f"Run A: {left_id}\nRun B: {right_id}\nUnknown means metadata was not recorded, not zero.")
+        self.info.setText(f"Run A: {left_id}\nRun B: {right_id if b else 'Select a different run to compare'}\nUnknown means metadata was not recorded, not zero.")
         rows = comparison_rows(a, b)
+        def validation_context(run_id):
+            matches = [item for item in self._validation_receipts if item.get("training_run_id") == run_id] if run_id else []
+            if not matches:
+                return "Unknown — no linked local validation summary"
+            return "\n".join(str(item.get("receipt_path") or "Unknown") for item in matches[:5])
+        rows.append(("Local validation summaries (latest 5)", validation_context(left_id),
+                     validation_context(right_id if b else None)))
         self.table.setRowCount(len(rows))
         for index, (field, value_a, value_b) in enumerate(rows):
             for col, value in enumerate((field, value_a, value_b)):

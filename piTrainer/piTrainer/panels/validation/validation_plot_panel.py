@@ -70,13 +70,17 @@ class ValidationPlotPanel(QGroupBox):
         run_label = f'{run_id[:12]}…' if run_id else 'Unknown'
         model_path = self.result.get('model_path') or ''
         model_kind = self.result.get('model_kind') or 'Unknown'
+        receipt = self.result.get('validation_receipt') or {}
         self.summary_label.setText(
             f"Dataset: {self.result.get('dataset_source') or 'Unknown'} | Run: {run_label}\n"
             f"Rows used: {self.result['rows_used']} | Steering MAE: {self.result['steering_mae']:.4f} | "
             f"Speed MAE: {self.result['throttle_mae']:.4f}\n"
             f"Model: {model_path or model_kind}"
+            + (f"\nSummary: {receipt['path']}" if receipt.get('path') else "")
         )
         self.summary_label.setToolTip(f"Training run: {run_id or 'Unknown'}\n"
                                       f"Model: {model_path or model_kind}\n"
-                                      f"SHA-256: {context.get('model_sha256') or 'Unknown'}")
+                                      f"SHA-256: {context.get('model_sha256') or 'Unknown'}\n"
+                                      f"Validation ID: {receipt.get('id') or 'Unknown'}\n"
+                                      f"Summary: {receipt.get('path') or 'Unknown'}")
         self.canvas.draw_idle()
