@@ -9,6 +9,7 @@ from ...utils.model_manifest import make_manifest, write_manifest
 from ...utils.path_utils import ensure_dir, safe_filename
 from ...utils.tf_log_utils import CapturedTensorFlowOutput, quiet_tensorflow_output
 from ..train.dataset_service import make_tf_dataset
+from ..train.experiment_service import portable_experiment
 
 
 @dataclass(frozen=True)
@@ -164,8 +165,8 @@ def _ordered_tflite_export_model(model):
     if steering is None or throttle is None:
         output_tensors = list(getattr(model, 'outputs', []) or [])
         if len(output_tensors) >= 2:
-            steering = steering or output_tensors[0]
-            throttle = throttle or output_tensors[1]
+            steering = output_tensors[0] if steering is None else steering
+            throttle = output_tensors[1] if throttle is None else throttle
     if steering is None or throttle is None:
         raise ValueError(
             'Could not identify steering and throttle outputs for ordered TFLite export. '
@@ -225,7 +226,7 @@ def build_representative_dataset(train_df, train_config: TrainConfig):
     )
 
 
-def export_model_artifacts(model, export_config: ExportConfig, train_df, train_config: TrainConfig, progress_callback=None) -> list[ExportArtifact]:
+def export_model_artifacts(model, export_config: ExportConfig, train_df, train_config: TrainConfig, progress_callback=None, *, experiment_record=None, seed_known=True) -> list[ExportArtifact]:
     out_dir = ensure_dir(Path(export_config.out_dir).expanduser().resolve())
     base_name = safe_filename(export_config.base_name or "picar_model")
     created: list[ExportArtifact] = []
@@ -273,7 +274,9 @@ def export_model_artifacts(model, export_config: ExportConfig, train_df, train_c
             height=int(train_config.img_h),
             quantization=quant_mode,
             output_interpretation="steering_throttle",
-            training_seed=int(train_config.seed),
+            training_seed=((experiment_record.get('split') or {}).get('training_seed_effective')
+                           if experiment_record else int(train_config.seed) if seed_known else None),
+            experiment=portable_experiment(experiment_record),
         )
         try:
             write_manifest(model_path, metadata)

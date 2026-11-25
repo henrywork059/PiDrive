@@ -35,7 +35,8 @@ def make_manifest(model_path: str | Path, *, model_kind: str,
                   normalization: str = "zero_to_one", quantization: str = "float32",
                   output_interpretation: str | None = None,
                   class_names: list[str] | None = None,
-                  training_seed: int | None = None) -> dict[str, Any]:
+                  training_seed: int | None = None,
+                  experiment: dict[str, Any] | None = None) -> dict[str, Any]:
     if model_kind not in KINDS:
         raise ValueError("Unknown PiDrive model family.")
     result = {
@@ -53,6 +54,8 @@ def make_manifest(model_path: str | Path, *, model_kind: str,
         "training_seed": training_seed,
         "class_names": list(class_names or []),
     }
+    if experiment is not None:
+        result['experiment'] = dict(experiment)
     validate_manifest(result, expected_kind=model_kind)
     return result
 
@@ -95,6 +98,26 @@ def validate_manifest(data: Any, expected_kind: str | None = None) -> dict[str, 
     seed = data.get("training_seed")
     if seed is not None and (type(seed) is not int or seed < 0):
         raise ValueError("Invalid training seed.")
+    # Optional v1 provenance: bounded identifiers/counts, never local paths.
+    # Model digest verifies bytes, not the author's claimed training history.
+    experiment = data.get("experiment")
+    if experiment is not None:
+        if not isinstance(experiment, dict) or set(experiment) != {
+            "run_id", "preprocessing_sha256", "identity_label_sha256",
+            "train_rows", "validation_rows", "source_group_count"
+        }:
+            raise ValueError("Invalid experiment provenance fields.")
+        run_id = experiment["run_id"]
+        if not isinstance(run_id, str) or len(run_id) != 32 or any(c not in "0123456789abcdef" for c in run_id):
+            raise ValueError("Invalid experiment run ID.")
+        for key in ("preprocessing_sha256", "identity_label_sha256"):
+            value = experiment[key]
+            if value is not None and (not isinstance(value, str) or len(value) != 64 or any(c not in "0123456789abcdef" for c in value)):
+                raise ValueError("Invalid experiment fingerprint.")
+        for key in ("train_rows", "validation_rows", "source_group_count"):
+            value = experiment[key]
+            if value is not None and (type(value) is not int or not 0 <= value <= 2**53-1):
+                raise ValueError("Invalid experiment row/group count.")
     return data
 
 

@@ -19,7 +19,7 @@ from ..services.export.export_service import next_available_model_artifact_path,
 from ..utils.model_manifest import make_manifest, write_manifest
 from ..services.train.split_service import split_dataframe
 from ..services.train.experiment_service import (
-    attach_model_artifact, create_run_snapshot, finish_run, load_runs, save_run_record,
+    attach_model_artifact, create_run_snapshot, finish_run, load_runs, save_run_record, portable_experiment,
 )
 from ..services.data.augmentation_service import normalize_horizontal_flip_labels
 from ..services.data.visibility_service import without_hidden_rows
@@ -338,12 +338,17 @@ class TrainPage(DockPage):
         candidate = next_available_model_artifact_path(out_dir, f'{base_name}_trained', '.keras')
         guard_notes = overwrite_guard_notes(default_candidate, candidate)
         model = self.state.model
-        width = int(self.state.train_config.img_w)
-        height = int(self.state.train_config.img_h)
-        seed = int(self.state.train_config.seed)
-        self.control_panel.set_save_status('Saving trained model — no output confirmed yet.')
-
         provenance = self.provenance_for_model(model)
+        run = provenance[0] if provenance else None
+        settings = (run or {}).get('model_settings') or {}
+        shape = getattr(model, 'input_shape', None)
+        if isinstance(shape, (tuple, list)) and len(shape) == 4 and shape[1] and shape[2]:
+            height, width = int(shape[1]), int(shape[2])
+        else:
+            width = int(settings.get('img_w', self.state.train_config.img_w))
+            height = int(settings.get('img_h', self.state.train_config.img_h))
+        seed = ((run or {}).get('split') or {}).get('training_seed_effective')
+        self.control_panel.set_save_status('Saving trained model — no output confirmed yet.')
 
         def work(report):
             report('Writing trained Keras model', None)
@@ -352,7 +357,7 @@ class TrainPage(DockPage):
             metadata = make_manifest(
                 candidate, model_kind='steering_control',
                 width=width, height=height,
-                quantization='float32', training_seed=seed,
+                quantization='float32', training_seed=seed, experiment=portable_experiment(run),
             )
             write_manifest(candidate, metadata)
             if provenance is not None:
@@ -409,6 +414,9 @@ class TrainPage(DockPage):
         self._record_training_outcome('failed', self.history_panel.history, message)
 
     def _on_training_finished(self, model, history: dict) -> None:
+        # Never attach the previous run to a new model if snapshot capture failed.
+        self._model_run = None
+        self._model_run_root = None
         self._provenance_model = model
         self._record_training_outcome('succeeded', history)
         self.state.model = model

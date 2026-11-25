@@ -104,13 +104,19 @@ class ExportPage(DockPage):
         train_df = self.state.train_df.copy(deep=True)
         self.actions_panel.set_export_status('Export running — no output confirmed yet.')
         provenance = train_page.provenance_for_model(model) if train_page is not None else None
+        run = provenance[0] if provenance else None
+        if run and isinstance(run.get('model_settings'), dict):
+            train_config = TrainConfig(**{**vars(train_config), **{k: v for k, v in run['model_settings'].items() if k in vars(train_config)}})
+        shape = getattr(model, 'input_shape', None)
+        if isinstance(shape, (tuple, list)) and len(shape) == 4 and shape[1] and shape[2]:
+            train_config.img_h, train_config.img_w = int(shape[1]), int(shape[2])
 
         def work(report):
             report('Preparing model export', None)
             created = export_model_artifacts(
                 model=model, export_config=export_config,
                 train_df=train_df, train_config=train_config,
-                progress_callback=report,
+                progress_callback=report, experiment_record=run, seed_known=run is not None,
             )
             linked = None
             experiment_paths = []

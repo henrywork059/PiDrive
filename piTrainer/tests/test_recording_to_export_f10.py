@@ -87,12 +87,16 @@ class RecordingContractTests(unittest.TestCase):
             path.write_bytes(b'dummy-not-a-real-interpreter')
             return export_service.ExportArtifact(str(path),'.tflite',path.stat().st_size)
         with patch.object(export_service,'export_tflite_model',side_effect=fake_export):
-            first = export_service.export_model_artifacts(None,config_export,train,config)[0]
+            first = export_service.export_model_artifacts(None,config_export,train,config,experiment_record=record)[0]
             second = export_service.export_model_artifacts(None,config_export,train,config)[0]
         self.assertNotEqual(first.path,second.path)
         self.assertEqual(Path(first.path).read_bytes(),b'dummy-not-a-real-interpreter')
         manifest,_=inspect_manifest(Path(first.path),expected_kind='steering_control',input_size=(160,120))
         self.assertEqual(manifest['training_seed'],27)
+        self.assertEqual(manifest['experiment']['run_id'],record['run_id'])
+        self.assertEqual(manifest['experiment']['source_group_count'],3)
+        self.assertEqual(file_context(first.path)['run_id'],record['run_id'])
+        self.assertNotIn(str(self.root),json.dumps(manifest['experiment']))
         linked,_=attach_model_artifact(self.root,record,first.path)
         context=file_context(first.path)
         self.assertEqual(context['run_id'],linked['run_id'])

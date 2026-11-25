@@ -174,6 +174,21 @@ def finish_run(snapshot: dict, status: str, history: dict | None = None,
     return result
 
 
+def portable_experiment(record: dict | None) -> dict | None:
+    """Transfer only run identifiers and counts, never desktop paths or session names."""
+    if not isinstance(record, dict) or record.get("status") != "succeeded" or not _valid_run_id(record.get("run_id")):
+        return None
+    groups = record.get("source_groups")
+    return {
+        "run_id": record["run_id"],
+        "preprocessing_sha256": record.get("preprocessing_sha256"),
+        "identity_label_sha256": (record.get("split") or {}).get("identity_label_sha256"),
+        "train_rows": record.get("train_rows"),
+        "validation_rows": record.get("validation_rows"),
+        "source_group_count": len(groups) if isinstance(groups, list) else None,
+    }
+
+
 def _valid_run_id(run_id: object) -> bool:
     return isinstance(run_id, str) and RUN_ID_PATTERN.fullmatch(run_id) is not None
 

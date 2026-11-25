@@ -1,7 +1,9 @@
 """Read-only validation run context; missing provenance is explicitly unknown."""
 from __future__ import annotations
 
+from pathlib import Path
 from ..train.experiment_service import inspect_model_experiment
+from ...utils.model_manifest import inspect_manifest
 
 
 def in_memory_context(run: dict | None) -> dict:
@@ -19,6 +21,15 @@ def file_context(path: str) -> dict:
         record, status = inspect_model_experiment(path)
     except (OSError, ValueError, TypeError, KeyError) as exc:
         return {"run_id": None, "status": f"Unknown — provenance unavailable: {exc}"}
+    if record is None and not Path(str(Path(path).expanduser().resolve()) + ".experiment.json").is_file():
+        try:
+            manifest, _ = inspect_manifest(path, expected_kind="steering_control")
+        except (OSError, ValueError):
+            manifest = None
+        experiment = (manifest or {}).get("experiment")
+        if experiment:
+            return {"run_id": experiment["run_id"], "status": "Portable experiment claim; model bytes checksum verified.",
+                    "model_sha256": manifest["model_sha256"]}
     if record is None or record.get("status") != "succeeded":
         return {"run_id": None, "status": status if record is None else "Unknown — run was not successful."}
     return {"run_id": record.get("run_id"), "status": status,

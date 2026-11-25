@@ -49,6 +49,27 @@ class CrossComponentManifestTests(unittest.TestCase):
                 self.assertEqual(observed, expected)
                 self.assertIn("verified", message.lower())
 
+    def test_portable_run_claim_survives_renamed_model_transfer(self):
+        claim = {"run_id": "a"*32, "preprocessing_sha256": "b"*64,
+                 "identity_label_sha256": "c"*64, "train_rows": 10,
+                 "validation_rows": 4, "source_group_count": 2}
+        expected = self.publish(STEERING_EXPORT, "steering_control", experiment=claim)
+        target = self.model.with_name("renamed-on-pi.tflite")
+        target.write_bytes(self.model.read_bytes())
+        STEERING_EXPORT.manifest_path(target).write_bytes(STEERING_EXPORT.manifest_path(self.model).read_bytes())
+        for name, reader in RUNTIMES.items():
+            with self.subTest(runtime=name):
+                observed, _ = reader.inspect_manifest(target, expected_kind="steering_control")
+                self.assertEqual(observed, expected)
+                for key, bad in (("run_id", "../bad"), ("train_rows", True), ("preprocessing_sha256", "secret/path")):
+                    malformed = dict(expected, experiment=dict(claim, **{key: bad}))
+                    with self.assertRaises(ValueError):
+                        reader.validate_manifest(malformed)
+        target.write_bytes(b"tampered")
+        for reader in RUNTIMES.values():
+            with self.assertRaises(ValueError):
+                reader.inspect_manifest(target)
+
     def test_nonsteering_manifest_rejected_by_active_runtimes(self):
         # Construct foreign-family metadata with the active reader's own helper;
         # no dependency on the retired CustomTrainer component.
