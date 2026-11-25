@@ -835,14 +835,15 @@
     if (!result || !folderReader.isCurrent(result.token)) return;
     if (result.error) {
       updateSelectedFileDetails();
-      showFilesNotice(result.error + ' Check the Pi connection, then Refresh.', 'PISD-REC-007');
+      showFilesNotice('Could not load saved folders. Check the Pi connection, then Refresh. ' + result.error, 'PISD-REC-007');
       writeLog('recording items failed', {ok:false, code:'PISD-REC-007', message:result.error});
       return;
     }
     const {payload, status} = result;
     recordingCollections = payload.collections;
     renderFileOptions();
-    const visibleItems = fileKind?.value === 'snapshot' ? recordingCollections.snapshots : recordingCollections.recordings;
+    const selectedKind = fileKind?.value === 'snapshot' ? 'snapshot' : 'recording';
+    const visibleItems = selectedKind === 'snapshot' ? recordingCollections.snapshots : recordingCollections.recordings;
     if (visibleItems.length) showFilesNotice(`Loaded ${recordingCollections.recordings.length} recordings and ${recordingCollections.snapshots.length} snapshot folders.`, payload.code);
     writeLog('GET /api/recording/items', payload, status);
   }

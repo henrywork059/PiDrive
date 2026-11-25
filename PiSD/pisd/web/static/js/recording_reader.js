@@ -22,6 +22,7 @@
         const response = await fetch('/api/recording/items', {cache: 'no-store', signal: current.signal});
         const data = await response.json();
         if (token !== generation) return null;
+        if (current.signal.aborted) throw new Error('Read deadline elapsed.');
         const payload = data.payload || data;
         if (!response.ok || data.ok !== true || !Array.isArray(payload.collections?.recordings) ||
             !Array.isArray(payload.collections?.snapshots)) {

@@ -27,6 +27,7 @@ AI_JS = WEB_ROOT / "static" / "js" / "ai_mode.js"
 APP_PY = PROJECT_ROOT / "pisd" / "app.py"
 GLOBAL_SPACE_JS = WEB_ROOT / "static" / "js" / "global_space_stop.js"
 RECORDING_PANEL_JS = WEB_ROOT / "static" / "js" / "recording_download_panel.js"
+RECORDING_READER_JS = WEB_ROOT / "static" / "js" / "recording_reader.js"
 AI_SERVICE_PY = PROJECT_ROOT / "pisd" / "services" / "ai_drive_service.py"
 OUTPUT_DIR = PROJECT_ROOT / "test_outputs" / "ai_mode_page"
 SUMMARY_PATH = OUTPUT_DIR / "summary.json"
@@ -57,7 +58,7 @@ def emit(result: Result) -> None:
 
 
 def check_files() -> list[Result]:
-    files = {"template": AI_TEMPLATE, "css": AI_CSS, "js": AI_JS, "global_space_js": GLOBAL_SPACE_JS, "recording_panel_js": RECORDING_PANEL_JS, "ai_runtime_service": AI_SERVICE_PY}
+    files = {"template": AI_TEMPLATE, "css": AI_CSS, "js": AI_JS, "global_space_js": GLOBAL_SPACE_JS, "recording_panel_js": RECORDING_PANEL_JS, "recording_reader_js": RECORDING_READER_JS, "ai_runtime_service": AI_SERVICE_PY}
     return [
         Result(
             f"ai_mode.file.{name}",
@@ -77,6 +78,7 @@ def check_source_contract() -> Result:
         js = AI_JS.read_text(encoding="utf-8")
         global_space_js = GLOBAL_SPACE_JS.read_text(encoding="utf-8")
         recording_panel_js = RECORDING_PANEL_JS.read_text(encoding="utf-8")
+        recording_reader_js = RECORDING_READER_JS.read_text(encoding="utf-8")
         app_py = APP_PY.read_text(encoding="utf-8")
     except Exception as exc:
         return Result("ai_mode.source_contract", False, PiSDErrorCodes.TEST_AI_MODE_FAILED, f"failed to read AI files: {exc}")
@@ -151,6 +153,7 @@ def check_source_contract() -> Result:
             "Records & snaps",
             "Download zip",
             "global_space_stop.js",
+            "recording_reader.js",
             "recording_download_panel.js",
             "Space STOP",
             "Reverse steering",
@@ -239,10 +242,11 @@ def check_source_contract() -> Result:
             "aiMaxThrottle",
         ],
         "global_space_js": ["PiSDGlobalSpaceStop", "space-global-stop", "/api/control/stop", "/api/ai/stop", "stopImmediatePropagation"],
-        "recording_panel_js": ["PiSDRecordingDownloadPanels", "/api/recording/items", "/api/recording/download.zip", "/api/recording/delete", "data-recording-download-panel"],
+        "recording_reader_js": ["/api/recording/items", "AbortController", "current.signal", "3500", "token !== generation"],
+        "recording_panel_js": ["PiSDRecordingDownloadPanels", "PiSDRecordingReader.createReader", "folderReader.read()", "/api/recording/download.zip", "/api/recording/delete", "data-recording-download-panel"],
         "app": ["keep_ai_preview", "Motors stopped; AI preview kept.", "ai=ai_drive_service.status()", "settings=settings_manager.get()", "errors=all_errors"],
     }
-    sources = {"template": template, "css": css, "js": js, "global_space_js": global_space_js, "recording_panel_js": recording_panel_js, "app": app_py}
+    sources = {"template": template, "css": css, "js": js, "global_space_js": global_space_js, "recording_reader_js": recording_reader_js, "recording_panel_js": recording_panel_js, "app": app_py}
     missing = {name: [token for token in tokens if token not in sources[name]] for name, tokens in required.items()}
     missing = {name: tokens for name, tokens in missing.items() if tokens}
     forbidden = {

@@ -59,6 +59,7 @@ AI_CSS = WEB_ROOT / "static" / "css" / "ai_mode.css"
 AI_JS = WEB_ROOT / "static" / "js" / "ai_mode.js"
 GLOBAL_SPACE_JS = WEB_ROOT / "static" / "js" / "global_space_stop.js"
 RECORDING_PANEL_JS = WEB_ROOT / "static" / "js" / "recording_download_panel.js"
+RECORDING_READER_JS = WEB_ROOT / "static" / "js" / "recording_reader.js"
 PRESENTATION_TEMPLATE = WEB_ROOT / "templates" / "panel_presentation.html"
 PRESENTATION_CSS = WEB_ROOT / "static" / "css" / "panel_presentation.css"
 PRESENTATION_JS = WEB_ROOT / "static" / "js" / "panel_presentation.js"
@@ -552,16 +553,18 @@ def _check_ai_mode_source_contract() -> CheckResult:
         js = AI_JS.read_text(encoding="utf-8")
         global_space_js = GLOBAL_SPACE_JS.read_text(encoding="utf-8")
         recording_panel_js = RECORDING_PANEL_JS.read_text(encoding="utf-8")
+        recording_reader_js = RECORDING_READER_JS.read_text(encoding="utf-8")
     except Exception as exc:
         return CheckResult("ai_mode.source_contract", False, PiSDErrorCodes.TEST_AI_MODE_FAILED, f"failed to read AI Mode files: {exc}")
     required = {
-        "template": ["PiSD AI Mode", "Back to Front Page", "aiModeInitialStatus", "aiModelSelect", "aiEnableMotor", "Confirm safe test + enable motors", "aiStartPreview", "aiStartDrive", "Manual pad / AI assist / Correction / Limiter", "aiAssistTab", "aiAssistPad", "aiLimiterTab", "aiCorrectionPad", "aiManualDriveTab", "aiManualDrivePad", "Manual pad", "Correction %", "Corrected steering", "aiFilesPanel", "Records & snaps", "Download zip", "global_space_stop.js", "recording_download_panel.js", "Space STOP", "manual_drive.css", "mdrv-panel", 'max="1.0"'],
+        "template": ["PiSD AI Mode", "Back to Front Page", "aiModeInitialStatus", "aiModelSelect", "aiEnableMotor", "Confirm safe test + enable motors", "aiStartPreview", "aiStartDrive", "Manual pad / AI assist / Correction / Limiter", "aiAssistTab", "aiAssistPad", "aiLimiterTab", "aiCorrectionPad", "aiManualDriveTab", "aiManualDrivePad", "Manual pad", "Correction %", "Corrected steering", "aiFilesPanel", "Records & snaps", "Download zip", "global_space_stop.js", "recording_reader.js", "recording_download_panel.js", "Space STOP", "manual_drive.css", "mdrv-panel", 'max="1.0"'],
         "css": [".ai-shell", ".ai-grid", ".ai-preview-frame", ".ai-button-danger", ".ai-panel-tabs", ".ai-correction-pad", ".ai-manual-drive-pad", ".ai-shared-drive-controls", "#aiFilesPanel"],
         "js": ["/api/ai/models", "/api/ai/load-model", "/api/ai/config", "/api/ai/manual-correction", "/api/control/manual", "/api/ai/start", "/api/ai/stop", "safety_ack", "enable_motor_output", "enforceFullScaleThrottleRanges", "last_corrected_command", "bindKeyboardShortcuts", "sendFullManualDrive", "ai-manual-keyboard", "refreshAIRecordingFiles", "pisd:space-stop"],
         "global_space_js": ["PiSDGlobalSpaceStop", "space-global-stop", "/api/control/stop", "/api/ai/stop"],
-        "recording_panel_js": ["PiSDRecordingDownloadPanels", "/api/recording/items", "/api/recording/download.zip", "/api/recording/delete"],
+        "recording_reader_js": ["/api/recording/items", "AbortController", "current.signal", "3500", "token !== generation"],
+        "recording_panel_js": ["PiSDRecordingDownloadPanels", "PiSDRecordingReader.createReader", "folderReader.read()", "/api/recording/download.zip", "/api/recording/delete"],
     }
-    sources = {"template": template, "css": css, "js": js, "global_space_js": global_space_js, "recording_panel_js": recording_panel_js}
+    sources = {"template": template, "css": css, "js": js, "global_space_js": global_space_js, "recording_reader_js": recording_reader_js, "recording_panel_js": recording_panel_js}
     missing = {name: [token for token in tokens if token not in sources[name]] for name, tokens in required.items()}
     missing = {name: tokens for name, tokens in missing.items() if tokens}
     ok = not missing
