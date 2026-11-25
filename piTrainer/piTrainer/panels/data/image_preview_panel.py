@@ -4,7 +4,7 @@ from typing import Any
 
 from PySide6.QtCore import QEvent, QPoint, QTimer, Qt
 from PySide6.QtGui import QKeyEvent, QMouseEvent, QPixmap
-from PySide6.QtWidgets import QGroupBox, QHBoxLayout, QLabel, QSlider, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QCheckBox, QGroupBox, QHBoxLayout, QLabel, QSlider, QVBoxLayout, QWidget
 
 from ...services.data.augmentation_service import truthy_value
 from ...services.data.review_context import prediction_pair, comparison_text
@@ -88,6 +88,13 @@ class ImagePreviewPanel(QGroupBox):
         self._render_generation = 0
 
         self.image_label = InteractiveImageLabel(self)
+        self.image_label.setAccessibleName('Frame image preview')
+        self.compare_check = QCheckBox('Compare label and AI')
+        self.compare_check.setChecked(True)
+        self.compare_check.toggled.connect(self._toggle_comparison)
+        self.comparison_label = QLabel('Select a frame to compare.')
+        self.comparison_label.setWordWrap(True)
+        self.comparison_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
 
         hint_label = QLabel(
             'Select a row on the left, then review the image and PiSD V7 overlay here. Click or drag only when you want to correct steering/speed. '
@@ -103,10 +110,12 @@ class ImagePreviewPanel(QGroupBox):
         self.overlay_meta_label.setWordWrap(True)
 
         self.steering_slider = CenteredFillSlider(Qt.Horizontal, center_value=0)
+        self.steering_slider.setAccessibleName('Frame steering label')
         self.steering_slider.setRange(-1000, 1000)
         self.steering_slider.valueChanged.connect(self._on_slider_changed)
 
         self.speed_slider = QSlider(Qt.Horizontal)
+        self.speed_slider.setAccessibleName('Frame speed label')
         self.speed_slider.setRange(0, 1000)
         self.speed_slider.valueChanged.connect(self._on_slider_changed)
 
@@ -153,6 +162,8 @@ class ImagePreviewPanel(QGroupBox):
 
         layout = QVBoxLayout(self)
         layout.addWidget(self.image_label, 1)
+        layout.addWidget(self.compare_check)
+        layout.addWidget(self.comparison_label)
         layout.addWidget(CollapsibleSection('Edit Steering / Speed + Overlay Metadata', editor_widget, expanded=False))
 
         self._set_slider_enabled(False)
@@ -289,12 +300,19 @@ class ImagePreviewPanel(QGroupBox):
     def _has_deployed_output(record: dict[str, Any]) -> bool:
         return prediction_pair(record) is not None
 
+    def _toggle_comparison(self, enabled: bool) -> None:
+        self.comparison_label.setVisible(enabled)
+        self._render_generation += 1
+        self.selection_render_timer.stop()
+        self._render_preview()
+
     def _update_overlay_meta_label(self, record: dict[str, Any]) -> None:
         settings = record.get('overlay_settings') if isinstance(record, dict) else {}
         has_settings = bool(settings) if isinstance(settings, dict) else False
         schema = str(record.get('overlay_schema_version', '') if isinstance(record, dict) else '').strip()
         source = str(record.get('overlay_settings_source', '') if isinstance(record, dict) else '').strip()
-        prediction_suffix = f'\n{comparison_text(record)}' if record else ''
+        self.comparison_label.setText(comparison_text(record) if record else 'Select a frame to compare.')
+        prediction_suffix = ''
         if has_settings:
             count = len(settings)
             suffix = f' | {source}' if source else ''
@@ -331,7 +349,7 @@ class ImagePreviewPanel(QGroupBox):
                 self.image_label.setText('Image not available')
             return
 
-        if self._has_deployed_output(record):
+        if self._has_deployed_output(record) and (not hasattr(self, 'compare_check') or self.compare_check.isChecked()):
             rendered = apply_prediction_comparison_overlay(
                 pixmap,
                 steering_true=float(record.get('steering', 0.0) or 0.0),
