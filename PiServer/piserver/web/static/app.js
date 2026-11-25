@@ -112,6 +112,7 @@ const state = {
   overlayMode: 0,
   capturePending: false,
   sessions: [],
+  sessionListRevision: 0,
   selectedSession: "",
   steerCurve: 1.45,
   throttleCurve: 1.55,
@@ -838,14 +839,35 @@ function updateSessionExportUi() {
 }
 
 async function refreshSessions(preserveSelection = true) {
-  const currentSelection = preserveSelection ? state.selectedSession : "";
-  const data = await fetchJson("/api/record/sessions");
+  const revision = ++state.sessionListRevision;
+  const initialSelection = state.selectedSession;
+  let data;
+  try {
+    data = await fetchJson("/api/record/sessions");
+  } catch (error) {
+    if (revision !== state.sessionListRevision) return null;
+    throw error;
+  }
+  if (revision !== state.sessionListRevision) return null;
+  // Read the selection when the list arrives, not when the GET starts.
+  const currentSelection = preserveSelection || state.selectedSession !== initialSelection
+    ? state.selectedSession : "";
   state.sessions = Array.isArray(data.sessions) ? data.sessions : [];
   state.selectedSession = currentSelection && state.sessions.some((item) => item.name === currentSelection)
     ? currentSelection
     : (state.sessions[0]?.name || "");
   updateSessionExportUi();
   return data;
+}
+
+async function refreshSessionsWithFeedback() {
+  try {
+    if (await refreshSessions(true)) {
+      setBanner("sessionExportMessage", "Session list refreshed.", "muted");
+    }
+  } catch (error) {
+    setBanner("sessionExportMessage", error.message, "muted");
+  }
 }
 
 function updateSessionSelectionFromStatus(data) {
@@ -892,6 +914,9 @@ async function deleteSelectedSession() {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ session: session.name, confirm: true })
   });
+  // The acknowledged deletion provides a newer authoritative folder list.
+  // Ignore every GET started before this acknowledgement, including errors.
+  ++state.sessionListRevision;
   state.sessions = Array.isArray(data.sessions) ? data.sessions : [];
   state.selectedSession = state.sessions.some((item) => item.name === state.selectedSession)
     ? state.selectedSession
@@ -1907,14 +1932,7 @@ function setupEvents() {
     updateSessionExportUi();
   });
 
-  document.getElementById("refreshSessionsBtn")?.addEventListener("click", async () => {
-    try {
-      await refreshSessions(true);
-      setBanner("sessionExportMessage", "Session list refreshed.", "muted");
-    } catch (error) {
-      setBanner("sessionExportMessage", error.message, "muted");
-    }
-  });
+  document.getElementById("refreshSessionsBtn")?.addEventListener("click", refreshSessionsWithFeedback);
 
   document.getElementById("downloadSessionBtn")?.addEventListener("click", () => {
     downloadSelectedSession();
