@@ -70,3 +70,8 @@ Parent 6b782f7 passed all four jobs in CI 45515079463. A successful recording to
 ## PiServer 0.4.39 — UX75 saved-folder response ordering
 
 Parent 7ec1be7 passed CI 45517818839 (4/4 jobs). Saved-folder GETs previously captured selection before awaiting the response and applied every reply, including one started before a successful deletion. The browser now uses a local list revision and applies only the current response or error, preserves a still-listed choice made while waiting, and invalidates pending GETs upon an acknowledged deletion. The explicit Refresh banner ignores superseded requests. Nine deterministic actual-function JS cases exercise selection, fallback/empty, startup selection, overlapping success/error, acknowledged deletion and rejected deletion; existing native browser regression remains registered unchanged. No new native browser or physical test result is claimed. Exact candidate CI pending; progress unchanged.
+
+
+## Test harness correction
+
+CI 45518472203 reported a failed JavaScript step; at inspection its job log was not yet available. Local Node reproduction using the candidate's extracted functions and the new test harness gave 6/9 passing: the three deletion cases accessed the mocked POST before the cross-VM asynchronous confirmation resumed. Await a deferred signal from the actual mocked POST invocation instead of one Promise.resolve() tick. Local extracted-function run after the correction: 9/9 passed, no assertions removed. No application code, version or other test changed. Full exact-commit CI is required.

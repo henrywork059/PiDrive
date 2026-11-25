@@ -14,3 +14,8 @@ Read actual launcher, current JS/API, current regression workflow, canonical mai
 
 ## Verification and limits
 Parent full gate green; exact candidate CI pending. Deterministic tests cover local request ordering, not distributed ordering, physical hardware, native Windows or owner visual acceptance. Existing native Chromium gate retained; no new browser scenario claimed. Progress stays 35/56; Batch 4 open.
+
+
+## Test harness correction
+
+CI 45518472203 reported a failed JavaScript step; at inspection its job log was not yet available. Local Node reproduction using the candidate's extracted functions and the new test harness gave 6/9 passing: the three deletion cases accessed the mocked POST before the cross-VM asynchronous confirmation resumed. Await a deferred signal from the actual mocked POST invocation instead of one Promise.resolve() tick. Local extracted-function run after the correction: 9/9 passed, no assertions removed. No application code, version or other test changed. Full exact-commit CI is required.

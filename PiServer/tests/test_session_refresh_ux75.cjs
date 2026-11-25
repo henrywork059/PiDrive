@@ -15,6 +15,7 @@ function deferred() {
 function fixture() {
   const state = {...folders("a","b"), selectedSession:"a", sessionListRevision:0};
   const reads=[], posts=[], messages=[];
+  const postStarted=deferred();
   let renders=0, busy=false;
   const button={};
   const ctx=vm.createContext({
@@ -25,7 +26,7 @@ function fixture() {
     fetchJson:(url,options)=>{
       const req=deferred();
       if(url==="/api/record/sessions") reads.push(req);
-      else {assert.equal(url,"/api/record/delete");posts.push({...req,body:JSON.parse(options.body)});}
+      else {assert.equal(url,"/api/record/delete");posts.push({...req,body:JSON.parse(options.body)});postStarted.resolve();}
       return req.promise;
     },
     updateSessionExportUi:()=>{renders++;},
@@ -40,7 +41,7 @@ function fixture() {
   const delEnd=source.indexOf("\nasync function sendControlUpdate(",del);
   assert.ok(start>=0 && end>start && refresh>=0 && refreshEnd>refresh && del>=0 && delEnd>del);
   vm.runInContext(source.slice(start,end)+"\n"+source.slice(refresh,refreshEnd)+"\n"+source.slice(del,delEnd),ctx);
-  return {ctx,state,reads,posts,messages,renders:()=>renders,busy:()=>busy};
+  return {ctx,state,reads,posts,messages,postStarted:postStarted.promise,renders:()=>renders,busy:()=>busy};
 }
 
 test("refresh retains a folder chosen while the read is pending",async()=>{
@@ -88,7 +89,7 @@ test("latest failure retains list and displays failure; stale success cannot cle
 for(const fail of [false,true]) {
   test("confirmed deletion supersedes pending folder "+(fail?"failure":"success"),async()=>{
     const f=fixture();const older=f.ctx.refreshSessionsWithFeedback();
-    const deletion=f.ctx.deleteSelectedSession();await Promise.resolve();
+    const deletion=f.ctx.deleteSelectedSession();await f.postStarted;
     assert.deepEqual(f.posts[0].body,{session:"a",confirm:true});
     f.state.selectedSession="b";
     f.posts[0].resolve({...folders("b"),message:"Deleted a."});await deletion;
@@ -104,7 +105,7 @@ for(const fail of [false,true]) {
 }
 test("rejected deletion does not invalidate a still-current read",async()=>{
   const f=fixture();const p=f.ctx.refreshSessions();
-  const deletion=f.ctx.deleteSelectedSession();await Promise.resolve();
+  const deletion=f.ctx.deleteSelectedSession();await f.postStarted;
   f.posts[0].reject(Error("rejected"));
   await assert.rejects(deletion,/rejected/);
   f.reads[0].resolve(folders("a","b","c"));await p;
