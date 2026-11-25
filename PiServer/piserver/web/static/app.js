@@ -1892,7 +1892,7 @@ function setupEvents() {
     const modal = document.getElementById("styleSettingsModal");
     if (!modal || modal.classList.contains("hidden")) return;
     const focusable = Array.from(modal.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), a[href], [tabindex="0"]'))
-      .filter((el) => el.getClientRects().length);
+      .filter((el) => !el.closest("[inert]") && el.getClientRects().length);
     if (!focusable.length) return;
     if (event.shiftKey && document.activeElement === focusable[0]) {
       event.preventDefault();

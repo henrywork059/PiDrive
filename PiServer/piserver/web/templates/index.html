@@ -634,14 +634,14 @@
                 <h3>Preview</h3>
                 <div class="small-note">Toolbar, panels, cards, fields, and a narrow status example update live.</div>
               </div>
-              <div class="small-note">Use this to judge spacing, font size, and box visibility.</div>
+              <div class="small-note">Visual example only. Sample controls do not perform actions.</div>
             </div>
             <div class="style-preview-surface">
               <div class="style-preview-toolbar">
                 <div class="badge off">run</div>
-                <button type="button" class="ghost-btn">Ghost button</button>
-                <button type="button">Primary action</button>
-                <button type="button" class="danger-btn">Danger</button>
+                <button inert type="button" class="ghost-btn">Ghost button</button>
+                <button inert type="button">Primary action</button>
+                <button inert type="button" class="danger-btn">Danger</button>
               </div>
 
               <div class="style-preview-panels">
@@ -661,7 +661,7 @@
                           <label>Output</label>
                           <strong>S 0.12 · T 0.28</strong>
                         </div>
-                        <button class="metric-card metric-card-primary metric-card-action overlay-toggle" type="button">
+                        <button inert class="metric-card metric-card-primary metric-card-action overlay-toggle" type="button">
                           <span class="metric-card-action-label">Overlay</span>
                           <strong class="metric-card-action-value">ON</strong>
                           <span class="metric-card-action-note">Cycle view</span>
@@ -675,11 +675,11 @@
                       <div class="style-preview-form-grid">
                         <div class="field">
                           <label>Max throttle</label>
-                          <input type="number" value="0.55" />
+                          <input inert type="number" value="0.55" />
                         </div>
                         <div class="field">
                           <label>Steer mix</label>
-                          <input type="number" value="0.50" />
+                          <input inert type="number" value="0.50" />
                         </div>
                       </div>
 
@@ -699,8 +699,8 @@
                         <div class="metric-card"><label>Model</label><strong>road_v4.tflite</strong></div>
                       </div>
                       <div class="stack-row style-preview-action-row">
-                        <button type="button">Apply</button>
-                        <button type="button" class="ghost-btn">Save</button>
+                        <button inert type="button">Apply</button>
+                        <button inert type="button" class="ghost-btn">Save</button>
                       </div>
                     </div>
                   </article>

@@ -92,3 +92,7 @@ Shared Chromium fixture now exercises the actual PiServer Training folder select
 piTrainer 0.11.20 adds selected-row preview/comparison and contextual help; PiSD 0.11.32 adds bounded local operator events, task-first front page and grouped calibration draft resets; PiServer 0.4.40 adds component-local layout helpers, non-destructive preset previews and optional status tiers. Existing automated gates retained; expanded pure and actual browser tests require exact candidate CI. No owner visual approval or physical acceptance claimed.
 
 PiServer 0.4.40 native browser CI 45538852480 exposed density-control overlap at 390/768/1024/1440. Correction uses a single scrollable Status column with intrinsic children; retain real pointer test and keyboard check. Exact corrected CI pending.
+
+
+## PiServer 0.4.42 — R35 visual-only style samples
+Parent 174026c passed Linux 45555698348 (4/4) and hosted native Windows Qt 45555698560 (1/1). The style preview contained eight dummy form controls in the native keyboard sequence. Mark only these examples inert and exclude inert nodes from the existing dialog focus trap; real settings, preview scrolling, Save/Reset, motor and layout controls remain unchanged. The existing JavaScript suite checks sample isolation and the real Chromium fixture traverses the full dialog Tab sequence at all four widths and checks that actual controls and Save remain reachable. Exact new candidate CI pending; no owner golden or physical acceptance claimed.

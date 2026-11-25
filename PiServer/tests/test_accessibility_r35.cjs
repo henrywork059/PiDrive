@@ -27,4 +27,12 @@ test('motor keydown ignores native inputs and editable',()=>assert.equal(app.inc
 test('focus visible for all controls',()=>assert.equal(css.includes('[tabindex="0"]):focus-visible')&&css.includes('outline: 3px solid #ffca65'),true));
 test('reduced motion media query present',()=>assert.equal(css.includes('@media (prefers-reduced-motion: reduce)'),true));
 test('no new control fetch endpoint introduced',()=>assert.equal(!functions.includes('fetch(')&&!functions.includes('sendControlUpdate('),true));
-console.log(count+'/11 PiServer R35 accessibility tests passed');
+test('all eight visual preview controls are inert',()=>{
+  const sample=html.slice(html.indexOf('<div class="style-preview-surface">'),html.indexOf('<div class="style-modal-foot">'));
+  const controls=sample.match(/<(?:button|input)\b[^>]*>/g)||[];
+  assert.equal(controls.length,8);
+  assert.ok(controls.every(tag=>/\binert\b/.test(tag)));
+  assert.ok(!html.match(/<(?:button|input)\s+inert\b[^>]*\bid="(?:saveStyleSettingsBtn|styleBg)"/));
+});
+test('dialog focus trap excludes inert sample controls',()=>assert.ok(app.includes('!el.closest("[inert]")')));
+console.log(count+'/13 PiServer R35 accessibility tests passed');

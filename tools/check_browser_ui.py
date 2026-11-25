@@ -495,6 +495,27 @@ def main():
                                 "ai": "#aiWorkflowSettingsClose",
                                 "dashboard": "#closeStyleSettingsBtn",
                             }[name])
+                            if name == "dashboard":
+                                samples = dialog.locator(".style-preview-surface button, .style-preview-surface input")
+                                assert samples.count() == 8
+                                for sample in samples.all():
+                                    assert sample.evaluate("(el) => el.inert")
+                                # Traverse the actual browser tab sequence, not programmatic focus alone.
+                                first.focus()
+                                seen = set()
+                                for _ in range(80):
+                                    page.keyboard.press("Tab")
+                                    active = page.evaluate("""() => ({
+                                        id: document.activeElement.id,
+                                        sample: !!document.activeElement.closest('.style-preview-surface')
+                                    })""")
+                                    assert not active["sample"], "Visual-only sample received keyboard focus"
+                                    seen.add(active["id"])
+                                    if active["id"] == "saveStyleSettingsBtn":
+                                        break
+                                else:
+                                    raise AssertionError("Tab navigation did not reach real Save style")
+                                assert {"styleBg", "styleFontScale", "resetStyleSettingsBtn"} <= seen
                             # Verify both ends of the actual native Tab order.
                             first.focus()
                             page.keyboard.press("Shift+Tab")
