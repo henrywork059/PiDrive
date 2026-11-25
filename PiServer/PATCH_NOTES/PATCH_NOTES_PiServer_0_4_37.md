@@ -15,3 +15,8 @@ Inspected live launcher, source and actual API response contract, current main r
 
 ## Verification and limits
 Parent CI green; exact new CI pending. Synthetic model names are not loaded or deleted; browser simulation does not establish physical STOP, network packet-loss resilience, native Windows or owner visual acceptance. Batch 4 remains open at 35/56.
+
+
+## CI correction — test extraction boundary
+
+CI [45508281272](https://github.com/henrywork059/PiDrive/actions/runs/45508281272) completed with three of four jobs passing; PiServer's native Chromium dashboard passed at 390/768/1024/1440 px, but three existing delayed-status JavaScript cases failed before exercising application logic. The 0.4.36 harness used the exact next-function signature `refreshModels()` as its source extraction boundary; 0.4.37 changes that signature to `refreshModels(preserveSelection = false)`. The correction matches the function name and opening parenthesis instead, retaining the actual pollStatus function, all three cases and every assertion. No application, version, hardware, config or browser-fixture change. New exact-candidate full CI required; 0.4.36 remains the last fully verified candidate until then.

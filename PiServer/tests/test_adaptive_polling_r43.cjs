@@ -61,7 +61,7 @@ test("modeled one-tab idle status rate declines 75 to 24 requests/minute", () =>
 // Execute the real polling function with a controllable delayed response.
 function delayedPoll() {
   const start = source.indexOf("async function pollStatus() {");
-  const end = source.indexOf("\nasync function refreshModels()", start);
+  const end = source.indexOf("\nasync function refreshModels(", start);
   assert.ok(start >= 0 && end > start);
   const state = {statusInFlight:false, statusRevision:0, statusFailures:0};
   let resolve, reject, updates=0, errors=0, syncs=0, scheduled=0;
