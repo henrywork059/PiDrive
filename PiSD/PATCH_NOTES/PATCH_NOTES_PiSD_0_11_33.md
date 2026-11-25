@@ -6,3 +6,6 @@ Parent b641f02 verified Linux 45554836806 4/4 and Windows 45554836817 1/1. Revie
 
 ## Runtime interface follow-up
 AI upload attaches optional matching manifest through existing multipart API. Loaded model readout reports supplied run/hash or Unknown. Clear stale manifest on unload/delete. Existing server-side family/hash/geometry checks remain mandatory; no automatic model activation or motor action. Exact combined CI required.
+
+## Front workspace acceptance extension
+Report rejected or disconnected STOP as unconfirmed, never as physical confirmation. Preserve native keyboard expansion of diagnostic details and allow body/drive-pad global STOP. Bound recent-event GET through response body completion. Four additional real Chromium viewport cases check front controls, read-only event expansion, simulated clipboard, and rejected STOP; fixture intercepts every mutation. Exact CI required.

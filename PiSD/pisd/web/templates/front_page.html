@@ -27,6 +27,7 @@
     <section class="fp-quick-actions">
       <button id="fpRefreshStatus" class="fp-button">Refresh status</button>
       <button id="fpStopAll" class="fp-button fp-danger">STOP motors</button>
+      <p id="fpActionStatus" role="status" aria-live="polite"></p>
       {% if config.PISD_TOKEN_REQUIRED %}<form method="post" action="/logout"><button type="submit" class="fp-button">Stop motors and sign out</button></form>{% endif %}
     </section>
 
@@ -83,18 +84,18 @@
 
     <section class="fp-quick-actions" aria-label="Diagnostics">
       <details data-preflight-root aria-label="Read-only startup preflight">
-                  <summary>Startup preflight (read-only)</summary>
+                  <summary data-space-stop-ignore="true">Startup preflight (read-only)</summary>
                   <p data-preflight-status role="status" aria-live="polite">Inspecting existing service state…</p>
                   <button type="button" data-preflight-refresh>Refresh checks</button>
                   <ul data-preflight-list aria-label="Service readiness checks"></ul>
                   <small>Observation only: no motor, servo, camera start, AI load or settings changes.</small>
                 </details>
       <details data-recent-events-root aria-label="Sanitized recent operator events">
-        <summary>Recent operator events (read-only)</summary>
+        <summary data-space-stop-ignore="true">Recent operator events (read-only)</summary>
         <p data-recent-status role="status">Expand to read the local event history.</p>
         <button type="button" data-recent-refresh>Refresh events</button>
         <button type="button" data-recent-copy>Copy events</button>
-        <pre data-recent-output class="fp-console" tabindex="0" style="white-space:pre-wrap;overflow-wrap:anywhere">No events loaded.</pre>
+        <pre data-recent-output class="fp-console" tabindex="0" data-space-stop-ignore="true" style="white-space:pre-wrap;overflow-wrap:anywhere">No events loaded.</pre>
         <small>Only fixed operation labels and outcomes; no request payloads or raw errors. API acknowledgement is not physical confirmation.</small>
       </details>
       <pre id="fpStatusJson" class="fp-console">{{ initial_status | tojson(indent=2) }}</pre>

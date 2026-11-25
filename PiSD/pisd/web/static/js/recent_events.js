@@ -18,12 +18,13 @@
     try {
       const controller = new AbortController();
       const deadline = setTimeout(() => controller.abort(), 3500);
-      let response;
-      try { response = await fetch("/api/recent-events", {
+      let data;
+      try { const response = await fetch("/api/recent-events", {
         method: "GET", cache: "no-store", credentials: "same-origin", signal: controller.signal,
-      }); } finally { clearTimeout(deadline); }
+      });
       if (!response.ok) throw new Error("Event request unavailable");
-      const data = await response.json();
+      data = await response.json();
+      } finally { clearTimeout(deadline); }
       if (data?.ok !== true || !Array.isArray(data.events)) {
         throw new Error("Invalid event data");
       }

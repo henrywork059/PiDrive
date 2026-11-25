@@ -20,6 +20,7 @@ HEIGHTS = (844, 1024, 768, 900)
 ORIGIN = "http://127.0.0.1:8765"
 PAGES = {
     "PiSD": [
+        ("front", "/", "#fpStopAll", "#frontModeManualDrive", None, None),
         ("manual", "/manual-drive", "#mdrvStopTop", "#mdrvDragPad", "#mdrvPreviewFrame", "#mdrvOverlaySettingsOpen"),
         ("ai", "/ai-mode", "#aiStopAll", "#aiSaveConfig", "#aiPreviewFrame", "#aiWorkflowSettingsOpen"),
         ("settings", "/settings", "#stStopAll", "#stSaveSettings", None, None),
@@ -89,6 +90,8 @@ def main():
                     context = browser.new_context(viewport={"width": width, "height": height},
                         reduced_motion="reduce", has_touch=width == 390, device_scale_factor=1,
                         service_workers="block")
+                    if name == "front":
+                        context.add_init_script("Object.defineProperty(navigator, 'clipboard', {configurable:true,value:{writeText:async text=>{window.__copiedEvents=text;}}})")
                     page = context.new_page()
                     mutations = []
                     errors = []
@@ -144,6 +147,11 @@ def main():
                                 return
                             route.fulfill(status=503, content_type="application/json",
                                           body='{"ok":false,"message":"Synthetic rejected mutation"}')
+                            return
+                        if name == "front" and parsed.path == "/api/recent-events":
+                            route.fulfill(status=200, json={"ok": True, "capacity": 128, "events": [
+                                {"timestamp_utc": "2026-01-01T00:00:00Z", "title": "Motor STOP requested", "outcome": "acknowledged"}
+                            ]})
                             return
                         if parsed.path in {"/video_feed", "/api/camera/frame.jpg"}:
                             route.fulfill(status=204, body="")
@@ -496,6 +504,20 @@ def main():
                             page.keyboard.press("Escape")
                             expect(dialog).to_be_hidden()
                             expect(control).to_be_focused()
+                        if name == "front":
+                            before = list(mutations)
+                            panel = page.locator("[data-recent-events-root]")
+                            summary = panel.locator("summary")
+                            summary.focus()
+                            summary.press("Space")
+                            expect(panel.locator("[data-recent-output]")).to_contain_text("Motor STOP requested")
+                            panel.locator("[data-recent-copy]").click()
+                            expect(panel.locator("[data-recent-status]")).to_contain_text("copied")
+                            assert "Motor STOP requested" in page.evaluate("window.__copiedEvents")
+                            assert mutations == before, "Read/copy diagnostics must not mutate state"
+                            page.locator(stop).click()
+                            expect(page.locator("#fpActionStatus")).to_contain_text("STOP request not confirmed")
+                            expect(page.locator("#fpGlobalCode")).to_have_text("Unverified")
                         if name == "settings":
                             target = page.locator("#stSaveSettings")
                             target.focus()
