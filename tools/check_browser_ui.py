@@ -442,12 +442,15 @@ def main():
                             page.locator("#saveLayoutBtn").click()
                             assert page.evaluate("(key) => localStorage.getItem(key)", storage_key) is not None
                             expect(page.locator("#cancelLayoutPreviewBtn")).to_be_hidden()
-                            page.locator("#essentialsOnly").check()
+                            # Real pointer click must reach the control; no force/evaluate mutation.
+                            page.locator("#essentialsOnly").check(timeout=8000)
                             expect(page.locator("#metricError")).to_be_visible()
                             expect(page.locator("#metricApplied")).to_be_visible()
                             expect(page.locator("#metricWheels")).to_be_hidden()
                             expect(page.locator("#overlayToggleBtn")).to_be_visible()
-                            page.locator("#essentialsOnly").uncheck()
+                            page.locator("#essentialsOnly").focus()
+                            page.locator("#essentialsOnly").press("Space")
+                            expect(page.locator("#essentialsOnly")).not_to_be_checked()
                             expect(page.locator("#metricWheels")).to_be_visible()
                             # Restore synthetic browser-local test state before remaining checks.
                             page.locator("#resetLayoutBtn").click()

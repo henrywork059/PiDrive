@@ -8,3 +8,6 @@ Reviewed live server.py, current dashboard JS/HTML/CSS and previous four notes 0
 - Pure geometry/merge tests and actual Chromium preview/cancel/save/status-tier assertions registered. Version marker only for Python.
 
 New CI pending. Owner screenshots, physical hardware and full workspace acceptance remain separate. No proposal closure.
+
+## Native browser correction
+CI 45538852480 failed the PiServer native browser step at all four viewport widths: real checkbox clicks intercepted by the metric grid/header. The existing status grid allocated its first row minmax(0,1fr); the new density control occupied that row, collapsing/overlapping it. Make the actual Status dock body one scrollable flex column with nonshrinking children and intrinsic metric rows. Keep previous card geometry fix, all metrics, layout presets, safety controls and existing persistence. Preserve actual pointer interaction assertion and add native keyboard toggle check. Linux PiSD, trainer and compatibility jobs and hosted Windows 45538852452 passed. Corrected exact-candidate CI required. Same unreleased version.

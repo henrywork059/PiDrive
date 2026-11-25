@@ -3619,3 +3619,25 @@ button.active,
 #workspace .status-body[data-essentials-only="true"] .status-metric-grid > .priority-low,
 #workspace .status-body[data-essentials-only="true"] .status-metric-grid > .priority-medium:not(.metric-card-action) { display: none !important; }
 #cancelLayoutPreviewBtn[hidden] { display: none !important; }
+
+/* Status children have intrinsic height; the whole dock scrolls. The previous
+   minmax(0,1fr) first row collapsed the new checkbox under the metric grid. */
+#workspace .dock-panel[data-panel="status"] .status-body {
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
+#workspace .dock-panel[data-panel="status"] .status-body > * { flex: 0 0 auto; }
+#workspace .dock-panel[data-panel="status"] .status-metric-grid { overflow: visible; }
+#workspace .status-density-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  margin: 0;
+  cursor: pointer;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+#workspace .status-density-control input { flex: 0 0 auto; margin: 0; }

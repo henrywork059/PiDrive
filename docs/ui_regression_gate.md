@@ -90,3 +90,5 @@ Shared Chromium fixture now exercises the actual PiServer Training folder select
 ## Batch 6–9 forward candidates
 
 piTrainer 0.11.20 adds selected-row preview/comparison and contextual help; PiSD 0.11.32 adds bounded local operator events, task-first front page and grouped calibration draft resets; PiServer 0.4.40 adds component-local layout helpers, non-destructive preset previews and optional status tiers. Existing automated gates retained; expanded pure and actual browser tests require exact candidate CI. No owner visual approval or physical acceptance claimed.
+
+PiServer 0.4.40 native browser CI 45538852480 exposed density-control overlap at 390/768/1024/1440. Correction uses a single scrollable Status column with intrinsic children; retain real pointer test and keyboard check. Exact corrected CI pending.
