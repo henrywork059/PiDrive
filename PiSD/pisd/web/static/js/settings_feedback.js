@@ -34,11 +34,11 @@
         detail = 'Changes are not yet confirmed.';
         return revision;
       },
-      begin() {
+      begin(options = {}) {
         if (busy) return null;
         busy = true;
-        phase = 'Applying';
-        detail = 'Waiting for backend response and readback.';
+        phase = options.phase || 'Applying';
+        detail = options.detail || 'Waiting for backend response and readback.';
         return revision;
       },
       complete(token, verified, message = '', applied = true) {

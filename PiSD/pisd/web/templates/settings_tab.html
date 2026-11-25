@@ -30,7 +30,7 @@
         <button id="stExportSettings" class="st-button">Export</button>
         <label class="st-import">Import <input id="stImportSettings" type="file" accept="application/json"></label>
       </div>
-      <p id="stApplyDetail" class="st-help">Settings have not been confirmed by the backend.</p>
+      <p id="stApplyDetail" class="st-help" role="status" aria-live="polite">Settings have not been confirmed by the backend.</p>
       <p id="stConfigRecovery" class="st-help" role="alert" {% if not initial_status.config_recovery.warning %}hidden{% endif %}>{{ initial_status.config_recovery.warning }}</p>
       <p class="st-help">Panel presentation, manual drive defaults, camera, and motor settings use one global source: <code>config/runtime_settings.json</code>. Pages may mirror loaded values for display, but saved settings must come from the backend settings API.</p>
     </section>

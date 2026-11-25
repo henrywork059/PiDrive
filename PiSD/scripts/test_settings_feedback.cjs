@@ -18,4 +18,7 @@ test('numeric drift is tolerated only within small precision',()=>{assert.equal(
 test('missing key fails backend comparison',()=>assert.equal(matchesSubset({foo:{bar:1}},{foo:{}}),false));
 test('wrong types fail backend comparison',()=>assert.equal(matchesSubset({enabled:true},{enabled:1}),false));
 test('arrays compare in order',()=>{assert.equal(matchesSubset({a:[1,2]},{a:[1,2]}),true);assert.equal(matchesSubset({a:[1,2]},{a:[2,1]}),false);});
-console.log(count + '/15 deterministic settings feedback tests passed');
+test('read-specific pending state blocks concurrent mutation',()=>{const x=createSettingsFeedback();const r=x.begin({phase:'Loading',detail:'Reading'});assert.equal(x.snapshot().phase,'Loading');assert.equal(x.snapshot().detail,'Reading');assert.equal(x.begin(),null);x.complete(r,true,'Loaded, not applied',false);assert.equal(x.snapshot().phase,'Unsaved');assert.equal(x.snapshot().busy,false);});
+test('failed read releases lock and permits load retry',()=>{const x=createSettingsFeedback();x.fail(x.begin({phase:'Loading'}),'timed out');assert.equal(x.snapshot().phase,'Failed');assert.equal(x.snapshot().retry,true);assert.notEqual(x.begin({phase:'Loading'}),null);});
+test('edit during read prevents old read from confirming draft',()=>{const x=createSettingsFeedback();const r=x.begin({phase:'Loading'});x.edit();assert.equal(x.complete(r,true,'Loaded',false),false);assert.equal(x.snapshot().phase,'Unsaved');assert.equal(x.snapshot().busy,false);});
+console.log(count + '/18 deterministic settings feedback tests passed');

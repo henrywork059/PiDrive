@@ -113,6 +113,10 @@ def main():
                     hold_folder = [False]
                     held_folders = []
                     acknowledge_folder_delete = [False]
+                    stall_settings = [name == "settings"]
+                    reject_settings_read = [False]
+                    hold_settings = [False]
+                    held_settings = []
                     def route_request(route):
                         req = route.request
                         parsed = urlsplit(req.url)
@@ -148,6 +152,17 @@ def main():
                             route.fulfill(status=503, content_type="application/json",
                                           body='{"ok":false,"message":"Synthetic rejected mutation"}')
                             return
+                        if name == "settings" and parsed.path == "/api/settings":
+                            if stall_settings[0]:
+                                stall_settings[0] = False
+                                return
+                            if reject_settings_read[0]:
+                                route.fulfill(status=503, json={"ok": False, "message": "Synthetic settings read rejection"})
+                                return
+                            if hold_settings[0]:
+                                hold_settings[0] = False
+                                held_settings.append((route, client.get("/api/settings", base_url=ORIGIN).get_json()))
+                                return
                         if name == "front" and parsed.path == "/api/recent-events":
                             route.fulfill(status=200, json={"ok": True, "capacity": 128, "events": [
                                 {"timestamp_utc": "2026-01-01T00:00:00Z", "title": "Motor STOP requested", "outcome": "acknowledged"}
@@ -541,6 +556,42 @@ def main():
                             expect(page.locator("#fpGlobalCode")).to_have_text("Unverified")
                         if name == "settings":
                             target = page.locator("#stSaveSettings")
+                            load = page.locator("#stLoadSettings")
+                            retry = page.locator("#stRetryApply")
+                            detail = page.locator("#stApplyDetail")
+                            state = page.locator("#stApplyState")
+                            expect(state).to_have_text("Failed", timeout=8000)
+                            expect(detail).to_contain_text("timed out")
+                            expect(retry).to_have_text("Retry load")
+                            expect(load).to_be_enabled()
+                            expect(target).to_be_enabled()
+                            reject_settings_read[0] = True
+                            retry.click()
+                            expect(detail).to_contain_text("Synthetic settings read rejection")
+                            expect(state).to_have_text("Failed")
+                            expect(page.locator("#stGlobalCode")).to_have_attribute("data-state", "error")
+                            reject_settings_read[0] = False
+                            retry.click()
+                            expect(detail).to_contain_text("Saved settings loaded")
+                            expect(state).to_have_text("Unsaved")
+                            expect(retry).to_be_hidden()
+                            speed = page.locator('#stManualDriveForm input[name="speed"]')
+                            expect(speed).to_have_value("0.43")
+                            # A slow load cannot overwrite an edit or allow overlapping Save.
+                            hold_settings[0] = True
+                            with page.expect_request(lambda req: req.method == "GET" and urlsplit(req.url).path == "/api/settings"):
+                                load.click()
+                            expect(state).to_have_text("Loading")
+                            expect(load).to_be_disabled()
+                            expect(target).to_be_disabled()
+                            expect(page.locator("#stStopAll")).to_be_enabled()
+                            speed.fill("0.52")
+                            assert len(held_settings) == 1
+                            route, snapshot = held_settings.pop()
+                            route.fulfill(status=200, json=snapshot)
+                            expect(target).to_be_enabled()
+                            expect(speed).to_have_value("0.52")
+                            expect(state).to_have_text("Unsaved")
                             target.focus()
                             with page.expect_response(lambda response: response.request.method == "POST"
                                     and urlsplit(response.url).path == "/api/settings"):

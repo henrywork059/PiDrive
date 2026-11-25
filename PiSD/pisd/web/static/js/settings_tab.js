@@ -12,8 +12,8 @@ function renderSettingsFeedback() {
   const retry = document.getElementById('stRetryApply');
   if (badge) { badge.textContent = info.phase; badge.dataset.state = info.phase.toLowerCase(); }
   if (detail) detail.textContent = info.detail;
-  if (retry) { retry.hidden = !info.retry; retry.textContent = settingsRetryLabel; }
-  ['stSaveSettings', 'stApplySettings', 'stResetSettings'].forEach(id => {
+  if (retry) { retry.hidden = !info.retry; retry.disabled = info.busy; retry.textContent = settingsRetryLabel; }
+  ['stLoadSettings', 'stSaveSettings', 'stApplySettings', 'stResetSettings'].forEach(id => {
     const button = document.getElementById(id);
     if (button) button.disabled = info.busy || window.PiDriveDestructive.busy(button);
   });
@@ -31,7 +31,7 @@ function setSettingsCode(name, code) {
   if (target) { target.textContent = value; target.dataset.state = String(value).startsWith('PISD-OK') ? 'ok' : 'error'; }
   if (stGlobalCode) { stGlobalCode.textContent = value; stGlobalCode.dataset.state = String(value).startsWith('PISD-OK') ? 'ok' : 'error'; }
 }
-function logResponse(action, payload, status='') { if (stActionLog) stActionLog.textContent = JSON.stringify({ action, http_status: status, response: payload }, null, 2); setSettingsCode('action', payload?.code); }
+function logResponse(action, payload, status='') { if (stActionLog) stActionLog.textContent = JSON.stringify({ action, http_status: status, response: payload }, null, 2); setSettingsCode('action', payload?.code || (payload?.ok === false ? 'PISD-API-002' : undefined)); }
 function numberMaybe(value) { return /^-?\d+(\.\d+)?$/.test(String(value)) ? Number(value) : value; }
 function clampNumber(value, min, max, fallback) { const n = Number(value); return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : fallback; }
 function formPayload(form) { const payload = {}; for (const el of form.elements) { if (!el.name) continue; if (el.dataset.type === 'boolean') payload[el.name] = el.value === 'true'; else if (el.type === 'number' || el.type === 'range' || el.tagName === 'SELECT') payload[el.name] = numberMaybe(el.value); else payload[el.name] = el.value; } return payload; }
@@ -71,33 +71,50 @@ async function settingsApi(method, path, body) {
     options.headers['Content-Type'] = 'application/json';
     options.body = JSON.stringify(body);
   }
-  const res = await fetch(path, options);
-  const payload = await res.json();
-  logResponse(`${method} ${path}`, payload, res.status);
-  const recovery = document.getElementById("stConfigRecovery");
-  if (recovery && payload.config_recovery) {
-    recovery.textContent = payload.config_recovery.warning || "";
-    recovery.hidden = !recovery.textContent;
+  // Bound reads through body completion. Never abort a mutation: a client
+  // timeout cannot determine whether STOP, Save or Reset reached the server.
+  const controller = method === 'GET' ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), 3500) : null;
+  if (controller) options.signal = controller.signal;
+  try {
+    const res = await fetch(path, options);
+    const payload = await res.json();
+    if (!res.ok || payload?.ok !== true) {
+      logResponse(`${method} ${path}`, { ...payload, ok: false }, res.status);
+      throw new Error(payload?.message || `${method} ${path} failed (${res.status})`);
+    }
+    logResponse(`${method} ${path}`, payload, res.status);
+    const recovery = document.getElementById("stConfigRecovery");
+    if (recovery && payload.config_recovery) {
+      recovery.textContent = payload.config_recovery.warning || "";
+      recovery.hidden = !recovery.textContent;
+    }
+    return payload;
+  } catch (error) {
+    if (controller?.signal.aborted) throw new Error('Settings read timed out; backend response was not confirmed.');
+    throw error;
+  } finally {
+    if (timer !== null) clearTimeout(timer);
   }
-  if (!res.ok || payload?.ok !== true) throw new Error(payload?.message || `${method} ${path} failed (${res.status})`);
-  return payload;
 }
 async function loadSettings() {
-  const revision = settingsFeedback.snapshot().revision;
+  const token = settingsFeedback.begin({ phase: 'Loading', detail: 'Reading saved settings from the backend.' });
+  if (token === null) return;
+  renderSettingsFeedback();
   try {
     const payload = await settingsApi('GET', '/api/settings');
     requireConfirmedSettings(payload, 'Load');
-    if (revision === settingsFeedback.snapshot().revision && !settingsFeedback.snapshot().busy) {
+    if (token === settingsFeedback.snapshot().revision) {
       fillAll(payload.settings);
       storeLocal(payload.settings);
       setSettingsCode('settings', payload.code);
     }
+    settingsFeedback.complete(token, true, 'Saved settings loaded; runtime application is not confirmed.', false);
   } catch (error) {
     settingsRetryAction = loadSettings;
     settingsRetryLabel = 'Retry load';
-    const token = settingsFeedback.begin();
-    if (token !== null) settingsFeedback.fail(token, error.message);
-    throw error;
+    settingsFeedback.fail(token, error.message);
+    logResponse('load settings failed', {ok:false, code:'PISD-API-002', message:String(error.message || error)});
   } finally { renderSettingsFeedback(); }
 }
 async function saveSettings(apply = false) {
@@ -192,4 +209,4 @@ document.querySelectorAll('form input, form select').forEach(el => {
 });
 updateOutputs(document);
 renderSettingsFeedback();
-loadSettings().catch(err => logResponse('load settings failed', {ok:false, code:'PISD-API-002', message:String(err)}));
+loadSettings();
