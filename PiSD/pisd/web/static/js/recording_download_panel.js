@@ -69,6 +69,7 @@
       notice: id('FilesNotice'),
     };
     let collections = { recordings: [], snapshots: [] };
+    const folderReader = window.PiSDRecordingReader.createReader();
 
     function setNotice(message, code = 'PISD-OK-000') {
       if (!els.notice) return;
@@ -85,7 +86,7 @@
     }
 
     function setButtons(item) {
-      const hasItem = Boolean(item && item.id);
+      const hasItem = folderReader.verified() && Boolean(item && item.id);
       const running = Boolean(item?.running);
       if (els.download) els.download.disabled = !hasItem;
       if (els.delete) {
@@ -96,7 +97,7 @@
 
     function updateDetails() {
       const { kind, id: itemId, item } = selectedItem();
-      if (els.summary) els.summary.dataset.state = !item ? 'empty' : (item.running ? 'running' : 'ready');
+      if (els.summary) els.summary.dataset.state = !item ? 'empty' : (!folderReader.verified() ? 'unverified' : (item.running ? 'running' : 'ready'));
       if (els.name) els.name.textContent = folderDisplayName(item, kind);
       if (els.frames) els.frames.textContent = item ? String(Number(item.frame_count || 0)) : '0';
       if (els.size) els.size.textContent = item ? formatBytes(item.bytes) : '0 B';
@@ -119,7 +120,7 @@
         option.textContent = kind === 'snapshot' ? 'No snapshot folders' : 'No recording folders';
         els.select.appendChild(option);
         updateDetails();
-        setNotice(kind === 'snapshot' ? 'No snapshot folders found.' : 'No recording folders found.');
+        if (folderReader.verified()) setNotice(kind === 'snapshot' ? 'No snapshot folders found.' : 'No recording folders found.');
         return;
       }
       for (const item of list) {
@@ -132,27 +133,30 @@
       }
       if (previous && list.some((item) => item.id === previous)) els.select.value = previous;
       const selected = updateDetails();
-      setNotice(`Selected ${kind}: ${selected.item?.id || selected.item?.label || 'folder'}`);
+      if (folderReader.verified()) setNotice(`Selected ${kind}: ${selected.item?.id || selected.item?.label || 'folder'}`);
     }
 
     async function refresh() {
-      try {
-        const data = await api('/api/recording/items');
-        const payload = data.payload || data;
-        const incoming = payload.collections || {};
-        collections = {
-          recordings: incoming.recordings || [],
-          snapshots: incoming.snapshots || [],
-        };
-        renderOptions();
-        setNotice(`Loaded ${collections.recordings.length} recordings and ${collections.snapshots.length} snapshot folders.`, payload.code || data.code);
-      } catch (err) {
-        setNotice(`Folder list failed: ${String(err.message || err)}`, 'PISD-REC-007');
+      const pending = folderReader.read();
+      updateDetails();
+      setNotice('Refreshing saved folders; actions unavailable until confirmed.');
+      const result = await pending;
+      if (!result || !folderReader.isCurrent(result.token)) return;
+      if (result.error) {
+        updateDetails();
+        setNotice(result.error + ' Check the Pi connection, then Refresh.', 'PISD-REC-007');
+        return;
       }
+      const payload = result.payload;
+      collections = payload.collections;
+      renderOptions();
+      const visible = els.kind?.value === 'snapshot' ? collections.snapshots : collections.recordings;
+      if (visible.length) setNotice(`Loaded ${collections.recordings.length} recordings and ${collections.snapshots.length} snapshot folders.`, payload.code);
     }
 
     function download() {
       const { kind, id: itemId, item } = updateDetails();
+      if (!folderReader.verified()) return;
       if (!itemId || !item) {
         setNotice('Select a folder before downloading.', 'PISD-REC-008');
         return;
@@ -163,7 +167,7 @@
     }
 
     async function deleteFolder() {
-      if (window.PiDriveDestructive.busy(els.delete)) return;
+      if (!folderReader.verified() || window.PiDriveDestructive.busy(els.delete)) return;
       const { kind, id: itemId, item } = updateDetails();
       if (!itemId || !item) {
         setNotice('Select a folder before deleting.', 'PISD-REC-008');
@@ -175,12 +179,22 @@
       }
       const details = `${Number(item.frame_count || 0)} frames, ${formatBytes(item.bytes)}, modified ${formatDateTime(item.modified_at_utc)}`;
       const ok = await window.PiDriveDestructive.confirm(els.delete, `Delete ${kind} folder?\n\n${item.label || itemId}\n${itemId}\n${details}\n\nOnly this selected PiSD recordings folder will be removed. This cannot be undone.`);
-      if (!ok) return;
+      if (!ok) { updateDetails(); return; }
       try {
+        const current = selectedItem();
+        if (!folderReader.verified() || current.kind !== kind || current.id !== itemId || !current.item || current.item.running) {
+          setNotice('Folder selection or availability changed. Refresh and confirm again.', 'PISD-REC-009');
+          return;
+        }
         if (els.delete) els.delete.disabled = true;
         const data = await api('/api/recording/delete', { method: 'POST', body: { kind, id: itemId, confirm: true } });
-        setNotice(`Deleted ${kind}: ${itemId}`, data.code || 'PISD-OK-000');
+        if (data.ok !== true) throw new Error('Delete was not confirmed.');
+        folderReader.invalidate();
+        const key = kind === 'snapshot' ? 'snapshots' : 'recordings';
+        collections[key] = collections[key].filter(entry => entry.id !== itemId);
+        renderOptions();
         await refresh();
+        if (!folderReader.verified() && !folderReader.loading()) setNotice(`Deleted ${kind}: ${itemId}; folder refresh unconfirmed. Refresh to continue.`, 'PISD-REC-007');
       } catch (err) {
         setNotice(`Delete failed: ${String(err.message || err)}`, 'PISD-REC-009');
       } finally {

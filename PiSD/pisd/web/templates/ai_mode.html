@@ -381,7 +381,7 @@ python3 scripts/check_ai_runtime.py</pre>
           <button id="aiDownloadZip" class="mdrv-button mdrv-primary ai-button ai-button-primary" type="button">Download zip</button>
           <button id="aiDeleteFolder" class="mdrv-button mdrv-danger ai-button ai-button-danger" type="button">Delete selected</button>
         </div>
-        <p id="aiFilesNotice" class="mdrv-help">Select a recording session or snapshot day folder. AI Mode uses the same recording library as Manual Drive.</p>
+        <p id="aiFilesNotice" class="mdrv-help" role="status" aria-live="polite">Select a recording session or snapshot day folder. AI Mode uses the same recording library as Manual Drive.</p>
       </section>
 
       <section class="mdrv-panel ai-panel ai-log-panel" id="aiLogPanel">
@@ -411,6 +411,7 @@ python3 scripts/check_ai_runtime.py</pre>
   <script id="aiModeInitialStatus" type="application/json">{{ initial_status | tojson }}</script>
   <script src="{{ static_asset('js/overlay_geometry.js') }}"></script>
   <script src="{{ static_asset('js/destructive_action.js') }}"></script>
+  <script src="{{ static_asset('js/recording_reader.js') }}"></script>
   <script src="{{ static_asset('js/recording_download_panel.js') }}"></script>
   <script src="{{ static_asset('js/operating_readiness.js') }}"></script>
   <script src="{{ static_asset('js/manual_lease.js') }}"></script>

@@ -233,7 +233,7 @@
         <button id="mdrvDownloadZip" class="mdrv-button mdrv-primary">Download zip</button>
         <button id="mdrvDeleteFolder" class="mdrv-button mdrv-danger">Delete selected</button>
       </div>
-      <p id="mdrvFilesNotice" class="mdrv-help">Select a recording session or snapshot day folder. Each Manual Drive recording now includes <code>records.jsonl</code> for full trace data and <code>labels.jsonl</code> for AI training labels.</p>
+      <p id="mdrvFilesNotice" class="mdrv-help" role="status" aria-live="polite">Select a recording session or snapshot day folder. Each Manual Drive recording now includes <code>records.jsonl</code> for full trace data and <code>labels.jsonl</code> for AI training labels.</p>
     </section>
 
     <section class="mdrv-panel mdrv-log-panel" id="manualDriveLogPanel" data-panel-role="log" data-panel-h-weight="3" data-panel-v-weight="1" hidden>
@@ -249,6 +249,7 @@
   <script src="{{ static_asset('js/manual_lease.js') }}"></script>
   <script src="{{ static_asset('js/destructive_action.js') }}"></script>
   <script src="{{ static_asset('js/dialog_focus.js') }}"></script>
+  <script src="{{ static_asset('js/recording_reader.js') }}"></script>
   <script src="{{ static_asset('js/manual_drive.js') }}"></script>
 </body>
 </html>

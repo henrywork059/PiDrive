@@ -108,6 +108,7 @@
   let lastMotorOutput = { ...STOP_OUTPUT };
   let recordingRunning = Boolean(initialStatus.recording?.running);
   let recordingCollections = { recordings: [], snapshots: [] };
+  const folderReader = window.PiSDRecordingReader.createReader();
   const PREVIEW_STALE_MS = 2500;
   const PREVIEW_METRICS_MS = 850;
   const PREVIEW_IDLE_SRC = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720'%3E%3Crect width='1280' height='720' fill='%23020617'/%3E%3Ctext x='640' y='340' fill='%2394a3b8' font-family='Arial,sans-serif' font-size='42' text-anchor='middle'%3EPreview idle%3C/text%3E%3Ctext x='640' y='398' fill='%2364748b' font-family='Arial,sans-serif' font-size='26' text-anchor='middle'%3EPress Start live%3C/text%3E%3C/svg%3E";
@@ -296,7 +297,7 @@
   }
 
   function setFileActionButtons(item) {
-    const hasItem = Boolean(item && item.id);
+    const hasItem = folderReader.verified() && Boolean(item && item.id);
     const running = Boolean(item?.running);
     if (downloadZipButton) downloadZipButton.disabled = !hasItem;
     if (deleteFolderButton) {
@@ -309,7 +310,7 @@
 
   function updateSelectedFileDetails() {
     const { kind, id, item } = selectedFileItem();
-    const state = !item ? 'empty' : (item.running ? 'running' : 'ready');
+    const state = !item ? 'empty' : (!folderReader.verified() ? 'unverified' : (item.running ? 'running' : 'ready'));
     if (fileSummary) fileSummary.dataset.state = state;
     if (fileSummaryName) fileSummaryName.textContent = folderDisplayName(item, kind);
     if (fileSummaryFrames) fileSummaryFrames.textContent = item ? String(Number(item.frame_count || 0)) : '0';
@@ -810,7 +811,7 @@
       option.textContent = kind === 'snapshot' ? 'No snapshots — capture a frame' : 'No recordings — start a recording';
       fileSelect.appendChild(option);
       updateSelectedFileDetails();
-      showFilesNotice(kind === 'snapshot' ? 'No snapshots yet. Start live and capture a frame.' : 'No recordings yet. Start live, then Record.');
+      if (folderReader.verified()) showFilesNotice(kind === 'snapshot' ? 'No snapshots yet. Start live and capture a frame.' : 'No recordings yet. Start live, then Record.');
       return;
     }
     for (const item of list) {
@@ -823,33 +824,32 @@
     }
     if (previous && list.some(item => item.id === previous)) fileSelect.value = previous;
     const selected = updateSelectedFileDetails();
-    showFilesNotice(`Selected ${kind}: ${selected.item?.id || selected.item?.label || 'folder'}`);
+    if (folderReader.verified()) showFilesNotice(`Selected ${kind}: ${selected.item?.id || selected.item?.label || 'folder'}`);
   }
 
   async function refreshRecordingItems() {
-    try {
-      const { payload } = await api('GET', '/api/recording/items', undefined, 'files');
-      const collections = payload.collections || {};
-      recordingCollections = {
-        recordings: collections.recordings || [],
-        snapshots: collections.snapshots || [],
-      };
-      renderFileOptions();
-      // Keep the actionable empty notice when the currently selected kind
-      // has no folders, even if the other collection contains saved data.
-      const selectedKind = fileKind?.value === 'snapshot' ? 'snapshot' : 'recording';
-      const visibleItems = selectedKind === 'snapshot' ? recordingCollections.snapshots : recordingCollections.recordings;
-      if (visibleItems.length) {
-        showFilesNotice(`Loaded ${recordingCollections.recordings.length} recordings and ${recordingCollections.snapshots.length} snapshot folders.`, payload.code);
-      }
-    } catch (err) {
-      showFilesNotice('Could not load saved folders. Check the Pi connection, then Refresh.', 'PISD-REC-007');
-      writeLog('recording items failed', { ok: false, code: 'PISD-REC-007', message: String(err) });
+    const pending = folderReader.read();
+    updateSelectedFileDetails();
+    showFilesNotice('Refreshing saved folders; actions unavailable until confirmed.');
+    const result = await pending;
+    if (!result || !folderReader.isCurrent(result.token)) return;
+    if (result.error) {
+      updateSelectedFileDetails();
+      showFilesNotice(result.error + ' Check the Pi connection, then Refresh.', 'PISD-REC-007');
+      writeLog('recording items failed', {ok:false, code:'PISD-REC-007', message:result.error});
+      return;
     }
+    const {payload, status} = result;
+    recordingCollections = payload.collections;
+    renderFileOptions();
+    const visibleItems = fileKind?.value === 'snapshot' ? recordingCollections.snapshots : recordingCollections.recordings;
+    if (visibleItems.length) showFilesNotice(`Loaded ${recordingCollections.recordings.length} recordings and ${recordingCollections.snapshots.length} snapshot folders.`, payload.code);
+    writeLog('GET /api/recording/items', payload, status);
   }
 
   function downloadSelectedZip() {
     const { kind, id, item } = updateSelectedFileDetails();
+    if (!folderReader.verified()) return;
     if (!id || !item) {
       showFilesNotice('Select a folder before downloading.', 'PISD-REC-008');
       return;
@@ -861,7 +861,7 @@
   }
 
   async function deleteSelectedFolder() {
-    if (window.PiDriveDestructive.busy(deleteFolderButton)) return;
+    if (!folderReader.verified() || window.PiDriveDestructive.busy(deleteFolderButton)) return;
     const { kind, id, item } = updateSelectedFileDetails();
     if (!id || !item) {
       showFilesNotice('Select a folder before deleting.', 'PISD-REC-008');
@@ -874,13 +874,26 @@
     const label = item?.label || id;
     const details = `${Number(item.frame_count || 0)} frames, ${formatBytes(item.bytes)}, modified ${formatDateTime(item.modified_at_utc)}`;
     const ok = await window.PiDriveDestructive.confirm(deleteFolderButton, `Delete ${kind} folder?\n\n${label}\n${id}\n${details}\n\nOnly this selected PiSD recordings folder will be removed. This cannot be undone.`);
-    if (!ok) return;
+    if (!ok) { updateSelectedFileDetails(); return; }
     try {
+      const current = selectedFileItem();
+      if (!folderReader.verified() || current.kind !== kind || current.id !== id || !current.item || current.item.running) {
+        showFilesNotice('Folder selection or availability changed. Refresh and confirm again.', 'PISD-REC-009');
+        return;
+      }
       if (deleteFolderButton) deleteFolderButton.disabled = true;
       showFilesNotice(`Deleting ${kind}: ${id}`, 'PISD-OK-000');
       const { payload } = await api('POST', '/api/recording/delete', { kind, id, confirm: true }, 'files');
-      showFilesNotice(payload.ok ? `Deleted ${kind}: ${id}` : `Delete failed: ${payload.code} ${payload.message || ''}`.trim(), payload.code);
-      await refreshRecordingItems();
+      if (payload.ok === true) {
+        folderReader.invalidate();
+        const key = kind === 'snapshot' ? 'snapshots' : 'recordings';
+        recordingCollections[key] = recordingCollections[key].filter(entry => entry.id !== id);
+        renderFileOptions();
+        await refreshRecordingItems();
+        if (!folderReader.verified() && !folderReader.loading()) showFilesNotice(`Deleted ${kind}: ${id}; folder refresh unconfirmed. Refresh to continue.`, 'PISD-REC-007');
+      } else {
+        showFilesNotice(`Delete failed: ${payload.code || ''} ${payload.message || ''}`.trim(), payload.code || 'PISD-REC-009');
+      }
     } catch (err) {
       showFilesNotice(`Delete failed: ${String(err)}`, 'PISD-REC-009');
       writeLog('recording delete failed', { ok: false, code: 'PISD-REC-009', message: String(err) });
@@ -1489,7 +1502,7 @@
     fileKind?.addEventListener('change', renderFileOptions);
     fileSelect?.addEventListener('change', () => {
       const selected = updateSelectedFileDetails();
-      if (selected.item) showFilesNotice(`Selected ${selected.kind}: ${selected.id}`);
+      if (folderReader.verified() && selected.item) showFilesNotice(`Selected ${selected.kind}: ${selected.id}`);
     });
     toggleLog?.addEventListener('click', () => {
       const hidden = logPanel?.hasAttribute('hidden');

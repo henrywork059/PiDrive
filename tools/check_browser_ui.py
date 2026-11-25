@@ -117,6 +117,8 @@ def main():
                     reject_settings_read = [False]
                     hold_settings = [False]
                     held_settings = []
+                    pisd_folders = [None]
+                    stall_pisd_folders = [False]
                     def route_request(route):
                         req = route.request
                         parsed = urlsplit(req.url)
@@ -152,6 +154,14 @@ def main():
                             route.fulfill(status=503, content_type="application/json",
                                           body='{"ok":false,"message":"Synthetic rejected mutation"}')
                             return
+                        if name in ("manual", "ai") and parsed.path == "/api/recording/items":
+                            if stall_pisd_folders[0]:
+                                stall_pisd_folders[0] = False
+                                return
+                            if pisd_folders[0] is not None:
+                                status, payload = pisd_folders[0]
+                                route.fulfill(status=status, json=payload)
+                                return
                         if name == "settings" and parsed.path == "/api/settings":
                             if stall_settings[0]:
                                 stall_settings[0] = False
@@ -240,6 +250,52 @@ def main():
                             expect(page.locator(f"#{prefix}FileSummary")).to_have_attribute("data-state", "empty")
                             expect(page.locator(f"#{prefix}DownloadZip")).to_be_disabled()
                             expect(page.locator(f"#{prefix}DeleteFolder")).to_be_disabled()
+                            # Real page controls: recover populated library, retain selected
+                            # identity on failure, and disable actions until readback.
+                            folder = page.locator(f"#{prefix}FileSelect")
+                            notice = page.locator(f"#{prefix}FilesNotice")
+                            refresh = page.locator(f"#{prefix}RefreshFiles")
+                            delete = page.locator(f"#{prefix}DeleteFolder")
+                            download = page.locator(f"#{prefix}DownloadZip")
+                            # AI file workspace may be hidden by the selected workflow tab.
+                            # Invoke its real button handler without changing drive tabs.
+                            def refresh_folders():
+                                if refresh.is_visible():
+                                    if width == 390:
+                                        refresh.tap()
+                                    else:
+                                        refresh.click()
+                                else:
+                                    refresh.evaluate("(el) => el.click()")
+                            valid = {"ok": True, "code": "PISD-OK-000", "collections": {
+                                "recordings": [{"id": "fixture/a", "label": "A", "frame_count": 3},
+                                               {"id": "fixture/b", "label": "B", "frame_count": 4}], "snapshots": []}}
+                            pisd_folders[0] = (200, valid)
+                            refresh_folders()
+                            expect(folder).to_have_value("fixture/a")
+                            expect(delete).to_be_enabled()
+                            folder.evaluate("(el) => { el.value='fixture/b'; el.dispatchEvent(new Event('change')); }")
+                            stall_pisd_folders[0] = True
+                            refresh_folders()
+                            expect(delete).to_be_disabled()
+                            expect(download).to_be_disabled()
+                            expect(notice).to_contain_text("timed out", timeout=8000)
+                            expect(folder).to_have_value("fixture/b")
+                            expect(page.locator(f"#{prefix}FileSummary")).to_have_attribute("data-state", "unverified")
+                            pisd_folders[0] = (503, {"ok": False, "message": "Synthetic folder failure"})
+                            refresh_folders()
+                            expect(notice).to_contain_text("Synthetic folder failure")
+                            expect(delete).to_be_disabled()
+                            pisd_folders[0] = (200, valid)
+                            refresh_folders()
+                            expect(folder).to_have_value("fixture/b")
+                            expect(delete).to_be_enabled()
+                            # Restore a fresh empty collection for subsequent checks.
+                            pisd_folders[0] = (200, {"ok": True, "collections": {"recordings": [], "snapshots": []}})
+                            refresh_folders()
+                            expect(folder).to_have_value("")
+                            expect(delete).to_be_disabled()
+                            expect(download).to_be_disabled()
                         if name == "ai":
                             expect(page.locator("#aiModelSelect")).to_have_value("")
                             expect(page.locator("#aiModelSelect option")).to_contain_text("No models")
