@@ -7,3 +7,6 @@ Parent b641f02 verified Linux 45554836806 4/4 and Windows 45554836817 1/1. Revie
 
 ## Data review follow-up (UX61/63/65)
 Visible, optional label/AI comparison retains default existing overlay mode and stays synchronized with exact selected frame; accessible slider names and actual Qt selection/sort/filter/toggle tests, real bulk-confirm cancel tests, F1 playback/purge guidance. No edit persistence or row mutation changes. Existing R38 fake renderer harness retains behavior. Exact new CI pending.
+
+## F10 real export gate
+Add a CPU-only genuine TensorFlow conversion and interpreter test using deterministic named heads with distinct outputs (-0.25 steering, +0.65 throttle). Run in the clean full dependency smoke environment, not the lightweight test environment. Verify output shape/order and checksum manifest. No training or real Pi deployment; new exact CI must pass.

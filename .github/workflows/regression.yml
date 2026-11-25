@@ -132,6 +132,7 @@ jobs:
               ;;
             piTrainer)
               "$smoke" -c 'import main, tensorflow, matplotlib; from PySide6.QtWidgets import QApplication; app=QApplication([]); assert callable(main.run); print(tensorflow.__version__)'
+              TF_NUM_INTEROP_THREADS=1 TF_NUM_INTRAOP_THREADS=1 "$smoke" -m unittest discover -s tests -p test_real_tflite_export_f10.py -v
               python -m venv "$RUNNER_TEMP/desktop-smoke"
               desktop="$RUNNER_TEMP/desktop-smoke/bin/python"
               "$desktop" -m pip install -r requirements-desktop.txt
