@@ -25,17 +25,21 @@ class ExportValidationConfigPanel(QGroupBox):
         self.state = state
 
         self.tflite_path_edit = QLineEdit()
+        self.tflite_path_edit.setAccessibleName('TFLite model file')
         self.tflite_path_edit.setPlaceholderText('.tflite model path')
 
         self.dataset_source_combo = QComboBox()
+        self.dataset_source_combo.setAccessibleName('TFLite check dataset')
         self.dataset_source_combo.addItems(['All visible rows', 'Validation split', 'Training split'])
 
         self.batch_spin = QSpinBox()
+        self.batch_spin.setAccessibleName('TFLite check batch size')
         self.batch_spin.setRange(1, 512)
         self.batch_spin.setValue(max(1, int(getattr(self.state.train_config, 'batch_size', 32))))
         self.batch_spin.setToolTip('Used for dynamic-batch models. Fixed-batch models run one frame at a time.')
 
         self.max_rows_spin = QSpinBox()
+        self.max_rows_spin.setAccessibleName('TFLite check maximum rows')
         self.max_rows_spin.setRange(0, 1000000)
         self.max_rows_spin.setSpecialValueText('All rows')
         self.max_rows_spin.setValue(0)
@@ -85,13 +89,16 @@ class ExportValidationConfigPanel(QGroupBox):
             self.set_tflite_path(path)
 
     def fill_from_export_dir(self) -> None:
-        last_path = Path(str(getattr(self.state, 'last_exported_tflite_path', '') or '')).expanduser()
-        if str(last_path).strip() and last_path.exists():
-            self.set_tflite_path(str(last_path))
-            return
+        last_value = str(getattr(self.state, 'last_exported_tflite_path', '') or '').strip()
+        if last_value:
+            last_path = Path(last_value).expanduser()
+            if last_path.is_file() and last_path.suffix.lower() == '.tflite':
+                self.set_tflite_path(str(last_path))
+                return
 
         out_dir = Path(self.state.export_config.out_dir).expanduser()
-        matches = sorted(out_dir.glob('*.tflite'), key=lambda path: path.stat().st_mtime if path.exists() else 0.0)
+        matches = sorted((path for path in out_dir.glob('*.tflite') if path.is_file()),
+                         key=lambda path: (path.stat().st_mtime, path.name))
         if matches:
             self.set_tflite_path(str(matches[-1]))
 

@@ -25,19 +25,24 @@ class ValidationConfigPanel(QGroupBox):
         self.state = state
 
         self.model_source_combo = QComboBox()
+        self.model_source_combo.setAccessibleName('Validation model source')
         self.model_source_combo.addItems(['Current trained model', 'Load .keras / .h5 model'])
 
         self.dataset_source_combo = QComboBox()
+        self.dataset_source_combo.setAccessibleName('Validation dataset')
         self.dataset_source_combo.addItems(['All visible rows', 'Validation split', 'Training split'])
 
         self.model_path_edit = QLineEdit()
+        self.model_path_edit.setAccessibleName('Validation model file')
         self.model_path_edit.setPlaceholderText('Optional .keras/.h5 model path')
 
         self.batch_spin = QSpinBox()
+        self.batch_spin.setAccessibleName('Validation batch size')
         self.batch_spin.setRange(1, 512)
         self.batch_spin.setValue(max(1, int(getattr(self.state.train_config, 'batch_size', 32))))
 
         self.max_rows_spin = QSpinBox()
+        self.max_rows_spin.setAccessibleName('Validation maximum rows')
         self.max_rows_spin.setRange(0, 1000000)
         self.max_rows_spin.setSpecialValueText('All rows')
         self.max_rows_spin.setValue(0)

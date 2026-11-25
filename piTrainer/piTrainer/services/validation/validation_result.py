@@ -110,6 +110,14 @@ def build_validation_summary_text(result: dict) -> str:
         lines.append(f"Model source: {model_kind}{path_suffix}")
     if prediction_backend:
         lines.append(f"Prediction backend: {prediction_backend}")
+    if result.get('dataset_source'):
+        lines.append(f"Dataset selection at run: {result['dataset_source']}")
+    context = result.get('experiment_context')
+    if isinstance(context, dict):
+        lines.append(f"Training run: {context.get('run_id') or 'Unknown'}")
+        lines.append(f"Run association: {context.get('status') or 'Unknown'}")
+        if context.get('model_sha256'):
+            lines.append(f"Model SHA-256: {context['model_sha256']}")
     lines.extend([
         f"Rows used: {result['rows_used']}",
         f"Steering MAE / RMSE / Bias: {result['steering_mae']:.4f} / {result['steering_rmse']:.4f} / {result['steering_bias']:.4f}",

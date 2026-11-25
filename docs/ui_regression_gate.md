@@ -75,3 +75,8 @@ Parent 7ec1be7 passed CI 45517818839 (4/4 jobs). Saved-folder GETs previously ca
 ## Test harness correction
 
 CI 45518472203 reported a failed JavaScript step; at inspection its job log was not yet available. Local Node reproduction using the candidate's extracted functions and the new test harness gave 6/9 passing: the three deletion cases accessed the mocked POST before the cross-VM asynchronous confirmation resumed. Await a deferred signal from the actual mocked POST invocation instead of one Promise.resolve() tick. Local extracted-function run after the correction: 9/9 passed, no assertions removed. No application code, version or other test changed. Full exact-commit CI is required.
+
+
+## piTrainer 0.11.19 — additional R35/UX62 and Batch 5 contract candidate
+
+Parent 8aabfef passed CI 45518657406 (4/4). New native Qt test covers named Validation/TFLite controls, keyboard dataset selection and real-file-only Use Latest helper. Advisory tab icons do not certify model validity. Synthetic disk recording-to-export regression covers current PiSD, PiServer and legacy schemas; no real inference or hardware. Exact new CI pending; owner golden review and Windows acceptance remain separate.

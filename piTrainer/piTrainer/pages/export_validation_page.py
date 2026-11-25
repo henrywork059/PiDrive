@@ -13,6 +13,7 @@ from ..panels.export_validation.export_validation_summary_panel import ExportVal
 from ..panels.validation.validation_frame_review_panel import ValidationFrameReviewPanel
 from ..panels.validation.validation_plot_panel import ValidationPlotPanel
 from ..services.data.visibility_service import without_hidden_rows
+from ..services.validation.validation_provenance import file_context, stable_file_context
 from ..services.validation.validation_service import build_validation_summary_text, run_tflite_validation
 from ..ui.formatting import splitter_args
 from ..ui.layout_widgets import make_scrollable_stack, make_workflow_tabs
@@ -144,14 +145,19 @@ class ExportValidationPage(DockPage):
         batch_size = self.config_panel.batch_size()
         max_rows = self.config_panel.max_rows()
         snapshot = dataset_df.copy(deep=True)
+        dataset_source = self.config_panel.dataset_source()
         self.log_panel.append_line(f'Running TFLite check on {len(snapshot)} row(s): {tflite_path}...')
 
         def work(report):
             report('Loading TFLite interpreter and checking predictions', None)
-            return run_tflite_validation(
+            before = file_context(tflite_path)
+            result = run_tflite_validation(
                 dataset_df=snapshot, train_config=train_config,
                 tflite_path=tflite_path, batch_size=batch_size, max_rows=max_rows,
             )
+            result['experiment_context'] = stable_file_context(before, file_context(tflite_path))
+            result['dataset_source'] = dataset_source
+            return result
 
         def completed(result):
             self.last_result = result

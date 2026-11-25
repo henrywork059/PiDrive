@@ -13,6 +13,7 @@ from ..panels.validation.validation_frame_review_panel import ValidationFrameRev
 from ..panels.validation.validation_plot_panel import ValidationPlotPanel
 from ..panels.validation.validation_summary_panel import ValidationSummaryPanel
 from ..services.data.visibility_service import without_hidden_rows
+from ..services.validation.validation_provenance import in_memory_context, file_context, stable_file_context
 from ..services.validation.validation_service import build_validation_summary_text, run_validation
 from .dock_page import DockPage
 from ..ui.formatting import splitter_args
@@ -132,8 +133,14 @@ class ValidationPage(DockPage):
 
         self.config_panel.push_to_state()
         source = self.config_panel.model_source()
-        model_path = self.config_panel.model_path()
+        # A remembered file path must not be attributed to the in-memory model.
+        model_path = self.config_panel.model_path() if source != 'Current trained model' else ''
         in_memory_model = self.state.model
+        train_page = getattr(self.main_window, 'train_page', None)
+        tracked = (train_page.provenance_for_model(in_memory_model)
+                   if source == 'Current trained model' and train_page is not None else None)
+        memory_context = in_memory_context(tracked[0] if tracked else None)
+        dataset_source = self.config_panel.dataset_source()
         train_config = TrainConfig(**vars(self.state.train_config))
         batch_size = self.config_panel.batch_size()
         max_rows = self.config_panel.max_rows()
@@ -142,11 +149,16 @@ class ValidationPage(DockPage):
 
         def work(report):
             report('Loading model and checking predictions', None)
-            return run_validation(
+            before = memory_context if source == 'Current trained model' else file_context(model_path)
+            result = run_validation(
                 dataset_df=snapshot, train_config=train_config,
                 in_memory_model=in_memory_model, model_source=source,
                 model_path=model_path, batch_size=batch_size, max_rows=max_rows,
             )
+            result['experiment_context'] = (before if source == 'Current trained model'
+                                            else stable_file_context(before, file_context(model_path)))
+            result['dataset_source'] = dataset_source
+            return result
 
         def completed(result):
             self.last_result = result

@@ -4,7 +4,7 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeySequence, QShortcut
-from PySide6.QtWidgets import QApplication, QLabel, QMainWindow, QMessageBox, QStatusBar, QTabWidget
+from PySide6.QtWidgets import QApplication, QLabel, QMainWindow, QMessageBox, QStatusBar, QStyle, QTabWidget
 
 from .app_state import AppState
 from .pages.data_page import DataPage
@@ -56,6 +56,11 @@ class MainWindow(QMainWindow):
         self.tabs.setTabToolTip(4, 'Export model files for deployment.')
         self.tabs.setTabToolTip(5, 'Check the exported TFLite model.')
         self.tabs.currentChanged.connect(self._on_tab_changed)
+        for config in (self.validation_page.config_panel, self.export_validation_page.config_panel):
+            config.dataset_source_combo.currentTextChanged.connect(self.refresh_workflow_readiness)
+        self.validation_page.config_panel.model_source_combo.currentTextChanged.connect(self.refresh_workflow_readiness)
+        self.validation_page.config_panel.model_path_edit.textChanged.connect(self.refresh_workflow_readiness)
+        self.export_validation_page.config_panel.tflite_path_edit.textChanged.connect(self.refresh_workflow_readiness)
 
         self.setCentralWidget(self.tabs)
 
@@ -78,7 +83,36 @@ class MainWindow(QMainWindow):
         self.validation_page.refresh_from_state()
         self.export_page.refresh_from_state()
         self.export_validation_page.refresh_from_state()
+        self.refresh_workflow_readiness()
 
+    def refresh_workflow_readiness(self, *_args) -> None:
+        """Advisory input markers only; never imply a model or run was verified."""
+        if not hasattr(self, 'tabs') or self.tabs.count() != 6:
+            return
+        state = self.state
+        active = not state.filtered_df.empty
+        model = state.model is not None
+        def dataset_available(config):
+            name = config.dataset_source()
+            frame = (state.val_df if name == 'Validation split' else
+                     state.train_df if name == 'Training split' else state.filtered_df)
+            return not frame.empty
+        validation = self.validation_page.config_panel
+        check = self.export_validation_page.config_panel
+        validation_model = (model if validation.model_source() == 'Current trained model'
+                            else bool(validation.model_path()))
+        statuses = (
+            (active, 'Active rows available' if active else 'Load usable recording rows'),
+            (active, 'Active rows available for preprocessing' if active else 'Load usable recording rows'),
+            (active, 'Active rows available; split/training still requires preflight' if active else 'Load usable recording rows'),
+            (validation_model and dataset_available(validation), 'Model selection and dataset available; validation not implied'),
+            (model, 'In-memory model available' if model else 'Train a model first'),
+            (bool(check.tflite_path()) and dataset_available(check), 'File selection and dataset available; file validity not implied'),
+        )
+        for index, (ready, detail) in enumerate(statuses):
+            icon = self.style().standardIcon(QStyle.SP_DialogApplyButton if ready else QStyle.SP_MessageBoxInformation)
+            self.tabs.setTabIcon(index, icon)
+            self.tabs.setTabToolTip(index, ('Inputs available — ' if ready else 'Needs input — ') + detail)
 
     def resizeEvent(self, event) -> None:  # noqa: N802 - Qt API name
         super().resizeEvent(event)
@@ -121,6 +155,7 @@ class MainWindow(QMainWindow):
         QShortcut(QKeySequence('F1'), self, activated=self.show_shortcuts)
 
     def _on_tab_changed(self, index: int) -> None:
+        self.refresh_workflow_readiness()
         widget = self.tabs.widget(index)
         frame_review = getattr(widget, 'frame_review_panel', None)
         if frame_review is not None and hasattr(frame_review, 'restore_pending_selection'):
@@ -162,6 +197,7 @@ class MainWindow(QMainWindow):
 
     def set_status_message(self, message: str) -> None:
         self.status.showMessage(message, 5000)
+        self.refresh_workflow_readiness()
 
     def _records_root_is_session_dir(self) -> bool:
         root = self.state.records_root_path
