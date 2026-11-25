@@ -820,6 +820,8 @@ class AIDriveService:
         self._backend_detail = ""
         self._model_loaded = False
         self._model_ready = False
+        self._active_manifest = None
+        self._manifest_warning = "No model loaded."
         self._last_raw = {"steering": 0.0, "throttle": 0.0}
         self._last_mixed = {"steering": 0.0, "throttle": 0.0}
         self._last_safe = {"steering": 0.0, "throttle": 0.0}

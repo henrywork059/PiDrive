@@ -185,6 +185,7 @@
           <span>Upload model to Pi</span>
           <input id="aiModelUploadFile" type="file" accept=".tflite,.keras,.h5,.onnx,.pt">
         </label>
+        <label class="ai-field"><span>Optional matching model manifest (.manifest.json)</span><input id="aiModelManifestFile" type="file" accept=".json"></label>
         <div class="ai-button-row ai-upload-actions">
           <button id="aiUploadModel" class="mdrv-button ai-button ai-button-secondary" type="button">Upload model</button>
           <span id="aiUploadHint" class="ai-upload-hint">Supported: .keras, .tflite, .h5, .onnx, .pt. Runtime support is built in for piTrainer .keras/.tflite models.</span>
@@ -196,6 +197,7 @@
           <div><dt>Outputs</dt><dd id="aiOutputNames">-</dd></div>
           <div><dt>Models dir</dt><dd id="aiModelsDir">models</dd></div>
           <div><dt>piTrainer export</dt><dd id="aiPiTrainerCompatible">not loaded</dd></div>
+          <div><dt>Loaded model provenance</dt><dd id="aiModelProvenance" style="overflow-wrap:anywhere">No model loaded</dd></div>
           <div><dt>Runtime</dt><dd id="aiRuntimeSupport">checking</dd></div>
           <div><dt>Last load/error</dt><dd id="aiLoadError">none</dd></div>
         </dl>

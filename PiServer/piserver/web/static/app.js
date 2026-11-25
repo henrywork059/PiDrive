@@ -1175,8 +1175,19 @@ async function uploadModel() {
   }
   const form = new FormData();
   form.append("file", file);
+  const sidecar = document.getElementById("modelManifestFile")?.files?.[0];
+  if (sidecar) {
+    if (sidecar.name !== file.name + ".manifest.json") {
+      setBanner("modelMessage", "Choose the matching " + file.name + ".manifest.json.", "muted");
+      return;
+    }
+    form.append("manifest", sidecar);
+  }
   const data = await fetchJson("/api/model/upload", { method: "POST", body: form });
   setBanner("modelMessage", data.message || "Model uploaded.", "muted");
+  const manifestInput = document.getElementById("modelManifestFile");
+  if (manifestInput) manifestInput.value = "";
+  if (input) input.value = "";
   await refreshModels();
 }
 
@@ -1194,7 +1205,9 @@ async function loadSelectedModel() {
   });
   const spec = data.input_spec;
   const shapeLabel = spec ? ` · ${spec.width}×${spec.height} RGB · ${spec.dtype}` : "";
-  setBanner("modelMessage", `${data.message || "Model loaded."}${shapeLabel}`, "muted");
+  const experiment = data.model_metadata?.manifest?.experiment;
+  const provenance = experiment ? ` · Run ${experiment.run_id} · SHA-256 ${data.model_metadata.manifest.model_sha256} (supplied provenance)` : " · Experiment unknown";
+  setBanner("modelMessage", `${data.message || "Model loaded."}${shapeLabel}${provenance}`, "muted");
   await pollStatus();
 }
 

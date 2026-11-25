@@ -3,3 +3,6 @@
 Optional validated run metadata in existing model manifest. Retain saved layout and density correction, old model on failed replacement, API routes and motor behavior. Cross-component transfer/validation tests extended.
 
 Parent b641f02 verified Linux 45554836806 4/4 and Windows 45554836817 1/1. Reviewed actual entry points and latest four notes per component. Manifest schema v1, legacy behavior, family/input/output/checksum checks, launchers and paths retained. Portable run claims are not authenticated. Exact new CI required; no physical or owner acceptance.
+
+## Runtime interface follow-up
+Model upload attaches optional matching manifest through existing multipart API; Load feedback reports run/hash or Unknown. Existing server-side family/hash/geometry checks remain mandatory; no automatic model activation or motor action. Exact combined CI required.

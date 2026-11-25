@@ -6,7 +6,7 @@
     'aiOverlayToggle', 'aiOverlayMode', 'aiOverlayCurveLabel', 'aiOverlayCar', 'aiOverlaySurface', 'aiOverlayPathWide', 'aiOverlayPathGuide', 'aiOverlayPath',
     'aiOverlayEndpoint', 'aiOverlayStartPoint', 'aiOverlayThrottleFill', 'aiOverlaySteeringFill', 'aiOverlayThrottleValue', 'aiOverlaySteeringValue',
     'aiOverlayRawSteering', 'aiOverlayRawThrottle', 'aiOverlayLeftValue', 'aiOverlayRightValue',
-    'aiRefreshModels', 'aiModelSelect', 'aiLoadModel', 'aiPredictOnce', 'aiDeleteModel', 'aiModelUploadFile', 'aiUploadModel', 'aiUploadHint', 'aiSelectedModel', 'aiBackend', 'aiInputShape', 'aiOutputNames', 'aiPiTrainerCompatible', 'aiRuntimeSupport', 'aiRuntimeHelp', 'aiRuntimeHelpCommands', 'aiLoadError', 'aiModelsDir',
+    'aiRefreshModels', 'aiModelSelect', 'aiLoadModel', 'aiPredictOnce', 'aiDeleteModel', 'aiModelUploadFile', 'aiModelManifestFile', 'aiModelProvenance', 'aiUploadModel', 'aiUploadHint', 'aiSelectedModel', 'aiBackend', 'aiInputShape', 'aiOutputNames', 'aiPiTrainerCompatible', 'aiRuntimeSupport', 'aiRuntimeHelp', 'aiRuntimeHelpCommands', 'aiLoadError', 'aiModelsDir',
     'aiEnableMotor', 'aiOutputMode', 'aiMaxThrottle', 'aiMaxThrottleOut', 'aiMaxSteering', 'aiMaxSteeringOut',
     'aiFixedThrottle', 'aiFixedThrottleOut', 'aiUpdateHz', 'aiUpdateHzOut', 'aiSteerSmooth', 'aiSteerSmoothOut', 'aiThrottleSmooth',
     'aiThrottleSmoothOut', 'aiSaveConfig', 'aiLimiterTab', 'aiCorrectionTab', 'aiManualDriveTab', 'aiAssistTab', 'aiLimiterPane', 'aiCorrectionPane', 'aiManualDrivePane', 'aiAssistPane', 'aiManualMix', 'aiManualMixOut',
@@ -503,6 +503,13 @@
     if (els.aiRunMode) els.aiRunMode.textContent = ai.mode || 'idle';
     if (els.aiModelReady) els.aiModelReady.textContent = ai.model_ready ? 'ready' : (ai.model_loaded ? 'loaded' : 'not loaded');
     if (els.aiSelectedModel) els.aiSelectedModel.textContent = ai.model_id || 'none';
+    if (els.aiModelProvenance) {
+      const manifest = ai.model_loaded ? ai.model_manifest : null;
+      const experiment = manifest?.experiment;
+      els.aiModelProvenance.textContent = experiment
+        ? `Run ${experiment.run_id} · model SHA-256 ${manifest.model_sha256} · supplied provenance (not signed)`
+        : ai.model_loaded ? "Unknown — no portable experiment metadata" : "No model loaded";
+    }
     if (els.aiBackend) {
       const backend = ai.backend || 'none';
       const detail = ai.backend_detail || '';
@@ -1297,6 +1304,14 @@
     }
     const form = new FormData();
     form.append('model', file, file.name);
+    const sidecar = els.aiModelManifestFile?.files?.[0];
+    if (sidecar) {
+      if (sidecar.name !== file.name + '.manifest.json') {
+        log('Manifest must be named exactly ' + file.name + '.manifest.json');
+        return;
+      }
+      form.append('manifest', sidecar, sidecar.name);
+    }
     try {
       const response = await fetch('/api/ai/upload-model', { method: 'POST', body: form });
       const data = await response.json().catch(() => ({ ok: false, message: `HTTP ${response.status}` }));
@@ -1309,6 +1324,7 @@
       await refreshModels();
       if (els.aiModelSelect && data.model?.id) els.aiModelSelect.value = data.model.id;
       if (els.aiModelUploadFile) els.aiModelUploadFile.value = '';
+      if (els.aiModelManifestFile) els.aiModelManifestFile.value = '';
       renderAI(data.ai || lastAIStatus || {});
     } catch (err) {
       log(err.message, err.payload || {});
