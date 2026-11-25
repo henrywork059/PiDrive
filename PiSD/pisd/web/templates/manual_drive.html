@@ -67,6 +67,7 @@
         <div class="mdrv-camera-head-actions">
           <button id="mdrvOverlayToggle" class="mdrv-button mdrv-overlay-toggle" type="button" aria-pressed="true" title="Show or hide the intended-path overlay drawn from current steering and throttle.">Overlay: On</button>
           <span id="mdrvRecordingIndicator" class="mdrv-recording-indicator" data-recording="off">REC off</span>
+          <span id="mdrvRecordingCount" title="Frame count from the last confirmed recording status">Frames: unknown</span>
           <span class="mdrv-code" data-code-for="camera">PISD-OK-000</span>
         </div>
       </div>
@@ -173,16 +174,19 @@
               <label><span>Turn tightness<small>Increase if the real car turns tighter than the guide</small></span><input id="mdrvOverlayTurnRateVisualScale" type="number" step="0.05" value="2.20" inputmode="decimal"></label>
               <label><span>Path length<small>How far the guide reaches forward</small></span><input id="mdrvOverlayLengthScale" type="number" step="0.05" value="1.00" inputmode="decimal"></label>
               <label><span>Path width<small>Road corridor visual width</small></span><input id="mdrvOverlayPathWidth" type="number" step="0.05" value="0.34" inputmode="decimal"></label>
+              <button id="mdrvResetShape" type="button" class="mdrv-button">Reset shape draft</button>
             </fieldset>
             <fieldset>
               <legend>Camera alignment</legend>
               <label><span>Near Y<small>Lower edge anchor near the bottom of the frame</small></span><input id="mdrvOverlayBaseY" type="number" step="1" value="96" inputmode="decimal"></label>
               <label><span>Horizon Y<small>Far edge anchor near the horizon</small></span><input id="mdrvOverlayHorizonY" type="number" step="1" value="31" inputmode="decimal"></label>
               <label><span>Perspective strength<small>How much the road opens toward the camera</small></span><input id="mdrvOverlayPerspectiveScale" type="number" step="1" value="64" inputmode="decimal"></label>
+              <button id="mdrvResetAlignment" type="button" class="mdrv-button">Reset camera alignment draft</button>
             </fieldset>
             <fieldset class="mdrv-overlay-visibility-fieldset">
               <legend>Visibility</legend>
               <label><span>Opacity<small>Transparency of the road guide</small></span><input id="mdrvOverlayOpacity" type="number" step="0.05" value="0.94" inputmode="decimal"></label>
+              <button id="mdrvResetVisibility" type="button" class="mdrv-button">Reset visibility draft</button>
             </fieldset>
           </div>
           <div class="mdrv-overlay-settings-actions">

@@ -1027,6 +1027,9 @@
       recordButton.classList.toggle('mdrv-recording-on', rec);
     }
     updateRecordingIndicator(rec);
+    const count = status.recording?.frame_count;
+    const counter = $('mdrvRecordingCount');
+    if (counter) counter.textContent = Number.isInteger(count) && count >= 0 ? `Frames: ${count} (last confirmed)` : 'Frames: unknown';
     renderPreviewFromStatus(status);
     renderMotorSignalsFromStatus(status);
     setCode('status', status.code || 'PISD-OK-000');
@@ -1450,6 +1453,22 @@
       if (overlaySettingsPopup && !overlaySettingsPopup.hidden) closeOverlaySettingsPopup();
     });
     overlaySettingsApply?.addEventListener('click', applyOverlayNumberInput);
+    // Group reset only changes those draft inputs. The existing Apply action
+    // persists the entire visual calibration; no motor command is sent.
+    for (const [id, keys] of [
+      ['mdrvResetShape', ['turn_rate_visual_scale','path_length_scale','path_width_scale']],
+      ['mdrvResetAlignment', ['path_base_y','path_horizon_y','perspective_scale']],
+      ['mdrvResetVisibility', ['opacity']],
+    ]) {
+      $(id)?.addEventListener('click', () => {
+        for (const [key, control] of OVERLAY_CONTROL_BINDINGS) {
+          if (keys.includes(key) && control && Number.isFinite(Number(DEFAULTS.overlay[key]))) {
+            control.value = String(DEFAULTS.overlay[key]);
+          }
+        }
+        setOverlaySettingsStatus('Draft reset — Apply visual calibration to save.');
+      });
+    }
     overlaySettingsReset?.addEventListener('click', () => {
       applyOverlayCalibration({ ...DEFAULTS.overlay, enabled: overlaySettings.enabled }, true);
       setOverlaySettingsStatus('Reset to defaults');

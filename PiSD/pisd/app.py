@@ -12,6 +12,7 @@ from pisd.core.errors import ErrorReporter, PiSDErrorCodes, ok_payload, report_p
 from pisd.core.request_trace import install_mutation_trace
 from pisd.core.access_control import configured_access_token, install_access_control
 from pisd.core.preflight import build_preflight
+from pisd.core.recent_events import RecentEvents, ROUTES
 from pisd.core.panel_contracts import build_panel_testing_manifest, get_panel_contracts
 from pisd.core.presentation_registry import build_presentation_manifest
 from pisd.core.settings_manager import SettingsManager
@@ -88,6 +89,18 @@ def create_app(hardware_enabled: bool = False):
     app.config["pisd_errors"] = APP_ERRORS
     install_mutation_trace(app)
     install_access_control(app, access_token)
+    recent_events = RecentEvents()
+
+    @app.after_request
+    def observe_operator_event(response):
+        if request.method == 'POST' and request.endpoint in ROUTES:
+            recent_events.observe(request.endpoint, response.status_code,
+                                  response.get_json(silent=True) if response.is_json else None)
+        return response
+
+    @app.get('/api/recent-events')
+    def api_recent_events():
+        return jsonify(ok=True, capacity=recent_events.capacity, events=recent_events.snapshot())
 
     @app.context_processor
     def inject_pisd_asset_helpers():
