@@ -80,3 +80,8 @@ CI 45518472203 reported a failed JavaScript step; at inspection its job log was 
 ## piTrainer 0.11.19 — additional R35/UX62 and Batch 5 contract candidate
 
 Parent 8aabfef passed CI 45518657406 (4/4). New native Qt test covers named Validation/TFLite controls, keyboard dataset selection and real-file-only Use Latest helper. Advisory tab icons do not certify model validity. Synthetic disk recording-to-export regression covers current PiSD, PiServer and legacy schemas; no real inference or hardware. Exact new CI pending; owner golden review and Windows acceptance remain separate.
+
+
+## Additional Batch 4 acceptance coverage
+
+Shared Chromium fixture now exercises the actual PiServer Training folder selector, retained choice on a held GET, synthetic exact-target deletion and stale-list suppression at four widths. Old reads are awaited explicitly and no POST is forwarded. A separate Windows native Qt workflow requires the windows platform plugin and runs selected existing and new interaction suites without skips. The existing four-job Linux gate is unchanged except for registering new tests. Windows hosted runner evidence and owner golden review are distinct. Exact new CI pending.

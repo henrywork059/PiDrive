@@ -12,3 +12,8 @@ Continue from verified 8aabfef (CI 45518657406, four jobs passed). Validation co
 
 ## Verification and limits
 Read live main launcher, latest four trainer notes 0.11.18/17/16/15, current source, current recorder formats, canonical roadmap and CI. Exact new CI required. Dummy bytes are not real trained models; no actual training, hardware or owner visual acceptance. Browser and Windows acceptance and broader Batch 4/5 gates remain open. No proposal count increment.
+
+## Additional acceptance checks
+- Native Qt test exercises actual readiness renderer with a six-tab fixture; correct missing-input tooltips. Added separate hosted Windows native-platform workflow requiring the Windows Qt plugin and selected existing interaction tests without skips. This is not owner-device visual acceptance.
+- Shared Chromium fixture exercises PiServer Training folder selection during a held GET and confirmed exact-target deletion followed by old GET, using intercepted synthetic acknowledgements and actual DOM at four existing widths. No PiServer runtime change or version bump.
+- All new CI results pending.

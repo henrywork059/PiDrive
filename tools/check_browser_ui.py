@@ -105,6 +105,11 @@ def main():
                     model_workspace = [False]
                     synthetic_recording = [None]
                     reject_folder_read = [False]
+                    folder_workspace = [False]
+                    folder_reply = [None]
+                    hold_folder = [False]
+                    held_folders = []
+                    acknowledge_folder_delete = [False]
                     def route_request(route):
                         req = route.request
                         parsed = urlsplit(req.url)
@@ -113,6 +118,12 @@ def main():
                             return
                         if req.method != "GET":
                             mutations.append(parsed.path)
+                            if acknowledge_folder_delete[0] and parsed.path == "/api/record/delete":
+                                assert req.post_data_json == {"session": "fixture-b", "confirm": True}
+                                snapshot = dict(client.get("/api/status", base_url=ORIGIN).get_json(), current_page="training")
+                                route.fulfill(status=200, json={"ok": True, "message": "Deleted fixture-b.",
+                                                               "sessions": folder_reply[0]["sessions"], "state": snapshot})
+                                return
                             if synthetic_recording[0] is not None and parsed.path in {"/api/record/toggle", "/api/record/capture_once"}:
                                 if parsed.path == "/api/record/toggle":
                                     synthetic_recording[0] = not synthetic_recording[0]
@@ -155,6 +166,17 @@ def main():
                         }:
                             route.fulfill(status=503, content_type="application/json",
                                           body='{"ok":false,"message":"Synthetic disconnected backend"}')
+                            return
+                        if hold_folder[0] and parsed.path == "/api/record/sessions":
+                            hold_folder[0] = False
+                            held_folders.append((route, folder_reply[0]))
+                            return
+                        if folder_reply[0] is not None and parsed.path == "/api/record/sessions":
+                            route.fulfill(status=200, json=folder_reply[0])
+                            return
+                        if folder_workspace[0] and parsed.path == "/api/status":
+                            snapshot = client.get("/api/status", base_url=ORIGIN).get_json()
+                            route.fulfill(status=200, json=dict(snapshot, current_page="training"))
                             return
                         if reject_folder_read[0] and parsed.path == "/api/record/sessions":
                             route.fulfill(status=503, json={"ok": False, "message": "Synthetic folder refresh failure"})
@@ -351,6 +373,58 @@ def main():
                             expect(page.locator("#statusBanner")).to_contain_text("Synthetic rejected mutation")
                             expect(record).to_have_attribute("aria-pressed", "false")
                             expect(record).to_be_enabled()
+                            # Exercise the actual Training folder workspace with
+                            # held GETs and a synthetic exact-target acknowledgement.
+                            folder_workspace[0] = True
+                            page.locator('.tab-btn[data-page="training"]').click()
+                            folder_a = {"name": "fixture-a", "kind": "session", "image_count": 2}
+                            folder_b = {"name": "fixture-b", "kind": "session", "image_count": 3}
+                            folder_reply[0] = {"ok": True, "sessions": [folder_a, folder_b]}
+                            folder_refresh = page.locator("#refreshSessionsBtn")
+                            folder_select = page.locator("#sessionSelect")
+                            folder_message = page.locator("#sessionExportMessage")
+                            folder_refresh.click()
+                            expect(folder_select).to_have_value("fixture-a")
+                            expect(folder_select.locator("option")).to_have_count(2)
+                            hold_folder[0] = True
+                            folder_reply[0] = {"ok": True, "sessions": [folder_a, dict(folder_b, image_count=9)]}
+                            # Store the actual async function promise so the assertions
+                            # occur after the held response was processed, not after a sleep.
+                            with page.expect_request(lambda req: urlsplit(req.url).path == "/api/record/sessions" and req.method == "GET"):
+                                page.evaluate("() => { window.__heldFolderRefresh = refreshSessionsWithFeedback(); }")
+                            folder_select.select_option("fixture-b")
+                            assert len(held_folders) == 1
+                            old_route, old_list = held_folders.pop()
+                            old_route.fulfill(status=200, json=old_list)
+                            page.evaluate("() => window.__heldFolderRefresh")
+                            expect(folder_select).to_have_value("fixture-b")
+                            expect(page.locator("#sessionImageCount")).to_have_text("9")
+                            # Confirmed deletion supersedes a previously pending list.
+                            hold_folder[0] = True
+                            with page.expect_request(lambda req: urlsplit(req.url).path == "/api/record/sessions" and req.method == "GET"):
+                                page.evaluate("() => { window.__heldFolderRefresh = refreshSessionsWithFeedback(); }")
+                            page.locator("#deleteSessionBtn").click()
+                            confirm_group = page.get_by_role("group", name="Confirm destructive action")
+                            expect(confirm_group).to_contain_text("fixture-b")
+                            expect(confirm_group.get_by_role("button", name="Cancel")).to_be_focused()
+                            folder_reply[0] = {"ok": True, "sessions": [folder_a]}
+                            acknowledge_folder_delete[0] = True
+                            confirm_group.get_by_role("button", name="Delete permanently").click()
+                            expect(folder_message).to_have_text("Deleted fixture-b.")
+                            expect(folder_select).to_have_value("fixture-a")
+                            acknowledge_folder_delete[0] = False
+                            assert len(held_folders) == 1
+                            old_route, old_list = held_folders.pop()
+                            old_route.fulfill(status=200, json=old_list)
+                            page.evaluate("() => window.__heldFolderRefresh")
+                            expect(folder_select.locator("option")).to_have_count(1)
+                            expect(folder_message).to_have_text("Deleted fixture-b.")
+                            assert folder_message.get_attribute("role") == "status"
+                            folder_reply[0] = None
+                            folder_refresh.click()
+                            expect(folder_select).to_have_value("snapshots")
+                            folder_workspace[0] = False
+                            page.locator('.tab-btn[data-page="manual"]').click()
                         # Start keyboard modality then focus STOP without activating it.
                         page.keyboard.press("Tab")
                         target = page.locator(stop)

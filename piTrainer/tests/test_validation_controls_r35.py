@@ -5,7 +5,10 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QMainWindow, QTabWidget, QWidget
+import pandas as pd
+from types import SimpleNamespace
+from piTrainer.main_window import MainWindow
 
 from piTrainer.app_state import AppState
 from piTrainer.panels.validation.validation_config_panel import ValidationConfigPanel
@@ -32,6 +35,36 @@ class ValidationControlsTests(unittest.TestCase):
             combo.setFocus()
             QTest.keyClick(combo,Qt.Key_Down)
             self.assertEqual(combo.currentText(),'Validation split')
+
+    def test_workflow_markers_preserve_six_tabs_and_reflect_selected_inputs(self):
+        shell=QMainWindow()
+        self.addCleanup(shell.close)
+        shell.state=AppState()
+        shell.tabs=QTabWidget(shell)
+        titles=['1 Data','2 Preprocess','3 Train','4 Validate','5 Export','6 TFLite Check']
+        for title in titles:
+            shell.tabs.addTab(QWidget(),title)
+        validation=ValidationConfigPanel(shell.state)
+        check=ExportValidationConfigPanel(shell.state)
+        self.addCleanup(validation.close)
+        self.addCleanup(check.close)
+        shell.validation_page=SimpleNamespace(config_panel=validation)
+        shell.export_validation_page=SimpleNamespace(config_panel=check)
+        def refresh():
+            MainWindow.refresh_workflow_readiness(shell)
+        refresh()
+        self.assertTrue(all(shell.tabs.tabToolTip(i).startswith('Needs input') for i in range(6)))
+        shell.state.filtered_df=pd.DataFrame([{'frame_id':'fixture'}])
+        shell.state.model=object()
+        refresh()
+        self.assertTrue(all(shell.tabs.tabToolTip(i).startswith('Inputs available') for i in range(5)))
+        check.set_tflite_path('fixture.tflite')
+        refresh()
+        self.assertIn('file validity not implied',shell.tabs.tabToolTip(5))
+        validation.dataset_source_combo.setCurrentText('Validation split')
+        refresh()
+        self.assertTrue(shell.tabs.tabToolTip(3).startswith('Needs input'))
+        self.assertEqual([shell.tabs.tabText(i) for i in range(6)],titles)
 
     def test_latest_ignores_empty_path_and_directories(self):
         with tempfile.TemporaryDirectory() as tmp:

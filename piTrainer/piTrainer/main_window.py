@@ -105,9 +105,9 @@ class MainWindow(QMainWindow):
             (active, 'Active rows available' if active else 'Load usable recording rows'),
             (active, 'Active rows available for preprocessing' if active else 'Load usable recording rows'),
             (active, 'Active rows available; split/training still requires preflight' if active else 'Load usable recording rows'),
-            (validation_model and dataset_available(validation), 'Model selection and dataset available; validation not implied'),
+            (validation_model and dataset_available(validation), 'Model selection and dataset available; validation not implied' if validation_model and dataset_available(validation) else 'Choose a model source and populated dataset'),
             (model, 'In-memory model available' if model else 'Train a model first'),
-            (bool(check.tflite_path()) and dataset_available(check), 'File selection and dataset available; file validity not implied'),
+            (bool(check.tflite_path()) and dataset_available(check), 'File selection and dataset available; file validity not implied' if check.tflite_path() and dataset_available(check) else 'Choose a TFLite path and populated dataset'),
         )
         for index, (ready, detail) in enumerate(statuses):
             icon = self.style().standardIcon(QStyle.SP_DialogApplyButton if ready else QStyle.SP_MessageBoxInformation)
