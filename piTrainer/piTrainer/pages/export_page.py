@@ -76,11 +76,15 @@ class ExportPage(DockPage):
     def refresh_from_state(self) -> None:
         model_ready = self.state.model is not None
         history_len = len(self.state.history.get('loss', [])) if self.state.history else 0
+        train_page = getattr(self.main_window, 'train_page', None)
+        provenance = train_page.provenance_for_model(self.state.model) if model_ready and train_page is not None else None
+        run = provenance[0] if provenance else None
         self.model_status_panel.set_status(
             model_ready=model_ready,
-            train_rows=len(self.state.train_df),
-            val_rows=len(self.state.val_df),
-            epochs_ran=history_len,
+            train_rows=run.get('train_rows') if run else None,
+            val_rows=run.get('validation_rows') if run else None,
+            epochs_ran=(run.get('metrics') or {}).get('epochs_ran') if run else (history_len if model_ready and history_len else None),
+            run_id=run.get('run_id') if run else None,
         )
 
     def export_model(self) -> None:
@@ -165,6 +169,7 @@ class ExportPage(DockPage):
                 if export_validation_page is not None:
                     export_validation_page.set_exported_tflite_path(latest_tflite_path)
                 self.log_panel.append_line(f'Linked exported TFLite model to 6 TFLite Check: {latest_tflite_path}')
+            self.refresh_from_state()
             self.log_panel.append_line('Export finished. TensorFlow converter details are summarised above; non-fatal internal converter chatter is suppressed.')
             self.main_window.set_status_message(
                 'Export saved: ' + '; '.join(saved_lines) if saved_lines else 'Export finished. Next: 6 TFLite Check.'

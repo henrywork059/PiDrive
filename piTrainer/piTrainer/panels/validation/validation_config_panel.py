@@ -93,7 +93,7 @@ class ValidationConfigPanel(QGroupBox):
     def fill_from_export_dir(self) -> None:
         out_dir = Path(self.state.export_config.out_dir).expanduser()
         for pattern in ('*.keras', '*.h5'):
-            matches = sorted(out_dir.glob(pattern))
+            matches = sorted(path for path in out_dir.glob(pattern) if path.is_file())
             if matches:
                 self.model_path_edit.setText(str(matches[-1]))
                 self.model_source_combo.setCurrentText('Load .keras / .h5 model')

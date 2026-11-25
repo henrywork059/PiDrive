@@ -65,32 +65,49 @@ class TrainConfigPanel(QGroupBox):
 
     def _input_split_section(self) -> QWidget:
         widget, form = self._section_form()
+        self.img_h.setAccessibleName("Image height")
         form.addRow("Image height", self.img_h)
+        self.img_w.setAccessibleName("Image width")
         form.addRow("Image width", self.img_w)
+        self.val_ratio.setAccessibleName("Validation ratio")
         form.addRow("Validation ratio", self.val_ratio)
+        self.split_mode.setAccessibleName("Split mode")
         form.addRow("Split mode", self.split_mode)
+        self.seed.setAccessibleName("Random seed")
         form.addRow("Random seed", self.seed)
         return widget
 
     def _model_loss_section(self) -> QWidget:
         widget, form = self._section_form()
+        self.model_size.setAccessibleName("Model size")
         form.addRow("Model size", self.model_size)
+        self.dropout_rate.setAccessibleName("Dropout rate")
         form.addRow("Dropout rate", self.dropout_rate)
+        self.steering_loss_weight.setAccessibleName("Steering loss weight")
         form.addRow("Steering loss weight", self.steering_loss_weight)
+        self.throttle_loss_weight.setAccessibleName("Speed loss weight")
         form.addRow("Speed loss weight", self.throttle_loss_weight)
+        self.clipnorm.setAccessibleName("Gradient clip norm")
         form.addRow("Gradient clip norm", self.clipnorm)
+        self.l2_reg.setAccessibleName("L2 regularization")
         form.addRow("L2 regularization", self.l2_reg)
         return widget
 
     def _schedule_section(self) -> QWidget:
         widget, form = self._section_form()
+        self.batch_size.setAccessibleName("Batch size")
         form.addRow("Batch size", self.batch_size)
+        self.epochs.setAccessibleName("Epochs")
         form.addRow("Epochs", self.epochs)
+        self.learning_rate.setAccessibleName("Learning rate")
         form.addRow("Learning rate", self.learning_rate)
         form.addRow(self.early_stopping)
+        self.early_stopping_patience.setAccessibleName("Early stop patience")
         form.addRow("Early stop patience", self.early_stopping_patience)
         form.addRow(self.reduce_lr)
+        self.reduce_lr_patience.setAccessibleName("LR patience")
         form.addRow("LR patience", self.reduce_lr_patience)
+        self.reduce_lr_factor.setAccessibleName("LR factor")
         form.addRow("LR factor", self.reduce_lr_factor)
         return widget
 
@@ -100,7 +117,9 @@ class TrainConfigPanel(QGroupBox):
         note.setWordWrap(True)
         note.setProperty('role', 'muted')
         form.addRow(note)
+        self.compute_device.setAccessibleName('Training device')
         form.addRow('Training device', self.compute_device)
+        self.review_sample_count.setAccessibleName('Epoch review samples')
         form.addRow('Epoch review samples', self.review_sample_count)
         return widget
 
