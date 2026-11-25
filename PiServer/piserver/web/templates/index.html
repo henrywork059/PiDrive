@@ -24,6 +24,9 @@
 
     <div class="toolbar-actions">
       <div id="maintenanceBadge" class="badge off">run</div>
+      <span id="layoutPreviewMessage" role="status" class="small-note">Layout controls affect this browser only.</span>
+      <button class="ghost-btn" id="previewLayoutBtn" type="button">Preview layout</button>
+      <button class="ghost-btn" id="cancelLayoutPreviewBtn" type="button" hidden>Cancel preview</button>
       <button class="ghost-btn" id="saveLayoutBtn">Save layout</button>
       <button class="ghost-btn" id="openStyleSettingsBtn">Style settings</button>
       <button class="ghost-btn" id="resetLayoutBtn">Reset layout</button>
@@ -38,12 +41,14 @@
           <span class="panel-mini">live</span>
         </div>
         <div class="panel-body status-body">
+          <label class="small-note"><input type="checkbox" id="essentialsOnly"> Essentials only (keep controls)</label>
           <div class="metric-grid status-metric-grid">
             <div class="metric-card metric-card-primary priority-high"><label>Drive</label><strong id="metricDriveState">ready</strong></div>
             <div class="metric-card metric-card-primary priority-high"><label>Output</label><strong id="metricApplied">S 0.00 · T 0.00</strong></div>
             <div class="metric-card metric-card-primary priority-medium"><label>Target</label><strong id="metricManual">S 0.00 · T 0.00</strong></div>
             <div class="metric-card metric-card-primary priority-high"><label>Last save</label><strong id="metricLastSave">none</strong></div>
             <div class="metric-card metric-card-primary priority-high"><label>Preview</label><strong id="metricPreview">placeholder</strong></div>
+            <div class="metric-card metric-card-alert priority-high"><label>Error</label><strong id="metricError">none</strong></div>
             <div class="metric-card metric-card-primary priority-medium"><label>Camera</label><strong id="metricCamera">unknown</strong></div>
             <button id="overlayToggleBtn" class="metric-card metric-card-primary metric-card-action overlay-toggle off priority-medium" type="button" aria-pressed="false">
               <span class="metric-card-action-label">Overlay</span>
@@ -58,7 +63,6 @@
             <div class="metric-card priority-low"><label>Wheels</label><strong id="metricWheels">0.00 / 0.00</strong></div>
             <div class="metric-card priority-low"><label>FPS</label><strong id="metricFps">0.0 FPS</strong></div>
             <div class="metric-card priority-low"><label>Backend</label><strong id="metricBackend">unknown</strong></div>
-            <div class="metric-card metric-card-alert priority-low"><label>Error</label><strong id="metricError">none</strong></div>
           </div>
 
           <div id="statusBanner" class="banner muted" role="status" aria-live="polite">Ready.</div>
@@ -498,6 +502,7 @@
   <script src="{{ url_for('static', filename='preview_freshness.js') }}?v={{ app_version }}"></script>
   <script src="{{ url_for('static', filename='settings_feedback.js') }}?v={{ app_version }}"></script>
   <script src="{{ url_for('static', filename='destructive_action.js') }}?v={{ app_version }}"></script>
+  <script src="{{ url_for('static', filename='layout_presets.js') }}?v={{ app_version }}"></script>
   <script src="{{ url_for('static', filename='app.js') }}?v={{ app_version }}"></script>
   <script src="{{ url_for('static', filename='preflight.js') }}?v={{ app_version }}"></script>
   <script src="{{ url_for('static', filename='recent_events.js') }}?v={{ app_version }}"></script>

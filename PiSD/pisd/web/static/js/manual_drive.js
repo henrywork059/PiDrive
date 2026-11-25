@@ -1457,7 +1457,7 @@
     // persists the entire visual calibration; no motor command is sent.
     for (const [id, keys] of [
       ['mdrvResetShape', ['turn_rate_visual_scale','path_length_scale','path_width_scale']],
-      ['mdrvResetAlignment', ['path_base_y','path_horizon_y','perspective_scale']],
+      ['mdrvResetAlignment', ['base_y','horizon_y','perspective_scale']],
       ['mdrvResetVisibility', ['opacity']],
     ]) {
       $(id)?.addEventListener('click', () => {

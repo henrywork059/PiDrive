@@ -425,6 +425,32 @@ def main():
                             expect(folder_select).to_have_value("snapshots")
                             folder_workspace[0] = False
                             page.locator('.tab-btn[data-page="manual"]').click()
+                            expect(page.locator("body")).to_have_attribute("data-page", "manual")
+                            # Preview/cancel must not change browser storage or safety.
+                            storage_key = "PiServerLayout:v0_3_21:manual"
+                            saved_before = page.evaluate("(key) => localStorage.getItem(key)", storage_key)
+                            boxes_before = page.evaluate("() => JSON.stringify(currentLayout())")
+                            page.locator("#previewLayoutBtn").click()
+                            expect(page.locator("#layoutPreviewMessage")).to_contain_text("Unsaved preview")
+                            expect(page.locator("#cancelLayoutPreviewBtn")).to_be_visible()
+                            assert page.evaluate("(key) => localStorage.getItem(key)", storage_key) == saved_before
+                            expect(page.locator(stop)).to_be_enabled()
+                            page.locator("#cancelLayoutPreviewBtn").click()
+                            assert page.evaluate("() => JSON.stringify(currentLayout())") == boxes_before
+                            assert page.evaluate("(key) => localStorage.getItem(key)", storage_key) == saved_before
+                            page.locator("#previewLayoutBtn").click()
+                            page.locator("#saveLayoutBtn").click()
+                            assert page.evaluate("(key) => localStorage.getItem(key)", storage_key) is not None
+                            expect(page.locator("#cancelLayoutPreviewBtn")).to_be_hidden()
+                            page.locator("#essentialsOnly").check()
+                            expect(page.locator("#metricError")).to_be_visible()
+                            expect(page.locator("#metricApplied")).to_be_visible()
+                            expect(page.locator("#metricWheels")).to_be_hidden()
+                            expect(page.locator("#overlayToggleBtn")).to_be_visible()
+                            page.locator("#essentialsOnly").uncheck()
+                            expect(page.locator("#metricWheels")).to_be_visible()
+                            # Restore synthetic browser-local test state before remaining checks.
+                            page.locator("#resetLayoutBtn").click()
                         # Start keyboard modality then focus STOP without activating it.
                         page.keyboard.press("Tab")
                         target = page.locator(stop)

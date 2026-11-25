@@ -3614,3 +3614,8 @@ button.active,
   }
   .estop-toggle { min-height: 82px; }
 }
+
+/* Optional status tier; default remains the full existing dashboard. */
+#workspace .status-body[data-essentials-only="true"] .status-metric-grid > .priority-low,
+#workspace .status-body[data-essentials-only="true"] .status-metric-grid > .priority-medium:not(.metric-card-action) { display: none !important; }
+#cancelLayoutPreviewBtn[hidden] { display: none !important; }

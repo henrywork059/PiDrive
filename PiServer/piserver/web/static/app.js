@@ -88,6 +88,7 @@ const state = {
   steerBias: 0,
   dragging: null,
   resizing: null,
+  layoutPreview: null,
   latestStatus: null,
   statusTimer: null,
   statusInFlight: false,
@@ -336,17 +337,15 @@ function layoutStorageKey(page) {
 }
 
 function deepCloneLayout(layout) {
-  return JSON.parse(JSON.stringify(layout));
+  return window.PiServerLayout.clone(layout);
 }
 
 function loadLayout(page) {
+  const defaults = defaultLayouts[page] || defaultLayouts.manual;
   try {
-    const raw = localStorage.getItem(layoutStorageKey(page));
-    if (!raw) return deepCloneLayout(defaultLayouts[page] || defaultLayouts.manual);
-    const parsed = JSON.parse(raw);
-    return Object.assign(deepCloneLayout(defaultLayouts[page] || defaultLayouts.manual), parsed);
+    return window.PiServerLayout.merge(defaults, localStorage.getItem(layoutStorageKey(page)));
   } catch {
-    return deepCloneLayout(defaultLayouts[page] || defaultLayouts.manual);
+    return deepCloneLayout(defaults);
   }
 }
 
@@ -379,14 +378,53 @@ function currentLayout() {
   return out;
 }
 
-function applyLayout(page) {
-  const layout = loadLayout(page);
+function applyLayoutBoxes(layout) {
   panelEls().forEach((panel) => {
     const id = panel.dataset.panel;
     const box = layout[id];
     if (!box) return;
     setPanelBox(panel, box);
   });
+}
+
+function applyLayout(page) {
+  applyLayoutBoxes(loadLayout(page));
+}
+
+function updateLayoutPreviewControls() {
+  const preset = window.PiServerLayout.preset(state.page);
+  const preview = document.getElementById("previewLayoutBtn");
+  const cancel = document.getElementById("cancelLayoutPreviewBtn");
+  const reset = document.getElementById("resetLayoutBtn");
+  if (preview) {
+    preview.disabled = !preset || !!state.layoutPreview;
+    preview.textContent = preset ? `Preview ${preset.name} layout` : "No preset for this workspace";
+  }
+  if (cancel) cancel.hidden = !state.layoutPreview;
+  if (reset) reset.disabled = !!state.layoutPreview;
+  const feedback = document.getElementById("layoutPreviewMessage");
+  if (feedback) feedback.textContent = state.layoutPreview
+    ? "Unsaved preview — Save layout to keep, or Cancel."
+    : "Layout controls affect this browser only.";
+}
+
+function previewWorkspaceLayout() {
+  if (state.layoutPreview || state.dragging || state.resizing) return;
+  const draft = window.PiServerLayout.begin(state.page, currentLayout());
+  if (!draft) return;
+  state.layoutPreview = draft;
+  applyLayoutBoxes(draft.candidate);
+  updateLayoutPreviewControls();
+  window.requestAnimationFrame(updateManualPadSizing);
+}
+
+function cancelWorkspaceLayout() {
+  const draft = state.layoutPreview;
+  if (!draft) return;
+  if (draft.page === state.page) applyLayoutBoxes(draft.original);
+  state.layoutPreview = null;
+  updateLayoutPreviewControls();
+  window.requestAnimationFrame(updateManualPadSizing);
 }
 
 function workspaceMetrics() {
@@ -408,7 +446,7 @@ function setupDocking() {
     if (!head || !handle) return;
 
     head.addEventListener("pointerdown", (event) => {
-      if (event.target.closest("button, select, input, label")) return;
+      if (state.layoutPreview || event.target.closest("button, select, input, label")) return;
       const { rect, cellW, cellH } = workspaceMetrics();
       const box = readPanelBox(panel);
       panel.classList.add("dragging");
@@ -422,6 +460,7 @@ function setupDocking() {
     });
 
     handle.addEventListener("pointerdown", (event) => {
+      if (state.layoutPreview) return;
       event.stopPropagation();
       const { cellW, cellH } = workspaceMetrics();
       const box = readPanelBox(panel);
@@ -480,6 +519,7 @@ function setupDocking() {
 }
 
 function renderActivePage(page) {
+  if (state.layoutPreview && state.layoutPreview.page !== page) cancelWorkspaceLayout();
   state.page = page;
   document.body.dataset.page = page;
   document.querySelectorAll(".tab-btn").forEach((btn) => {
@@ -490,7 +530,9 @@ function renderActivePage(page) {
   panelEls().forEach((panel) => {
     panel.classList.toggle("panel-hidden", !visible.has(panel.dataset.panel));
   });
-  applyLayout(page);
+  if (state.layoutPreview) applyLayoutBoxes(state.layoutPreview.candidate);
+  else applyLayout(page);
+  updateLayoutPreviewControls();
   window.requestAnimationFrame(updateManualPadSizing);
 }
 
@@ -1802,9 +1844,21 @@ function setupEvents() {
     });
   });
 
+  document.getElementById("previewLayoutBtn")?.addEventListener("click", previewWorkspaceLayout);
+  document.getElementById("cancelLayoutPreviewBtn")?.addEventListener("click", cancelWorkspaceLayout);
+  document.getElementById("essentialsOnly")?.addEventListener("change", (event) => {
+    document.querySelector('#workspace .status-body')?.setAttribute("data-essentials-only", String(event.target.checked));
+  });
   document.getElementById("saveLayoutBtn").addEventListener("click", () => {
-    saveLayout(state.page, currentLayout());
-    setBanner("statusBanner", `Saved ${state.page} layout.`, "muted");
+    try {
+      saveLayout(state.page, currentLayout());
+      state.layoutPreview = null;
+      updateLayoutPreviewControls();
+      setBanner("statusBanner", `Saved ${state.page} layout.`, "muted");
+    } catch {
+      const message = document.getElementById("layoutPreviewMessage");
+      if (message) message.textContent = "Could not save layout in this browser. Preview remains unsaved.";
+    }
   });
 
   document.getElementById("resetLayoutBtn").addEventListener("click", () => {

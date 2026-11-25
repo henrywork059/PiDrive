@@ -8,3 +8,5 @@ Reviewed live PiSD.py, app, current Manual/Front templates, actual recording sta
 - New unit/API tests registered in CI; version advances. No recording schema, motor, camera, authorization or config schema changes.
 
 Exact new CI pending. API acknowledgement is not proof of physical actuation. Native browser and owner visual approval for new UI remain outstanding; no proposal closure.
+
+Source-review correction: alignment reset keys now match the existing `base_y` and `horizon_y` bindings. No calibration values changed.

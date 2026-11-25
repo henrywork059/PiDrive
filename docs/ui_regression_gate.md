@@ -85,3 +85,8 @@ Parent 8aabfef passed CI 45518657406 (4/4). New native Qt test covers named Vali
 ## Additional Batch 4 acceptance coverage
 
 Shared Chromium fixture now exercises the actual PiServer Training folder selector, retained choice on a held GET, synthetic exact-target deletion and stale-list suppression at four widths. Old reads are awaited explicitly and no POST is forwarded. A separate Windows native Qt workflow requires the windows platform plugin and runs selected existing and new interaction suites without skips. The existing four-job Linux gate is unchanged except for registering new tests. Windows hosted runner evidence and owner golden review are distinct. Exact new CI pending.
+
+
+## Batch 6–9 forward candidates
+
+piTrainer 0.11.20 adds selected-row preview/comparison and contextual help; PiSD 0.11.32 adds bounded local operator events, task-first front page and grouped calibration draft resets; PiServer 0.4.40 adds component-local layout helpers, non-destructive preset previews and optional status tiers. Existing automated gates retained; expanded pure and actual browser tests require exact candidate CI. No owner visual approval or physical acceptance claimed.
