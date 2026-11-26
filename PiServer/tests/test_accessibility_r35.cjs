@@ -206,4 +206,13 @@ test('existing recording and snapshot setters retain names while updating descri
     assert.equal(state.capturePending,pending);
   }
 });
-console.log(count+'/27 PiServer R35 accessibility tests passed');
+test('native model and manifest file inputs have distinct names and matching-sidecar guidance',()=>{
+  assert.match(html,/<label for="modelFile">Upload model<\/label>\s*<input id="modelFile" type="file" accept="\.tflite" aria-label="Upload model file"/);
+  assert.match(html,/<label for="modelManifestFile">Optional matching \.manifest\.json<\/label>\s*<input id="modelManifestFile" type="file" accept="\.json" aria-description="Use the model filename followed by \.manifest\.json\."/);
+  assert.match(html,/<button id="uploadModelBtn" aria-label="Upload model">Upload<\/button>/);
+  assert.match(html,/id="modelMessage"[^>]*role="status"[^>]*aria-live="polite"/);
+});
+test('native file controls leave drive keydown isolated and held-key release intact',()=>{
+  assert.deepEqual(simulateKeys('INPUT',null,[['keydown',' '],['keydown','Enter'],['keydown','ArrowDown'],['keyup','ArrowDown']]),{calls:[['down',false]],prevented:0});
+});
+console.log(count+'/29 PiServer R35 accessibility tests passed');

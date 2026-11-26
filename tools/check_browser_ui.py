@@ -534,9 +534,13 @@ def main():
                                 else:
                                     control.focus()
                                     control.press("Enter")
-                            expect(page.locator("#modelFile")).to_have_accessible_name("Upload model")
-                            expect(page.locator("#modelManifestFile")).to_have_accessible_name("Optional matching .manifest.json")
-                            expect(page.locator("#uploadModelBtn")).to_have_accessible_name("Upload model")
+                            model_file = page.locator("#modelFile")
+                            manifest_file = page.locator("#modelManifestFile")
+                            upload_model = page.locator("#uploadModelBtn")
+                            expect(model_file).to_have_accessible_name("Upload model file")
+                            expect(manifest_file).to_have_accessible_name("Optional matching .manifest.json")
+                            expect(manifest_file).to_have_accessible_description("Use the model filename followed by .manifest.json.")
+                            expect(upload_model).to_have_accessible_name("Upload model")
                             expect(refresh).to_have_accessible_name("Refresh models")
                             expect(select).to_have_accessible_name("Models")
                             expect(load_model).to_have_accessible_name("Load selected model")
@@ -545,6 +549,38 @@ def main():
                             activate_safe(refresh)
                             expect(message).to_have_text("Model list refreshed.")
                             model_before = list(mutations)
+                            # Native file controls precede Upload and Refresh in the real tab order.
+                            upload_model.focus()
+                            page.keyboard.press("Shift+Tab")
+                            expect(manifest_file).to_be_focused()
+                            expect(manifest_file).to_have_css("outline-style", "solid")
+                            page.keyboard.press("Shift+Tab")
+                            expect(model_file).to_be_focused()
+                            expect(model_file).to_have_css("outline-style", "solid")
+                            page.keyboard.press("Tab")
+                            expect(manifest_file).to_be_focused()
+                            page.keyboard.press("Tab")
+                            expect(upload_model).to_be_focused()
+                            # Empty submission and mismatched manifest are existing client-side
+                            # validations. Neither may send a POST.
+                            activate_safe(upload_model)
+                            expect(message).to_have_text("Choose a .tflite file first.")
+                            def choose_fixture_file(control, filename, mime, payload):
+                                with page.expect_file_chooser() as chosen:
+                                    activate_safe(control)
+                                assert chosen.value.element.get_attribute("id") == control.get_attribute("id")
+                                chosen.value.set_files({"name": filename, "mimeType": mime, "buffer": payload})
+                                assert control.evaluate("(el) => el.files[0]?.name") == filename
+                            choose_fixture_file(model_file, "fixture.tflite", "application/octet-stream", b"synthetic model bytes")
+                            choose_fixture_file(manifest_file, "wrong.manifest.json", "application/json", b"{}")
+                            activate_safe(upload_model)
+                            expect(message).to_have_text("Choose the matching fixture.tflite.manifest.json.")
+                            assert mutations == model_before, "File chooser or client validation invoked mutation"
+                            assert page.evaluate("() => Object.values(state.stepInputs).every(value => !value)")
+                            expect(page.locator(stop)).to_be_enabled()
+                            # Clear disposable fixture selections; no real filesystem or model is used.
+                            model_file.set_input_files([])
+                            manifest_file.set_input_files([])
                             refresh.focus()
                             page.keyboard.press("Tab")
                             expect(select).to_be_focused()
@@ -591,6 +627,36 @@ def main():
                             activate_safe(refresh)
                             expect(select.locator("option")).to_contain_text("No .tflite models")
                             assert mutations == model_before, "Model refresh invoked mutation"
+                            # Explicit Load/Upload are rejected synthetic requests, never forwarded.
+                            model_reply[0] = (200, {"models": ["a.tflite", "b.tflite"], "active": "a.tflite"})
+                            activate_safe(refresh)
+                            expect(message).to_have_text("Model list refreshed.")
+                            select.press("End")
+                            expect(select).to_have_value("b.tflite")
+                            with page.expect_response(lambda response: response.request.method == "POST"
+                                    and urlsplit(response.url).path == "/api/model/load") as loaded:
+                                activate_safe(load_model)
+                            assert loaded.value.request.post_data_json == {"filename": "b.tflite"}
+                            expect(message).to_have_text("Synthetic rejected mutation")
+                            expect(select).to_have_value("b.tflite")
+                            choose_fixture_file(model_file, "fixture.tflite", "application/octet-stream", b"synthetic model bytes")
+                            choose_fixture_file(manifest_file, "fixture.tflite.manifest.json", "application/json", b"{}")
+                            with page.expect_response(lambda response: response.request.method == "POST"
+                                    and urlsplit(response.url).path == "/api/model/upload") as uploaded:
+                                activate_safe(upload_model)
+                            body = uploaded.value.request.post_data_buffer
+                            assert body and b'name="file"; filename="fixture.tflite"' in body
+                            assert b'name="manifest"; filename="fixture.tflite.manifest.json"' in body
+                            expect(message).to_have_text("Synthetic rejected mutation")
+                            assert model_file.evaluate("(el) => el.files[0]?.name") == "fixture.tflite"
+                            assert manifest_file.evaluate("(el) => el.files[0]?.name") == "fixture.tflite.manifest.json"
+                            assert mutations[len(model_before):] == ["/api/model/load", "/api/model/upload"], mutations
+                            expect(page.locator(stop)).to_be_enabled()
+                            model_file.set_input_files([])
+                            manifest_file.set_input_files([])
+                            model_reply[0] = None
+                            activate_safe(refresh)
+                            expect(select.locator("option")).to_contain_text("No .tflite models")
                             model_workspace[0] = False
                             camera_workspace[0] = True
                             # Existing navigation sends an intercepted control update; only

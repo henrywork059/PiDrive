@@ -196,9 +196,9 @@
           <section class="panel-section">
             <div class="field">
               <label for="modelFile">Upload model</label>
-              <input id="modelFile" type="file" accept=".tflite" />
+              <input id="modelFile" type="file" accept=".tflite" aria-label="Upload model file" />
               <label for="modelManifestFile">Optional matching .manifest.json</label>
-              <input id="modelManifestFile" type="file" accept=".json" />
+              <input id="modelManifestFile" type="file" accept=".json" aria-description="Use the model filename followed by .manifest.json." />
             </div>
             <div class="stack-row panel-actions">
               <button id="uploadModelBtn" aria-label="Upload model">Upload</button>
