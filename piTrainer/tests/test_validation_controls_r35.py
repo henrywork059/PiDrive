@@ -134,7 +134,8 @@ class ValidationControlsTests(unittest.TestCase):
     def test_plot_context_does_not_retain_old_run_or_model(self):
         history = TrainHistoryPanel()
         self.addCleanup(history.close)
-        run = {'run_id': 'a'*32, 'status': 'succeeded', 'source_groups': [{}],
+        run = {'run_id': 'a'*32, 'status': 'succeeded', 'source_groups': [{'session':'recording-a'}],
+               'split': {'identity_label_sha256':'e'*64}, 'preprocessing_sha256':'f'*64,
                'train_rows': 13, 'validation_rows': 7, 'artifacts': [{'model_path':'example.keras'}]}
         history.set_run_context(run)
         self.assertIn('Train: 13', history.context_label.text())
@@ -143,6 +144,16 @@ class ValidationControlsTests(unittest.TestCase):
         history.copy_paths_btn.click()
         self.assertIn('example.keras', QApplication.clipboard().text())
         self.assertIn('a'*32, history.context_label.toolTip())
+        self.assertIn('e'*64, history.context_label.toolTip())
+        self.assertIn('recording-a', history.context_label.toolTip())
+        self.assertIn('f'*64, history.context_label.toolTip())
+        history.append_epoch_metrics({'epoch':1, 'loss':1.0})
+        history.append_epoch_metrics({'epoch':3, 'loss':0.5, 'val_loss':0.7})
+        self.assertEqual(history.history['loss'], [1.0, None, 0.5])
+        self.assertEqual(history.history['val_loss'], [None, None, 0.7])
+        self.assertIn('dimensionless', history.figure.axes[0].get_ylabel())
+        for line in history.figure.axes[0].lines:
+            self.assertEqual(list(line.get_xdata()), [1, 2, 3])
         history.set_run_context(None)
         self.assertNotIn('example.keras', history.context_label.text())
         self.assertEqual(history.context_label.toolTip(), '')
@@ -151,7 +162,7 @@ class ValidationControlsTests(unittest.TestCase):
         self.addCleanup(panel.close)
         panel.set_result({'dataset_source':'Validation split', 'model_kind':'TFLite',
                           'model_path':'fixture.tflite', 'experiment_context':{'run_id':'b'*32, 'model_sha256':'c'*64},
-                          'validation_receipt':{'id':'d'*32, 'path':'local-check.json'},
+                          'validation_receipt':{'id':'d'*32, 'path':'local-check.json', 'rows_sha256':'e'*64},
                           'rows_used':2, 'steering_mae':.1, 'throttle_mae':.2,
                           'steering_true':[0,.1], 'throttle_true':[.2,.3],
                           'steering_pred':[0,.2], 'throttle_pred':[.2,.4],
@@ -162,7 +173,14 @@ class ValidationControlsTests(unittest.TestCase):
         panel.copy_paths_btn.click()
         self.assertEqual(QApplication.clipboard().text().splitlines(), ['fixture.tflite', 'local-check.json'])
         self.assertIn('c'*64, panel.summary_label.toolTip())
+        self.assertIn('d'*32, panel.summary_label.toolTip())
+        self.assertIn('e'*64, panel.summary_label.toolTip())
         self.assertIn('normalized', panel.figure.axes[0].get_xlabel())
+        panel.plot_type_combo.setCurrentIndex(1)
+        self.assertEqual(panel.figure.axes[0].get_ylabel(), 'Frame count')
+        panel.plot_type_combo.setCurrentIndex(2)
+        self.assertIn('frame', panel.figure.axes[0].get_xlabel())
+        self.assertIn('e'*64, panel.summary_label.toolTip())
         panel.set_result(None)
         self.assertNotIn('fixture.tflite', panel.summary_label.text())
         self.assertEqual(panel.summary_label.toolTip(), '')

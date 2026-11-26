@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from ..train.experiment_service import inspect_model_experiment
-from ...utils.model_manifest import inspect_manifest
+from ...utils.model_manifest import inspect_manifest, sha256_model
 
 
 def in_memory_context(run: dict | None) -> dict:
@@ -31,7 +31,15 @@ def file_context(path: str) -> dict:
             return {"run_id": experiment["run_id"], "status": "Portable experiment claim; model bytes checksum verified.",
                     "model_sha256": manifest["model_sha256"]}
     if record is None or record.get("status") != "succeeded":
-        return {"run_id": None, "status": status if record is None else "Unknown — run was not successful."}
+        # Identify the observed file without claiming a verified manifest or run.
+        # Before/after comparison also catches legacy file replacement.
+        message = status if record is None else "Unknown — run was not successful."
+        try:
+            observed = sha256_model(Path(path).expanduser().resolve())
+        except (OSError, ValueError):
+            return {"run_id": None, "status": message}
+        return {"run_id": None, "status": message + " Observed file hash only; run unverified.",
+                "model_sha256": observed}
     return {"run_id": record.get("run_id"), "status": status,
             "model_sha256": record["model_binding"].get("model_sha256")}
 

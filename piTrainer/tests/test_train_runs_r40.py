@@ -10,6 +10,8 @@ from unittest.mock import patch
 
 import pandas as pd
 from piTrainer.services.preprocess.applied_binding import AppliedPreprocessBinding
+from piTrainer.services.train.history_service import build_plot_series
+from piTrainer.services.validation.validation_provenance import file_context, stable_file_context
 from piTrainer.services.validation.validation_receipts import save_validation_receipt, load_validation_receipts, evaluated_rows_hash
 
 from piTrainer.services.train.experiment_service import (
@@ -101,6 +103,27 @@ class ExperimentServiceTests(unittest.TestCase):
         self.assertEqual(binding.training_context(self.train_df)[1], "")
         binding.clear()
         self.assertEqual(binding.training_context(self.train_df), (None, ""))
+
+    def test_history_preserves_missing_epoch_positions(self):
+        series = list(build_plot_series({"loss": [1.0, None, 0.5], "empty": [None]}))
+        self.assertEqual(series, [("loss", [1, 2, 3], [1.0, None, 0.5])])
+
+    def test_legacy_validation_file_identity_without_fabricated_run(self):
+        model = self.root / "legacy.keras"
+        model.write_bytes(b"legacy fixture A")
+        before = file_context(str(model))
+        self.assertIsNone(before["run_id"])
+        self.assertIn("Observed file hash only", before["status"])
+        self.assertEqual(len(before["model_sha256"]), 64)
+        self.assertEqual(stable_file_context(before, file_context(str(model))), before)
+        model.write_bytes(b"legacy fixture B")
+        after = file_context(str(model))
+        self.assertNotEqual(before["model_sha256"], after["model_sha256"])
+        changed = stable_file_context(before, after)
+        self.assertIsNone(changed["run_id"])
+        self.assertNotIn("model_sha256", changed)
+        model.unlink()
+        self.assertNotIn("model_sha256", file_context(str(model)))
 
     def test_stable_uuid_run_id(self):
         record = self.snapshot()

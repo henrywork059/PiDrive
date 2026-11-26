@@ -42,6 +42,9 @@ class TrainHistoryPanel(QGroupBox):
         paths = [str(item["model_path"]) for item in (record.get("artifacts") or [])
                  if isinstance(item, dict) and item.get("model_path")]
         model_size = (record.get('model_settings') or {}).get('model_size') or 'Unknown'
+        partition_hash = (record.get('split') or {}).get('identity_label_sha256')
+        sessions = [str(group['session']) for group in groups or []
+                    if isinstance(group, dict) and group.get('session')] if isinstance(groups, list) else []
         summary = record.get('summary_path')
         preprocess = record.get('preprocessed_dataset_path')
         self._artifact_paths = list(dict.fromkeys(str(path) for path in [summary, preprocess, *paths] if path)) if run_id else []
@@ -49,8 +52,12 @@ class TrainHistoryPanel(QGroupBox):
         if run_id:
             label = f"Run: {run_id[:12]}… | {record.get('status', 'Unknown')} | Train: {train_rows} | Val: {val_rows} | Sessions: {group_count}"
             label += f" | Model: {model_size}"
+            label += "\nDataset: " + (partition_hash[:12] + "…" if partition_hash else "Unknown")
             label += "\nArtifact: " + (paths[-1] if paths else summary or "Not recorded")
-            tooltip = f"Run: {run_id}\n" + "\n".join(self._artifact_paths)
+            tooltip = (f"Run: {run_id}\nDataset split SHA-256 (row identities/labels): {partition_hash or 'Unknown'}\n"
+                       f"Recording sessions: {', '.join(sessions) or 'Unknown'}\n"
+                       f"Preprocessing recipe SHA-256: {record.get('preprocessing_sha256') or 'Unknown'}\n"
+                       + "\n".join(self._artifact_paths))
         else:
             label = "Training run: Unknown | Artifact: Unknown"
             tooltip = ""
@@ -67,13 +74,14 @@ class TrainHistoryPanel(QGroupBox):
 
     def append_epoch_metrics(self, metrics: dict) -> None:
         epoch = int(metrics.get("epoch", 0))
-        for key, value in metrics.items():
-            if key == "epoch":
-                continue
-            self.history.setdefault(key, [])
-            while len(self.history[key]) < epoch - 1:
-                self.history[key].append(None)
-            self.history[key].append(float(value))
+        if epoch < 1:
+            return
+        for key in set(self.history) | (set(metrics) - {"epoch"}):
+            values = self.history.setdefault(key, [])
+            while len(values) < epoch:
+                values.append(None)
+            if key in metrics:
+                values[epoch - 1] = float(metrics[key])
         self._redraw()
 
     def set_history(self, history: dict[str, list[float]]) -> None:
@@ -100,7 +108,7 @@ class TrainHistoryPanel(QGroupBox):
         self._style_axes(ax)
         ax.set_title("No training history yet")
         ax.set_xlabel("Epoch")
-        ax.set_ylabel("Loss / Metric")
+        ax.set_ylabel("Loss / metric (dimensionless)")
         self.canvas.draw_idle()
 
     def _redraw(self) -> None:
@@ -112,7 +120,7 @@ class TrainHistoryPanel(QGroupBox):
         for label, xs, ys in build_plot_series(self.history):
             ax.plot(xs, ys, label=label, linewidth=2)
         ax.set_xlabel("Epoch")
-        ax.set_ylabel("Loss / Metric")
+        ax.set_ylabel("Loss / metric (dimensionless)")
         ax.set_title("Training Curves")
         if ax.lines:
             legend = ax.legend(facecolor=theme_color("plot_bg"), edgecolor=theme_color("border"))

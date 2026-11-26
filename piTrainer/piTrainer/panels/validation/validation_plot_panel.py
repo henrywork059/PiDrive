@@ -82,10 +82,15 @@ class ValidationPlotPanel(QGroupBox):
         model_path = self.result.get('model_path') or ''
         model_kind = self.result.get('model_kind') or 'Unknown'
         receipt = self.result.get('validation_receipt') or {}
+        check_id = receipt.get('id')
+        rows_hash = receipt.get('rows_sha256')
+        dataset = self.result.get('dataset_source') or self.result.get('dataset_name') or 'Unknown'
         self._artifact_paths = list(dict.fromkeys(str(path) for path in (model_path, receipt.get('path')) if path))
         self.copy_paths_btn.setEnabled(bool(self._artifact_paths))
         self.summary_label.setText(
-            f"Dataset: {self.result.get('dataset_source') or 'Unknown'} | Run: {run_label}\n"
+            f"Dataset: {dataset} | Run: {run_label}\n"
+            f"Validation: {check_id[:12] + '…' if check_id else 'Unknown'} | "
+            f"Rows SHA-256: {rows_hash[:12] + '…' if rows_hash else 'Unknown'}\n"
             f"Rows used: {self.result['rows_used']} | Steering MAE: {self.result['steering_mae']:.4f} | "
             f"Speed MAE: {self.result['throttle_mae']:.4f}\n"
             f"Model: {model_path or model_kind}"
@@ -94,6 +99,8 @@ class ValidationPlotPanel(QGroupBox):
         self.summary_label.setToolTip(f"Training run: {run_id or 'Unknown'}\n"
                                       f"Model: {model_path or model_kind}\n"
                                       f"SHA-256: {context.get('model_sha256') or 'Unknown'}\n"
-                                      f"Validation ID: {receipt.get('id') or 'Unknown'}\n"
+                                      f"Association: {context.get('status') or 'Unknown'}\n"
+                                      f"Validation ID: {check_id or 'Unknown'}\n"
+                                      f"Evaluated rows SHA-256: {rows_hash or 'Unknown'}\n"
                                       f"Summary: {receipt.get('path') or 'Unknown'}")
         self.canvas.draw_idle()
