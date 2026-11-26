@@ -1,6 +1,7 @@
 """Real Chromium, actual Flask templates and read-only simulation fixtures.
 
-All network requests are intercepted. No mutation reaches any backend.
+All browser requests are intercepted except the synthetic PiServer ZIP GET.
+A loopback stub can serve only that empty ZIP; no mutation reaches any backend.
 Only run with synthetic, disposable settings; no external browser origin.
 """
 import argparse
@@ -9,8 +10,11 @@ import os
 import re
 import sys
 import tempfile
+import traceback
 from contextlib import ExitStack
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from threading import Thread
 from unittest.mock import patch
 from urllib.parse import urlsplit
 
@@ -19,6 +23,8 @@ from playwright.sync_api import sync_playwright, expect
 WIDTHS = (390, 768, 1024, 1440)
 HEIGHTS = (844, 1024, 768, 900)
 ORIGIN = "http://127.0.0.1:8765"
+FOLDER_DOWNLOAD_PATH = "/api/record/download?session=fixture-b"
+FOLDER_DOWNLOAD_BYTES = bytes.fromhex("504b0506" + "00" * 18)
 PAGES = {
     "PiSD": [
         ("front", "/", "#fpStopAll", "#frontModeManualDrive", None, None),
@@ -68,6 +74,41 @@ def fixture(component, temp, stack):
     return app.test_client()
 
 
+def start_folder_download_stub(stack):
+    """Serve only the synthetic ZIP, including Chromium download-stack requests."""
+    requests = []
+
+    class DownloadHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            requests.append(self.path)
+            if self.path != FOLDER_DOWNLOAD_PATH:
+                self.send_error(404)
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "application/zip")
+            self.send_header("Content-Disposition", 'attachment; filename="fixture-b.zip"')
+            self.send_header("Content-Length", str(len(FOLDER_DOWNLOAD_BYTES)))
+            self.end_headers()
+            self.wfile.write(FOLDER_DOWNLOAD_BYTES)
+
+        def reject_mutation(self):
+            requests.append(f"{self.command} {self.path}")
+            self.send_error(405)
+
+        do_POST = do_PUT = do_PATCH = do_DELETE = reject_mutation
+
+        def log_message(self, format, *args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", urlsplit(ORIGIN).port), DownloadHandler)
+    stack.callback(server.server_close)
+    worker = Thread(target=server.serve_forever, daemon=True)
+    worker.start()
+    stack.callback(worker.join)
+    stack.callback(server.shutdown)
+    return requests
+
+
 def check_geometry(locator, width, height, label):
     expect(locator).to_be_visible(timeout=8000)
     locator.scroll_into_view_if_needed(timeout=8000)
@@ -88,6 +129,7 @@ def main():
     cases = []
     with tempfile.TemporaryDirectory() as tmp, ExitStack() as stack:
         client = fixture(args.component, Path(tmp), stack)
+        download_requests = start_folder_download_stub(stack) if args.component == "PiServer" else []
         with sync_playwright() as pw:
             browser = pw.chromium.launch()
             for name, url, stop, primary, preview, opener in PAGES[args.component]:
@@ -116,7 +158,7 @@ def main():
                     reject_folder_read = [False]
                     folder_workspace = [False]
                     folder_reply = [None]
-                    folder_downloads = []
+                    download_case_start = len(download_requests)
                     hold_folder = [False]
                     held_folders = []
                     acknowledge_folder_delete = [False]
@@ -208,11 +250,10 @@ def main():
                                           body='{"ok":false,"message":"Synthetic disconnected backend"}')
                             return
                         if folder_workspace[0] and parsed.path == "/api/record/download":
-                            # Synthetic empty ZIP: never read or download a real recording.
-                            folder_downloads.append(parsed.query)
-                            route.fulfill(status=200, content_type="application/zip",
-                                          headers={"Content-Disposition": 'attachment; filename="fixture-b.zip"'},
-                                          body=bytes.fromhex("504b0506" + "00" * 18))
+                            # A real anchor download may bypass Playwright route interception.
+                            # Both paths terminate at the same read-only loopback ZIP stub.
+                            assert parsed.query == "session=fixture-b", f"Unexpected synthetic download query: {parsed.query!r}"
+                            route.continue_()
                             return
                         if hold_folder[0] and parsed.path == "/api/record/sessions":
                             hold_folder[0] = False
@@ -696,9 +737,14 @@ def main():
                                 expect(folder_delete).to_be_focused()
                             with page.expect_download() as exported:
                                 activate_safe(folder_download)
-                            assert exported.value.suggested_filename == "fixture-b.zip"
-                            assert exported.value.failure() is None
-                            assert folder_downloads == ["session=fixture-b"]
+                            download = exported.value
+                            assert download.url == ORIGIN + FOLDER_DOWNLOAD_PATH, f"Download URL: {download.url!r}"
+                            assert download.suggested_filename == "fixture-b.zip", f"Download filename: {download.suggested_filename!r}"
+                            failure = download.failure()
+                            assert failure is None, f"Native download failed: {failure!r}"
+                            actual_requests = download_requests[download_case_start:]
+                            assert actual_requests == [FOLDER_DOWNLOAD_PATH], f"Loopback requests: {actual_requests!r}"
+                            assert download.path().read_bytes() == FOLDER_DOWNLOAD_BYTES, "Downloaded ZIP bytes differ from synthetic fixture"
                             expect(folder_message).to_have_text("Downloading fixture-b.zip")
                             assert mutations == folder_before, "Training export selection, cancel or download mutated state"
                             assert page.evaluate("() => Object.values(state.stepInputs).every(value => !value)")
@@ -1247,16 +1293,23 @@ def main():
                         if errors:
                             raise AssertionError("Browser JavaScript errors: " + "; ".join(errors))
                     except Exception as exc:
-                        case["errors"].append(str(exc))
+                        # A bare AssertionError previously produced an empty failure message.
+                        # Preserve the exact source line and traceback in logs and the matrix.
+                        diagnostic = traceback.format_exc()
+                        case["errors"].append(str(exc) or repr(exc))
+                        case["traceback"] = diagnostic
+                        print(diagnostic, flush=True)
                         page.screenshot(path=str(args.output / f"{name}-{width}-failure.png"), animations="disabled")
                     finally:
                         case["intercepted_mutations"] = mutations
+                        if args.component == "PiServer":
+                            case["loopback_download_requests"] = download_requests[download_case_start:]
                         cases.append(case)
                         context.close()
                     print(name, width, "FAIL" if case["errors"] else "PASS", case["errors"], flush=True)
             browser.close()
     (args.output / "matrix.json").write_text(json.dumps({"revision": args.revision, "component": args.component,
-        "fixture": "actual templates, read-only simulation; all mutations intercepted", "visual_review": "pending", "cases": cases}, indent=2))
+        "fixture": "actual templates, read-only simulation; all mutations intercepted; PiServer synthetic ZIP served by isolated loopback stub", "visual_review": "pending", "cases": cases}, indent=2))
     return int(any(c["errors"] for c in cases))
 
 
