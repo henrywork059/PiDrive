@@ -351,11 +351,11 @@ button, input, select, textarea {
   max-width: 260px;
 }
 
-.pt-joystick-pad button:nth-child(1) { grid-column: 2; }
-.pt-joystick-pad button:nth-child(2) { grid-column: 1; }
-.pt-joystick-pad button:nth-child(3) { grid-column: 2; }
-.pt-joystick-pad button:nth-child(4) { grid-column: 3; }
-.pt-joystick-pad button:nth-child(5) { grid-column: 2; }
+.pt-joystick-pad > .pt-button:nth-child(1) { grid-column: 2; }
+.pt-joystick-pad > .pt-button:nth-child(2) { grid-column: 1; }
+.pt-joystick-pad > .pt-button:nth-child(3) { grid-column: 2; }
+.pt-joystick-pad > .pt-button:nth-child(4) { grid-column: 3; }
+.pt-joystick-pad > .pt-button:nth-child(5) { grid-column: 2; }
 
 .pt-console {
   margin: 0;
@@ -423,4 +423,21 @@ button, input, select, textarea {
 .pt-console-mini {
   min-height: 76px;
   font-size: 0.84rem;
+}
+
+/* R35: static samples keep their geometry; actual size buttons have a
+   non-color selection cue which is independent of the keyboard focus ring. */
+.pt-mock-example, .pt-mock-body { min-width: 0; display: grid; gap: .65rem; }
+.pt-mock-example > p { margin: 0; }
+.pt-mock-body .pt-button { display: inline-flex; align-items: center; justify-content: center; text-align: center; cursor: default; }
+.pt-mini-button[data-panel-size][aria-pressed="true"] {
+  text-decoration: underline !important;
+  text-underline-offset: .18em;
+  text-decoration-thickness: 2px;
+}
+@media (forced-colors: active) {
+  .pt-mini-button[data-panel-size][aria-pressed="true"] { border-color: Highlight !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pt-button:hover, .pt-link-button:hover { transform: none !important; }
 }

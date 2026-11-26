@@ -449,6 +449,25 @@ def main():
                             # selection even when server reports another active model.
                             model_workspace[0] = True
                             page.locator('.tab-btn[data-page="auto"]').click()
+                            active_page = page.locator('#pageTabs [data-page="auto"]')
+                            inactive_page = page.locator('#pageTabs [data-page="manual"]')
+                            expect(active_page).to_have_attribute("aria-pressed", "true")
+                            for colors in ("none", "active"):
+                                page.emulate_media(forced_colors=colors)
+                                expect(active_page).to_have_css("text-decoration-line", "underline")
+                                expect(inactive_page).to_have_css("text-decoration-line", "none")
+                                active_page.focus()
+                                expect(active_page).to_have_css("outline-style", "solid")
+                            page.emulate_media(forced_colors="none")
+                            # Exercise decorative flash CSS without requesting a snapshot.
+                            assert page.locator("#snapshotFlash").evaluate("""node => {
+                                const wasActive = node.classList.contains('active');
+                                node.classList.add('active');
+                                const hidden = getComputedStyle(node).animationName === 'none' &&
+                                               getComputedStyle(node).opacity === '0';
+                                node.classList.toggle('active', wasActive);
+                                return hidden;
+                            }"""), "Reduced motion must suppress decorative flash"
                             refresh = page.locator("#refreshModelsBtn")
                             select = page.locator("#modelSelect")
                             message = page.locator("#modelMessage")
@@ -884,6 +903,25 @@ def main():
                             expect(panel).to_have_attribute("data-size", "large")
                             expect(size).to_have_attribute("aria-pressed", "true")
                             expect(panel.locator('[data-panel-size="compact"]')).to_have_attribute("aria-pressed", "false")
+                            # Actual selected-state rendering in normal and OS forced colors.
+                            for colors in ("none", "active"):
+                                page.emulate_media(forced_colors=colors)
+                                expect(size).to_have_css("text-decoration-line", "underline")
+                                expect(panel.locator('[data-panel-size="compact"]')).to_have_css("text-decoration-line", "none")
+                                size.focus()
+                                expect(size).to_have_css("outline-style", "solid")
+                            page.emulate_media(forced_colors="none")
+                            # Sample bodies have no live buttons or tabbable controls.
+                            mocks = page.locator(".pt-mock-body")
+                            expect(mocks).to_have_count(7)
+                            expect(page.locator(".pt-mock-body button")).to_have_count(0)
+                            assert mocks.evaluate_all("(nodes) => nodes.every(node => node.inert)")
+                            sample = page.locator(".pt-mock-body input").first
+                            sample.evaluate("(node) => node.focus()")
+                            assert not sample.evaluate("(node) => node === document.activeElement")
+                            expect(page.locator("#manual-drive-panel [data-panel-test]")).to_be_enabled()
+                            expect(page.locator("#ptRunPanelApiChecks")).to_be_enabled()
+                            assert page.evaluate("() => matchMedia('(prefers-reduced-motion: reduce)').matches")
                             contract = panel.locator("[data-panel-contract]")
                             if width == 390:
                                 contract.tap()

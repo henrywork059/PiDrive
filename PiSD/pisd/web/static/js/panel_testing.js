@@ -104,7 +104,7 @@
         </div>`;
       case 'cameraPreview':
         return `<div class="pt-preview-surface"><span>Camera preview surface<br><small>aspect controlled by panel settings</small></span></div>
-          <div class="pt-action-grid"><button class="pt-button" data-panel-api="POST /api/camera/start">Start camera API</button><button class="pt-button" data-panel-api="GET /api/camera/frame.jpg">Fetch frame</button></div>`;
+          <div class="pt-action-grid"><span class="pt-button">Start camera API</span><span class="pt-button">Fetch frame</span></div>`;
       case 'cameraSettings':
         return `<div class="pt-field-grid">
           <label><span>Width</span><input value="426" inputmode="numeric"></label>
@@ -130,7 +130,7 @@
         </div><p class="pt-muted">Safe panel API test does not arm real motor output.</p>`;
       case 'manualDrive':
         return `<div class="pt-joystick-pad">
-          <button class="pt-button">↑</button><button class="pt-button">←</button><button class="pt-button pt-button-danger">STOP</button><button class="pt-button">→</button><button class="pt-button">↓</button>
+          <span class="pt-button">↑</span><span class="pt-button">←</span><span class="pt-button pt-button-danger">STOP</span><span class="pt-button">→</span><span class="pt-button">↓</span>
         </div><p class="pt-muted">Panel API check sends zero throttle only.</p>`;
       case 'safetyStop':
         return `<div class="pt-action-tile"><strong class="pt-danger-text">Emergency stop must remain reachable in every layout.</strong><p>Panel should stay readable in compact, phone, and high-contrast modes.</p></div>`;
@@ -143,10 +143,20 @@
       case 'apiInspector':
         return `<div class="pt-field-grid"><label><span>Method</span><select><option>GET</option><option>POST</option></select></label><label><span>Path</span><input value="/api/status"></label></div><div class="pt-console pt-console-mini">Response preview area</div>`;
       case 'validation':
-        return `<div class="pt-action-grid"><button class="pt-button" data-panel-check="required-dom">Check DOM</button><button class="pt-button" data-panel-check="responsive">Check responsive</button><button class="pt-button" data-panel-check="api-map">Check API map</button></div>`;
+        return `<div class="pt-action-grid"><span class="pt-button">Check DOM</span><span class="pt-button">Check responsive</span><span class="pt-button">Check API map</span></div>`;
       default:
         return `<div class="pt-placeholder"><strong>${escapeText(panel.title)}</strong><p>${escapeText(panel.purpose)}</p><p class="pt-muted">Placeholder is intentional. This panel space is reserved so the final GUI can be planned without locking the design too early.</p></div>`;
     }
+  }
+
+  function renderedBody(panel) {
+    const content = bodyHtml(panel);
+    // These samples are not wired to any action or persisted setting.
+    // Keep the visual stress fixtures but never imply real drive or API controls.
+    if (['cameraPreview', 'cameraSettings', 'motorSettings', 'motorChannel', 'manualDrive', 'apiInspector', 'validation'].includes(panel.body)) {
+      return '<div class="pt-mock-example"><p class="pt-muted">Visual example only. Use the panel header actions to run checks.</p><div class="pt-mock-body" inert>' + content + '</div></div>';
+    }
+    return content;
   }
 
   function renderPanels() {
@@ -169,7 +179,7 @@
           </div>
         </header>
         <div class="pt-panel-body">
-          ${bodyHtml(panel)}
+          ${renderedBody(panel)}
           <div class="pt-action-grid">${endpointsHtml(panel)}</div>
           <div class="pt-contract-strip"><span>Expected:</span> ${expectedCodesHtml(panel)}</div>
         </div>

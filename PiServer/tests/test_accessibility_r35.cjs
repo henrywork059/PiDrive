@@ -67,4 +67,9 @@ test('native disclosure focus and reduced motion styles',()=>{
   assert.ok(css.includes('button:hover { transform: none !important; }'));
   assert.ok(html.includes('data-drive-keys-ignore aria-label="Recent operator event log"'));
 });
-console.log(count+'/17 PiServer R35 accessibility tests passed');
+test('active workspace has a non-color cue and decorative flash respects reduced motion',()=>{
+  assert.match(css,/#pageTabs \.tab-btn\[aria-pressed="true"\]\s*\{\s*text-decoration: underline/);
+  assert.match(css,/@media \(forced-colors: active\)[\s\S]*#pageTabs \.tab-btn\[aria-pressed="true"\] \{ border-color: Highlight !important; \}/);
+  assert.match(css,/\.snapshot-flash\.active \{ animation: none !important; opacity: 0 !important; \}/);
+});
+console.log(count+'/18 PiServer R35 accessibility tests passed');

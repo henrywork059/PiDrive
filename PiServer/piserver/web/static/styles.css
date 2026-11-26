@@ -3642,3 +3642,18 @@ button.active,
   overflow-wrap: anywhere;
 }
 #workspace .status-density-control input { flex: 0 0 auto; margin: 0; }
+
+/* R35: distinguish the active workspace without relying on theme colors.
+   The existing aria-pressed state is the source of truth. */
+#pageTabs .tab-btn[aria-pressed="true"] {
+  text-decoration: underline !important;
+  text-underline-offset: .18em;
+  text-decoration-thickness: 2px;
+}
+@media (forced-colors: active) {
+  #pageTabs .tab-btn[aria-pressed="true"] { border-color: Highlight !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Snapshot flash is decorative; saved-frame feedback and controls remain. */
+  .snapshot-flash.active { animation: none !important; opacity: 0 !important; }
+}

@@ -184,3 +184,6 @@ piTrainer 0.11.31 R35 non-color checkbox/tab focus candidate on exact verified 2
 
 
 0.11.31 initial candidate 4bd4d8a: Linux 45754659470 manifest/package job failed on required checkbox_check.svg allowlist (manifest 7/7 and old package 10/10 unit tests passed). Same-version repair adds exact-path exception and regression test, retaining all other safeguards. New exact CI pending.
+
+
+PiSD 0.11.42 / PiServer 0.4.44 scoped R35 candidates on exact green 077232b (Linux 45754755923, Windows 45754755949): Panel Lab seven mock bodies static/inert with real header/STOP actions retained, non-color pressed size and page-navigation cues, forced-colors/focus computed checks, lab hover and PiServer decorative snapshot flash reduced motion. New Node and existing four-width Chromium cases extended. No motor/STOP handlers, backend/config, persistence or trainer change. New exact CI pending, no local browser or physical/owner acceptance. R35 remains partial.

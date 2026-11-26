@@ -174,4 +174,24 @@ test('presentation dependency and page scripts both defer in document order',()=
   assert.deepEqual(scripts.map(m=>m[1]),['panel_presentation_global.js','panel_presentation.js']);
   for (const script of scripts) assert.match(script[2],/\bdefer\b/);
 });
-console.log(n+'/22 PiSD safety/input tests passed');
+test('Panel Lab mock bodies are inert while actual header test actions remain available',()=>{
+  const start=lab.indexOf('  function bodyHtml('), end=lab.indexOf('  function renderPanels(',start);
+  assert.ok(start>=0 && end>start);
+  const render=new Function('field','lastStatus','manifest',lab.slice(start,end)+'\nreturn renderedBody;')(()=>'',{}, {});
+  for (const body of ['cameraPreview','cameraSettings','motorSettings','motorChannel','manualDrive','apiInspector','validation']) {
+    const html=render({body});
+    assert.match(html,/Visual example only/);
+    assert.match(html,/<div class="pt-mock-body" inert>/);
+    assert.doesNotMatch(html,/<button\b/);
+  }
+  assert.doesNotMatch(render({body:'status'}),/pt-mock-body/);
+  assert.match(lab, /data-panel-test="\$\{escapeText\(panel.id\)\}"/);
+  assert.match(lab, /runPanelApiTest\(testId\)/);
+});
+test('Panel Lab selected size has a non-color cue and motion preference',()=>{
+  const css=fs.readFileSync(path.join(__dirname,'../pisd/web/static/css/panel_testing.css'),'utf8');
+  assert.match(css,/\[aria-pressed="true"\]\s*\{\s*text-decoration: underline/);
+  assert.match(css,/@media \(forced-colors: active\)/);
+  assert.match(css,/\.pt-button:hover, \.pt-link-button:hover \{ transform: none !important; \}/);
+});
+console.log(n+'/24 PiSD safety/input tests passed');
