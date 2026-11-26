@@ -181,3 +181,6 @@ piTrainer 0.11.30 R35 Data candidate on exact verified 0d1ef013 (Linux 457537130
 
 
 piTrainer 0.11.31 R35 non-color checkbox/tab focus candidate on exact verified 29c7a5c (Linux 45754131339 4/4, Windows 45754131321 1/1; native accessibility 13/13 and common Qt 28/28 each). Checked ordinary/session-row indicators gain visible check glyph and dashed focus; native tab bars StrongFocus and focused-tab dashed border. Required SVG included in onedir spec. Native rendered indicator and keyboard toggle/tab-arrow tests extend existing registered suite. New exact CI pending; no local Qt or frozen executable verification. No selection/action, mutation, config or layout topology changes. R35 remains partial.
+
+
+0.11.31 initial candidate 4bd4d8a: Linux 45754659470 manifest/package job failed on required checkbox_check.svg allowlist (manifest 7/7 and old package 10/10 unit tests passed). Same-version repair adds exact-path exception and regression test, retaining all other safeguards. New exact CI pending.
