@@ -537,6 +537,22 @@ def main():
                             model_file = page.locator("#modelFile")
                             manifest_file = page.locator("#modelManifestFile")
                             upload_model = page.locator("#uploadModelBtn")
+                            def restore_empty_model_library():
+                                # Wait for the real fixture GET and then for the full rendered
+                                # empty state. A scalar option locator can fail strict mode
+                                # immediately while the old multi-option list is still visible.
+                                model_reply[0] = None
+                                with page.expect_response(lambda response: response.request.method == "GET"
+                                        and urlsplit(response.url).path == "/api/model/list") as refreshed:
+                                    activate_safe(refresh)
+                                response = refreshed.value
+                                assert response.ok, f"Empty model-list GET failed: {response.status}"
+                                assert response.json().get("models") == [], "Fixture model library is not empty"
+                                options = select.locator("option")
+                                expect(options).to_have_count(1)
+                                expect(options).to_have_text(["No .tflite models — upload a model"])
+                                expect(select).to_have_value("")
+                                expect(message).to_have_text("No models on Pi. Upload a .tflite model first.")
                             expect(model_file).to_have_accessible_name("Upload model file")
                             expect(manifest_file).to_have_accessible_name("Optional matching .manifest.json")
                             expect(manifest_file).to_have_accessible_description("Use the model filename followed by .manifest.json.")
@@ -623,9 +639,7 @@ def main():
                             model_reply[0] = (200, {"models": ["a.tflite"], "active": "a.tflite"})
                             activate_safe(refresh)
                             expect(select).to_have_value("a.tflite")
-                            model_reply[0] = None
-                            activate_safe(refresh)
-                            expect(select.locator("option")).to_contain_text("No .tflite models")
+                            restore_empty_model_library()
                             assert mutations == model_before, "Model refresh invoked mutation"
                             # Explicit Load/Upload are rejected synthetic requests, never forwarded.
                             model_reply[0] = (200, {"models": ["a.tflite", "b.tflite"], "active": "a.tflite"})
@@ -654,9 +668,17 @@ def main():
                             expect(page.locator(stop)).to_be_enabled()
                             model_file.set_input_files([])
                             manifest_file.set_input_files([])
-                            model_reply[0] = None
-                            activate_safe(refresh)
-                            expect(select.locator("option")).to_contain_text("No .tflite models")
+                            restore_empty_model_library()
+                            assert mutations[len(model_before):] == ["/api/model/load", "/api/model/upload"], mutations
+                            assert page.evaluate("() => Object.values(state.stepInputs).every(value => !value)"), "Model workflow activated drive input"
+                            expect(page.locator(stop)).to_be_enabled()
+                            case["model_file_workflow"] = {
+                                "explicit_posts": mutations[len(model_before):],
+                                "empty_library_restored": True,
+                                "selected_files_cleared": model_file.evaluate("(el) => el.files.length") == 0
+                                    and manifest_file.evaluate("(el) => el.files.length") == 0,
+                            }
+                            assert case["model_file_workflow"]["selected_files_cleared"]
                             model_workspace[0] = False
                             camera_workspace[0] = True
                             # Existing navigation sends an intercepted control update; only
