@@ -420,18 +420,27 @@ function previewWorkspaceLayout() {
   if (state.layoutPreview || state.dragging || state.resizing) return;
   const draft = window.PiServerLayout.begin(state.page, currentLayout());
   if (!draft) return;
+  const preview = document.getElementById("previewLayoutBtn");
+  const restoreFocus = document.activeElement === preview;
   state.layoutPreview = draft;
   applyLayoutBoxes(draft.candidate);
   updateLayoutPreviewControls();
+  if (restoreFocus) document.getElementById("cancelLayoutPreviewBtn")?.focus();
   window.requestAnimationFrame(updateManualPadSizing);
 }
 
 function cancelWorkspaceLayout() {
   const draft = state.layoutPreview;
   if (!draft) return;
+  const cancel = document.getElementById("cancelLayoutPreviewBtn");
+  const restoreFocus = document.activeElement === cancel;
   if (draft.page === state.page) applyLayoutBoxes(draft.original);
   state.layoutPreview = null;
   updateLayoutPreviewControls();
+  if (restoreFocus) {
+    const preview = document.getElementById("previewLayoutBtn");
+    if (preview && !preview.disabled) preview.focus();
+  }
   window.requestAnimationFrame(updateManualPadSizing);
 }
 

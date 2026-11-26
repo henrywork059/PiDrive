@@ -25,11 +25,11 @@
     <div class="toolbar-actions">
       <div id="maintenanceBadge" class="badge off">run</div>
       <span id="layoutPreviewMessage" role="status" class="small-note">Layout controls affect this browser only.</span>
-      <button class="ghost-btn" id="previewLayoutBtn" type="button">Preview layout</button>
-      <button class="ghost-btn" id="cancelLayoutPreviewBtn" type="button" hidden>Cancel preview</button>
-      <button class="ghost-btn" id="saveLayoutBtn">Save layout</button>
+      <button class="ghost-btn" id="previewLayoutBtn" aria-describedby="layoutPreviewMessage" type="button">Preview layout</button>
+      <button class="ghost-btn" id="cancelLayoutPreviewBtn" aria-describedby="layoutPreviewMessage" type="button" hidden>Cancel preview</button>
+      <button class="ghost-btn" id="saveLayoutBtn" aria-describedby="layoutPreviewMessage">Save layout</button>
       <button class="ghost-btn" id="openStyleSettingsBtn">Style settings</button>
-      <button class="ghost-btn" id="resetLayoutBtn">Reset layout</button>
+      <button class="ghost-btn" id="resetLayoutBtn" aria-describedby="layoutPreviewMessage">Reset layout</button>
     </div>
   </header>
 

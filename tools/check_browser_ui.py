@@ -924,24 +924,59 @@ def main():
                             folder_refresh.click()
                             expect(folder_select).to_have_value("snapshots")
                             folder_workspace[0] = False
-                            page.locator('.tab-btn[data-page="manual"]').click()
+                            with page.expect_response(lambda response: response.request.method == "POST"
+                                    and urlsplit(response.url).path == "/api/control"):
+                                page.locator('.tab-btn[data-page="manual"]').click()
                             expect(page.locator("body")).to_have_attribute("data-page", "manual")
                             # Preview/cancel must not change browser storage or safety.
                             storage_key = "PiServerLayout:v0_3_21:manual"
                             saved_before = page.evaluate("(key) => localStorage.getItem(key)", storage_key)
                             boxes_before = page.evaluate("() => JSON.stringify(currentLayout())")
-                            page.locator("#previewLayoutBtn").click()
-                            expect(page.locator("#layoutPreviewMessage")).to_contain_text("Unsaved preview")
-                            expect(page.locator("#cancelLayoutPreviewBtn")).to_be_visible()
+                            layout_before = list(mutations)
+                            preview_layout = page.locator("#previewLayoutBtn")
+                            cancel_layout = page.locator("#cancelLayoutPreviewBtn")
+                            save_layout = page.locator("#saveLayoutBtn")
+                            reset_layout = page.locator("#resetLayoutBtn")
+                            layout_message = page.locator("#layoutPreviewMessage")
+                            for control, name in ((preview_layout, "Preview Driving layout"), (save_layout, "Save layout"), (reset_layout, "Reset layout")):
+                                expect(control).to_have_accessible_name(name)
+                                expect(control).to_have_accessible_description("Layout controls affect this browser only.")
+                            save_layout.focus()
+                            page.keyboard.press("Shift+Tab")
+                            expect(preview_layout).to_be_focused()
+                            expect(preview_layout).to_have_css("outline-style", "solid")
+                            preview_layout.press("Space")
+                            expect(layout_message).to_contain_text("Unsaved preview")
+                            expect(cancel_layout).to_be_visible()
+                            expect(cancel_layout).to_have_accessible_name("Cancel preview")
+                            expect(cancel_layout).to_have_accessible_description("Unsaved preview — Save layout to keep, or Cancel.")
+                            expect(cancel_layout).to_be_focused()
+                            expect(preview_layout).to_be_disabled()
+                            expect(reset_layout).to_be_disabled()
+                            page.keyboard.press("Tab")
+                            expect(save_layout).to_be_focused()
+                            expect(save_layout).to_have_css("outline-style", "solid")
+                            page.keyboard.press("Shift+Tab")
+                            expect(cancel_layout).to_be_focused()
+                            expect(cancel_layout).to_have_css("outline-style", "solid")
                             assert page.evaluate("(key) => localStorage.getItem(key)", storage_key) == saved_before
                             expect(page.locator(stop)).to_be_enabled()
-                            page.locator("#cancelLayoutPreviewBtn").click()
+                            cancel_layout.press("Enter")
+                            expect(preview_layout).to_be_focused()
+                            expect(cancel_layout).to_be_hidden()
+                            expect(reset_layout).to_be_enabled()
                             assert page.evaluate("() => JSON.stringify(currentLayout())") == boxes_before
                             assert page.evaluate("(key) => localStorage.getItem(key)", storage_key) == saved_before
-                            page.locator("#previewLayoutBtn").click()
-                            page.locator("#saveLayoutBtn").click()
+                            activate_safe(preview_layout)
+                            expect(cancel_layout).to_be_visible()
+                            activate_safe(save_layout)
                             assert page.evaluate("(key) => localStorage.getItem(key)", storage_key) is not None
-                            expect(page.locator("#cancelLayoutPreviewBtn")).to_be_hidden()
+                            expect(cancel_layout).to_be_hidden()
+                            expect(layout_message).to_have_text("Layout controls affect this browser only.")
+                            expect(reset_layout).to_be_enabled()
+                            assert mutations == layout_before, "Layout actions invoked a mutation"
+                            assert page.evaluate("() => Object.values(state.stepInputs).every(value => !value)")
+                            expect(page.locator(stop)).to_be_enabled()
                             # Real pointer click must reach the control; no force/evaluate mutation.
                             page.locator("#essentialsOnly").check(timeout=8000)
                             expect(page.locator("#metricError")).to_be_visible()
@@ -988,7 +1023,12 @@ def main():
                             expect(page.locator("#essentialsOnly")).not_to_be_checked()
                             expect(page.locator("#metricWheels")).to_be_visible()
                             # Restore synthetic browser-local test state before remaining checks.
-                            page.locator("#resetLayoutBtn").click()
+                            activate_safe(reset_layout)
+                            assert page.evaluate("(key) => localStorage.getItem(key)", storage_key) is None
+                            assert mutations == layout_before, "Browser-local layout/overlay/density invoked a mutation"
+                            expect(page.locator(stop)).to_be_enabled()
+                            case["layout_workflow"] = {"preview_focus_transferred": True, "cancel_focus_restored": True,
+                                "preview_storage_isolated": True, "saved_then_reset": True, "local_only": True}
                             # R35: native diagnostic keys must never drive the manual pad.
                             preflight = page.locator("[data-preflight-root] summary")
                             events = page.locator("[data-recent-events-root]")

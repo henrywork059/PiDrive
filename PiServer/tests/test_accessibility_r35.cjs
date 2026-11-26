@@ -244,4 +244,30 @@ test('actual overlay setter preserves name and synchronizes pressed, mode and fr
   }
   assert.equal(updates,4);
 });
-console.log(count+'/31 PiServer R35 accessibility tests passed');
+test('layout actions reference existing preview status',()=>{
+  for(const id of ['previewLayoutBtn','cancelLayoutPreviewBtn','saveLayoutBtn','resetLayoutBtn']){
+    assert.ok(html.includes('id="'+id+'" aria-describedby="layoutPreviewMessage"'));
+  }
+  assert.match(html,/id="layoutPreviewMessage" role="status"/);
+});
+test('actual layout preview and cancel transfer focus only from the disappearing active action',()=>{
+  const state={page:'manual',layoutPreview:null},draft={page:'manual',candidate:{a:2},original:{a:1}},boxes=[];
+  const doc={activeElement:null,getElementById:id=>els[id]};
+  function control(){return {disabled:false,hidden:false,focus(){doc.activeElement=this;}};}
+  const preview=control(),cancel=control(),reset=control(),nav=control(),feedback={};
+  const els={previewLayoutBtn:preview,cancelLayoutPreviewBtn:cancel,resetLayoutBtn:reset,layoutPreviewMessage:feedback};
+  const start=app.indexOf('function updateLayoutPreviewControls('),end=app.indexOf('function workspaceMetrics(',start);
+  assert.ok(start>=0 && end>start);
+  const api=new Function('document','state','window','currentLayout','applyLayoutBoxes','updateManualPadSizing',app.slice(start,end)+'\nreturn {previewWorkspaceLayout,cancelWorkspaceLayout};')(
+    doc,state,{PiServerLayout:{preset:()=>({name:'Driving'}),begin:()=>draft},requestAnimationFrame(){}},()=>draft.original,b=>boxes.push(b),()=>{});
+  preview.focus();api.previewWorkspaceLayout();
+  assert.equal(doc.activeElement,cancel);assert.equal(preview.disabled,true);assert.equal(cancel.hidden,false);assert.equal(reset.disabled,true);
+  assert.equal(feedback.textContent,'Unsaved preview — Save layout to keep, or Cancel.');
+  api.cancelWorkspaceLayout();
+  assert.equal(doc.activeElement,preview);assert.equal(preview.disabled,false);assert.equal(cancel.hidden,true);assert.equal(reset.disabled,false);
+  assert.deepEqual(boxes,[draft.candidate,draft.original]);
+  nav.focus();api.previewWorkspaceLayout();assert.equal(doc.activeElement,nav);
+  api.cancelWorkspaceLayout();assert.equal(doc.activeElement,nav);
+  preview.focus();state.dragging=true;api.previewWorkspaceLayout();assert.equal(state.layoutPreview,null);assert.equal(doc.activeElement,preview);
+});
+console.log(count+'/33 PiServer R35 accessibility tests passed');
