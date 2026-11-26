@@ -49,6 +49,14 @@ class PreprocessConfigPanel(QGroupBox):
         self.image_w = QSpinBox()
         self.image_w.setRange(32, 1920)
 
+        self.turn_boost.setAccessibleName("Boost turning examples")
+        self.turn_threshold.setAccessibleName("Turn boost threshold")
+        self.turn_copies.setAccessibleName("Turn boost copies")
+        self.mirror_enabled.setAccessibleName("Add horizontal flip copy")
+        self.color_variants.setAccessibleName("Color variants")
+        self.image_h.setAccessibleName("Preprocessing image height")
+        self.image_w.setAccessibleName("Preprocessing image width")
+
         self.turn_row = self._make_range_row(self.turn_threshold, self.turn_copies)
 
         layout = QVBoxLayout(self)

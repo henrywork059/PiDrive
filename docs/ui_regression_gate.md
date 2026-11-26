@@ -148,3 +148,7 @@ Parent f8d147a piTrainer 0.11.28 verified Linux 45734367606 (4/4) and Windows 45
 
 ## PiServer 0.4.43 — R35 diagnostic input parity
 Parent 3024919 Linux 45736191148 (4/4) and Windows 45736191153 (1/1) verified. Native summary Space and read-only event log keys now bypass manual drive keydown; keyup release and body/pad behavior retained. Shared disclosure focus, reduced-motion hover rule, named log and actual extracted-handler/native four-width keyboard and mobile clipboard regressions. All mutations intercepted. Exact new CI pending; no R35 closure or hardware acceptance.
+
+
+## piTrainer 0.11.29 — R35 desktop setup accessibility
+Parent 2e33359 Linux 45736716777 (4/4) and Windows 45736716767 (1/1) verified. Shared disclosure explicit focus/name/description and theme focus style; individually named preprocessing recipe/filter pairs, export destination/artifact options and playback FPS. Native Qt tests cover names, Space/Tab/reverse Tab and editable numeric fields. Existing settings, provenance, data and layout contracts untouched. Exact new CI pending; no R35 closure.

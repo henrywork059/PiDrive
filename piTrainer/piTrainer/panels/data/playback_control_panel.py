@@ -48,6 +48,8 @@ class PlaybackControlPanel(QGroupBox):
 
         speed_label = QLabel('FPS')
         self.speed_spin = QDoubleSpinBox()
+        self.speed_spin.setAccessibleName('Playback frames per second')
+        speed_label.setBuddy(self.speed_spin)
         self.speed_spin.setRange(0.5, MAX_PLAYBACK_FPS)
         self.speed_spin.setSingleStep(1.0)
         self.speed_spin.setDecimals(1)

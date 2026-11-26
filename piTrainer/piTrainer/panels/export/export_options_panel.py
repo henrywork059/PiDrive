@@ -26,6 +26,13 @@ class ExportOptionsPanel(QGroupBox):
         self.quantize_int8.setChecked(cfg.quantize_int8)
         self.quantize_int8.setToolTip("Reduces TFLite size while keeping float32 input/output.")
 
+        self.out_dir.setAccessibleName("Export output folder")
+        browse_btn.setAccessibleName("Browse export output folder")
+        self.base_name.setAccessibleName("Export file name")
+        self.export_keras.setAccessibleName("Export Keras model")
+        self.export_tflite.setAccessibleName("Export TFLite model")
+        self.quantize_int8.setAccessibleName("Quantize TFLite with float input and output")
+
         out_row = QWidget()
         out_layout = QHBoxLayout(out_row)
         out_layout.setContentsMargins(0, 0, 0, 0)

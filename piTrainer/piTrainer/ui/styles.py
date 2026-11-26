@@ -482,6 +482,9 @@ def build_stylesheet(density: str = "comfortable") -> str:
         background: @COLOR_BG_OVERLAY@;
         border-color: @COLOR_PRIMARY@;
     }
+    QToolButton#collapsibleSectionHeader:focus {
+        border-color: @COLOR_TEXT_PRIMARY@;
+    }
     QFrame#collapsibleSectionBody {
         background: @COLOR_BG_PANEL@;
         border: 1px solid @COLOR_BORDER_SUBTLE@;

@@ -5,7 +5,7 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication, QMainWindow, QTabWidget, QWidget
+from PySide6.QtWidgets import QApplication, QMainWindow, QTabWidget, QWidget, QLineEdit, QPushButton
 import pandas as pd
 from types import SimpleNamespace
 from piTrainer.main_window import MainWindow
@@ -14,6 +14,12 @@ from piTrainer.utils.model_manifest import make_manifest, write_manifest
 from piTrainer.app_state import AppState
 from piTrainer.panels.validation.validation_config_panel import ValidationConfigPanel
 from piTrainer.panels.train.train_config_panel import TrainConfigPanel
+from piTrainer.panels.preprocess.preprocess_config_panel import PreprocessConfigPanel
+from piTrainer.panels.preprocess.preprocess_filter_panel import PreprocessFilterPanel
+from piTrainer.panels.export.export_options_panel import ExportOptionsPanel
+from piTrainer.panels.data.playback_control_panel import PlaybackControlPanel
+from piTrainer.ui.layout_widgets import CollapsibleSection
+from piTrainer.ui.styles import build_stylesheet
 from piTrainer.panels.export.model_status_panel import ModelStatusPanel
 from piTrainer.pages.export_page import ExportPage
 from piTrainer.panels.train.train_history_panel import TrainHistoryPanel
@@ -42,6 +48,66 @@ class ValidationControlsTests(unittest.TestCase):
             combo.setFocus()
             QTest.keyClick(combo,Qt.Key_Down)
             self.assertEqual(combo.currentText(),'Validation split')
+
+    def test_preprocess_export_playback_fields_have_distinct_names(self):
+        state = AppState()
+        config = PreprocessConfigPanel(state)
+        filters = PreprocessFilterPanel(state)
+        export = ExportOptionsPanel(state)
+        playback = PlaybackControlPanel(lambda: None, lambda: None, lambda: None, lambda value: None)
+        for panel, fields in (
+            (config, ('turn_boost', 'turn_threshold', 'turn_copies', 'mirror_enabled',
+                      'color_variants', 'image_h', 'image_w')),
+            (filters, ('source_combo', 'mode_combo', 'require_images', 'drop_duplicate_images',
+                       'frame_stride', 'enable_steering_range', 'steering_min', 'steering_max',
+                       'enable_speed_range', 'speed_min', 'speed_max', 'balance_straight',
+                       'straight_threshold', 'straight_keep_ratio')),
+            (export, ('out_dir', 'base_name', 'export_keras', 'export_tflite', 'quantize_int8')),
+            (playback, ('speed_spin',)),
+        ):
+            self.addCleanup(panel.close)
+            names = [getattr(panel, field).accessibleName().strip() for field in fields]
+            self.assertTrue(all(names), fields)
+            self.assertEqual(len(set(names)), len(fields), names)
+        browse = [button for button in export.findChildren(QPushButton) if button.text() == 'Browse']
+        self.assertEqual(len(browse), 1)
+        self.assertEqual(browse[0].accessibleName(), 'Browse export output folder')
+        self.assertTrue(config.recipe()['mirror_enabled'])
+        self.assertIsNone(filters.recipe()['steering_range'])
+        self.assertFalse(filters.steering_min.isEnabled())
+        QTest.keyClick(filters.enable_steering_range, Qt.Key_Space)
+        self.assertTrue(filters.steering_min.isEnabled())
+        self.assertTrue(filters.steering_max.isEnabled())
+        self.assertEqual(filters.recipe()['steering_range'], (-1.0, 1.0))
+        old = playback.playback_fps()
+        QTest.keyClick(playback.speed_spin, Qt.Key_Up)
+        self.assertEqual(playback.playback_fps(), old + 1.0)
+
+    def test_disclosure_header_native_keyboard_and_focus_style(self):
+        field = QLineEdit()
+        section = CollapsibleSection('Fixture options', field, expanded=False)
+        self.addCleanup(section.close)
+        section.show()
+        section.activateWindow()
+        self.app.processEvents()
+        header = section.toggle_button
+        self.assertEqual(header.accessibleName(), 'Fixture options')
+        self.assertEqual(header.focusPolicy(), Qt.StrongFocus)
+        self.assertFalse(header.isChecked())
+        self.assertTrue(field.isHidden() or not field.isVisible())
+        header.setFocus()
+        self.assertIs(section.focusWidget(), header)
+        QTest.keyClick(header, Qt.Key_Space)
+        self.assertTrue(header.isChecked())
+        self.assertTrue(field.isVisible())
+        QTest.keyClick(header, Qt.Key_Tab)
+        self.assertIs(section.focusWidget(), field)
+        QTest.keyClick(field, Qt.Key_Backtab)
+        self.assertIs(section.focusWidget(), header)
+        QTest.keyClick(header, Qt.Key_Space)
+        self.assertFalse(header.isChecked())
+        self.assertFalse(field.isVisible())
+        self.assertIn('QToolButton#collapsibleSectionHeader:focus', build_stylesheet())
 
     def test_workflow_markers_preserve_six_tabs_and_reflect_selected_inputs(self):
         shell=QMainWindow()
