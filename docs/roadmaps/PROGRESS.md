@@ -1,4 +1,31 @@
-# Active roadmap progress — 2026-11-24
+# Active roadmap progress — 2026-11-27
+
+## Current continuation baseline
+
+Owner-supplied implementation accounting at `74ad1995200b8e2509e292d9f02e17bb9db6a905`: **39/56 implemented (69.6%), 17 remaining, 4/9 batches completed.** This is the continuation baseline, not a new CI acceptance claim. Active candidates: PiSD 0.11.45, PiServer 0.4.53, piTrainer 0.11.32. All remaining requirements/batches are authorized; no stable promotion, merge, force push, hardware deployment or inactive-component development authorized.
+
+| Track | Active | Implemented baseline | Remaining |
+| --- | ---: | ---: | ---: |
+| F | 10 | 9 | 1 |
+| U | 13 | 13 | 0 |
+| R | 19 | 14 | 5 |
+| UX | 14 | 3 | 11 |
+| Total | 56 | 39 | 17 |
+
+Remaining: F8; R35, R36, R49, R50, R52; UX54–UX61, UX63, UX65, UX75. Batch mapping implies 1, 2, 3 and 5 complete in the supplied accounting; batches 4, 6, 7, 8 and 9 remain. No new requirement counted until its gate passes.
+
+## Current development milestone
+
+- Starting CI: [Linux 45817695427](https://github.com/henrywork059/PiDrive/actions/runs/45817695427) PiSD failed six narrow STOP size checks; other three jobs passed. [Windows 45817695471](https://github.com/henrywork059/PiDrive/actions/runs/45817695471) passed. Reviewed actual artifact archives 15116940071 and 15115434784; failed responsive cases terminated before final capture.
+- [PiSD revision B](https://github.com/henrywork059/PiDrive/commit/50813d30b675062808fcf988a29536b40f8f4484): R36 narrow STOP hit targets, R49 visible event history, UX54 task groups, UX56 confirmed recording status, UX57 calibration presentation, R50/UX75 regression additions. Isolated Chromium 12 viewport/scale combinations passed; full integrated gate pending.
+- [piTrainer revision B](https://github.com/henrywork059/PiDrive/commit/8738d4de1cdb6548ea5188e660dbe5c2c38ae978): UX61 read-only live selected-frame bulk preview. Existing UX63 stable identity comparison and UX65 contextual help retained; native acceptance pending.
+- R35/R50/UX75 integrated acceptance, UX55 preview hierarchy, F8/R52 behavior-preserving extraction, UX58–UX60 operator workspace and complete cross-component gates remain open. Existing overlapping implementations must be characterized, not replaced.
+
+Keep the implementation count at 39/56 and batches at 4/9 pending verified acceptance. See [DEVELOPMENT_SCHEDULE.md](DEVELOPMENT_SCHEDULE.md). No version increments allocated for these intermediate revisions.
+
+---
+
+## Historical planning audit (2026-11-24; superseded accounting)
 
 Scope: PiSD, PiServer and piTrainer. Count original proposal IDs once (not PRs or component-specific patches). The 75 original IDs are preserved. Retire 14 exclusive CustomTrainer/CustomDrive IDs: U18, U22, U24, U25; R33, R41, R42, R44; UX66–UX71. Additionally retire PiBooter-only U16, U19, R34, UX72, UX73. Retired total: 19; active total: 56. R48 remains active for PiSD/PiServer, whose passive preflight implementation and regression checks are present; the sole outstanding PiBooter portion is out of scope.
 
