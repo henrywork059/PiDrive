@@ -257,16 +257,18 @@ def main():
                             refresh = page.locator(f"#{prefix}RefreshFiles")
                             delete = page.locator(f"#{prefix}DeleteFolder")
                             download = page.locator(f"#{prefix}DownloadZip")
-                            # AI file workspace may be hidden by the selected workflow tab.
-                            # Invoke its real button handler without changing drive tabs.
-                            def refresh_folders():
-                                if refresh.is_visible():
-                                    if width == 390:
-                                        refresh.tap()
-                                    else:
-                                        refresh.click()
+                            # Require visible real controls, never a hidden-handler click.
+                            def activate_library(control):
+                                expect(control).to_be_visible()
+                                expect(control).to_be_enabled()
+                                if width == 390:
+                                    control.tap()
                                 else:
-                                    refresh.evaluate("(el) => el.click()")
+                                    control.focus()
+                                    expect(control).to_be_focused()
+                                    control.press("Space")
+                            def refresh_folders():
+                                activate_library(refresh)
                             valid = {"ok": True, "code": "PISD-OK-000", "collections": {
                                 "recordings": [{"id": "fixture/a", "label": "A", "frame_count": 3},
                                                {"id": "fixture/b", "label": "B", "frame_count": 4}], "snapshots": []}}
@@ -274,7 +276,42 @@ def main():
                             refresh_folders()
                             expect(folder).to_have_value("fixture/a")
                             expect(delete).to_be_enabled()
-                            folder.evaluate("(el) => { el.value='fixture/b'; el.dispatchEvent(new Event('change')); }")
+                            if name == "ai":
+                                kind = page.locator("#aiFileKind")
+                                expect(kind).to_have_accessible_name("Recording library type")
+                                expect(folder).to_have_accessible_name("Recording library folder")
+                                kind.focus()
+                                page.keyboard.press("Tab")
+                                expect(folder).to_be_focused()
+                                before = list(mutations)
+                                if width == 390:
+                                    # Native OS select popups are not touch-automatable here.
+                                    folder.tap()
+                                    folder.press("Escape")
+                                    folder.select_option("fixture/b")
+                                else:
+                                    page.keyboard.press("ArrowDown")
+                                expect(folder).to_have_value("fixture/b")
+                                expect(notice).to_contain_text("fixture/b")
+                                assert mutations == before, "Selecting a folder invoked a mutation"
+                                page.keyboard.press("Tab")
+                                expect(refresh).to_be_focused()
+                                page.keyboard.press("Tab")
+                                expect(download).to_be_focused()
+                                page.keyboard.press("Tab")
+                                expect(delete).to_be_focused()
+                                activate_library(delete)
+                                confirm_group = page.get_by_role("group", name="Confirm destructive action")
+                                expect(confirm_group).to_contain_text("fixture/b")
+                                cancel = confirm_group.get_by_role("button", name="Cancel")
+                                expect(cancel).to_be_focused()
+                                expect(page.locator("#aiStopAll")).to_be_enabled()
+                                activate_library(cancel)
+                                expect(confirm_group).to_have_count(0)
+                                expect(delete).to_be_focused()
+                                assert mutations == before, "Cancel invoked a mutation"
+                            else:
+                                folder.select_option("fixture/b")
                             stall_pisd_folders[0] = True
                             refresh_folders()
                             expect(delete).to_be_disabled()

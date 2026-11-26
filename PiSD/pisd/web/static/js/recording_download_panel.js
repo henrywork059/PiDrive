@@ -207,7 +207,12 @@
     els.download?.addEventListener('click', download);
     els.delete?.addEventListener('click', deleteFolder);
     els.kind?.addEventListener('change', renderOptions);
-    els.select?.addEventListener('change', updateDetails);
+    els.select?.addEventListener('change', () => {
+      const selected = updateDetails();
+      if (folderReader.verified() && selected.item) {
+        setNotice(`Selected ${selected.kind}: ${selected.id}${selected.item.running ? ' (active recording; deletion unavailable)' : ''}`);
+      }
+    });
     updateDetails();
 
     const apiObject = { refresh, updateDetails, renderOptions };

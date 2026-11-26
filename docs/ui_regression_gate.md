@@ -156,3 +156,7 @@ Parent 2e33359 Linux 45736716777 (4/4) and Windows 45736716767 (1/1) verified. S
 
 ## PiSD 0.11.38 — R35 Manual Drive action-log input parity
 Parent c36ad1a verified Linux 45737070868 4/4 and Windows 45737070765 1/1. Disclose expanded state, focus/name read-only log, exclude its native keys from drive/capture/global Space, preserve held-steering release and body/pad STOP. Actual guard and four-width native keyboard/no-mutation/mobile disclosure regression added. Exact CI pending; R35 remains partial; no hardware/owner acceptance.
+
+
+## PiSD 0.11.39 — R35 AI recording-library input parity
+Parent e2b85e1 verified Linux 45738242959 (4/4), Windows 45738242995 (1/1). Named region/selectors, initially locked actions, verified selection announcement, native control keyup isolation with held-steering release preserved. Require visible controls, native keyboard selection/Tab, mobile taps and exact-target cancel/focus; existing failure/retry checks retained. Mobile native select choice uses select_option after tap; no actual download or deletion exercised. Exact CI pending; no R35 closure/hardware acceptance.

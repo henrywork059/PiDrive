@@ -348,24 +348,24 @@ python3 scripts/check_ai_runtime.py</pre>
       </section>
 
 
-      <section class="mdrv-panel ai-panel ai-files-panel" id="aiFilesPanel" data-recording-download-panel="ai">
+      <section class="mdrv-panel ai-panel ai-files-panel" id="aiFilesPanel" aria-labelledby="aiFilesHeading" data-recording-download-panel="ai">
         <div class="mdrv-panel-head compact">
           <div>
             <p class="mdrv-label ai-panel-kicker">Saved data</p>
-            <h2>Records & snaps</h2>
+            <h2 id="aiFilesHeading">Records & snaps</h2>
           </div>
           <span class="mdrv-code" data-code-for="ai-files">PISD-OK-000</span>
         </div>
         <p class="ai-note">Download or delete AI/Manual recording sessions and snapshot folders from the shared PiSD recordings store.</p>
         <div class="mdrv-file-controls">
           <label>Type
-            <select id="aiFileKind">
+            <select id="aiFileKind" aria-label="Recording library type">
               <option value="recording">Recordings</option>
               <option value="snapshot">Snapshots</option>
             </select>
           </label>
           <label>Folder
-            <select id="aiFileSelect"><option value="">No folders loaded</option></select>
+            <select id="aiFileSelect" aria-label="Recording library folder" aria-describedby="aiFilesNotice"><option value="">No folders loaded</option></select>
           </label>
         </div>
         <div id="aiFileSummary" class="mdrv-file-summary" data-state="empty" aria-live="polite">
@@ -378,8 +378,8 @@ python3 scripts/check_ai_runtime.py</pre>
         </div>
         <div class="mdrv-row mdrv-compact-actions">
           <button id="aiRefreshFiles" class="mdrv-button ai-button ai-button-secondary" type="button">Refresh list</button>
-          <button id="aiDownloadZip" class="mdrv-button mdrv-primary ai-button ai-button-primary" type="button">Download zip</button>
-          <button id="aiDeleteFolder" class="mdrv-button mdrv-danger ai-button ai-button-danger" type="button">Delete selected</button>
+          <button id="aiDownloadZip" class="mdrv-button mdrv-primary ai-button ai-button-primary" type="button" disabled>Download zip</button>
+          <button id="aiDeleteFolder" class="mdrv-button mdrv-danger ai-button ai-button-danger" type="button" disabled>Delete selected</button>
         </div>
         <p id="aiFilesNotice" class="mdrv-help" role="status" aria-live="polite">Select a recording session or snapshot day folder. AI Mode uses the same recording library as Manual Drive.</p>
       </section>

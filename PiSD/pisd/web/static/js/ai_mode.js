@@ -1733,6 +1733,7 @@
 
     document.addEventListener('keyup', (event) => {
       if (aiAssistPanelActive() && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) {
+        if (shortcutBlocked() && !(event.key === 'ArrowLeft' ? assistKeyboardLeftHeld : assistKeyboardRightHeld)) return;
         event.preventDefault();
         if (event.key === 'ArrowLeft') assistKeyboardLeftHeld = false;
         if (event.key === 'ArrowRight') assistKeyboardRightHeld = false;
@@ -1740,6 +1741,7 @@
         return;
       }
       if (manualDrivePanelActive() && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) {
+        if (shortcutBlocked() && !(event.key === 'ArrowLeft' ? manualDriveKeyboardLeftHeld : manualDriveKeyboardRightHeld)) return;
         event.preventDefault();
         if (event.key === 'ArrowLeft') manualDriveKeyboardLeftHeld = false;
         if (event.key === 'ArrowRight') manualDriveKeyboardRightHeld = false;
@@ -1747,6 +1749,7 @@
         return;
       }
       if (!correctionPanelActive || (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight')) return;
+      if (shortcutBlocked() && !(event.key === 'ArrowLeft' ? correctionKeyboardLeftHeld : correctionKeyboardRightHeld)) return;
       event.preventDefault();
       if (event.key === 'ArrowLeft') correctionKeyboardLeftHeld = false;
       if (event.key === 'ArrowRight') correctionKeyboardRightHeld = false;

@@ -78,4 +78,36 @@ test('read-only log does not dispatch global Space STOP',()=>{
   assert.equal(x.posted,0);
   assert.equal(x.prevented,false);
 });
-console.log(n+'/14 PiSD safety/input tests passed');
+const ai = fs.readFileSync(path.join(__dirname, '../pisd/web/static/js/ai_mode.js'), 'utf8');
+const aiHtml = fs.readFileSync(path.join(__dirname, '../pisd/web/templates/ai_mode.html'), 'utf8');
+const startAIKeyup = ai.indexOf("    document.addEventListener('keyup', (event) => {");
+const endAIKeyup = ai.indexOf("    }, { passive: false });", startAIKeyup);
+assert.ok(startAIKeyup >= 0 && endAIKeyup > startAIKeyup);
+const keyupSource = ai.slice(startAIKeyup, endAIKeyup + "    }, { passive: false });".length);
+function aiRelease(mode, blocked, held) {
+  let handler, prevented = 0, loops = 0;
+  const document = {addEventListener(type, fn) { assert.equal(type, 'keyup'); handler = fn; }};
+  const script = new Function('document', 'shortcutBlocked', 'aiAssistPanelActive', 'manualDrivePanelActive', 'correctionPanelActive',
+    'assistKeyboardLeftHeld', 'assistKeyboardRightHeld', 'manualDriveKeyboardLeftHeld', 'manualDriveKeyboardRightHeld',
+    'correctionKeyboardLeftHeld', 'correctionKeyboardRightHeld', 'startAssistKeyboardLoop', 'startManualDriveKeyboardLoop',
+    'startCorrectionKeyboardLoop', keyupSource);
+  const loop = () => { loops++; };
+  script(document, () => blocked, () => mode === 'assist', () => mode === 'manual', mode === 'correction',
+    held, false, held, false, held, false, loop, loop, loop);
+  handler({key:'ArrowLeft', preventDefault(){prevented++;}});
+  return {prevented, loops};
+}
+test('AI native control keyup does not start steering release in any drive mode',()=>{
+  for (const mode of ['assist','manual','correction']) {
+    assert.deepEqual(aiRelease(mode,true,false),{prevented:0,loops:0});
+    assert.deepEqual(aiRelease(mode,true,true),{prevented:1,loops:1});
+    assert.deepEqual(aiRelease(mode,false,false),{prevented:1,loops:1});
+  }
+});
+test('AI library controls named and actions initially locked',()=>{
+  assert.match(aiHtml,/id="aiFileKind"[^>]*aria-label="Recording library type"/);
+  assert.match(aiHtml,/id="aiFileSelect"[^>]*aria-label="Recording library folder"/);
+  assert.match(aiHtml,/id="aiDownloadZip"[^>]*\bdisabled\b/);
+  assert.match(aiHtml,/id="aiDeleteFolder"[^>]*\bdisabled\b/);
+});
+console.log(n+'/16 PiSD safety/input tests passed');
