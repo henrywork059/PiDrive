@@ -32,3 +32,12 @@ test("saved layout merge preserves previous defaults and override semantics",()=
  assert.deepEqual(layout.merge(defaults,'bad json'),defaults);
  assert.deepEqual(layout.merge(defaults,null),defaults);
 });
+
+test("extracted docking math preserves rounding inputs, grid bounds and original box",()=>{
+ const box={c:3,r:4,w:8,h:5};
+ assert.deepEqual(layout.moveBox(box,-5,100,45,25),{c:1,r:21,w:8,h:5});
+ assert.deepEqual(layout.moveBox(box,100,-5,45,25),{c:38,r:1,w:8,h:5});
+ assert.deepEqual(layout.resizeBox(box,-20,-20,45,25),{c:3,r:4,w:4,h:3});
+ assert.deepEqual(layout.resizeBox(box,100,100,45,25),{c:3,r:4,w:43,h:22});
+ assert.deepEqual(box,{c:3,r:4,w:8,h:5});
+});

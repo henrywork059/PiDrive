@@ -8,3 +8,16 @@ Actual narrow dashboard captures show compressed dock bodies and excess blank sp
 
 ## Verification and limits
 Full changed JavaScript/CJS syntax parsed and extracted new docking contract passed with mocked events and geometry. New full Python fixture compiled locally; version-only marker edit, full component compile/actual native gate pending. New responsive screenshot differences not yet reviewed. No motor control, STOP handlers, authorization, command leases or persistent layout schema changes. No stable promotion, deployment, merge or Batch 6 advance.
+
+
+## Revision B — operator workspace / modular geometry
+
+Exact parent 2a36fe323f246d7264f70dc47ff1cf058c182133; Linux 45867333772 and Windows 45867334531 passed all five jobs. Actual artifact matrices at exact SHA: 36/36 original, 12/12 R35 setup, 30/30 R36; downloaded archives 15141570482 and 15140788126 independently hash matched. Selected mobile/desktop captures inspected. Actual prior package dry runs 10/5/10 files passed. Latest four PiServer notes 0.4.53/52/51/50 reviewed.
+
+- UX58: default compact status shows five core metrics and the Overlay control; uncheck Essentials only for complete telemetry. Existing checkbox, all metrics, error banner, diagnostics, and layout/theme persistence preserved. This deliberately changes initial full-density display, not stored layout geometry or any setting.
+- UX59: explicit device, browser-local layout, secondary and destructive action roles; token-based border/weight distinction without changing names, callbacks or permissions.
+- UX60: mobile/stacked layout previews now show a read-only desktop preset diagram using actual candidate boxes. Desktop layout preview/cancel/save semantics remain; diagram disappears on cancel/save. No automatic writes, no motor activation.
+- F8/R52: extract existing docking movement/resize clamping into layout_presets.js; retain mathematical behavior, input/output shape, pointer cancellation and explicit save behavior. Add boundary and immutability contracts and keep existing native docking contract.
+- Changed: template, styles, app.js, layout_presets.js, layout and accessibility contracts, shared browser fixture. New actual browser checks for compact defaults, complete telemetry, action roles and preview diagram. Existing assertions preserved.
+
+Verification: full changed JS/CJS parsed and pure extracted geometry checked in isolated JS before commit. New integrated browser, native and forward-package verification pending. No config/schema, authorization, STOP, command lease, drive logic, inactive component, merge, stable promotion or deployment changes. Candidate marker remains unchanged until integrated acceptance.

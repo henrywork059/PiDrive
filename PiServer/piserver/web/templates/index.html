@@ -25,11 +25,12 @@
     <div class="toolbar-actions">
       <div id="maintenanceBadge" class="badge off">run</div>
       <span id="layoutPreviewMessage" role="status" class="small-note">Layout controls affect this browser only.</span>
-      <button class="ghost-btn" id="previewLayoutBtn" aria-describedby="layoutPreviewMessage" type="button">Preview layout</button>
-      <button class="ghost-btn" id="cancelLayoutPreviewBtn" aria-describedby="layoutPreviewMessage" type="button" hidden>Cancel preview</button>
-      <button class="ghost-btn" id="saveLayoutBtn" aria-describedby="layoutPreviewMessage">Save layout</button>
-      <button class="ghost-btn" id="openStyleSettingsBtn">Style settings</button>
-      <button class="ghost-btn" id="resetLayoutBtn" aria-describedby="layoutPreviewMessage">Reset layout</button>
+      <button class="ghost-btn" id="previewLayoutBtn" aria-describedby="layoutPreviewMessage" type="button" data-action-role="layout">Preview layout</button>
+      <button class="ghost-btn" id="cancelLayoutPreviewBtn" aria-describedby="layoutPreviewMessage" type="button" hidden data-action-role="layout">Cancel preview</button>
+      <button class="ghost-btn" id="saveLayoutBtn" aria-describedby="layoutPreviewMessage" data-action-role="layout">Save layout</button>
+      <button class="ghost-btn" id="openStyleSettingsBtn" data-action-role="layout">Style settings</button>
+      <button class="ghost-btn" id="resetLayoutBtn" aria-describedby="layoutPreviewMessage" data-action-role="layout">Reset layout</button>
+      <div id="layoutPreviewDiagram" class="layout-preview-diagram" role="img" aria-label="Desktop layout preview" hidden></div>
     </div>
   </header>
 
@@ -40,9 +41,10 @@
           <span>Status</span>
           <span class="panel-mini">live</span>
         </div>
-        <div class="panel-body status-body">
-          <label class="small-note status-density-control"><input type="checkbox" id="essentialsOnly"> Essentials only (keep controls)</label>
-          <div class="metric-grid status-metric-grid">
+        <div class="panel-body status-body" data-essentials-only="true">
+          <label class="small-note status-density-control"><input type="checkbox" id="essentialsOnly" checked aria-controls="operatorMetrics" aria-describedby="telemetryHint"> Essentials only (keep controls)</label>
+          <span class="small-note" id="telemetryHint">Uncheck for more telemetry.</span>
+          <div id="operatorMetrics" class="metric-grid status-metric-grid">
             <div class="metric-card metric-card-primary priority-high"><label>Drive</label><strong id="metricDriveState">ready</strong></div>
             <div class="metric-card metric-card-primary priority-high"><label>Output</label><strong id="metricApplied">S 0.00 · T 0.00</strong></div>
             <div class="metric-card metric-card-primary priority-medium"><label>Target</label><strong id="metricManual">S 0.00 · T 0.00</strong></div>
@@ -179,7 +181,7 @@
           </section>
           <section class="panel-section panel-section-footer">
             <div class="stack-row panel-actions">
-              <button id="saveRuntimeBtn" aria-describedby="runtimeMessage">Save tuning</button>
+              <button id="saveRuntimeBtn" aria-describedby="runtimeMessage" data-action-role="device">Save tuning</button>
             </div>
             <div id="runtimeMessage" class="banner muted" role="status" aria-live="polite">Tuning ready.</div>
           </section>
@@ -201,8 +203,8 @@
               <input id="modelManifestFile" type="file" accept=".json" aria-description="Use the model filename followed by .manifest.json." />
             </div>
             <div class="stack-row panel-actions">
-              <button id="uploadModelBtn" aria-label="Upload model">Upload</button>
-              <button id="refreshModelsBtn" class="ghost-btn" aria-label="Refresh models">Refresh</button>
+              <button id="uploadModelBtn" aria-label="Upload model" data-action-role="device">Upload</button>
+              <button id="refreshModelsBtn" class="ghost-btn" aria-label="Refresh models" data-action-role="secondary">Refresh</button>
             </div>
           </section>
           <section class="panel-section panel-section-footer">
@@ -211,8 +213,8 @@
               <select id="modelSelect"></select>
             </div>
             <div class="stack-row panel-actions">
-              <button id="loadModelBtn" aria-label="Load selected model">Load</button>
-              <button id="deleteModelBtn" class="danger-btn" type="button" aria-label="Delete selected model">Delete</button>
+              <button id="loadModelBtn" aria-label="Load selected model" data-action-role="device">Load</button>
+              <button id="deleteModelBtn" class="danger-btn" type="button" aria-label="Delete selected model" data-action-role="destructive">Delete</button>
             </div>
             <div id="modelMessage" class="banner muted" role="status" aria-live="polite">No model loaded. Upload a .tflite model or choose one below.</div>
           </section>
@@ -273,11 +275,11 @@
         <div class="panel-body record-body">
           <section class="panel-section panel-section-strong">
             <div class="record-controls">
-              <button id="captureOnceBtn" class="capture-once-btn" type="button" aria-label="Snapshot" aria-describedby="captureOnceHelp">
+              <button id="captureOnceBtn" class="capture-once-btn" type="button" aria-label="Snapshot" aria-describedby="captureOnceHelp" data-action-role="device">
                 <span class="capture-once-title">SNAPSHOT</span>
                 <span id="captureOnceHelp" class="capture-once-subtitle">Save one frame</span>
               </button>
-              <button id="recordToggleBtn" class="record-toggle off" type="button" aria-pressed="false" aria-label="Record" aria-describedby="recordToggleHelp">
+              <button id="recordToggleBtn" class="record-toggle off" type="button" aria-pressed="false" aria-label="Record" aria-describedby="recordToggleHelp" data-action-role="device">
                 <span class="record-toggle-title">RECORD OFF</span>
                 <span id="recordToggleHelp" class="record-toggle-subtitle">Tap to start capture</span>
               </button>
@@ -306,9 +308,9 @@
               <select id="sessionSelect" class="session-select"></select>
             </div>
             <div class="stack-row panel-actions">
-              <button id="refreshSessionsBtn" class="ghost-btn" type="button" aria-label="Refresh saved folders">Refresh</button>
-              <button id="downloadSessionBtn" type="button" aria-label="Download selected folder">Download</button>
-              <button id="deleteSessionBtn" class="danger-btn" type="button" aria-label="Delete selected folder">Delete</button>
+              <button id="refreshSessionsBtn" class="ghost-btn" type="button" aria-label="Refresh saved folders" data-action-role="secondary">Refresh</button>
+              <button id="downloadSessionBtn" type="button" aria-label="Download selected folder" data-action-role="secondary">Download</button>
+              <button id="deleteSessionBtn" class="danger-btn" type="button" aria-label="Delete selected folder" data-action-role="destructive">Delete</button>
             </div>
           </section>
           <section class="panel-section panel-section-footer">
@@ -424,7 +426,7 @@
           </section>
           <section class="panel-section panel-section-footer">
             <div class="stack-row panel-actions">
-              <button id="cameraApplyBtn" aria-label="Apply + restart camera" aria-describedby="cameraApplyDetail">Apply + restart</button>
+              <button id="cameraApplyBtn" aria-label="Apply + restart camera" aria-describedby="cameraApplyDetail" data-action-role="device">Apply + restart</button>
               <span id="cameraApplyState" class="settings-apply-state" data-state="unsaved" role="status" aria-live="polite">Unsaved</span>
               <button id="cameraRetryApply" type="button" class="ghost-btn" aria-label="Retry apply camera settings" aria-describedby="cameraApplyDetail" hidden>Retry apply</button>
             </div>
@@ -488,7 +490,7 @@
           </section>
           <section class="panel-section panel-section-footer">
             <div class="stack-row panel-actions">
-              <button id="motorApplyBtn" aria-label="Apply motor settings" aria-describedby="motorApplyDetail">Apply</button>
+              <button id="motorApplyBtn" aria-label="Apply motor settings" aria-describedby="motorApplyDetail" data-action-role="device">Apply</button>
               <span id="motorApplyState" class="settings-apply-state" data-state="unsaved" role="status" aria-live="polite">Unsaved</span>
               <button id="motorRetryApply" aria-label="Retry apply motor settings" aria-describedby="motorApplyDetail" type="button" class="ghost-btn" hidden>Retry apply</button>
             </div>

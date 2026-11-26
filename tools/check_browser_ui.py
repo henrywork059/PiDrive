@@ -952,6 +952,11 @@ def main():
                             expect(cancel_layout).to_have_accessible_name("Cancel preview")
                             expect(cancel_layout).to_have_accessible_description("Unsaved preview — Save layout to keep, or Cancel.")
                             expect(cancel_layout).to_be_focused()
+                            diagram = page.locator("#layoutPreviewDiagram")
+                            if width <= 1080:
+                                expect(diagram).to_have_accessible_name("Driving desktop layout preview: Status, STOP, Preview, Drive, Tuning, Record")
+                                expect(diagram).to_be_visible()
+                                expect(diagram.locator("span")).to_have_count(6)
                             expect(preview_layout).to_be_disabled()
                             expect(reset_layout).to_be_disabled()
                             page.keyboard.press("Tab")
@@ -965,6 +970,7 @@ def main():
                             cancel_layout.press("Enter")
                             expect(preview_layout).to_be_focused()
                             expect(cancel_layout).to_be_hidden()
+                            expect(diagram).to_be_hidden()
                             expect(reset_layout).to_be_enabled()
                             assert page.evaluate("() => JSON.stringify(currentLayout())") == boxes_before
                             assert page.evaluate("(key) => localStorage.getItem(key)", storage_key) == saved_before
@@ -978,6 +984,16 @@ def main():
                             assert mutations == layout_before, "Layout actions invoked a mutation"
                             assert page.evaluate("() => Object.values(state.stepInputs).every(value => !value)")
                             expect(page.locator(stop)).to_be_enabled()
+                            # Compact defaults must preserve all essential controls and allow full readback.
+                            expect(page.locator("#essentialsOnly")).to_be_checked()
+                            expect(page.locator("#metricFps")).to_be_hidden()
+                            expect(page.locator("#operatorMetrics > :visible")).to_have_count(6)
+                            expect(page.locator("#saveRuntimeBtn")).to_have_attribute("data-action-role", "device")
+                            expect(page.locator("#saveLayoutBtn")).to_have_attribute("data-action-role", "layout")
+                            expect(page.locator("#refreshModelsBtn")).to_have_attribute("data-action-role", "secondary")
+                            expect(page.locator("#deleteModelBtn")).to_have_attribute("data-action-role", "destructive")
+                            page.locator("#essentialsOnly").uncheck(timeout=8000)
+                            expect(page.locator("#metricFps")).to_be_visible()
                             # Real pointer click must reach the control; no force/evaluate mutation.
                             page.locator("#essentialsOnly").check(timeout=8000)
                             expect(page.locator("#metricError")).to_be_visible()

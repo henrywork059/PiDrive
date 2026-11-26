@@ -3616,7 +3616,7 @@ button.active,
   .estop-toggle { min-height: 82px; }
 }
 
-/* Optional status tier; default remains the full existing dashboard. */
+/* Operator status tier: six essentials including the overlay action; full telemetry remains available. */
 #workspace .status-body[data-essentials-only="true"] .status-metric-grid > .priority-low,
 #workspace .status-body[data-essentials-only="true"] .status-metric-grid > .priority-medium:not(.metric-card-action) { display: none !important; }
 #cancelLayoutPreviewBtn[hidden] { display: none !important; }
@@ -3692,4 +3692,46 @@ button.active,
   }
   #workspace #estopToggle { height: auto; min-height: 82px; overflow-wrap: anywhere; }
   .topbar { flex-wrap: wrap; }
+}
+
+/* UX59: distinguish actions without relying on color alone. Existing theme,
+   enabled/disabled state, accessible labels and action handlers are retained. */
+#workspace button[data-action-role="device"] {
+  font-weight: 700 !important;
+  border-inline-start: 3px solid var(--accent) !important;
+}
+.toolbar-actions button[data-action-role="layout"] { border-style: dashed !important; }
+#workspace button[data-action-role="destructive"] {
+  border-inline-start: 3px solid var(--danger) !important;
+}
+#workspace button[data-action-role="secondary"] { font-weight: normal !important; }
+/* The actual dock is stacked below 1081px. A read-only miniature shows the
+   desktop preset without forcing a desktop grid or moving safety controls. */
+#layoutPreviewDiagram[hidden] { display: none !important; }
+.layout-preview-diagram { display: none; }
+@media (max-width: 1080px) {
+  #layoutPreviewDiagram:not([hidden]) {
+    display: grid;
+    flex: 1 1 100%;
+    grid-template-columns: repeat(45, minmax(0, 1fr));
+    grid-template-rows: repeat(25, minmax(0, 1fr));
+    gap: 0;
+    width: 100%;
+    max-width: 380px;
+    height: 140px;
+    border: 1px solid var(--line-strong);
+    background: var(--panel);
+  }
+  #layoutPreviewDiagram > span {
+    display: grid;
+    place-items: center;
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid var(--line-strong);
+    background: var(--panel-alt);
+    color: var(--text);
+    text-align: center;
+    font-size: .72rem;
+    overflow-wrap: anywhere;
+  }
 }

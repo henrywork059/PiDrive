@@ -37,7 +37,15 @@
     const selected=preset(page);
     return selected?{page,original:clone(current),candidate:selected.boxes,name:selected.name}:null;
   }
-  const api={clone,merge,preset,begin};
+  // Geometry helpers extracted from app.js; no DOM or storage access.
+  const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+  function moveBox(box, col, row, cols, rows) {
+    return {...box, c:clamp(col,1,cols-box.w+1), r:clamp(row,1,rows-box.h+1)};
+  }
+  function resizeBox(box, dw, dh, cols, rows) {
+    return {...box, w:clamp(box.w+dw,4,cols-box.c+1), h:clamp(box.h+dh,3,rows-box.r+1)};
+  }
+  const api={clone,merge,preset,begin,moveBox,resizeBox};
   if (typeof module !== "undefined" && module.exports) module.exports=api;
   else root.PiServerLayout=api;
 })(typeof window !== "undefined" ? window : globalThis);

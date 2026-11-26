@@ -298,7 +298,7 @@ console.log(count+'/34 PiServer R35 accessibility tests passed');
 test('R36 docking follows live viewport and cancels interrupted gestures without saving',()=>{
   const events={},headerEvents={},handleEvents={},mediaEvents={},saved=[],classes=new Set();
   const media={matches:true,addEventListener(k,f){mediaEvents[k]=f;}};
-  const win={matchMedia(){return media;},addEventListener(k,f){events[k]=f;}};
+  const win={PiServerLayout:require("../piserver/web/static/layout_presets.js"),matchMedia(){return media;},addEventListener(k,f){events[k]=f;}};
   const header={addEventListener(k,f){headerEvents[k]=f;},setPointerCapture(){}};
   const handle={addEventListener(k,f){handleEvents[k]=f;},setPointerCapture(){}};
   let box={c:1,r:1,w:8,h:5};

@@ -410,10 +410,29 @@ function updateLayoutPreviewControls() {
   }
   if (cancel) cancel.hidden = !state.layoutPreview;
   if (reset) reset.disabled = !!state.layoutPreview;
+  renderLayoutPreviewDiagram(state.layoutPreview);
   const feedback = document.getElementById("layoutPreviewMessage");
   if (feedback) feedback.textContent = state.layoutPreview
     ? "Unsaved preview — Save layout to keep, or Cancel."
     : "Layout controls affect this browser only.";
+}
+
+function renderLayoutPreviewDiagram(draft) {
+  const diagram = document.getElementById("layoutPreviewDiagram");
+  if (!diagram) return;
+  diagram.replaceChildren();
+  diagram.hidden = !draft;
+  if (!draft) return;
+  const labels = {status:"Status",estop:"STOP",viewer:"Preview",manual:"Drive",runtime:"Tuning",record:"Record",camera:"Camera",model:"Model"};
+  diagram.setAttribute("aria-label", draft.name + " desktop layout preview: " +
+    Object.keys(draft.candidate).map(key => labels[key] || key).join(", "));
+  for (const [key, box] of Object.entries(draft.candidate)) {
+    const panel = document.createElement("span");
+    panel.textContent = labels[key] || key;
+    panel.style.gridColumn = box.c + " / span " + box.w;
+    panel.style.gridRow = box.r + " / span " + box.h;
+    diagram.appendChild(panel);
+  }
 }
 
 function previewWorkspaceLayout() {
@@ -513,11 +532,7 @@ function setupDocking() {
       const { rect, cellW, cellH } = workspaceMetrics();
       const col = Math.round((event.clientX - rect.left - state.dragging.offsetX) / cellW) + 1;
       const row = Math.round((event.clientY - rect.top - state.dragging.offsetY) / cellH) + 1;
-      const box = {
-        ...state.dragging.box,
-        c: clamp(col, 1, gridCols - state.dragging.box.w + 1),
-        r: clamp(row, 1, gridRows - state.dragging.box.h + 1)
-      };
+      const box = window.PiServerLayout.moveBox(state.dragging.box, col, row, gridCols, gridRows);
       setPanelBox(state.dragging.panel, box);
     }
 
@@ -526,11 +541,7 @@ function setupDocking() {
       const dy = event.clientY - state.resizing.startY;
       const dw = Math.round(dx / state.resizing.cellW);
       const dh = Math.round(dy / state.resizing.cellH);
-      const box = {
-        ...state.resizing.box,
-        w: clamp(state.resizing.box.w + dw, 4, gridCols - state.resizing.box.c + 1),
-        h: clamp(state.resizing.box.h + dh, 3, gridRows - state.resizing.box.r + 1)
-      };
+      const box = window.PiServerLayout.resizeBox(state.resizing.box, dw, dh, gridCols, gridRows);
       setPanelBox(state.resizing.panel, box);
     }
   });
