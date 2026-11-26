@@ -947,7 +947,42 @@ def main():
                             expect(page.locator("#metricError")).to_be_visible()
                             expect(page.locator("#metricApplied")).to_be_visible()
                             expect(page.locator("#metricWheels")).to_be_hidden()
-                            expect(page.locator("#overlayToggleBtn")).to_be_visible()
+                            overlay = page.locator("#overlayToggleBtn")
+                            essentials = page.locator("#essentialsOnly")
+                            expect(overlay).to_be_visible()
+                            expect(essentials).to_have_accessible_name("Essentials only (keep controls)")
+                            expect(overlay).to_have_accessible_name("Overlay")
+                            expect(overlay).to_have_accessible_description("OFF Cycle view")
+                            expect(overlay).to_have_attribute("aria-pressed", "false")
+                            overlay_before = list(mutations)
+                            essentials.focus()
+                            page.keyboard.press("Tab")
+                            expect(overlay).to_be_focused()
+                            expect(overlay).to_have_css("outline-style", "solid")
+                            page.keyboard.press("Shift+Tab")
+                            expect(essentials).to_be_focused()
+                            expect(essentials).to_have_css("outline-style", "solid")
+                            page.keyboard.press("Tab")
+                            expect(overlay).to_be_focused()
+                            for mode, description, pressed, status in (
+                                    (1, "OVL 1 Throttle + steer", "true", "Overlay 1: throttle and steering enabled."),
+                                    (2, "OVL 2 Arc path", "true", "Overlay 2: arc guide enabled."),
+                                    (0, "OFF Cycle view", "false", "Frame overlay off.")):
+                                if width == 390 and mode == 2:
+                                    overlay.tap()
+                                else:
+                                    overlay.press("Space" if mode == 1 else "Enter")
+                                expect(overlay).to_have_accessible_name("Overlay")
+                                expect(overlay).to_have_accessible_description(description)
+                                expect(overlay).to_have_attribute("aria-pressed", pressed)
+                                assert page.locator("#frameOverlay").evaluate(
+                                    "(el, mode) => el.classList.contains('overlay-mode-' + mode)", mode)
+                                expect(page.locator("#statusBanner")).to_have_text(status)
+                                assert page.evaluate("() => Object.values(state.stepInputs).every(value => !value)")
+                                expect(page.locator(stop)).to_be_enabled()
+                                expect(essentials).to_be_checked()
+                            assert mutations == overlay_before, "Overlay cycle invoked a mutation"
+                            case["overlay_workflow"] = {"modes": [1, 2, 0], "local_only": True, "essentials_only": True}
                             page.locator("#essentialsOnly").focus()
                             page.locator("#essentialsOnly").press("Space")
                             expect(page.locator("#essentialsOnly")).not_to_be_checked()

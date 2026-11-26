@@ -215,4 +215,33 @@ test('native model and manifest file inputs have distinct names and matching-sid
 test('native file controls leave drive keydown isolated and held-key release intact',()=>{
   assert.deepEqual(simulateKeys('INPUT',null,[['keydown',' '],['keydown','Enter'],['keydown','ArrowDown'],['keyup','ArrowDown']]),{calls:[['down',false]],prevented:0});
 });
-console.log(count+'/29 PiServer R35 accessibility tests passed');
+test('overlay has stable name and exposes current mode and note',()=>{
+  assert.match(html,/<button id="overlayToggleBtn"[^>]*aria-pressed="false" aria-label="Overlay" aria-describedby="overlayModeValue overlayModeHelp">/);
+  assert.match(html,/<strong id="overlayModeValue" class="metric-card-action-value">OFF<\/strong>/);
+  assert.match(html,/<span id="overlayModeHelp" class="metric-card-action-note">Cycle view<\/span>/);
+});
+test('actual overlay setter preserves name and synchronizes pressed, mode and frame class',()=>{
+  const value={textContent:''},note={textContent:''};
+  function classes(){const values=new Set();return {values,remove(...names){names.forEach(n=>values.delete(n));},add(name){values.add(name);}};}
+  const btn={attributes:{'aria-label':'Overlay','aria-describedby':'overlayModeValue overlayModeHelp'},classList:classes(),
+    setAttribute(k,v){this.attributes[k]=v;},querySelector(s){if(s==='.metric-card-action-value')return value;if(s==='.metric-card-action-note')return note;throw Error(s);}};
+  const frame={classList:classes()},state={};
+  const start=app.indexOf('function setOverlayMode('),end=app.indexOf('function updateOverlayVisuals(',start);
+  assert.ok(start>=0 && end>start);
+  let updates=0;
+  const setMode=new Function('document','state','updateOverlayVisuals',app.slice(start,end)+'\nreturn setOverlayMode;')(
+    {getElementById:id=>({overlayToggleBtn:btn,frameOverlay:frame}[id])},state,()=>updates++);
+  for(const [mode,normalized,label,description] of [[0,0,'OFF','Cycle view'],[1,1,'OVL 1','Throttle + steer'],[2,2,'OVL 2','Arc path'],[3,0,'OFF','Cycle view']]){
+    setMode(mode);
+    assert.equal(state.overlayMode,normalized);
+    assert.equal(btn.attributes['aria-label'],'Overlay');
+    assert.equal(btn.attributes['aria-describedby'],'overlayModeValue overlayModeHelp');
+    assert.equal(btn.attributes['aria-pressed'],String(normalized!==0));
+    assert.equal(value.textContent,label);
+    assert.equal(note.textContent,description);
+    assert.deepEqual([...btn.classList.values],[normalized===0?'off':'mode-'+normalized]);
+    assert.deepEqual([...frame.classList.values],['overlay-mode-'+normalized]);
+  }
+  assert.equal(updates,4);
+});
+console.log(count+'/31 PiServer R35 accessibility tests passed');
