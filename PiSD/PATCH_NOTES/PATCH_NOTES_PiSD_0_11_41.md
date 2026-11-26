@@ -11,3 +11,6 @@ Parent a56eb8a exact Linux 45739154326 and Windows 45739154247 passed all five j
 
 ## Verification and limitations
 Guarded edits against exact parent; new exact CI required. No local browser execution claimed. No motor/authorization/STOP handler, backend/config schema, layout topology, trainer, PiServer or inactive component change. Motor Tuning remains cleared. Broader autosave request ordering and recovery, mobile OS controls, full active-control audit and owner/physical acceptance remain outstanding. R35 remains partial; no merge, deployment or stable promotion.
+
+## Same-version startup correction
+Initial CI 45739769345: JavaScript safety/input tests (21/21) and standard validation (63/63) passed, but all four new Chromium Presentation Settings cases failed at initialization, leaving feedback at Loading settings. Source order shows the non-deferred page script captures window.PiSDPanelPresentation before the deferred shared script runs. Defer the dependent page script as well, preserving document order; add a Node script-order guard and explicit browser shared-API availability check. All original interaction assertions remain. No version increment or trainer patch until the corrected combined gate passes. Windows 45739769402 passed. New exact CI required; no local browser execution claimed.

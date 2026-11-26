@@ -168,4 +168,9 @@ test('presentation every range has a visible value and actual readout updates',(
   assert.equal(readout.textContent,'1.2');
   field.value='0.9';update();assert.equal(readout.textContent,'0.9');
 });
-console.log(n+'/21 PiSD safety/input tests passed');
+test('presentation dependency and page scripts both defer in document order',()=>{
+  const scripts = [...presentation.matchAll(/<script\s+src="[^"]*js\/(panel_presentation(?:_global)?\.js)[^"]*"([^>]*)>/g)];
+  assert.deepEqual(scripts.map(m=>m[1]),['panel_presentation_global.js','panel_presentation.js']);
+  for (const script of scripts) assert.match(script[2],/\bdefer\b/);
+});
+console.log(n+'/22 PiSD safety/input tests passed');

@@ -169,3 +169,6 @@ Parent 7c70927 Linux 45738799996 (4/4), Windows 45738799973 (1/1) verified. Nati
 ## PiSD 0.11.41 — R35 Presentation Settings
 
 Parent a56eb8a exact Linux 45739154326 and Windows 45739154247 passed 5/5. Presentation mock Run/STOP buttons inert, visible numeric slider readouts, named focusable preset console with local Space semantics and concise live feedback; rejected saves do not announce successful persistence. New four-width real Chromium preview-only and rejected Save journey and two Node checks; exact new CI pending. No actual mutation reaches fixture backend; no hardware or owner acceptance, and R35 remains partial.
+
+
+PiSD 0.11.41 initial Linux 45739769345 failed all four Presentation Settings Chromium cases (Loading settings never resolves); 21 Node checks and standard validation 63/63 passed. Shared presentation API script was deferred but its consumer ran synchronously. Same-version correction defers the consumer in document order, adds source-order and browser API availability assertions, retains all interaction checks. Exact corrected CI pending. Do not start trainer candidate on failed baseline.

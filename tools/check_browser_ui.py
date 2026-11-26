@@ -898,6 +898,8 @@ def main():
                             assert mutations == before, "Structure/contract inspection invoked a mutation"
                             expect(page.locator("#ptStopAll")).to_be_enabled()
                         if name == "presentation":
+                            # Check actual shared API and page startup before exercising the controls.
+                            page.wait_for_function("() => Boolean(window.PiSDPanelPresentation)")
                             expect(page.locator("#ppFeedback")).to_have_text("Panel presentation settings ready.")
                             expect(page.locator("#ppPreviewGrid .pp-button-row")).to_have_attribute("inert", "")
                             expect(page.get_by_role("button", name="Run", exact=True)).to_have_count(0)
