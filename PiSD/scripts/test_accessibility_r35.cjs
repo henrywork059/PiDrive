@@ -150,7 +150,8 @@ test('panel size state tracks actual selected preset',()=>{
 const presentation = fs.readFileSync(path.join(__dirname, '../pisd/web/templates/panel_presentation.html'), 'utf8');
 const presentationJS = fs.readFileSync(path.join(__dirname, '../pisd/web/static/js/panel_presentation.js'), 'utf8');
 test('presentation mock controls are inert and console is named and locally focusable',()=>{
-  assert.match(presentation, /class="pp-button-row" inert><button[^>]*>Run<\/button><button[^>]*>STOP<\/button>/);
+  assert.match(presentation, /class="pp-button-row" inert><span[^>]*>Run<\/span><span[^>]*>STOP<\/span>/);
+  assert.match(presentation, /<pre class="pp-console" inert>OK/);
   assert.match(presentation, /id="ppOutput"[^>]*tabindex="0"[^>]*aria-label="[^"]+"[^>]*data-space-stop-ignore="true"/);
   assert.match(presentation, /id="ppFeedback" role="status"/);
   assert.equal(simulate('PRE',{ignore:true}).posted,0);

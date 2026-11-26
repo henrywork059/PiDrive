@@ -902,6 +902,8 @@ def main():
                             page.wait_for_function("() => Boolean(window.PiSDPanelPresentation)")
                             expect(page.locator("#ppFeedback")).to_have_text("Panel presentation settings ready.")
                             expect(page.locator("#ppPreviewGrid .pp-button-row")).to_have_attribute("inert", "")
+                            expect(page.locator("#ppPreviewGrid .pp-console")).to_have_attribute("inert", "")
+                            expect(page.locator("#ppPreviewGrid button")).to_have_count(0)
                             expect(page.get_by_role("button", name="Run", exact=True)).to_have_count(0)
                             expect(page.get_by_role("button", name="STOP", exact=True)).to_have_count(0)
                             auto = page.locator("#ppAutoSave")

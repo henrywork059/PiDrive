@@ -172,3 +172,6 @@ Parent a56eb8a exact Linux 45739154326 and Windows 45739154247 passed 5/5. Prese
 
 
 PiSD 0.11.41 initial Linux 45739769345 failed all four Presentation Settings Chromium cases (Loading settings never resolves); 21 Node checks and standard validation 63/63 passed. Shared presentation API script was deferred but its consumer ran synchronously. Same-version correction defers the consumer in document order, adds source-order and browser API availability assertions, retains all interaction checks. Exact corrected CI pending. Do not start trainer candidate on failed baseline.
+
+
+PiSD 0.11.41 Revision B a988768 exact Linux 45740059987 / Windows 45740059974 combined 4/5: initialization fixed; all four Presentation Settings cases then failed role lookup of decorative inert native Run/STOP buttons. Revision C replaces them with static styled spans and makes decorative sample console inert to prevent automatic scroll-container focus on narrow Chromium. Existing native role, Tab, preview and rejected Save checks retained; new static console/grid checks. Local isolated inline Chromium fixture (exact reconstructed template/JS, synthetic storage/fetch, two older shared CSS assets) passed four widths after change; not full Flask/exact CI or physical acceptance. New exact CI pending; no trainer version advance until green.
