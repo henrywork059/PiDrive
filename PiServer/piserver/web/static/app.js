@@ -1931,7 +1931,8 @@ function setupEvents() {
   });
 
   window.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") closeStyleSettings();
+    const modal = document.getElementById("styleSettingsModal");
+    if (event.key === "Escape" && !event.defaultPrevented && modal && !modal.classList.contains("hidden")) closeStyleSettings();
   });
 
   document.getElementById("maxThrottle").addEventListener("input", (event) => {

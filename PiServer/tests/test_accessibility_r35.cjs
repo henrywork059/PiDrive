@@ -87,4 +87,20 @@ test('camera safe setup retains labels and apply/retry expose existing confirmat
   assert.match(html,/<select id="cameraResolutionPreset" aria-label="Preset resolution">/);
   assert.match(html,/id="cameraApplyState"[^>]*role="status"[^>]*aria-live="polite"/);
 });
-console.log(count+'/20 PiServer R35 accessibility tests passed');
+test('global Escape closes only an open style dialog and respects handled cancellation',()=>{
+  const start=app.indexOf('  window.addEventListener("keydown", (event) => {\n    const modal = document.getElementById("styleSettingsModal");');
+  const end=app.indexOf('\n  });',start);
+  assert.ok(start>=0 && end>start);
+  let handler, closed=0, hidden=true, present=true;
+  const fakeWindow={addEventListener(type,fn){assert.equal(type,'keydown');handler=fn;}};
+  const fakeDocument={getElementById(id){assert.equal(id,'styleSettingsModal');return present?{classList:{contains(name){assert.equal(name,'hidden');return hidden;}}}:null;}};
+  new Function('window','document','closeStyleSettings',app.slice(start,end+6))(fakeWindow,fakeDocument,()=>closed++);
+  handler({key:'Escape',defaultPrevented:false});assert.equal(closed,0);
+  hidden=false;
+  handler({key:'Escape',defaultPrevented:true});assert.equal(closed,0);
+  handler({key:'Tab',defaultPrevented:false});assert.equal(closed,0);
+  handler({key:'Escape',defaultPrevented:false});assert.equal(closed,1);
+  present=false;
+  handler({key:'Escape',defaultPrevented:false});assert.equal(closed,1);
+});
+console.log(count+'/21 PiServer R35 accessibility tests passed');
