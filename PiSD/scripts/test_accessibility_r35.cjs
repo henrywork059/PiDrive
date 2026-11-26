@@ -162,12 +162,14 @@ test('presentation every range has a visible value and actual readout updates',(
   for (const id of ids) assert.ok(presentation.includes('data-range-value-for="'+id+'"'));
   const start=presentationJS.indexOf('  function updateRangeReadouts()'), end=presentationJS.indexOf('  function log(',start);
   assert.ok(start>=0 && end>start);
-  const field={id:'ppFontScale',value:'1.2'}, readout={};
+  const field={id:'ppFontScale',value:'1.2',dataset:{valueUnit:'times'},attributes:{},setAttribute(k,v){this.attributes[k]=v;}}, readout={};
   const form={querySelectorAll(){return [field];},querySelector(selector){assert.ok(selector.includes(field.id));return readout;}};
   const update=new Function('form',presentationJS.slice(start,end)+'\nreturn updateRangeReadouts;')(form);
   update();
   assert.equal(readout.textContent,'1.2');
+  assert.equal(field.attributes['aria-valuetext'],'1.2 times');
   field.value='0.9';update();assert.equal(readout.textContent,'0.9');
+  assert.equal(field.attributes['aria-valuetext'],'0.9 times');
 });
 test('presentation dependency and page scripts both defer in document order',()=>{
   const scripts = [...presentation.matchAll(/<script\s+src="[^"]*js\/(panel_presentation(?:_global)?\.js)[^"]*"([^>]*)>/g)];
@@ -208,11 +210,13 @@ test('Settings ranges keep stable labels and visible readouts',()=>{
   assert.ok(fields.every(m=>m[1].trim()));
   const start=settingsJs.indexOf('function updateOutputs('),end=settingsJs.indexOf('\n',start);
   assert.ok(start>=0 && end>start);
-  const output={}, input={value:'0.43',parentElement:{querySelector(){return output;}}};
+  const output={}, input={value:'0.43',dataset:{valueUnit:'of full speed'},attributes:{},setAttribute(k,v){this.attributes[k]=v;},parentElement:{querySelector(){return output;}}};
   const update=new Function(settingsJs.slice(start,end)+'\nreturn updateOutputs;')();
   const root={querySelectorAll(){return [input];}};
   update(root); assert.equal(output.textContent,'0.43');
+  assert.equal(input.attributes['aria-valuetext'],'0.43 of full speed');
   input.value='0.52'; update(root); assert.equal(output.textContent,'0.52');
+  assert.equal(input.attributes['aria-valuetext'],'0.52 of full speed');
   assert.match(settingsHtml,/id="stImportSettings"[^>]*aria-label="Import settings JSON file"/);
 });
 test('Settings Import stays native, focusable and isolated from global Space STOP',()=>{
@@ -226,4 +230,15 @@ test('Settings Import stays native, focusable and isolated from global Space STO
   assert.equal(simulate('INPUT',{type:'file'}).posted,0);
   assert.equal(simulate('BODY').posted,1);
 });
-console.log(n+'/27 PiSD safety/input tests passed');
+test('all settings and presentation ranges specify units; actions reference existing feedback',()=>{
+  for(const [source,count] of [[settingsHtml,20],[presentation,19]]){
+    const fields=[...source.matchAll(/<input[^>]*type="range"[^>]*>/g)];
+    assert.equal(fields.length,count);
+    assert.ok(fields.every(m=>/data-value-unit="[^"]+"/.test(m[0])));
+  }
+  for(const id of ['stLoadSettings','stSaveSettings','stApplySettings','stRetryApply','stResetSettings'])
+    assert.ok(settingsHtml.includes('id="'+id+'" aria-describedby="stApplyDetail"'));
+  for(const id of ['ppApply','ppSave','ppReset'])
+    assert.ok(presentation.includes('id="'+id+'" aria-describedby="ppFeedback"'));
+});
+console.log(n+'/28 PiSD safety/input tests passed');

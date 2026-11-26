@@ -21,9 +21,9 @@
     <nav class="pp-actions" aria-label="Panel presentation actions">
       <a class="pisd-front-link" href="/">Back to Front Page</a>
       <span id="ppGlobalCode" class="pp-code-pill">{{ initial_status.code }}</span>
-      <button id="ppReset" class="pp-button">Reset</button>
-      <button id="ppApply" class="pp-button pp-primary">Apply now</button>
-      <button id="ppSave" class="pp-button pp-primary">Save for all pages</button>
+      <button id="ppReset" aria-describedby="ppFeedback" class="pp-button">Reset</button>
+      <button id="ppApply" aria-describedby="ppFeedback" class="pp-button pp-primary">Apply now</button>
+      <button id="ppSave" aria-describedby="ppFeedback" class="pp-button pp-primary">Save for all pages</button>
     </nav>
   </header>
 
@@ -80,12 +80,12 @@
             <option value="spacious">spacious</option>
           </select>
         </label>
-        <label>Font scale <input name="fontScale" id="ppFontScale" type="range" min="0.8" max="1.25" step="0.05"><span class="pp-range-value" data-range-value-for="ppFontScale" aria-hidden="true"></span></label>
-        <label>Panel gap <input name="panelGap" id="ppPanelGap" type="range" min="4" max="26" step="1"><span class="pp-range-value" data-range-value-for="ppPanelGap" aria-hidden="true"></span></label>
-        <label>Corner radius <input name="panelRadius" id="ppPanelRadius" type="range" min="0" max="28" step="1"><span class="pp-range-value" data-range-value-for="ppPanelRadius" aria-hidden="true"></span></label>
-        <label>Border strength <input name="borderStrength" id="ppBorderStrength" type="range" min="0" max="1" step="0.05"><span class="pp-range-value" data-range-value-for="ppBorderStrength" aria-hidden="true"></span></label>
-        <label>Shadow strength <input name="shadowStrength" id="ppShadowStrength" type="range" min="0" max="1" step="0.05"><span class="pp-range-value" data-range-value-for="ppShadowStrength" aria-hidden="true"></span></label>
-        <label>Minimum panel width <input name="minPanelWidth" id="ppMinPanelWidth" type="range" min="210" max="520" step="10"><span class="pp-range-value" data-range-value-for="ppMinPanelWidth" aria-hidden="true"></span></label>
+        <label>Font scale <input name="fontScale" id="ppFontScale" type="range" data-value-unit="times" min="0.8" max="1.25" step="0.05"><span class="pp-range-value" data-range-value-for="ppFontScale" aria-hidden="true"></span></label>
+        <label>Panel gap <input name="panelGap" id="ppPanelGap" type="range" data-value-unit="pixels" min="4" max="26" step="1"><span class="pp-range-value" data-range-value-for="ppPanelGap" aria-hidden="true"></span></label>
+        <label>Corner radius <input name="panelRadius" id="ppPanelRadius" type="range" data-value-unit="pixels" min="0" max="28" step="1"><span class="pp-range-value" data-range-value-for="ppPanelRadius" aria-hidden="true"></span></label>
+        <label>Border strength <input name="borderStrength" id="ppBorderStrength" type="range" data-value-unit="fraction" min="0" max="1" step="0.05"><span class="pp-range-value" data-range-value-for="ppBorderStrength" aria-hidden="true"></span></label>
+        <label>Shadow strength <input name="shadowStrength" id="ppShadowStrength" type="range" data-value-unit="fraction" min="0" max="1" step="0.05"><span class="pp-range-value" data-range-value-for="ppShadowStrength" aria-hidden="true"></span></label>
+        <label>Minimum panel width <input name="minPanelWidth" id="ppMinPanelWidth" type="range" data-value-unit="pixels" min="210" max="520" step="10"><span class="pp-range-value" data-range-value-for="ppMinPanelWidth" aria-hidden="true"></span></label>
         <label>Preview aspect
           <select name="previewAspect" id="ppPreviewAspect">
             <option value="16 / 9">16:9</option>
@@ -101,7 +101,7 @@
             <option value="fill">fill</option>
           </select>
         </label>
-        <label>Panel padding <input name="panelPadding" id="ppPanelPadding" type="range" min="0.5" max="1.3" step="0.05"><span class="pp-range-value" data-range-value-for="ppPanelPadding" aria-hidden="true"></span></label>
+        <label>Panel padding <input name="panelPadding" id="ppPanelPadding" type="range" data-value-unit="times" min="0.5" max="1.3" step="0.05"><span class="pp-range-value" data-range-value-for="ppPanelPadding" aria-hidden="true"></span></label>
         <label>Panel header
           <select name="panelHeaderMode" id="ppPanelHeaderMode">
             <option value="standard">standard</option>
@@ -109,8 +109,8 @@
             <option value="minimal">minimal</option>
           </select>
         </label>
-        <label>Button size <input name="buttonScale" id="ppButtonScale" type="range" min="0.85" max="1.2" step="0.05"><span class="pp-range-value" data-range-value-for="ppButtonScale" aria-hidden="true"></span></label>
-        <label>Console height <input name="consoleHeight" id="ppConsoleHeight" type="range" min="120" max="420" step="10"><span class="pp-range-value" data-range-value-for="ppConsoleHeight" aria-hidden="true"></span></label>
+        <label>Button size <input name="buttonScale" id="ppButtonScale" type="range" data-value-unit="times" min="0.85" max="1.2" step="0.05"><span class="pp-range-value" data-range-value-for="ppButtonScale" aria-hidden="true"></span></label>
+        <label>Console height <input name="consoleHeight" id="ppConsoleHeight" type="range" data-value-unit="pixels" min="120" max="420" step="10"><span class="pp-range-value" data-range-value-for="ppConsoleHeight" aria-hidden="true"></span></label>
         <label>Card accent
           <select name="cardAccent" id="ppCardAccent">
             <option value="subtle">subtle</option>
@@ -124,16 +124,16 @@
             <option value="false">off</option>
           </select>
         </label>
-        <label>Status H weight <input name="statusPanelHWeight" id="ppStatusPanelHWeight" type="range" min="1" max="4" step="1"><span class="pp-range-value" data-range-value-for="ppStatusPanelHWeight" aria-hidden="true"></span></label>
-        <label>Status V weight <input name="statusPanelVWeight" id="ppStatusPanelVWeight" type="range" min="1" max="4" step="1"><span class="pp-range-value" data-range-value-for="ppStatusPanelVWeight" aria-hidden="true"></span></label>
-        <label>Preview H weight <input name="previewPanelHWeight" id="ppPreviewPanelHWeight" type="range" min="1" max="4" step="1"><span class="pp-range-value" data-range-value-for="ppPreviewPanelHWeight" aria-hidden="true"></span></label>
-        <label>Preview V weight <input name="previewPanelVWeight" id="ppPreviewPanelVWeight" type="range" min="1" max="4" step="1"><span class="pp-range-value" data-range-value-for="ppPreviewPanelVWeight" aria-hidden="true"></span></label>
-        <label>Controls H weight <input name="controlPanelHWeight" id="ppControlPanelHWeight" type="range" min="1" max="4" step="1"><span class="pp-range-value" data-range-value-for="ppControlPanelHWeight" aria-hidden="true"></span></label>
-        <label>Controls V weight <input name="controlPanelVWeight" id="ppControlPanelVWeight" type="range" min="1" max="4" step="1"><span class="pp-range-value" data-range-value-for="ppControlPanelVWeight" aria-hidden="true"></span></label>
-        <label>Settings H weight <input name="settingsPanelHWeight" id="ppSettingsPanelHWeight" type="range" min="1" max="4" step="1"><span class="pp-range-value" data-range-value-for="ppSettingsPanelHWeight" aria-hidden="true"></span></label>
-        <label>Settings V weight <input name="settingsPanelVWeight" id="ppSettingsPanelVWeight" type="range" min="1" max="4" step="1"><span class="pp-range-value" data-range-value-for="ppSettingsPanelVWeight" aria-hidden="true"></span></label>
-        <label>Log H weight <input name="logPanelHWeight" id="ppLogPanelHWeight" type="range" min="1" max="4" step="1"><span class="pp-range-value" data-range-value-for="ppLogPanelHWeight" aria-hidden="true"></span></label>
-        <label>Log V weight <input name="logPanelVWeight" id="ppLogPanelVWeight" type="range" min="1" max="4" step="1"><span class="pp-range-value" data-range-value-for="ppLogPanelVWeight" aria-hidden="true"></span></label>
+        <label>Status H weight <input name="statusPanelHWeight" id="ppStatusPanelHWeight" type="range" data-value-unit="weight" min="1" max="4" step="1"><span class="pp-range-value" data-range-value-for="ppStatusPanelHWeight" aria-hidden="true"></span></label>
+        <label>Status V weight <input name="statusPanelVWeight" id="ppStatusPanelVWeight" type="range" data-value-unit="weight" min="1" max="4" step="1"><span class="pp-range-value" data-range-value-for="ppStatusPanelVWeight" aria-hidden="true"></span></label>
+        <label>Preview H weight <input name="previewPanelHWeight" id="ppPreviewPanelHWeight" type="range" data-value-unit="weight" min="1" max="4" step="1"><span class="pp-range-value" data-range-value-for="ppPreviewPanelHWeight" aria-hidden="true"></span></label>
+        <label>Preview V weight <input name="previewPanelVWeight" id="ppPreviewPanelVWeight" type="range" data-value-unit="weight" min="1" max="4" step="1"><span class="pp-range-value" data-range-value-for="ppPreviewPanelVWeight" aria-hidden="true"></span></label>
+        <label>Controls H weight <input name="controlPanelHWeight" id="ppControlPanelHWeight" type="range" data-value-unit="weight" min="1" max="4" step="1"><span class="pp-range-value" data-range-value-for="ppControlPanelHWeight" aria-hidden="true"></span></label>
+        <label>Controls V weight <input name="controlPanelVWeight" id="ppControlPanelVWeight" type="range" data-value-unit="weight" min="1" max="4" step="1"><span class="pp-range-value" data-range-value-for="ppControlPanelVWeight" aria-hidden="true"></span></label>
+        <label>Settings H weight <input name="settingsPanelHWeight" id="ppSettingsPanelHWeight" type="range" data-value-unit="weight" min="1" max="4" step="1"><span class="pp-range-value" data-range-value-for="ppSettingsPanelHWeight" aria-hidden="true"></span></label>
+        <label>Settings V weight <input name="settingsPanelVWeight" id="ppSettingsPanelVWeight" type="range" data-value-unit="weight" min="1" max="4" step="1"><span class="pp-range-value" data-range-value-for="ppSettingsPanelVWeight" aria-hidden="true"></span></label>
+        <label>Log H weight <input name="logPanelHWeight" id="ppLogPanelHWeight" type="range" data-value-unit="weight" min="1" max="4" step="1"><span class="pp-range-value" data-range-value-for="ppLogPanelHWeight" aria-hidden="true"></span></label>
+        <label>Log V weight <input name="logPanelVWeight" id="ppLogPanelVWeight" type="range" data-value-unit="weight" min="1" max="4" step="1"><span class="pp-range-value" data-range-value-for="ppLogPanelVWeight" aria-hidden="true"></span></label>
         <label class="pp-checkbox-label"><input name="autoSave" id="ppAutoSave" type="checkbox" value="true"> Auto-save changes globally</label>
       </form>
       <div class="pp-button-row">

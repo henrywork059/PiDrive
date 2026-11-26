@@ -14,6 +14,8 @@
     for (const field of form.querySelectorAll('input[type="range"]')) {
       const readout = form.querySelector(`[data-range-value-for="${field.id}"]`);
       if (readout) readout.textContent = field.value;
+      const unit = field.dataset.valueUnit;
+      field.setAttribute('aria-valuetext', unit ? field.value + ' ' + unit : field.value);
     }
   }
 

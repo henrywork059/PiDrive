@@ -63,7 +63,7 @@ def build_stylesheet(density: str = "comfortable") -> str:
         line-height: 1.25em;
     }
     QPushButton#pageBannerNextButton {
-        color: @COLOR_TEXT_ON_DARK@;
+        color: @COLOR_TEXT_ON_WARNING@;
         background: @COLOR_SUCCESS@;
         border: 1px solid @COLOR_SUCCESS_BORDER@;
         border-radius: 8px;
@@ -73,10 +73,12 @@ def build_stylesheet(density: str = "comfortable") -> str:
     }
     QPushButton#pageBannerNextButton:hover {
         background: @COLOR_SUCCESS_HOVER@;
+        color: @COLOR_TEXT_ON_WARNING@;
         border-color: @COLOR_SUCCESS_BORDER@;
     }
     QPushButton#pageBannerNextButton:pressed {
         background: @COLOR_SUCCESS_ACTIVE@;
+        color: @COLOR_TEXT_ON_DARK@;
     }
     QDockWidget {
         color: @COLOR_TEXT_PRIMARY@;
@@ -140,31 +142,35 @@ def build_stylesheet(density: str = "comfortable") -> str:
     QPushButton[role='primary'] {
         background: @COLOR_SUCCESS@;
         border-color: @COLOR_SUCCESS_BORDER@;
-        color: @COLOR_TEXT_ON_DARK@;
+        color: @COLOR_TEXT_ON_WARNING@;
         font-weight: 760;
     }
     QPushButton[role='primary']:hover {
         background: @COLOR_SUCCESS_HOVER@;
+        color: @COLOR_TEXT_ON_WARNING@;
         border-color: @COLOR_SUCCESS_BORDER@;
     }
     QPushButton[role='primary']:pressed {
         background: @COLOR_SUCCESS_ACTIVE@;
+        color: @COLOR_TEXT_ON_DARK@;
     }
     QPushButton[role='nextStep'] {
         min-height: @NEXT_MIN@px;
         padding: 7px 12px;
         background: @COLOR_SUCCESS@;
         border: 2px solid @COLOR_SUCCESS_BORDER@;
-        color: @COLOR_TEXT_ON_DARK@;
+        color: @COLOR_TEXT_ON_WARNING@;
         border-radius: 9px;
         font-weight: 850;
     }
     QPushButton[role='nextStep']:hover {
         background: @COLOR_SUCCESS_HOVER@;
+        color: @COLOR_TEXT_ON_WARNING@;
         border-color: @COLOR_SUCCESS_BORDER@;
     }
     QPushButton[role='nextStep']:pressed {
         background: @COLOR_SUCCESS_ACTIVE@;
+        color: @COLOR_TEXT_ON_DARK@;
     }
     QPushButton[role='nextStep']:disabled {
         background: @COLOR_SUCCESS_SURFACE@;
@@ -173,12 +179,24 @@ def build_stylesheet(density: str = "comfortable") -> str:
     }
     QPushButton[role='nextStep'][pulse='true'] {
         background: @COLOR_SUCCESS_HOVER@;
+        color: @COLOR_TEXT_ON_WARNING@;
         border-color: @COLOR_TEXT_PRIMARY@;
     }
     QPushButton[role='nextStep'][spotlight='true'] {
         background: @COLOR_SUCCESS_HOVER@;
         border: 3px solid @COLOR_TEXT_PRIMARY@;
+        color: @COLOR_TEXT_ON_WARNING@;
+    }
+    QPushButton[role='nextStep'][pulse='true']:pressed,
+    QPushButton[role='nextStep'][spotlight='true']:pressed {
+        background: @COLOR_SUCCESS_ACTIVE@;
         color: @COLOR_TEXT_ON_DARK@;
+    }
+    QLabel#backgroundTaskResult {
+        border: 1px solid transparent;
+    }
+    QLabel#backgroundTaskResult:focus {
+        border-color: @COLOR_INFO@;
     }
     QPushButton[role='danger'] {
         background: @COLOR_DANGER@;
@@ -552,7 +570,7 @@ def build_stylesheet(density: str = "comfortable") -> str:
         font-weight: 650;
     }
     QLabel[role='saveStatus'][status='saved'] {
-        color: @COLOR_TEXT_ON_DARK@;
+        color: @COLOR_TEXT_ON_WARNING@;
         background: @COLOR_SUCCESS@;
         border: 1px solid @COLOR_SUCCESS_BORDER@;
         font-weight: 850;
@@ -579,7 +597,7 @@ def build_stylesheet(density: str = "comfortable") -> str:
         border: 1px solid @COLOR_WARNING_BORDER@;
     }
     QLabel[role='preprocessStatus'][status='done'] {
-        color: @COLOR_TEXT_ON_DARK@;
+        color: @COLOR_TEXT_ON_WARNING@;
         background: @COLOR_SUCCESS@;
         border: 1px solid @COLOR_SUCCESS_BORDER@;
         font-weight: 900;

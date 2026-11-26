@@ -5,6 +5,7 @@ from typing import Callable, Sequence
 
 from PySide6.QtCore import QTimer, Qt
 from PySide6.QtWidgets import (
+    QApplication,
     QFormLayout,
     QFrame,
     QHBoxLayout,
@@ -176,6 +177,11 @@ class CollapsibleSection(QWidget):
         self.set_expanded(expanded)
 
     def set_expanded(self, expanded: bool) -> None:
+        focused = QApplication.focusWidget()
+        if not expanded and focused is not None and (
+            focused is self.content_frame or self.content_frame.isAncestorOf(focused)
+        ):
+            self.toggle_button.setFocus(Qt.OtherFocusReason)
         self.toggle_button.setChecked(expanded)
         self.toggle_button.setArrowType(Qt.DownArrow if expanded else Qt.RightArrow)
         self.content_frame.setVisible(expanded)

@@ -270,4 +270,28 @@ test('actual layout preview and cancel transfer focus only from the disappearing
   api.cancelWorkspaceLayout();assert.equal(doc.activeElement,nav);
   preview.focus();state.dragging=true;api.previewWorkspaceLayout();assert.equal(state.layoutPreview,null);assert.equal(doc.activeElement,preview);
 });
-console.log(count+'/33 PiServer R35 accessibility tests passed');
+test('normalized tuning range readouts and contextual settings feedback',()=>{
+  const fields = ['maxThrottle','steerMix','steerBias','steerCurve','throttleCurve','steerRate','throttleRate','leftMaxSpeed','rightMaxSpeed'];
+  const names = ['Max throttle','Steering mix','Steering bias','Steer curve','Throttle curve','Steer rate','Throttle rate','Left max speed','Right max speed'];
+  fields.forEach((id,i)=>assert.ok(html.includes('id="'+id+'" type="range" aria-label="'+names[i]+'" aria-valuetext='),id));
+  assert.match(html,/id="runtimeMessage"[^>]*role="status"/);
+  assert.match(html,/id="saveRuntimeBtn"[^>]*aria-describedby="runtimeMessage"/);
+  assert.match(html,/id="motorApplyBtn"[^>]*aria-label="Apply motor settings"[^>]*aria-describedby="motorApplyDetail"/);
+  assert.match(html,/id="motorRetryApply"[^>]*aria-label="Retry apply motor settings"[^>]*aria-describedby="motorApplyDetail"/);
+  const values={maxThrottle:.43,steerMix:.5,steerBias:-.12,steerCurve:1.45,throttleCurve:1.55,steerRate:.07,throttleRate:.08};
+  const elements={};
+  fields.forEach(id=>{
+    elements[id]={value:'63',attributes:{},setAttribute(k,v){this.attributes[k]=v;}};
+    elements[id+'Value']={textContent:''};
+  });
+  const doc={getElementById:id=>elements[id]};
+  const manual=app.slice(app.indexOf('function updateManualFeelUi()'),app.indexOf('function saveManualFeel()'));
+  const range=app.slice(app.indexOf('function updateRangeText()'),app.indexOf('function updateToolbarBadge('));
+  const update=new Function('document','state',manual+range+'\nreturn updateRangeText;')(doc,values);
+  update();
+  assert.deepEqual(fields.map(id=>elements[id].attributes['aria-valuetext']),['0.43','0.50','-0.12','1.45 times','1.55 times','0.07','0.08','0.63','0.63']);
+  values.steerCurve=2;elements.leftMaxSpeed.value='50';update();
+  assert.equal(elements.steerCurve.attributes['aria-valuetext'],'2.00 times');
+  assert.equal(elements.leftMaxSpeed.attributes['aria-valuetext'],'0.50');
+});
+console.log(count+'/34 PiServer R35 accessibility tests passed');

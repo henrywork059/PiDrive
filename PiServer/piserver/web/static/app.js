@@ -661,7 +661,7 @@ async function fetchJson(url, options = {}) {
 function setBanner(id, text, tone = "muted") {
   const el = document.getElementById(id);
   if (!el) return;
-  el.textContent = text;
+  if (el.textContent !== text) el.textContent = text;
   el.className = `banner ${tone}`;
 }
 
@@ -680,6 +680,13 @@ function updateRangeText() {
   }
   if (right && document.getElementById("rightMaxSpeedValue")) {
     document.getElementById("rightMaxSpeedValue").textContent = (Number(right.value || 0) / 100).toFixed(2);
+  }
+  // Announce the normalized readout, not the integer slider encoding.
+  for (const id of ["maxThrottle", "steerMix", "steerBias", "steerCurve", "throttleCurve",
+                    "steerRate", "throttleRate", "leftMaxSpeed", "rightMaxSpeed"]) {
+    const input = document.getElementById(id);
+    const readout = document.getElementById(id + "Value");
+    if (input && readout) input.setAttribute("aria-valuetext", readout.textContent.replace("×", " times"));
   }
 }
 
