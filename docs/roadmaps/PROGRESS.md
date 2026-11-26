@@ -1,5 +1,28 @@
 # Active roadmap progress — 2026-11-27
 
+## Current verified continuation baseline
+
+Owner-supplied accounting: 39/56 at 74ad1995200b8e2509e292d9f02e17bb9db6a905. **42/56 implemented (75.0%), 14 remaining, 4/9 batches complete** following conservative software acceptance of R36, R49 and UX54 at exact green 2a36fe323f246d7264f70dc47ff1cf058c182133. Linux [45867333772](https://github.com/henrywork059/PiDrive/actions/runs/45867333772) 4/4; Windows [45867334531](https://github.com/henrywork059/PiDrive/actions/runs/45867334531) 1/1. Actual artifact archives 15141570482 (PiSD, SHA-256 37c2612f81b89f2681f5a5bc749a0e2e1021129e3544cd1bee2770b0c9d4f6b5) and 15140788126 (PiServer, SHA-256 556ff8c256c87e4862e469f8063f1f9a625a64ee9e45c1105eedd2af9af57852) independently verified. All 78 actual Chromium matrix cases passed, including six formerly failing STOP targets and scale checks, visible sanitized event history, and task-first groups. Forward package dry runs 10/5/10 changed files passed. Selected screenshots inspected; owner-approved golden images and physical acceptance remain separate.
+
+| Track | Active | Verified implementation | Remaining |
+| --- | ---: | ---: | ---: |
+| F | 10 | 9 | 1 |
+| U | 13 | 13 | 0 |
+| R | 19 | 16 | 3 |
+| UX | 14 | 4 | 10 |
+| Total | 56 | 42 | 14 |
+
+Remaining: F8; R35, R50, R52; UX55–UX61, UX63, UX65, UX75. Active candidates unchanged: PiSD 0.11.45, PiServer 0.4.53, piTrainer 0.11.32. All batches authorized, but no merge, stable promotion, force push, hardware deployment, or inactive-component development.
+
+## Current consolidated milestone (new revisions awaiting final gate)
+
+- PiServer dcb663a817f8b863ebb65aa90272ad63e8097c40: UX58 compact telemetry default with full details available; UX59 action roles; UX60 stacked preset preview diagram; F8/R52 pure docking geometry extraction, 18 isolated parity checks. Linux 45868548716 flagged an HTML attribute-order regression; follow-up preserves original accessibility assertions and all-card geometry coverage, adds three-preset cancel verification. Exact replacement CI required.
+- PiSD 84e21ff3ec1afdeaa73552b99cdb2e113419456f: UX55 medium-width preview and stacked AI layout, UX56 retain last confirmed recording status, UX57 all-value reset now draft-only until Apply. Native browser cases added; PiSD job in Linux 45868548716 passed.
+- piTrainer df077eb2fd5af9240f9ff2f795bf03529a56da49: UX65 contextual status-bar help and native review/shortcut tests. Windows [45868548782](https://github.com/henrywork059/PiDrive/actions/runs/45868548782) and Linux trainer job 45868548716 passed. UX61/UX63/UX65 remain pending full replacement gate before accounting closure.
+- R35/R50/UX75 retain all prior safety/accessibility/visual gates. No owner golden approval, screen-reader/physical touch or hardware acceptance claimed. No candidate version increment until complete verified milestone.
+
+## Prior continuation record (superseded accounting)
+
 ## Current continuation baseline
 
 Owner-supplied implementation accounting at `74ad1995200b8e2509e292d9f02e17bb9db6a905`: **39/56 implemented (69.6%), 17 remaining, 4/9 batches completed.** This is the continuation baseline, not a new CI acceptance claim. Active candidates: PiSD 0.11.45, PiServer 0.4.53, piTrainer 0.11.32. All remaining requirements/batches are authorized; no stable promotion, merge, force push, hardware deployment or inactive-component development authorized.

@@ -21,3 +21,7 @@ Exact parent 2a36fe323f246d7264f70dc47ff1cf058c182133; Linux 45867333772 and Win
 - Changed: template, styles, app.js, layout_presets.js, layout and accessibility contracts, shared browser fixture. New actual browser checks for compact defaults, complete telemetry, action roles and preview diagram. Existing assertions preserved.
 
 Verification: full changed JS/CJS parsed and pure extracted geometry checked in isolated JS before commit. New integrated browser, native and forward-package verification pending. No config/schema, authorization, STOP, command lease, drive logic, inactive component, merge, stable promotion or deployment changes. Candidate marker remains unchanged until integrated acceptance.
+
+
+### Revision C — integrated regression correction
+Linux 45868548716 exposed an exact HTML attribute-order assertion after action-role metadata was added. Keep Snapshot/Record accessible names and descriptions, reposition metadata, explicitly assert Upload role as well as original name/text. Expand all telemetry before pre-existing full-card geometry check and assert every card visible; restore compact mode. Extend R36 viewport tests to preview/cancel three presets with unchanged storage and geometry. PiSD, piTrainer, manifest jobs passed and Windows 45868548782 passed expanded trainer coverage. Replacement combined CI and actual artifact review pending. No version allocation, stable promotion, or safety/config changes.

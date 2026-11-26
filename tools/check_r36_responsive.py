@@ -70,7 +70,29 @@ def dashboard(page, width, height):
     assert page.evaluate('() => localStorage.getItem(layoutStorageKey(state.page))') == saved
     assert page.evaluate('() => Object.values(state.stepInputs).every(value => !value)')
     expect(page.locator('#estopToggle')).to_be_enabled()
-    return {'layout_roundtrip': True, 'stored_layout_unchanged': True, 'drag_cancelled_at_breakpoint': True, 'square_pad': True}
+    # Exercise each preset via real controls without workspace navigation commands.
+    for workspace in ('manual', 'camera', 'auto'):
+        page.evaluate('(workspace) => renderActivePage(workspace)', workspace)
+        before = page.evaluate('() => JSON.stringify(currentLayout())')
+        stored = page.evaluate('() => localStorage.getItem(layoutStorageKey(state.page))')
+        page.locator('#previewLayoutBtn').press('Enter')
+        expect(page.locator('#cancelLayoutPreviewBtn')).to_be_visible()
+        diagram = page.locator('#layoutPreviewDiagram')
+        if width <= 1080:
+            expect(diagram).to_be_visible()
+            expected = page.evaluate('() => Object.keys(state.layoutPreview.candidate).length')
+            expect(diagram.locator('span')).to_have_count(expected)
+        else:
+            expect(diagram).to_be_hidden()
+        page.locator('#cancelLayoutPreviewBtn').press('Enter')
+        expect(diagram).to_be_hidden()
+        assert page.evaluate('() => JSON.stringify(currentLayout())') == before
+        assert page.evaluate('() => localStorage.getItem(layoutStorageKey(state.page))') == stored
+        expect(page.locator('#estopToggle')).to_be_enabled()
+    page.evaluate("() => renderActivePage('manual')")
+    page.evaluate('(layout) => applyLayoutBoxes(JSON.parse(layout))', original)
+    assert page.evaluate('() => localStorage.getItem(layoutStorageKey(state.page))') == saved
+    return {'layout_roundtrip': True, 'stored_layout_unchanged': True, 'drag_cancelled_at_breakpoint': True, 'square_pad': True, 'preset_preview_cancel': ['manual', 'camera', 'auto']}
 
 
 def pisd(page, page_name, width):

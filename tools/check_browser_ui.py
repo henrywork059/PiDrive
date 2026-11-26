@@ -479,14 +479,19 @@ def main():
                             expect(page.locator(stop)).to_have_attribute("aria-pressed", "false")
                             # R36: even when the dock is short/narrow, metric rows must
                             # contain their labels and values rather than clipping them.
+                            density = page.locator("#essentialsOnly")
+                            expect(density).to_be_checked()
+                            density.uncheck()
                             metrics = page.locator(".dock-panel[data-panel='status'] .status-metric-grid > .metric-card")
                             assert metrics.count() >= 8, "Status dock lost its metrics"
                             for index in range(metrics.count()):
                                 card = metrics.nth(index)
+                                expect(card).to_be_visible()
                                 size = card.evaluate("(el) => ({content: el.scrollHeight, box: el.clientHeight})")
                                 assert size["content"] <= size["box"] + 2, (
                                     "Status value clipped", index, size, width
                                 )
+                            density.check()
                             expect(page.locator("#modelSelect option")).to_contain_text("No .tflite models")
                             # PiServer deliberately creates a snapshots directory even
                             # before the first capture. Empty data means zero images,
