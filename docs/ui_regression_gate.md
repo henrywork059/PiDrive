@@ -164,3 +164,8 @@ Parent e2b85e1 verified Linux 45738242959 (4/4), Windows 45738242995 (1/1). Name
 
 ## PiSD 0.11.40 — R35 Testing Server and Panel Testing Lab
 Parent 7c70927 Linux 45738799996 (4/4), Windows 45738799973 (1/1) verified. Native draft-only endpoint buttons, named custom fields and focusable read-only test outputs; panel lab named actions and pressed state synchronized with actual size across direct/preset/cycle paths. Extend four-width browser matrix with Testing, Panel Testing and intentionally cleared Motor Tuning navigation. No hardware actions invoked by new tests. Exact CI pending; R35 remains partial.
+
+
+## PiSD 0.11.41 — R35 Presentation Settings
+
+Parent a56eb8a exact Linux 45739154326 and Windows 45739154247 passed 5/5. Presentation mock Run/STOP buttons inert, visible numeric slider readouts, named focusable preset console with local Space semantics and concise live feedback; rejected saves do not announce successful persistence. New four-width real Chromium preview-only and rejected Save journey and two Node checks; exact new CI pending. No actual mutation reaches fixture backend; no hardware or owner acceptance, and R35 remains partial.

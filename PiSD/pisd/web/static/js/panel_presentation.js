@@ -8,8 +8,17 @@
   const savedState = $('ppSavedState');
   const outputCode = $('ppOutputCode');
   const importInput = $('ppImport');
+  const feedback = $('ppFeedback');
+
+  function updateRangeReadouts() {
+    for (const field of form.querySelectorAll('input[type="range"]')) {
+      const readout = form.querySelector(`[data-range-value-for="${field.id}"]`);
+      if (readout) readout.textContent = field.value;
+    }
+  }
 
   function log(settings, message = 'Panel presentation settings ready.', code = 'PISD-OK-000') {
+    if (feedback && feedback.textContent !== message) feedback.textContent = message;
     if (output) output.textContent = `${message}\n\n${JSON.stringify(settings, null, 2)}`;
     if (outputCode) { outputCode.textContent = code; outputCode.dataset.state = String(code).startsWith('PISD-OK') ? 'ok' : 'error'; }
   }
@@ -32,6 +41,7 @@
       if (field.type === 'checkbox') field.checked = String(value) === 'true';
       else field.value = value;
     }
+    updateRangeReadouts();
     return normalized;
   }
 
@@ -40,15 +50,18 @@
   async function saveBackend(settings, message) {
     const normalized = api.save(settings);
     api.apply(normalized);
+    if (savedState) savedState.textContent = 'saving';
     try {
       const response = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ panel_presentation: normalized }) });
       const payload = await response.json();
       if (payload.settings?.panel_presentation) api.save(payload.settings.panel_presentation);
-      log(payload.settings?.panel_presentation || normalized, message, payload.code);
-      if (savedState) savedState.textContent = payload.ok ? 'saved backend' : 'save failed';
+      const confirmed = response.ok && payload.ok === true;
+      const code = confirmed ? (payload.code || 'PISD-OK-000') : (payload.code && !String(payload.code).startsWith('PISD-OK') ? payload.code : 'PISD-API-002');
+      log(payload.settings?.panel_presentation || normalized, confirmed ? message : 'Backend save failed; settings are not confirmed saved.', code);
+      if (savedState) savedState.textContent = confirmed ? 'saved backend' : 'save failed';
       return payload.settings?.panel_presentation || normalized;
     } catch (err) {
-      log(normalized, `${message} Backend save unavailable, kept browser fallback. ${err}`, 'PISD-API-002');
+      log(normalized, `Backend save unavailable; kept browser fallback. ${err}`, 'PISD-API-002');
       if (savedState) savedState.textContent = 'browser fallback';
       return normalized;
     }
@@ -65,7 +78,7 @@
     let settings = api.read();
     try { const response = await fetch('/api/settings', { cache: 'no-store' }); const payload = await response.json(); if (payload.settings?.panel_presentation) settings = payload.settings.panel_presentation; } catch (_err) {}
     settings = fill(settings); api.apply(settings); log(settings);
-    form.addEventListener('input', () => applyOrAutosave());
+    form.addEventListener('input', () => { updateRangeReadouts(); applyOrAutosave(); });
     $('ppApply')?.addEventListener('click', event => { event.preventDefault(); applyFromForm(); });
     $('ppSave')?.addEventListener('click', event => { event.preventDefault(); saveFromForm(); });
     $('ppReset')?.addEventListener('click', event => { event.preventDefault(); reset(); });

@@ -28,6 +28,7 @@ PAGES = {
         ("testing", "/testing", "#stopAllBtn", "#customSendBtn", None, None),
         ("panel_lab", "/panel-testing", "#ptStopAll", "#ptRunAllChecks", None, None),
         ("motor_tuning", "/motor-tuning", None, ".mtun-back", None, None),
+        ("presentation", "/panel-presentation", None, "#ppApply", None, None),
     ],
     "PiServer": [
         ("dashboard", "/", "#estopToggle", "#saveRuntimeBtn", ".viewer-frame", "#openStyleSettingsBtn"),
@@ -896,6 +897,51 @@ def main():
                             page.keyboard.press("Space")
                             assert mutations == before, "Structure/contract inspection invoked a mutation"
                             expect(page.locator("#ptStopAll")).to_be_enabled()
+                        if name == "presentation":
+                            expect(page.locator("#ppFeedback")).to_have_text("Panel presentation settings ready.")
+                            expect(page.locator("#ppPreviewGrid .pp-button-row")).to_have_attribute("inert", "")
+                            expect(page.get_by_role("button", name="Run", exact=True)).to_have_count(0)
+                            expect(page.get_by_role("button", name="STOP", exact=True)).to_have_count(0)
+                            auto = page.locator("#ppAutoSave")
+                            expect(auto).to_have_accessible_name("Auto-save changes globally")
+                            if auto.is_checked():
+                                if width == 390:
+                                    auto.tap()
+                                else:
+                                    auto.press("Space")
+                            expect(auto).not_to_be_checked()
+                            slider = page.locator("#ppFontScale")
+                            expect(slider).to_have_accessible_name("Font scale")
+                            slider.press("Home")
+                            slider.press("ArrowRight")
+                            expect(page.locator('[data-range-value-for="ppFontScale"]')).to_have_text("0.85")
+                            expect(page.locator("#ppSavedState")).to_have_text("preview applied")
+                            expect(page.locator("#ppFeedback")).to_have_text("Live preview applied only.")
+                            auto.focus()
+                            page.keyboard.press("Tab")
+                            expect(page.locator("#ppExport")).to_be_focused()
+                            page.keyboard.press("Tab")
+                            expect(page.locator("#ppImportButton")).to_be_focused()
+                            page.keyboard.press("Tab")
+                            output = page.locator("#ppOutput")
+                            expect(output).to_be_focused()
+                            expect(output).to_have_accessible_name("Current presentation preset JSON")
+                            page.keyboard.press("Space")
+                            assert not mutations, "Preview/read-only controls invoked a mutation"
+                            apply = page.locator("#ppApply")
+                            if width == 390:
+                                apply.tap()
+                            else:
+                                apply.press("Space")
+                            expect(page.locator("#ppFeedback")).to_have_text("Applied preview settings.")
+                            save = page.locator("#ppSave")
+                            if width == 390:
+                                save.tap()
+                            else:
+                                save.press("Space")
+                            expect(page.locator("#ppSavedState")).to_have_text("save failed")
+                            expect(page.locator("#ppFeedback")).to_contain_text("not confirmed saved")
+                            assert mutations == ["/api/settings"], "Unexpected presentation mutation"
                         if name == "motor_tuning":
                             # Preserve the deliberately cleared tuning layout.
                             expect(page.get_by_role("heading", name="Motor tuning panels removed")).to_be_visible()

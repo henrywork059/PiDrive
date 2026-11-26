@@ -147,4 +147,25 @@ test('panel size state tracks actual selected preset',()=>{
   setSize(panel,'wide');
   assert.deepEqual(buttons.map(b=>b['aria-pressed']),['false','false','false']);
 });
-console.log(n+'/19 PiSD safety/input tests passed');
+const presentation = fs.readFileSync(path.join(__dirname, '../pisd/web/templates/panel_presentation.html'), 'utf8');
+const presentationJS = fs.readFileSync(path.join(__dirname, '../pisd/web/static/js/panel_presentation.js'), 'utf8');
+test('presentation mock controls are inert and console is named and locally focusable',()=>{
+  assert.match(presentation, /class="pp-button-row" inert><button[^>]*>Run<\/button><button[^>]*>STOP<\/button>/);
+  assert.match(presentation, /id="ppOutput"[^>]*tabindex="0"[^>]*aria-label="[^"]+"[^>]*data-space-stop-ignore="true"/);
+  assert.match(presentation, /id="ppFeedback" role="status"/);
+  assert.equal(simulate('PRE',{ignore:true}).posted,0);
+});
+test('presentation every range has a visible value and actual readout updates',()=>{
+  const ids = [...presentation.matchAll(/id="(pp[^"]+)" type="range"/g)].map(m=>m[1]);
+  assert.equal(ids.length,19);
+  for (const id of ids) assert.ok(presentation.includes('data-range-value-for="'+id+'"'));
+  const start=presentationJS.indexOf('  function updateRangeReadouts()'), end=presentationJS.indexOf('  function log(',start);
+  assert.ok(start>=0 && end>start);
+  const field={id:'ppFontScale',value:'1.2'}, readout={};
+  const form={querySelectorAll(){return [field];},querySelector(selector){assert.ok(selector.includes(field.id));return readout;}};
+  const update=new Function('form',presentationJS.slice(start,end)+'\nreturn updateRangeReadouts;')(form);
+  update();
+  assert.equal(readout.textContent,'1.2');
+  field.value='0.9';update();assert.equal(readout.textContent,'0.9');
+});
+console.log(n+'/21 PiSD safety/input tests passed');
