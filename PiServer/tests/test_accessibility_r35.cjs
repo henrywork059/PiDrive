@@ -72,4 +72,19 @@ test('active workspace has a non-color cue and decorative flash respects reduced
   assert.match(css,/@media \(forced-colors: active\)[\s\S]*#pageTabs \.tab-btn\[aria-pressed="true"\] \{ border-color: Highlight !important; \}/);
   assert.match(css,/\.snapshot-flash\.active \{ animation: none !important; opacity: 0 !important; \}/);
 });
-console.log(count+'/18 PiServer R35 accessibility tests passed');
+test('model actions retain their visible verbs and expose distinct accessible names',()=>{
+  for (const [id,name] of Object.entries({uploadModelBtn:'Upload model',refreshModelsBtn:'Refresh models',loadModelBtn:'Load selected model',deleteModelBtn:'Delete selected model'})) {
+    const tag=html.match(new RegExp('<button id="'+id+'"[^>]*>[^<]+</button>'))?.[0];
+    assert.ok(tag && tag.includes('aria-label="'+name+'"'));
+    assert.ok(name.startsWith(tag.split('>')[1].split('<')[0]));
+  }
+  for (const id of ['modelFile','modelManifestFile','modelSelect']) assert.ok(html.includes('for="'+id+'"'));
+});
+test('camera safe setup retains labels and apply/retry expose existing confirmation detail',()=>{
+  for (const id of ['cameraResolutionPreset','cameraWidth','cameraHeight','cameraFps','cameraStreamQuality','cameraPreviewFps','cameraPreviewQuality','cameraFormat','cameraExposureUs','cameraAnalogueGain','cameraExposureComp','cameraBrightness','cameraContrast','cameraSaturation','cameraSharpness']) assert.ok(html.includes('for="'+id+'"'),id);
+  for (const id of ['cameraAutoExposure','cameraAwb']) assert.match(html,new RegExp('<label[^>]*><input id="'+id+'" type="checkbox"[^>]*>[^<]+</label>'));
+  for (const id of ['cameraApplyBtn','cameraRetryApply']) assert.match(html,new RegExp('<button id="'+id+'"[^>]*aria-describedby="cameraApplyDetail"'));
+  assert.match(html,/<select id="cameraResolutionPreset" aria-label="Preset resolution">/);
+  assert.match(html,/id="cameraApplyState"[^>]*role="status"[^>]*aria-live="polite"/);
+});
+console.log(count+'/20 PiServer R35 accessibility tests passed');

@@ -111,6 +111,7 @@ def main():
                     acknowledge_stop = [False]
                     model_reply = [None]
                     model_workspace = [False]
+                    camera_workspace = [False]
                     synthetic_recording = [None]
                     reject_folder_read = [False]
                     folder_workspace = [False]
@@ -227,9 +228,9 @@ def main():
                             status, payload = model_reply[0]
                             route.fulfill(status=status, json=payload)
                             return
-                        if model_workspace[0] and parsed.path == "/api/status":
+                        if (model_workspace[0] or camera_workspace[0]) and parsed.path == "/api/status":
                             snapshot = client.get("/api/status", base_url=ORIGIN).get_json()
-                            route.fulfill(status=200, json=dict(snapshot, current_page="auto"))
+                            route.fulfill(status=200, json=dict(snapshot, current_page="camera" if camera_workspace[0] else "auto"))
                             return
                         result = client.get(parsed.path + ("?" + parsed.query if parsed.query else ""),
                                             base_url=ORIGIN)
@@ -474,27 +475,138 @@ def main():
                             refresh = page.locator("#refreshModelsBtn")
                             select = page.locator("#modelSelect")
                             message = page.locator("#modelMessage")
+                            load_model = page.locator("#loadModelBtn")
+                            delete_model = page.locator("#deleteModelBtn")
+                            def activate_safe(control):
+                                expect(control).to_be_visible()
+                                expect(control).to_be_enabled()
+                                if width == 390:
+                                    control.tap()
+                                else:
+                                    control.focus()
+                                    control.press("Enter")
+                            expect(page.locator("#modelFile")).to_have_accessible_name("Upload model")
+                            expect(page.locator("#modelManifestFile")).to_have_accessible_name("Optional matching .manifest.json")
+                            expect(page.locator("#uploadModelBtn")).to_have_accessible_name("Upload model")
+                            expect(refresh).to_have_accessible_name("Refresh models")
+                            expect(select).to_have_accessible_name("Models")
+                            expect(load_model).to_have_accessible_name("Load selected model")
+                            expect(delete_model).to_have_accessible_name("Delete selected model")
                             model_reply[0] = (200, {"models": ["a.tflite", "b.tflite"], "active": "a.tflite"})
-                            refresh.click()
+                            activate_safe(refresh)
                             expect(message).to_have_text("Model list refreshed.")
-                            select.select_option("b.tflite")
+                            model_before = list(mutations)
+                            refresh.focus()
+                            page.keyboard.press("Tab")
+                            expect(select).to_be_focused()
+                            expect(select).to_have_css("outline-style", "solid")
+                            select.press("End")
+                            expect(select).to_have_value("b.tflite")
+                            page.keyboard.press("Tab")
+                            expect(load_model).to_be_focused()
+                            page.keyboard.press("Tab")
+                            expect(delete_model).to_be_focused()
+                            delete_model.press("Enter")
+                            confirm_model = page.get_by_role("group", name="Confirm destructive action")
+                            expect(confirm_model).to_contain_text("b.tflite")
+                            cancel_model = confirm_model.get_by_role("button", name="Cancel")
+                            expect(cancel_model).to_be_focused()
+                            cancel_model.press("Escape")
+                            expect(confirm_model).to_have_count(0)
+                            expect(delete_model).to_be_focused()
+                            if width == 390:
+                                delete_model.tap()
+                                expect(confirm_model).to_contain_text("b.tflite")
+                                cancel_model.tap()
+                                expect(confirm_model).to_have_count(0)
+                                expect(delete_model).to_be_focused()
+                            expect(select).to_have_value("b.tflite")
+                            assert mutations == model_before, "Model selection/cancel invoked mutation"
                             model_reply[0] = (503, {"ok": False, "message": "Synthetic model list failure"})
-                            refresh.click()
+                            activate_safe(refresh)
                             expect(message).to_contain_text("Cannot refresh models")
                             expect(select).to_have_value("b.tflite")
                             expect(refresh).to_be_enabled()
                             model_reply[0] = (200, {"models": ["a.tflite", "b.tflite"], "active": "a.tflite"})
-                            refresh.click()
+                            activate_safe(refresh)
                             expect(message).to_have_text("Model list refreshed.")
                             expect(select).to_have_value("b.tflite")
                             assert message.get_attribute("role") == "status"
                             model_reply[0] = (200, {"models": ["a.tflite"], "active": "a.tflite"})
-                            refresh.click()
+                            activate_safe(refresh)
                             expect(select).to_have_value("a.tflite")
                             model_reply[0] = None
-                            refresh.click()
+                            activate_safe(refresh)
                             expect(select.locator("option")).to_contain_text("No .tflite models")
+                            assert mutations == model_before, "Model refresh invoked mutation"
                             model_workspace[0] = False
+                            camera_workspace[0] = True
+                            # Existing navigation sends an intercepted control update; only
+                            # the subsequent draft-only camera interactions must be read-only.
+                            with page.expect_response(lambda response: response.request.method == "GET"
+                                    and urlsplit(response.url).path == "/api/camera/config"):
+                                activate_safe(page.locator('.tab-btn[data-page="camera"]'))
+                            expect(page.locator("body")).to_have_attribute("data-page", "camera")
+                            expect(page.locator("#cameraMessage")).to_contain_text("Stream")
+                            # Await the readback explicitly before editing the draft.
+                            page.evaluate("() => loadCameraConfig()")
+                            preset = page.locator("#cameraResolutionPreset")
+                            camera_width = page.locator("#cameraWidth")
+                            camera_height = page.locator("#cameraHeight")
+                            quality = page.locator("#cameraStreamQuality")
+                            awb = page.locator("#cameraAwb")
+                            apply_camera = page.locator("#cameraApplyBtn")
+                            retry_camera = page.locator("#cameraRetryApply")
+                            camera_phase = page.locator("#cameraApplyState")
+                            camera_detail = page.locator("#cameraApplyDetail")
+                            for control, label in ((preset, "Preset resolution"), (camera_width, "Width"),
+                                    (camera_height, "Height"), (quality, "Stream quality"),
+                                    (page.locator("#cameraAutoExposure"), "Auto exposure"),
+                                    (awb, "Auto white balance"), (apply_camera, "Apply + restart camera")):
+                                expect(control).to_have_accessible_name(label)
+                            camera_before = list(mutations)
+                            preset.focus()
+                            preset.press("End")
+                            expect(preset).to_have_value("1280x720")
+                            expect(camera_width).to_have_value("1280")
+                            expect(camera_height).to_have_value("720")
+                            page.keyboard.press("Tab")
+                            expect(camera_width).to_be_focused()
+                            expect(camera_width).to_have_css("outline-style", "solid")
+                            camera_width.press("ArrowUp")
+                            expect(camera_width).to_have_value("1281")
+                            page.keyboard.press("Tab")
+                            expect(camera_height).to_be_focused()
+                            expect(preset).to_have_value("custom")
+                            quality.focus()
+                            quality.press("Home")
+                            expect(quality).to_have_value("low_latency")
+                            expect(page.locator("#cameraPreviewFps")).to_have_value("10")
+                            expect(page.locator("#cameraPreviewQuality")).to_have_value("40")
+                            awb_before = awb.is_checked()
+                            awb.focus()
+                            awb.press("Space")
+                            assert awb.is_checked() != awb_before
+                            if width == 390:
+                                awb.tap()
+                                assert awb.is_checked() == awb_before
+                            expect(camera_phase).to_have_text("Unsaved")
+                            expect(camera_detail).to_contain_text("not yet confirmed")
+                            expect(apply_camera).to_have_accessible_description("Changes are not yet confirmed.")
+                            assert mutations == camera_before, "Camera draft invoked mutation"
+                            # Explicit Apply and Retry are synthetic rejected requests, never
+                            # forwarded to the camera service or hardware.
+                            for control in (apply_camera, retry_camera):
+                                with page.expect_response(lambda response: response.request.method == "POST"
+                                        and urlsplit(response.url).path == "/api/camera/apply"):
+                                    activate_safe(control)
+                                expect(camera_phase).to_have_text("Failed")
+                                expect(camera_detail).to_contain_text("Synthetic rejected mutation")
+                                expect(retry_camera).to_have_accessible_name("Retry apply camera settings")
+                                expect(retry_camera).to_have_accessible_description("Synthetic rejected mutation")
+                                expect(page.locator(stop)).to_be_enabled()
+                            assert mutations[len(camera_before):] == ["/api/camera/apply", "/api/camera/apply"], mutations
+                            camera_workspace[0] = False
                             page.locator('.tab-btn[data-page="manual"]').click()
                             # Confirmed recording commands must not be reversed by
                             # a later failed read of the saved-folder list.

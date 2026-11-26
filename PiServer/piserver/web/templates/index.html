@@ -201,8 +201,8 @@
               <input id="modelManifestFile" type="file" accept=".json" />
             </div>
             <div class="stack-row panel-actions">
-              <button id="uploadModelBtn">Upload</button>
-              <button id="refreshModelsBtn" class="ghost-btn">Refresh</button>
+              <button id="uploadModelBtn" aria-label="Upload model">Upload</button>
+              <button id="refreshModelsBtn" class="ghost-btn" aria-label="Refresh models">Refresh</button>
             </div>
           </section>
           <section class="panel-section panel-section-footer">
@@ -211,8 +211,8 @@
               <select id="modelSelect"></select>
             </div>
             <div class="stack-row panel-actions">
-              <button id="loadModelBtn">Load</button>
-              <button id="deleteModelBtn" class="danger-btn" type="button">Delete</button>
+              <button id="loadModelBtn" aria-label="Load selected model">Load</button>
+              <button id="deleteModelBtn" class="danger-btn" type="button" aria-label="Delete selected model">Delete</button>
             </div>
             <div id="modelMessage" class="banner muted" role="status" aria-live="polite">No model loaded. Upload a .tflite model or choose one below.</div>
           </section>
@@ -334,7 +334,7 @@
             <div class="field-grid two-col compact-grid">
               <div class="field">
                 <label for="cameraResolutionPreset">Preset</label>
-                <select id="cameraResolutionPreset">
+                <select id="cameraResolutionPreset" aria-label="Preset resolution">
                   <option value="custom">Custom</option>
                   <option value="320x180">320 × 180</option>
                   <option value="426x240">426 × 240</option>
@@ -424,9 +424,9 @@
           </section>
           <section class="panel-section panel-section-footer">
             <div class="stack-row panel-actions">
-              <button id="cameraApplyBtn">Apply + restart</button>
+              <button id="cameraApplyBtn" aria-label="Apply + restart camera" aria-describedby="cameraApplyDetail">Apply + restart</button>
               <span id="cameraApplyState" class="settings-apply-state" data-state="unsaved" role="status" aria-live="polite">Unsaved</span>
-              <button id="cameraRetryApply" type="button" class="ghost-btn" hidden>Retry apply</button>
+              <button id="cameraRetryApply" type="button" class="ghost-btn" aria-label="Retry apply camera settings" aria-describedby="cameraApplyDetail" hidden>Retry apply</button>
             </div>
             <div id="cameraMessage" class="banner muted">Load saved camera settings.</div>
             <div id="cameraApplyDetail" class="small-note">Settings have not been confirmed by the backend.</div>
