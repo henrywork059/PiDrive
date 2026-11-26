@@ -455,7 +455,20 @@ function workspaceMetrics() {
 }
 
 function setupDocking() {
-  if (window.matchMedia("(max-width: 1080px)").matches) return;
+  const stacked = window.matchMedia("(max-width: 1080px)");
+  // Register once regardless of the initial viewport. A breakpoint change or
+  // cancelled pointer must restore the pre-gesture box, never save a partial drag.
+  function cancelDocking() {
+    for (const [key, className] of [["dragging", "dragging"], ["resizing", "resizing"]]) {
+      const gesture = state[key];
+      if (!gesture) continue;
+      setPanelBox(gesture.panel, gesture.box);
+      gesture.panel.classList.remove(className);
+      state[key] = null;
+    }
+  }
+  stacked.addEventListener("change", () => { if (stacked.matches) cancelDocking(); });
+  window.addEventListener("pointercancel", cancelDocking);
 
   panelEls().forEach((panel) => {
     const head = panel.querySelector(".panel-head");
@@ -463,7 +476,7 @@ function setupDocking() {
     if (!head || !handle) return;
 
     head.addEventListener("pointerdown", (event) => {
-      if (state.layoutPreview || event.target.closest("button, select, input, label")) return;
+      if (stacked.matches || state.layoutPreview || event.target.closest("button, select, input, label")) return;
       const { rect, cellW, cellH } = workspaceMetrics();
       const box = readPanelBox(panel);
       panel.classList.add("dragging");
@@ -477,7 +490,7 @@ function setupDocking() {
     });
 
     handle.addEventListener("pointerdown", (event) => {
-      if (state.layoutPreview) return;
+      if (stacked.matches || state.layoutPreview) return;
       event.stopPropagation();
       const { cellW, cellH } = workspaceMetrics();
       const box = readPanelBox(panel);
@@ -495,6 +508,7 @@ function setupDocking() {
   });
 
   window.addEventListener("pointermove", (event) => {
+    if (stacked.matches) { cancelDocking(); return; }
     if (state.dragging) {
       const { rect, cellW, cellH } = workspaceMetrics();
       const col = Math.round((event.clientX - rect.left - state.dragging.offsetX) / cellW) + 1;
@@ -522,6 +536,7 @@ function setupDocking() {
   });
 
   window.addEventListener("pointerup", () => {
+    if (stacked.matches) { cancelDocking(); return; }
     if (state.dragging) {
       state.dragging.panel.classList.remove("dragging");
       state.dragging = null;
@@ -1781,6 +1796,8 @@ function updateManualPadSizing() {
   if (!area || !layout) return;
   area.style.width = "";
   area.style.height = "";
+  // Stacked panels use intrinsic CSS square sizing; retain desktop fit-to-dock.
+  if (window.matchMedia("(max-width: 1080px)").matches) return;
   const layoutRect = layout.getBoundingClientRect();
   const shellRect = shell ? shell.getBoundingClientRect() : layoutRect;
   const sideRect = side ? side.getBoundingClientRect() : { height: 0 };

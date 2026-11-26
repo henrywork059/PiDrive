@@ -295,3 +295,29 @@ test('normalized tuning range readouts and contextual settings feedback',()=>{
   assert.equal(elements.leftMaxSpeed.attributes['aria-valuetext'],'0.50');
 });
 console.log(count+'/34 PiServer R35 accessibility tests passed');
+test('R36 docking follows live viewport and cancels interrupted gestures without saving',()=>{
+  const events={},headerEvents={},handleEvents={},mediaEvents={},saved=[],classes=new Set();
+  const media={matches:true,addEventListener(k,f){mediaEvents[k]=f;}};
+  const win={matchMedia(){return media;},addEventListener(k,f){events[k]=f;}};
+  const header={addEventListener(k,f){headerEvents[k]=f;},setPointerCapture(){}};
+  const handle={addEventListener(k,f){handleEvents[k]=f;},setPointerCapture(){}};
+  let box={c:1,r:1,w:8,h:5};
+  const panel={querySelector(s){return s==='.panel-head'?header:handle;},classList:{add(c){classes.add(c);},remove(c){classes.delete(c);}}};
+  const state={page:'manual',dragging:null,resizing:null};
+  const source=app.slice(app.indexOf('function setupDocking()'),app.indexOf('function renderActivePage('));
+  const setup=new Function('window','state','panelEls','workspaceMetrics','readPanelBox','setPanelBox','saveLayout','currentLayout','clamp','gridCols','gridRows',source+'\nreturn setupDocking;')(
+    win,state,()=>[panel],()=>({rect:{left:0,top:0},cellW:10,cellH:10}),()=>({...box}),(_p,b)=>{box={...b};},(p,b)=>saved.push([p,b]),()=>({...box}),(v,a,b)=>Math.max(a,Math.min(b,v)),45,25);
+  setup();
+  const start={clientX:0,clientY:0,pointerId:1,target:{closest(){return null;}},stopPropagation(){}};
+  headerEvents.pointerdown(start);assert.equal(state.dragging,null);
+  media.matches=false;mediaEvents.change();headerEvents.pointerdown(start);
+  events.pointermove({clientX:30,clientY:10});assert.equal(box.c,4);
+  media.matches=true;mediaEvents.change();assert.equal(box.c,1);assert.equal(state.dragging,null);assert.equal(saved.length,0);
+  events.pointerup();assert.equal(saved.length,0);
+  media.matches=false;mediaEvents.change();handleEvents.pointerdown(start);
+  events.pointermove({clientX:20,clientY:10});assert.equal(box.w,10);
+  events.pointercancel();assert.equal(box.w,8);assert.equal(state.resizing,null);assert.equal(saved.length,0);
+  headerEvents.pointerdown(start);events.pointermove({clientX:20,clientY:0});events.pointerup();
+  assert.equal(saved.length,1);assert.equal(box.c,3);assert.equal(classes.size,0);
+});
+console.log('1/1 PiServer R36 responsive docking contracts passed');

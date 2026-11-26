@@ -1,0 +1,12 @@
+# PiSD 0.11.45 — Consolidated R36 responsive workspace
+
+## Baseline
+Exact parent a9fbf1b97f5b28700eaff2b9a8156bf32d219f9e, Linux 45788280563 4/4 and Windows 45788280560 1/1. PiSD Node 28/28 and standard 63/63, PiServer Node 34/34, original Chromium 36/36 and R35 setup 12/12, existing Qt 15/15 and new shared Qt 3/3 on both OS, manifests 7/7 and packages 11/11, forward dry runs 7/5/7. Actual artifacts 15102141522 (PiSD) and 15101621771 (PiServer) checksum and exact matrices verified; zero errors; PiSD setup cases have no writes, PiServer setup only startup preview-state write. Selected actual screenshots inspected. Latest four component notes and launcher reviewed.
+
+## Cause and changes
+- pisd/web/static/css/pisd_layout_system.css: authoritative layout sheet is loaded after the design system; it already restores the Manual Drive files area at smaller widths, so no panel placement or hidden log changes. Shared rails used viewport width including reserved scrollbar gutter (baseline narrow front card x=-1). Use containing width instead while preserving existing gutter and max-width tokens. At <=900px wrap existing action rows, bound form inputs, enlarge existing STOP targets to 44px, and fit Manual/AI settings cards to dynamic viewport with scrolling. At <=759px bound preview width using saved aspect and existing 52svh height budget rather than clipping the height; actual image and existing fit remain. Narrow Presentation form becomes single column. No earlier design-system edits retained.
+- pisd/__init__.py: version marker only.
+- New shared R36 native matrix tests Front, Manual Drive, AI, Settings, Presentation and PiServer dashboard at four baseline widths and short landscape. Verify existing named files area and visible panel order, square pad, preview geometry, reachable STOP and dialog Save/Apply, no hardware mutations; screenshots and matrix. Prior 48 cases retained unchanged.
+
+## Verification and limits
+New fixture compiled locally; actual native candidate gate and visual comparison pending. R35 grouped automated scope verified on parent, complete assistive-technology/owner/physical touch/custom-theme acceptance remains open. No JavaScript, motor/STOP, authorization, command lease, stored settings or schema changes; no restoration of intentionally removed Motor Tuning controls. piTrainer unchanged; verified native splitter behavior retained. No merge, stable promotion, deployment or Batch 6 advance.

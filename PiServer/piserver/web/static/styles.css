@@ -3657,3 +3657,39 @@ button.active,
   /* Snapshot flash is decorative; saved-frame feedback and controls remain. */
   .snapshot-flash.active { animation: none !important; opacity: 0 !important; }
 }
+
+/* R36: stacked workspace must grow with its contents. Desktop docking and
+   stored grid variables remain authoritative above the existing breakpoint. */
+@media (max-width: 1080px) {
+  html.theme-ops-flat .workspace-shell, .workspace-shell {
+    height: auto !important;
+    overflow: visible;
+  }
+  #workspace { height: auto; min-width: 0; }
+  #workspace > .dock-panel:not(.panel-hidden) {
+    flex: 0 0 auto;
+    min-height: 0;
+    height: auto;
+  }
+  #workspace > .dock-panel > .panel-body {
+    flex: 0 0 auto;
+    min-width: 0;
+    overflow: visible;
+  }
+  #workspace .dock-panel[data-panel="status"] .status-body {
+    overflow: visible;
+    scrollbar-gutter: auto;
+  }
+  #workspace .viewer-frame { height: auto; aspect-ratio: 16 / 9; }
+  #workspace #videoFeed { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #workspace .manual-shell { flex: 0 0 auto; overflow: visible; }
+  #workspace .manual-layout-single, #workspace .manual-side-single { flex: 0 0 auto; }
+  #workspace #joystickArea {
+    width: min(100%, 360px) !important;
+    height: auto !important;
+    min-height: 0;
+    aspect-ratio: 1 / 1;
+  }
+  #workspace #estopToggle { height: auto; min-height: 82px; overflow-wrap: anywhere; }
+  .topbar { flex-wrap: wrap; }
+}
