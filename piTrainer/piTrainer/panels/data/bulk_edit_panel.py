@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 )
 
 from ...services.data.overlay_service import clip_speed, clip_steering
+from ...services.data.review_context import display
 from ...ui.sliders import CenteredFillSlider
 
 
@@ -33,6 +34,7 @@ class BulkEditPanel(QGroupBox):
         self.select_all_callback = select_all_callback
         self._syncing_controls = False
         self._selected_count = 0
+        self._preview_records: list[dict] = []
 
         help_label = QLabel(
             'Select rows, then overwrite steering or speed.'
@@ -122,14 +124,47 @@ class BulkEditPanel(QGroupBox):
         layout.addWidget(self.apply_steering_btn)
         layout.addLayout(speed_row)
         layout.addWidget(self.apply_speed_btn)
+        self.change_preview = QLabel('Select visible frames to preview changes.')
+        self.change_preview.setAccessibleName('Bulk edit proposed values')
+        self.change_preview.setTextFormat(Qt.PlainText)
+        self.change_preview.setWordWrap(True)
+        self.change_preview.setProperty('role', 'muted')
+        layout.addWidget(self.change_preview)
         layout.addStretch(1)
         self._update_button_state()
 
+    def set_selected_records(self, records: list[dict]) -> None:
+        # Copy only representative labels; keep the exact count separately.
+        self._preview_records = [dict(record) for record in records[:2]]
+        self._set_selection_count(len(records))
+
     def set_selected_count(self, count: int) -> None:
+        # Count-only callers cannot establish which records are selected.
+        self._preview_records = []
+        self._set_selection_count(count)
+
+    def _set_selection_count(self, count: int) -> None:
         self._selected_count = max(0, int(count))
         noun = 'frame' if self._selected_count == 1 else 'frames'
         self.selected_label.setText(f'Selected visible: {self._selected_count} {noun}')
         self._update_button_state()
+        self._update_change_preview()
+
+    def _update_change_preview(self) -> None:
+        if not self._selected_count:
+            self.change_preview.setText('Select visible frames to preview changes.')
+            return
+        lines = [f'Proposed for {self._selected_count} selected frame(s); one field per action.']
+        for record in self._preview_records:
+            lines.append(
+                f"{record.get('session', '?')} / {record.get('frame_id', '?')}: "
+                f"S {display(record.get('steering'))} → {self.steering_value():.3f}; "
+                f"T {display(record.get('throttle'))} → {self.speed_value():.3f}"
+            )
+        remaining = self._selected_count - len(self._preview_records)
+        if remaining:
+            lines.append(f'{remaining} more selected frame(s).')
+        self.change_preview.setText('\n'.join(lines))
 
     def bulk_edit_confirmed(self) -> bool:
         return bool(self.confirm_bulk_check.isChecked())
@@ -158,6 +193,7 @@ class BulkEditPanel(QGroupBox):
         self._syncing_controls = True
         self.steering_spin.setValue(clip_steering(value / 1000.0))
         self._syncing_controls = False
+        self._update_change_preview()
 
     def _on_steering_spin_changed(self, value: float) -> None:
         if self._syncing_controls:
@@ -165,6 +201,7 @@ class BulkEditPanel(QGroupBox):
         self._syncing_controls = True
         self.steering_slider.setValue(int(round(clip_steering(value) * 1000.0)))
         self._syncing_controls = False
+        self._update_change_preview()
 
     def _on_speed_slider_changed(self, value: int) -> None:
         if self._syncing_controls:
@@ -172,6 +209,7 @@ class BulkEditPanel(QGroupBox):
         self._syncing_controls = True
         self.speed_spin.setValue(clip_speed(value / 1000.0))
         self._syncing_controls = False
+        self._update_change_preview()
 
     def _on_speed_spin_changed(self, value: float) -> None:
         if self._syncing_controls:
@@ -179,6 +217,7 @@ class BulkEditPanel(QGroupBox):
         self._syncing_controls = True
         self.speed_slider.setValue(int(round(clip_speed(value) * 1000.0)))
         self._syncing_controls = False
+        self._update_change_preview()
 
     def _apply_steering(self) -> None:
         self.apply_steering_callback(self.steering_value())

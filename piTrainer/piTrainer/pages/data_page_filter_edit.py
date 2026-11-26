@@ -58,8 +58,9 @@ class DataPageFilterEditMixin:
             self.main_window.set_status_message('Overlay cleared.')
 
     def on_preview_record_selected(self, record) -> None:
-        selected_count = len(self.preview_panel.selected_records())
-        self.bulk_edit_panel.set_selected_count(selected_count)
+        selected_records = self.preview_panel.selected_records()
+        selected_count = len(selected_records)
+        self.bulk_edit_panel.set_selected_records(selected_records)
         if hasattr(self, 'model_deploy_panel'):
             self.model_deploy_panel.set_selected_count(selected_count)
         if not record:
@@ -161,8 +162,9 @@ class DataPageFilterEditMixin:
 
     def select_all_preview_frames_for_bulk_edit(self) -> None:
         selected = self.preview_panel.select_all_records()
-        count = len(self.preview_panel.selected_records())
-        self.bulk_edit_panel.set_selected_count(count)
+        records = self.preview_panel.selected_records()
+        count = len(records)
+        self.bulk_edit_panel.set_selected_records(records)
         self.main_window.set_status_message(
             f'Selected all {count} visible frame(s) for bulk edit.' if selected else 'No visible frame rows to select for bulk edit.'
         )

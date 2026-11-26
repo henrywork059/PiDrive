@@ -32,6 +32,7 @@ from unittest.mock import patch
 from types import SimpleNamespace
 import pandas as pd
 from piTrainer.panels.data.image_preview_panel import ImagePreviewPanel
+from piTrainer.panels.data.bulk_edit_panel import BulkEditPanel
 from piTrainer.panels.data.preview_panel import PreviewPanel
 from piTrainer.pages.data_page_filter_edit import DataPageFilterEditMixin
 
@@ -68,6 +69,30 @@ class NativeReviewTests(unittest.TestCase):
         self.assertIn('-0.250/0.250',image.comparison_label.text())
         table.set_dataframe(frame.iloc[:0])
         self.assertIn('Select a frame',image.comparison_label.text())
+
+    def test_live_bulk_preview_is_read_only_and_tracks_selection(self):
+        actions = []
+        panel = BulkEditPanel(actions.append, actions.append)
+        self.addCleanup(panel.close)
+        rows = [dict(session='A', frame_id='f1', steering=.1, throttle=.2),
+                dict(session='B', frame_id='f1', steering=-.3, throttle=None),
+                dict(session='C', frame_id='f2', steering=.5, throttle=.4)]
+        panel.set_selected_records(rows)
+        panel.steering_spin.setValue(.7)
+        panel.speed_slider.setValue(400)
+        text = panel.change_preview.text()
+        self.assertIn('3 selected', text)
+        self.assertIn('A / f1: S 0.100 → 0.700; T 0.200 → 0.400', text)
+        self.assertIn('B / f1: S -0.300 → 0.700; T Unknown → 0.400', text)
+        self.assertIn('1 more selected', text)
+        self.assertFalse(panel.apply_steering_btn.isEnabled())
+        self.assertEqual(actions, [])
+        self.assertEqual(rows[0]['steering'], .1)
+        panel.set_selected_records(rows[1:2])
+        self.assertNotIn('A / f1', panel.change_preview.text())
+        panel.set_selected_count(0)
+        self.assertIn('Select visible frames', panel.change_preview.text())
+        self.assertEqual(actions, [])
 
     def test_bulk_cancel_names_exact_rows_and_never_writes(self):
         selected=[dict(session='A',frame_id='f1',steering=.1),dict(session='B',frame_id='f1',steering=.2)]

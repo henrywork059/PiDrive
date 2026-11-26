@@ -13,3 +13,9 @@ Exact parent 20be5ad4446d8350726abd8645f09a0a0a3b5fed, Linux 45785643038 4/4 and
 
 ## Verification and limits
 Full changed Python files compiled locally with candidate Git blob hash matching; numeric contrast checked locally. Combined candidate browser/native Qt/package gate pending. No local Chromium or native Qt execution. No config, task, data, training, export, layout persistence, drive/motor, STOP, authorization or command lease changes. R35 partial; broader contrast/custom themes, screen readers, native touch/hardware/owner acceptance remain. No merge, stable promotion, deployment or Batch 6 advancement.
+
+## Revision B — consolidated data-review continuation
+
+- Actual Data selection now feeds a bounded read-only bulk-edit preview (two representative source session/frame identities, exact selected count, current and proposed steering/throttle, unknown labels retained). Slider/spin updates refresh the preview without mutation. Count-only resets clear stale identities. Existing overwrite checkbox, fresh selection lookup, explicit final confirmation, one-field writes and source identity rules remain unchanged.
+- Files: piTrainer/panels/data/bulk_edit_panel.py, piTrainer/pages/data_page_filter_edit.py, tests/test_review_context_ux61.py. Existing comparison and contextual F1 help preserved; no shortcut, saved setting or layout-persistence changes. New native test covers duplicate frame IDs in separate sessions, missing labels, live values, clearing, no writes and unchanged confirmation gate. Native execution pending; no acceptance claimed.
+- Forward from 50813d30b675062808fcf988a29536b40f8f4484; notes 0.11.32/31/30/29 reviewed in this cycle. No version allocation, stable promotion or deployment.
