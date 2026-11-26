@@ -215,4 +215,15 @@ test('Settings ranges keep stable labels and visible readouts',()=>{
   input.value='0.52'; update(root); assert.equal(output.textContent,'0.52');
   assert.match(settingsHtml,/id="stImportSettings"[^>]*aria-label="Import settings JSON file"/);
 });
-console.log(n+'/26 PiSD safety/input tests passed');
+test('Settings Import stays native, focusable and isolated from global Space STOP',()=>{
+  const css=fs.readFileSync(path.join(__dirname,'../pisd/web/static/css/settings_tab.css'),'utf8');
+  assert.match(settingsHtml,/id="stImportSettings"[^>]*type="file"[^>]*aria-label="Import settings JSON file"/);
+  const rule=css.match(/\.st-import input\s*\{([^}]+)\}/);
+  assert.ok(rule);
+  assert.doesNotMatch(rule[1],/display\s*:\s*none|visibility\s*:\s*hidden/);
+  assert.match(rule[1],/opacity:\s*0/);
+  assert.match(css,/\.st-import:focus-within\s*\{\s*outline:\s*3px solid/);
+  assert.equal(simulate('INPUT',{type:'file'}).posted,0);
+  assert.equal(simulate('BODY').posted,1);
+});
+console.log(n+'/27 PiSD safety/input tests passed');

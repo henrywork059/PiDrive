@@ -787,7 +787,35 @@ def main():
                             expect(speed).to_have_value("0.43")
                             response_log = page.locator("#stActionLog")
                             expect(response_log).to_have_accessible_name("Settings last response")
-                            expect(page.locator("#stImportSettings")).to_have_accessible_name("Import settings JSON file")
+                            import_input = page.locator("#stImportSettings")
+                            expect(import_input).to_have_accessible_name("Import settings JSON file")
+                            import_label = page.locator(".st-import")
+                            export_button = page.locator("#stExportSettings")
+                            for colors in ("none", "active"):
+                                page.emulate_media(forced_colors=colors)
+                                export_button.focus()
+                                page.keyboard.press("Tab")
+                                expect(import_input).to_be_focused()
+                                expect(import_label).to_have_css("outline-style", "solid")
+                                page.keyboard.press("Shift+Tab")
+                                expect(export_button).to_be_focused()
+                                page.keyboard.press("Tab")
+                                expect(import_input).to_be_focused()
+                            page.emulate_media(forced_colors="none")
+                            for key in ("Enter", "Space"):
+                                export_button.focus()
+                                page.keyboard.press("Tab")
+                                expect(import_input).to_be_focused()
+                                with page.expect_file_chooser() as chooser:
+                                    import_input.press(key)
+                                assert chooser.value.element.get_attribute("id") == "stImportSettings"
+                                chooser.value.set_files([])
+                            if width == 390:
+                                with page.expect_file_chooser() as chooser:
+                                    import_input.tap()
+                                assert chooser.value.element.get_attribute("id") == "stImportSettings"
+                                chooser.value.set_files([])
+                            assert mutations == before, "Opening or dismissing Import invoked mutation"
                             response_log.focus()
                             page.keyboard.press("Shift+Tab")
                             page.keyboard.press("Tab")
