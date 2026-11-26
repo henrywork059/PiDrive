@@ -28,7 +28,7 @@
         <button id="stRetryApply" class="st-button" type="button" hidden>Retry apply</button>
         <button id="stResetSettings" class="st-button st-danger">Reset defaults</button>
         <button id="stExportSettings" class="st-button">Export</button>
-        <label class="st-import">Import <input id="stImportSettings" type="file" accept="application/json"></label>
+        <label class="st-import">Import <input id="stImportSettings" type="file" accept="application/json" aria-label="Import settings JSON file"></label>
       </div>
       <p id="stApplyDetail" class="st-help" role="status" aria-live="polite">Settings have not been confirmed by the backend.</p>
       <p id="stConfigRecovery" class="st-help" role="alert" {% if not initial_status.config_recovery.warning %}hidden{% endif %}>{{ initial_status.config_recovery.warning }}</p>
@@ -48,34 +48,34 @@
         <label>Header <select name="panelHeaderMode"><option value="compact">compact</option><option value="standard">standard</option><option value="minimal">minimal</option></select></label>
         <label>Preview fit <select name="previewFit"><option value="contain">contain</option><option value="cover">cover</option></select></label>
         <label>Preview aspect <select name="previewAspect"><option value="16 / 9">16:9</option><option value="4 / 3">4:3</option><option value="1 / 1">1:1</option></select></label>
-        <label>Font scale <input name="fontScale" type="range" min="0.85" max="1.2" step="0.01" value="1.0"><output></output></label>
-        <label>Panel gap <input name="panelGap" type="range" min="4" max="24" step="1" value="10"><output></output></label>
-        <label>Radius <input name="panelRadius" type="range" min="4" max="28" step="1" value="14"><output></output></label>
-        <label>Panel padding <input name="panelPadding" type="range" min="0.55" max="1.2" step="0.01" value="0.86"><output></output></label>
-        <label>Button scale <input name="buttonScale" type="range" min="0.75" max="1.25" step="0.01" value="0.92"><output></output></label>
-        <label>Console height <input name="consoleHeight" type="range" min="100" max="420" step="10" value="180"><output></output></label>
-        <label>Min panel width <input name="minPanelWidth" type="range" min="220" max="420" step="10" value="280"><output></output></label>
-        <label>Shadow <input name="shadowStrength" type="range" min="0" max="0.45" step="0.01" value="0.2"><output></output></label>
+        <label>Font scale <input name="fontScale" type="range" min="0.85" max="1.2" step="0.01" value="1.0"><output aria-hidden="true"></output></label>
+        <label>Panel gap <input name="panelGap" type="range" min="4" max="24" step="1" value="10"><output aria-hidden="true"></output></label>
+        <label>Radius <input name="panelRadius" type="range" min="4" max="28" step="1" value="14"><output aria-hidden="true"></output></label>
+        <label>Panel padding <input name="panelPadding" type="range" min="0.55" max="1.2" step="0.01" value="0.86"><output aria-hidden="true"></output></label>
+        <label>Button scale <input name="buttonScale" type="range" min="0.75" max="1.25" step="0.01" value="0.92"><output aria-hidden="true"></output></label>
+        <label>Console height <input name="consoleHeight" type="range" min="100" max="420" step="10" value="180"><output aria-hidden="true"></output></label>
+        <label>Min panel width <input name="minPanelWidth" type="range" min="220" max="420" step="10" value="280"><output aria-hidden="true"></output></label>
+        <label>Shadow <input name="shadowStrength" type="range" min="0" max="0.45" step="0.01" value="0.2"><output aria-hidden="true"></output></label>
         <label>Card accent <select name="cardAccent"><option value="subtle">subtle</option><option value="strong">strong</option></select></label>
         <label>Adaptive sizing <select name="adaptivePanels"><option value="true">on</option><option value="false">off</option></select></label>
-        <label>Status H weight <input name="statusPanelHWeight" type="range" min="1" max="4" step="1" value="1"><output></output></label>
-        <label>Status V weight <input name="statusPanelVWeight" type="range" min="1" max="4" step="1" value="1"><output></output></label>
-        <label>Preview H weight <input name="previewPanelHWeight" type="range" min="1" max="4" step="1" value="2"><output></output></label>
-        <label>Preview V weight <input name="previewPanelVWeight" type="range" min="1" max="4" step="1" value="2"><output></output></label>
-        <label>Control H weight <input name="controlPanelHWeight" type="range" min="1" max="4" step="1" value="1"><output></output></label>
-        <label>Control V weight <input name="controlPanelVWeight" type="range" min="1" max="4" step="1" value="1"><output></output></label>
-        <label>Settings H weight <input name="settingsPanelHWeight" type="range" min="1" max="4" step="1" value="1"><output></output></label>
-        <label>Settings V weight <input name="settingsPanelVWeight" type="range" min="1" max="4" step="1" value="1"><output></output></label>
-        <label>Log H weight <input name="logPanelHWeight" type="range" min="1" max="4" step="1" value="2"><output></output></label>
-        <label>Log V weight <input name="logPanelVWeight" type="range" min="1" max="4" step="1" value="1"><output></output></label>
+        <label>Status H weight <input name="statusPanelHWeight" type="range" min="1" max="4" step="1" value="1"><output aria-hidden="true"></output></label>
+        <label>Status V weight <input name="statusPanelVWeight" type="range" min="1" max="4" step="1" value="1"><output aria-hidden="true"></output></label>
+        <label>Preview H weight <input name="previewPanelHWeight" type="range" min="1" max="4" step="1" value="2"><output aria-hidden="true"></output></label>
+        <label>Preview V weight <input name="previewPanelVWeight" type="range" min="1" max="4" step="1" value="2"><output aria-hidden="true"></output></label>
+        <label>Control H weight <input name="controlPanelHWeight" type="range" min="1" max="4" step="1" value="1"><output aria-hidden="true"></output></label>
+        <label>Control V weight <input name="controlPanelVWeight" type="range" min="1" max="4" step="1" value="1"><output aria-hidden="true"></output></label>
+        <label>Settings H weight <input name="settingsPanelHWeight" type="range" min="1" max="4" step="1" value="1"><output aria-hidden="true"></output></label>
+        <label>Settings V weight <input name="settingsPanelVWeight" type="range" min="1" max="4" step="1" value="1"><output aria-hidden="true"></output></label>
+        <label>Log H weight <input name="logPanelHWeight" type="range" min="1" max="4" step="1" value="2"><output aria-hidden="true"></output></label>
+        <label>Log V weight <input name="logPanelVWeight" type="range" min="1" max="4" step="1" value="1"><output aria-hidden="true"></output></label>
       </form>
     </section>
 
     <section class="st-card" id="settingsManualDrivePanel" data-panel-role="settings">
       <div class="st-card-head"><h2>Manual drive defaults</h2><span class="st-code-pill" data-code-for="manual_drive">PISD-OK-000</span></div>
       <form id="stManualDriveForm" class="st-form-grid">
-        <label>Speed <input name="speed" type="range" min="0.08" max="1.0" step="0.01" value="0.80"><output></output></label>
-        <label>Max speed limit <input name="max_speed_limit" type="range" min="0.10" max="1.0" step="0.01" value="1.0"><output></output></label>
+        <label>Speed <input name="speed" type="range" min="0.08" max="1.0" step="0.01" value="0.80"><output aria-hidden="true"></output></label>
+        <label>Max speed limit <input name="max_speed_limit" type="range" min="0.10" max="1.0" step="0.01" value="1.0"><output aria-hidden="true"></output></label>
         <label>Recording FPS <input name="recording_fps" type="number" min="0.2" max="30" step="0.5" value="6"></label>
         <label>Drag send interval ms <input name="drag_send_interval_ms" type="number" min="40" max="500" step="10" value="90"></label>
         <label>Preview mode <select name="preview_mode"><option value="live">live</option><option value="snapshot">snapshot</option></select></label>
@@ -112,7 +112,7 @@
       </form>
     </section>
 
-    <section class="st-card st-wide" id="settingsActionPanel" data-panel-role="log" data-panel-h-weight="2"><div class="st-card-head"><h2>Last response</h2><span class="st-code-pill" data-code-for="action">PISD-OK-000</span></div><pre id="stActionLog" class="st-console">No settings API call yet.</pre></section>
+    <section class="st-card st-wide" id="settingsActionPanel" data-panel-role="log" data-panel-h-weight="2"><div class="st-card-head"><h2>Last response</h2><span class="st-code-pill" data-code-for="action">PISD-OK-000</span></div><pre id="stActionLog" class="st-console" tabindex="0" aria-label="Settings last response" data-space-stop-ignore="true">No settings API call yet.</pre></section>
   </main>
 
   <script src="{{ static_asset('js/global_space_stop.js') }}"></script>

@@ -194,4 +194,25 @@ test('Panel Lab selected size has a non-color cue and motion preference',()=>{
   assert.match(css,/@media \(forced-colors: active\)/);
   assert.match(css,/\.pt-button:hover, \.pt-link-button:hover \{ transform: none !important; \}/);
 });
-console.log(n+'/24 PiSD safety/input tests passed');
+const settingsHtml = fs.readFileSync(path.join(__dirname, '../pisd/web/templates/settings_tab.html'), 'utf8');
+const settingsJs = fs.readFileSync(path.join(__dirname, '../pisd/web/static/js/settings_tab.js'), 'utf8');
+test('Settings response console is named and locally focusable without intercepting native Space',()=>{
+  assert.match(settingsHtml, /id="stActionLog"[^>]*tabindex="0"[^>]*aria-label="Settings last response"[^>]*data-space-stop-ignore="true"/);
+  assert.equal(simulate('PRE',{ignore:true}).posted,0);
+  assert.equal(simulate('BODY').posted,1);
+  assert.equal(simulate('DIV').posted,1);
+});
+test('Settings ranges keep stable labels and visible readouts',()=>{
+  const fields = [...settingsHtml.matchAll(/<label>([^<]+)<input[^>]*type="range"[^>]*><output aria-hidden="true"><\/output><\/label>/g)];
+  assert.equal(fields.length,20);
+  assert.ok(fields.every(m=>m[1].trim()));
+  const start=settingsJs.indexOf('function updateOutputs('),end=settingsJs.indexOf('\n',start);
+  assert.ok(start>=0 && end>start);
+  const output={}, input={value:'0.43',parentElement:{querySelector(){return output;}}};
+  const update=new Function(settingsJs.slice(start,end)+'\nreturn updateOutputs;')();
+  const root={querySelectorAll(){return [input];}};
+  update(root); assert.equal(output.textContent,'0.43');
+  input.value='0.52'; update(root); assert.equal(output.textContent,'0.52');
+  assert.match(settingsHtml,/id="stImportSettings"[^>]*aria-label="Import settings JSON file"/);
+});
+console.log(n+'/26 PiSD safety/input tests passed');
