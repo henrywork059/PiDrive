@@ -457,6 +457,9 @@ def main():
                                 expect(active_page).to_have_css("text-decoration-line", "underline")
                                 expect(inactive_page).to_have_css("text-decoration-line", "none")
                                 active_page.focus()
+                                page.keyboard.press("Tab")
+                                page.keyboard.press("Shift+Tab")
+                                expect(active_page).to_be_focused()
                                 expect(active_page).to_have_css("outline-style", "solid")
                             page.emulate_media(forced_colors="none")
                             # Exercise decorative flash CSS without requesting a snapshot.
@@ -909,6 +912,9 @@ def main():
                                 expect(size).to_have_css("text-decoration-line", "underline")
                                 expect(panel.locator('[data-panel-size="compact"]')).to_have_css("text-decoration-line", "none")
                                 size.focus()
+                                page.keyboard.press("Tab")
+                                page.keyboard.press("Shift+Tab")
+                                expect(size).to_be_focused()
                                 expect(size).to_have_css("outline-style", "solid")
                             page.emulate_media(forced_colors="none")
                             # Sample bodies have no live buttons or tabbable controls.

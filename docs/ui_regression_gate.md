@@ -187,3 +187,5 @@ piTrainer 0.11.31 R35 non-color checkbox/tab focus candidate on exact verified 2
 
 
 PiSD 0.11.42 / PiServer 0.4.44 scoped R35 candidates on exact green 077232b (Linux 45754755923, Windows 45754755949): Panel Lab seven mock bodies static/inert with real header/STOP actions retained, non-color pressed size and page-navigation cues, forced-colors/focus computed checks, lab hover and PiServer decorative snapshot flash reduced motion. New Node and existing four-width Chromium cases extended. No motor/STOP handlers, backend/config, persistence or trainer change. New exact CI pending, no local browser or physical/owner acceptance. R35 remains partial.
+
+Verification follow-up before acceptance: require native Tab/Shift+Tab traversal before checking focus-visible in normal and forced-colors modes, rather than assuming programmatic focus following touch/click changes browser input modality. Runtime files unchanged. Exact final candidate CI required.

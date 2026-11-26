@@ -10,3 +10,5 @@ Exact parent 077232b verified Linux 45754755923 4/4 and Windows 45754755949 1/1.
 
 ## Verification and limits
 Exact parent green, guarded source changes; new exact CI pending. No local browser or hardware test claimed. No config, backend, authorization, API/STOP, motor algorithm, layout persistence or restored Motor Tuning controls. Mock sample inputs are deliberately no longer interactive because they had no actual settings effect. Complete keyboard/touch journeys, broader contrast and active-control audit and owner/physical acceptance remain open. R35 partial.
+
+Verification follow-up before acceptance: require native Tab/Shift+Tab traversal before checking focus-visible in normal and forced-colors modes, rather than assuming programmatic focus following touch/click changes browser input modality. Runtime files unchanged. Exact final candidate CI required.
