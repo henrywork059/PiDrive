@@ -79,3 +79,8 @@ a { color: inherit; text-decoration: none; }
 #frontModeAiMode .fp-card-label,
 #frontModeManualDrive .fp-card-action,
 #frontModeAiMode .fp-card-action { color: #bbf7d0; }
+
+/* R35: keep the focus ring, but do not move the card when reduced motion is requested. */
+@media (prefers-reduced-motion: reduce) {
+  .fp-mode-card:hover, .fp-mode-card:focus-visible { transform: none; }
+}

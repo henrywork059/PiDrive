@@ -140,3 +140,7 @@ Parent f0e33f6 verified Linux 45732321702 and Windows 45732321842 all five jobs.
 
 ## piTrainer 0.11.28 — persistent preprocessing receipt (R51)
 Parent e24eac1 Linux 45732670276 and Windows 45732670277 all five jobs passed. Successful Apply captures a unique local preprocessing receipt; matching active metadata, selected sessions and working folder required for training linkage; exact receipt checksum required for local Compare/Inspect. Exclusive-create, mismatch, historical and persisted run regression added to existing registered suite. Portable manifest unchanged. Exact new CI pending; no owner, actual training or physical acceptance claimed.
+
+
+## PiSD 0.11.37 — R35 native disclosure focus and reduced motion
+Parent f8d147a piTrainer 0.11.28 verified Linux 45734367606 (4/4) and Windows 45734367599 (1/1). Add summary to shared focus ring selectors including forced colors; prevent front card movement under reduced motion. Extend actual front keyboard Tab/Space and reverse-Tab, focus-ring/computed transform and mobile copy tests at 390/768/1024/1440; retain no-mutation and rejected STOP checks. No motor/STOP or settings changes. Exact new CI pending; R35 remains partial.

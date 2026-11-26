@@ -648,12 +648,12 @@ body.manual-drive-page #manualDriveFilesPanel { grid-area: files !important; }
 
 /* R35 accessibility: shared across PiSD dashboard, manual, AI, setup, and testing.
    Do not modify motor actions or the existing layout/responsive grid. */
-:where(button, a[href], input, select, textarea, [tabindex="0"], [role="tab"]):focus-visible {
+:where(button, a[href], input, select, textarea, summary, [tabindex="0"], [role="tab"]):focus-visible {
   outline: var(--pisd-focus-width) solid var(--pisd-focus-ring) !important;
   outline-offset: 3px !important;
   box-shadow: 0 0 0 1px var(--pisd-focus-shadow) !important;
 }
-:where(button, a[href], input, select, textarea, [tabindex="0"], [role="tab"]):focus:not(:focus-visible) {
+:where(button, a[href], input, select, textarea, summary, [tabindex="0"], [role="tab"]):focus:not(:focus-visible) {
   outline: none;
 }
 @media (prefers-reduced-motion: reduce) {
@@ -665,7 +665,7 @@ body.manual-drive-page #manualDriveFilesPanel { grid-area: files !important; }
   }
 }
 @media (forced-colors: active) {
-  :where(button, a[href], input, select, textarea, [tabindex="0"], [role="tab"]):focus-visible {
+  :where(button, a[href], input, select, textarea, summary, [tabindex="0"], [role="tab"]):focus-visible {
     outline: 3px solid Highlight !important;
     box-shadow: none !important;
   }

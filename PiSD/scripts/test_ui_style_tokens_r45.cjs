@@ -16,6 +16,10 @@ assert.ok(layout.includes('var(--pisd-ui-density-pad, 0.86)'));
 assert.ok(layout.includes('var(--pisd-ui-radius, 14px)'));
 assert.ok(design.includes('prefers-reduced-motion: reduce'));
 assert.ok(design.includes('forced-colors: active'));
+assert.equal((design.match(/:where\([^\n]*\bsummary\b[^\n]*\):focus-visible/g) || []).length, 2,
+  'native disclosure controls must receive normal and forced-colors focus rings');
+const front = fs.readFileSync(path.join(root,'static/css/front_page.css'),'utf8');
+assert.match(front, /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{\s*\.fp-mode-card:hover,\s*\.fp-mode-card:focus-visible\s*\{\s*transform:\s*none;/);
 for (const name of ['manual_drive','ai_mode','settings_tab','front_page']) {
   const html = fs.readFileSync(path.join(root,'templates',name+'.html'),'utf8');
   assert.ok(html.includes('css/pisd_design_system.css'), name+' lost design system');
