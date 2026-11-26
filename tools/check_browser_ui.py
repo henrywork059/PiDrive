@@ -938,8 +938,9 @@ def main():
                             save_layout = page.locator("#saveLayoutBtn")
                             reset_layout = page.locator("#resetLayoutBtn")
                             layout_message = page.locator("#layoutPreviewMessage")
-                            for control, name in ((preview_layout, "Preview Driving layout"), (save_layout, "Save layout"), (reset_layout, "Reset layout")):
-                                expect(control).to_have_accessible_name(name)
+                            for control, action_name in ((preview_layout, "Preview Driving layout"), (save_layout, "Save layout"), (reset_layout, "Reset layout")):
+                                expect(control).to_have_accessible_name(action_name)
+                            assert name == case["page"] == "dashboard", "Layout label audit changed fixture page identity"
                                 expect(control).to_have_accessible_description("Layout controls affect this browser only.")
                             save_layout.focus()
                             page.keyboard.press("Shift+Tab")
@@ -1071,6 +1072,10 @@ def main():
                             summary.focus()
                             summary.press("Space")
                             expect(events).not_to_have_attribute("open", "")
+                        # Page identity is shared by route dispatch, later viewport cases
+                        # and dialog lookup. Do not allow an inner control-label loop to
+                        # silently redirect the remaining regression coverage.
+                        assert name == case["page"], "Fixture page identity changed during interaction checks"
                         # Start keyboard modality then focus STOP without activating it.
                         page.keyboard.press("Tab")
                         target = page.locator(stop or primary)
