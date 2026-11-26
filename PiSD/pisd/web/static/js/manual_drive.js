@@ -107,6 +107,7 @@
   let lastPayload = { ...STOP_COMMAND };
   let lastMotorOutput = { ...STOP_OUTPUT };
   let recordingRunning = Boolean(initialStatus.recording?.running);
+  let confirmedRecording = null;
   let recordingCollections = { recordings: [], snapshots: [] };
   const folderReader = window.PiSDRecordingReader.createReader();
   const PREVIEW_STALE_MS = 2500;
@@ -1041,20 +1042,22 @@
     $('mdrvCameraState').textContent = status.camera?.running ? 'run' : (status.camera?.backend || 'off');
     $('mdrvMotorState').textContent = status.motor?.hardware_enabled ? 'hw' : 'sim';
     $('mdrvCameraFps').textContent = status.camera?.measured_capture_fps ?? status.camera?.fps ?? 'n/a';
-    const rec = Boolean(status.recording?.running);
+    const recording = window.PiSDRecordingReader.retainConfirmedRecording(confirmedRecording, status.recording);
+    if (typeof recording.running === 'boolean') confirmedRecording = recording;
+    const rec = recording.running === true;
     recordingRunning = rec;
     const recState = $('mdrvRecordingState');
-    if (recState) recState.textContent = rec ? 'on' : 'off';
+    if (recState) recState.textContent = rec ? 'on' : recording.running === false ? 'off' : 'unknown';
     if (recordButton) {
       recordButton.textContent = rec ? 'Stop record' : 'Record';
       recordButton.classList.toggle('mdrv-recording-on', rec);
     }
     updateRecordingIndicator(rec);
-    const count = status.recording?.frame_count;
+    const count = recording.frame_count;
     const counter = $('mdrvRecordingCount');
     if (counter) counter.textContent = Number.isInteger(count) && count >= 0 ? `Frames: ${count} (last confirmed)` : 'Frames: unknown';
     const session = $('mdrvRecordingSession');
-    if (session) session.textContent = window.PiSDRecordingReader.describeRecording(status.recording).sessionText;
+    if (session) session.textContent = window.PiSDRecordingReader.describeRecording(recording).sessionText;
     renderPreviewFromStatus(status);
     renderMotorSignalsFromStatus(status);
     setCode('status', status.code || 'PISD-OK-000');

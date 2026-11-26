@@ -577,8 +577,8 @@
   }
 
   function renderRecording(recording = {}) {
-    if (typeof recording?.running === 'boolean') confirmedRecording = recording;
-    else if (confirmedRecording) recording = confirmedRecording;
+    recording = window.PiSDRecordingReader.retainConfirmedRecording(confirmedRecording, recording);
+    if (typeof recording.running === 'boolean') confirmedRecording = recording;
     recordingRunning = recording?.running === true;
     const details = window.PiSDRecordingReader.describeRecording(recording);
     const session = document.getElementById('aiRecordingSession');

@@ -55,5 +55,9 @@
         typeof session === 'string' && session.trim() ? 'Session: ' + session : 'Session: unknown',
     };
   }
-  root.PiSDRecordingReader = {createReader, describeRecording};
+  function retainConfirmedRecording(previous, incoming) {
+    if (typeof incoming?.running === 'boolean') return incoming;
+    return previous || {};
+  }
+  root.PiSDRecordingReader = {createReader, describeRecording, retainConfirmedRecording};
 })(typeof window !== 'undefined' ? window : globalThis);

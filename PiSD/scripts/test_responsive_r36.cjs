@@ -58,4 +58,12 @@ test('missing recording status cannot clear a confirmed active session',()=>{
   run({});assert.equal(state.textContent,'REC on · Frames: 7');assert.equal(session.textContent,'Session: test');
   run({running:false});assert.equal(state.textContent,'REC off');
 });
-console.log(n+'/15 PiSD R36 responsive checks passed');
+test('shared recording projection retains confirmed state only for incomplete responses',()=>{
+  const retain=globalThis.PiSDRecordingReader.retainConfirmedRecording;
+  const active={running:true,frame_count:8,active_session:{session_id:'fixture'}};
+  assert.deepEqual(retain(null,undefined),{});
+  assert.equal(retain(active,{frame_count:0}),active);
+  assert.equal(retain(active,{running:'false'}),active);
+  assert.deepEqual(retain(active,{running:false}),{running:false});
+});
+console.log(n+'/16 PiSD R36 responsive checks passed');

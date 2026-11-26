@@ -49,4 +49,33 @@ class StorageGuardTests(unittest.TestCase):
             self.assertIn('error-8', guard.recent_errors()[-1]['message'])
             self.assertEqual(guard.status(folder)['cleanup_policy'], 'manual_confirmation_only')
 
+class RecordingMetadataParityTests(unittest.TestCase):
+    def test_label_source_command_and_legacy_overlay_contracts(self):
+        from pisd.services import recording_metadata as m
+        from pisd.services import recording_service as service
+        self.assertIs(service._safe_label, m._safe_label)
+        self.assertIs(service._normalise_command_source, m._normalise_command_source)
+        self.assertIs(service._command_dict, m._command_dict)
+        self.assertEqual(m._safe_label('  AI Mode / Test!  '), 'ai_mode__test')
+        self.assertEqual(m._safe_label('!!!'), 'manual')
+        self.assertEqual(m._safe_label('x' * 60), 'x' * 48)
+        for value, label, expected in [
+            ('model-output', 'manual', 'ai_safe_command'),
+            ('manual', 'ai_mode', 'manual_command'),
+            (None, 'ai_mode_capture', 'ai_safe_command'),
+            ('unknown', 'capture', 'manual_command'),
+        ]:
+            self.assertEqual(m._normalise_command_source(value, label), expected)
+        self.assertEqual(m._command_dict({'steering': '2', 'throttle': float('nan')}),
+                         {'steering': 1.0, 'throttle': 0.0})
+        self.assertEqual(m._command_dict(None), {'steering': 0.0, 'throttle': 0.0})
+        source = {'enabled': 'off', 'curve_strength': 3.35, 'path_width_scale': '0.7',
+                  'opacity': float('inf'), 'internal': 99}
+        expected = {'enabled': False, 'turn_rate_visual_scale': 2.2, 'path_width_scale': 0.7}
+        self.assertEqual(m.json_safe_overlay_settings(source), expected)
+        self.assertEqual(service.RecordingService._json_safe_overlay_settings(None, source), expected)
+        self.assertNotIn('turn_rate_visual_scale', source)
+        self.assertEqual(m.json_safe_overlay_settings(None), {})
+        self.assertEqual(m.json_safe_overlay_settings({'curve_strength': 'bad'}), {'turn_rate_visual_scale': 2.2})
+
 if __name__ == '__main__': unittest.main()
