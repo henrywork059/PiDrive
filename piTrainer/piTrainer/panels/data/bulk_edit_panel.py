@@ -58,11 +58,15 @@ class BulkEditPanel(QGroupBox):
         self.confirm_bulk_check.toggled.connect(self._update_button_state)
 
         self.steering_slider = CenteredFillSlider(Qt.Horizontal, center_value=0)
+        self.steering_slider.setAccessibleName('Bulk steering slider')
+        self.steering_slider.setAccessibleDescription('Scaled integer value; the paired steering field shows the normalized value.')
+        self.steering_slider.setFocusPolicy(Qt.StrongFocus)
         self.steering_slider.setRange(-1000, 1000)
         self.steering_slider.setValue(0)
         self.steering_slider.valueChanged.connect(self._on_steering_slider_changed)
 
         self.steering_spin = QDoubleSpinBox()
+        self.steering_spin.setAccessibleName('Bulk steering value')
         self.steering_spin.setRange(-1.0, 1.0)
         self.steering_spin.setSingleStep(0.01)
         self.steering_spin.setDecimals(3)
@@ -75,11 +79,15 @@ class BulkEditPanel(QGroupBox):
         self.apply_steering_btn.clicked.connect(self._apply_steering)
 
         self.speed_slider = QSlider(Qt.Horizontal)
+        self.speed_slider.setAccessibleName('Bulk speed slider')
+        self.speed_slider.setAccessibleDescription('Scaled integer value; the paired speed field shows the normalized value.')
+        self.speed_slider.setFocusPolicy(Qt.StrongFocus)
         self.speed_slider.setRange(0, 1000)
         self.speed_slider.setValue(0)
         self.speed_slider.valueChanged.connect(self._on_speed_slider_changed)
 
         self.speed_spin = QDoubleSpinBox()
+        self.speed_spin.setAccessibleName('Bulk speed value')
         self.speed_spin.setRange(0.0, 1.0)
         self.speed_spin.setSingleStep(0.01)
         self.speed_spin.setDecimals(3)
@@ -92,12 +100,16 @@ class BulkEditPanel(QGroupBox):
         self.apply_speed_btn.clicked.connect(self._apply_speed)
 
         steering_row = QHBoxLayout()
-        steering_row.addWidget(QLabel('Steering'))
+        steering_label = QLabel('Steering')
+        steering_label.setBuddy(self.steering_spin)
+        steering_row.addWidget(steering_label)
         steering_row.addWidget(self.steering_slider, 1)
         steering_row.addWidget(self.steering_spin)
 
         speed_row = QHBoxLayout()
-        speed_row.addWidget(QLabel('Speed'))
+        speed_label = QLabel('Speed')
+        speed_label.setBuddy(self.speed_spin)
+        speed_row.addWidget(speed_label)
         speed_row.addWidget(self.speed_slider, 1)
         speed_row.addWidget(self.speed_spin)
 

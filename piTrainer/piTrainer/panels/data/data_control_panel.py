@@ -31,6 +31,7 @@ class DataControlPanel(QGroupBox):
         recover_label.setProperty('role', 'sectionLabel')
 
         self.recover_count_spin = QSpinBox()
+        self.recover_count_spin.setAccessibleName('Number of hidden frames to recover')
         self.recover_count_spin.setRange(1, 999999)
         self.recover_count_spin.setValue(1)
         self.recover_count_spin.setAlignment(Qt.AlignRight)
@@ -45,7 +46,9 @@ class DataControlPanel(QGroupBox):
         recover_all_btn.clicked.connect(self.recover_all_callback)
 
         recover_last_row = QHBoxLayout()
-        recover_last_row.addWidget(QLabel("Last"))
+        count_label = QLabel("Last")
+        count_label.setBuddy(self.recover_count_spin)
+        recover_last_row.addWidget(count_label)
         recover_last_row.addWidget(self.recover_count_spin)
         recover_last_row.addWidget(QLabel("frames"))
         recover_last_row.addStretch(1)

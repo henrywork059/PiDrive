@@ -18,6 +18,15 @@ from piTrainer.panels.preprocess.preprocess_config_panel import PreprocessConfig
 from piTrainer.panels.preprocess.preprocess_filter_panel import PreprocessFilterPanel
 from piTrainer.panels.export.export_options_panel import ExportOptionsPanel
 from piTrainer.panels.data.playback_control_panel import PlaybackControlPanel
+from piTrainer.panels.data.frame_filter_panel import FrameFilterPanel
+from piTrainer.panels.data.bulk_edit_panel import BulkEditPanel
+from piTrainer.panels.data.data_control_panel import DataControlPanel
+from piTrainer.panels.data.model_deploy_panel import ModelDeployPanel
+from piTrainer.panels.data.merge_sessions_panel import MergeSessionsPanel
+from piTrainer.panels.data.data_plot_panel import DataPlotPanel
+from piTrainer.panels.data.preview_panel import PreviewPanel
+from piTrainer.panels.data.session_source_panel import SessionSourcePanel
+from unittest.mock import patch
 from piTrainer.ui.layout_widgets import CollapsibleSection
 from piTrainer.ui.styles import build_stylesheet
 from piTrainer.panels.export.model_status_panel import ModelStatusPanel
@@ -82,6 +91,101 @@ class ValidationControlsTests(unittest.TestCase):
         old = playback.playback_fps()
         QTest.keyClick(playback.speed_spin, Qt.Key_Up)
         self.assertEqual(playback.playback_fps(), old + 1.0)
+
+    def test_data_workspace_named_fields_and_filter_keyboard_input(self):
+        calls = []
+        noop = lambda: None
+        filters = FrameFilterPanel(lambda: calls.append('apply'), noop)
+        bulk = BulkEditPanel(lambda value: None, lambda value: None)
+        recovery = DataControlPanel(noop, noop, noop)
+        deploy = ModelDeployPanel(AppState(), noop, noop, noop, noop)
+        merge = MergeSessionsPanel(noop)
+        plot = DataPlotPanel()
+        records = PreviewPanel()
+        with patch.object(SessionSourcePanel, '_restore_last_root', return_value=''), \
+             patch.object(SessionSourcePanel, '_restore_session_list_height', return_value=260), \
+             patch.object(SessionSourcePanel, '_save_last_root'):
+            sessions = SessionSourcePanel(AppState(), noop, noop)
+        for panel, fields in (
+            (filters, ('text_edit', 'mode_combo', 'speed_min_spin', 'speed_max_spin',
+                       'steering_min_spin', 'steering_max_spin')),
+            (bulk, ('steering_slider', 'steering_spin', 'speed_slider', 'speed_spin')),
+            (recovery, ('recover_count_spin',)),
+            (deploy, ('model_source_combo', 'model_path_edit', 'batch_spin', 'max_rows_spin')),
+            (merge, ('name_edit',)),
+            (plot, ('session_combo', 'plot_type_combo')),
+            (records, ('table',)),
+            (sessions, ('path_edit', 'list_widget', 'resize_handle')),
+        ):
+            self.addCleanup(panel.close)
+            names = [getattr(panel, field).accessibleName().strip() for field in fields]
+            self.assertTrue(all(names), fields)
+            self.assertEqual(len(set(names)), len(fields), names)
+        self.assertIn('selected visible source rows only', records.table.accessibleDescription())
+        filters.show()
+        self.app.processEvents()
+        self.assertFalse(filters.speed_min_spin.isEnabled())
+        QTest.keyClick(filters.speed_checkbox, Qt.Key_Space)
+        self.assertTrue(filters.speed_min_spin.isEnabled())
+        self.assertTrue(filters.speed_max_spin.isEnabled())
+        self.assertFalse(filters.steering_min_spin.isEnabled())
+        old = filters.speed_min_spin.value()
+        QTest.keyClick(filters.speed_min_spin, Qt.Key_Up)
+        self.assertAlmostEqual(filters.speed_range()[0], old + 0.05)
+        self.assertTrue(calls)
+        QTest.keyClicks(filters.text_edit, 'fixture')
+        before = len(calls)
+        QTest.keyClick(filters.text_edit, Qt.Key_Return)
+        self.assertEqual(filters.filter_text(), 'fixture')
+        self.assertGreater(len(calls), before)
+        QTest.keyClick(recovery.recover_count_spin, Qt.Key_Up)
+        self.assertEqual(recovery.recover_count(), 2)
+        self.assertIn('QSlider::handle:horizontal:focus', build_stylesheet())
+
+    def test_data_bulk_and_model_apply_remain_confirmation_gated(self):
+        edits = []
+        bulk = BulkEditPanel(lambda v: edits.append(('steering', v)),
+                             lambda v: edits.append(('speed', v)))
+        self.addCleanup(bulk.close)
+        bulk.show()
+        self.app.processEvents()
+        for slider in (bulk.steering_slider, bulk.speed_slider):
+            self.assertEqual(slider.focusPolicy(), Qt.StrongFocus)
+        bulk.steering_slider.setFocus()
+        QTest.keyClick(bulk.steering_slider, Qt.Key_Right)
+        self.assertAlmostEqual(bulk.steering_value(), bulk.steering_slider.value() / 1000)
+        QTest.keyClick(bulk.speed_spin, Qt.Key_Up)
+        self.assertEqual(bulk.speed_slider.value(), round(bulk.speed_value() * 1000))
+        self.assertFalse(bulk.apply_speed_btn.isEnabled())
+        bulk.set_selected_count(2)
+        self.assertFalse(bulk.apply_speed_btn.isEnabled())
+        bulk.apply_speed_btn.click()
+        self.assertFalse(edits)
+        QTest.keyClick(bulk.confirm_bulk_check, Qt.Key_Space)
+        self.assertTrue(bulk.apply_speed_btn.isEnabled())
+        QTest.keyClick(bulk.apply_speed_btn, Qt.Key_Space)
+        self.assertEqual(edits, [('speed', bulk.speed_value())])
+        bulk.set_selected_count(0)
+        self.assertFalse(bulk.apply_steering_btn.isEnabled())
+        self.assertFalse(bulk.apply_speed_btn.isEnabled())
+
+        applied = []
+        noop = lambda: None
+        deploy = ModelDeployPanel(AppState(), noop, lambda: applied.append(True), noop, noop)
+        self.addCleanup(deploy.close)
+        deploy.show()
+        self.app.processEvents()
+        deploy.set_selected_count(1)
+        deploy.set_prediction_count(1)
+        self.assertFalse(deploy.apply_selected_btn.isEnabled())
+        deploy.apply_selected_btn.click()
+        self.assertFalse(applied)
+        QTest.keyClick(deploy.confirm_apply_check, Qt.Key_Space)
+        self.assertTrue(deploy.apply_selected_btn.isEnabled())
+        QTest.keyClick(deploy.apply_selected_btn, Qt.Key_Space)
+        self.assertEqual(applied, [True])
+        deploy.set_prediction_count(0)
+        self.assertFalse(deploy.apply_selected_btn.isEnabled())
 
     def test_disclosure_header_native_keyboard_and_focus_style(self):
         field = QLineEdit()

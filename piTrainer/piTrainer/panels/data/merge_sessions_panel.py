@@ -16,6 +16,7 @@ class MergeSessionsPanel(QGroupBox):
         help_label.setWordWrap(True)
 
         self.name_edit = QLineEdit()
+        self.name_edit.setAccessibleName('New merged session name')
         self.name_edit.setPlaceholderText('merged_session_name')
         self.load_after_merge_check = QCheckBox('Load after merge')
         self.load_after_merge_check.setChecked(True)
@@ -25,7 +26,9 @@ class MergeSessionsPanel(QGroupBox):
         merge_btn.clicked.connect(self._on_merge_clicked)
 
         name_row = QHBoxLayout()
-        name_row.addWidget(QLabel('Session name'))
+        name_label = QLabel('Session name')
+        name_label.setBuddy(self.name_edit)
+        name_row.addWidget(name_label)
         name_row.addWidget(self.name_edit, 1)
 
         layout = QVBoxLayout(self)

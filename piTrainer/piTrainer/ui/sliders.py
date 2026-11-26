@@ -90,6 +90,10 @@ class CenteredFillSlider(QSlider):
         painter.setPen(QPen(handle_border, 2))
         painter.setBrush(handle_color)
         painter.drawEllipse(handle_rect)
+        if enabled and self.hasFocus():
+            painter.setPen(QPen(QColor(theme_color('text_primary')), 2, Qt.DashLine))
+            painter.setBrush(Qt.NoBrush)
+            painter.drawRect(QRectF(self.rect()).adjusted(1.5, 1.5, -1.5, -1.5))
         event.accept()
 
     def _x_for_value(self, value: int, track: QRectF) -> float:

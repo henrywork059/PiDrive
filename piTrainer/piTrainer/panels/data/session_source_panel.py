@@ -169,10 +169,12 @@ class SessionSourcePanel(QGroupBox):
         self.path_edit.editingFinished.connect(self._apply_path_only)
 
         browse_btn = QPushButton('Browse')
+        browse_btn.setAccessibleName('Browse records root folder')
         browse_btn.setProperty('role', 'amber')
         browse_btn.clicked.connect(self._browse)
 
         refresh_btn = QPushButton('Refresh')
+        refresh_btn.setAccessibleName('Refresh available sessions')
         refresh_btn.setProperty('role', 'amber')
         refresh_btn.clicked.connect(self._refresh)
 
@@ -187,6 +189,8 @@ class SessionSourcePanel(QGroupBox):
 
         self.list_widget = QListWidget()
         self.list_widget.setObjectName('sessionListWidget')
+        self.list_widget.setAccessibleName('Available recording sessions')
+        self.list_widget.setAccessibleDescription('Use each session checkbox to choose recordings to load.')
         self.list_widget.setSelectionMode(QAbstractItemView.NoSelection)
         self.list_widget.setSpacing(6)
         self.list_widget.setAlternatingRowColors(False)
@@ -200,9 +204,11 @@ class SessionSourcePanel(QGroupBox):
         )
 
         select_all_btn = QPushButton('Select All')
+        select_all_btn.setAccessibleName('Select all available sessions')
         select_all_btn.setProperty('role', 'secondary')
         select_all_btn.clicked.connect(self.select_all)
         clear_btn = QPushButton('Clear')
+        clear_btn.setAccessibleName('Clear session selection')
         clear_btn.setProperty('role', 'secondary')
         clear_btn.clicked.connect(self.clear_all)
         self.load_btn = QPushButton('Load Selected')

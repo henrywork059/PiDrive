@@ -418,6 +418,9 @@ def build_stylesheet(density: str = "comfortable") -> str:
         background: @COLOR_SLIDER_HANDLE_HOVER@;
         border-color: @COLOR_TEXT_PRIMARY@;
     }
+    QSlider::handle:horizontal:focus {
+        border: 2px dashed @COLOR_TEXT_PRIMARY@;
+    }
     QSlider:disabled::groove:horizontal,
     QSlider:disabled::add-page:horizontal,
     QSlider:disabled::sub-page:horizontal {

@@ -59,6 +59,8 @@ class PreviewPanel(QGroupBox):
         self.model = RecordPreviewModel()
         self.table = CyclingPreviewTable(self)
         self.table.setObjectName('recordPreviewTable')
+        self.table.setAccessibleName('Visible records')
+        self.table.setAccessibleDescription('Read-only frame list. Up and Down cycle through records; Shift and Control preserve extended selection. Bulk edits and Hide Selected target selected visible source rows only.')
         self.table.setModel(self.model)
         # Connect after the view's selection model: Qt restores its persistent
         # selection before the panel refreshes the preview and scope counts.

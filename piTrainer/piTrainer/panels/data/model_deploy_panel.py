@@ -48,14 +48,17 @@ class ModelDeployPanel(QGroupBox):
         help_label.setWordWrap(True)
 
         self.model_source_combo = QComboBox()
+        self.model_source_combo.setAccessibleName('Data review model source')
         self.model_source_combo.addItems([MODEL_SOURCE_CURRENT, MODEL_SOURCE_SAVED, MODEL_SOURCE_TFLITE])
         self.model_source_combo.currentTextChanged.connect(self._update_button_state)
 
         self.model_path_edit = QLineEdit()
+        self.model_path_edit.setAccessibleName('Data review model file')
         self.model_path_edit.setPlaceholderText('Model file path')
         self.model_path_edit.textChanged.connect(self._update_button_state)
 
         browse_btn = QPushButton('Browse')
+        browse_btn.setAccessibleName('Browse data review model file')
         browse_btn.setProperty('role', 'secondary')
         browse_btn.clicked.connect(self._browse_model)
 
@@ -76,10 +79,12 @@ class ModelDeployPanel(QGroupBox):
         path_row.addStretch(1)
 
         self.batch_spin = QSpinBox()
+        self.batch_spin.setAccessibleName('Data review inference batch size')
         self.batch_spin.setRange(1, 512)
         self.batch_spin.setValue(max(1, int(getattr(self.state.train_config, 'batch_size', 32))))
 
         self.max_rows_spin = QSpinBox()
+        self.max_rows_spin.setAccessibleName('Maximum visible rows for inference')
         self.max_rows_spin.setRange(0, 1000000)
         self.max_rows_spin.setSpecialValueText('All visible')
         self.max_rows_spin.setValue(0)

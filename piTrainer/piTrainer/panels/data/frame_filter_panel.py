@@ -23,10 +23,12 @@ class FrameFilterPanel(QGroupBox):
         self.clear_callback = clear_callback
 
         self.text_edit = QLineEdit()
+        self.text_edit.setAccessibleName('Filter records by text')
         self.text_edit.setPlaceholderText("Search session, frame ID, mode, time")
         self.text_edit.returnPressed.connect(self.apply_callback)
 
         self.mode_combo = QComboBox()
+        self.mode_combo.setAccessibleName('Filter records by drive mode')
         self.mode_combo.addItems(["All modes", "manual", "auto", "train", "user"])
         self.mode_combo.currentIndexChanged.connect(lambda *_: self.apply_callback())
 
@@ -34,16 +36,22 @@ class FrameFilterPanel(QGroupBox):
         self.speed_checkbox.toggled.connect(self._handle_range_toggle)
         self.speed_min_spin = self._build_range_spinbox()
         self.speed_max_spin = self._build_range_spinbox(1.0)
+        self.speed_min_spin.setAccessibleName('Minimum filter speed')
+        self.speed_max_spin.setAccessibleName('Maximum filter speed')
 
         self.steering_checkbox = QCheckBox("Steering range")
         self.steering_checkbox.toggled.connect(self._handle_range_toggle)
         self.steering_min_spin = self._build_range_spinbox()
         self.steering_max_spin = self._build_range_spinbox(1.0)
+        self.steering_min_spin.setAccessibleName('Minimum filter steering')
+        self.steering_max_spin.setAccessibleName('Maximum filter steering')
 
         apply_btn = QPushButton("Apply")
+        apply_btn.setAccessibleName("Apply record filter")
         apply_btn.setProperty('role', 'primary')
         apply_btn.clicked.connect(self.apply_callback)
         clear_btn = QPushButton("Clear")
+        clear_btn.setAccessibleName("Clear record filter")
         clear_btn.setProperty('role', 'secondary')
         clear_btn.clicked.connect(self.clear_callback)
 
@@ -56,12 +64,16 @@ class FrameFilterPanel(QGroupBox):
         form.addWidget(help_label)
 
         row1 = QHBoxLayout()
-        row1.addWidget(QLabel("Text"))
+        text_label = QLabel("Text")
+        text_label.setBuddy(self.text_edit)
+        row1.addWidget(text_label)
         row1.addWidget(self.text_edit, 1)
         form.addLayout(row1)
 
         row2 = QHBoxLayout()
-        row2.addWidget(QLabel("Mode"))
+        mode_label = QLabel("Mode")
+        mode_label.setBuddy(self.mode_combo)
+        row2.addWidget(mode_label)
         row2.addWidget(self.mode_combo, 1)
         form.addLayout(row2)
 

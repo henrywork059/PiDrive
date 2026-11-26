@@ -37,9 +37,11 @@ class DataPlotPanel(QGroupBox):
         help_label.setWordWrap(True)
 
         self.session_combo = QComboBox()
+        self.session_combo.setAccessibleName('Plot session')
         self.session_combo.currentIndexChanged.connect(self.refresh_plot)
 
         self.plot_type_combo = QComboBox()
+        self.plot_type_combo.setAccessibleName('Data plot type')
         self.plot_type_combo.addItems(self.PLOT_TYPES)
         self.plot_type_combo.currentIndexChanged.connect(self.refresh_plot)
 

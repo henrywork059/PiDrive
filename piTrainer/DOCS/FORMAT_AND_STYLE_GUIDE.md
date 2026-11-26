@@ -551,3 +551,7 @@ For PyInstaller releases, make sure the config file is bundled or copied beside 
 
 For V11 packages, update the online manifest before distributing a controlled V11-only release so `latest` and `minimum_version` point at `0.11.0` or so `allowed_versions` includes `0.11.0`. The current version-gate code also allows versions equal/newer than `minimum_version`, which keeps patch builds from being blocked by a narrow `allowed_versions` list.
 
+
+## R35 — Data workspace accessibility
+
+Use explicit, distinct accessible names for paired filter bounds, normalized bulk value fields and their scaled integer sliders. Retain native Qt keyboard handling, existing layout and confirmation flow. Native horizontal sliders use a focused dashed handle border; custom centered-fill steering sliders draw an inset dashed focus outline with the shared text-primary theme token. Keep the Records list read-only and name its existing selection scope without changing source-row mapping. Do not introduce new mutation shortcuts.
