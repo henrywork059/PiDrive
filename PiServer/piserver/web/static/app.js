@@ -1822,6 +1822,9 @@ function setupManualControls() {
     if (!(pagePanels[state.page] || []).includes("manual")) return;
     const tag = (event.target?.tagName || "").toLowerCase();
     if (["input", "select", "textarea", "button"].includes(tag) || event.target?.isContentEditable) return;
+    // R35: native disclosures, read-only diagnostics and other interactive
+    // controls must not be interpreted as manual-drive key presses.
+    if (event.target?.closest?.('summary, a[href], [data-drive-keys-ignore], [role="dialog"], [role="button"], [role="checkbox"], [role="switch"], [role="tab"]')) return;
     const key = String(event.key || "").toLowerCase();
     let handled = true;
     if (key === "w" || key === "arrowup") setStepInput("up", true);

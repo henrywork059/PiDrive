@@ -35,4 +35,36 @@ test('all eight visual preview controls are inert',()=>{
   assert.ok(!html.match(/<(?:button|input)\s+inert\b[^>]*\bid="(?:saveStyleSettingsBtn|styleBg)"/));
 });
 test('dialog focus trap excludes inert sample controls',()=>assert.ok(app.includes('!el.closest("[inert]")')));
-console.log(count+'/13 PiServer R35 accessibility tests passed');
+const keydownStart=app.indexOf('  window.addEventListener("keydown", (event) => {\n    if (!(pagePanels[state.page]');
+const keyupStart=app.indexOf('  window.addEventListener("keyup", (event) => {',keydownStart);
+const keyupEnd=app.indexOf('\n}',keyupStart);
+assert.ok(keydownStart>=0 && keyupStart>keydownStart && keyupEnd>keyupStart);
+const keyboardSource=app.slice(keydownStart,keyupEnd);
+function simulateKeys(tag, blocked, keys) {
+  const listeners={}, calls=[];
+  const window={addEventListener(type,handler){listeners[type]=handler;}};
+  new Function('window','pagePanels','state','setStepInput','setManualTargets',keyboardSource)(
+    window,{manual:['manual']},{page:'manual'},(direction,pressed)=>calls.push([direction,pressed]),
+    (steer,throttle)=>calls.push(['zero',steer,throttle]));
+  const target={tagName:tag,closest(selector){return blocked && selector.includes(blocked)?this:null;}};
+  let prevented=0;
+  for(const [type,key] of keys) listeners[type]({target,key,preventDefault(){prevented++;}});
+  return {calls,prevented};
+}
+test('native diagnostic disclosure Space is not a drive command',()=>{
+  assert.deepEqual(simulateKeys('SUMMARY','summary',[['keydown',' ']]),{calls:[],prevented:0});
+});
+test('diagnostic log arrows and letters do not drive',()=>{
+  assert.deepEqual(simulateKeys('PRE','[data-drive-keys-ignore]',[['keydown','ArrowDown'],['keydown','w']]),{calls:[],prevented:0});
+});
+test('body and drive-pad keys remain active; keyup after focus change releases',()=>{
+  assert.deepEqual(simulateKeys('DIV',null,[['keydown','ArrowUp'],['keyup','ArrowUp'],['keydown',' ']]),
+    {calls:[['up',true],['up',false],['zero',0,0]],prevented:2});
+  assert.deepEqual(simulateKeys('SUMMARY','summary',[['keyup','ArrowUp']]),{calls:[['up',false]],prevented:0});
+});
+test('native disclosure focus and reduced motion styles',()=>{
+  assert.equal((css.match(/:where\([^\n]*\bsummary\b[^\n]*\):focus-visible/g)||[]).length,2);
+  assert.ok(css.includes('button:hover { transform: none !important; }'));
+  assert.ok(html.includes('data-drive-keys-ignore aria-label="Recent operator event log"'));
+});
+console.log(count+'/17 PiServer R35 accessibility tests passed');

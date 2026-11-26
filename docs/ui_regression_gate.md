@@ -144,3 +144,7 @@ Parent e24eac1 Linux 45732670276 and Windows 45732670277 all five jobs passed. S
 
 ## PiSD 0.11.37 — R35 native disclosure focus and reduced motion
 Parent f8d147a piTrainer 0.11.28 verified Linux 45734367606 (4/4) and Windows 45734367599 (1/1). Add summary to shared focus ring selectors including forced colors; prevent front card movement under reduced motion. Extend actual front keyboard Tab/Space and reverse-Tab, focus-ring/computed transform and mobile copy tests at 390/768/1024/1440; retain no-mutation and rejected STOP checks. No motor/STOP or settings changes. Exact new CI pending; R35 remains partial.
+
+
+## PiServer 0.4.43 — R35 diagnostic input parity
+Parent 3024919 Linux 45736191148 (4/4) and Windows 45736191153 (1/1) verified. Native summary Space and read-only event log keys now bypass manual drive keydown; keyup release and body/pad behavior retained. Shared disclosure focus, reduced-motion hover rule, named log and actual extracted-handler/native four-width keyboard and mobile clipboard regressions. All mutations intercepted. Exact new CI pending; no R35 closure or hardware acceptance.

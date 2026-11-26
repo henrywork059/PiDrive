@@ -90,7 +90,7 @@ def main():
                     context = browser.new_context(viewport={"width": width, "height": height},
                         reduced_motion="reduce", has_touch=width == 390, device_scale_factor=1,
                         service_workers="block")
-                    if name == "front":
+                    if name in ("front", "dashboard"):
                         context.add_init_script("Object.defineProperty(navigator, 'clipboard', {configurable:true,value:{writeText:async text=>{window.__copiedEvents=text;}}})")
                     page = context.new_page()
                     mutations = []
@@ -173,7 +173,7 @@ def main():
                                 hold_settings[0] = False
                                 held_settings.append((route, client.get("/api/settings", base_url=ORIGIN).get_json()))
                                 return
-                        if name == "front" and parsed.path == "/api/recent-events":
+                        if name in ("front", "dashboard") and parsed.path == "/api/recent-events":
                             route.fulfill(status=200, json={"ok": True, "capacity": 128, "events": [
                                 {"timestamp_utc": "2026-01-01T00:00:00Z", "title": "Motor STOP requested", "outcome": "acknowledged"}
                             ]})
@@ -533,6 +533,48 @@ def main():
                             expect(page.locator("#metricWheels")).to_be_visible()
                             # Restore synthetic browser-local test state before remaining checks.
                             page.locator("#resetLayoutBtn").click()
+                            # R35: native diagnostic keys must never drive the manual pad.
+                            preflight = page.locator("[data-preflight-root] summary")
+                            events = page.locator("[data-recent-events-root]")
+                            summary = events.locator("summary")
+                            page.keyboard.press("Tab")
+                            preflight.focus()
+                            expect(preflight).to_be_focused()
+                            assert preflight.evaluate("(el) => el.matches(':focus-visible') && getComputedStyle(el).outlineWidth === '3px' && getComputedStyle(el).outlineStyle === 'solid'")
+                            page.keyboard.press("Space")
+                            expect(page.locator("[data-preflight-root]")).to_have_attribute("open", "")
+                            page.keyboard.press("Space")
+                            expect(page.locator("[data-preflight-root]")).not_to_have_attribute("open", "")
+                            page.keyboard.press("Tab")
+                            expect(summary).to_be_focused()
+                            assert summary.evaluate("(el) => el.matches(':focus-visible') && getComputedStyle(el).outlineWidth === '3px' && getComputedStyle(el).outlineStyle === 'solid'")
+                            page.keyboard.press("Space")
+                            expect(events).to_have_attribute("open", "")
+                            output = events.locator("[data-recent-output]")
+                            expect(output).to_contain_text("Motor STOP requested")
+                            refresh = events.locator("[data-recent-refresh]")
+                            copy = events.locator("[data-recent-copy]")
+                            expect(refresh).to_be_enabled()
+                            page.keyboard.press("Tab")
+                            expect(refresh).to_be_focused()
+                            page.keyboard.press("Tab")
+                            expect(copy).to_be_focused()
+                            page.keyboard.press("Space")
+                            expect(events.locator("[data-recent-status]")).to_contain_text("copied")
+                            page.keyboard.press("Tab")
+                            expect(output).to_be_focused()
+                            for key in ("ArrowDown", "ArrowUp", "w"):
+                                page.keyboard.down(key)
+                                try:
+                                    assert page.evaluate("() => Object.values(state.stepInputs).every(value => !value)"), "Diagnostic key activated manual drive"
+                                finally:
+                                    page.keyboard.up(key)
+                            if width == 390:
+                                copy.tap()
+                                expect(events.locator("[data-recent-status]")).to_contain_text("copied")
+                            summary.focus()
+                            summary.press("Space")
+                            expect(events).not_to_have_attribute("open", "")
                         # Start keyboard modality then focus STOP without activating it.
                         page.keyboard.press("Tab")
                         target = page.locator(stop)

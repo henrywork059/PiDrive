@@ -3565,7 +3565,7 @@ button.active,
 .panel-actions button[hidden] { display:none !important; }
 
 /* R35 keyboard focus and motion preferences (only presentation, not motor logic). */
-:where(button, a[href], input, select, textarea, [tabindex="0"]):focus-visible {
+:where(button, a[href], input, select, textarea, summary, [tabindex="0"]):focus-visible {
   outline: 3px solid #ffca65 !important;
   outline-offset: 3px !important;
 }
@@ -3577,9 +3577,10 @@ button.active,
     transition-duration: .01ms !important;
     scroll-behavior: auto !important;
   }
+  button:hover { transform: none !important; }
 }
 @media (forced-colors: active) {
-  :where(button, a[href], input, select, textarea, [tabindex="0"]):focus-visible { outline: 3px solid Highlight !important; }
+  :where(button, a[href], input, select, textarea, summary, [tabindex="0"]):focus-visible { outline: 3px solid Highlight !important; }
 }
 
 /* R36: keep the existing docked square driving pad and layout preferences.
