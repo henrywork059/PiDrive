@@ -9,6 +9,7 @@ from PySide6.QtWidgets import QApplication, QMainWindow, QTabWidget, QWidget
 import pandas as pd
 from types import SimpleNamespace
 from piTrainer.main_window import MainWindow
+from piTrainer.utils.model_manifest import make_manifest, write_manifest
 
 from piTrainer.app_state import AppState
 from piTrainer.panels.validation.validation_config_panel import ValidationConfigPanel
@@ -130,6 +131,44 @@ class ValidationControlsTests(unittest.TestCase):
         self.assertNotIn('unrelated.json', panel.table.item(row, 1).text())
         panel.set_records([run], [])
         self.assertIn('Unknown', panel.table.item(panel.table.rowCount()-1, 1).text())
+
+    def test_portable_model_inspection_shows_exact_hash_without_replacing_local_run(self):
+        panel = TrainComparisonPanel(lambda: None)
+        self.addCleanup(panel.close)
+        with tempfile.TemporaryDirectory() as folder:
+            model = Path(folder) / 'portable.tflite'
+            model.write_bytes(b'fixture')
+            run_id = 'a' * 32
+            claim = {'run_id':run_id, 'preprocessing_sha256':'b'*64,
+                     'identity_label_sha256':'c'*64, 'train_rows':13,
+                     'validation_rows':7, 'source_group_count':2}
+            manifest = make_manifest(model, model_kind='steering_control', width=160,
+                                     height=120, experiment=claim)
+            write_manifest(model, manifest)
+            digest = manifest['model_sha256']
+            local = {'run_id':run_id, 'status':'succeeded', 'train_rows':99}
+            panel.set_records([local], [
+                {'training_run_id':run_id, 'model_sha256':'e'*64, 'receipt_path':'other-model.json'},
+                {'training_run_id':None, 'model_sha256':digest, 'validation_id':'d'*32,
+                 'receipt_path':'exact-model.json'}])
+            panel.inspect_model_path(str(model))
+            values = {panel.table.item(i,0).text(): panel.table.item(i,1).text()
+                      for i in range(panel.table.rowCount())}
+            self.assertIn('Portable experiment claim', panel.info.text())
+            self.assertEqual(values['Training rows'], '13')
+            self.assertEqual(values['Source sessions'], 'Unknown')
+            self.assertEqual(values['Source group count'], '2')
+            self.assertEqual(values['Selected model SHA-256'], digest)
+            self.assertIn('exact-model.json', values['Local checks of this file hash (latest 5)'])
+            self.assertNotIn('other-model.json', values['Local checks of this file hash (latest 5)'])
+            self.assertEqual(panel._records[run_id]['train_rows'], 99)
+            self.assertEqual(panel.run_a.count(), 1)
+            panel._render()
+            self.assertNotIn('Portable experiment claim', panel.info.text())
+            model.write_bytes(b'tampered')
+            panel.inspect_model_path(str(model))
+            self.assertEqual(panel.table.rowCount(), 0)
+            self.assertIn('Unknown', panel.info.text())
 
     def test_plot_context_does_not_retain_old_run_or_model(self):
         history = TrainHistoryPanel()

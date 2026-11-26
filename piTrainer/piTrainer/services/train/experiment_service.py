@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
-from ...utils.model_manifest import inspect_manifest
+from ...utils.model_manifest import inspect_manifest, sha256_model
 
 SCHEMA_VERSION = 1
 MAX_RECORD_BYTES = 256 * 1024
@@ -303,6 +303,36 @@ def inspect_model_experiment(model_path: Path | str) -> tuple[dict | None, str]:
     return result, "Verified model/run association."
 
 
+def inspect_model_provenance(model_path: Path | str) -> tuple[dict | None, str]:
+    """Read-only inspection; portable claims never become local training runs."""
+    model = Path(model_path).expanduser().resolve()
+    sidecar = Path(str(model) + ".experiment.json")
+    if sidecar.exists():
+        record, message = inspect_model_experiment(model)
+        if record is None or record.get("status") != "succeeded":
+            return None, message if record is None else "Unknown — local run was not successful."
+        return record, message
+    try:
+        manifest, _ = inspect_manifest(model, expected_kind="steering_control")
+        checksum = manifest["model_sha256"] if manifest else sha256_model(model)
+    except (OSError, ValueError, TypeError, KeyError) as exc:
+        return None, f"Unknown — model inspection failed: {exc}"
+    binding = {"model_path": str(model), "model_sha256": checksum}
+    claim = (manifest or {}).get("experiment")
+    if claim:
+        return {
+            "run_id": claim["run_id"], "status": "Portable claim — local run unverified",
+            "source_group_count": claim.get("source_group_count"),
+            "train_rows": claim.get("train_rows"), "validation_rows": claim.get("validation_rows"),
+            "split": {"identity_label_sha256": claim.get("identity_label_sha256")},
+            "preprocessing_sha256": claim.get("preprocessing_sha256"),
+            "artifacts": [binding], "model_binding": binding,
+        }, "Portable experiment claim; model bytes checksum verified. Local run history not established."
+    status = ("Unknown — manifest verified, no experiment claim." if manifest else
+              "Unknown — legacy file hash observed; no verified manifest or run.")
+    return {"status": status, "artifacts": [binding], "model_binding": binding}, status
+
+
 def _display(value) -> str:
     if value is None or value == "":
         return "Unknown"
@@ -359,7 +389,12 @@ def comparison_rows(left: dict | None, right: dict | None) -> list[tuple[str, st
         ("Final val throttle loss", ("metrics", "final_val_throttle_loss")),
         ("Preprocessed dataset", ("preprocessed_dataset_path",)),
     ]
-    result = [("Source sessions", _display(source_names(left)), _display(source_names(right)))]
+    def source_count(run):
+        groups = _field(run, "source_groups")
+        return len(groups) if isinstance(groups, list) else _field(run, "source_group_count")
+
+    result = [("Source sessions", _display(source_names(left)), _display(source_names(right))),
+              ("Source group count", _display(source_count(left)), _display(source_count(right)))]
     result.extend((label, _display(_field(left, *path)), _display(_field(right, *path)))
                   for label, path in fields)
     result.append(("Model artifacts", _display(models(left)), _display(models(right))))

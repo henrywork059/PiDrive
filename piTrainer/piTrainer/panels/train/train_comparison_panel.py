@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QLabel, QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout,
 )
 
-from ...services.train.experiment_service import comparison_rows, inspect_model_experiment
+from ...services.train.experiment_service import comparison_rows, inspect_model_provenance
 
 
 class TrainComparisonPanel(QGroupBox):
@@ -105,6 +105,9 @@ class TrainComparisonPanel(QGroupBox):
             return "\n".join(str(item.get("receipt_path") or "Unknown") for item in matches[:5])
         rows.append(("Local validation summaries (latest 5)", validation_context(left_id),
                      validation_context(right_id if b else None)))
+        self._render_rows(rows)
+
+    def _render_rows(self, rows) -> None:
         self.table.setRowCount(len(rows))
         for index, (field, value_a, value_b) in enumerate(rows):
             for col, value in enumerate((field, value_a, value_b)):
@@ -122,23 +125,47 @@ class TrainComparisonPanel(QGroupBox):
         )
         if not path:
             return
-        record, message = inspect_model_experiment(path)
+        self.inspect_model_path(path)
+
+    def inspect_model_path(self, path: str) -> None:
+        record, message = inspect_model_provenance(path)
+        selected = str(Path(path).expanduser().resolve())
         if record is None:
             self.table.setRowCount(0)
-            self.info.setText(f"{message}\nSelected model: {Path(path).expanduser().resolve()}")
+            self.info.setText(f"{message}\nSelected model: {selected}")
             return
-        run_id = record["run_id"]
-        if run_id not in self._records:
-            self._records[run_id] = record
-            label = f"External model | {run_id[:8]}"
-            self.run_a.blockSignals(True)
-            self.run_b.blockSignals(True)
-            self.run_a.addItem(label, run_id)
-            self.run_b.addItem(label, run_id)
-            self.run_a.blockSignals(False)
-            self.run_b.blockSignals(False)
-        index = self.run_a.findData(run_id)
-        if index >= 0:
-            self.run_a.setCurrentIndex(index)
-        self._render()
-        self.info.setText(f"{message}\nModel: {Path(path).expanduser().resolve()}\nRun ID: {run_id}")
+        run_id = record.get("run_id")
+        # Only verified local sidecars may populate the existing run selectors.
+        if run_id and record.get("status") == "succeeded":
+            if run_id not in self._records:
+                self._records[run_id] = record
+                label = f"External model | {run_id[:8]}"
+                self.run_a.blockSignals(True)
+                self.run_b.blockSignals(True)
+                self.run_a.addItem(label, run_id)
+                self.run_b.addItem(label, run_id)
+                self.run_a.blockSignals(False)
+                self.run_b.blockSignals(False)
+            index = self.run_a.findData(run_id)
+            if index >= 0:
+                self.run_a.setCurrentIndex(index)
+        # Display selected artifact metadata, not a stale same-ID local record.
+        rows = comparison_rows(record, None)
+        checksum = (record.get("model_binding") or {}).get("model_sha256")
+        matches = [item for item in self._validation_receipts
+                   if checksum and item.get("model_sha256") == checksum]
+        receipt_details = [
+            f"Validation: {item.get('validation_id') or 'Unknown'} | "
+            f"Training run: {item.get('training_run_id') or 'Unknown'}\n"
+            f"{item.get('receipt_path') or 'Unknown'}"
+            for item in matches[:5]
+        ]
+        rows.extend([
+            ("Selected model", selected, "Unknown"),
+            ("Selected model SHA-256", checksum or "Unknown", "Unknown"),
+            ("Local checks of this file hash (latest 5)",
+             "\n".join(receipt_details) or "Unknown — no matching local validation summary", "Unknown"),
+        ])
+        self._render_rows(rows)
+        self.info.setText(f"{message}\nSelected model: {selected}\nRun ID: {run_id or 'Unknown'}\n"
+                          "Read-only model inspection; select runs or Refresh Runs to compare.")

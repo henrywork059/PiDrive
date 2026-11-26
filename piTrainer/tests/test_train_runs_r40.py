@@ -11,12 +11,13 @@ from unittest.mock import patch
 import pandas as pd
 from piTrainer.services.preprocess.applied_binding import AppliedPreprocessBinding
 from piTrainer.services.train.history_service import build_plot_series
+from piTrainer.utils.model_manifest import make_manifest, write_manifest
 from piTrainer.services.validation.validation_provenance import file_context, stable_file_context
 from piTrainer.services.validation.validation_receipts import save_validation_receipt, load_validation_receipts, evaluated_rows_hash
 
 from piTrainer.services.train.experiment_service import (
     attach_model_artifact, comparison_rows, create_run_snapshot, finish_run,
-    inspect_model_experiment, load_runs, preprocessing_hash, run_record_path,
+    inspect_model_experiment, inspect_model_provenance, load_runs, portable_experiment, preprocessing_hash, run_record_path,
     save_run_record, summarize_metrics,
 )
 
@@ -258,6 +259,38 @@ class ExperimentServiceTests(unittest.TestCase):
         rows = dict((name, (x, y)) for name, x, y in comparison_rows(a, b))
         self.assertEqual(rows["Best validation loss"], ("0.9", "0.1"))
         self.assertNotEqual(rows["Run ID"][0], rows["Run ID"][1])
+
+    def test_portable_model_inspection_does_not_create_local_run(self):
+        model = self.root / "portable.tflite"
+        model.write_bytes(b"portable fixture")
+        claim = portable_experiment(self.successful())
+        manifest = make_manifest(model, model_kind="steering_control", width=160,
+                                 height=120, experiment=claim)
+        write_manifest(model, manifest)
+        record, message = inspect_model_provenance(model)
+        self.assertEqual(record["run_id"], claim["run_id"])
+        self.assertEqual(record["source_group_count"], claim["source_group_count"])
+        self.assertEqual(record["split"]["identity_label_sha256"], claim["identity_label_sha256"])
+        self.assertNotIn("source_groups", record)
+        self.assertNotIn("preprocessed_dataset_path", record)
+        self.assertIn("Portable claim", record["status"])
+        self.assertIn("checksum verified", message)
+        self.assertEqual(load_runs(self.root), [])
+        bad_sidecar = Path(str(model) + ".experiment.json")
+        bad_sidecar.write_text("{}", encoding="utf-8")
+        self.assertIsNone(inspect_model_provenance(model)[0])
+        bad_sidecar.unlink()
+        model.write_bytes(b"tampered")
+        self.assertIsNone(inspect_model_provenance(model)[0])
+
+    def test_legacy_inspection_observes_hash_without_run(self):
+        model = self.root / "old.keras"
+        model.write_bytes(b"legacy")
+        record, message = inspect_model_provenance(model)
+        self.assertNotIn("run_id", record)
+        self.assertEqual(len(record["model_binding"]["model_sha256"]), 64)
+        self.assertIn("legacy file hash observed", message)
+        self.assertEqual(load_runs(self.root), [])
 
     def test_legacy_model_sidecar_absent_is_unknown(self):
         path = self.root / "old.keras"
