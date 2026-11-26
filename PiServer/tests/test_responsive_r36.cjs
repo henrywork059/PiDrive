@@ -19,4 +19,24 @@ test('resizable square pad not overwritten at mobile',()=>assert.equal(!css.incl
 test('screenshot runner records required four widths',()=>assert.equal(capture.includes('WIDTHS = (390, 768, 1024, 1440)'),true));
 test('screenshot runner does not press motor buttons',()=>assert.equal(!capture.includes('click("#estopToggle")')&&capture.includes('non-mutating presentation dialogs'),true));
 test('version is 0_4_22 or later in the patch line',()=>{const m=ver.match(/APP_VERSION\s*=\s*"0_4_(\d+)"/);assert.ok(m&&Number(m[1])>=22);});
-console.log(n+'/12 PiServer R36 responsive checks passed');
+test('stacked STOP overrides theme sizing without changing its handler',()=>{
+  assert.match(css,/#workspace #estopToggle\s*\{[^}]*min-height: 44px !important;[^}]*min-width: 44px !important;[^}]*transform: none !important;/);
+});
+test('extracted operator format preserves display contract and script order',()=>{
+  const m=require('../piserver/web/static/operator_format.js');
+  assert.equal(m.normalizeHexColor(' #AbC '),'#aabbcc');
+  assert.equal(m.normalizeHexColor('bad','#123456'),'#123456');
+  assert.equal(m.hexToRgbTriplet('#abc'),'170, 187, 204');
+  assert.equal(m.parseNumericStyleValue('-2.5px'),-2.5);
+  assert.equal(m.parseNumericStyleValue('none',8),8);
+  assert.equal(m.shortLastSaveLabel('C:\\private\\frame.jpg'),'frame.jpg');
+  assert.equal(m.shortLastSaveLabel(''),'none');
+  assert.equal(m.shortLastSaveLabel('abcdefghijklmnopqrstuvwxyz'),'abcdefghijklmnopqrstu…');
+  assert.equal(m.formatElapsed(61.9),'01:01');
+  assert.equal(m.formatElapsed(-1),'00:00');
+  assert.equal(m.formatDateTime(null),'--');
+  assert.equal(m.formatDateTime('invalid'),'invalid');
+  assert.equal(m.formatDateTime('2026-01-01T00:00:00Z'),new Date('2026-01-01T00:00:00Z').toLocaleString());
+  assert.ok(html.indexOf("filename='operator_format.js'")<html.indexOf("filename='app.js'"));
+});
+console.log(n+'/14 PiServer R36 responsive checks passed');

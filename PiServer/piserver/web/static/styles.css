@@ -3735,3 +3735,14 @@ button.active,
     overflow-wrap: anywhere;
   }
 }
+
+/* Safety target: late theme rules set 32px buttons even in stacked mode.
+   Keep desktop dock geometry; protect the actual E-stop hit area on touch widths. */
+@media (max-width: 1080px) {
+  #workspace #estopToggle {
+    min-height: 44px !important;
+    min-width: 44px !important;
+    height: auto !important;
+    transform: none !important;
+  }
+}

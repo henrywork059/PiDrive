@@ -186,6 +186,24 @@ def main():
                             target = page.locator(stop)
                             expect(target).to_be_enabled()
                             case['stop'] = reachable(target, width, height, 'STOP')
+                            if args.component == 'PiServer' and width <= 1080:
+                                assert case['stop']['height'] >= 44 and case['stop']['width'] >= 44, case['stop']
+                                targets = page.evaluate("""() => {
+                                  const root=document.documentElement, keys=['--font-scale','--font-scale-factor'];
+                                  const old=keys.map(k=>[root.style.getPropertyValue(k),root.style.getPropertyPriority(k)]);
+                                  try {
+                                    return [70,80,100,115].map(scale=>{
+                                      root.style.setProperty(keys[0],scale+'%');
+                                      root.style.setProperty(keys[1],String(scale/100));
+                                      const r=document.getElementById('estopToggle').getBoundingClientRect();
+                                      return {scale,width:r.width,height:r.height};
+                                    });
+                                  } finally {
+                                    keys.forEach((k,i)=>old[i][0]?root.style.setProperty(k,...old[i]):root.style.removeProperty(k));
+                                  }
+                                }""")
+                                assert all(t['height'] >= 44 and t['width'] >= 44 for t in targets), targets
+                                case['stop_font_matrix'] = targets
                             if args.component == 'PiSD' and width <= 900:
                                 assert case['stop']['height'] >= 44, case['stop']
                                 measured = page.evaluate("""() => {
