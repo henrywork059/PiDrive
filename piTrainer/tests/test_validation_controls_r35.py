@@ -5,7 +5,8 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication, QMainWindow, QTabWidget, QWidget, QLineEdit, QPushButton
+from PySide6.QtGui import QColor
+from PySide6.QtWidgets import QApplication, QMainWindow, QTabWidget, QWidget, QLineEdit, QPushButton, QCheckBox, QStyle, QStyleOptionButton
 import pandas as pd
 from types import SimpleNamespace
 from piTrainer.main_window import MainWindow
@@ -29,6 +30,8 @@ from piTrainer.panels.data.session_source_panel import SessionSourcePanel
 from unittest.mock import patch
 from piTrainer.ui.layout_widgets import CollapsibleSection
 from piTrainer.ui.styles import build_stylesheet
+from piTrainer.ui.formatting import apply_standard_widget_format
+from piTrainer.ui.theme import theme_color
 from piTrainer.panels.export.model_status_panel import ModelStatusPanel
 from piTrainer.pages.export_page import ExportPage
 from piTrainer.panels.train.train_history_panel import TrainHistoryPanel
@@ -186,6 +189,73 @@ class ValidationControlsTests(unittest.TestCase):
         self.assertEqual(applied, [True])
         deploy.set_prediction_count(0)
         self.assertFalse(deploy.apply_selected_btn.isEnabled())
+
+    def test_checked_indicators_render_a_non_color_mark(self):
+        # Exercise actual stylesheet painting rather than only the source selector.
+        css = build_stylesheet()
+        for name in ('ordinaryCheckbox', 'sessionRowCheckbox'):
+            box = QCheckBox('Fixture' if name == 'ordinaryCheckbox' else '')
+            self.addCleanup(box.close)
+            box.setObjectName(name)
+            box.setStyleSheet(css)
+            box.show()
+            box.activateWindow()
+            self.app.processEvents()
+            box.setFocus()
+            QTest.keyClick(box, Qt.Key_Space)
+            self.assertTrue(box.isChecked())
+            self.app.processEvents()
+            option = QStyleOptionButton()
+            box.initStyleOption(option)
+            rect = box.style().subElementRect(QStyle.SE_CheckBoxIndicator, option, box)
+            self.assertGreater(rect.width(), 10)
+            pixmap = box.grab()
+            ratio = pixmap.devicePixelRatio()
+            image = pixmap.toImage()
+            # Inset excludes the border; the checked interior must contain both
+            # bright fill and the dark check glyph, even when the box has focus.
+            inner = rect.adjusted(4, 4, -4, -4)
+            colors = [image.pixelColor(x, y)
+                      for y in range(round(inner.top() * ratio), round((inner.bottom() + 1) * ratio))
+                      for x in range(round(inner.left() * ratio), round((inner.right() + 1) * ratio))]
+            def near(pixel, target):
+                return max(abs(pixel.red() - target.red()),
+                           abs(pixel.green() - target.green()),
+                           abs(pixel.blue() - target.blue())) <= 18
+            self.assertTrue(any(near(c, QColor(theme_color('info'))) for c in colors), name)
+            self.assertTrue(any(near(c, QColor(theme_color('text_on_warning'))) for c in colors), name)
+            QTest.keyClick(box, Qt.Key_Space)
+            self.assertFalse(box.isChecked())
+
+    def test_tab_bar_keyboard_focus_preserves_selection_and_labels(self):
+        shell = QWidget()
+        self.addCleanup(shell.close)
+        tabs = QTabWidget(shell)
+        tabs.addTab(QWidget(), 'First')
+        tabs.addTab(QWidget(), 'Second')
+        tabs.setObjectName('mainWorkflowTabs')
+        apply_standard_widget_format(shell)
+        bar = tabs.tabBar()
+        self.assertEqual(bar.focusPolicy(), Qt.StrongFocus)
+        shell.resize(420, 180)
+        tabs.resize(400, 160)
+        shell.show()
+        shell.activateWindow()
+        self.app.processEvents()
+        bar.setFocus()
+        self.assertTrue(bar.hasFocus())
+        QTest.keyClick(bar, Qt.Key_Right)
+        self.assertEqual(tabs.currentIndex(), 1)
+        QTest.keyClick(bar, Qt.Key_Left)
+        self.assertEqual(tabs.currentIndex(), 0)
+        self.assertEqual([tabs.tabText(i) for i in range(2)], ['First', 'Second'])
+        for profile in ('compact', 'comfortable', 'spacious'):
+            css = build_stylesheet(profile)
+            self.assertIn('QTabBar::tab:selected:focus', css)
+            self.assertIn('border-top: 1px dashed', css)
+            self.assertIn('#sessionRowCheckbox::indicator:focus', css)
+            self.assertIn('QCheckBox::indicator:focus', css)
+            self.assertNotIn('__CHECKBOX_MARK__', css)
 
     def test_disclosure_header_native_keyboard_and_focus_style(self):
         field = QLineEdit()

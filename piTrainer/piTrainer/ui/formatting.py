@@ -315,6 +315,7 @@ def apply_standard_widget_format(root: QWidget, *, density: str = "comfortable")
             tab.setProperty("role", "contentTabs")
         tab.setUsesScrollButtons(True)
         tab.setElideMode(Qt.ElideRight)
+        tab.tabBar().setFocusPolicy(Qt.StrongFocus)
 
     # Generic grouped panels.
     for group in root.findChildren(QGroupBox):

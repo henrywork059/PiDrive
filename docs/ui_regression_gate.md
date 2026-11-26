@@ -178,3 +178,6 @@ PiSD 0.11.41 Revision B a988768 exact Linux 45740059987 / Windows 45740059974 co
 
 
 piTrainer 0.11.30 R35 Data candidate on exact verified 0d1ef013 (Linux 45753713021 4/4, Windows 45753713018 1/1, PiSD browser 32/32). Explicit names for filter/bulk/recovery/model/merge/plot/record/session controls, standard/custom slider focus indicators, registered native Qt keyboard/filter and callback-gated edit regressions. Actual confirmation dialogs, data mutation, selection/source mapping, config, training provenance and layout topology unchanged. New exact combined CI pending; no local Qt or owner/physical acceptance claimed. R35 remains partial.
+
+
+piTrainer 0.11.31 R35 non-color checkbox/tab focus candidate on exact verified 29c7a5c (Linux 45754131339 4/4, Windows 45754131321 1/1; native accessibility 13/13 and common Qt 28/28 each). Checked ordinary/session-row indicators gain visible check glyph and dashed focus; native tab bars StrongFocus and focused-tab dashed border. Required SVG included in onedir spec. Native rendered indicator and keyboard toggle/tab-arrow tests extend existing registered suite. New exact CI pending; no local Qt or frozen executable verification. No selection/action, mutation, config or layout topology changes. R35 remains partial.

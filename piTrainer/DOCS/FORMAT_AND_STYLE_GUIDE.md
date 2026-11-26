@@ -555,3 +555,7 @@ For V11 packages, update the online manifest before distributing a controlled V1
 ## R35 — Data workspace accessibility
 
 Use explicit, distinct accessible names for paired filter bounds, normalized bulk value fields and their scaled integer sliders. Retain native Qt keyboard handling, existing layout and confirmation flow. Native horizontal sliders use a focused dashed handle border; custom centered-fill steering sliders draw an inset dashed focus outline with the shared text-primary theme token. Keep the Records list read-only and name its existing selection scope without changing source-row mapping. Do not introduce new mutation shortcuts.
+
+## R35 — Non-color selection and tab focus
+
+Keep the existing checkbox dimensions and semantic fill, but show a dark check glyph inside checked ordinary and session-row indicators. The module-relative checkbox_check.svg is required in source and the Windows onedir package; its dark neutral stroke matches text_on_warning against the info fill. Focused checkbox indicators and focused tabs have dashed borders without changing their geometry. Standard formatting makes actual tab bars keyboard focusable, preserving native arrow navigation, tab names and ordering. No new shortcuts or changes to selection, confirmation, or action behavior.

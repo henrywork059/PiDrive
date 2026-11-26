@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from .formatting import stylesheet_tokens
 
 
@@ -300,6 +302,10 @@ def build_stylesheet(density: str = "comfortable") -> str:
     #sessionRowCheckbox::indicator:checked {
         background: @COLOR_INFO@;
         border: 2px solid @COLOR_TEXT_PRIMARY@;
+        image: url("__CHECKBOX_MARK__");
+    }
+    #sessionRowCheckbox::indicator:focus {
+        border: 2px dashed @COLOR_TEXT_PRIMARY@;
     }
     #sessionRowLabel {
         color: @COLOR_TEXT_PRIMARY@;
@@ -379,6 +385,13 @@ def build_stylesheet(density: str = "comfortable") -> str:
         border-color: @COLOR_INFO@;
         color: @COLOR_TEXT_PRIMARY@;
     }
+    QTabBar::tab:focus, QTabBar::tab:selected:focus,
+    QTabWidget#mainWorkflowTabs QTabBar::tab:focus,
+    QTabWidget[role='workflowTabs'] QTabBar::tab:focus {
+        border-top: 1px dashed @COLOR_TEXT_PRIMARY@;
+        border-left: 1px dashed @COLOR_TEXT_PRIMARY@;
+        border-right: 1px dashed @COLOR_TEXT_PRIMARY@;
+    }
     QProgressBar {
         min-height: 22px;
         border: 1px solid @COLOR_BORDER@;
@@ -450,7 +463,10 @@ def build_stylesheet(density: str = "comfortable") -> str:
     QCheckBox::indicator:checked {
         background: @COLOR_INFO@;
         border: 2px solid @COLOR_TEXT_PRIMARY@;
-        image: none;
+        image: url("__CHECKBOX_MARK__");
+    }
+    QCheckBox::indicator:focus {
+        border: 2px dashed @COLOR_TEXT_PRIMARY@;
     }
 
     #controlStack {
@@ -653,4 +669,6 @@ def build_stylesheet(density: str = "comfortable") -> str:
     """
     for key, value in values.items():
         css = css.replace(f"@{key}@", str(value))
-    return css
+    # Source checkout and PyInstaller onedir use the same module-relative asset.
+    mark = Path(__file__).resolve().with_name('checkbox_check.svg').as_posix()
+    return css.replace('__CHECKBOX_MARK__', mark)
