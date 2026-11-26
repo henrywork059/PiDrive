@@ -73,14 +73,18 @@ test("newer folder read cannot be overwritten by stale success or rejection",asy
  assert.equal(reader.verified(),true);
  assert.equal(timers.size,0);
 });
-test("deadline during JSON body cannot verify even if transport returns late",async()=>{
+test("deadline during JSON body cannot verify even if transport returns late",{timeout:2000},async()=>{
  const {reader,requests,timers}=readerHarness();
  const pending=reader.read();
- let finishBody;
- requests[0].resolve({ok:true,status:200,json:()=>new Promise(resolve=>{finishBody=resolve;})});
- await Promise.resolve();
- await Promise.resolve();
+ let signalBodyStarted;
+ const bodyStarted=new Promise(resolve=>{signalBodyStarted=resolve;});
+ requests[0].resolve({ok:true,status:200,json:()=>new Promise(resolve=>{
+   signalBodyStarted(resolve);
+ })});
+ const finishBody=await bodyStarted;
  assert.equal(typeof finishBody,"function");
+ assert.equal(reader.loading(),true);
+ assert.equal(timers.size,1);
  [...timers.values()][0]();
  assert.equal(requests[0].options.signal.aborted,true);
  finishBody(good());
