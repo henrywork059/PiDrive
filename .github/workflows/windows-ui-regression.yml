@@ -34,7 +34,7 @@ jobs:
         run: python -c "from PySide6.QtWidgets import QApplication; app=QApplication([]); print(app.platformName()); assert app.platformName() == 'windows'"
       - name: Run selected real Qt interaction regressions without skips
         run: |
-          $files = @('tests/test_session_keyboard_r35.py','tests/test_validation_controls_r35.py','tests/test_shared_accessibility_r35.py','tests/test_splitter_restore_r50.py','tests/test_splitter_minimums_r50.py','tests/test_validation_marker_lifecycle_r50.py','tests/test_validation_to_data_r50.py')
+          $files = @('tests/test_session_keyboard_r35.py','tests/test_validation_controls_r35.py','tests/test_shared_accessibility_r35.py','tests/test_splitter_restore_r50.py','tests/test_splitter_minimums_r50.py','tests/test_validation_marker_lifecycle_r50.py','tests/test_validation_to_data_r50.py','tests/test_review_context_ux61.py')
           foreach ($file in $files) {
             python -m pytest -q $file --junitxml="$env:RUNNER_TEMP/qt-regression.xml"
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

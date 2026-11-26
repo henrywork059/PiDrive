@@ -19,3 +19,12 @@ Full changed Python files compiled locally with candidate Git blob hash matching
 - Actual Data selection now feeds a bounded read-only bulk-edit preview (two representative source session/frame identities, exact selected count, current and proposed steering/throttle, unknown labels retained). Slider/spin updates refresh the preview without mutation. Count-only resets clear stale identities. Existing overwrite checkbox, fresh selection lookup, explicit final confirmation, one-field writes and source identity rules remain unchanged.
 - Files: piTrainer/panels/data/bulk_edit_panel.py, piTrainer/pages/data_page_filter_edit.py, tests/test_review_context_ux61.py. Existing comparison and contextual F1 help preserved; no shortcut, saved setting or layout-persistence changes. New native test covers duplicate frame IDs in separate sessions, missing labels, live values, clearing, no writes and unchanged confirmation gate. Native execution pending; no acceptance claimed.
 - Forward from 50813d30b675062808fcf988a29536b40f8f4484; notes 0.11.32/31/30/29 reviewed in this cycle. No version allocation, stable promotion or deployment.
+
+
+## Revision C — contextual shortcut discoverability and Windows review coverage
+
+Last fully green baseline 2a36fe323f246d7264f70dc47ff1cf058c182133, Linux 45867333772 and Windows 45867334531. Linux review-context suite 6/6, native validation-to-data 5/5 on both, latest four notes 0.11.32/31/30/29 reviewed. Windows previously did not execute review-context suite.
+
+- UX65: add a named secondary Shortcuts (F1) button in the existing status bar, using the same current-page help handler as F1. Preserve current mappings, tab order, layout and playback.
+- UX61/UX63/UX65: register existing review-context suite on native Windows. Extend it with a real Qt harness using production shortcut bindings and read-only callback stubs: text-entry Space, Help button, F1, correct context and no mutations.
+- Files: main_window.py, tests/test_review_context_ux61.py, Windows workflow. No data or persistent settings changes; no local Qt execution available, exact candidate syntax/native/packaging acceptance pending. No version allocation, merge or stable promotion.

@@ -27,7 +27,8 @@ class ReviewContextTests(unittest.TestCase):
 
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication, QMessageBox
+from PySide6.QtWidgets import QApplication, QMessageBox, QMainWindow, QTabWidget, QWidget, QLineEdit, QVBoxLayout
+from piTrainer.main_window import MainWindow
 from unittest.mock import patch
 from types import SimpleNamespace
 import pandas as pd
@@ -108,3 +109,85 @@ class NativeReviewTests(unittest.TestCase):
         self.assertIn('B / f1: 0.200 → 0.700',message)
         self.assertNotIn('C / f1',message)
         write.assert_not_called()
+
+
+class ShortcutHarness(QMainWindow):
+    """Real Qt controls and production bindings; callbacks cannot modify user data."""
+    show_shortcuts = MainWindow.show_shortcuts
+    _make_shortcuts_button = MainWindow._make_shortcuts_button
+    next_tab = MainWindow.next_tab
+    previous_tab = MainWindow.previous_tab
+
+    def __init__(self):
+        super().__init__()
+        self.actions = []
+        self.tabs = QTabWidget()
+        self.setCentralWidget(self.tabs)
+        self.data_page = QWidget()
+        self.editor = QLineEdit()
+        QVBoxLayout(self.data_page).addWidget(self.editor)
+        self.data_page.refresh_sessions = lambda: self.actions.append('refresh')
+        self.data_page.load_selected_sessions = lambda: self.actions.append('load')
+        self.data_page.delete_selected_frame = lambda: self.actions.append('hide')
+        self.data_page.purge_hidden_frames_shortcut = lambda: self.actions.append('purge')
+        self.data_page.session_list_panel = SimpleNamespace(
+            select_all=lambda: self.actions.append('select'),
+            clear_all=lambda: self.actions.append('clear'))
+        self.train_page = QWidget()
+        self.train_page.prepare_split = lambda: self.actions.append('split')
+        self.train_page.start_training = lambda: self.actions.append('train')
+        self.train_page.stop_training = lambda: self.actions.append('stop')
+        self.export_page = QWidget()
+        self.export_page.export_model = lambda: self.actions.append('export')
+        self.export_validation_page = QWidget()
+        self.export_validation_page.validate_export = lambda: self.actions.append('validate')
+        for page, name in (
+            (self.data_page, '1 Data'), (QWidget(), '2 Preprocess'),
+            (self.train_page, '3 Train'), (QWidget(), '4 Validate'),
+            (self.export_page, '5 Export'), (self.export_validation_page, '6 TFLite Check'),
+        ):
+            self.tabs.addTab(page, name)
+        self.help_button = self._make_shortcuts_button()
+        self.statusBar().addPermanentWidget(self.help_button)
+        MainWindow._setup_shortcuts(self)
+
+    def reset_current_page_layout(self):
+        self.actions.append('reset')
+
+
+class NativeShortcutTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.app = QApplication.instance() or QApplication([])
+
+    def test_context_help_button_and_f1_leave_text_entry_and_actions_unchanged(self):
+        shell = ShortcutHarness()
+        self.addCleanup(shell.close)
+        self.addCleanup(shell.deleteLater)
+        shell.resize(900, 600)
+        shell.show()
+        shell.activateWindow()
+        self.app.processEvents()
+        shell.editor.setFocus()
+        self.app.processEvents()
+        QTest.keyClicks(shell.editor, 'one two')
+        self.assertEqual(shell.editor.text(), 'one two')
+        self.assertEqual(shell.actions, [])
+        with patch('piTrainer.main_window.QMessageBox.information') as info:
+            QTest.mouseClick(shell.help_button, Qt.LeftButton)
+            self.assertEqual(info.call_count, 1)
+            data_help = info.call_args.args[2]
+            self.assertIn('Confirm Hide', data_help)
+            self.assertIn('Permanent purge', data_help)
+            self.assertIn('Previous / next frame', data_help)
+            self.assertIn('Play / Stop / Restart', data_help)
+            shell.tabs.setCurrentIndex(2)
+            shell.tabs.tabBar().setFocus()
+            self.app.processEvents()
+            QTest.keyClick(shell.tabs.tabBar(), Qt.Key_F1)
+            self.assertEqual(info.call_count, 2)
+            train_help = info.call_args.args[2]
+            self.assertIn('Ctrl+R → Start training', train_help)
+            self.assertNotIn('Permanent purge', train_help)
+            self.assertIn('Global navigation', train_help)
+        self.assertEqual(shell.actions, [])

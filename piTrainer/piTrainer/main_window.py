@@ -4,7 +4,7 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeySequence, QShortcut
-from PySide6.QtWidgets import QApplication, QLabel, QMainWindow, QMessageBox, QStatusBar, QStyle, QTabWidget
+from PySide6.QtWidgets import QApplication, QLabel, QMainWindow, QMessageBox, QPushButton, QStatusBar, QStyle, QTabWidget
 
 from .app_state import AppState
 from .pages.data_page import DataPage
@@ -69,6 +69,7 @@ class MainWindow(QMainWindow):
         self.version_label = QLabel(STATUS_VERSION_TEXT)
         self.version_label.setObjectName('appVersionLabel')
         self.version_label.setProperty('role', 'muted')
+        self.status.addPermanentWidget(self._make_shortcuts_button())
         self.status.addPermanentWidget(self.version_label)
         self.setStatusBar(self.status)
         self.set_status_message(
@@ -205,6 +206,14 @@ class MainWindow(QMainWindow):
         if hasattr(page, 'reset_layout'):
             page.reset_layout()
             self.set_status_message('Current page layout reset to default.')
+
+    def _make_shortcuts_button(self) -> QPushButton:
+        button = QPushButton('Shortcuts (F1)')
+        button.setProperty('role', 'secondary')
+        button.setAccessibleName('Keyboard shortcuts for current page')
+        button.setToolTip('Show keyboard shortcuts for the current workspace (F1).')
+        button.clicked.connect(self.show_shortcuts)
+        return button
 
     def show_shortcuts(self) -> None:
         context = (
