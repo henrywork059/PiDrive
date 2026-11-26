@@ -110,4 +110,41 @@ test('AI library controls named and actions initially locked',()=>{
   assert.match(aiHtml,/id="aiDownloadZip"[^>]*\bdisabled\b/);
   assert.match(aiHtml,/id="aiDeleteFolder"[^>]*\bdisabled\b/);
 });
-console.log(n+'/16 PiSD safety/input tests passed');
+const tester = fs.readFileSync(path.join(__dirname, '../pisd/web/static/js/testing_server.js'), 'utf8');
+const testerHtml = fs.readFileSync(path.join(__dirname, '../pisd/web/templates/testing_server.html'), 'utf8');
+const lab = fs.readFileSync(path.join(__dirname, '../pisd/web/static/js/panel_testing.js'), 'utf8');
+test('testing endpoint shortcut is native draft-only button',()=>{
+  const start = tester.indexOf('function buildManifest()');
+  const end = tester.indexOf('function smokeLine(',start);
+  const elements = {};
+  const make = tag => ({tag, children:[], append(...children){this.children.push(...children);},appendChild(child){this.children.push(child);},setAttribute(key,value){this[key]=value;},addEventListener(type,fn){this[type]=fn;}});
+  const document = {getElementById(id){return elements[id] ||= make(id);},createElement:make};
+  new Function('document','manifest',tester.slice(start,end)+'\nreturn buildManifest();')(document,{endpoints:[{method:'GET',path:'/api/status',purpose:'Read status'}]});
+  const chip = elements.manifestList.children[0];
+  assert.equal(chip.tag,'button');
+  assert.equal(chip.type,'button');
+  assert.equal(chip['aria-label'],'Prepare GET /api/status');
+  chip.click();
+  assert.equal(elements.customMethod.value,'GET');
+  assert.equal(elements.customPath.value,'/api/status');
+});
+test('testing read-only outputs preserve native Space and are named',()=>{
+  for (const id of ['fpsTestPanel','smokeTestPanel','lastResponse','statusPanel']) {
+    const tag = testerHtml.match(new RegExp('<pre id="'+id+'"[^>]*>'))[0];
+    assert.match(tag,/tabindex="0"/);
+    assert.match(tag,/aria-label="[^"]+"/);
+    assert.match(tag,/data-space-stop-ignore="true"/);
+  }
+});
+test('panel size state tracks actual selected preset',()=>{
+  const start=lab.indexOf('  function setPanelSize('),end=lab.indexOf('  function applyPanelSizePreset(',start);
+  assert.ok(start>=0 && end>start);
+  const buttons=['compact','standard','large'].map(panelSize=>({dataset:{panelSize},setAttribute(k,v){this[k]=v;}}));
+  const panel={dataset:{},querySelectorAll(){return buttons;}};
+  const setSize=new Function(lab.slice(start,end)+'\nreturn setPanelSize;')();
+  setSize(panel,'large');
+  assert.deepEqual(buttons.map(b=>b['aria-pressed']),['false','false','true']);
+  setSize(panel,'wide');
+  assert.deepEqual(buttons.map(b=>b['aria-pressed']),['false','false','false']);
+});
+console.log(n+'/19 PiSD safety/input tests passed');

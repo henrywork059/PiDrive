@@ -6,6 +6,7 @@ Only run with synthetic, disposable settings; no external browser origin.
 import argparse
 import json
 import os
+import re
 import sys
 import tempfile
 from contextlib import ExitStack
@@ -24,6 +25,9 @@ PAGES = {
         ("manual", "/manual-drive", "#mdrvStopTop", "#mdrvDragPad", "#mdrvPreviewFrame", "#mdrvOverlaySettingsOpen"),
         ("ai", "/ai-mode", "#aiStopAll", "#aiSaveConfig", "#aiPreviewFrame", "#aiWorkflowSettingsOpen"),
         ("settings", "/settings", "#stStopAll", "#stSaveSettings", None, None),
+        ("testing", "/testing", "#stopAllBtn", "#customSendBtn", None, None),
+        ("panel_lab", "/panel-testing", "#ptStopAll", "#ptRunAllChecks", None, None),
+        ("motor_tuning", "/motor-tuning", None, ".mtun-back", None, None),
     ],
     "PiServer": [
         ("dashboard", "/", "#estopToggle", "#saveRuntimeBtn", ".viewer-frame", "#openStyleSettingsBtn"),
@@ -235,7 +239,8 @@ def main():
                     case = {"page": name, "width": width, "height": height, "geometry": {}, "errors": []}
                     try:
                         page.goto(ORIGIN + url, wait_until="domcontentloaded")
-                        expect(page.locator(stop)).to_be_visible(timeout=8000)
+                        if stop:
+                            expect(page.locator(stop)).to_be_visible(timeout=8000)
                         if name == "manual":
                             expect(page.locator("#mdrvSpeed")).to_have_value("0.43", timeout=8000)
                             expect(page.locator("#mdrvSpeed")).to_have_attribute("max", "0.63")
@@ -614,11 +619,11 @@ def main():
                             expect(events).not_to_have_attribute("open", "")
                         # Start keyboard modality then focus STOP without activating it.
                         page.keyboard.press("Tab")
-                        target = page.locator(stop)
+                        target = page.locator(stop or primary)
                         target.focus()
                         expect(target).to_be_focused()
-                        assert target.evaluate("(el) => el.matches(':focus-visible') && getComputedStyle(el).outlineStyle !== 'none'"), "STOP lacks keyboard focus ring"
-                        assert target.inner_text().strip(), "STOP has no text"
+                        assert target.evaluate("(el) => el.matches(':focus-visible') && getComputedStyle(el).outlineStyle !== 'none'"), "Primary navigation/STOP lacks keyboard focus ring"
+                        assert target.inner_text().strip(), "Primary navigation/STOP has no text"
                         if opener:
                             # Touch on the narrow viewport; otherwise real keyboard activation.
                             control = page.locator(opener)
@@ -826,6 +831,83 @@ def main():
                             # Wait for the intercepted network response, not a hardware acknowledgement.
                             page.wait_for_timeout(100)
                             assert "/api/control/stop" in mutations[before:]
+                        if name == "testing":
+                            before = list(mutations)
+                            method = page.locator("#customMethod")
+                            path = page.locator("#customPath")
+                            body = page.locator("#customBody")
+                            expect(method).to_have_accessible_name("API request method")
+                            expect(path).to_have_accessible_name("API request path")
+                            expect(body).to_have_accessible_name("API request JSON body")
+                            chip = page.locator(".endpoint-chip").filter(has_text="GET /api/status").first
+                            expect(chip).to_be_visible()
+                            expect(chip).to_have_accessible_name("Prepare GET /api/status")
+                            method.select_option("POST")
+                            path.fill("/fixture-not-sent")
+                            if width == 390:
+                                chip.tap()
+                            else:
+                                chip.focus()
+                                page.keyboard.press("Space")
+                            expect(method).to_have_value("GET")
+                            expect(path).to_have_value("/api/status")
+                            assert mutations == before, "Preparing API request invoked a mutation"
+                            for selector, label in (("#fpsTestPanel", "FPS test output"), ("#smokeTestPanel", "Smoke test output"),
+                                                    ("#lastResponse", "Last API response"), ("#statusPanel", "Runtime status")):
+                                output = page.locator(selector)
+                                expect(output).to_have_accessible_name(label)
+                                page.keyboard.press("Tab")
+                                output.focus()
+                                expect(output).to_be_focused()
+                                assert output.evaluate("(el) => el.matches(':focus-visible') && getComputedStyle(el).outlineStyle === 'solid'")
+                                page.keyboard.press("Space")
+                            assert mutations == before, "Read-only output invoked a mutation"
+                            expect(page.locator('#motorChannelForm input[name="enable_motor_output"]')).not_to_be_checked()
+                            expect(page.locator("#stopAllBtn")).to_be_enabled()
+                        if name == "panel_lab":
+                            before = list(mutations)
+                            checks = page.locator("#ptRunAllChecks")
+                            checks.focus()
+                            page.keyboard.press("Space")
+                            report = page.locator("#ptPanelReport")
+                            expect(report).to_contain_text("panel.structure_summary")
+                            expect(report).to_have_accessible_name("Panel test output")
+                            panel = page.locator(".pt-panel").first
+                            size = panel.locator('[data-panel-size="large"]')
+                            expect(size).to_have_accessible_name(re.compile("^Large size: .+"))
+                            if width == 390:
+                                size.tap()
+                            else:
+                                size.focus()
+                                page.keyboard.press("Space")
+                            expect(panel).to_have_attribute("data-size", "large")
+                            expect(size).to_have_attribute("aria-pressed", "true")
+                            expect(panel.locator('[data-panel-size="compact"]')).to_have_attribute("aria-pressed", "false")
+                            contract = panel.locator("[data-panel-contract]")
+                            if width == 390:
+                                contract.tap()
+                            else:
+                                contract.focus()
+                                page.keyboard.press("Space")
+                            expect(report).to_contain_text("CONTRACT")
+                            page.keyboard.press("Tab")
+                            report.focus()
+                            expect(report).to_be_focused()
+                            page.keyboard.press("Space")
+                            assert mutations == before, "Structure/contract inspection invoked a mutation"
+                            expect(page.locator("#ptStopAll")).to_be_enabled()
+                        if name == "motor_tuning":
+                            # Preserve the deliberately cleared tuning layout.
+                            expect(page.get_by_role("heading", name="Motor tuning panels removed")).to_be_visible()
+                            expect(page.locator("button, input, select, textarea")).to_have_count(0)
+                            assert not mutations
+                            back = page.locator(".mtun-back")
+                            expect(back).to_have_accessible_name("Back to Front Page")
+                            if width == 390:
+                                back.tap()
+                            else:
+                                back.press("Enter")
+                            expect(page).to_have_url(ORIGIN + "/")
                         if name == "dashboard":
                             # The E-STOP request is intercepted too; never treat a 503 as a physical stop.
                             with page.expect_request(lambda req: req.method == "POST" and urlsplit(req.url).path == "/api/system/estop"):

@@ -172,9 +172,15 @@ function buildManifest() {
   const box = document.getElementById('manifestList');
   box.innerHTML = '';
   for (const endpoint of manifest.endpoints || []) {
-    const chip = document.createElement('div');
+    const chip = document.createElement('button');
+    chip.type = 'button';
     chip.className = 'endpoint-chip';
-    chip.innerHTML = `<strong>${endpoint.method} ${endpoint.path}</strong><small>${endpoint.purpose || ''}</small>`;
+    chip.setAttribute('aria-label', `Prepare ${endpoint.method} ${endpoint.path}`);
+    const title = document.createElement('strong');
+    title.textContent = `${endpoint.method} ${endpoint.path}`;
+    const purpose = document.createElement('small');
+    purpose.textContent = endpoint.purpose || '';
+    chip.append(title, purpose);
     chip.addEventListener('click', () => {
       document.getElementById('customMethod').value = endpoint.method;
       document.getElementById('customPath').value = endpoint.path;

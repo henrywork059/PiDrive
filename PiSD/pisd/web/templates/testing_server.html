@@ -73,7 +73,7 @@
         <button id="readFpsStatsBtn" class="button secondary">Read FPS stats</button>
         <button id="runMaxFpsBtn" class="button primary">Run max FPS test</button>
       </div>
-      <pre id="fpsTestPanel" class="console compact">FPS test not run yet.</pre>
+      <pre id="fpsTestPanel" class="console compact" tabindex="0" aria-label="FPS test output" data-space-stop-ignore="true">FPS test not run yet.</pre>
     </section>
 
     <section class="card" data-panel-role="settings">
@@ -216,20 +216,20 @@
         </div>
         <button id="runSmokeTestBtn2" class="button primary">Run safe smoke test</button>
       </div>
-      <pre id="smokeTestPanel" class="console compact">Smoke test not run yet.</pre>
+      <pre id="smokeTestPanel" class="console compact" tabindex="0" aria-label="Smoke test output" data-space-stop-ignore="true">Smoke test not run yet.</pre>
     </section>
 
     <section class="card wide">
       <h2>Custom API caller</h2>
       <div class="api-caller">
-        <select id="customMethod">
+        <select id="customMethod" aria-label="API request method">
           <option>GET</option>
           <option>POST</option>
         </select>
-        <input id="customPath" value="/api/status" spellcheck="false">
+        <input id="customPath" aria-label="API request path" value="/api/status" spellcheck="false">
         <button id="customSendBtn" class="button primary">Send</button>
       </div>
-      <textarea id="customBody" class="json-input" spellcheck="false">{}</textarea>
+      <textarea id="customBody" aria-label="API request JSON body" class="json-input" spellcheck="false">{}</textarea>
       <div id="manifestList" class="manifest"></div>
     </section>
 
@@ -239,8 +239,8 @@
         <button class="button secondary" data-call='{"method":"POST","path":"/api/errors/clear"}'>Clear errors</button>
       </div>
       <div class="status-grid">
-        <pre id="lastResponse" class="console">Waiting for API call...</pre>
-        <pre id="statusPanel" class="console">{{ initial_status | tojson(indent=2) }}</pre>
+        <pre id="lastResponse" class="console" tabindex="0" aria-label="Last API response" data-space-stop-ignore="true">Waiting for API call...</pre>
+        <pre id="statusPanel" class="console" tabindex="0" aria-label="Runtime status" data-space-stop-ignore="true">{{ initial_status | tojson(indent=2) }}</pre>
       </div>
     </section>
   </main>

@@ -159,13 +159,13 @@
           </div>
           <div class="pt-panel-tools">
             <span class="pt-panel-code">${OK}</span>
-            <button class="pt-mini-button" data-panel-size="compact" title="compact size">C</button>
-            <button class="pt-mini-button" data-panel-size="standard" title="standard size">S</button>
-            <button class="pt-mini-button" data-panel-size="large" title="large size">L</button>
-            <button class="pt-mini-button" data-panel-test="${escapeText(panel.id)}" title="test this panel">Test panel</button>
-            <button class="pt-mini-button" data-panel-contract="${escapeText(panel.id)}" title="show API contract">Contract</button>
-            <button class="pt-mini-button" data-panel-response="${escapeText(panel.id)}" title="show last response">Last</button>
-            <button class="pt-mini-button" data-panel-expected="${escapeText(panel.id)}" title="show expected result">Expected</button>
+            <button class="pt-mini-button" data-panel-size="compact" aria-label="Compact size: ${escapeText(panel.title)}" aria-pressed="false" title="compact size">C</button>
+            <button class="pt-mini-button" data-panel-size="standard" aria-label="Standard size: ${escapeText(panel.title)}" aria-pressed="false" title="standard size">S</button>
+            <button class="pt-mini-button" data-panel-size="large" aria-label="Large size: ${escapeText(panel.title)}" aria-pressed="false" title="large size">L</button>
+            <button class="pt-mini-button" data-panel-test="${escapeText(panel.id)}" aria-label="Test: ${escapeText(panel.title)}" title="test this panel">Test panel</button>
+            <button class="pt-mini-button" data-panel-contract="${escapeText(panel.id)}" aria-label="Show API contract: ${escapeText(panel.title)}" title="show API contract">Contract</button>
+            <button class="pt-mini-button" data-panel-response="${escapeText(panel.id)}" aria-label="Show last response: ${escapeText(panel.title)}" title="show last response">Last</button>
+            <button class="pt-mini-button" data-panel-expected="${escapeText(panel.id)}" aria-label="Show expected result: ${escapeText(panel.title)}" title="show expected result">Expected</button>
           </div>
         </header>
         <div class="pt-panel-body">
@@ -211,7 +211,7 @@
     if (settings.panelSizes) {
       for (const [id, size] of Object.entries(settings.panelSizes)) {
         const panel = document.querySelector(`[data-panel-id="${CSS.escape(id)}"]`);
-        if (panel && size) panel.dataset.size = size;
+        if (panel && size) setPanelSize(panel, size);
       }
     }
   }
@@ -276,16 +276,24 @@
     dom.environmentLabel.textContent = `${dom.layoutMode.value} / ${dom.density.value} / ${dom.viewportPreset.value}`;
   }
 
+  function setPanelSize(panel, size) {
+    if (!panel) return;
+    panel.dataset.size = size;
+    panel.querySelectorAll('[data-panel-size]').forEach(button => {
+      button.setAttribute('aria-pressed', String(button.dataset.panelSize === size));
+    });
+  }
+
   function applyPanelSizePreset(preset) {
     const sizes = ['compact', 'standard', 'large', 'wide', 'full'];
     document.querySelectorAll('.pt-panel').forEach((panel, index) => {
       if (preset === 'auto') {
         const blueprint = PANEL_BLUEPRINTS.find(item => item.id === panel.dataset.panelId);
-        panel.dataset.size = blueprint?.default_size || blueprint?.defaultSize || 'standard';
+        setPanelSize(panel, blueprint?.default_size || blueprint?.defaultSize || 'standard');
       } else if (preset === 'stress') {
-        panel.dataset.size = sizes[index % sizes.length];
+        setPanelSize(panel, sizes[index % sizes.length]);
       } else {
-        panel.dataset.size = preset;
+        setPanelSize(panel, preset);
       }
     });
   }
@@ -409,7 +417,7 @@
   function cycleSizes() {
     const sizes = ['compact', 'standard', 'large', 'wide', 'full'];
     sizeCycleIndex = (sizeCycleIndex + 1) % sizes.length;
-    document.querySelectorAll('.pt-panel').forEach(panel => { panel.dataset.size = sizes[sizeCycleIndex]; });
+    document.querySelectorAll('.pt-panel').forEach(panel => { setPanelSize(panel, sizes[sizeCycleIndex]); });
     writeReport(okLine('panel.cycle_sizes', `all panels set to ${sizes[sizeCycleIndex]}`));
   }
 
@@ -467,7 +475,7 @@
     dom.panelGrid.addEventListener('click', async event => {
       const target = event.target;
       const size = target?.dataset?.panelSize;
-      if (size) target.closest('.pt-panel').dataset.size = size;
+      if (size) setPanelSize(target.closest('.pt-panel'), size);
       const testId = target?.dataset?.panelTest;
       if (testId) writeReport([panelSelfTest(testId), await runPanelApiTest(testId)]);
       const contractId = target?.dataset?.panelContract;

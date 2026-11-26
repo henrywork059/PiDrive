@@ -49,7 +49,7 @@ input, select, textarea { width: 100%; border: 1px solid var(--border); border-r
 .api-caller { display: grid; grid-template-columns: 120px 1fr auto; gap: 0.5rem; margin-bottom: 0.75rem; }
 .json-input { min-height: 120px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .manifest { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0.45rem; margin-top: 0.75rem; }
-.endpoint-chip { background: var(--panel-2); border: 1px solid var(--border); border-radius: 0.75rem; padding: 0.55rem; cursor: pointer; }
+.endpoint-chip { background: var(--panel-2); border: 1px solid var(--border); border-radius: 0.75rem; padding: 0.55rem; cursor: pointer; font: inherit; color: inherit; text-align: left; min-width: 0; overflow-wrap: anywhere; }
 .endpoint-chip strong { color: #bfdbfe; }
 .endpoint-chip small { display: block; color: var(--muted); margin-top: 0.2rem; }
 .status-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }

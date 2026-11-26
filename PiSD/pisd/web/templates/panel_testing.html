@@ -117,7 +117,7 @@
         </div>
         <div class="pt-toolbar-status">
           <span id="ptGlobalCode" class="pt-code-pill">{{ initial_status.code }}</span>
-          <span id="ptEnvironmentLabel">adaptive / comfortable</span>
+          <span id="ptEnvironmentLabel" role="status">adaptive / comfortable</span>
         </div>
       </div>
 
@@ -128,7 +128,7 @@
       <section class="pt-report-wrap">
         <h2>Panel test output</h2>
         <p class="pt-muted">Use structure checks for flexible layout validation, and panel API checks for safe endpoint-contract validation.</p>
-        <pre id="ptPanelReport" class="pt-console">Panel lab ready. Press "Run structure checks" or "Run panel API checks".</pre>
+        <pre id="ptPanelReport" class="pt-console" tabindex="0" aria-label="Panel test output" data-space-stop-ignore="true">Panel lab ready. Press "Run structure checks" or "Run panel API checks".</pre>
       </section>
     </section>
   </main>

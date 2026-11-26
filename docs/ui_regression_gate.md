@@ -160,3 +160,7 @@ Parent c36ad1a verified Linux 45737070868 4/4 and Windows 45737070765 1/1. Discl
 
 ## PiSD 0.11.39 — R35 AI recording-library input parity
 Parent e2b85e1 verified Linux 45738242959 (4/4), Windows 45738242995 (1/1). Named region/selectors, initially locked actions, verified selection announcement, native control keyup isolation with held-steering release preserved. Require visible controls, native keyboard selection/Tab, mobile taps and exact-target cancel/focus; existing failure/retry checks retained. Mobile native select choice uses select_option after tap; no actual download or deletion exercised. Exact CI pending; no R35 closure/hardware acceptance.
+
+
+## PiSD 0.11.40 — R35 Testing Server and Panel Testing Lab
+Parent 7c70927 Linux 45738799996 (4/4), Windows 45738799973 (1/1) verified. Native draft-only endpoint buttons, named custom fields and focusable read-only test outputs; panel lab named actions and pressed state synchronized with actual size across direct/preset/cycle paths. Extend four-width browser matrix with Testing, Panel Testing and intentionally cleared Motor Tuning navigation. No hardware actions invoked by new tests. Exact CI pending; R35 remains partial.
