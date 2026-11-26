@@ -192,3 +192,6 @@ Verification follow-up before acceptance: require native Tab/Shift+Tab traversal
 
 
 PiSD 0.11.43 R35 Settings candidate on exact green ef7c1ee (Linux 45755617247 4/4, Windows 45755617236 1/1; PiSD Chromium 32/32, PiServer 4/4). Twenty range readouts retain visual value but stable native names, explicit import name, named focusable response console with existing scoped Space exemption. Two Node cases, four-width native retry/load keyboard/touch and draft/read-only zero mutation assertions. No handler/config/STOP changes. Source inventory of Front, Settings and PiServer dashboard informs scope; not complete inventory of all dynamically rendered controls. New CI pending; R35 partial.
+
+
+PiSD 0.11.43 Revision B: exact initial a475aad Linux 45756448004 failed only PiSD Chromium Settings at all four widths (28/32), Node 26/26 and standard 63/63 passed; Windows 45756448063 passed (combined 4/5). Form-qualified inner filter(has=...) could not resolve relative to a label; use relative input[name="speed"] and reuse the output locator for both unchanged exact text assertions. No runtime, version, config or safety changes; full native input, console isolation, rejected Save and STOP checks retained. Exact corrected combined CI pending; no proposal closure or hardware/owner acceptance.
