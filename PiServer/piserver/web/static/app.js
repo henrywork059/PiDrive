@@ -175,6 +175,16 @@ function applyStyleOverridesToPage(overrides) {
   styleManager()?.saveCustomOverrides?.(overrides);
 }
 
+// Derive the visible and accessible value from the same native, clamped input.
+function updateStyleRangeReadout(field, el) {
+  const value = el.value;
+  const unit = field.unit || "";
+  const valueEl = document.getElementById(`${field.id}Value`);
+  if (valueEl) valueEl.textContent = `${value}${unit}`;
+  const spokenUnit = unit === "%" ? " percent" : unit === "px" ? " pixels" : unit ? " " + unit : "";
+  el.setAttribute("aria-valuetext", value + spokenUnit);
+}
+
 function syncStyleInputsFromCurrentVars() {
   const resolved = readResolvedStyleVars();
   styleSettingsFields.forEach((field) => {
@@ -184,8 +194,7 @@ function syncStyleInputsFromCurrentVars() {
     if (field.type === "range") {
       const numeric = parseNumericStyleValue(raw, field.fallback || Number(el.min || 0));
       el.value = `${numeric}`;
-      const valueEl = document.getElementById(`${field.id}Value`);
-      if (valueEl) valueEl.textContent = `${numeric}${field.unit || ""}`;
+      updateStyleRangeReadout(field, el);
     } else {
       el.value = normalizeHexColor(raw, el.value || "#000000");
     }
@@ -196,8 +205,7 @@ function syncStyleValueLabelsFromInputs() {
   styleSettingsFields.forEach((field) => {
     if (field.type !== "range") return;
     const el = document.getElementById(field.id);
-    const valueEl = document.getElementById(`${field.id}Value`);
-    if (el && valueEl) valueEl.textContent = `${el.value}${field.unit || ""}`;
+    if (el) updateStyleRangeReadout(field, el);
   });
 }
 

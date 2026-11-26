@@ -116,4 +116,48 @@ test('Training native selector keys cannot drive; release remains unconditional'
   assert.deepEqual(simulateKeys('SELECT',null,[['keydown','ArrowDown'],['keydown','ArrowUp'],['keydown',' ']]),{calls:[],prevented:0});
   assert.deepEqual(simulateKeys('BUTTON',null,[['keydown',' '],['keydown','ArrowDown'],['keyup','ArrowDown']]),{calls:[['down',false]],prevented:0});
 });
-console.log(count+'/23 PiServer R35 accessibility tests passed');
+test('all eleven active style sliders retain native labels and visible readouts',()=>{
+  const tags=html.match(/<input id="style[^"]+" type="range"[^>]*>/g)||[];
+  assert.equal(tags.length,11);
+  for(const tag of tags){
+    const id=tag.match(/id="([^"]+)"/)[1];
+    assert.ok(html.includes('for="'+id+'"'),id);
+    assert.ok(html.includes('id="'+id+'Value"'),id);
+    assert.match(tag,/data-style-unit="(?:%|px)"/);
+  }
+});
+test('style slider accessible units and visible readout follow actual clamped native value',()=>{
+  const start=app.indexOf('function updateStyleRangeReadout(');
+  const end=app.indexOf('function previewStyleOverridesFromInputs(',start);
+  assert.ok(start>=0 && end>start);
+  const fields=[
+    {id:'font',cssVar:'--font-scale',type:'range',unit:'%',fallback:80},
+    {id:'gap',cssVar:'--gap',type:'range',unit:'px',fallback:4}
+  ];
+  function range(min,max,initial){
+    let value=String(initial);
+    return {min:String(min),attributes:{},get value(){return value;},
+      set value(next){value=String(Math.max(min,Math.min(max,Number(next))));},
+      setAttribute(name,v){this.attributes[name]=v;}};
+  }
+  const values={font:range(70,115,80),gap:range(0,20,4),fontValue:{},gapValue:{}};
+  const resolved={'--font-scale':'130%','--gap':'-2px'};
+  const api=new Function('document','styleSettingsFields','readResolvedStyleVars','parseNumericStyleValue',
+    app.slice(start,end)+'\nreturn {syncStyleInputsFromCurrentVars,syncStyleValueLabelsFromInputs};')(
+    {getElementById:id=>values[id]},fields,()=>resolved,(raw,fallback)=>parseFloat(raw)||fallback);
+  api.syncStyleInputsFromCurrentVars();
+  assert.equal(values.font.value,'115');
+  assert.equal(values.fontValue.textContent,'115%');
+  assert.equal(values.font.attributes['aria-valuetext'],'115 percent');
+  assert.equal(values.gap.value,'0');
+  assert.equal(values.gapValue.textContent,'0px');
+  assert.equal(values.gap.attributes['aria-valuetext'],'0 pixels');
+  values.font.value='91'; values.gap.value='7';
+  api.syncStyleValueLabelsFromInputs();
+  assert.equal(values.fontValue.textContent,'91%');
+  assert.equal(values.font.attributes['aria-valuetext'],'91 percent');
+  assert.equal(values.gapValue.textContent,'7px');
+  assert.equal(values.gap.attributes['aria-valuetext'],'7 pixels');
+  assert.deepEqual(resolved,{'--font-scale':'130%','--gap':'-2px'});
+});
+console.log(count+'/25 PiServer R35 accessibility tests passed');

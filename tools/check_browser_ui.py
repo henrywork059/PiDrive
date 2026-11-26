@@ -916,7 +916,68 @@ def main():
                                         break
                                 else:
                                     raise AssertionError("Tab navigation did not reach real Save style")
-                                assert {"styleBg", "styleFontScale", "resetStyleSettingsBtn"} <= seen
+                                style_ranges = {
+                                    "styleFontScale": ("Font size (%)", "%", " percent"),
+                                    "styleWorkspacePad": ("Outer margin", "px", " pixels"),
+                                    "styleGap": ("Panel gap", "px", " pixels"),
+                                    "styleRadius": ("Panel radius", "px", " pixels"),
+                                    "styleControlRadius": ("Button radius", "px", " pixels"),
+                                    "styleCardRadius": ("Box radius", "px", " pixels"),
+                                    "stylePanelPad": ("Panel body padding", "px", " pixels"),
+                                    "styleHeaderPadY": ("Panel header padding", "px", " pixels"),
+                                    "styleHeaderPadX": ("Header side spacing", "px", " pixels"),
+                                    "styleCardGap": ("Card spacing", "px", " pixels"),
+                                    "styleFieldGap": ("Field spacing", "px", " pixels"),
+                                }
+                                style_colors = {
+                                    "styleBg": "Background", "stylePanel": "Panel",
+                                    "stylePanelAlt": "Panel alt", "styleText": "Text",
+                                    "styleMuted": "Muted text", "styleAccent": "Accent",
+                                    "styleDanger": "Danger", "styleWarn": "Warn", "styleOk": "OK",
+                                }
+                                assert set(style_ranges) | set(style_colors) | {"resetStyleSettingsBtn"} <= seen, seen
+                                def check_style_range(id):
+                                    label, unit, spoken_unit = style_ranges[id]
+                                    slider = page.locator("#" + id)
+                                    expect(slider).to_have_accessible_name(label)
+                                    value = slider.input_value()
+                                    expect(slider).to_have_attribute("aria-valuetext", value + spoken_unit)
+                                    expect(page.locator("#" + id + "Value")).to_have_text(value + unit)
+                                for id in style_ranges:
+                                    check_style_range(id)
+                                for id, label in style_colors.items():
+                                    expect(page.locator("#" + id)).to_have_accessible_name(label)
+                                # Style previews are browser-local. Startup may still send
+                                # its existing preview-state notification, not a style write.
+                                style_before = [p for p in mutations if p != "/api/camera/preview_state"]
+                                style_storage_before = page.evaluate("() => localStorage.getItem('PiServerStyleCustom:v0_3_5')")
+                                font_before = page.evaluate("() => document.documentElement.style.getPropertyValue('--font-scale')")
+                                font = page.locator("#styleFontScale")
+                                for colors in ("none", "active"):
+                                    page.emulate_media(forced_colors=colors)
+                                    font.focus()
+                                    page.keyboard.press("Tab")
+                                    page.keyboard.press("Shift+Tab")
+                                    expect(font).to_be_focused()
+                                    expect(font).to_have_css("outline-style", "solid")
+                                page.emulate_media(forced_colors="none")
+                                font.press("Home")
+                                font.press("ArrowRight")
+                                expect(font).to_have_value("71")
+                                check_style_range("styleFontScale")
+                                gap = page.locator("#styleGap")
+                                gap.press("Home")
+                                gap.press("ArrowRight")
+                                expect(gap).to_have_value("1")
+                                check_style_range("styleGap")
+                                if width == 390:
+                                    # Real touch on the native range track; no exact
+                                    # pixel-to-value assumption across browser versions.
+                                    font.tap()
+                                    check_style_range("styleFontScale")
+                                assert page.evaluate("() => Object.values(state.stepInputs).every(value => !value)"), "Style key activated drive"
+                                assert page.evaluate("() => localStorage.getItem('PiServerStyleCustom:v0_3_5')") == style_storage_before, "Preview saved style unexpectedly"
+                                assert [p for p in mutations if p != "/api/camera/preview_state"] == style_before, "Style preview invoked a mutation"
                             # Verify both ends of the actual native Tab order.
                             first.focus()
                             page.keyboard.press("Shift+Tab")
@@ -926,6 +987,9 @@ def main():
                             page.keyboard.press("Escape")
                             expect(dialog).to_be_hidden()
                             expect(control).to_be_focused()
+                            if name == "dashboard":
+                                assert page.evaluate("() => localStorage.getItem('PiServerStyleCustom:v0_3_5')") == style_storage_before, "Escape persisted preview"
+                                assert page.evaluate("() => document.documentElement.style.getPropertyValue('--font-scale')") == font_before, "Escape did not restore prior font style"
                         if name == "front":
                             before = list(mutations)
                             panel = page.locator("[data-recent-events-root]")
