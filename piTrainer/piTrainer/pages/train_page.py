@@ -288,9 +288,15 @@ class TrainPage(DockPage):
                 if preprocess_page is not None and hasattr(preprocess_page, 'applied_training_context')
                 else (None, '')
             )
+            preprocessing_run = (
+                preprocess_page.applied_training_run()
+                if preprocess_page is not None and hasattr(preprocess_page, 'applied_training_run')
+                else None
+            )
             self._active_run = create_run_snapshot(
                 train_df, val_df, self.state.train_config,
                 applied_recipe, self.state.selected_sessions, preprocess_path,
+                preprocessing_run=preprocessing_run,
             )
             self._active_run_root = self.state.out_dir_path
         except Exception as exc:

@@ -287,6 +287,7 @@ class PreprocessPage(DockPage):
         recipe = self.current_recipe()
         source_snapshot = source_df.copy(deep=True)
         source_identity = (id(self.state.dataset_df), id(self.state.filtered_df), tuple(self.state.selected_sessions))
+        receipt_root = self.state.out_dir_path
         self.result_panel.set_status_running('Applying preprocessing recipe...')
         self.task_progress.begin('Preprocess')
 
@@ -295,13 +296,21 @@ class PreprocessPage(DockPage):
             return apply_preprocessing_recipe(source_snapshot, recipe)
 
         def completed(result):
-            if source_identity != (id(self.state.dataset_df), id(self.state.filtered_df), tuple(self.state.selected_sessions)):
+            if (source_identity != (id(self.state.dataset_df), id(self.state.filtered_df), tuple(self.state.selected_sessions))
+                    or receipt_root != self.state.out_dir_path):
                 raise RuntimeError('Dataset changed during preprocessing; results discarded. Run preprocessing again.')
             result_df, summary = result
             self.state.preprocess_recipe = recipe
             self._preprocess_applied = True
             self.state.filtered_df = result_df
-            self._applied_binding.capture(result_df, recipe)
+            try:
+                receipt = self._applied_binding.capture(
+                    result_df, recipe, root=receipt_root, source_df=source_snapshot,
+                    selected_sessions=source_identity[2])
+                if receipt:
+                    self.log_panel.append_line(f"Saved preprocessing receipt: {receipt['receipt_path']}")
+            except (OSError, ValueError, TypeError) as exc:
+                self.log_panel.append_line(f'WARNING: Preprocessing applied, but run receipt could not be saved: {exc}')
             self.state.train_df = result_df.iloc[0:0].copy() if not result_df.empty else pd.DataFrame()
             self.state.val_df = result_df.iloc[0:0].copy() if not result_df.empty else pd.DataFrame()
             self.state.model = None
@@ -379,6 +388,10 @@ class PreprocessPage(DockPage):
 
     def applied_training_context(self):
         return self._applied_binding.training_context(self.state.filtered_df)
+
+    def applied_training_run(self):
+        return self._applied_binding.matching_run(
+            self.state.filtered_df, self.state.out_dir_path, self.state.selected_sessions)
 
     def save_processed_data(self) -> None:
         if not self.main_window.can_start_task(self):

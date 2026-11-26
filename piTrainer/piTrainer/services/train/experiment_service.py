@@ -94,7 +94,13 @@ def _partition_fingerprint(train_df, val_df) -> str | None:
 
 
 def create_run_snapshot(train_df, val_df, config, recipe: dict | None,
-                        selected_sessions=(), preprocess_path: str = "") -> dict:
+                        selected_sessions=(), preprocess_path: str = "",
+                        preprocessing_run: dict | None = None) -> dict:
+    from ..preprocess.preprocessing_receipts import verified_preprocessing_reference
+
+    selected_sessions = [str(name) for name in selected_sessions]
+    preprocessing_run = verified_preprocessing_reference(
+        preprocessing_run, preprocessing_hash(recipe), selected_sessions)
     settings = _clean(vars(config))
     train_counts = _source_counts(train_df)
     val_counts = _source_counts(val_df)
@@ -130,6 +136,7 @@ def create_run_snapshot(train_df, val_df, config, recipe: dict | None,
         },
         "preprocessing_sha256": preprocessing_hash(recipe),
         "preprocessed_dataset_path": str(preprocess_path) if preprocess_path else None,
+        "preprocessing_run": preprocessing_run,
         "model_settings": settings,
         "metrics": {},
         "artifacts": [],
@@ -353,6 +360,16 @@ def _field(run: dict | None, *path):
 
 
 def comparison_rows(left: dict | None, right: dict | None) -> list[tuple[str, str, str]]:
+    from ..preprocess.preprocessing_receipts import verified_preprocessing_reference
+
+    def receipt_field(run, key):
+        sessions = _field(run, "selected_sessions")
+        if not isinstance(sessions, list):
+            return None
+        reference = verified_preprocessing_reference(
+            _field(run, "preprocessing_run"), _field(run, "preprocessing_sha256"), sessions)
+        return reference.get(key) if reference else None
+
     def source_names(run):
         groups = _field(run, "source_groups")
         if groups is None:
@@ -397,5 +414,8 @@ def comparison_rows(left: dict | None, right: dict | None) -> list[tuple[str, st
               ("Source group count", _display(source_count(left)), _display(source_count(right)))]
     result.extend((label, _display(_field(left, *path)), _display(_field(right, *path)))
                   for label, path in fields)
+    for label, key in (("Preprocessing run ID", "run_id"),
+                       ("Preprocessing receipt", "receipt_path")):
+        result.append((label, _display(receipt_field(left, key)), _display(receipt_field(right, key))))
     result.append(("Model artifacts", _display(models(left)), _display(models(right))))
     return result

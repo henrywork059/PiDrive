@@ -7,6 +7,7 @@ from pathlib import Path
 
 from ..train.experiment_service import preprocessing_hash
 from ..task_outputs import confirmed_dataset_paths
+from .preprocessing_receipts import save_preprocessing_receipt, verified_preprocessing_reference
 
 
 def dataset_fingerprint(df) -> str | None:
@@ -29,12 +30,27 @@ class AppliedPreprocessBinding:
         self._fingerprint = None
         self._recipe = None
         self._saved_path = None
+        self._run_reference = None
 
-    def capture(self, df, recipe):
+    def capture(self, df, recipe, *, root=None, source_df=None, selected_sessions=()):
         self.clear()
         self._fingerprint = dataset_fingerprint(df)
         if self._fingerprint and recipe:
             self._recipe = copy.deepcopy(recipe)
+            if root is not None:
+                self._run_reference = save_preprocessing_receipt(
+                    root, self._recipe, self._fingerprint, source_df, selected_sessions)
+        return copy.deepcopy(self._run_reference)
+
+    def matching_run(self, df, root, selected_sessions):
+        recipe = self.matching_recipe(df)
+        if recipe is None or self._run_reference is None:
+            return None
+        expected = Path(root).expanduser().resolve() / "preprocessing_runs"
+        if Path(self._run_reference["receipt_path"]).parent != expected:
+            return None
+        return verified_preprocessing_reference(
+            self._run_reference, preprocessing_hash(recipe), [str(s) for s in selected_sessions])
 
     def matching_recipe(self, df):
         fingerprint = dataset_fingerprint(df) if self._recipe else None

@@ -136,3 +136,7 @@ Parent b5e9095 verified Linux 45730205838 (4/4) and Windows 45730205790 (1/1); P
 
 ## piTrainer 0.11.27 — R51 portable and legacy inspection
 Parent f0e33f6 verified Linux 45732321702 and Windows 45732321842 all five jobs. UX64 scoped implementation gate met: plot units, captured context, artifact copy, missing epochs, all three validation modes and stale-context regression. Compare panel Inspect Model displays selected artifact metadata, verified local sidecar or clearly labelled portable manifest claim, or observed legacy hash without a run. Portable claims never populate/replace local run selectors or create training summaries. Exact file checksum matches local validation receipts separately from run-ID comparisons; invalid present local sidecar or manifest does not fall back. Service/native Qt tests extended, exact new CI pending. No schema, loading, training or layout changes; no physical/owner acceptance.
+
+
+## piTrainer 0.11.28 — persistent preprocessing receipt (R51)
+Parent e24eac1 Linux 45732670276 and Windows 45732670277 all five jobs passed. Successful Apply captures a unique local preprocessing receipt; matching active metadata, selected sessions and working folder required for training linkage; exact receipt checksum required for local Compare/Inspect. Exclusive-create, mismatch, historical and persisted run regression added to existing registered suite. Portable manifest unchanged. Exact new CI pending; no owner, actual training or physical acceptance claimed.

@@ -105,6 +105,65 @@ class ExperimentServiceTests(unittest.TestCase):
         binding.clear()
         self.assertEqual(binding.training_context(self.train_df), (None, ""))
 
+    def test_preprocessing_run_receipt_to_local_experiment(self):
+        binding = AppliedPreprocessBinding()
+        recipe = {"mirror_enabled": True}
+        active = pd.concat([self.train_df, self.val_df], ignore_index=True)
+        source = active.assign(session_dir=["/recordings/a", "/recordings/b", "/recordings/a"])
+        sessions = ["s1", "s2"]
+        first = binding.capture(active, recipe, root=self.root, source_df=source,
+                                selected_sessions=sessions)
+        path = Path(first["receipt_path"])
+        before = path.read_bytes()
+        receipt = json.loads(before)
+        self.assertEqual(receipt["source_sessions"], [
+            {"session": "s1", "session_dir": "/recordings/a"},
+            {"session": "s2", "session_dir": "/recordings/b"}])
+        self.assertEqual(receipt["preprocessing_sha256"], preprocessing_hash(recipe))
+        self.assertEqual(receipt["active_metadata_sha256"], first["active_metadata_sha256"])
+        with patch("piTrainer.services.preprocess.preprocessing_receipts.uuid4",
+                   return_value=SimpleNamespace(hex=first["run_id"])):
+            with self.assertRaises(FileExistsError):
+                binding.capture(active, recipe, root=self.root, source_df=source,
+                                selected_sessions=sessions)
+        self.assertEqual(path.read_bytes(), before)
+        self.assertIsNone(binding.matching_run(active, self.root, sessions))
+        second = binding.capture(active, recipe, root=self.root, source_df=source,
+                                 selected_sessions=sessions)
+        self.assertNotEqual(first["run_id"], second["run_id"])
+        self.assertEqual(path.read_bytes(), before)
+        self.assertEqual(binding.matching_run(active.copy(), self.root, sessions), second)
+        self.assertIsNone(binding.matching_run(active, self.root / "elsewhere", sessions))
+        self.assertIsNone(binding.matching_run(active, self.root, ["s1"]))
+        changed = active.copy()
+        changed.loc[0, "steering"] = .9
+        self.assertIsNone(binding.matching_run(changed, self.root, sessions))
+        self.assertIsNone(binding.matching_run(active.iloc[::-1], self.root, sessions))
+        recipe["mirror_enabled"] = False
+        captured, saved = binding.training_context(active)
+        self.assertTrue(captured["mirror_enabled"])
+        snapshot = create_run_snapshot(self.train_df, self.val_df, self.config, captured,
+                                       sessions, saved, preprocessing_run=second)
+        run = finish_run(snapshot, "succeeded", {"loss": [.1]})
+        save_run_record(self.root, run)
+        restored = load_runs(self.root)[0]
+        self.assertEqual(restored["preprocessing_run"], second)
+        self.assertNotIn("preprocessing_run", portable_experiment(restored))
+        rows = {name: a for name, a, b in comparison_rows(restored, None)}
+        self.assertEqual(rows["Preprocessing run ID"], second["run_id"])
+        self.assertEqual(rows["Preprocessing receipt"], second["receipt_path"])
+        receipt_path = Path(second["receipt_path"])
+        receipt_path.write_bytes(b"{}")
+        self.assertIsNone(binding.matching_run(active, self.root, sessions))
+        rows = {name: a for name, a, b in comparison_rows(restored, None)}
+        self.assertEqual(rows["Preprocessing run ID"], "Unknown")
+        self.assertEqual(rows["Preprocessing receipt"], "Unknown")
+        receipt_path.unlink()
+        self.assertIsNone(binding.matching_run(active, self.root, sessions))
+        binding.clear()
+        self.assertIsNone(binding.matching_run(active, self.root, sessions))
+        self.assertIsNone(self.snapshot()["preprocessing_run"])
+
     def test_history_preserves_missing_epoch_positions(self):
         series = list(build_plot_series({"loss": [1.0, None, 0.5], "empty": [None]}))
         self.assertEqual(series, [("loss", [1, 2, 3], [1.0, None, 0.5])])
