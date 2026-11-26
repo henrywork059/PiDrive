@@ -76,7 +76,7 @@ class TrainHistoryPanel(QGroupBox):
         epoch = int(metrics.get("epoch", 0))
         if epoch < 1:
             return
-        for key in set(self.history) | (set(metrics) - {"epoch"}):
+        for key in dict.fromkeys([*self.history, *(key for key in metrics if key != "epoch")]):
             values = self.history.setdefault(key, [])
             while len(values) < epoch:
                 values.append(None)
