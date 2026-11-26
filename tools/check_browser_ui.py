@@ -740,6 +740,42 @@ def main():
                             expect(page.locator("#stGlobalCode")).to_have_text("PISD-API-STOP-FAILED")
                             expect(page.locator("#stGlobalCode")).to_have_attribute("data-state", "error")
                             expect(page.locator("#stActionLog")).to_contain_text("STOP request not confirmed")
+                        if name == "manual":
+                            toggle = page.locator("#mdrvToggleLog")
+                            panel = page.locator("#manualDriveLogPanel")
+                            output = page.locator("#mdrvLog")
+                            expect(toggle).to_have_attribute("aria-expanded", "false")
+                            expect(panel).to_be_hidden()
+                            before = list(mutations)
+                            page.keyboard.press("Tab")
+                            toggle.focus()
+                            expect(toggle).to_be_focused()
+                            page.keyboard.press("Space")
+                            expect(toggle).to_have_attribute("aria-expanded", "true")
+                            expect(toggle).to_have_text("Hide action log")
+                            expect(panel).to_be_visible()
+                            # Traverse actual Tab order (other recording controls may intervene).
+                            for _ in range(20):
+                                page.keyboard.press("Tab")
+                                if output.evaluate("(el) => document.activeElement === el"):
+                                    break
+                            expect(output).to_be_focused()
+                            expect(output).to_have_accessible_name("Manual Drive action log")
+                            assert output.evaluate("(el) => el.matches(':focus-visible') && getComputedStyle(el).outlineStyle === 'solid'")
+                            # These keys belong to the read-only log, not driving or capture.
+                            for key in ("ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight", "Space", "r", "s"):
+                                page.keyboard.press(key)
+                            assert mutations == before, "Read-only action log invoked a mutation"
+                            toggle.focus()
+                            page.keyboard.press("Space")
+                            expect(toggle).to_have_attribute("aria-expanded", "false")
+                            expect(panel).to_be_hidden()
+                            if width == 390:
+                                toggle.tap()
+                                expect(toggle).to_have_attribute("aria-expanded", "true")
+                                toggle.tap()
+                                expect(toggle).to_have_attribute("aria-expanded", "false")
+                            assert mutations == before
                         if name in ("manual", "ai"):
                             # Space on a drive pad still dispatches the existing global STOP.
                             # No actual motor command is delivered by the fixture.

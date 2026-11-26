@@ -152,3 +152,7 @@ Parent 3024919 Linux 45736191148 (4/4) and Windows 45736191153 (1/1) verified. N
 
 ## piTrainer 0.11.29 — R35 desktop setup accessibility
 Parent 2e33359 Linux 45736716777 (4/4) and Windows 45736716767 (1/1) verified. Shared disclosure explicit focus/name/description and theme focus style; individually named preprocessing recipe/filter pairs, export destination/artifact options and playback FPS. Native Qt tests cover names, Space/Tab/reverse Tab and editable numeric fields. Existing settings, provenance, data and layout contracts untouched. Exact new CI pending; no R35 closure.
+
+
+## PiSD 0.11.38 — R35 Manual Drive action-log input parity
+Parent c36ad1a verified Linux 45737070868 4/4 and Windows 45737070765 1/1. Disclose expanded state, focus/name read-only log, exclude its native keys from drive/capture/global Space, preserve held-steering release and body/pad STOP. Actual guard and four-width native keyboard/no-mutation/mobile disclosure regression added. Exact CI pending; R35 remains partial; no hardware/owner acceptance.

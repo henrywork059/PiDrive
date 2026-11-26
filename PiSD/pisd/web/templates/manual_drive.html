@@ -203,7 +203,7 @@
     <section class="mdrv-panel mdrv-stop-panel" id="manualDriveStopPanel" data-panel-role="control" data-panel-h-weight="1" data-panel-v-weight="1">
       <div class="mdrv-panel-head compact"><div><p class="mdrv-label">Safety</p><h2>Motor stop</h2></div><span class="mdrv-code" data-code-for="stop">PISD-OK-000</span></div>
       <button id="mdrvStopBig" class="mdrv-big-stop" title="Immediately send /api/control/stop and clear the intended-path overlay.">STOP ALL MOTORS</button>
-      <button id="mdrvToggleLog" class="mdrv-button">Show action log</button>
+      <button id="mdrvToggleLog" class="mdrv-button" type="button" aria-expanded="false" aria-controls="manualDriveLogPanel">Show action log</button>
     </section>
 
 
@@ -238,7 +238,7 @@
 
     <section class="mdrv-panel mdrv-log-panel" id="manualDriveLogPanel" data-panel-role="log" data-panel-h-weight="3" data-panel-v-weight="1" hidden>
       <div class="mdrv-panel-head"><div><p class="mdrv-label">Log</p><h2>Action log</h2></div><span class="mdrv-code" data-code-for="log">PISD-OK-000</span></div>
-      <pre id="mdrvLog" class="mdrv-console">Manual Drive loaded. No command sent yet.</pre>
+      <pre id="mdrvLog" class="mdrv-console" tabindex="0" aria-label="Manual Drive action log" data-space-stop-ignore="true">Manual Drive loaded. No command sent yet.</pre>
     </section>
   </main>
 

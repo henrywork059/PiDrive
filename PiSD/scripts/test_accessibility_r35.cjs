@@ -52,4 +52,30 @@ test('focused link Space does not STOP',()=>{const x=simulate('A');assert.equal(
 test('accessible tab Space does not STOP',()=>{const x=simulate('DIV',{roleTab:true});assert.equal(x.posted,0);});
 test('contenteditable does not STOP',()=>{const x=simulate('DIV',{contentEditable:true});assert.equal(x.posted,0);});
 test('explicit ignore zone does not STOP',()=>{const x=simulate('DIV',{ignore:true});assert.equal(x.posted,0);});
-console.log(n+'/11 PiSD Space safety/input tests passed');
+const manual = fs.readFileSync(path.join(__dirname, '../pisd/web/static/js/manual_drive.js'), 'utf8');
+const html = fs.readFileSync(path.join(__dirname, '../pisd/web/templates/manual_drive.html'), 'utf8');
+const start = manual.indexOf('  function keyboardControlBlocked() {');
+const end = manual.indexOf('  function setKeyboardStatus(', start);
+assert.ok(start >= 0 && end > start);
+function blocked(active) {
+  const body = {};
+  const pad = {};
+  const document = {body, documentElement: {}, activeElement: active === 'body' ? body : active === 'pad' ? pad : active};
+  return new Function('document','pad','overlaySettingsPopup',manual.slice(start,end)+'\nreturn keyboardControlBlocked();')(document,pad,null);
+}
+test('manual log keyboard shortcut isolation preserves body and pad',()=>{
+  assert.equal(blocked({closest: selector => selector.includes('data-space-stop-ignore')}),true);
+  assert.equal(blocked('body'),false);
+  assert.equal(blocked('pad'),false);
+});
+test('manual log disclosure and focus semantics',()=>{
+  assert.match(html, /id="mdrvToggleLog"[^>]*aria-expanded="false"[^>]*aria-controls="manualDriveLogPanel"/);
+  assert.match(html, /id="mdrvLog"[^>]*tabindex="0"[^>]*aria-label="Manual Drive action log"[^>]*data-space-stop-ignore="true"/);
+  assert.ok(manual.includes("toggleLog.setAttribute('aria-expanded', String(Boolean(hidden)))"));
+});
+test('read-only log does not dispatch global Space STOP',()=>{
+  const x=simulate('PRE',{ignore:true});
+  assert.equal(x.posted,0);
+  assert.equal(x.prevented,false);
+});
+console.log(n+'/14 PiSD safety/input tests passed');

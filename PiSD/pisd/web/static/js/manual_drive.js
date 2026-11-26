@@ -1149,6 +1149,7 @@
     // R35: buttons, links, safety checkboxes and form fields keep native
     // keyboard controls. Driving shortcuts only belong to the page/pad.
     if (active.closest?.('button, a[href], input, select, textarea, [role="button"], [role="tab"], [role="checkbox"], [role="switch"]')) return true;
+    if (active.closest?.('[data-space-stop-ignore="true"]')) return true;
     return Boolean(active.isContentEditable);
   }
 
@@ -1278,6 +1279,8 @@
 
     document.addEventListener('keyup', event => {
       if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+      // Preserve release for a held drive key even if focus moved to a log or input.
+      if (keyboardControlBlocked() && !(event.key === 'ArrowLeft' ? keyboardLeftHeld : keyboardRightHeld)) return;
       event.preventDefault();
       if (event.key === 'ArrowLeft') keyboardLeftHeld = false;
       if (event.key === 'ArrowRight') keyboardRightHeld = false;
@@ -1509,6 +1512,7 @@
       const hidden = logPanel?.hasAttribute('hidden');
       if (hidden) logPanel.removeAttribute('hidden'); else logPanel?.setAttribute('hidden', '');
       toggleLog.textContent = hidden ? 'Hide action log' : 'Show action log';
+      toggleLog.setAttribute('aria-expanded', String(Boolean(hidden)));
     });
     arm?.addEventListener('change', () => {
       renderOperatingReadiness();
