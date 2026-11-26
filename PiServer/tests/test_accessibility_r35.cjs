@@ -103,4 +103,17 @@ test('global Escape closes only an open style dialog and respects handled cancel
   present=false;
   handler({key:'Escape',defaultPrevented:false});assert.equal(closed,1);
 });
-console.log(count+'/21 PiServer R35 accessibility tests passed');
+test('Training export actions expose distinct names and retain native folder selector',()=>{
+  for(const [id,name] of Object.entries({refreshSessionsBtn:'Refresh saved folders',downloadSessionBtn:'Download selected folder',deleteSessionBtn:'Delete selected folder'})){
+    const tag=html.match(new RegExp('<button id="'+id+'"[^>]*>[^<]+</button>'))?.[0];
+    assert.ok(tag && tag.includes('aria-label="'+name+'"'));
+    assert.ok(name.startsWith(tag.split('>')[1].split('<')[0]));
+  }
+  assert.match(html,/<label for="sessionSelect">Folder<\/label>\s*<select id="sessionSelect"/);
+  assert.match(html,/id="sessionExportMessage"[^>]*role="status"[^>]*aria-live="polite"/);
+});
+test('Training native selector keys cannot drive; release remains unconditional',()=>{
+  assert.deepEqual(simulateKeys('SELECT',null,[['keydown','ArrowDown'],['keydown','ArrowUp'],['keydown',' ']]),{calls:[],prevented:0});
+  assert.deepEqual(simulateKeys('BUTTON',null,[['keydown',' '],['keydown','ArrowDown'],['keyup','ArrowDown']]),{calls:[['down',false]],prevented:0});
+});
+console.log(count+'/23 PiServer R35 accessibility tests passed');

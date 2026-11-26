@@ -116,6 +116,7 @@ def main():
                     reject_folder_read = [False]
                     folder_workspace = [False]
                     folder_reply = [None]
+                    folder_downloads = []
                     hold_folder = [False]
                     held_folders = []
                     acknowledge_folder_delete = [False]
@@ -205,6 +206,13 @@ def main():
                         }:
                             route.fulfill(status=503, content_type="application/json",
                                           body='{"ok":false,"message":"Synthetic disconnected backend"}')
+                            return
+                        if folder_workspace[0] and parsed.path == "/api/record/download":
+                            # Synthetic empty ZIP: never read or download a real recording.
+                            folder_downloads.append(parsed.query)
+                            route.fulfill(status=200, content_type="application/zip",
+                                          headers={"Content-Disposition": 'attachment; filename="fixture-b.zip"'},
+                                          body=bytes.fromhex("504b0506" + "00" * 18))
                             return
                         if hold_folder[0] and parsed.path == "/api/record/sessions":
                             hold_folder[0] = False
@@ -642,9 +650,63 @@ def main():
                             folder_refresh = page.locator("#refreshSessionsBtn")
                             folder_select = page.locator("#sessionSelect")
                             folder_message = page.locator("#sessionExportMessage")
-                            folder_refresh.click()
+                            folder_download = page.locator("#downloadSessionBtn")
+                            folder_delete = page.locator("#deleteSessionBtn")
+                            for control, label in ((folder_select, "Folder"),
+                                    (folder_refresh, "Refresh saved folders"),
+                                    (folder_download, "Download selected folder"),
+                                    (folder_delete, "Delete selected folder")):
+                                expect(control).to_have_accessible_name(label)
+                            activate_safe(folder_refresh)
                             expect(folder_select).to_have_value("fixture-a")
                             expect(folder_select.locator("option")).to_have_count(2)
+                            folder_before = list(mutations)
+                            # The Training workspace also exposes the manual drive pad.
+                            # Native selector arrows and button Space must not drive it.
+                            folder_select.focus()
+                            page.keyboard.press("Shift+Tab")
+                            page.keyboard.press("Tab")
+                            expect(folder_select).to_be_focused()
+                            expect(folder_select).to_have_css("outline-style", "solid")
+                            page.keyboard.down("ArrowDown")
+                            try:
+                                expect(folder_select).to_have_value("fixture-b")
+                                assert page.evaluate("() => Object.values(state.stepInputs).every(value => !value)")
+                            finally:
+                                page.keyboard.up("ArrowDown")
+                            expect(page.locator("#sessionImageCount")).to_have_text("3")
+                            for control in (folder_refresh, folder_download, folder_delete):
+                                page.keyboard.press("Tab")
+                                expect(control).to_be_focused()
+                                expect(control).to_have_css("outline-style", "solid")
+                            folder_delete.press("Space")
+                            cancel_group = page.get_by_role("group", name="Confirm destructive action")
+                            expect(cancel_group).to_contain_text("fixture-b")
+                            cancel_folder = cancel_group.get_by_role("button", name="Cancel")
+                            expect(cancel_folder).to_be_focused()
+                            expect(page.locator(stop)).to_be_enabled()
+                            cancel_folder.press("Escape")
+                            expect(cancel_group).to_have_count(0)
+                            expect(folder_delete).to_be_focused()
+                            if width == 390:
+                                folder_delete.tap()
+                                expect(cancel_group).to_contain_text("fixture-b")
+                                cancel_folder.tap()
+                                expect(cancel_group).to_have_count(0)
+                                expect(folder_delete).to_be_focused()
+                            with page.expect_download() as exported:
+                                activate_safe(folder_download)
+                            assert exported.value.suggested_filename == "fixture-b.zip"
+                            assert exported.value.failure() is None
+                            assert folder_downloads == ["session=fixture-b"]
+                            expect(folder_message).to_have_text("Downloading fixture-b.zip")
+                            assert mutations == folder_before, "Training export selection, cancel or download mutated state"
+                            assert page.evaluate("() => Object.values(state.stepInputs).every(value => !value)")
+                            # Restore initial selection before the existing held-GET race.
+                            folder_select.focus()
+                            folder_select.press("Home")
+                            expect(folder_select).to_have_value("fixture-a")
+                            assert mutations == folder_before
                             hold_folder[0] = True
                             folder_reply[0] = {"ok": True, "sessions": [folder_a, dict(folder_b, image_count=9)]}
                             # Store the actual async function promise so the assertions

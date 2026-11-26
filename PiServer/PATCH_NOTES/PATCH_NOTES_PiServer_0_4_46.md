@@ -1,0 +1,13 @@
+# PiServer 0.4.46 — Batch 4 / R35 Training export accessibility
+
+## Request and verified baseline
+Continue R35 after exact parent 94b3ceef59971a08ecd6fdcc29bbd86e16f5d952 verified Linux 45766664507 4/4 and Windows 45766664570 1/1. PiSD Node 27/27, standard 63/63, Chromium 32/32; PiServer Node 21/21, Chromium 4/4 including previously unreached camera preset/numeric/checkbox, Apply/Retry, keyboard/touch cancel and focus restoration, STOP and zero unintended mutations. Windows native Qt accessibility 15/15; manifest 7/7, package 11/11, actual forward dry runs 5/5/8 component files passed. All 36 browser cases passed. Reviewed real server.py, AGENTS.md, canonical R35, current dashboard/handler code, regression fixture, current and preceding three notes 0.4.45/44/43/42, existing package and UI regression tests. Main/integration version markers 0.4.20/0.4.28, working 0.4.45; no matching 0_4_46 branch or note found.
+
+## Cause and changes
+- piserver/web/templates/index.html: Training export Refresh, Download and Delete have generic names in isolation. Add contextual accessible names without changing visible labels, order, enabled state or handlers. Retain native folder label and existing polite feedback.
+- tests/test_accessibility_r35.cjs: retain 21 tests and add contextual naming and actual extracted native-control key isolation/release checks.
+- tools/check_browser_ui.py: extend existing four-width Training dashboard cases with native Tab/reverse Tab, focus ring, held selector ArrowDown, exact folder metadata, Space confirmation, Escape and narrow touch cancel, restored focus, STOP available; actual browser download event with exact selected GET query and a synthetic empty ZIP, no real recording access. Assert zero unintended mutations and no active drive step inputs. Restore first selection before existing held-GET/delete acknowledgement race tests, retain those assertions. All writes still intercepted; no real deletion, download of user recordings, motor command or hardware operation.
+- piserver/app.py version marker only; docs/ui_regression_gate.md records parent and candidate.
+
+## Verification and limits
+Exact parent combined CI passed; guarded exact-source replacements and JavaScript syntax compilation of the updated Node test performed. Full new browser/Node suites and candidate package dry run not yet verified. No local full browser execution claimed. No runtime JS handlers, authorization, motor, STOP, command lease, recording/export API, camera/model, configuration, layout or inactive component changes. Scope is Training export, not complete R35 acceptance; other active controls, contrast, physical hardware and owner acceptance remain outstanding. No merge, stable promotion, deployment or Batch 6 advance.
