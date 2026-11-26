@@ -168,6 +168,8 @@ def main():
                     held_settings = []
                     pisd_folders = [None]
                     stall_pisd_folders = [False]
+                    pisd_recording = [None]
+                    reject_pisd_recording = [False]
                     def route_request(route):
                         req = route.request
                         parsed = urlsplit(req.url)
@@ -176,6 +178,21 @@ def main():
                             return
                         if req.method != "GET":
                             mutations.append(parsed.path)
+                            if name == "ai" and pisd_recording[0] is not None and parsed.path in {
+                                "/api/recording/start", "/api/recording/stop", "/api/recording/capture"
+                            }:
+                                if reject_pisd_recording[0]:
+                                    route.fulfill(status=503, json={"ok": False, "message": "Synthetic recording rejection"})
+                                    return
+                                if parsed.path == "/api/recording/start":
+                                    pisd_recording[0] = {"running": True, "frame_count": 7,
+                                                         "active_session": {"session_id": "fixture-ai"}}
+                                elif parsed.path == "/api/recording/stop":
+                                    pisd_recording[0] = {"running": False, "frame_count": 7}
+                                # Capture deliberately omits recording metadata.
+                                payload = {"ok": True, "record": {"frame_id": "fixture-frame"}} if parsed.path.endswith("/capture") else {"ok": True, "recording": pisd_recording[0]}
+                                route.fulfill(status=200, json=payload)
+                                return
                             if acknowledge_folder_delete[0] and parsed.path == "/api/record/delete":
                                 assert req.post_data_json == {"session": "fixture-b", "confirm": True}
                                 snapshot = dict(client.get("/api/status", base_url=ORIGIN).get_json(), current_page="training")
@@ -202,6 +219,10 @@ def main():
                                 return
                             route.fulfill(status=503, content_type="application/json",
                                           body='{"ok":false,"message":"Synthetic rejected mutation"}')
+                            return
+                        if name == "ai" and pisd_recording[0] is not None and parsed.path == "/api/ai/status":
+                            payload = client.get(parsed.path, base_url=ORIGIN).get_json()
+                            route.fulfill(status=200, json=dict(payload, recording=pisd_recording[0]))
                             return
                         if name in ("manual", "ai") and parsed.path == "/api/recording/items":
                             if stall_pisd_folders[0]:
@@ -383,6 +404,34 @@ def main():
                             refresh_folders()
                             expect(folder).to_have_value("fixture/b")
                             expect(delete).to_be_enabled()
+                            if name == "ai":
+                                # Exercise real recording actions using synthetic acknowledgements only.
+                                pisd_recording[0] = {"running": False, "frame_count": 0}
+                                record = page.locator("#aiRecordToggle")
+                                snapshot = page.locator("#aiSaveSnapshot")
+                                state_label = page.locator("#aiRecordingState")
+                                session = page.locator("#aiRecordingSession")
+                                outcome = page.locator("#aiRecordingNotice")
+                                activate_library(record)
+                                expect(outcome).to_have_text("Recording start acknowledged.")
+                                expect(state_label).to_have_text("REC on · Frames: 7")
+                                expect(session).to_have_text("Session: fixture-ai")
+                                activate_library(snapshot)
+                                expect(outcome).to_have_text("Snapshot saved: fixture-frame")
+                                expect(state_label).to_have_text("REC on · Frames: 7")
+                                reject_pisd_recording[0] = True
+                                activate_library(record)
+                                expect(outcome).to_contain_text("Recording request not confirmed")
+                                expect(state_label).to_have_text("REC on · Frames: 7")
+                                expect(session).to_have_text("Session: fixture-ai")
+                                reject_pisd_recording[0] = False
+                                activate_library(record)
+                                expect(outcome).to_have_text("Recording stop acknowledged.")
+                                expect(state_label).to_have_text("REC off")
+                                expect(session).to_have_text("No active session")
+                                expect(page.locator("#aiStopAll")).to_be_enabled()
+                                case["recording_toolbar"] = {"confirmed_start": True, "snapshot_without_status": True,
+                                                             "rejected_stop_retained": True, "confirmed_stop": True}
                             # Restore a fresh empty collection for subsequent checks.
                             pisd_folders[0] = (200, {"ok": True, "collections": {"recordings": [], "snapshots": []}})
                             refresh_folders()

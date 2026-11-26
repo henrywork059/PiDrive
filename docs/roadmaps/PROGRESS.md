@@ -1,5 +1,23 @@
 # Active roadmap progress — 2026-11-27
 
+## Verified software implementation at 5751280f107fb84c87bf0c113902ad49dc323dcd
+
+**50/56 implemented (89.3%), 6 remaining, 6/9 batches complete.** Eight newly accepted IDs: UX55, UX57, UX58, UX59, UX60, UX61, UX63, UX65. Batch 6 and 9 software scope complete; remaining batches 4, 7, 8. Cross-batch completion allowed by owner; physical hardware and owner visual acceptance separate.
+
+Exact verified baseline 5751280f107fb84c87bf0c113902ad49dc323dcd, Linux 45869069010 and Windows 45869069132 passed all five jobs. Actual PiSD artifact 15141562339 SHA-256 5096c95d417f67b914ca74acf139c2e7768a122f7d199dd4d4b703d69481655d and PiServer artifact 15141866729 SHA-256 f30aa64d7b204bf9e1a985b7a241b2040a6c7ca686e3c37a78982e5e6c440140 independently matched; all 78 cases zero errors. Forward packages 11/8/11 files passed. Actual screenshots inspected. Native review-context 7/7 Linux and Windows. AI preview non-overlap and Manual draft reset 5/5; preset preview/cancel all three at all five sizes, full telemetry and action hierarchy checks passed.
+
+| Track | Active | Verified implementation | Remaining |
+| --- | ---: | ---: | ---: |
+| F | 10 | 9 | 1 |
+| U | 13 | 13 | 0 |
+| R | 19 | 16 | 3 |
+| UX | 14 | 12 | 2 |
+| Total | 56 | 50 | 6 |
+
+Remaining: F8, R35, R50, R52, UX56, UX75. New source changes: PiSD 946307369b9bb47b40133bffc43ea00e7f230dc6 extracts recorder metadata and shares confirmed recording state; PiServer 96af0b698b02c96d311ef7eb58b6da9fed241865 extracts display formatting and enforces stacked STOP >=44px with four font-scale checks. New browser checks exercise actual AI toolbar start/capture/rejected stop/confirmed stop. These changes are pending exact combined CI. R35/R50/UX75 owner golden, comprehensive input and custom-theme coverage remain open. No hardware acceptance or release promotion claimed. Candidate markers unchanged.
+
+## Previous verified continuation (superseded)
+
 ## Current verified continuation baseline
 
 Owner-supplied accounting: 39/56 at 74ad1995200b8e2509e292d9f02e17bb9db6a905. **42/56 implemented (75.0%), 14 remaining, 4/9 batches complete** following conservative software acceptance of R36, R49 and UX54 at exact green 2a36fe323f246d7264f70dc47ff1cf058c182133. Linux [45867333772](https://github.com/henrywork059/PiDrive/actions/runs/45867333772) 4/4; Windows [45867334531](https://github.com/henrywork059/PiDrive/actions/runs/45867334531) 1/1. Actual artifact archives 15141570482 (PiSD, SHA-256 37c2612f81b89f2681f5a5bc749a0e2e1021129e3544cd1bee2770b0c9d4f6b5) and 15140788126 (PiServer, SHA-256 556ff8c256c87e4862e469f8063f1f9a625a64ee9e45c1105eedd2af9af57852) independently verified. All 78 actual Chromium matrix cases passed, including six formerly failing STOP targets and scale checks, visible sanitized event history, and task-first groups. Forward package dry runs 10/5/10 changed files passed. Selected screenshots inspected; owner-approved golden images and physical acceptance remain separate.
