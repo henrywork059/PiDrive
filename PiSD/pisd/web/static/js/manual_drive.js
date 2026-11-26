@@ -583,6 +583,15 @@
     }
   }
 
+  function resetOverlayDraft(keys) {
+    for (const [key, control] of OVERLAY_CONTROL_BINDINGS) {
+      if (keys.includes(key) && control && Number.isFinite(Number(DEFAULTS.overlay[key]))) {
+        control.value = String(DEFAULTS.overlay[key]);
+      }
+    }
+    setOverlaySettingsStatus('Draft reset — Apply visual calibration to save.');
+  }
+
   function readOverlayCalibrationFromControls() {
     const next = { ...overlaySettings };
     for (const [key, control] of OVERLAY_CONTROL_BINDINGS) {
@@ -1479,18 +1488,10 @@
       ['mdrvResetAlignment', ['base_y','horizon_y','perspective_scale']],
       ['mdrvResetVisibility', ['opacity']],
     ]) {
-      $(id)?.addEventListener('click', () => {
-        for (const [key, control] of OVERLAY_CONTROL_BINDINGS) {
-          if (keys.includes(key) && control && Number.isFinite(Number(DEFAULTS.overlay[key]))) {
-            control.value = String(DEFAULTS.overlay[key]);
-          }
-        }
-        setOverlaySettingsStatus('Draft reset — Apply visual calibration to save.');
-      });
+      $(id)?.addEventListener('click', () => resetOverlayDraft(keys));
     }
     overlaySettingsReset?.addEventListener('click', () => {
-      applyOverlayCalibration({ ...DEFAULTS.overlay, enabled: overlaySettings.enabled }, true);
-      setOverlaySettingsStatus('Reset to defaults');
+      resetOverlayDraft(OVERLAY_CONTROL_BINDINGS.map(([key]) => key));
     });
     for (const [, control] of OVERLAY_CONTROL_BINDINGS) {
       control?.addEventListener('change', () => setOverlaySettingsStatus('Edited; press Apply numbers'));

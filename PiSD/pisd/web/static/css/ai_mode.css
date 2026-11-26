@@ -658,3 +658,16 @@ body[data-pisd-theme="light"] .ai-panel-tabs {
     white-space: normal;
   }
 }
+
+/* UX55: medium and short-landscape screens have insufficient width for the
+   existing tall shared grid rows. Preserve DOM order and all controls while
+   using the same intrinsic stacked flow as the phone workspace. */
+@media (min-width: 760px) and (max-width: 980px) {
+  .ai-grid { grid-template-columns: minmax(0, 1fr); }
+  .ai-preview-panel, #aiSafetyPanel, #aiModelPanel, #aiRunPanel,
+  #aiFilesPanel, .ai-log-panel, .ai-error-log-panel {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
+  .ai-camera-head-actions { justify-content: flex-start; }
+}

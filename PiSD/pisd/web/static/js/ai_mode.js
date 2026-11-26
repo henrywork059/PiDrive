@@ -41,6 +41,7 @@
   let statusPollInFlight = false;
   let aiRunning = false;
   let recordingRunning = Boolean(initial.recording?.running);
+  let confirmedRecording = null;
   let overlayEnabled = true;
   let lastAIStatus = initial.ai_mode || {};
   // R32: backend status, not page selection, governs the indicated motor owner.
@@ -576,13 +577,15 @@
   }
 
   function renderRecording(recording = {}) {
-    recordingRunning = Boolean(recording.running);
+    if (typeof recording?.running === 'boolean') confirmedRecording = recording;
+    else if (confirmedRecording) recording = confirmedRecording;
+    recordingRunning = recording?.running === true;
     const details = window.PiSDRecordingReader.describeRecording(recording);
     const session = document.getElementById('aiRecordingSession');
     if (session) session.textContent = details.sessionText;
     if (els.aiRecordingState) {
       els.aiRecordingState.dataset.recording = recordingRunning ? 'on' : 'off';
-      els.aiRecordingState.textContent = recordingRunning ? `REC on · Frames: ${details.countText}` : recording.running === false ? 'REC off' : 'REC unknown';
+      els.aiRecordingState.textContent = recordingRunning ? `REC on · Frames: ${details.countText}` : recording?.running === false ? 'REC off' : 'REC unknown';
     }
     if (els.aiRecordToggle) {
       els.aiRecordToggle.textContent = recordingRunning ? 'Stop rec' : 'Record';

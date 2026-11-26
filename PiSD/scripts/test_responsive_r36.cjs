@@ -34,4 +34,28 @@ test('recording toolbar projects only confirmed backend count and session',()=>{
   assert.deepEqual(describe({running:false,frame_count:0,active_session:{session_id:'old'}}),{countText:'0',sessionText:'No active session'});
   assert.deepEqual(describe({frame_count:NaN}),{countText:'unknown',sessionText:'Session: unknown'});
 });
-console.log(n+'/13 PiSD R36 responsive checks passed');
+test('calibration reset is draft-only and scoped',()=>{
+  const js=fs.readFileSync(path.join(__dirname,'../pisd/web/static/js/manual_drive.js'),'utf8');
+  const start=js.indexOf('  function resetOverlayDraft(keys)');
+  const end=js.indexOf('  function readOverlayCalibrationFromControls()',start);
+  assert.ok(start>=0&&end>start);
+  const a={value:'5'},b={value:'6'};
+  const reset=new Function('OVERLAY_CONTROL_BINDINGS','DEFAULTS','setOverlaySettingsStatus',js.slice(start,end)+';return resetOverlayDraft;')(
+    [['a',a],['b',b]],{overlay:{a:1,b:2}},()=>{});
+  reset(['a']);assert.deepEqual([a.value,b.value],['1','6']);
+  reset(['a','b']);assert.deepEqual([a.value,b.value],['1','2']);
+  assert.match(js,/resetOverlayDraft\(OVERLAY_CONTROL_BINDINGS\.map\(\(\[key\]\) => key\)\)/);
+});
+test('missing recording status cannot clear a confirmed active session',()=>{
+  const js=fs.readFileSync(path.join(__dirname,'../pisd/web/static/js/ai_mode.js'),'utf8');
+  const start=js.indexOf('  function renderRecording(');
+  const end=js.indexOf('  async function refreshStatus()',start);
+  assert.ok(start>=0&&end>start);
+  const session={},state={dataset:{}},button={classList:{toggle(){}}};
+  const run=new Function('window','document','els','let recordingRunning=false,confirmedRecording=null;'+js.slice(start,end)+';return renderRecording;')(
+    {PiSDRecordingReader:globalThis.PiSDRecordingReader},{getElementById:()=>session},{aiRecordingState:state,aiRecordToggle:button});
+  run({running:true,frame_count:7,active_session:{session_id:'test'}});
+  run({});assert.equal(state.textContent,'REC on · Frames: 7');assert.equal(session.textContent,'Session: test');
+  run({running:false});assert.equal(state.textContent,'REC off');
+});
+console.log(n+'/15 PiSD R36 responsive checks passed');

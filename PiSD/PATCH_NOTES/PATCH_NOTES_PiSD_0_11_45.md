@@ -23,3 +23,13 @@ Exact parent 74ad1995200b8e2509e292d9f02e17bb9db6a905. Linux 45817695427: PiServ
 - Files: layout CSS, Front/Manual/AI templates, recording_reader.js, Manual/AI controllers, registered R36 Node test and shared browser fixtures. Existing candidate marker retained pending functional milestone acceptance.
 
 Verification before staging: isolated local Chromium reproduced 40.48px at 0.92 and verified proposed STOP rule at 390/768/844 widths and 0.70/0.92/1/1.25 scales. This is not the full Flask/browser fixture. Full candidate Linux/Windows, forward packages, new screenshots and complete acceptance remain pending. No thresholds weakened, no config, authorization, lease, held-key release or STOP handler changes, no inactive edits, merge, promotion or hardware deployment.
+
+## Revision C — preview hierarchy, truthful recording and calibration drafts
+
+Parent dcb663a817f8b863ebb65aa90272ad63e8097c40, last fully green baseline 2a36fe323f246d7264f70dc47ff1cf058c182133 (Linux 45867333772, Windows 45867334531). Exact artifact matrices 15141570482/15140788126 verified with 78/78 cases. Actual PiSD medium-width preview measurements included 426.9 x 760 and 501.4 x 760 on Manual, 421.1 x 675.8 on AI; AI landscape had excessive shared-grid-row whitespace.
+
+- UX55: retain existing phone rules and apply saved preview aspect/height budget through 980px. AI medium/short-landscape grid stacks in existing DOM order, keeping status and preview first, with STOP unchanged. Wide desktop placement, pad geometry and fit settings retained.
+- UX56: successful responses missing recording status now preserve the last confirmed AI recording state rather than implicitly switching to off. Explicit backend stop still updates the UI.
+- UX57: fix discrepancy between "Reset all 7 draft values" label and immediate persistence. Both group/all reset use the same draft-only helper; existing Apply/Enter explicitly persists. Closing without Apply discards draft as before; no changed defaults, config keys or motor logic.
+- Native responsive fixture extends aspect/non-overlap/stack checks and actual scoped/all-reset, unchanged storage and cancel/reopen checks; registered Node contracts exercise real extracted reset and recording render functions.
+- Changed layout CSS, AI CSS, Manual/AI JS, existing Node/native fixture. JS syntax parsed; full native/CI/artifact/package checks pending. No hardware, authorization, command lease, STOP, inactive component, merge or stable promotion changes. Candidate version retained.

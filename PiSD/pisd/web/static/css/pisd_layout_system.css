@@ -547,7 +547,7 @@ body.manual-drive-page .mdrv-shell {
     white-space: normal;
   }
 }
-@media (max-width: 759px) {
+@media (max-width: 980px) {
   body.manual-drive-page .mdrv-preview-frame, #aiPreviewFrame {
     /* Bound width, not height, so the saved aspect survives a short viewport. */
     width: min(100%, calc(52svh * (var(--pisd-ui-preview-aspect, 16 / 9)))) !important;

@@ -94,10 +94,22 @@ def pisd(page, page_name, width):
         frame = page.locator(selector)
         image = frame.locator('img')
         assert image.evaluate('(el) => ["contain", "cover", "fill"].includes(getComputedStyle(el).objectFit)')
-        if width <= 759:
+        if width <= 980:
             box = frame.bounding_box()
             assert box and abs(box['width'] / box['height'] - 16 / 9) < 0.06, box
             result['preview_aspect'] = True
+        if page_name == 'ai':
+            panels = page.locator('.ai-grid > .ai-panel:visible')
+            boxes = [panel.bounding_box() for panel in panels.all()]
+            assert all(boxes), boxes
+            for index, a in enumerate(boxes):
+                for b in boxes[index + 1:]:
+                    overlap_x = min(a['x'] + a['width'], b['x'] + b['width']) - max(a['x'], b['x'])
+                    overlap_y = min(a['y'] + a['height'], b['y'] + b['height']) - max(a['y'], b['y'])
+                    assert overlap_x <= 2 or overlap_y <= 2, (a, b)
+            if width <= 980:
+                assert all(a['y'] + a['height'] <= b['y'] + 2 for a, b in zip(boxes, boxes[1:])), boxes
+            result['preview_panels_nonoverlapping'] = True
     return result
 
 
@@ -191,6 +203,27 @@ def main():
                                     'ai': '#aiWorkflowSettingsApply'}[page_name]
                             case['dialog_save'] = reachable(page.locator(save), width, height, 'Dialog Save/Apply')
                             page.screenshot(path=str(args.output / f'{page_name}-{width}x{height}-dialog.png'))
+                            if page_name == 'manual':
+                                length = page.locator('#mdrvOverlayLengthScale')
+                                opacity = page.locator('#mdrvOverlayOpacity')
+                                original_length = length.input_value()
+                                original_opacity = opacity.input_value()
+                                stored = page.evaluate("localStorage.getItem('pisd.runtimeSettings.v2')")
+                                before = list(writes)
+                                length.fill('1.7')
+                                opacity.fill('0.55')
+                                page.locator('#mdrvResetShape').click()
+                                assert float(length.input_value()) == 1.0
+                                assert float(opacity.input_value()) == 0.55
+                                page.locator('#mdrvOverlaySettingsReset').click()
+                                assert float(opacity.input_value()) == 0.94
+                                assert writes == before
+                                assert page.evaluate("localStorage.getItem('pisd.runtimeSettings.v2')") == stored
+                                page.keyboard.press('Escape')
+                                control.click()
+                                assert length.input_value() == original_length
+                                assert opacity.input_value() == original_opacity
+                                case['calibration_draft_reset'] = True
                             page.keyboard.press('Escape')
                         assert set(writes) <= {'/api/camera/preview_state'}, writes
                         case['writes'] = writes[:]
