@@ -43,5 +43,17 @@
     return {read, invalidate, verified: () => state === 'verified',
       loading: () => state === 'loading', isCurrent: token => token === generation};
   }
-  root.PiSDRecordingReader = {createReader};
+  // Pure projection: missing metadata is not a zero count or fabricated session.
+  function describeRecording(recording = {}) {
+    const confirmed = recording?.running === true || recording?.running === false;
+    const running = recording?.running === true;
+    const count = recording?.frame_count;
+    const session = recording?.active_session?.session_id;
+    return {
+      countText: Number.isInteger(count) && count >= 0 ? String(count) : 'unknown',
+      sessionText: !confirmed ? 'Session: unknown' : !running ? 'No active session' :
+        typeof session === 'string' && session.trim() ? 'Session: ' + session : 'Session: unknown',
+    };
+  }
+  root.PiSDRecordingReader = {createReader, describeRecording};
 })(typeof window !== 'undefined' ? window : globalThis);

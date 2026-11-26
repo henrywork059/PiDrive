@@ -31,7 +31,8 @@
       {% if config.PISD_TOKEN_REQUIRED %}<form method="post" action="/logout"><button type="submit" class="fp-button">Stop motors and sign out</button></form>{% endif %}
     </section>
 
-    <section class="fp-mode-grid" aria-label="Mode selection cards">
+    <section class="fp-mode-grid" aria-labelledby="fpDriveTasks">
+      <h2 id="fpDriveTasks" class="fp-task-heading">Drive</h2>
       <a class="fp-mode-card fp-mode-primary" id="frontModeManualDrive" href="/manual-drive">
         <span class="fp-card-label">Drive tab</span>
         <h2>Manual Drive</h2>
@@ -44,17 +45,21 @@
         <p>Load a trained model from Manual Drive recordings, preview predictions, then run through safety limits before motor output.</p>
         <span class="fp-card-action">Open AI mode →</span>
       </a>
-      <a class="fp-mode-card fp-mode-primary" id="frontModeMotorTuning" href="/motor-tuning">
-        <span class="fp-card-label">Calibration tab</span>
-        <h2>Motor tuning</h2>
-        <p>Open the cleared calibration workspace. The previous tuning panels were removed so the workflow can be rebuilt cleanly.</p>
-        <span class="fp-card-action">Open tuning workspace →</span>
-      </a>
+    </section>
+
+    <section class="fp-mode-grid" aria-labelledby="fpSetupTasks">
+      <h2 id="fpSetupTasks" class="fp-task-heading">Diagnostics &amp; settings</h2>
       <a class="fp-mode-card fp-mode-primary" id="frontModeSettings" href="/settings">
         <span class="fp-card-label">Setting tab</span>
         <h2>Settings</h2>
         <p>Configure and test camera, motor, and runtime settings through safe API calls.</p>
         <span class="fp-card-action">Open settings tab →</span>
+      </a>
+      <a class="fp-mode-card fp-mode-primary" id="frontModeMotorTuning" href="/motor-tuning">
+        <span class="fp-card-label">Calibration tab</span>
+        <h2>Motor tuning</h2>
+        <p>Open the cleared calibration workspace. The previous tuning panels were removed so the workflow can be rebuilt cleanly.</p>
+        <span class="fp-card-action">Open tuning workspace →</span>
       </a>
       <a class="fp-mode-card fp-mode-primary" id="frontModeTesting" href="/testing">
         <span class="fp-card-label">Testing tab</span>
@@ -95,7 +100,7 @@
         <p data-recent-status role="status">Expand to read the local event history.</p>
         <button type="button" data-recent-refresh>Refresh events</button>
         <button type="button" data-recent-copy>Copy events</button>
-        <pre data-recent-output class="fp-console" tabindex="0" data-space-stop-ignore="true" style="white-space:pre-wrap;overflow-wrap:anywhere">No events loaded.</pre>
+        <pre data-recent-output class="fp-console" tabindex="0" aria-label="Recent operator event history" data-space-stop-ignore="true" style="white-space:pre-wrap;overflow-wrap:anywhere">No events loaded.</pre>
         <small>Only fixed operation labels and outcomes; no request payloads or raw errors. API acknowledgement is not physical confirmation.</small>
       </details>
       <pre id="fpStatusJson" class="fp-console">{{ initial_status | tojson(indent=2) }}</pre>

@@ -474,14 +474,14 @@ body.testing-page .preview-grid.preview-buttons-top .preview-actions-top {
    Manual square pad and live preview sizing are inherited unchanged. */
 @media (max-width: 560px) {
   body.manual-drive-page .mdrv-actions,
-  body.ai-mode-page .mdrv-actions {
+  body.ai-page .mdrv-actions {
     display: flex !important;
     flex-wrap: wrap !important;
     min-width: 0 !important;
     max-width: 100% !important;
   }
   body.manual-drive-page :is(#mdrvStopTop, #mdrvStopBig, #mdrvStopPad),
-  body.ai-mode-page :is(#aiStopAll, #aiStop, #aiManualDriveStop, #aiAssistStop) {
+  body.ai-page :is(#aiStopAll, #aiStop, #aiManualDriveStop, #aiAssistStop) {
     min-height: 44px !important;
     max-width: 100% !important;
     white-space: normal !important;
@@ -489,19 +489,19 @@ body.testing-page .preview-grid.preview-buttons-top .preview-actions-top {
     line-height: 1.3 !important;
   }
   body.manual-drive-page .mdrv-overlay-settings-actions,
-  body.ai-mode-page .mdrv-overlay-settings-actions {
+  body.ai-page .mdrv-overlay-settings-actions {
     flex-wrap: wrap !important;
     min-width: 0 !important;
   }
   body.manual-drive-page .mdrv-overlay-settings-card,
-  body.ai-mode-page .mdrv-overlay-settings-card {
+  body.ai-page .mdrv-overlay-settings-card {
     max-height: calc(100dvh - 16px) !important;
     max-width: calc(100vw - 16px) !important;
     overflow-y: auto !important;
     overscroll-behavior: contain;
   }
   body.manual-drive-page .mdrv-overlay-settings-actions > *,
-  body.ai-mode-page .mdrv-overlay-settings-actions > * {
+  body.ai-page .mdrv-overlay-settings-actions > * {
     min-width: 0;
     white-space: normal;
   }
@@ -569,3 +569,40 @@ body.manual-drive-page .mdrv-shell {
 @media (max-width: 640px) {
   .pp-control-grid { grid-template-columns: minmax(0, 1fr) !important; }
 }
+
+/* R36: STOP hit targets must not be reduced by saved presentation scale.
+   Preserve the preference, other controls and desktop geometry. */
+@media (max-width: 900px) {
+  :is(#fpStopAll, #mdrvStopTop, #mdrvStopPad, #mdrvStopBig, #aiStopAll, #aiStop, #aiManualDriveStop, #aiAssistStop, #stStopAll) {
+    min-height: 44px !important;
+    min-width: 44px !important;
+    transform: none !important;
+  }
+}
+
+/* Task-first launch groups and selectable local event history. */
+body.front-page .fp-task-heading {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 1rem;
+}
+body.front-page .fp-mode-grid { min-width: 0; }
+body.front-page [data-preflight-root],
+body.front-page [data-recent-events-root] { flex: 1 1 100%; min-width: 0; }
+body.front-page [data-recent-events-root][open] [data-recent-output] {
+  display: block !important;
+  max-height: var(--pisd-ui-console-height, 220px) !important;
+  overflow: auto !important;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.mdrv-recording-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem .8rem;
+  min-width: 0;
+  margin-block: .35rem;
+  overflow-wrap: anywhere;
+  font-size: .8em;
+}
+.mdrv-recording-details > * { min-width: 0; max-width: 100%; }

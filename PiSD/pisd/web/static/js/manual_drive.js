@@ -1044,6 +1044,8 @@
     const count = status.recording?.frame_count;
     const counter = $('mdrvRecordingCount');
     if (counter) counter.textContent = Number.isInteger(count) && count >= 0 ? `Frames: ${count} (last confirmed)` : 'Frames: unknown';
+    const session = $('mdrvRecordingSession');
+    if (session) session.textContent = window.PiSDRecordingReader.describeRecording(status.recording).sessionText;
     renderPreviewFromStatus(status);
     renderMotorSignalsFromStatus(status);
     setCode('status', status.code || 'PISD-OK-000');

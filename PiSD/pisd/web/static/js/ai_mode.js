@@ -577,9 +577,12 @@
 
   function renderRecording(recording = {}) {
     recordingRunning = Boolean(recording.running);
+    const details = window.PiSDRecordingReader.describeRecording(recording);
+    const session = document.getElementById('aiRecordingSession');
+    if (session) session.textContent = details.sessionText;
     if (els.aiRecordingState) {
       els.aiRecordingState.dataset.recording = recordingRunning ? 'on' : 'off';
-      els.aiRecordingState.textContent = recordingRunning ? `REC on ${Number(recording.frame_count || 0)} frames` : 'REC off';
+      els.aiRecordingState.textContent = recordingRunning ? `REC on · Frames: ${details.countText}` : recording.running === false ? 'REC off' : 'REC unknown';
     }
     if (els.aiRecordToggle) {
       els.aiRecordToggle.textContent = recordingRunning ? 'Stop rec' : 'Record';
@@ -1409,6 +1412,11 @@
     }
   }
 
+  function showRecordingNotice(message) {
+    const notice = document.getElementById('aiRecordingNotice');
+    if (notice) notice.textContent = message;
+  }
+
   async function saveAISnapshot() {
     try {
       await api('/api/camera/start', { method: 'POST', body: {} }).catch(() => null);
@@ -1420,9 +1428,12 @@
           ? 'Snapshot saved. Live stream kept running.'
           : 'Snapshot saved. Start live to view the stream.';
       }
+      const frame = data.record?.frame_id;
+      showRecordingNotice(typeof frame === 'string' && frame ? 'Snapshot saved: ' + frame : 'Snapshot saved.');
       log('AI snapshot saved. Live stream kept running when already active.', data.record || data.recording || {});
       await refreshAIRecordingFiles();
     } catch (err) {
+      showRecordingNotice('Snapshot not confirmed. Check connection or recent errors.');
       log(err.message, err.payload || {});
     }
   }
@@ -1432,18 +1443,21 @@
       if (recordingRunning) {
         const data = await api('/api/recording/stop', { method: 'POST', body: {} });
         renderRecording(data.recording || {});
+        showRecordingNotice('Recording stop acknowledged.');
         log('AI recording stopped.', data.stopped_session || data.recording || {});
       } else {
         await api('/api/camera/start', { method: 'POST', body: {} }).catch(() => null);
         const fps = clamp(Number(els.aiUpdateHz?.value || 20), 0.2, 30, 20);
         const data = await api('/api/recording/start', { method: 'POST', body: { label: 'ai_mode', fps, command_source: 'ai_safe_command' } });
         renderRecording(data.recording || {});
+        showRecordingNotice('Recording start acknowledged.');
         log('AI recording started.', data.recording?.active_session || data.recording || {});
       }
       await refreshStatus();
       await refreshAIRecordingFiles();
     } catch (err) {
-      renderRecording((err.payload || {}).recording || {});
+      if (typeof err.payload?.recording?.running === 'boolean') renderRecording(err.payload.recording);
+      showRecordingNotice('Recording request not confirmed. Refresh status.');
       log(err.message, err.payload || {});
     }
   }

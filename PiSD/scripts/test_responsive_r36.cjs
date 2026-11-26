@@ -19,4 +19,19 @@ test('settings popup is constrained to dynamic viewport height',()=>assert.equal
 test('settings action row wraps',()=>assert.equal(css.includes('.mdrv-overlay-settings-actions')&&css.includes('flex-wrap: wrap !important'),true));
 test('R35 focus styles are kept',()=>assert.equal(design.includes('prefers-reduced-motion: reduce')&&design.includes('focus-visible'),true));
 test('version is 0.11.17 or later in the patch line',()=>{const m=version.match(/__version__\s*=\s*"0\.11\.(\d+)"/);assert.ok(m&&Number(m[1])>=17);});
-console.log(n+'/11 PiSD R36 responsive checks passed');
+test('narrow STOP geometry does not inherit presentation transform',()=>{
+  const rule=css.match(/:is\(#fpStopAll, #mdrvStopTop, #mdrvStopPad, #mdrvStopBig, #aiStopAll, #aiStop, #aiManualDriveStop, #aiAssistStop, #stStopAll\)\s*\{([^}]+)\}/);
+  assert.ok(rule);
+  assert.match(rule[1],/min-height:\s*44px !important/);
+  assert.match(rule[1],/min-width:\s*44px !important/);
+  assert.match(rule[1],/transform:\s*none !important/);
+});
+test('recording toolbar projects only confirmed backend count and session',()=>{
+  require('../pisd/web/static/js/recording_reader.js');
+  const describe=globalThis.PiSDRecordingReader.describeRecording;
+  assert.deepEqual(describe({running:true,frame_count:7,active_session:{session_id:'sample',session_dir:'/private/path'}}),{countText:'7',sessionText:'Session: sample'});
+  assert.deepEqual(describe({running:true}),{countText:'unknown',sessionText:'Session: unknown'});
+  assert.deepEqual(describe({running:false,frame_count:0,active_session:{session_id:'old'}}),{countText:'0',sessionText:'No active session'});
+  assert.deepEqual(describe({frame_count:NaN}),{countText:'unknown',sessionText:'Session: unknown'});
+});
+console.log(n+'/13 PiSD R36 responsive checks passed');

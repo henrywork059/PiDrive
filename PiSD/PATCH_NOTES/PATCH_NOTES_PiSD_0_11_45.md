@@ -10,3 +10,16 @@ Exact parent a9fbf1b97f5b28700eaff2b9a8156bf32d219f9e, Linux 45788280563 4/4 and
 
 ## Verification and limits
 New fixture compiled locally; actual native candidate gate and visual comparison pending. R35 grouped automated scope verified on parent, complete assistive-technology/owner/physical touch/custom-theme acceptance remains open. No JavaScript, motor/STOP, authorization, command lease, stored settings or schema changes; no restoration of intentionally removed Motor Tuning controls. piTrainer unchanged; verified native splitter behavior retained. No merge, stable promotion, deployment or Batch 6 advance.
+
+
+## Revision B — unrestricted roadmap continuation (responsive safety and PiSD operator workflows)
+
+Exact parent 74ad1995200b8e2509e292d9f02e17bb9db6a905. Linux 45817695427: PiServer, piTrainer and manifest jobs passed; PiSD R36 failed 6/25 (Manual/AI at 390x844, 768x1024, 844x390). Windows 45817695471 passed. Retrieved and inspected browser archives 15116940071 (PiSD, SHA-256 46a535b704b9994808496692d065578e3ec4f22176b26b91aecf8786fdc17dd3) and 15115434784 (PiServer, SHA-256 56c22d4442a6ab089d861ad25decc03ab8a207e81b3e35922ba6a9bf15c2b424), exact revision matrices, 19/25 PiSD and 5/5 PiServer responsive cases. Failed PiSD cases abort before responsive screenshot capture; inspected available baseline captures. Latest four PiSD notes 0.11.45/44/43/42 reviewed.
+
+- R36: CSS 44px minimum was transformed by saved 0.92 button scale (44*0.92=40.48px). Scope transform exemption and minimum hit dimensions to existing narrow STOP IDs, correct AI body class, preserve all presentation values and other controls. Retain existing 44px assertions and add browser geometry checks at four scales without persisting settings.
+- R49/UX54: front page separates actual driving routes from diagnostics/settings; preserve every route, existing STOP and last card focus order. Expanded event console inherited display:none; expose read-only event output, name the history, retain sanitized bounded GET/copy behavior. Browser check requires visibility/name and task groups.
+- UX56: show confirmed recording session ID and valid frame count near Manual/AI preview; missing counts/session metadata remain unknown. AI snapshot/recording outcomes have dedicated feedback; an unconfirmed error without recording status no longer clears a known recording state. No request, path, model, motor or recorder format changes.
+- UX57: identify geometry vs appearance and units without changing seven control IDs, defaults, scoped draft resets or single Apply persistence.
+- Files: layout CSS, Front/Manual/AI templates, recording_reader.js, Manual/AI controllers, registered R36 Node test and shared browser fixtures. Existing candidate marker retained pending functional milestone acceptance.
+
+Verification before staging: isolated local Chromium reproduced 40.48px at 0.92 and verified proposed STOP rule at 390/768/844 widths and 0.70/0.92/1/1.25 scales. This is not the full Flask/browser fixture. Full candidate Linux/Windows, forward packages, new screenshots and complete acceptance remain pending. No thresholds weakened, no config, authorization, lease, held-key release or STOP handler changes, no inactive edits, merge, promotion or hardware deployment.

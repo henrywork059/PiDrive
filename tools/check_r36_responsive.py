@@ -154,6 +154,30 @@ def main():
                             case['stop'] = reachable(target, width, height, 'STOP')
                             if args.component == 'PiSD' and width <= 900:
                                 assert case['stop']['height'] >= 44, case['stop']
+                                measured = page.evaluate("""() => {
+                                  const root = document.documentElement;
+                                  const key = '--pisd-ui-button-scale';
+                                  const previous = root.style.getPropertyValue(key);
+                                  const priority = root.style.getPropertyPriority(key);
+                                  const ids = ['fpStopAll', 'mdrvStopTop', 'mdrvStopPad', 'mdrvStopBig',
+                                    'aiStopAll', 'aiStop', 'aiManualDriveStop', 'aiAssistStop', 'stStopAll'];
+                                  try {
+                                    return ['0.70', '0.92', '1', '1.25'].map(scale => {
+                                      root.style.setProperty(key, scale);
+                                      return {scale, targets: ids.map(id => document.getElementById(id))
+                                        .filter(el => el && el.getClientRects().length)
+                                        .map(el => {const rect = el.getBoundingClientRect();
+                                          return {id:el.id, width:rect.width, height:rect.height};})};
+                                    });
+                                  } finally {
+                                    if (previous) root.style.setProperty(key, previous, priority);
+                                    else root.style.removeProperty(key);
+                                  }
+                                }""")
+                                assert all(row['targets'] for row in measured), measured
+                                assert all(target['width'] >= 44 and target['height'] >= 44
+                                           for row in measured for target in row['targets']), measured
+                                case['stop_scale_matrix'] = measured
                         case['primary'] = reachable(page.locator(primary), width, height, 'Primary')
                         if preview:
                             case['preview'] = reachable(page.locator(preview), width, height, 'Preview')
