@@ -940,8 +940,8 @@ def main():
                             layout_message = page.locator("#layoutPreviewMessage")
                             for control, action_name in ((preview_layout, "Preview Driving layout"), (save_layout, "Save layout"), (reset_layout, "Reset layout")):
                                 expect(control).to_have_accessible_name(action_name)
-                            assert name == case["page"] == "dashboard", "Layout label audit changed fixture page identity"
                                 expect(control).to_have_accessible_description("Layout controls affect this browser only.")
+                            assert name == case["page"] == "dashboard", "Layout label audit changed fixture page identity"
                             save_layout.focus()
                             page.keyboard.press("Shift+Tab")
                             expect(preview_layout).to_be_focused()
