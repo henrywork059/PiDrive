@@ -659,28 +659,73 @@ def main():
                                 expect(page.locator(stop)).to_be_enabled()
                             assert mutations[len(camera_before):] == ["/api/camera/apply", "/api/camera/apply"], mutations
                             camera_workspace[0] = False
-                            page.locator('.tab-btn[data-page="manual"]').click()
+                            with page.expect_response(lambda response: response.request.method == "POST"
+                                    and urlsplit(response.url).path == "/api/control"):
+                                page.locator('.tab-btn[data-page="manual"]').click()
+                            expect(page.locator("body")).to_have_attribute("data-page", "manual")
                             # Confirmed recording commands must not be reversed by
                             # a later failed read of the saved-folder list.
                             synthetic_recording[0] = False
                             reject_folder_read[0] = True
                             record = page.locator("#recordToggleBtn")
+                            snapshot = page.locator("#captureOnceBtn")
+                            expect(record).to_have_accessible_name("Record")
+                            expect(record).to_have_accessible_description("Tap to start capture")
+                            expect(record).to_have_attribute("aria-pressed", "false")
+                            expect(snapshot).to_have_accessible_name("Snapshot")
+                            expect(snapshot).to_have_accessible_description("Save one frame")
+                            recording_before = list(mutations)
+                            snapshot.focus()
+                            page.keyboard.press("Tab")
+                            expect(record).to_be_focused()
+                            expect(record).to_have_css("outline-style", "solid")
+                            page.keyboard.press("Shift+Tab")
+                            expect(snapshot).to_be_focused()
+                            expect(snapshot).to_have_css("outline-style", "solid")
+                            assert mutations == recording_before, "Recording focus navigation invoked a mutation"
+                            def activate_recording(control, endpoint, key):
+                                expect(control).to_be_visible()
+                                expect(control).to_be_enabled()
+                                with page.expect_response(lambda response: response.request.method == "POST"
+                                        and urlsplit(response.url).path == endpoint):
+                                    if width == 390:
+                                        control.tap()
+                                    else:
+                                        control.focus()
+                                        control.press(key)
+                                expect(page.locator(stop)).to_be_enabled()
+                                assert page.evaluate("() => Object.values(state.stepInputs).every(value => !value)"), "Recording activated drive input"
                             for expected in ("true", "false"):
-                                record.click()
+                                activate_recording(record, "/api/record/toggle", "Space")
                                 expect(page.locator("#statusBanner")).to_contain_text("Recording command acknowledged; folder refresh failed")
                                 expect(record).to_have_attribute("aria-pressed", expected)
+                                expect(record).to_have_accessible_name("Record")
+                                expect(record).to_have_accessible_description("Tap to stop capture" if expected == "true" else "Tap to start capture")
                                 expect(record).to_be_enabled()
                                 expect(page.locator("#sessionExportMessage")).to_contain_text("Cannot refresh folders")
-                            page.locator("#captureOnceBtn").click()
+                            activate_recording(snapshot, "/api/record/capture_once", "Enter")
                             expect(page.locator("#statusBanner")).to_contain_text("Snapshot saved; folder refresh failed")
-                            expect(page.locator("#captureOnceBtn")).to_be_enabled()
+                            expect(snapshot).to_be_enabled()
+                            expect(snapshot).to_have_accessible_name("Snapshot")
+                            expect(snapshot).to_have_accessible_description("Save one frame")
                             synthetic_recording[0] = None
                             reject_folder_read[0] = False
-                            # Rejected mutation still reports failure and restores OFF.
-                            record.click()
+                            # Rejected mutations still report failure and restore OFF/idle.
+                            activate_recording(record, "/api/record/toggle", "Space")
                             expect(page.locator("#statusBanner")).to_contain_text("Synthetic rejected mutation")
                             expect(record).to_have_attribute("aria-pressed", "false")
+                            expect(record).to_have_accessible_name("Record")
+                            expect(record).to_have_accessible_description("Tap to start capture")
                             expect(record).to_be_enabled()
+                            activate_recording(snapshot, "/api/record/capture_once", "Enter")
+                            expect(page.locator("#statusBanner")).to_contain_text("Synthetic rejected mutation")
+                            expect(snapshot).to_be_enabled()
+                            expect(snapshot).to_have_accessible_name("Snapshot")
+                            expect(snapshot).to_have_accessible_description("Save one frame")
+                            assert mutations[len(recording_before):] == [
+                                "/api/record/toggle", "/api/record/toggle", "/api/record/capture_once",
+                                "/api/record/toggle", "/api/record/capture_once"
+                            ], f"Unexpected recording requests: {mutations[len(recording_before):]!r}"
                             # Exercise the actual Training folder workspace with
                             # held GETs and a synthetic exact-target acknowledgement.
                             folder_workspace[0] = True

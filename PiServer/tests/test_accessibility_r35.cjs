@@ -160,4 +160,50 @@ test('style slider accessible units and visible readout follow actual clamped na
   assert.equal(values.gap.attributes['aria-valuetext'],'7 pixels');
   assert.deepEqual(resolved,{'--font-scale':'130%','--gap':'-2px'});
 });
-console.log(count+'/25 PiServer R35 accessibility tests passed');
+test('recording and snapshot expose stable action names with existing state descriptions',()=>{
+  assert.match(html,/<button id="captureOnceBtn"[^>]*aria-label="Snapshot" aria-describedby="captureOnceHelp">/);
+  assert.match(html,/<span id="captureOnceHelp" class="capture-once-subtitle">Save one frame<\/span>/);
+  assert.match(html,/<button id="recordToggleBtn"[^>]*aria-pressed="false" aria-label="Record" aria-describedby="recordToggleHelp">/);
+  assert.match(html,/<span id="recordToggleHelp" class="record-toggle-subtitle">Tap to start capture<\/span>/);
+});
+test('existing recording and snapshot setters retain names while updating descriptions and native disabled states',()=>{
+  const state={};
+  function button(name,help,prefix){
+    const title={textContent:''},subtitle={textContent:''};
+    return {title,subtitle,disabled:false,attributes:{'aria-label':name,'aria-describedby':help},
+      classList:{toggle(){}},setAttribute(k,v){this.attributes[k]=v;},
+      querySelector(selector){
+        if(selector==='.'+prefix+'-title')return title;
+        if(selector==='.'+prefix+'-subtitle')return subtitle;
+        throw Error(selector);
+      }};
+  }
+  const record=button('Record','recordToggleHelp','record-toggle');
+  const snapshot=button('Snapshot','captureOnceHelp','capture-once');
+  const els={recordToggleBtn:record,captureOnceBtn:snapshot};
+  const recStart=app.indexOf('function setRecordToggle('),recEnd=app.indexOf('function setOverlayMode(',recStart);
+  const capStart=app.indexOf('function setCapturePending('),capEnd=app.indexOf('function findSelectedSession(',capStart);
+  assert.ok(recStart>=0 && recEnd>recStart && capStart>=0 && capEnd>capStart);
+  const api=new Function('document','state',app.slice(recStart,recEnd)+app.slice(capStart,capEnd)+'\nreturn {setRecordToggle,setCapturePending};')({getElementById:id=>els[id]},state);
+  for(const [on,pending,desc] of [[false,false,'Tap to start capture'],[true,true,'Starting capture…'],[true,false,'Tap to stop capture'],[false,true,'Stopping capture…'],[false,false,'Tap to start capture']]){
+    api.setRecordToggle(on,pending);
+    assert.equal(record.attributes['aria-label'],'Record');
+    assert.equal(record.attributes['aria-describedby'],'recordToggleHelp');
+    assert.equal(record.attributes['aria-pressed'],String(on));
+    assert.equal(record.disabled,pending);
+    assert.equal(record.subtitle.textContent,desc);
+    assert.equal(record.title.textContent,on?'RECORD ON':'RECORD OFF');
+    assert.equal(state.recordEnabled,on);
+    assert.equal(state.recordPending,pending);
+  }
+  for(const [pending,desc] of [[false,'Save one frame'],[true,'Saving current frame'],[false,'Save one frame']]){
+    api.setCapturePending(pending);
+    assert.equal(snapshot.attributes['aria-label'],'Snapshot');
+    assert.equal(snapshot.attributes['aria-describedby'],'captureOnceHelp');
+    assert.equal(snapshot.disabled,pending);
+    assert.equal(snapshot.subtitle.textContent,desc);
+    assert.equal(snapshot.title.textContent,pending?'SNAPPING…':'SNAPSHOT');
+    assert.equal(state.capturePending,pending);
+  }
+});
+console.log(count+'/27 PiServer R35 accessibility tests passed');

@@ -273,13 +273,13 @@
         <div class="panel-body record-body">
           <section class="panel-section panel-section-strong">
             <div class="record-controls">
-              <button id="captureOnceBtn" class="capture-once-btn" type="button">
+              <button id="captureOnceBtn" class="capture-once-btn" type="button" aria-label="Snapshot" aria-describedby="captureOnceHelp">
                 <span class="capture-once-title">SNAPSHOT</span>
-                <span class="capture-once-subtitle">Save one frame</span>
+                <span id="captureOnceHelp" class="capture-once-subtitle">Save one frame</span>
               </button>
-              <button id="recordToggleBtn" class="record-toggle off" type="button" aria-pressed="false">
+              <button id="recordToggleBtn" class="record-toggle off" type="button" aria-pressed="false" aria-label="Record" aria-describedby="recordToggleHelp">
                 <span class="record-toggle-title">RECORD OFF</span>
-                <span class="record-toggle-subtitle">Tap to start capture</span>
+                <span id="recordToggleHelp" class="record-toggle-subtitle">Tap to start capture</span>
               </button>
             </div>
           </section>
