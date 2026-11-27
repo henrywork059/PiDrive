@@ -1,6 +1,26 @@
 # Active roadmap progress — 2026-11-27
 
-## Verified R35 software acceptance at 0eb91383923c521230af422bea2355ac94ff1dd9
+## Final scoped roadmap acceptance — 2026-11-27
+
+**56/56 active proposals implemented (100%), 0 remaining, 9/9 batches complete.** UX75 closed following explicit owner approval. Batch 4 complete. This is software-roadmap closure, not stable or physical release acceptance.
+
+Owner explicitly approved the reviewed PiDrive web screenshot baseline on 2026-11-27 (15:41 HKT/Taipei local time), source ba2420536b733659c6cb4796490cdb38f8d31914. Approved original archives: PiSD artifact 15161709968 SHA-256 dcdd9d6261d15e90647071e05f21d17e6b8868a7b8b27c4fe9106920d7eea2f3; PiServer artifact 15162386493 SHA-256 9d3a3230a2a0e3442a29d8a6c028c09003ed1fdc562e7e9ab4370a951b0e683c. Approved 105 web PNGs only (83 PiSD, 22 PiServer); original per-image manifest SHA-256 407e870465cbfaecd697c9c5890acc51a5fa23f5953b25027cfd87a1e46f13c5. Both original archive digests and manifest rechecked independently. Preserve these exact captures for subsequent visual comparison; do not substitute later screenshots. Archive retention is finite: retain the original review archive and approval record outside CI. Approval does not cover native desktop visual review, screen readers, physical touch/hardware or stable-release promotion.
+
+Verified exact candidate bb15dc9b18ddeac58c53e56ea4868800346f04d4, Linux [45921885146](https://github.com/henrywork059/PiDrive/actions/runs/45921885146) 4/4 and Windows [45921885201](https://github.com/henrywork059/PiDrive/actions/runs/45921885201) 1/1. Independent latest artifact downloads: PiSD 15164627462 SHA-256 4f3850f6d2f3428bcebadf25c65f3c2ab9154219f59b4c4f1b809258bd19cddc; PiServer 15163714987 SHA-256 cced837f4169f890dc2ff0d1a18c5838e9067f46a2435628c245b2e5cc32674b. Six exact-revision matrices 78/78 zero case/page errors; 67 inventories/2689 enabled control observations zero findings; 15 atomic AI geometry samples with seven panels and >=10px separation; 256 target measurements >=44px both dimensions. Forward package dry runs 15/10/11 changed files passed. Compared all 105 PNG paths against approved ba24205: no missing or new images; PiSD 62/83 and PiServer 17/22 byte-identical. Two PiSD full-page AI screenshots shorter by 16/17px, no PiServer dimension changes. Selected changed-size comparisons inspected, no production visual/runtime source changes between pinned and candidate: only fixture tools and documentation/notes. Exact approved baseline remains unchanged.
+
+| Track | Active | Verified implementation | Remaining |
+| --- | ---: | ---: | ---: |
+| F | 10 | 10 | 0 |
+| U | 13 | 13 | 0 |
+| R | 19 | 19 | 0 |
+| UX | 14 | 14 | 0 |
+| Total | 56 | 56 | 0 |
+
+UX75 complete in scoped software roadmap acceptance: repeatable visual and interaction checks cover representative happy, slow, disconnected, no-data, keyboard, touch, focus restore and responsive states; exact owner-approved web captures now pinned. R35 remains scoped automated acceptance, not exhaustive accessibility certification. All 56 active proposals and 9 batches are complete; the 19 retired exclusive proposals remain retired. Native desktop visual review, native assistive-technology verification, arbitrary custom-theme coverage, physical touch and supervised hardware acceptance remain separate. No claim of physical safety certification, frozen EXE validation, live deployment or stable acceptance. No merge, force push, stable promotion, deployment or inactive-component changes authorized. Existing candidates PiSD 0.11.45, PiServer 0.4.53, piTrainer 0.11.32 retained; documentation-only closure does not justify a version increment.
+
+See [final release-candidate handover](RELEASE_CANDIDATE_HANDOVER.md) and [approved visual baseline](../ui_baseline_review.md).
+
+## Previous verified R35 software acceptance (superseded) at 0eb91383923c521230af422bea2355ac94ff1dd9
 
 **55/56 verified implemented (98.2%), 1 remaining, 8/9 batches complete.** R35 scoped automated acceptance complete; only UX75 remains in Batch 4.
 
