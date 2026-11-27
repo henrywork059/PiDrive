@@ -57,3 +57,8 @@ PR #91 (plan only), #88 and #89 were merged externally during this session. Curr
 
 ## Consolidation for owner-requested merge
 - Main f5e58cf has qualified PiSD 0.11.48 iframe repair (#96); retain it. Performance #93 exact 0f288894 passed all four workflows. #97 supersedes #95 with identical trainer UI and harness code, corrected package ancestry; #92 readiness is retained in #97 and its checkpoint note is included. Integrate on a separate branch preserving original source revisions. UI2 PiSD renumbered 0.11.49, PiServer 0.4.56, trainer 0.11.36 after qualified 0.11.35 source. All combined CI and visual acceptance pending; no completion or stable promotion claimed.
+
+
+## Combined qualification revision
+- Owner additionally requested promotion to the next version. Keep merge and stable/full-baseline promotion distinct: repository stabilization policy requires separate physical P0 acceptance before stable promotion. Next stable series would require explicit version-family migration in packaging and matching baseline records; do not mark physical checks as passed or disable gates. Current candidate versions remain 0.11.49 / 0.4.56 / 0.11.36 until the combined revision qualifies.
+- Linux 46033174578 failed PiServer AX inventories on generic unnamed workflow jump targets; all other component/package jobs passed. Correct the eight target headings without changing navigation or loosening checks. Emulator 46033174814, Windows 46033174643 and trainer visual 46033174638 passed; long performance workflows still pending at inspection. Re-run full combined CI; visual artifacts and physical validation remain separate.

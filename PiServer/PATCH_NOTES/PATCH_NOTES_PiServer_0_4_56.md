@@ -17,3 +17,7 @@ Actual modified JS syntax checked using V8. Extracted actual markStatusUnverifie
 ## Revision B — stacked workspace navigation
 - Status panel links to the current page's existing preview, runtime, recording, model, session, camera and motor settings panels as applicable. No hidden-page jump or control invocation; focusable headings ignore drive keys. Existing tabs, E-STOP, docking persistence, APIs and settings semantics unchanged. Desktop dock unchanged.
 - Real browser test records single-interaction link activation, elapsed time, geometry and no mutation; new CI and candidate screenshots pending. No performance or full workflow acceptance claim. No new provisional version.
+
+
+## Integration qualification correction
+Combined PR #98 at e2f5221f92916dec5a924d76efb1d11ca80297a6: Linux 46033174578 failed PiServer native browser and R36 checks because the eight new focusable jump headers had generic AX roles and missing computed names. Add heading role, level and visible-title accessible labels to each existing target, keeping its id, tabindex, drive-key guard, layout and native anchor behavior. Do not relax the accessibility inventory or existing safety assertions. New exact CI pending; retain 0.4.56 as an unmerged candidate.
