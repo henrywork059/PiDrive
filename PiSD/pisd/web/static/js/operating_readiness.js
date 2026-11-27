@@ -100,6 +100,8 @@
     let motorView;
     if (fault) {
       motorView = indicator('Blocked · safety latch', 'danger');
+    } else if (runtime.text === 'Unconfirmed') {
+      motorView = indicator('Unconfirmed adapter', 'warning');
     } else if (motor.hardware_enabled !== true) {
       motorView = runtime.text === 'Emulator' ? indicator('Emulator · virtual output', 'warning')
         : runtime.text === 'Hardware fallback' ? indicator('Fallback · no physical output', 'warning')
