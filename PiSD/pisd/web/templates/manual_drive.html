@@ -30,7 +30,7 @@
     <section class="mdrv-panel mdrv-status-panel" id="manualDriveStatusPanel" data-panel-role="status" data-panel-h-weight="2" data-panel-v-weight="1">
       <div class="mdrv-panel-head compact"><div><p class="mdrv-label">Status</p><h2>Live signals</h2></div><span class="mdrv-code" data-code-for="status">{{ initial_status.code }}</span></div>
       <div class="mdrv-status-strip">
-        <span>HW <strong id="mdrvHardware">{{ 'on' if initial_status.hardware_requested else 'sim' }}</strong></span>
+        <span>Runtime <strong id="mdrvHardware" data-tone="warning">Checking</strong></span>
         <span>Cam <strong id="mdrvCameraState">{{ initial_status.camera.backend }}</strong></span>
         <span>Motor <strong id="mdrvMotorState">{{ initial_status.motor.adapter }}</strong></span>
         <span>FPS <strong id="mdrvCameraFps">{{ initial_status.camera.measured_capture_fps if initial_status.camera.measured_capture_fps is defined else 'n/a' }}</strong></span>
