@@ -8,6 +8,7 @@ from pathlib import Path
 
 from piserver.core.hardware_ownership import claim_hardware
 from piserver.core.latency_metrics import RollingLatency
+from piserver.services.preview_yuv import YUV420Layout
 from piserver.services.motor_service import GPIO_AVAILABLE
 
 try:
@@ -52,7 +53,16 @@ class CameraService:
         self.preview_fps = 12
         self.preview_quality = 60
         self.stream_quality = "balanced"
+        self.preview_resource_profile = "standard"
         self.idle_fps = 3
+        # Presentation-only second stream, never the inference/recording source.
+        self.preview_source = "main"
+        self.preview_stream_width = 320
+        self._lores_enabled = False
+        self._lores_failed = False
+        self._lores_size = None
+        self._lores_layout = None
+        self._lores_reason = ""
 
         self.auto_exposure = True
         self.exposure_us = 12000
@@ -92,6 +102,10 @@ class CameraService:
         self._jpeg_frame: Optional[bytes] = None
         self._jpeg_seq = 0
         self._jpeg_cond = threading.Condition()
+        self._preview_last_monotonic = None
+        self._preview_waiter_skipped = 0
+        self._preview_attempts = 0
+        self._preview_encode_misses = 0
 
     def _clamp_float(self, value, default: float, min_value: float, max_value: float) -> float:
         try:
@@ -127,9 +141,25 @@ class CameraService:
                 95,
             )
 
+    def _effective_preview_fps(self) -> int:
+        return min(self.preview_fps, 6) if self.preview_resource_profile == "economy" else self.preview_fps
+
+    def _effective_preview_quality(self) -> int:
+        return min(self.preview_quality, 40) if self.preview_resource_profile == "economy" else self.preview_quality
+
     def apply_settings(self, settings: dict | None, restart: bool = True) -> tuple[bool, str, dict]:
         settings = settings or {}
         with self._service_lock:
+            # Profile-only changes affect presentation, not the camera lifecycle.
+            if set(settings) == {"preview_resource_profile"}:
+                profile = settings["preview_resource_profile"]
+                if profile not in ("standard", "economy"):
+                    return False, "Unknown preview resource profile.", self.get_config()
+                self.preview_resource_profile = profile
+                return True, "Preview profile applied without restarting camera.", self.get_config()
+            if "preview_resource_profile" in settings:
+                profile = settings["preview_resource_profile"]
+                self.preview_resource_profile = profile if profile in ("standard", "economy") else "standard"
             self.width = self._clamp_int(settings.get("width", self.width), self.width, 64, 3840)
             self.height = self._clamp_int(settings.get("height", self.height), self.height, 48, 2160)
             self.target_fps = self._clamp_int(settings.get("fps", self.target_fps), self.target_fps, 1, 120)
@@ -138,6 +168,11 @@ class CameraService:
             self.preview_quality = self._clamp_int(settings.get("preview_quality", self.preview_quality), self.preview_quality, 20, 95)
             self.stream_quality = str(settings.get("stream_quality", self.stream_quality) or self.stream_quality)
             self._normalize_stream_quality_locked()
+            source = str(settings.get("preview_source", self.preview_source) or "main").lower().strip()
+            self.preview_source = source if source in {"main", "lores"} else "main"
+            self.preview_stream_width = self._clamp_int(
+                settings.get("preview_stream_width", self.preview_stream_width),
+                self.preview_stream_width, 64, 1920)
             self.auto_exposure = bool(settings.get("auto_exposure", self.auto_exposure))
             self.exposure_us = self._clamp_int(settings.get("exposure_us", self.exposure_us), self.exposure_us, 100, 200000)
             self.analogue_gain = self._clamp_float(settings.get("analogue_gain", self.analogue_gain), self.analogue_gain, 0.0, 64.0)
@@ -187,7 +222,15 @@ class CameraService:
                 "format": str(self.camera_format),
                 "preview_fps": int(self.preview_fps),
                 "preview_quality": int(self.preview_quality),
+                "preview_resource_profile": self.preview_resource_profile,
+                "effective_preview_fps": int(self._effective_preview_fps()),
+                "effective_preview_quality": int(self._effective_preview_quality()),
                 "stream_quality": str(self.stream_quality),
+                "preview_source": str(self.preview_source),
+                "preview_stream_width": int(self.preview_stream_width),
+                "preview_stream_active": "lores" if self._lores_enabled and not self._lores_failed else "main",
+                "preview_stream_fallback_reason": str(self._lores_reason),
+                "preview_stream_stride": self._lores_layout.stride if self._lores_layout is not None else None,
                 "auto_exposure": bool(self.auto_exposure),
                 "exposure_us": int(self.exposure_us),
                 "analogue_gain": float(self.analogue_gain),
@@ -243,12 +286,15 @@ class CameraService:
             self.last_error = f"Failed to apply Picamera2 controls: {exc}"
 
     def _release_backends_locked(self) -> None:
-        try:
-            if self._picam2 is not None:
+        if self._picam2 is not None:
+            try:
                 self._picam2.stop()
+            except Exception:
+                pass
+            try:
                 self._picam2.close()
-        except Exception:
-            pass
+            except Exception:
+                pass
         try:
             if self._capture is not None:
                 self._capture.release()
@@ -256,9 +302,19 @@ class CameraService:
             pass
         self._picam2 = None
         self._capture = None
+        self._lores_enabled = False
+        self._lores_failed = False
+        self._lores_size = None
+        self._lores_layout = None
+
+    def _preview_lores_size(self) -> tuple[int, int]:
+        scale = min(1.0, float(self.preview_stream_width) / max(float(self.width), 1.0))
+        return max(2, int(self.width * scale) // 2 * 2), max(2, int(self.height * scale) // 2 * 2)
 
     def _open_picamera2_locked(self) -> tuple[bool, str]:
         if Picamera2 is None:
+            if self.preview_source == "lores":
+                self._lores_reason = "Picamera2 not installed; using main fallback."
             return False, "Picamera2 not installed."
         requested = str(self.camera_format or "BGR888").upper()
         formats = [requested]
@@ -266,41 +322,69 @@ class CameraService:
             if fallback not in formats:
                 formats.append(fallback)
 
+        self._lores_enabled = False
+        self._lores_failed = False
+        self._lores_size = None
+        self._lores_layout = None
+        self._lores_reason = ""
+        want_lores = self.preview_source == "lores"
+        have_decoder = cv2 is not None and np is not None
+        if want_lores and not have_decoder:
+            self._lores_reason = "YUV420 lores preview requires OpenCV and NumPy; using main."
         last_error = "Unable to configure Picamera2."
         for fmt in formats:
-            picam = None
-            try:
-                picam = Picamera2()
-                frame_duration = max(1, int(1_000_000 / max(self.target_fps, 1)))
+            for lowres in ((True, False) if want_lores and have_decoder else (False,)):
+                picam = None
                 try:
-                    cfg = picam.create_video_configuration(
-                        main={"size": (self.width, self.height), "format": fmt},
-                        controls={"FrameDurationLimits": (frame_duration, frame_duration)},
-                        queue=False,
-                        buffer_count=2,
-                    )
-                except TypeError:
-                    cfg = picam.create_video_configuration(
-                        main={"size": (self.width, self.height), "format": fmt},
-                        controls={"FrameDurationLimits": (frame_duration, frame_duration)},
-                    )
-                picam.configure(cfg)
-                picam.start()
-                self._picam2 = picam
-                self.backend = "picamera2"
-                self.backend_format = fmt
-                self.preview_live = False
-                self.last_error = ""
-                self._set_picamera_controls_locked()
-                return True, f"Picamera2 started with {fmt}."
-            except Exception as exc:
-                last_error = f"Picamera2 failed with {fmt}: {exc}"
-                try:
+                    picam = Picamera2()
+                    period = max(1, int(1000000 / max(self.target_fps, 1)))
+                    kwargs = {
+                        "main": {"size": (self.width, self.height), "format": fmt},
+                        "controls": {"FrameDurationLimits": (period, period)},
+                        "queue": False, "buffer_count": 2,
+                    }
+                    if lowres:
+                        kwargs["lores"] = {"size": self._preview_lores_size(), "format": "YUV420"}
+                    try:
+                        cfg = picam.create_video_configuration(**kwargs)
+                    except TypeError:
+                        if lowres:
+                            raise
+                        cfg = picam.create_video_configuration(
+                            main=kwargs["main"], controls=kwargs["controls"])
+                    picam.configure(cfg)
+                    # Inspect effective configuration, not just requested geometry.
+                    # Older or incompatible backends without trustworthy metadata
+                    # are rejected only for the optional lores path.
+                    layout = (YUV420Layout.from_config(picam.stream_configuration("lores"),
+                                                       self._preview_lores_size())
+                              if lowres else None)
+                    picam.start()
+                    self._picam2 = picam
+                    self.backend = "picamera2"
+                    self.backend_format = fmt
+                    self._lores_enabled = lowres
+                    self._lores_size = self._preview_lores_size() if lowres else None
+                    self._lores_layout = layout
+                    self._lores_failed = False
+                    self.preview_live = False
+                    self.last_error = ""
+                    self._set_picamera_controls_locked()
+                    return True, f"Picamera2 started with {fmt}; preview {('lores' if lowres else 'main')}."
+                except Exception as exc:
+                    last_error = f"Picamera2 failed with {fmt}: {exc}"
+                    if lowres:
+                        self._lores_reason = str(exc)[:240]
                     if picam is not None:
-                        picam.close()
-                except Exception:
-                    pass
-                self._picam2 = None
+                        try:
+                            picam.stop()
+                        except Exception:
+                            pass
+                        try:
+                            picam.close()
+                        except Exception:
+                            pass
+                    self._picam2 = None
         return False, last_error
 
     def _open_opencv_locked(self) -> tuple[bool, str]:
@@ -422,7 +506,7 @@ class CameraService:
             if tuple(getattr(img, "size", (self.width, self.height))) != (int(self.width), int(self.height)):
                 img = img.resize((int(self.width), int(self.height)))
             buf = io.BytesIO()
-            img.save(buf, format="JPEG", quality=int(self.preview_quality), optimize=False)
+            img.save(buf, format="JPEG", quality=int(self._effective_preview_quality()), optimize=False)
             return buf.getvalue()
         except Exception:
             return None
@@ -443,32 +527,54 @@ class CameraService:
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (180, 190, 200), 2, cv2.LINE_AA)
         return frame
 
+    def _jpeg_from_lores_yuv420(self, plane) -> Optional[bytes]:
+        """Copy/encode the YUV420 buffer before the request is released."""
+        if cv2 is None or np is None or self._lores_layout is None:
+            return None
+        try:
+            bgr = self._lores_layout.decode_bgr(plane, np, cv2)
+            ok, encoded = cv2.imencode(".jpg", bgr,
+                                       [int(cv2.IMWRITE_JPEG_QUALITY), int(self._effective_preview_quality())])
+            return encoded.tobytes() if ok else None
+        except Exception:
+            return None
+
     def _capture_picamera_request(self, need_frame: bool, need_preview: bool):
         with self._service_lock:
             picam = self._picam2
         if picam is None:
             return None, None, False, "No active Picamera2 backend."
 
-        request = None
         try:
             with self._capture_lock:
                 request = picam.capture_request()
-                pil_image = None
-                if need_frame or need_preview:
-                    pil_image = request.make_image("main")
-
-                frame = self._frame_from_pil(pil_image) if need_frame else None
-                jpeg_bytes = self._jpeg_from_pil(pil_image) if need_preview else None
-                return frame, jpeg_bytes, True, ""
-        except Exception as exc:
-            return None, None, False, f"Picamera2 request capture failed: {exc}"
-        finally:
-            if request is not None:
-                with self._capture_lock:
+                try:
+                    jpeg_bytes = None
+                    if need_preview and self._lores_enabled and not self._lores_failed:
+                        try:
+                            jpeg_bytes = self._jpeg_from_lores_yuv420(request.make_array("lores"))
+                            if jpeg_bytes is None:
+                                raise ValueError("Unexpected low-resolution YUV420 buffer/encode failure")
+                        except Exception as exc:
+                            # Circuit break until camera reopen; preserve main fallback.
+                            self._lores_failed = True
+                            self._lores_reason = f"Low-resolution capture failed: {exc}"[:240]
+                    pil_image = None
+                    if need_frame or (need_preview and jpeg_bytes is None):
+                        pil_image = request.make_image("main")
+                    frame = self._frame_from_pil(pil_image) if need_frame else None
+                    if need_preview and jpeg_bytes is None:
+                        jpeg_bytes = self._jpeg_from_pil(pil_image)
+                    return frame, jpeg_bytes, True, ""
+                finally:
+                    # Release under the same capture lock, before a snapshot
+                    # consumer can acquire a second request.
                     try:
                         request.release()
                     except Exception:
                         pass
+        except Exception as exc:
+            return None, None, False, f"Picamera2 request capture failed: {exc}"
 
     def _capture_opencv_frame(self):
         with self._service_lock:
@@ -492,7 +598,7 @@ class CameraService:
             target_size = (int(self.width), int(self.height))
             if tuple(frame.shape[1::-1]) != target_size:
                 preview = cv2.resize(frame, target_size, interpolation=cv2.INTER_AREA)
-            params = [int(cv2.IMWRITE_JPEG_QUALITY), int(self.preview_quality)]
+            params = [int(cv2.IMWRITE_JPEG_QUALITY), int(self._effective_preview_quality())]
             ok, buf = cv2.imencode(".jpg", preview, params)
             return buf.tobytes() if ok else None
         except Exception:
@@ -504,6 +610,7 @@ class CameraService:
         with self._jpeg_cond:
             self._jpeg_frame = jpeg_bytes
             self._jpeg_seq += 1
+            self._preview_last_monotonic = time.monotonic()
             self._jpeg_cond.notify_all()
 
     def _desired_capture_fps_locked(self) -> int:
@@ -524,10 +631,10 @@ class CameraService:
                 if not self._running:
                     break
                 target_fps = self._desired_capture_fps_locked()
-                preview_period = 1.0 / max(int(self.preview_fps), 1)
+                preview_period = 1.0 / max(int(self._effective_preview_fps()), 1)
                 preview_enabled = bool(self.preview_enabled)
                 processing_enabled = bool(self.processing_enabled)
-                preview_due = preview_enabled and ((time.time() - last_preview_emit) >= preview_period)
+                preview_due = preview_enabled and ((time.monotonic() - last_preview_emit) >= preview_period)
                 should_retry = self._picam2 is None and self._capture is None and (time.time() - self._last_open_attempt) >= self._retry_interval_s
                 if should_retry:
                     self._open_backend_locked()
@@ -590,13 +697,18 @@ class CameraService:
                     fps_window_start = now
 
             if preview_due:
+                published = jpeg_bytes
                 if jpeg_bytes is not None:
                     self._publish_jpeg(jpeg_bytes)
-                    last_preview_emit = time.time()
+                    last_preview_emit = time.monotonic()
                 elif preview_source is not None:
-                    fallback_jpeg = self._encode_preview_jpeg_cv(preview_source)
-                    self._publish_jpeg(fallback_jpeg)
-                    last_preview_emit = time.time()
+                    published = self._encode_preview_jpeg_cv(preview_source)
+                    self._publish_jpeg(published)
+                    last_preview_emit = time.monotonic()
+                with self._jpeg_cond:
+                    self._preview_attempts += 1
+                    if published is None:
+                        self._preview_encode_misses += 1
 
             if preview_source is not None and self._frame is None:
                 with self._frame_lock:
@@ -628,12 +740,27 @@ class CameraService:
     def get_performance(self) -> dict:
         return self.performance.snapshot()
 
+    def get_preview_delivery_stats(self) -> dict:
+        """Latest-frame preview only; skips are not lost recording samples."""
+        with self._jpeg_cond:
+            return {
+                "max_pending_frames": 1,
+                "published_frames": int(self._jpeg_seq),
+                "subscriber_skipped_frames": int(self._preview_waiter_skipped),
+                "scheduled_preview_attempts": int(self._preview_attempts),
+                "scheduled_preview_misses": int(self._preview_encode_misses),
+                "latest_jpeg_bytes": len(self._jpeg_frame) if self._jpeg_frame is not None else 0,
+                "latest_age_s": max(0.0, time.monotonic() - self._preview_last_monotonic)
+                if self._preview_last_monotonic is not None else None,
+            }
+
     def get_diagnostics(self) -> dict:
         details = {
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
             "config": self.get_config(),
             "fps": float(self._fps),
             "raw_frame_age_s": self.get_raw_frame_age(),
+            "preview_delivery": self.get_preview_delivery_stats(),
         }
         with self._service_lock:
             picam = self._picam2
@@ -757,7 +884,11 @@ class CameraService:
     def wait_for_jpeg(self, last_seq: int = 0, timeout: float = 1.0) -> tuple[Optional[bytes], int]:
         with self._jpeg_cond:
             if self._jpeg_seq == last_seq and self._running:
-                self._jpeg_cond.wait(timeout=max(0.0, float(timeout)))
+                self._jpeg_cond.wait_for(
+                    lambda: self._jpeg_seq != last_seq or not self._running,
+                    timeout=max(0.0, float(timeout)))
+            if 0 < int(last_seq) < self._jpeg_seq - 1:
+                self._preview_waiter_skipped += self._jpeg_seq - int(last_seq) - 1
             return self._jpeg_frame, self._jpeg_seq
 
     def get_fps(self) -> float:

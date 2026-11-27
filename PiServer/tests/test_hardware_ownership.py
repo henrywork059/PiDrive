@@ -232,6 +232,8 @@ class PerformancePlaceholderTests(unittest.TestCase):
                 svc._running = False
             return None, None, True, ""
         svc._capture_picamera_request = capture
+        svc.preview_resource_profile = "standard"
+        svc._effective_preview_fps = lambda: camera_module.CameraService._effective_preview_fps(svc)
         camera_module.CameraService._loop(svc)
         self.assertEqual(captures, [(False, False)] * 4)
         svc._placeholder_frame.assert_called_once_with()

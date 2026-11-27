@@ -1423,6 +1423,40 @@ function fillCameraForm(config = {}) {
   document.getElementById("cameraSaturation").value = config.saturation ?? 1;
   document.getElementById("cameraSharpness").value = config.sharpness ?? 1;
   setCameraResolutionPreset();
+  renderPreviewResourceProfile(config);
+}
+
+function renderPreviewResourceProfile(config = {}) {
+  const profile = document.getElementById("cameraResourceProfile");
+  const effective = document.getElementById("cameraResourceEffective");
+  if (profile) profile.value = config.preview_resource_profile || "standard";
+  if (effective) effective.textContent = `Effective: ${config.effective_preview_fps ?? config.preview_fps ?? 12} FPS / JPEG ${config.effective_preview_quality ?? config.preview_quality ?? 60}`;
+}
+
+async function applyPreviewResourceProfile() {
+  const field = document.getElementById("cameraResourceProfile");
+  const button = document.getElementById("cameraResourceApply");
+  if (!field || !button || button.disabled) return;
+  const selected = field.value;
+  button.disabled = true;
+  field.disabled = true;
+  try {
+    const data = await fetchJson("/api/camera/apply", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({preview_resource_profile: selected})
+    });
+    const actual = await fetchJson("/api/camera/config");
+    state.cameraConfig = actual.config || {};
+    renderPreviewResourceProfile(state.cameraConfig);
+    const applied = state.cameraConfig.preview_resource_profile === selected;
+    setBanner("cameraResourceMessage", !applied ? "Profile readback mismatch; current effective settings shown."
+      : data.saved ? "Applied and saved." : "Applied at runtime, but settings were not saved.", "muted");
+  } catch (error) {
+    setBanner("cameraResourceMessage", error.message || "Preview profile request failed.", "muted");
+  } finally {
+    field.disabled = false;
+    button.disabled = false;
+  }
 }
 
 async function loadCameraConfig() {
@@ -1555,7 +1589,9 @@ function renderPreviewHealth() {
 }
 function previewDelayMs() {
   const fps = Number(document.getElementById("cameraPreviewFps")?.value || state.cameraConfig?.preview_fps || 12);
-  return clamp(Math.round(1000 / Math.max(1, fps)), 40, 500);
+  const effective = state.cameraConfig?.preview_resource_profile === "economy"
+    ? Math.min(fps, state.cameraConfig.effective_preview_fps ?? 6) : fps;
+  return clamp(Math.round(1000 / Math.max(1, effective)), 40, 500);
 }
 
 async function sendPreviewState(enabled) {
@@ -2087,6 +2123,7 @@ function setupEvents() {
     }
   });
 
+  document.getElementById("cameraResourceApply")?.addEventListener("click", applyPreviewResourceProfile);
   document.getElementById("cameraApplyBtn").addEventListener("click", async () => {
     try {
       await applyCameraConfig();
