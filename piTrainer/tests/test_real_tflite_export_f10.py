@@ -19,6 +19,32 @@ import test_recording_to_export_f10 as recording_fixture
 
 
 class RealTfliteExportTests(unittest.TestCase):
+    def test_real_tflite_streamed_inputs_equal_eager(self):
+        from PIL import Image
+        from piTrainer.services.validation.validation_inputs import PreparedImageSource
+        from piTrainer.services.validation.tflite_runner import _run_tflite_predictions
+        with tempfile.TemporaryDirectory() as tmp:
+            paths=[]
+            rng=np.random.default_rng(19)
+            for i in range(7):
+                p=Path(tmp)/f"{i}.png"
+                Image.fromarray(rng.integers(0,256,(24,32,3),dtype=np.uint8)).save(p)
+                paths.append(str(p))
+            source=PreparedImageSource(paths,[False,True,False,True,False,True,False],12,16)
+            dense=source[:]
+            s=np.linspace(-.5,.5,7,dtype=np.float32)
+            t=np.linspace(.2,.8,7,dtype=np.float32)
+            for fixed in (None,1,3):
+                @tf.function(input_signature=[tf.TensorSpec([fixed,12,16,3],tf.float32)],autograph=False)
+                def control(image):
+                    return tf.reduce_mean(image[:,:,:,:2],axis=[1,2])
+                model=tf.lite.TFLiteConverter.from_concrete_functions([control.get_concrete_function()]).convert()
+                eager=_run_tflite_predictions(tf.lite.Interpreter(model_content=model),dense,s,t,3)
+                streamed=_run_tflite_predictions(tf.lite.Interpreter(model_content=model),source,s,t,3)
+                for a,b in zip(eager[:2],streamed[:2]):
+                    np.testing.assert_array_equal(a,b)
+                self.assertEqual(eager[2:],streamed[2:])
+
     def test_real_dataset_projection_matches_legacy_pixels_and_labels(self):
         from piTrainer.services.train import dataset_service as ds
         with tempfile.TemporaryDirectory() as tmp:

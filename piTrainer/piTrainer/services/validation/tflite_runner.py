@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 
 from ...utils.tf_log_utils import quiet_tensorflow_output
-from .validation_inputs import _prepare_inputs
+from .validation_inputs import PreparedImageSource, _prepare_input_source
 from .validation_result import _build_validation_result
 
 
@@ -197,7 +197,7 @@ def _resize_tflite_input_if_needed(interpreter, input_detail: dict, sample_shape
 
 def _run_tflite_predictions(
     interpreter,
-    x: np.ndarray,
+    x: np.ndarray | PreparedImageSource,
     steering_true: np.ndarray,
     throttle_true: np.ndarray,
     requested_batch_size: int,
@@ -278,7 +278,7 @@ def run_tflite_validation(
     max_rows: int,
 ) -> dict:
     interpreter, backend_name = _load_tflite_interpreter(tflite_path)
-    rows, x, steering_true, throttle_true = _prepare_inputs(
+    rows, x, steering_true, throttle_true = _prepare_input_source(
         dataset_df,
         img_h=int(getattr(train_config, 'img_h', 120)),
         img_w=int(getattr(train_config, 'img_w', 160)),
