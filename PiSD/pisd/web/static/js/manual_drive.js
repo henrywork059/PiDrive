@@ -131,18 +131,21 @@
   // R32: diagnostic-only polling. It does not arm, stop or command motors.
   let lastReadinessStatus = initialStatus;
   let readinessPollBusy = false;
-  function renderOperatingReadiness(status = lastReadinessStatus, offline = false) {
+  let readinessOffline = false;
+  function renderOperatingReadiness(status = lastReadinessStatus, offline = readinessOffline) {
+    readinessOffline = offline;
     const readiness = window.PiSDOperatingReadiness.projectReadiness(status, {
       screen: 'manual', confirmed: Boolean(arm?.checked), offline
     });
     for (const [key, id] of Object.entries({
+      runtime: 'mdrvHardware',
       camera: 'mdrvReadyCamera', model: 'mdrvReadyModel',
       source: 'mdrvReadySource', motor: 'mdrvReadyMotor', reason: 'mdrvReadyReason'
     })) {
       const element = $(id);
       if (!element) continue;
       if (element.textContent !== readiness[key].text) element.textContent = readiness[key].text;
-      element.dataset.tone = readiness[key].tone;
+      if (element.dataset.tone !== readiness[key].tone) element.dataset.tone = readiness[key].tone;
     }
   }
   async function pollOperatingReadiness() {
@@ -155,7 +158,7 @@
       const status = await response.json();
       if (!status || status.app !== 'PiSD') throw new Error('invalid PiSD status');
       lastReadinessStatus = status;
-      renderOperatingReadiness(status);
+      renderOperatingReadiness(status, false);
       if (recordingGate.accept(recordingRead)) renderRecording(status.recording);
     } catch (error) {
       renderOperatingReadiness(lastReadinessStatus, true);
@@ -1059,11 +1062,10 @@
 
   function renderStatus(status, includeRecording = true) {
     lastReadinessStatus = status;
-    renderOperatingReadiness(status);
+    renderOperatingReadiness(status, false);
     updateOverlayMotorSettings(status?.motor || {});
-    $('mdrvHardware').textContent = status.hardware_requested ? 'on' : 'sim';
     $('mdrvCameraState').textContent = status.camera?.running ? 'run' : (status.camera?.backend || 'off');
-    $('mdrvMotorState').textContent = status.motor?.hardware_enabled ? 'hw' : 'sim';
+    $('mdrvMotorState').textContent = status.motor?.adapter || 'unknown';
     $('mdrvCameraFps').textContent = status.camera?.measured_capture_fps ?? status.camera?.fps ?? 'n/a';
     if (includeRecording) renderRecording(status.recording);
     renderPreviewFromStatus(status);
@@ -1083,6 +1085,7 @@
         await refreshRecordingItems();
       }
     } catch (err) {
+      renderOperatingReadiness(lastReadinessStatus, true);
       writeLog('refresh status failed', { ok: false, code: 'PISD-API-002', message: String(err) });
     }
   }
