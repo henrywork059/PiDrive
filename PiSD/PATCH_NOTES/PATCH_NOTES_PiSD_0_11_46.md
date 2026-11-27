@@ -75,3 +75,7 @@ suite were not run. No physical Raspberry Pi checks were performed. Install
 `PiSD/requirements.txt`, launch `PiSD_Emulator/run_emulator.py`, and complete the
 browser smoke checks in `PiSD/docs/TEST_PLAN.md` before treating the live
 integration as browser-verified.
+
+## Revision B — configuration-path regression repair (UI2 blocker)
+
+Exact E01 parent 42674e49c94f86b73df06e6727a365edd7be5e16: Linux 46025487935 failed PiSD F7 recovery warning and Manual/Settings native browser speed readback (expected 0.43, actual 0.80); remaining three Linux jobs and Windows 46025488000 passed. Source inspection confirms the new data-root path bypassed RUNTIME_SETTINGS_PATH for ordinary calls. Restore the existing path when runtime_root is omitted, retain explicit workspace isolation, and add an F7 workspace read/save regression. No test expectations, camera/motor logic, defaults, or version changed. Reviewed 0.11.45/44/43 notes; exact corrected CI pending. Local Flask/Qt unavailable; no local browser or physical test claimed. Performance #88/#89 also touch PiSD 0.11.46; this repair is confined to E01 and is not authorization to merge either branch or promote stable.
