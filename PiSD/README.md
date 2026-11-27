@@ -498,6 +498,21 @@ Use the existing AI runtime installer separately, and `requirements-dev.txt`
 for validation tooling. NumPy/OpenCV ranges follow the tested hardware-free
 matrix; OS camera ABI compatibility must still be verified on the actual Pi.
 
+## PiSD Emulator
+
+To run the actual PiSD interface with a virtual vehicle and camera, install the
+PiSD requirements and launch the emulator from the repository root:
+
+```bash
+python -m pip install -r PiSD/requirements.txt
+python PiSD_Emulator/run_emulator.py --open-browser
+```
+
+The emulator binds its control and PiSD servers to `127.0.0.1`, disables
+physical hardware, and stores its settings, models, and recordings in a separate
+workspace. See [`PiSD_Emulator/README.md`](../PiSD_Emulator/README.md) for
+workspace options, limitations, and validation steps.
+
 After configuring the private PISD_ACCESS_TOKEN as described below, the existing
 hardware launcher remains:
 

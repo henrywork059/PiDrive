@@ -8,7 +8,7 @@ import time
 from collections import deque
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from pisd.core.errors import ErrorReport, ErrorReporter, PiSDErrorCodes
 from pisd.core.value_utils import clamp_float, clamp_int
@@ -316,10 +316,18 @@ class CameraService:
     tests show RGB/BGR mismatches.
     """
 
-    def __init__(self, config: dict[str, Any] | None = None, hardware_enabled: bool = False):
+    def __init__(
+        self,
+        config: dict[str, Any] | None = None,
+        hardware_enabled: bool = False,
+        frame_provider: Callable[["CameraConfig"], Any] | None = None,
+    ):
         self.config = CameraConfig()
         self.config.apply(config or {})
         self.hardware_enabled = bool(hardware_enabled)
+        if frame_provider is not None and self.hardware_enabled:
+            raise ValueError("PiSD Emulator camera cannot be used with hardware enabled.")
+        self.frame_provider = frame_provider
         self.backend = "not_started"
         self.last_error = ""
         self.last_error_code = PiSDErrorCodes.OK
@@ -376,6 +384,7 @@ class CameraService:
             data.update(
                 {
                     "hardware_enabled": bool(self.hardware_enabled),
+                    "emulator_connected": self.frame_provider is not None,
                     "picamera2_available": Picamera2 is not None,
                     "opencv_available": cv2 is not None,
                     "pillow_available": Image is not None,
@@ -569,7 +578,11 @@ class CameraService:
             stop_event = self._stop_event
             self._reset_fps_metrics()
 
-            if self.hardware_enabled and Picamera2 is not None:
+            if self.frame_provider is not None:
+                self.backend = "emulator"
+                self._clear_last_error_if_ok()
+                message = "Camera started from the PiSD Emulator."
+            elif self.hardware_enabled and Picamera2 is not None:
                 ok, message = self._open_picamera2_locked()
                 if ok:
                     self.backend = "picamera2"
@@ -588,6 +601,8 @@ class CameraService:
             self.running = True
             self._thread = threading.Thread(target=self._capture_loop, args=(stop_event,), name="pisd-camera", daemon=True)
             self._thread.start()
+            if self.backend == "emulator":
+                return True, message
             if self.backend == "picamera2":
                 return True, "Camera started with Picamera2."
             if self.last_error:
@@ -946,6 +961,12 @@ class CameraService:
                         with self._lock:
                             self._last_capture_source = "array"
                             self._last_array_color_order = self.config.array_color_order
+                elif self.frame_provider is not None:
+                    frame = self.frame_provider(self.config)
+                    jpeg = self._encode_jpeg(frame)
+                    with self._lock:
+                        self._last_capture_source = "emulator"
+                        self._last_array_color_order = "bgr"
                 else:
                     frame = self._make_simulated_frame()
                     jpeg = self._encode_jpeg(frame)

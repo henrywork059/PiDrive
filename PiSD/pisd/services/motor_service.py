@@ -5,7 +5,7 @@ import secrets
 import threading
 import time
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 
 from pisd.core.errors import ErrorReport, ErrorReporter, PiSDErrorCodes
 from pisd.core.value_utils import clamp_float, clamp_int, normalize_direction
@@ -199,11 +199,19 @@ class MotorService:
     service status. Real motor movement still requires explicit hardware mode.
     """
 
-    def __init__(self, config: dict[str, Any] | None = None, hardware_enabled: bool = False):
+    def __init__(
+        self,
+        config: dict[str, Any] | None = None,
+        hardware_enabled: bool = False,
+        output_sink: Callable[[dict[str, Any]], None] | None = None,
+    ):
         self.config = MotorConfig()
         self.config.apply(config or {})
         self.requested_hardware = bool(hardware_enabled)
         self.hardware_enabled = bool(hardware_enabled and GPIO_AVAILABLE)
+        if output_sink is not None and self.hardware_enabled:
+            raise ValueError("PiSD Emulator motor output cannot be used with hardware enabled.")
+        self.output_sink = output_sink
         self.last_left = 0.0
         self.last_right = 0.0
         # Logical/intended output is the vehicle-motion value before hardware direction
@@ -273,7 +281,7 @@ class MotorService:
                     "hardware_requested": bool(self.requested_hardware),
                     "hardware_enabled": bool(self.hardware_enabled),
                     "gpio_available": bool(GPIO_AVAILABLE),
-                    "adapter": "rpigpio" if self.hardware_enabled else "simulation",
+                    "adapter": "rpigpio" if self.hardware_enabled else ("emulator" if self.output_sink is not None else "simulation"),
                     "last_left": float(self.last_left),
                     "last_right": float(self.last_right),
                     "last_intended_left": float(self.last_intended_left),
@@ -437,6 +445,7 @@ class MotorService:
                     "Motor channel test output command failed.",
                     context=dict(self.last_command),
                 )
+            self._emit_virtual_output_locked()
 
         if not self.hardware_enabled:
             print(
@@ -587,6 +596,7 @@ class MotorService:
                     self._stop_locked()
                     raise
                 self._lease_condition.notify_all()
+            self._emit_virtual_output_locked()
         if not self.hardware_enabled:
             self._log_sim_command(steering, throttle, mix, output_left, output_right)
         return left, right
@@ -705,7 +715,29 @@ class MotorService:
                 "Motor stop command failed on one or more channels.",
                 context={"left_ok": left_ok, "right_ok": right_ok},
             )
+        self._emit_virtual_output_locked()
         return bool(left_ok and right_ok)
+
+    def _emit_virtual_output_locked(self) -> None:
+        if self.output_sink is None:
+            return
+        payload = {
+            "left_hardware": float(self.last_left),
+            "right_hardware": float(self.last_right),
+            "left_intended": float(self.last_intended_left),
+            "right_intended": float(self.last_intended_right),
+            "config": self.config.as_dict(),
+            "command": dict(self.last_command),
+        }
+        try:
+            self.output_sink(payload)
+        except Exception as exc:
+            self._record(
+                PiSDErrorCodes.MOTOR_OUTPUT_FAILED,
+                f"Virtual motor output adapter failed: {exc}",
+                context=payload,
+                exc=exc,
+            )
 
     def _rebuild_drivers_locked(self) -> None:
         self.left.close()

@@ -1250,3 +1250,21 @@ Browser/Pi checks to perform on hardware:
 3. Start live, load a model, start AI preview, switch to Manual pad, drag and release the pad.
 4. Confirm motor output stops on release but the AI overlay continues updating.
 5. Confirm `STOP AI + motors` and Space STOP still stop both AI and motors.
+
+## PiSD 0.11.46 emulator integration checks
+
+From the repository root, run the hardware-free adapter and engine checks:
+
+```bash
+python -m compileall -q PiSD/pisd PiSD_Emulator
+python PiSD_Emulator/scripts/test_emulator.py
+node --check PiSD_Emulator/web/assets/app.js
+python PiSD/PiSD.py --status-only
+```
+
+With `PiSD/requirements.txt` installed, launch `python PiSD_Emulator/run_emulator.py`
+and verify both listeners use loopback, the actual PiSD Manual Drive page loads,
+steering changes the virtual vehicle and camera image, STOP brakes it, and
+recording manifests mark their source as `synthetic_simulation`. Confirm saved
+settings, models, and recordings stay under the emulator workspace. Do not use
+the emulator on physical GPIO hardware.

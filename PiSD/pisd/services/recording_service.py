@@ -56,10 +56,11 @@ class RecordingService:
     instances passed at call time so it can be tested without hardware.
     """
 
-    def __init__(self, project_root: Path | str, root_name: str = "recordings", settings_provider: Callable[[], dict[str, Any]] | None = None):
+    def __init__(self, project_root: Path | str, root_name: str = "recordings", settings_provider: Callable[[], dict[str, Any]] | None = None, source_metadata: dict[str, Any] | None = None):
         self.project_root = Path(project_root)
         self.root_dir = self.project_root / root_name
         self.settings_provider = settings_provider
+        self.source_metadata = dict(source_metadata or {})
         self.errors = ErrorReporter("recording")
         self._lock = threading.RLock()
         self._stop_event = threading.Event()
@@ -150,6 +151,7 @@ class RecordingService:
                     "overlay_settings_file": str((session_dir / OVERLAY_SETTINGS_FILENAME).relative_to(self.project_root)),
                     "overlay_settings_history_file": str((session_dir / OVERLAY_SETTINGS_HISTORY_FILENAME).relative_to(self.project_root)),
                     "frame_count": 0,
+                    **({"data_source": self.source_metadata} if self.source_metadata else {}),
                     "overlay_settings": overlay_snapshot,
                     "overlay_settings_source": "manual_drive_runtime_overlay",
                     "overlay_schema_version": OVERLAY_SCHEMA_VERSION,
@@ -205,6 +207,7 @@ class RecordingService:
                 "overlay_settings_source": "manual_drive_runtime_overlay",
                 "overlay_schema_version": OVERLAY_SCHEMA_VERSION,
                 "command_source": selected_command_source,
+                **({"data_source": self.source_metadata} if self.source_metadata else {}),
             }
             self._frame_count = 0
             self._last_session_dir = session_dir
@@ -761,6 +764,7 @@ class RecordingService:
             "record_fps": 0,
             "capture_type": "single_capture_daily_folder",
             "date": date_name,
+            **({"data_source": self.source_metadata} if self.source_metadata else {}),
         }
         return session, frame_index
 
