@@ -10,6 +10,8 @@ import unittest
 from pathlib import Path
 import numpy as np
 import tensorflow as tf
+import pandas as pd
+from unittest.mock import patch
 from piTrainer.app_state import TrainConfig, ExportConfig
 from piTrainer.services.export.export_service import export_model_artifacts
 from piTrainer.utils.model_manifest import inspect_manifest, manifest_path
@@ -17,6 +19,50 @@ import test_recording_to_export_f10 as recording_fixture
 
 
 class RealTfliteExportTests(unittest.TestCase):
+    def test_real_dataset_projection_matches_legacy_pixels_and_labels(self):
+        from piTrainer.services.train import dataset_service as ds
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = []
+            rng = np.random.default_rng(52)
+            for i in range(5):
+                path = str(Path(tmp) / f"{i}.jpg")
+                tf.io.write_file(path, tf.io.encode_jpeg(
+                    rng.integers(0, 256, (24, 32, 3), dtype=np.uint8)))
+                paths.append(path)
+            df = pd.DataFrame({
+                "abs_image": paths, "frame_id": ["a", "b", "c", "d", "e"],
+                "source_frame_id": ["", "a", "", "c", ""],
+                "steering": [.3, .3, .2, .2, .8],
+                "throttle": [.4, .7, .6, .3, .9],
+                "aug_flip_lr": [False, True, False, True, False],
+                "source_steering": [None, None, None, .2, None],
+                "source_throttle": [None, .4, None, .6, None],
+                "aug_brightness_delta": [0, .05, 0, -.03, 0],
+                "aug_contrast_factor": [1, 1.1, .95, 1, 1],
+                "aug_saturation_factor": [1, .9, 1, 1.05, 1],
+                "aug_hue_delta": [0, 0, .02, -.03, 0],
+                "hidden": [False, False, False, False, True],
+                "unused_metadata": [{"source": i} for i in range(5)],
+            })
+            def legacy(frame):
+                return ds.normalize_horizontal_flip_labels(ds.without_hidden_rows(frame))
+            def batches():
+                dataset = ds.make_tf_dataset(df, 12, 16, 3, shuffle=False, augment=False)
+                return list(dataset.as_numpy_iterator())
+            with patch.object(ds, "_prepare_dataset_rows", side_effect=legacy):
+                expected = batches()
+            actual = batches()
+            self.assertEqual([len(batch[0]) for batch in actual], [3, 1])
+            self.assertEqual(len(actual), len(expected))
+            for (img, labels), (ref_img, ref_labels) in zip(actual, expected):
+                np.testing.assert_array_equal(img, ref_img)
+                for key in ("steering", "throttle"):
+                    np.testing.assert_array_equal(labels[key], ref_labels[key])
+            np.testing.assert_allclose(np.concatenate([y["steering"] for _,y in actual]).ravel(),
+                                       [.3, -.3, .2, -.2])
+            np.testing.assert_allclose(np.concatenate([y["throttle"] for _,y in actual]).ravel(),
+                                       [.4, .4, .6, .6])
+
     def test_nonconstant_real_interpreter_thread_and_delegate_parity(self):
         root = Path(__file__).resolve().parents[2]
         sys.path.insert(0, str(root))

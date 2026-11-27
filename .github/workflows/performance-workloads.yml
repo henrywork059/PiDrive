@@ -55,6 +55,8 @@ jobs:
         run: python tools/benchmark_p2_preview.py --seconds 120 --rounds 5 --requests 150 --output "$RUNNER_TEMP/p2-resources/preview.json"
       - name: Matched exact-revision JSONL ingestion
         run: python tools/benchmark_p2_record_loading.py --base 1b02da5b22c35c2b31b04761e17f2d6ee6a44862 --candidate "${{ github.event.pull_request.head.sha }}" --rounds 5 --rows 30000 --output "$RUNNER_TEMP/p2-resources/loading.json"
+      - name: Paired training metadata preparation resource comparison
+        run: python tools/benchmark_p2_dataset_projection.py --rows 60000 --rounds 5 --output "$RUNNER_TEMP/p2-resources/dataset-projection.json"
       - name: Preserve resource evidence
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4

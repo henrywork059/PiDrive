@@ -230,3 +230,5 @@ P2.5 initial explicit persistent preview-only standard/economy profile: cap rate
 Operator UI added for P2.5 with separate live profile application, effective settings, persistence confirmation and economy-aware browser polling. Standard retains original browser scheduling. Existing camera apply/restart path unaffected.
 
 P2.6 soak expanded to 120 seconds per standard-main, standard-lores and economy-lores mode (single sequential soak each), including actual published byte totals/rates and separate two-failure mock device reopen/regained raw-frame parity with release/close verification. Full 30–60 minute target and physical testing remain open. Exact candidate CI pending.
+
+P2.4 added real TensorFlow deterministic input-batch parity (JPEG decode, resize, flip, photometric transformations, hidden rows, steering/throttle and partial batch), paired isolated process metadata preparation CPU/RSS benchmark on 60k wide rows, no epoch-level claims. P2.5 added actual profile API test with persistence and no controller invalidation/restart. Candidate CI pending.
