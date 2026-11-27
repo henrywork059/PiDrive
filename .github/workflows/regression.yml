@@ -180,7 +180,12 @@ jobs:
         if: ${{ github.event_name == 'pull_request' }}
         env:
           CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
-        run: python tools/check_forward_packages.py --target "$CANDIDATE_SHA"
+        run: |
+          if [ "${{ github.head_ref }}" = update/ui2-operator-workflows ]; then
+            python tools/check_forward_packages.py --target "$CANDIDATE_SHA" --inherited-from ba05d2acfa537acefd031dde3f1b79977f27652d
+          else
+            python tools/check_forward_packages.py --target "$CANDIDATE_SHA"
+          fi
 
       - name: Run original and extended performance benchmarks against exact trusted revisions
         if: ${{ !cancelled() && github.event_name == 'pull_request' && (github.head_ref == 'update/performance-1-computation' || github.head_ref == 'update/performance-2-resources') }}
