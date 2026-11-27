@@ -159,7 +159,10 @@ def main():
                     for width, height in ((1440,900),(390,844)):
                         page.set_viewport_size({"width":width,"height":height})
                         for tab in ("manual","training","auto","camera","motor"):
-                            page.locator(f'#pageTabs [data-page="{tab}"]').click()
+                            selected = page.locator(f'#pageTabs [data-page="{tab}"]')
+                            selected.click()
+                            expect(selected).to_have_attribute("aria-pressed", "true")
+                            expect(selected).to_have_css("background-color", "rgb(49, 95, 209)" if mode == "light" else "rgb(100, 149, 255)")
                             checks = {"body": inspect(page, "body"),
                                       "selected_tab": inspect(page, f'#pageTabs [data-page="{tab}"]'),
                                       "stop": inspect(page, "#estopToggle")}

@@ -8,3 +8,5 @@ Added two presets to existing style dialog; preserved legacy Ops Flat and custom
 
 
 Second checkpoint: registered additive token/persistence regressions and actual Chromium / native Qt capture tests in existing CI; no original matrix removed. Added explicit contrast variants and persistence-preserving fixes. CI not yet executed at time of this commit; rendered and release acceptance remain open.
+
+- Initial candidate CI caught an R35 focus-selector duplication and light selected-tab contrast of 1.196:1. Keep the original two focus rules and their forced-colours behavior, supply the theme focus token via the existing rule, and give selected workspace tabs an explicit foreground/background pair tied to aria-pressed. Strengthen rendered tests to wait for the selected state and require the exact accent before measuring contrast. No acceptance threshold changed.

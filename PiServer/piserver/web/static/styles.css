@@ -3566,7 +3566,7 @@ button.active,
 
 /* R35 keyboard focus and motion preferences (only presentation, not motor logic). */
 :where(button, a[href], input, select, textarea, summary, [tabindex="0"]):focus-visible {
-  outline: 3px solid #ffca65 !important;
+  outline: 3px solid var(--vd-focus, #ffca65) !important;
   outline-offset: 3px !important;
 }
 .a11y-drive-hint { margin: 6px 0; font-size: .8rem; line-height: 1.4; color: var(--muted, #cbd5e1); }
@@ -3898,7 +3898,6 @@ html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="ligh
   border-color: var(--line-strong) !important;
 }
 html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) input[type=range] { accent-color: var(--accent) !important; }
-html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) :where(button, a[href], input, select, textarea, summary, [tabindex="0"]):focus-visible { outline: 3px solid var(--vd-focus) !important; outline-offset: 2px; }
 }
 
 @media (forced-colors: none) {
@@ -3909,4 +3908,18 @@ html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="ligh
   html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .badge.unknown, html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .settings-apply-state:not([data-state]),
   html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .settings-apply-state[data-state="loading"] { color: var(--warn) !important; background: var(--vd-warning-bg) !important; }
   html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .settings-apply-state[data-state="applying"] { color: var(--accent) !important; }
+}
+
+/* VD1A: selected workspace is authoritative, including pointer hover. */
+@media (forced-colors: none) {
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #pageTabs .tab-btn[aria-pressed="true"] {
+    background: var(--accent) !important;
+    color: var(--vd-on-accent) !important;
+    border-color: var(--accent) !important;
+  }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #pageTabs .tab-btn[aria-pressed="false"] {
+    background: var(--panel-alt) !important;
+    color: var(--text) !important;
+    border-color: var(--line-strong) !important;
+  }
 }
