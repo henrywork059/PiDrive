@@ -18,6 +18,7 @@ THEME_COLORS: Mapping[str, str] = {
     "text_muted": "#A5AFBF",
     "text_disabled": "#8591A4",
     "text_on_dark": "#ffffff",
+    "text_on_accent": "#14171C",
     "text_on_warning": "#14110a",
     "border_subtle": "#363F4B",
     "border": "#64748B",
@@ -83,6 +84,7 @@ _LIGHT_COLORS = {**_DARK_COLORS, **{
     "text_primary": "#20252D",
     "text_secondary": "#20252D",
     "text_muted": "#566171",
+    "text_on_accent": "#FFFFFF",
     "text_disabled": "#64748B",
     "border_subtle": "#CED5DF",
     "border": "#64748B",
@@ -101,7 +103,7 @@ _LIGHT_COLORS = {**_DARK_COLORS, **{
     "success_border": "#166534",
     "warning": "#FACC15",
     "warning_hover": "#FDE047",
-    "warning_active": "#92400E",
+    "warning_active": "#CA8A04",
     "warning_surface": "#FFF1D6",
     "warning_border": "#92400E",
     "danger": "#B91C2C",
@@ -159,6 +161,24 @@ def save_theme(name: str) -> bool:
     settings.setValue("theme", name)
     settings.sync()
     return settings.status() == QSettings.Status.NoError
+
+def apply_application_palette(app) -> None:
+    from PySide6.QtGui import QColor, QPalette
+    palette = app.palette()
+    role = QPalette.ColorRole
+    for target, token in (
+        (role.Window, "bg_app"), (role.WindowText, "text_primary"),
+        (role.Base, "bg_input"), (role.AlternateBase, "table_alt"),
+        (role.Text, "text_primary"), (role.Button, "bg_panel_lift"),
+        (role.ButtonText, "text_primary"), (role.Highlight, "selection"),
+        (role.HighlightedText, "text_on_dark"), (role.ToolTipBase, "bg_overlay"),
+        (role.ToolTipText, "text_primary"), (role.Link, "primary"),
+        (role.PlaceholderText, "text_muted"),
+    ):
+        palette.setColor(target, QColor(theme_color(token)))
+    for target in (role.WindowText, role.Text, role.ButtonText):
+        palette.setColor(QPalette.ColorGroup.Disabled, target, QColor(theme_color("text_disabled")))
+    app.setPalette(palette)
 
 def theme_color(name: str, default: str = "#ffffff") -> str:
     """Return a central piTrainer theme colour."""

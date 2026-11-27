@@ -168,6 +168,7 @@ function updateStyleRangeReadout(field, el) {
   el.setAttribute("aria-valuetext", value + spokenUnit);
 }
 
+let styleInputsBaseline = {};
 function syncStyleInputsFromCurrentVars() {
   const resolved = readResolvedStyleVars();
   const theme = document.getElementById('styleThemePreset');
@@ -184,6 +185,11 @@ function syncStyleInputsFromCurrentVars() {
       el.value = normalizeHexColor(raw, el.value || "#000000");
     }
   });
+  styleInputsBaseline = collectStyleOverridesFromInputs();
+}
+
+function changedStyleOverrides() {
+  return Object.fromEntries(Object.entries(collectStyleOverridesFromInputs()).filter(([key,value]) => styleInputsBaseline[key] !== value));
 }
 
 function syncStyleValueLabelsFromInputs() {
@@ -198,7 +204,7 @@ function previewStyleOverridesFromInputs() {
   const manager = styleManager();
   manager?.applyTheme?.(manager.getCurrentTheme?.());
   const root = document.documentElement;
-  Object.entries(collectStyleOverridesFromInputs()).forEach(([key, value]) => {
+  Object.entries(changedStyleOverrides()).forEach(([key, value]) => {
     root.style.setProperty(key, value);
   });
   syncStyleValueLabelsFromInputs();
@@ -1981,7 +1987,7 @@ function setupEvents() {
     syncStyleInputsFromCurrentVars();
   });
   document.getElementById("saveStyleSettingsBtn")?.addEventListener("click", () => {
-    applyStyleOverridesToPage(collectStyleOverridesFromInputs());
+    applyStyleOverridesToPage({ ...(styleManager()?.getCustomOverrides?.() || {}), ...changedStyleOverrides() });
     const savedTheme = styleManager()?.saveSelectedTheme?.();
     syncStyleInputsFromCurrentVars();
     closeStyleSettings();

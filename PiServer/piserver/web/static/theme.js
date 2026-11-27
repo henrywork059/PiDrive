@@ -52,9 +52,20 @@
   let currentTheme = readSelectedTheme();
   let customOverrides = withDerivedVars(loadCustomOverrides(currentTheme));
 
+  const appliedVars = new Set();
+  let lastCustomSaveOK = true;
   function setVars(vars) {
     const root = document.documentElement;
-    Object.entries(vars || {}).forEach(([key, value]) => root.style.setProperty(key, value));
+    for (const key of appliedVars) {
+      if (!Object.prototype.hasOwnProperty.call(vars, key)) {
+        root.style.removeProperty?.(key);
+        appliedVars.delete(key);
+      }
+    }
+    Object.entries(vars || {}).forEach(([key, value]) => {
+      root.style.setProperty(key, value);
+      appliedVars.add(key);
+    });
   }
 
   function loadCustomOverrides(name = currentTheme) {
@@ -80,13 +91,14 @@
 
   function saveCustomOverrides(vars = {}) {
     customOverrides = withDerivedVars(vars);
+    lastCustomSaveOK = true;
     try {
       if (Object.keys(customOverrides).length) {
         window.localStorage.setItem(themeKey(currentTheme), JSON.stringify(customOverrides));
       } else {
         window.localStorage.removeItem(themeKey(currentTheme));
       }
-    } catch {}
+    } catch { lastCustomSaveOK = false; }
     applyTheme(currentTheme);
     return getResolvedVars();
   }
@@ -99,7 +111,19 @@
     const theme = themes[themeName] || themes.opsFlat;
     const inherited = themeName === 'opsFlat' ? {} : Object.fromEntries(Object.entries(loadCustomOverrides('opsFlat')).filter(([key]) => !colorKeys.has(key)));
     const own = themeName === currentTheme ? customOverrides : loadCustomOverrides(themeName);
-    return { ...baseStyleVars, ...(theme.vars || {}), ...withDerivedVars(inherited), ...(own || {}) };
+    const resolved = { ...baseStyleVars, ...(theme.vars || {}), ...withDerivedVars(inherited), ...(own || {}) };
+    if (themeName !== 'opsFlat') {
+      // Choose a legible foreground if the user explicitly changes the accent.
+      const hex = String(resolved['--accent'] || '');
+      if (/^#[0-9a-f]{6}$/i.test(hex)) {
+        const channels = hex.slice(1).match(/../g).map(v => parseInt(v,16) / 255);
+        const luminance = channels.map(v => v <= .04045 ? v / 12.92 : ((v+.055)/1.055)**2.4)
+          .reduce((sum,v,i) => sum + v * [.2126,.7152,.0722][i], 0);
+        const darkLum = .0085;
+        resolved['--vd-on-accent'] = (luminance+.05)/(darkLum+.05) >= 1.05/(luminance+.05) ? '#14171C' : '#FFFFFF';
+      }
+    }
+    return resolved;
   }
 
   function applyTheme(name = 'opsFlat') {
@@ -108,6 +132,7 @@
     if (next !== currentTheme) {
       currentTheme = next;
       customOverrides = withDerivedVars(loadCustomOverrides(next));
+      lastCustomSaveOK = true;
     }
     setVars(getResolvedVars());
     const root = document.documentElement;
@@ -119,6 +144,7 @@
   }
 
   function saveSelectedTheme() {
+    if (!lastCustomSaveOK) return false;
     try { window.localStorage.setItem(selectedThemeKey, currentTheme); return true; }
     catch { return false; }
   }

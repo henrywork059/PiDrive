@@ -3900,3 +3900,13 @@ html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="ligh
 html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) input[type=range] { accent-color: var(--accent) !important; }
 html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) :where(button, a[href], input, select, textarea, summary, [tabindex="0"]):focus-visible { outline: 3px solid var(--vd-focus) !important; outline-offset: 2px; }
 }
+
+@media (forced-colors: none) {
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .estop-toggle.off .estop-toggle-title,
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .estop-toggle.off .estop-toggle-subtitle { color: #FFFFFF !important; }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .estop-toggle.on .estop-toggle-title,
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .estop-toggle.on .estop-toggle-subtitle { color: var(--warn) !important; }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .badge.unknown, html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .settings-apply-state:not([data-state]),
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .settings-apply-state[data-state="loading"] { color: var(--warn) !important; background: var(--vd-warning-bg) !important; }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .settings-apply-state[data-state="applying"] { color: var(--accent) !important; }
+}

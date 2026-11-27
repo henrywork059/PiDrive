@@ -22,6 +22,7 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--revision", required=True)
     parser.add_argument("--require-readable-status", action="store_true")
+    parser.add_argument("--theme", choices=("dark", "light"), default=None)
     args = parser.parse_args()
     source = args.source.resolve()
     output = args.output.resolve()
@@ -49,6 +50,13 @@ def main() -> None:
                     QSettings.setPath(fmt, scope, temp)
             app = QApplication([])
             app.setStyle("Fusion")
+            if args.theme is not None:
+                from piTrainer.ui.theme import apply_application_palette, save_theme, saved_theme, set_theme, theme_color
+                from piTrainer.ui.styles import build_stylesheet
+                assert save_theme(args.theme)
+                assert set_theme(saved_theme()) == args.theme
+                apply_application_palette(app)
+                app.setStyleSheet(build_stylesheet())
             window = MainWindow()
             try:
                 window.show()
@@ -75,6 +83,22 @@ def main() -> None:
                             "qt_version": qVersion(), "os": platform.system(),
                             "qt_platform": app.platformName(), "fixture": "empty-workspace",
                             "captures": [], "readiness": [], "font_probe": font_probe}
+                if args.theme is not None:
+                    from piTrainer.ui.theme import appearance_settings, current_theme
+                    assert current_theme() == args.theme
+                    assert theme_color("bg_app") == ("#14171C" if args.theme == "dark" else "#F4F6FA")
+                    assert theme_color("bg_app") in app.styleSheet()
+                    other = "light" if args.theme == "dark" else "dark"
+                    appearance_settings().setValue("fixture_preserved", "yes")
+                    window._appearance_actions[other].trigger()
+                    assert saved_theme() == other and current_theme() == args.theme
+                    assert appearance_settings().value("fixture_preserved") == "yes"
+                    window._appearance_actions[args.theme].trigger()
+                    assert saved_theme() == args.theme
+                    manifest["theme"] = args.theme
+                    manifest["preference_roundtrip"] = True
+                    manifest["actual_palette_window"] = app.palette().window().color().name()
+                    assert manifest["actual_palette_window"].lower() == theme_color("bg_app").lower()
 
                 def check_visible_status():
                     label = getattr(window, "workflow_readiness_label", None)

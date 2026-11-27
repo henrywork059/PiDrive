@@ -58,6 +58,15 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Baseline capture failed' }
           python tools/check_ui2_trainer.py --source piTrainer --output (Join-Path $evidence 'after') --revision $env:CANDIDATE_SHA --require-readable-status
           if ($LASTEXITCODE -ne 0) { throw 'Candidate capture failed' }
+      - name: VD1A native dark and light captures
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $evidence = Join-Path $env:RUNNER_TEMP 'ui2-evidence'
+          foreach ($theme in @('dark','light')) {
+            python tools/check_ui2_trainer.py --source piTrainer --output (Join-Path $evidence ('vd1a-' + $theme)) --revision $env:CANDIDATE_SHA --require-readable-status --theme $theme
+            if ($LASTEXITCODE -ne 0) { throw "VD1A $theme capture failed" }
+          }
       - name: Preserve original and candidate evidence
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
