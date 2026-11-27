@@ -21,6 +21,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "format": "BGR888",
         "preview_fps": 12,
         "preview_quality": 60,
+        "preview_resource_profile": "standard",
         "stream_quality": "balanced",
         "auto_exposure": True,
         "exposure_us": 12000,

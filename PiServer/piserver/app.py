@@ -387,8 +387,14 @@ def create_app() -> Flask:
     @app.route("/api/camera/apply", methods=["POST"])
     def api_camera_apply():
         data = request.get_json(silent=True) or {}
-        ok, message, config = camera_service.apply_settings(data, restart=True)
-        control_service.invalidate_processing_state_cache()
+        if not isinstance(data, dict):
+            return jsonify({"ok": False, "message": "Camera settings must be an object."}), 400
+        profile_only = set(data) == {"preview_resource_profile"}
+        if profile_only and data["preview_resource_profile"] not in ("standard", "economy"):
+            return jsonify({"ok": False, "message": "Unknown preview resource profile."}), 400
+        ok, message, config = camera_service.apply_settings(data, restart=not profile_only)
+        if not profile_only:
+            control_service.invalidate_processing_state_cache()
         saved = False
         save_error = ""
         try:

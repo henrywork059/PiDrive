@@ -53,6 +53,7 @@ class CameraService:
         self.preview_fps = 12
         self.preview_quality = 60
         self.stream_quality = "balanced"
+        self.preview_resource_profile = "standard"
         self.idle_fps = 3
         # Presentation-only second stream, never the inference/recording source.
         self.preview_source = "main"
@@ -140,9 +141,25 @@ class CameraService:
                 95,
             )
 
+    def _effective_preview_fps(self) -> int:
+        return min(self.preview_fps, 6) if self.preview_resource_profile == "economy" else self.preview_fps
+
+    def _effective_preview_quality(self) -> int:
+        return min(self.preview_quality, 40) if self.preview_resource_profile == "economy" else self.preview_quality
+
     def apply_settings(self, settings: dict | None, restart: bool = True) -> tuple[bool, str, dict]:
         settings = settings or {}
         with self._service_lock:
+            # Profile-only changes affect presentation, not the camera lifecycle.
+            if set(settings) == {"preview_resource_profile"}:
+                profile = settings["preview_resource_profile"]
+                if profile not in ("standard", "economy"):
+                    return False, "Unknown preview resource profile.", self.get_config()
+                self.preview_resource_profile = profile
+                return True, "Preview profile applied without restarting camera.", self.get_config()
+            if "preview_resource_profile" in settings:
+                profile = settings["preview_resource_profile"]
+                self.preview_resource_profile = profile if profile in ("standard", "economy") else "standard"
             self.width = self._clamp_int(settings.get("width", self.width), self.width, 64, 3840)
             self.height = self._clamp_int(settings.get("height", self.height), self.height, 48, 2160)
             self.target_fps = self._clamp_int(settings.get("fps", self.target_fps), self.target_fps, 1, 120)
@@ -205,6 +222,9 @@ class CameraService:
                 "format": str(self.camera_format),
                 "preview_fps": int(self.preview_fps),
                 "preview_quality": int(self.preview_quality),
+                "preview_resource_profile": self.preview_resource_profile,
+                "effective_preview_fps": int(self._effective_preview_fps()),
+                "effective_preview_quality": int(self._effective_preview_quality()),
                 "stream_quality": str(self.stream_quality),
                 "preview_source": str(self.preview_source),
                 "preview_stream_width": int(self.preview_stream_width),
@@ -486,7 +506,7 @@ class CameraService:
             if tuple(getattr(img, "size", (self.width, self.height))) != (int(self.width), int(self.height)):
                 img = img.resize((int(self.width), int(self.height)))
             buf = io.BytesIO()
-            img.save(buf, format="JPEG", quality=int(self.preview_quality), optimize=False)
+            img.save(buf, format="JPEG", quality=int(self._effective_preview_quality()), optimize=False)
             return buf.getvalue()
         except Exception:
             return None
@@ -514,7 +534,7 @@ class CameraService:
         try:
             bgr = self._lores_layout.decode_bgr(plane, np, cv2)
             ok, encoded = cv2.imencode(".jpg", bgr,
-                                       [int(cv2.IMWRITE_JPEG_QUALITY), int(self.preview_quality)])
+                                       [int(cv2.IMWRITE_JPEG_QUALITY), int(self._effective_preview_quality())])
             return encoded.tobytes() if ok else None
         except Exception:
             return None
@@ -578,7 +598,7 @@ class CameraService:
             target_size = (int(self.width), int(self.height))
             if tuple(frame.shape[1::-1]) != target_size:
                 preview = cv2.resize(frame, target_size, interpolation=cv2.INTER_AREA)
-            params = [int(cv2.IMWRITE_JPEG_QUALITY), int(self.preview_quality)]
+            params = [int(cv2.IMWRITE_JPEG_QUALITY), int(self._effective_preview_quality())]
             ok, buf = cv2.imencode(".jpg", preview, params)
             return buf.tobytes() if ok else None
         except Exception:
@@ -611,7 +631,7 @@ class CameraService:
                 if not self._running:
                     break
                 target_fps = self._desired_capture_fps_locked()
-                preview_period = 1.0 / max(int(self.preview_fps), 1)
+                preview_period = 1.0 / max(int(self._effective_preview_fps()), 1)
                 preview_enabled = bool(self.preview_enabled)
                 processing_enabled = bool(self.processing_enabled)
                 preview_due = preview_enabled and ((time.monotonic() - last_preview_emit) >= preview_period)
