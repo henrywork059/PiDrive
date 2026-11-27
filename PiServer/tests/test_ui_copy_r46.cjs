@@ -35,7 +35,7 @@ test("status action labels and version retain hardware semantics",()=>{
  assert.match(html,/Apply \+ restart/);
  assert.match(html,/id="cameraApplyBtn"/);
  assert.match(html,/id="motorApplyBtn"/);
- const m=server.match(/APP_VERSION\s*=\s*"0_4_(\d+)"/);assert.ok(m&&Number(m[1])>=25);
+ const m=server.match(/APP_VERSION\s*=\s*"(0_4|1_0)_(\d+)"/);assert.ok(m&&(m[1]==='1_0'||Number(m[2])>=25));
 });
 
 test("UI2 offline status invalidates server observations without mutating local target or STOP authority",()=>{

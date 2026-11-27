@@ -354,3 +354,8 @@ When completing a task, report:
 - Known limits or hardware checks still required
 
 Keep the summary practical and grounded in the actual files.
+
+
+## Unified 1.0.0 release candidate (2026-11-28)
+
+Owner authorized PiSD, PiServer and piTrainer to use version `1.0.0`, followed by `1.0.x` forward bug-fix patches after acceptance. New minor and major families require explicit approval. Until the candidate is qualified and promoted, the last accepted rollback baselines remain in force. No physical P0 test, stable publication, or deployment is implied by the candidate version marker. Historical components and previous notes remain unchanged. See `docs/roadmaps/RELEASE_1_0_0.md` in the monorepo.

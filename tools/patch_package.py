@@ -15,6 +15,9 @@ COMPONENTS = {
     "PiServer": ("server.py", "piserver/app.py", "APP_VERSION", (0, 4), {"piserver", "tests", "boot", "PATCH_NOTES"}),
     "piTrainer": ("main.py", "piTrainer/version.py", "APP_VERSION", (0, 11), {"piTrainer", "tests", "DOCS", "PACKAGING", "PATCH_NOTES"}),
 }
+# Owner-authorized major-family transition; keep legacy versions readable.
+V1_BASELINES = {"PiSD": (0, 11, 49), "PiServer": (0, 4, 56), "piTrainer": (0, 11, 36)}
+V1_FAMILY = (1, 0)
 MANIFEST = "PATCH_MANIFEST.json"
 ROOT_FILES = {"README.md", "AGENTS.md", "UI_DESIGN_TOKENS.md", "requirement.txt",
               "run_camera_settings_diagnostic.py", "run_windows.bat", "run_linux_mac.sh"}
@@ -86,7 +89,7 @@ def version(root, sha, component):
     raw = values[0].replace("_", ".")
     require(re.fullmatch(r"\d+\.\d+\.\d+", raw), "Invalid version marker")
     v = tuple(map(int, raw.split(".")))
-    require(v[:2] == family, "Wrong version family")
+    require(v[:2] in (family, V1_FAMILY), "Wrong version family")
     if component == "piTrainer":
         patch = [ast.literal_eval(n.value) for n in tree.body if isinstance(n, ast.Assign)
                  and any(isinstance(t, ast.Name) and t.id == "PATCH_VERSION" for t in n.targets)]
@@ -96,6 +99,18 @@ def version(root, sha, component):
 
 def note_path(component, v):
     return f"{component}/PATCH_NOTES/PATCH_NOTES_{component}_{'_'.join(map(str,v))}.md"
+
+
+def authorized_transition(root, component, base, target, old, new):
+    """Permit only the owner-authorized 1.0.0 migration, with an exact baseline note."""
+    if old[:2] == new[:2]:
+        return False
+    if old != V1_BASELINES[component] or new != (1, 0, 0):
+        return False
+    note = blob(root, target, note_path(component, new))[0].decode("utf-8")
+    previous = ".".join(map(str, old))
+    return (note.splitlines().count("Package baseline: " + base) == 1
+            and note.splitlines().count("Release transition: " + previous + " -> 1.0.0") == 1)
 
 
 def expected(root, component, base, target):
@@ -108,6 +123,8 @@ def expected(root, component, base, target):
     require(git(root, "merge-base", base, target).decode().strip() == base, "Not a forward descendant")
     old, new = version(root, base, component), version(root, target, component)
     require(new > old, "Target version must advance")
+    require(old[:2] == new[:2] or authorized_transition(root, component, base, target, old, new),
+            "Unauthorized release family transition")
     blob(root, target, component + "/" + COMPONENTS[component][0])
     # Previous notes are immutable; review their content separately before approval.
     notes = sorted((p for p in git(root, "ls-tree", "-r", "--name-only", base, "--",

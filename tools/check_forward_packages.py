@@ -5,7 +5,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from patch_package import COMPONENTS, blob, build, check_commit, git, note_path, validate, version
+from patch_package import COMPONENTS, blob, build, check_commit, git, note_path, validate, version, authorized_transition
 
 
 
@@ -43,7 +43,8 @@ def package_base(root, target, component):
         if base is None:
             raise ValueError("No actual version-changing commit: " + component)
     previous = version(root, base, component)
-    if current != (previous[0], previous[1], previous[2] + 1):
+    if (current != (previous[0], previous[1], previous[2] + 1)
+            and not authorized_transition(root, component, base, target, previous, current)):
         raise ValueError("No one-step forward component version: " + component)
     return base
 

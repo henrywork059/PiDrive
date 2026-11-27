@@ -36,7 +36,7 @@ test("preserve safety stop, streaming, AI ownership and version",()=>{
  assert.match(ai,/stopFullManualDrive\('ai-manual-hidden'\)/);
  assert.match(ai,/stopAssistDrive\('ai-assist-hidden'\)/);
  assert.match(ai,/if \(document\.hidden \|\| statusPollInFlight\) return/);
- const m=version.match(/__version__\s*=\s*"0\.11\.(\d+)"/);assert.ok(m&&Number(m[1])>=19);
+ const m=version.match(/__version__\s*=\s*"(0\.11|1\.0)\.(\d+)"/);assert.ok(m&&(m[1]==='1.0'||Number(m[2])>=19));
 });
 
 /* Execute the actual shared browser reader with controlled network completion.

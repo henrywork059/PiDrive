@@ -153,12 +153,13 @@ class UiStyleContractR45(unittest.TestCase):
 
     def test_version_is_forward_and_version_gate_code_not_duplicated(self):
         version = (ROOT / "piTrainer" / "version.py").read_text(encoding="utf-8")
-        app = re.search(r'APP_VERSION\s*=\s*"0\.11\.(\d+)"', version)
-        patch = re.search(r'PATCH_VERSION\s*=\s*"piTrainer_0_11_(\d+)"', version)
+        app = re.search(r'APP_VERSION\s*=\s*"((?:0\.11|1\.0)\.\d+)"', version)
+        patch = re.search(r'PATCH_VERSION\s*=\s*"piTrainer_((?:0_11|1_0)_\d+)"', version)
         self.assertIsNotNone(app)
         self.assertIsNotNone(patch)
-        self.assertGreaterEqual(int(app.group(1)), 8)
-        self.assertEqual(app.group(1), patch.group(1))
+        parts = tuple(map(int, app.group(1).split(".")))
+        self.assertTrue(parts[:2] == (1, 0) or (parts[:2] == (0, 11) and parts[2] >= 8))
+        self.assertEqual(app.group(1).replace(".", "_"), patch.group(1))
         self.assertIn("version_gate", self.guide)
 
 

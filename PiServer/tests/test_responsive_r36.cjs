@@ -18,7 +18,7 @@ test('action labels wrap on narrow screens',()=>assert.equal(css.includes('.esto
 test('resizable square pad not overwritten at mobile',()=>assert.equal(!css.includes('.joystick-area {\n    aspect-ratio: auto'),true));
 test('screenshot runner records required four widths',()=>assert.equal(capture.includes('WIDTHS = (390, 768, 1024, 1440)'),true));
 test('screenshot runner does not press motor buttons',()=>assert.equal(!capture.includes('click("#estopToggle")')&&capture.includes('non-mutating presentation dialogs'),true));
-test('version is 0_4_22 or later in the patch line',()=>{const m=ver.match(/APP_VERSION\s*=\s*"0_4_(\d+)"/);assert.ok(m&&Number(m[1])>=22);});
+test('version is 0_4_22 or later in an authorized version family',()=>{const m=ver.match(/APP_VERSION\s*=\s*"(0_4|1_0)_(\d+)"/);assert.ok(m&&(m[1]==='1_0'||Number(m[2])>=22));});
 test('stacked STOP overrides theme sizing without changing its handler',()=>{
   assert.match(css,/#workspace #estopToggle\s*\{[^}]*min-height: 44px !important;[^}]*min-width: 44px !important;[^}]*transform: none !important;/);
 });

@@ -127,3 +127,8 @@ Preserve these behaviours unless the user asks otherwise:
 - A recent cache may allow startup only when the online check is temporarily unavailable and the cached manifest still allows the same app version.
 - Do not put private tokens, GitHub credentials, or real secrets in the app.
 - Keep the startup failure user-readable through a dialog before the app exits.
+
+
+## Unified 1.0.0 release candidate (2026-11-28)
+
+Owner authorized PiSD, PiServer and piTrainer to use version `1.0.0`, followed by `1.0.x` forward bug-fix patches after acceptance. New minor and major families require explicit approval. Until the candidate is qualified and promoted, the last accepted rollback baselines remain in force. No physical P0 test, stable publication, or deployment is implied by the candidate version marker. Historical components and previous notes remain unchanged. See `docs/roadmaps/RELEASE_1_0_0.md` in the monorepo.

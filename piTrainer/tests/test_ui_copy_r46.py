@@ -51,12 +51,13 @@ class UserCopyR46(unittest.TestCase):
 
     def test_forward_version_preserves_existing_patcher(self):
         text = source("version.py")
-        app = re.search(r'APP_VERSION\s*=\s*"0\.11\.(\d+)"', text)
-        patch = re.search(r'PATCH_VERSION\s*=\s*"piTrainer_0_11_(\d+)"', text)
+        app = re.search(r'APP_VERSION\s*=\s*"((?:0\.11|1\.0)\.\d+)"', text)
+        patch = re.search(r'PATCH_VERSION\s*=\s*"piTrainer_((?:0_11|1_0)_\d+)"', text)
         self.assertIsNotNone(app)
         self.assertIsNotNone(patch)
-        self.assertGreaterEqual(int(app.group(1)), 9)
-        self.assertEqual(app.group(1), patch.group(1))
+        parts = tuple(map(int, app.group(1).split(".")))
+        self.assertTrue(parts[:2] == (1, 0) or (parts[:2] == (0, 11) and parts[2] >= 9))
+        self.assertEqual(app.group(1).replace(".", "_"), patch.group(1))
 
 
 if __name__ == "__main__":

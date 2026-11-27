@@ -78,3 +78,6 @@ Live runtime and browser validation additionally require the PiSD dependencies. 
 ## Next milestone
 
 Complete E02/E03 live verification: start the runtime with dependencies installed, use the actual browser Manual Drive page to steer the vehicle, confirm the resulting camera frame changes, and capture evidence for responsive layouts and safe STOP behavior. Then add Playwright regression coverage before claiming browser-test acceptance.
+
+
+The unified 1.0.0 candidate follows the PiSD runtime version; the emulator has no independent release number. Existing 0.11.48 frame-policy repair remains in force. Qualification pending.
