@@ -1379,7 +1379,8 @@
         const file = record.relative_file || record.file || '';
         showCaptureNotice(`Frame captured: ${record.frame_id || 'saved'} ${file ? '(' + shortPath(file) + ')' : ''}`, payload.code);
       } else {
-        showCaptureNotice(`Capture failed: ${payload?.code || 'PISD-REC-002'}`, payload?.code || 'PISD-REC-002');
+        const code = !payload?.code || isOk(payload.code) ? 'PISD-REC-002' : payload.code;
+        showCaptureNotice(`Capture failed: ${code}`, code);
       }
     } catch (err) {
       showCaptureNotice(`Capture failed: ${String(err)}`, 'PISD-REC-002');
@@ -1399,7 +1400,8 @@
           overlay_settings:overlaySettingsForRecording()}, 'camera');
       if (typeof payload?.recording?.running === 'boolean') renderRecording(payload.recording);
       if (!response.ok || payload?.ok !== true) {
-        showCaptureNotice('Recording request not confirmed. Refresh status.', payload?.code || 'PISD-REC-002');
+        const code = !payload?.code || isOk(payload.code) ? 'PISD-REC-002' : payload.code;
+        showCaptureNotice('Recording request not confirmed. Refresh status.', code);
       } else {
         const session = payload.recording?.active_session?.session_id;
         showCaptureNotice(stopping ? 'Recording stop acknowledged.' :

@@ -1429,6 +1429,7 @@
     try {
       await api('/api/camera/start', { method: 'POST', body: {} }).catch(() => null);
       const data = await api('/api/recording/capture', { method: 'POST', body: { label: 'ai_mode_capture', command_source: 'ai_safe_command' } });
+      if (data.ok !== true) throw new Error('Recording acknowledgement missing.');
       renderRecording(data.recording || {});
       if (els.aiPreviewCaption) {
         const livePreviewActive = els.aiPreviewFrame?.dataset.previewMode === 'live' || String(els.aiPreviewImage?.src || '').includes('/video_feed');
@@ -1451,6 +1452,7 @@
     try {
       if (recordingRunning) {
         const data = await api('/api/recording/stop', { method: 'POST', body: {} });
+        if (data.ok !== true) throw new Error('Recording acknowledgement missing.');
         renderRecording(data.recording || {});
         showRecordingNotice('Recording stop acknowledged.');
         log('AI recording stopped.', data.stopped_session || data.recording || {});
@@ -1458,6 +1460,7 @@
         await api('/api/camera/start', { method: 'POST', body: {} }).catch(() => null);
         const fps = clamp(Number(els.aiUpdateHz?.value || 20), 0.2, 30, 20);
         const data = await api('/api/recording/start', { method: 'POST', body: { label: 'ai_mode', fps, command_source: 'ai_safe_command' } });
+        if (data.ok !== true) throw new Error('Recording acknowledgement missing.');
         renderRecording(data.recording || {});
         showRecordingNotice('Recording start acknowledged.');
         log('AI recording started.', data.recording?.active_session || data.recording || {});

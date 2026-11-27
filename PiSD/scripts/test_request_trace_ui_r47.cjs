@@ -41,7 +41,8 @@ test("failed PiSD camera Start never advertises running preview",()=>{
 test("failed motor STOP and drive/recording commands never claim success",()=>{
   assert.match(manual,/if \(payload\?\.ok === false\) return; \/\/ STOP outcome is unconfirmed/);
   assert.match(manual,/if \(result\.payload\?\.ok === false\) return/);
-  assert.match(manual,/if \(payload\?\.ok === false\) return;\s*showCaptureNotice\(/);
+  // The recording path now reports rejection visibly rather than silently returning.
+  // Its exact production handler is exercised below for HTTP and payload outcomes.
 });
 test("AI failure hides raw error payload and retains correlation metadata",()=>{
   assert.match(ai,/const safePayload = traced/);
@@ -53,4 +54,52 @@ test("R43 hidden tab STOP and AI timer remain unchanged",()=>{
   assert.match(manual,/sendFailSafeStop\('visibility-hidden'\)/);
   assert.match(ai,/if \(document\.hidden \|\| statusPollInFlight\) return/);
   assert.match(ai,/stopFullManualDrive\('ai-manual-hidden'\)/);
+});
+
+
+test("actual Manual recording handler never reports success on HTTP or payload rejection", async()=>{
+  require("../pisd/web/static/js/recording_reader.js");
+  const start=manual.indexOf("  async function toggleRecording()");
+  const end=manual.indexOf("  function sendFailSafeStop",start);
+  assert.ok(start>=0 && end>start);
+  for(const stopping of [false,true]) {
+    for(const [httpOk,payload,success] of [
+      [false,{ok:true,code:"PISD-OK-000"},false],
+      [true,{ok:false,code:"PISD-REC-002"},false],
+      [true,{},false],
+      [true,{ok:true,code:"PISD-OK-000",recording:{running:!stopping}},true]
+    ]) {
+      const notices=[],requests=[],states=[],gate=globalThis.PiSDRecordingReader.createRecordingGate();
+      let refresh=0, folders=0;
+      const ctx=vm.createContext({
+        recordingGate:gate, recordingRunning:stopping, DEFAULTS:{recording_fps:6},
+        readRuntimeLocal:()=>({}), overlaySettingsForRecording:()=>({}),
+        api:async(method,path)=>{requests.push([method,path]);return {response:{ok:httpOk},payload};},
+        renderRecording:value=>states.push(value), isOk:code=>String(code).startsWith("PISD-OK"),
+        showCaptureNotice:(message,code)=>notices.push({message,code}),
+        writeLog:()=>{}, refreshStatus:async()=>{refresh++;}, refreshRecordingItems:async()=>{folders++;}
+      });
+      vm.runInContext(manual.slice(start,end),ctx);
+      await Promise.all([ctx.toggleRecording(),ctx.toggleRecording()]);
+      assert.deepEqual(requests,[["POST",stopping?"/api/recording/stop":"/api/recording/start"]]);
+      assert.equal(notices.length,1);
+      assert.equal(refresh,1);assert.equal(folders,1);
+      if(success) {
+        assert.match(notices[0].message,/acknowledged/);
+        assert.equal(notices[0].code,"PISD-OK-000");
+        assert.deepEqual(states,[{running:!stopping}]);
+      } else {
+        assert.match(notices[0].message,/not confirmed/);
+        assert.equal(notices[0].code,"PISD-REC-002");
+        assert.equal(states.length,0);
+      }
+    }
+  }
+});
+test("AI recording actions require explicit successful acknowledgement",()=>{
+  for(const endpoint of ["capture","start","stop"]) {
+    const at=ai.indexOf("const data = await api('/api/recording/"+endpoint+"'");
+    assert.ok(at>=0);
+    assert.match(ai.slice(at,at+450),/if \(data\.ok !== true\) throw new Error\('Recording acknowledgement missing\.'\)/);
+  }
 });
