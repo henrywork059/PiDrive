@@ -168,8 +168,11 @@ function updateStyleRangeReadout(field, el) {
   el.setAttribute("aria-valuetext", value + spokenUnit);
 }
 
+let styleInputsBaseline = {};
 function syncStyleInputsFromCurrentVars() {
   const resolved = readResolvedStyleVars();
+  const theme = document.getElementById('styleThemePreset');
+  if (theme) theme.value = styleManager()?.getCurrentTheme?.() || 'opsFlat';
   styleSettingsFields.forEach((field) => {
     const el = document.getElementById(field.id);
     if (!el) return;
@@ -182,6 +185,11 @@ function syncStyleInputsFromCurrentVars() {
       el.value = normalizeHexColor(raw, el.value || "#000000");
     }
   });
+  styleInputsBaseline = collectStyleOverridesFromInputs();
+}
+
+function changedStyleOverrides() {
+  return Object.fromEntries(Object.entries(collectStyleOverridesFromInputs()).filter(([key,value]) => styleInputsBaseline[key] !== value));
 }
 
 function syncStyleValueLabelsFromInputs() {
@@ -196,7 +204,7 @@ function previewStyleOverridesFromInputs() {
   const manager = styleManager();
   manager?.applyTheme?.(manager.getCurrentTheme?.());
   const root = document.documentElement;
-  Object.entries(collectStyleOverridesFromInputs()).forEach(([key, value]) => {
+  Object.entries(changedStyleOverrides()).forEach(([key, value]) => {
     root.style.setProperty(key, value);
   });
   syncStyleValueLabelsFromInputs();
@@ -215,7 +223,7 @@ function closeStyleSettings() {
   const modal = document.getElementById("styleSettingsModal");
   if (!modal) return;
   const manager = styleManager();
-  manager?.applyTheme?.(manager.getCurrentTheme?.());
+  manager?.restoreSelectedTheme?.();
   modal.classList.add("hidden");
   modal.setAttribute("aria-hidden", "true");
   document.getElementById("openStyleSettingsBtn")?.focus();
@@ -1974,11 +1982,16 @@ function setupEvents() {
     el.addEventListener("click", () => closeStyleSettings());
   });
 
+  document.getElementById("styleThemePreset")?.addEventListener("change", (event) => {
+    styleManager()?.applyTheme?.(event.target.value);
+    syncStyleInputsFromCurrentVars();
+  });
   document.getElementById("saveStyleSettingsBtn")?.addEventListener("click", () => {
-    applyStyleOverridesToPage(collectStyleOverridesFromInputs());
+    applyStyleOverridesToPage({ ...(styleManager()?.getCustomOverrides?.() || {}), ...changedStyleOverrides() });
+    const savedTheme = styleManager()?.saveSelectedTheme?.();
     syncStyleInputsFromCurrentVars();
     closeStyleSettings();
-    setBanner("statusBanner", "Saved web style settings for this browser.", "muted");
+    setBanner("statusBanner", savedTheme ? "Saved web style settings for this browser." : "Theme preference could not be saved.", savedTheme ? "muted" : "error");
   });
 
   document.getElementById("resetStyleSettingsBtn")?.addEventListener("click", () => {

@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .formatting import stylesheet_tokens
+from .theme import current_theme
 
 
 def build_stylesheet(density: str = "comfortable") -> str:
@@ -369,7 +370,7 @@ def build_stylesheet(density: str = "comfortable") -> str:
     QTabWidget#mainWorkflowTabs QTabBar::tab:selected {
         background: @COLOR_PRIMARY@;
         border-color: @COLOR_PRIMARY_BORDER@;
-        color: @COLOR_TEXT_ON_DARK@;
+        color: @COLOR_TEXT_ON_ACCENT@;
     }
     QTabBar::tab {
         min-width: 104px;
@@ -693,5 +694,6 @@ def build_stylesheet(density: str = "comfortable") -> str:
     for key, value in values.items():
         css = css.replace(f"@{key}@", str(value))
     # Source checkout and PyInstaller onedir use the same module-relative asset.
-    mark = Path(__file__).resolve().with_name('checkbox_check.svg').as_posix()
+    mark_name = 'checkbox_check_light.svg' if current_theme() == 'light' else 'checkbox_check.svg'
+    mark = Path(__file__).resolve().with_name(mark_name).as_posix()
     return css.replace('__CHECKBOX_MARK__', mark)

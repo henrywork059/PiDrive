@@ -5,69 +5,180 @@ from typing import Mapping
 # Central semantic colour tokens used by Qt stylesheets and matplotlib plots.
 # Keep new colours here so pages and panels do not grow one-off palettes.
 THEME_COLORS: Mapping[str, str] = {
-    "bg_app": "#0b1020",
-    "bg_shell": "#0d1424",
-    "bg_panel": "#111a2c",
-    "bg_panel_alt": "#162238",
-    "bg_panel_lift": "#1c2940",
-    "bg_input": "#0f1726",
-    "bg_input_alt": "#131e30",
-    "bg_overlay": "#17243a",
-    "text_primary": "#f8fbff",
-    "text_secondary": "#d7e2f2",
-    "text_muted": "#9aa8bd",
-    "text_disabled": "#69768b",
+    "bg_app": "#14171C",
+    "bg_shell": "#14171C",
+    "bg_panel": "#20252D",
+    "bg_panel_alt": "#292F39",
+    "bg_panel_lift": "#303846",
+    "bg_input": "#191D24",
+    "bg_input_alt": "#20252D",
+    "bg_overlay": "#292F39",
+    "text_primary": "#EDF1F7",
+    "text_secondary": "#EDF1F7",
+    "text_muted": "#A5AFBF",
+    "text_disabled": "#8591A4",
     "text_on_dark": "#ffffff",
+    "text_on_accent": "#14171C",
     "text_on_warning": "#14110a",
-    "border_subtle": "#2a384f",
-    "border": "#3b4f6d",
-    "border_strong": "#5d7da8",
-    "primary": "#3b82f6",
-    "primary_hover": "#60a5fa",
-    "primary_active": "#2563eb",
-    "primary_border": "#93c5fd",
-    "info": "#22d3ee",
-    "info_hover": "#67e8f9",
-    "info_surface": "#123040",
+    "border_subtle": "#363F4B",
+    "border": "#64748B",
+    "border_strong": "#8492A6",
+    "primary": "#6495FF",
+    "primary_hover": "#8BADFF",
+    "primary_active": "#315FD1",
+    "primary_border": "#6495FF",
+    "info": "#57C5E8",
+    "info_hover": "#93E0F5",
+    "info_surface": "#203144",
     "success": "#22c55e",
     "success_hover": "#34d399",
     "success_active": "#15803d",
-    "success_surface": "#143323",
+    "success_surface": "#20362A",
     "success_border": "#86efac",
     "warning": "#facc15",
     "warning_hover": "#fde047",
     "warning_active": "#ca8a04",
-    "warning_surface": "#3b2f12",
+    "warning_surface": "#3B321F",
     "warning_border": "#fef08a",
-    "danger": "#7f1d35",
-    "danger_hover": "#9f1239",
+    "danger": "#B91C2C",
+    "danger_hover": "#9F1239",
     "danger_active": "#5f1026",
     "danger_border": "#fb7185",
-    "selection": "#1d4ed8",
-    "selection_hover": "#2563eb",
-    "table_alt": "#121d2e",
-    "scroll_track": "#0b1020",
-    "scroll_handle": "#334155",
+    "selection": "#315FD1",
+    "selection_hover": "#315FD1",
+    "table_alt": "#292F39",
+    "scroll_track": "#14171C",
+    "scroll_handle": "#64748B",
     "scroll_handle_hover": "#64748b",
-    "splitter": "#26364f",
-    "splitter_hover": "#3b82f6",
-    "splitter_border": "#476483",
-    "slider_track": "#182338",
-    "slider_standard_fill": "#3b82f6",
+    "splitter": "#363F4B",
+    "splitter_hover": "#6495FF",
+    "splitter_border": "#64748B",
+    "slider_track": "#363F4B",
+    "slider_standard_fill": "#6495FF",
     "slider_center_fill": "#22d3ee",
-    "slider_center_marker": "#f8fbff",
-    "slider_handle": "#f8fbff",
+    "slider_center_marker": "#EDF1F7",
+    "slider_handle": "#EDF1F7",
     "slider_handle_hover": "#d7e2f2",
     "slider_handle_border": "#22d3ee",
-    "plot_bg": "#101827",
-    "plot_axis": "#0f1726",
-    "plot_grid": "#334155",
-    "plot_steering": "#22d3ee",
+    "plot_bg": "#20252D",
+    "plot_axis": "#14171C",
+    "plot_grid": "#363F4B",
+    "plot_steering": "#6495FF",
     "plot_speed": "#facc15",
     "plot_error": "#fb7185",
-    "plot_reference": "#c4b5fd",
+    "plot_reference": "#A5AFBF",
 }
 
+
+# Resolve the saved palette before creating widgets or plots.
+_DARK_COLORS = dict(THEME_COLORS)
+_LIGHT_COLORS = {**_DARK_COLORS, **{
+    "bg_app": "#F4F6FA",
+    "bg_shell": "#F4F6FA",
+    "bg_panel": "#FFFFFF",
+    "bg_panel_alt": "#E7EBF1",
+    "bg_panel_lift": "#E7EBF1",
+    "bg_input": "#FFFFFF",
+    "bg_input_alt": "#F4F6FA",
+    "bg_overlay": "#FFFFFF",
+    "text_primary": "#20252D",
+    "text_secondary": "#20252D",
+    "text_muted": "#566171",
+    "text_on_accent": "#FFFFFF",
+    "text_disabled": "#64748B",
+    "border_subtle": "#CED5DF",
+    "border": "#64748B",
+    "border_strong": "#64748B",
+    "primary": "#315FD1",
+    "primary_hover": "#2546A5",
+    "primary_active": "#2448AA",
+    "primary_border": "#315FD1",
+    "info": "#115E75",
+    "info_hover": "#155E75",
+    "info_surface": "#E1EFF9",
+    "success": "#22C55E",
+    "success_hover": "#34D399",
+    "success_active": "#166534",
+    "success_surface": "#E5F5E9",
+    "success_border": "#166534",
+    "warning": "#FACC15",
+    "warning_hover": "#FDE047",
+    "warning_active": "#CA8A04",
+    "warning_surface": "#FFF1D6",
+    "warning_border": "#92400E",
+    "danger": "#B91C2C",
+    "danger_hover": "#9F1239",
+    "danger_active": "#7F1D1D",
+    "danger_border": "#B91C2C",
+    "selection": "#315FD1",
+    "selection_hover": "#2546A5",
+    "table_alt": "#F4F6FA",
+    "scroll_track": "#E7EBF1",
+    "scroll_handle": "#64748B",
+    "scroll_handle_hover": "#475569",
+    "splitter": "#CED5DF",
+    "splitter_hover": "#315FD1",
+    "splitter_border": "#64748B",
+    "slider_track": "#CED5DF",
+    "slider_standard_fill": "#315FD1",
+    "slider_center_fill": "#115E75",
+    "slider_center_marker": "#20252D",
+    "slider_handle": "#FFFFFF",
+    "slider_handle_hover": "#E7EBF1",
+    "slider_handle_border": "#64748B",
+    "plot_bg": "#FFFFFF",
+    "plot_axis": "#F4F6FA",
+    "plot_grid": "#CED5DF",
+    "plot_steering": "#315FD1",
+    "plot_speed": "#92400E",
+    "plot_error": "#B91C1C",
+    "plot_reference": "#566171"
+}}
+_ACTIVE_THEME = "dark"
+
+def set_theme(name: str) -> str:
+    global _ACTIVE_THEME
+    _ACTIVE_THEME = name if name in ("dark", "light") else "dark"
+    THEME_COLORS.update(_LIGHT_COLORS if _ACTIVE_THEME == "light" else _DARK_COLORS)
+    return _ACTIVE_THEME
+
+def current_theme() -> str:
+    return _ACTIVE_THEME
+
+def appearance_settings():
+    from PySide6.QtCore import QSettings
+    return QSettings("PiDrive", "piTrainerAppearance")
+
+def saved_theme() -> str:
+    name = appearance_settings().value("theme", "dark", type=str)
+    return name if name in ("dark", "light") else "dark"
+
+def save_theme(name: str) -> bool:
+    from PySide6.QtCore import QSettings
+    if name not in ("dark", "light"):
+        return False
+    settings = appearance_settings()
+    settings.setValue("theme", name)
+    settings.sync()
+    return settings.status() == QSettings.Status.NoError
+
+def apply_application_palette(app) -> None:
+    from PySide6.QtGui import QColor, QPalette
+    palette = app.palette()
+    role = QPalette.ColorRole
+    for target, token in (
+        (role.Window, "bg_app"), (role.WindowText, "text_primary"),
+        (role.Base, "bg_input"), (role.AlternateBase, "table_alt"),
+        (role.Text, "text_primary"), (role.Button, "bg_panel_lift"),
+        (role.ButtonText, "text_primary"), (role.Highlight, "selection"),
+        (role.HighlightedText, "text_on_dark"), (role.ToolTipBase, "bg_overlay"),
+        (role.ToolTipText, "text_primary"), (role.Link, "primary"),
+        (role.PlaceholderText, "text_muted"),
+    ):
+        palette.setColor(target, QColor(theme_color(token)))
+    for target in (role.WindowText, role.Text, role.ButtonText):
+        palette.setColor(QPalette.ColorGroup.Disabled, target, QColor(theme_color("text_disabled")))
+    app.setPalette(palette)
 
 def theme_color(name: str, default: str = "#ffffff") -> str:
     """Return a central piTrainer theme colour."""

@@ -142,9 +142,11 @@ class PackageTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError,"Forbidden"):
                     p.expected(self.root,self.c,self.base,bad)
 
-    def test_only_reviewed_trainer_checkbox_svg_is_distributable(self):
+    def test_only_reviewed_trainer_checkbox_svgs_are_distributable(self):
         path = "piTrainer/piTrainer/ui/checkbox_check.svg"
+        light_path = "piTrainer/piTrainer/ui/checkbox_check_light.svg"
         self.assertTrue(p.allowed("piTrainer", path))
+        self.assertTrue(p.allowed("piTrainer", light_path))
         for forbidden in ("piTrainer/piTrainer/ui/other.svg",
                           "piTrainer/config/checkbox_check.svg",
                           "piTrainer/piTrainer/ui/../checkbox_check.svg",
@@ -155,11 +157,14 @@ class PackageTests(unittest.TestCase):
         self.write("piTrainer/piTrainer/version.py", self.marker(self.c, (0, 11, 2)))
         self.write(p.note_path(self.c, (0, 11, 2)), "new note")
         self.write(path, '<svg xmlns="http://www.w3.org/2000/svg"/>')
+        self.write(light_path, '<svg xmlns="http://www.w3.org/2000/svg"/>')
         self.target = self.commit("reviewed static asset")
         self.git("checkout", "--detach", self.base)
         manifest = self.build()
         self.assertEqual(manifest, self.validate())
         self.assertEqual(manifest["files"][path]["operation"], "A")
+        self.assertEqual(manifest["files"][light_path]["operation"], "A")
+        self.assertFalse((self.root / light_path).exists())
         self.assertFalse((self.root / path).exists())
         self.git("checkout", "--detach", self.target)
         self.write("piTrainer/piTrainer/ui/other.svg", "<svg/>")
