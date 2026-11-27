@@ -1,6 +1,6 @@
 # PiSD — Settings request flood remediation and emulator qualification
 
-**Status: Proposed, P0 runtime performance regression; no implementation or acceptance claimed.**
+**Status: Update B software acceptance passed; broader emulator and matched resource qualification remains open. Historical proposed plan retained below.**
 Owner Windows report: 2026-11-28, 00:36:48–00:37:18 local time. Source examined: main `3a2a575698a2b89ebd148fbbcaa3d33a8b773c21`, PiSD 0.11.48; the same suspected defect was inspected at `8f593778eb461f8515f6c12c5fce936dc64cb301`. The user's exact local commit was not printed; do not assume it. Reconcile current main and pending PRs before implementation.
 
 ## 1. Observed incident and diagnosis
@@ -83,3 +83,8 @@ Local Chromium is restricted by managed URL policy, including loopback. Do not c
 First live browser run 46040042057 passed 13/13 emulator service tests but failed opening a second page in the single-page Playwright convenience context. Correct the test to use an explicit shared context; no production code change and no gate relaxation. Local two manual-lease safety cases passed against exact GitHub blobs. Replacement live qualification remains open.
 
 Additional local stale-read regression: a same-value explicit save can confirm a value already cached while a prior differing GET is still pending. The seventh deterministic case failed on 02af71e and now passes after advancing only the in-memory revision on every save; no extra storage write or GET. All 7/7 tests passed locally at exact blob e3668cf38b1c196ac1c10e9f48c58fbd63a6637f. Replacement exact CI is required; no other scope or version changes.
+
+
+## Update B — qualified software closure (2026-11-28)
+
+The owner-selected single objective (reproduce the feedback loop, eliminate autonomous settings flooding, pass multi-context browser and safety tests) is **software PASS** at exact commit `ac6f5274247107a7730a075f03bbce540e1c6543` (PR #102). Exact [hardware-free regression 46040326671](https://github.com/henrywork059/PiDrive/actions/runs/46040326671) 4/4 jobs, [Linux emulator browser 46040326507](https://github.com/henrywork059/PiDrive/actions/runs/46040326507) and [Windows native Qt 46040326965](https://github.com/henrywork059/PiDrive/actions/runs/46040326965) all succeeded. Actual job 140646113714 log: 13/13 service cases and 1/1 live test (69.154 s); 6 startup/explicit browser GETs; zero quiet/save/drive/STOP GET echoes over the tested 60-second quiet window and subsequent drive/STOP. Actual PiSD job 140646240443 log: seven new JS cases, zero failures; three lease JS cases passed, existing Python safety and responsive/launcher checks passed. Pre-fix deterministic 251 GETs/252 writes cutoff is not a matched real browser measurement. SF-02 closed for tested presentation path; SF-01/03/04/05 have verified scoped evidence but broader all-page/initiator/Windows emulator scenarios remain unqualified; SF-06 full cross-platform and SF-07 matched resources remain open. No physical safety, energy, stable version or deployment claim. No further settings implementation in Update A.
