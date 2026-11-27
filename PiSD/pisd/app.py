@@ -87,7 +87,10 @@ def create_app(
         isolated_defaults.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(DEFAULTS_PATH, isolated_defaults)
     defaults = load_defaults(isolated_defaults if runtime_root is not None or defaults_path is not None else None)
-    settings_manager = SettingsManager(data_root / "config" / "runtime_settings.json", defaults)
+    # Keep the ordinary runtime path contract (including isolated fixture overrides).
+    # Only an explicitly supplied workspace redirects persistent settings.
+    settings_path = data_root / "config" / "runtime_settings.json" if runtime_root is not None else RUNTIME_SETTINGS_PATH
+    settings_manager = SettingsManager(settings_path, defaults)
     runtime_settings = settings_manager.get()
     camera_provider = emulator.render_frame if emulator is not None else None
     motor_output_sink = emulator.set_motor_outputs if emulator is not None else None
