@@ -155,16 +155,32 @@ def pisd(page, page_name, width):
             assert box and abs(box['width'] / box['height'] - 16 / 9) < 0.06, box
             result['preview_aspect'] = True
         if page_name == 'ai':
-            panels = page.locator('.ai-grid > .ai-panel:visible')
-            boxes = [panel.bounding_box() for panel in panels.all()]
-            assert all(boxes), boxes
-            for index, a in enumerate(boxes):
-                for b in boxes[index + 1:]:
-                    overlap_x = min(a['x'] + a['width'], b['x'] + b['width']) - max(a['x'], b['x'])
-                    overlap_y = min(a['y'] + a['height'], b['y'] + b['height']) - max(a['y'], b['y'])
-                    assert overlap_x <= 2 or overlap_y <= 2, (a, b)
-            if width <= 980:
-                assert all(a['y'] + a['height'] <= b['y'] + 2 for a, b in zip(boxes, boxes[1:])), boxes
+            # Individual locator RPCs can sample different layouts while status
+            # polling or font sizing changes the panel widths/heights. Capture
+            # all rectangles in one JS task, then check every snapshot (no retry
+            # until success). Include a sample after the normal 1.4s status poll.
+            samples = page.evaluate("""async () => {
+              const read = () => Array.from(document.querySelectorAll('.ai-grid > .ai-panel'))
+                .filter(el => el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden')
+                .map(el => {const r=el.getBoundingClientRect();
+                  return {id:el.id,x:r.x,y:r.y,width:r.width,height:r.height};});
+              const samples=[read()];
+              await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+              samples.push(read());
+              await new Promise(resolve => setTimeout(resolve, 1550));
+              samples.push(read());
+              return samples;
+            }""")
+            for boxes in samples:
+                assert len(boxes) == 7 and all(b['width'] > 0 and b['height'] > 0 for b in boxes), boxes
+                for index, a in enumerate(boxes):
+                    for b in boxes[index + 1:]:
+                        overlap_x = min(a['x'] + a['width'], b['x'] + b['width']) - max(a['x'], b['x'])
+                        overlap_y = min(a['y'] + a['height'], b['y'] + b['height']) - max(a['y'], b['y'])
+                        assert overlap_x <= 2 or overlap_y <= 2, (a, b)
+                if width <= 980:
+                    assert all(a['y'] + a['height'] <= b['y'] + 2 for a, b in zip(boxes, boxes[1:])), boxes
+            result['preview_panel_samples'] = samples
             result['preview_panels_nonoverlapping'] = True
     return result
 
@@ -288,6 +304,8 @@ def main():
                                 reachable(page.locator(save), width, height, 'Dialog Save/Apply')
                             page.screenshot(path=str(args.output / f'{page_name}-{width}x{height}-dialog.png'))
                             case['dialog_accessibility_inventory'] = accessibility_inventory(page)
+                            assert not case['dialog_accessibility_inventory']['review_count'], [
+                                row for row in case['dialog_accessibility_inventory']['controls'] if row.get('review')]
                             if page_name == 'manual':
                                 length = page.locator('#mdrvOverlayLengthScale')
                                 opacity = page.locator('#mdrvOverlayOpacity')

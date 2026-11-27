@@ -1,5 +1,11 @@
 # Active roadmap progress — 2026-11-27
 
+## Current inventory checkpoint (2026-11-27)
+
+Exact 128c69d187f8a318facae06f40e21a0e33d16c28: Linux 45916650080 3/4, Windows 45916650071 1/1. PiSD responsive AI 1440x900 case failed with 20.05px overlap from sequential bounding-box reads; measured x/width also changed. Actual simultaneous overlap is not established. PiSD artifact 15162786825 SHA-256 cd5640c4c3bf7a166182e6f05ce66ade432928e1d8b3c7b3a004ab399fcf82be and PiServer 15162259213 SHA-256 7172363081200a06f2ec8e201b46de5554a83e49ba3ce5fa148b0ed2cfc5f00b independently verified. 77/78 cases passed. Actual AX inventory 50 snapshots, 2037 enabled role observations, zero flags; additional custom focusable logs, disclosures and drive pads were named. No genuine unnamed control identified in these snapshots.
+
+54/56 verified, 8/9 batches retained from exact green ba24205. R35 remains open until coherent geometry and expanded enforceable inventory gate pass and findings are reviewed. UX75 remains open: no explicit owner approval received. No candidate increment.
+
 ## Verified acceptance checkpoint at ba2420536b733659c6cb4796490cdb38f8d31914
 
 **54/56 verified implemented (96.4%), 8/9 batches complete.** All previously specified primary/STOP touch targets now verified. No new requirement counted without the remaining R35 audit and UX75 baseline approval.

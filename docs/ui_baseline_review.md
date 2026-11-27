@@ -15,3 +15,8 @@ Independent 105-PNG comparison to 35be24a: PiSD 83 images, 56 byte-identical, ei
 ## Remaining development gates
 
 R35: all existing asserted workflows passed; computed accessibility inventory and findings review still required. UX75: repeatable visual/interaction gates exist and pass; exact baseline owner approval pending. Do not claim 56/56 or 9/9 until justified. Existing candidate markers unchanged. No merge, force push, stable promotion, physical deployment or inactive-component work.
+
+
+## Subsequent unapproved inventory checkpoint
+Exact 128c69d187f8a318facae06f40e21a0e33d16c28: Linux 45916650080 3/4, Windows 45916650071 1/1. PiSD responsive AI 1440x900 case failed with 20.05px overlap from sequential bounding-box reads; measured x/width also changed. Actual simultaneous overlap is not established. PiSD artifact 15162786825 SHA-256 cd5640c4c3bf7a166182e6f05ce66ade432928e1d8b3c7b3a004ab399fcf82be and PiServer 15162259213 SHA-256 7172363081200a06f2ec8e201b46de5554a83e49ba3ce5fa148b0ed2cfc5f00b independently verified. 77/78 cases passed. Actual AX inventory 50 snapshots, 2037 enabled role observations, zero flags; additional custom focusable logs, disclosures and drive pads were named. No genuine unnamed control identified in these snapshots.
+The prior ba24205 package remains the pinned unapproved review candidate; do not replace it with artifacts from the failed run. No owner approval received. Re-review any later production visual change separately.

@@ -49,6 +49,7 @@ AX_CONTROL_ROLES = {
     "button", "checkbox", "combobox", "link", "listbox", "menuitem",
     "menuitemcheckbox", "menuitemradio", "radio", "searchbox", "slider",
     "spinbutton", "switch", "tab", "textbox", "treeitem",
+    "DisclosureTriangle", "application",
 }
 
 
@@ -74,7 +75,11 @@ def accessibility_inventory(page):
                    "disabled": properties.get("disabled") is True,
                    "backend_node": backend_id}
             flags = []
-            if not row["disabled"] and role in AX_CONTROL_ROLES:
+            # Include named custom focusable regions (drive pad and read-only logs).
+            # RootWebArea and native option children are not independent tab stops.
+            independent = role in AX_CONTROL_ROLES or (focusable and role not in {"RootWebArea", "option"})
+            row["independent_control"] = independent
+            if not row["disabled"] and independent:
                 if not name:
                     flags.append("missing_computed_name")
                 if not focusable:
@@ -92,7 +97,7 @@ def accessibility_inventory(page):
             controls.append(row)
         assert controls, "Empty accessibility inventory"
         return {"controls": controls, "active_control_count": sum(
-                    not row["disabled"] and row["role"] in AX_CONTROL_ROLES for row in controls),
+                    not row["disabled"] and row["independent_control"] for row in controls),
                 "review_count": sum(bool(row.get("review")) for row in controls),
                 "scope": "rendered AX tree; review findings are not owner acceptance"}
     finally:
@@ -678,6 +683,8 @@ def main():
                             active_page = page.locator('#pageTabs [data-page="auto"]')
                             inactive_page = page.locator('#pageTabs [data-page="manual"]')
                             expect(active_page).to_have_attribute("aria-pressed", "true")
+                            expect(page.locator("body")).to_have_attribute("data-page", "auto")
+                            case["auto_accessibility_inventory"] = accessibility_inventory(page)
                             for colors in ("none", "active"):
                                 page.emulate_media(forced_colors=colors)
                                 expect(active_page).to_have_css("text-decoration-line", "underline")
@@ -866,6 +873,7 @@ def main():
                             expect(page.locator("#cameraMessage")).to_contain_text("Stream")
                             # Await the readback explicitly before editing the draft.
                             page.evaluate("() => loadCameraConfig()")
+                            case["camera_accessibility_inventory"] = accessibility_inventory(page)
                             preset = page.locator("#cameraResolutionPreset")
                             camera_width = page.locator("#cameraWidth")
                             camera_height = page.locator("#cameraHeight")
@@ -1010,6 +1018,7 @@ def main():
                             activate_safe(folder_refresh)
                             expect(folder_select).to_have_value("fixture-a")
                             expect(folder_select.locator("option")).to_have_count(2)
+                            case["training_accessibility_inventory"] = accessibility_inventory(page)
                             folder_before = list(mutations)
                             # The Training workspace also exposes the manual drive pad.
                             # Native selector arrows and button Space must not drive it.
@@ -1034,6 +1043,7 @@ def main():
                             expect(cancel_group).to_contain_text("fixture-b")
                             cancel_folder = cancel_group.get_by_role("button", name="Cancel")
                             expect(cancel_folder).to_be_focused()
+                            case["destructive_confirmation_accessibility_inventory"] = accessibility_inventory(page)
                             expect(page.locator(stop)).to_be_enabled()
                             cancel_folder.press("Escape")
                             expect(cancel_group).to_have_count(0)
@@ -1766,6 +1776,13 @@ def main():
                             # The E-STOP request is intercepted too; never treat a 503 as a physical stop.
                             with page.expect_request(lambda req: req.method == "POST" and urlsplit(req.url).path == "/api/system/estop"):
                                 page.locator(stop).press("Enter")
+                        # Enforce zero review findings in the captured independent
+                        # controls. Keep all existing interaction assertions.
+                        inventories = {key: value for key, value in case.items()
+                                       if key.endswith("accessibility_inventory")}
+                        findings = {key: [row for row in value["controls"] if row.get("review")]
+                                    for key, value in inventories.items() if value["review_count"]}
+                        assert not findings, findings
                         case["page_errors"] = list(errors)
                         if errors:
                             raise AssertionError("Browser JavaScript errors: " + "; ".join(errors))
