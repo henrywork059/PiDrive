@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 from .session_service import resolve_session_dir
@@ -45,14 +46,15 @@ def _first_existing_path(candidates: list[Path]) -> Path | None:
     return None
 
 
-def _resolve_image_path(session_dir: Path, record: dict) -> Path | None:
+def _resolve_image_path(session_dir: Path, record: dict, *, _session_resolved: bool = False) -> Path | None:
     """Resolve PiSD and legacy image path fields to an existing image when possible.
 
     Fast path is intentionally optimized for PiSD labels.jsonl:
     `session_dir / row["frame"]`. This keeps loading responsive for large
     sessions and still works when a session folder is copied to a PC.
     """
-    session_dir = Path(session_dir).expanduser().resolve()
+    if not _session_resolved:
+        session_dir = Path(session_dir).expanduser().resolve()
 
     frame_rel = record.get("frame")
     if frame_rel:
@@ -163,9 +165,10 @@ def build_row(
     *,
     source: str = "records.jsonl",
     manifest_defaults: dict[str, Any] | None = None,
+    _session_resolved: bool = False,
 ) -> dict:
     record = _training_label_record(record)
-    image_path = _resolve_image_path(session_dir, record)
+    image_path = _resolve_image_path(session_dir, record, _session_resolved=_session_resolved)
     steering = coalesce_value(record, STEER_KEYS, 0.0)
     throttle = coalesce_value(record, THROTTLE_KEYS, 0.0)
     overlay_meta = _overlay_metadata(record, manifest_defaults)
@@ -176,7 +179,7 @@ def build_row(
         inferred_mode = session_name
     row = {
         "session": session_name,
-        "session_dir": str(Path(session_dir).resolve()),
+        "session_dir": str(session_dir) if _session_resolved else str(Path(session_dir).resolve()),
         "source": source,
         "frame_id": record.get("frame_id", record.get("id", record.get("source_frame_seq", ""))),
         "frame_index": record.get("frame_index", record.get("source_frame_seq", "")),
@@ -227,19 +230,43 @@ def _hidden_record_identities(path: Path) -> set[tuple[str, str, str]]:
             identities.add(_record_identity_key(record))
     return identities
 
-def _load_labels_rows(session_name: str, session_dir: Path) -> list[dict]:
+def _iter_usable_label_rows(session_name: str, session_dir: Path, *, _session_resolved: bool = False):
+    """Yield only usable primary labels; keep at most one parsed row in flight."""
     labels_path = session_dir / "labels.jsonl"
     if not labels_path.exists():
-        return []
+        return
     manifest_defaults = _load_manifest_defaults(session_dir)
-    rows = [
-        build_row(session_name, session_dir, record, source="labels.jsonl", manifest_defaults=manifest_defaults)
-        for _line_no, record in _iter_jsonl(labels_path)
-        if isinstance(record, dict) and not is_record_hidden(record)
-    ]
-    # labels.jsonl is the primary PiSD training file, but keep only usable image rows.
-    usable = [row for row in rows if str(row.get("abs_image", ""))]
-    return usable
+    for _line_no, record in _iter_jsonl(labels_path):
+        if not isinstance(record, dict) or is_record_hidden(record):
+            continue
+        row = build_row(session_name, session_dir, record,
+                        source="labels.jsonl", manifest_defaults=manifest_defaults,
+                        _session_resolved=_session_resolved)
+        if str(row.get("abs_image", "")):
+            yield row
+
+
+def _load_labels_rows(session_name: str, session_dir: Path) -> list[dict]:
+    """Retain the original list API for existing callers and tests."""
+    return list(_iter_usable_label_rows(session_name, session_dir))
+
+
+def _iter_records_rows(
+    session_name: str,
+    session_dir: Path,
+    hidden_label_identities: set[tuple[str, str, str]] | None = None,
+    *, _session_resolved: bool = False,
+):
+    records_path = session_dir / "records.jsonl"
+    if not records_path.exists():
+        return
+    hidden_label_identities = hidden_label_identities or set()
+    manifest_defaults = _load_manifest_defaults(session_dir)
+    for _line_no, record in _iter_jsonl(records_path):
+        if (isinstance(record, dict) and not is_record_hidden(record)
+                and _record_identity_key(record) not in hidden_label_identities):
+            yield build_row(session_name, session_dir, record, source="records.jsonl",
+                            manifest_defaults=manifest_defaults, _session_resolved=_session_resolved)
 
 
 def _load_records_rows(
@@ -247,39 +274,58 @@ def _load_records_rows(
     session_dir: Path,
     hidden_label_identities: set[tuple[str, str, str]] | None = None,
 ) -> list[dict]:
-    records_path = session_dir / "records.jsonl"
-    if not records_path.exists():
-        return []
-    hidden_label_identities = hidden_label_identities or set()
-    manifest_defaults = _load_manifest_defaults(session_dir)
-    rows = [
-        build_row(session_name, session_dir, record, source="records.jsonl", manifest_defaults=manifest_defaults)
-        for _line_no, record in _iter_jsonl(records_path)
-        if isinstance(record, dict)
-        and not is_record_hidden(record)
-        and _record_identity_key(record) not in hidden_label_identities
-    ]
-    return rows
+    """Retain the original list API for existing callers and tests."""
+    return list(_iter_records_rows(session_name, session_dir, hidden_label_identities))
+
+
+def _iter_selected_session_rows(records_root: Path, sessions: list[str]):
+    for session_name in sessions:
+        session_dir = resolve_session_dir(records_root, session_name)
+        # First *usable* label wins over records.jsonl for the whole session.
+        # Probe a single label rather than materializing all session label rows.
+        # resolve_session_dir has already canonicalized this directory. Image
+        # existence and each image path are still resolved live for every row.
+        primary = _iter_usable_label_rows(session_name, session_dir, _session_resolved=True)
+        first = next(primary, None)
+        if first is not None:
+            yield first
+            yield from primary
+            continue
+        hidden = _hidden_record_identities(session_dir / "labels.jsonl")
+        yield from _iter_records_rows(session_name, session_dir, hidden, _session_resolved=True)
+
+
+def iter_record_batches(records_root: Path, sessions: list[str], batch_size: int = 512):
+    """Bound transient row buffering; stable session and JSONL source order.
+
+    Consumers must not confuse batch boundaries with training epoch shuffling.
+    No asynchronous workers, unordered prefetch or random augmentation caching.
+    """
+    if isinstance(batch_size, bool) or not isinstance(batch_size, int) or not 1 <= batch_size <= 4096:
+        raise ValueError("batch_size must be an integer between 1 and 4096")
+    batch: list[dict] = []
+    for row in _iter_selected_session_rows(records_root, sessions):
+        batch.append(row)
+        if len(batch) == batch_size:
+            yield batch
+            batch = []
+    if batch:
+        yield batch
 
 
 def load_records_dataframe(records_root: Path, sessions: list[str]) -> pd.DataFrame:
+    # Final DataFrame is still materialized, but per-session JSONL rows are
+    # processed in bounded batches without duplicate full session row lists.
     rows: list[dict] = []
-    for session_name in sessions:
-        session_dir = resolve_session_dir(records_root, session_name)
-
-        # Latest PiSD loading priority:
-        # 1) labels.jsonl (primary training labels)
-        # 2) records.jsonl training_label / direct debug fields (fallback)
-        label_rows = _load_labels_rows(session_name, session_dir)
-        if label_rows:
-            rows.extend(label_rows)
-            continue
-        hidden_label_identities = _hidden_record_identities(session_dir / "labels.jsonl")
-        rows.extend(_load_records_rows(session_name, session_dir, hidden_label_identities=hidden_label_identities))
+    for batch in iter_record_batches(records_root, sessions):
+        rows.extend(batch)
 
     if not rows:
         return pd.DataFrame()
     df = pd.DataFrame(rows)
+    # DataFrame owns the column buffers; release transient row dictionaries
+    # before coercing columns. The final batch also holds row references.
+    del rows, batch
     df["steering"] = pd.to_numeric(df["steering"], errors="coerce").fillna(0.0).clip(-1.0, 1.0).astype("float32")
     df["throttle"] = pd.to_numeric(df["throttle"], errors="coerce").fillna(0.0).clip(-1.0, 1.0).astype("float32")
     df["abs_image"] = df["abs_image"].astype(str)
@@ -291,17 +337,25 @@ def load_records_dataframe(records_root: Path, sessions: list[str]) -> pd.DataFr
         df["overlay_settings_source"] = ""
     if "has_overlay_settings" not in df.columns:
         df["has_overlay_settings"] = df["overlay_settings"].map(bool)
-    return df.reset_index(drop=True)
+    # Construction from row dictionaries creates the required RangeIndex;
+    # column normalization above never changes it. Avoid a full reset copy.
+    return df
 
 
 def build_filtered_dataframe(df: pd.DataFrame, only_manual: bool) -> pd.DataFrame:
     if df.empty:
         return df
-    filtered = df[df["abs_image"].astype(str).str.len() > 0].copy()
-    filtered = filtered[filtered["abs_image"].map(os.path.isfile)].copy()
-    if only_manual and "mode" in filtered.columns:
-        mode_values = filtered["mode"].astype(str).str.lower()
+    # Filter narrow columns/positions before materializing the full record
+    # table. Positional masks also preserve duplicate input indexes and order.
+    positions = np.flatnonzero((df["abs_image"].astype(str).str.len() > 0).to_numpy(dtype=bool, na_value=False))
+    if not len(positions):
+        # Retain the legacy pandas empty-mask behavior across supported versions.
+        filtered = df.iloc[positions].copy()
+        return filtered[filtered["abs_image"].map(os.path.isfile)].copy().reset_index(drop=True)
+    positions = positions[df["abs_image"].iloc[positions].map(os.path.isfile).to_numpy(dtype=bool)]
+    if only_manual and "mode" in df.columns:
+        mode_values = df["mode"].iloc[positions].astype(str).str.lower()
         manual_mask = mode_values.isin({"manual", "user", "train", "manual_drive"}) | mode_values.str.contains("manual", na=False)
         if manual_mask.any():
-            filtered = filtered[manual_mask].copy()
-    return filtered.reset_index(drop=True)
+            positions = positions[manual_mask.to_numpy(dtype=bool)]
+    return df.iloc[positions].reset_index(drop=True)

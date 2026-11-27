@@ -21,6 +21,10 @@ See [active roadmap progress](PROGRESS.md) for the scoped proposal count, partia
 | Refinement | R30–R53 | [Refinement roadmap](PiDrive_Refinement_Roadmap.md) | Workflow, diagnostics, responsiveness, performance, maintainability |
 | UI/UX | UX54–UX75 | [UI/UX improvement plan](PiDrive_UI_UX_Improvement_Plan.md) | Usability, interface hierarchy, training workflow, accessibility |
 
+## Follow-on improvement tracks (proposed)
+
+- [UI/UX Improvement 2 — workflow and design-system roadmap](PiDrive_UI_UX_Improvement_2_Plan.md): reference-led improvements for PiSD, PiServer and piTrainer, with conditional PiSD Emulator test integration. New UI2-01–UI2-15 proposals; do not change the completed historical 56/56 and 9/9 accounting or approved web baseline. Planning only; reconcile concurrent performance/emulator branches before implementation.
+
 ## Suggested execution order
 
 1. **Safety and integrity:** implement the identified motor-control fail-safes, input validation, AI verification repairs, and train/validation split safeguards before cosmetic updates.

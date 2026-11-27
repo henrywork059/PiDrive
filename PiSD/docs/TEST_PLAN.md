@@ -1251,7 +1251,7 @@ Browser/Pi checks to perform on hardware:
 4. Confirm motor output stops on release but the AI overlay continues updating.
 5. Confirm `STOP AI + motors` and Space STOP still stop both AI and motors.
 
-## PiSD 0.11.46 emulator integration checks
+## PiSD 0.11.47 emulator integration checks
 
 From the repository root, run the hardware-free adapter and engine checks:
 

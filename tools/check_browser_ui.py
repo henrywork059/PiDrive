@@ -930,6 +930,25 @@ def main():
                                 expect(retry_camera).to_have_accessible_description("Synthetic rejected mutation")
                                 expect(page.locator(stop)).to_be_enabled()
                             assert mutations[len(camera_before):] == ["/api/camera/apply", "/api/camera/apply"], mutations
+                            profile = page.locator("#cameraResourceProfile")
+                            profile_apply = page.locator("#cameraResourceApply")
+                            effective = page.locator("#cameraResourceEffective")
+                            expect(profile).to_have_accessible_name("Preview resource profile")
+                            expect(profile).to_have_value("standard")
+                            expect(effective).to_contain_text("12 FPS / JPEG 60")
+                            profile_before = list(mutations)
+                            profile.select_option("economy")
+                            assert mutations == profile_before
+                            with page.expect_response(lambda response: response.request.method == "POST"
+                                    and urlsplit(response.url).path == "/api/camera/apply"):
+                                activate_safe(profile_apply)
+                            expect(page.locator("#cameraResourceMessage")).to_contain_text("Synthetic rejected mutation")
+                            expect(effective).to_contain_text("12 FPS / JPEG 60")
+                            expect(profile_apply).to_be_enabled()
+                            assert mutations[len(profile_before):] == ["/api/camera/apply"]
+                            expect(page.locator(stop)).to_be_enabled()
+                            case["preview_profile_rejected_safely"] = True
+                            page.screenshot(path=str(args.output / f"camera-profile-{width}.png"), full_page=True, animations="disabled")
                             camera_workspace[0] = False
                             with page.expect_response(lambda response: response.request.method == "POST"
                                     and urlsplit(response.url).path == "/api/control"):

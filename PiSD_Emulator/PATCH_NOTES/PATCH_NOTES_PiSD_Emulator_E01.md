@@ -45,3 +45,8 @@ The emulator was ported to the current GitHub `main` tree at PiSD 0.11.45, and t
 ## Known limits / next steps
 
 See `PiSD_Emulator/ROADMAP.md` and `PiSD_Emulator/REQUIREMENTS.md`. The immediate next step is a live browser smoke test with PiSD requirements installed, followed by Playwright coverage of the actual PiSD pages and controls.
+
+
+## Revision C — integration with performance updates
+
+The original E01 implementation used provisional PiSD 0.11.46; after the performance branch merged, the reconciled integration is PiSD 0.11.47. See the corresponding PiSD patch note. Combined CI and live emulator acceptance remain pending.

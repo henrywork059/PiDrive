@@ -2,7 +2,7 @@
 
 PiSD Emulator is a local development app for running PiSD without a Raspberry Pi or RC car. It starts the actual PiSD Flask application and web pages with a virtual motor adapter and a camera renderer that follows the simulated vehicle.
 
-This component has no independent version number. Progress is tracked by the functional milestones in [ROADMAP.md](ROADMAP.md) and the requirement table in [REQUIREMENTS.md](REQUIREMENTS.md). The PiSD integration in this patch is `PiSD_0_11_46`, building forward from the current GitHub `main` state at `PiSD_0_11_45`.
+This component has no independent version number. Progress is tracked by the functional milestones in [ROADMAP.md](ROADMAP.md) and the requirement table in [REQUIREMENTS.md](REQUIREMENTS.md). The PiSD integration in this patch is `PiSD_0_11_47`, reconciled with Performance Update 1 at `PiSD_0_11_46`.
 
 ## Install and launch
 

@@ -47,5 +47,21 @@ class ControlApiTests(unittest.TestCase):
             self.assertEqual(reply.status_code, 400)
 
 
+class PerformanceStreamTests(unittest.TestCase):
+    def test_duplicate_sequence_does_not_retransmit_and_new_frame_recovers(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        from piserver.app import mjpeg_generator
+        camera = SimpleNamespace(wait_for_jpeg=Mock(side_effect=[
+            (b"first", 1), (b"first", 1), (b"first", 1), (b"second", 2)]))
+        with patch("piserver.app.time.sleep") as sleep:
+            stream = mjpeg_generator(camera)
+            self.assertIn(b"first", next(stream))
+            self.assertIn(b"second", next(stream))
+            self.assertEqual(sleep.call_count, 2)
+            sleep.assert_called_with(0.05)
+        self.assertEqual(camera.wait_for_jpeg.call_count, 4)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 
 from ..data.augmentation_service import boolean_series, normalize_horizontal_flip_labels
-from ..data.visibility_service import without_hidden_rows
+from ..data.visibility_service import HIDDEN_FLAG_KEYS, without_hidden_rows
 
 
 def _series_or_default(df: pd.DataFrame, column: str, default, dtype):
@@ -13,10 +13,24 @@ def _series_or_default(df: pd.DataFrame, column: str, default, dtype):
     return np.full(len(df), default, dtype=dtype)
 
 
+# Keep every visibility and flip-label dependency; omit unrelated review metadata.
+_DATASET_COLUMNS = frozenset((*HIDDEN_FLAG_KEYS, 'training_label', 'abs_image', 'steering',
+    'throttle', 'aug_flip_lr', 'aug_brightness_delta', 'aug_contrast_factor',
+    'aug_saturation_factor', 'aug_hue_delta', 'source_steering', 'source_throttle',
+    'source_speed', 'speed', 'frame_id', 'source_frame_id', 'flip_steering_inverted',
+    'flip_label_source', 'flip_label_warning'))
+
+
+def _prepare_dataset_rows(df):
+    if df is not None and df.columns.is_unique:
+        df = df.loc[:, [column for column in df.columns if column in _DATASET_COLUMNS]]
+    return normalize_horizontal_flip_labels(without_hidden_rows(df))
+
+
 def make_tf_dataset(df: pd.DataFrame, img_h: int, img_w: int, batch_size: int, shuffle: bool, augment: bool):
     import tensorflow as tf
 
-    df = normalize_horizontal_flip_labels(without_hidden_rows(df))
+    df = _prepare_dataset_rows(df)
     paths = df['abs_image'].astype(str).to_numpy()
     steering = df['steering'].to_numpy(np.float32)
     throttle = df['throttle'].to_numpy(np.float32)

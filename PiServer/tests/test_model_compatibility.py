@@ -173,5 +173,33 @@ class ModelCompatibilityTests(unittest.TestCase):
         self.assertIsNone(self.svc.predict_uv_from_frame(np.zeros((2,2,3), np.uint8)))
 
 
+class PerformanceInputParityTests(unittest.TestCase):
+    def test_prepare_input_preserves_exact_float_pixels_and_source(self):
+        rng = np.random.default_rng(17)
+        frame = rng.integers(0, 256, (240, 426, 3), dtype=np.uint8)
+        original = frame.copy()
+        for size in ((160, 120), (426, 240)):
+            actual = ModelService._prepare_input(None, frame, size)
+            expected = cv2.resize(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), size).astype(np.float32) / 255.0
+            np.testing.assert_array_equal(actual, expected[None, ...])
+            self.assertEqual(actual.dtype, np.float32)
+            self.assertTrue(actual.flags.c_contiguous)
+        np.testing.assert_array_equal(frame, original)
+
+
+class PerformanceTensorReuseTests(unittest.TestCase):
+    def test_same_dtype_input_reuses_owned_tensor_and_integer_parity(self):
+        x = np.linspace(0, 1, 300, dtype=np.float32).reshape(1, 10, 10, 3)
+        before = x.copy()
+        self.assertIs(ModelService._quantize_if_needed(None, x, {"dtype": np.float32}), x)
+        for dtype, zero in ((np.int8, -128), (np.uint8, 0)):
+            scale = 1 / 255
+            limits = np.iinfo(dtype)
+            expected = np.clip(np.rint(x / scale + zero), limits.min, limits.max).astype(dtype)
+            actual = ModelService._quantize_if_needed(None, x, {"dtype": dtype, "quantization": (scale, zero)})
+            np.testing.assert_array_equal(actual, expected)
+        np.testing.assert_array_equal(x, before)
+
+
 if __name__ == '__main__':
     unittest.main()

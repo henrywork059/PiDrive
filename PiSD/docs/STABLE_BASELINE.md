@@ -173,7 +173,7 @@ Scope:
 
 Rollback safety: preserves the accepted one-button live workflow, AI correction/manual-pad behaviour, global Space STOP, shared recording download panel, max-throttle persistence, top-of-preview button placement, and original frame-id restore.
 
-## Current GitHub patch — PiSD 0.11.46 emulator integration
+## Current GitHub patch — PiSD 0.11.47 emulator integration
 
 The current GitHub `main` PiSD code at 0.11.45 was extended with optional
 camera-frame and motor-output adapters for the PiSD Emulator. The existing

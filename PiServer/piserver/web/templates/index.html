@@ -385,6 +385,20 @@
               </div>
             </div>
             <div class="small-note priority-low">Lower capture size and preview FPS usually reduce delay. Apply + restart after changes.</div>
+            <div class="field-grid two-col compact-grid">
+              <div class="field">
+                <label for="cameraResourceProfile">Preview resource profile</label>
+                <select id="cameraResourceProfile">
+                  <option value="standard">Standard (configured settings)</option>
+                  <option value="economy">Economy (max 6 FPS / JPEG 40)</option>
+                </select>
+              </div>
+              <div class="field">
+                <button type="button" id="cameraResourceApply" aria-describedby="cameraResourceEffective">Apply preview profile</button>
+                <span id="cameraResourceEffective" class="small-note" role="status" aria-live="polite">Effective: 12 FPS / JPEG 60</span>
+              </div>
+            </div>
+            <div class="small-note" id="cameraResourceMessage" role="status" aria-live="polite">Preview only. No camera restart; capture and recording settings retained.</div>
           </section>
           <section class="panel-section">
             <div class="field-grid two-col compact-grid">

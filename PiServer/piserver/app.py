@@ -21,16 +21,19 @@ from piserver.services.recorder_service import RecorderService
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 WEB_DIR = Path(__file__).resolve().parent / "web"
-APP_VERSION = "0_4_53"
+APP_VERSION = "0_4_55"
 
 
 def mjpeg_generator(camera_service):
     seq = 0
     while True:
-        frame, seq = camera_service.wait_for_jpeg(seq, timeout=1.0)
-        if frame is None:
+        frame, next_seq = camera_service.wait_for_jpeg(seq, timeout=1.0)
+        # A timeout/stop may return cached bytes with the same sequence.
+        # Do not retransmit stale JPEGs or spin on a stopped camera.
+        if frame is None or next_seq == seq:
             time.sleep(0.05)
             continue
+        seq = next_seq
         yield (
             b"--frame\r\n"
             b"Content-Type: image/jpeg\r\n"
@@ -384,8 +387,14 @@ def create_app() -> Flask:
     @app.route("/api/camera/apply", methods=["POST"])
     def api_camera_apply():
         data = request.get_json(silent=True) or {}
-        ok, message, config = camera_service.apply_settings(data, restart=True)
-        control_service.invalidate_processing_state_cache()
+        if not isinstance(data, dict):
+            return jsonify({"ok": False, "message": "Camera settings must be an object."}), 400
+        profile_only = set(data) == {"preview_resource_profile"}
+        if profile_only and data["preview_resource_profile"] not in ("standard", "economy"):
+            return jsonify({"ok": False, "message": "Unknown preview resource profile."}), 400
+        ok, message, config = camera_service.apply_settings(data, restart=not profile_only)
+        if not profile_only:
+            control_service.invalidate_processing_state_cache()
         saved = False
         save_error = ""
         try:

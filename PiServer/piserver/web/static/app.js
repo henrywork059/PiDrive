@@ -1423,6 +1423,40 @@ function fillCameraForm(config = {}) {
   document.getElementById("cameraSaturation").value = config.saturation ?? 1;
   document.getElementById("cameraSharpness").value = config.sharpness ?? 1;
   setCameraResolutionPreset();
+  renderPreviewResourceProfile(config);
+}
+
+function renderPreviewResourceProfile(config = {}) {
+  const profile = document.getElementById("cameraResourceProfile");
+  const effective = document.getElementById("cameraResourceEffective");
+  if (profile) profile.value = config.preview_resource_profile || "standard";
+  if (effective) effective.textContent = `Effective: ${config.effective_preview_fps ?? config.preview_fps ?? 12} FPS / JPEG ${config.effective_preview_quality ?? config.preview_quality ?? 60}`;
+}
+
+async function applyPreviewResourceProfile() {
+  const field = document.getElementById("cameraResourceProfile");
+  const button = document.getElementById("cameraResourceApply");
+  if (!field || !button || button.disabled) return;
+  const selected = field.value;
+  button.disabled = true;
+  field.disabled = true;
+  try {
+    const data = await fetchJson("/api/camera/apply", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({preview_resource_profile: selected})
+    });
+    const actual = await fetchJson("/api/camera/config");
+    state.cameraConfig = actual.config || {};
+    renderPreviewResourceProfile(state.cameraConfig);
+    const applied = state.cameraConfig.preview_resource_profile === selected;
+    setBanner("cameraResourceMessage", !applied ? "Profile readback mismatch; current effective settings shown."
+      : data.saved ? "Applied and saved." : "Applied at runtime, but settings were not saved.", "muted");
+  } catch (error) {
+    setBanner("cameraResourceMessage", error.message || "Preview profile request failed.", "muted");
+  } finally {
+    field.disabled = false;
+    button.disabled = false;
+  }
 }
 
 async function loadCameraConfig() {
@@ -1539,20 +1573,25 @@ function renderPreviewHealth() {
   const age = health.ageMs === null ? 'no frame' : `${(health.ageMs / 1000).toFixed(1)}s old`;
   const indicator = document.getElementById('previewHealth');
   if (indicator) {
-    indicator.className = `preview-health ${health.state.toLowerCase()}`;
-    indicator.textContent = `${health.state} · ${age}`;
+    const className = `preview-health ${health.state.toLowerCase()}`;
+    const text = `${health.state} · ${age}`;
+    if (indicator.className !== className) indicator.className = className;
+    if (indicator.textContent !== text) indicator.textContent = text;
   }
   const viewer = document.querySelector('.viewer-frame');
   if (viewer) viewer.classList.toggle('preview-is-stale', health.hasFrame && health.state !== 'Live');
   const metric = document.getElementById('metricPreview');
-  if (metric) metric.textContent = health.state;
+  if (metric && metric.textContent !== health.state) metric.textContent = health.state;
   const meta = document.getElementById('cameraPreviewMeta');
   const status = state.latestStatus || {};
-  if (meta) meta.textContent = `Backend: ${status.camera_backend || 'unknown'} · ${health.state} · ${age}${status.camera_error ? ' · ' + status.camera_error : ''}`;
+  const metaText = `Backend: ${status.camera_backend || 'unknown'} · ${health.state} · ${age}${status.camera_error ? ' · ' + status.camera_error : ''}`;
+  if (meta && meta.textContent !== metaText) meta.textContent = metaText;
 }
 function previewDelayMs() {
   const fps = Number(document.getElementById("cameraPreviewFps")?.value || state.cameraConfig?.preview_fps || 12);
-  return clamp(Math.round(1000 / Math.max(1, fps)), 40, 500);
+  const effective = state.cameraConfig?.preview_resource_profile === "economy"
+    ? Math.min(fps, state.cameraConfig.effective_preview_fps ?? 6) : fps;
+  return clamp(Math.round(1000 / Math.max(1, effective)), 40, 500);
 }
 
 async function sendPreviewState(enabled) {
@@ -2084,6 +2123,7 @@ function setupEvents() {
     }
   });
 
+  document.getElementById("cameraResourceApply")?.addEventListener("click", applyPreviewResourceProfile);
   document.getElementById("cameraApplyBtn").addEventListener("click", async () => {
     try {
       await applyCameraConfig();

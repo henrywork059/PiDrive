@@ -1,6 +1,7 @@
 import importlib.util
 import json
 import subprocess
+import sys
 import tempfile
 import unittest
 import warnings
@@ -10,6 +11,9 @@ from zipfile import ZipFile
 SPEC = importlib.util.spec_from_file_location("patch_package", Path(__file__).resolve().parents[1] / "tools" / "patch_package.py")
 p = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(p)
+# Load the actual forward-check helper with the same package module.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
+from check_forward_packages import package_base
 
 
 class PackageTests(unittest.TestCase):
@@ -193,6 +197,35 @@ class PackageTests(unittest.TestCase):
         target=self.commit("bad history")
         with self.assertRaisesRegex(ValueError,"Historical note"):
             p.expected(self.root,self.c,self.base,target)
+
+
+    def test_stacked_package_base_includes_pre_version_source_changes(self):
+        self.write("PiServer/piserver/app.py", self.marker("PiServer", (0,4,1)) + "VALUE = 2\n")
+        staged = self.commit("source checkpoint")
+        self.write("PiServer/piserver/app.py", self.marker("PiServer", (0,4,2)) + "VALUE = 2\n")
+        self.write(p.note_path("PiServer",(0,4,2)), f"Package baseline: {self.base}\n")
+        target = self.commit("allocate candidate")
+        self.assertEqual(package_base(self.root, target, "PiServer"), self.base)
+        manifest, _ = p.expected(self.root, "PiServer", self.base, target)
+        self.assertIn("PiServer/piserver/app.py", manifest["files"])
+        self.assertNotEqual(staged, self.base)
+
+    def test_marker_file_edit_without_version_change_resolves_actual_bump(self):
+        self.git("checkout","--detach",self.target)
+        self.write("PiSD/pisd/__init__.py", self.marker("PiSD",(0,11,2)) + "VALUE = 3\n")
+        touched = self.commit("ordinary code edit")
+        self.assertEqual(package_base(self.root, touched, "PiSD"), self.base)
+
+    def test_package_base_rejects_same_version_or_malformed_declaration(self):
+        self.git("checkout","--detach",self.target)
+        self.write(p.note_path("PiSD",(0,11,2)), f"Package baseline: {self.target}\n")
+        bad = self.commit("same version")
+        with self.assertRaisesRegex(ValueError, "forward"):
+            package_base(self.root, bad, "PiSD")
+        self.write(p.note_path("PiSD",(0,11,2)), "Package baseline: not-a-sha\n")
+        bad = self.commit("malformed")
+        with self.assertRaisesRegex(ValueError, "Invalid"):
+            package_base(self.root, bad, "PiSD")
 
 
 if __name__ == "__main__":

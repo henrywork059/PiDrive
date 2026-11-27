@@ -141,13 +141,13 @@ class PiSDRuntime:
         with self._state_lock:
             app = self._app
         if app is not None:
-            return str(app.config.get("pisd_version", "0.11.46"))
+            return str(app.config.get("pisd_version", "0.11.47"))
         try:
             from pisd import __version__
 
             return str(__version__)
         except Exception:
-            return "0.11.46"
+            return "0.11.47"
 
     def _shutdown_partial_locked(self) -> None:
         with self._state_lock:

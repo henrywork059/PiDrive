@@ -63,7 +63,7 @@
       const element = document.getElementById(id);
       if (!element) continue;
       if (element.textContent !== readiness[key].text) element.textContent = readiness[key].text;
-      element.dataset.tone = readiness[key].tone;
+      if (element.dataset.tone !== readiness[key].tone) element.dataset.tone = readiness[key].tone;
     }
   }
   async function pollOperatingReadiness() {
@@ -1874,7 +1874,10 @@
         }
       } else if (els.aiPreviewFrame?.dataset.previewMode === 'live' && els.aiPreviewImage) {
         els.aiPreviewImage.src = `/video_feed?t=${Date.now()}`;
+        // Full status already renders readiness and recording. Do not issue
+        // a second competing GET on the same visibility event.
         void refreshStatus(); // immediate full UI state after hidden stop
+      } else {
         void pollOperatingReadiness(); // immediate fresh server state
       }
     });
@@ -1896,9 +1899,6 @@
   bind();
   renderOperatingReadiness(initial);
   window.setInterval(pollOperatingReadiness, 1400);
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) pollOperatingReadiness();
-  });
   refreshModels().then(() => refreshStatus()).then(() => refreshAIRecordingFiles()).then(() => refreshLastErrors());
   pollOperatingReadiness();
 })();

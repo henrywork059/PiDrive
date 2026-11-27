@@ -153,6 +153,13 @@ class SettingsManager:
         with self._lock:
             return copy.deepcopy(self._settings)
 
+    def get_camera_live_preview_fps(self, default: float) -> float:
+        """Read only the scalar needed by each MJPEG viewer, under the same lock."""
+        with self._lock:
+            camera = self._settings.get("camera")
+            value = camera.get("live_preview_fps", default) if isinstance(camera, dict) else default
+            return float(value)
+
     def schema(self) -> dict[str, Any]:
         return copy.deepcopy(SETTINGS_SCHEMA)
 
