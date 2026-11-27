@@ -95,6 +95,8 @@ def main():
                 for mode, expected in (("light", "rgb(244, 246, 250)"), ("dark", "rgb(20, 23, 28)")):
                     page.goto(ORIGIN + "/panel-presentation")
                     expect(page.locator("#ppTheme")).to_have_value(before["panel_presentation"]["theme"] if not saves else ("light" if mode == "dark" else "dark"))
+                    expect(page.locator("#ppButtonScale")).to_have_value(str(before["panel_presentation"]["buttonScale"]))
+                    expect(page.locator("#ppPanelPadding")).to_have_value(str(before["panel_presentation"]["panelPadding"]))
                     # Disable auto-save via the real control, then save exactly once.
                     if page.locator("#ppAutoSave").is_checked():
                         page.locator("#ppAutoSave").uncheck()
@@ -128,6 +130,21 @@ def main():
                 fresh_page.goto(ORIGIN + "/")
                 expect(fresh_page.locator("body")).to_have_attribute("data-pisd-theme", "dark")
                 fresh.close()
+                # An explicit slider edit must still apply, without rewriting
+                # other settings. Keep the original all-key checks above.
+                page.goto(ORIGIN + "/panel-presentation")
+                expect(page.locator("#ppSavedState")).not_to_have_text("saving")
+                expect(page.locator("#ppAutoSave")).not_to_be_checked()
+                page.locator("#ppButtonScale").fill("1.07")
+                page.locator("#ppSave").click()
+                expect(page.locator("#ppSavedState")).to_have_text("saved backend", timeout=8000)
+                edited = client.get("/api/settings", base_url=ORIGIN).get_json()["settings"]
+                assert edited["panel_presentation"]["buttonScale"] == 1.07
+                for key, value in before["panel_presentation"].items():
+                    if key not in ("theme", "autoSave", "buttonScale"):
+                        assert edited["panel_presentation"][key] == value, key
+                assert edited["manual_drive"] == before["manual_drive"]
+                report["explicit_slider_edit"] = True
                 assert saves and all(code == 200 for code in saves), saves
                 report["save_http_codes"] = saves
             else:
@@ -153,6 +170,12 @@ def main():
                     page.reload()
                     expect(page.locator("html")).to_have_attribute("data-pidrive-theme", mode)
                     expect(page.locator("body")).to_have_css("background-color", expected)
+                    page.keyboard.press("Tab")
+                    focus_target = page.locator("#openStyleSettingsBtn")
+                    focus_target.focus()
+                    expect(focus_target).to_have_css("outline-width", "3px")
+                    expect(focus_target).to_have_css("outline-style", "solid")
+                    expect(focus_target).to_have_css("outline-color", "rgb(49, 95, 209)" if mode == "light" else "rgb(251, 191, 36)")
                     assert page.evaluate("() => localStorage.getItem('PiServerStyleCustom:v0_3_5')") == legacy
                     assert page.evaluate("() => window.PiServerStyle.getResolvedVars()['--panel-pad']") == "19px"
                     report["persistence"].append({"theme": mode, "reload": True, "legacy_settings_preserved": True})

@@ -3566,7 +3566,8 @@ button.active,
 
 /* R35 keyboard focus and motion preferences (only presentation, not motor logic). */
 :where(button, a[href], input, select, textarea, summary, [tabindex="0"]):focus-visible {
-  outline: 3px solid var(--vd-focus, #ffca65) !important;
+  outline: 3px solid #ffca65 !important;
+  outline-color: var(--vd-focus, #ffca65) !important;
   outline-offset: 3px !important;
 }
 .a11y-drive-hint { margin: 6px 0; font-size: .8rem; line-height: 1.4; color: var(--muted, #cbd5e1); }

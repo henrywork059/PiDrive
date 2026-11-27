@@ -1,0 +1,3 @@
+# Stability update — PiServer 1.0.0 candidate
+
+Base: 6d028b77c0e94ae16c43f16e72d02a9cfcbfb5fd. Run 46042728217 job 140654263433 failed existing test_accessibility_r35.cjs:27 because theme-variable outline replaced the original literal R35 fallback. Restore original 3px solid #ffca65 declaration, retaining the theme token via separate outline-color declaration and unchanged forced-colors selector. Extend real browser test with exact focus width/style/color in both new themes. No motor, camera, settings, layout or authorization changes; no changes to old tests. Reviewed 1.0.0, 0.4.56/55/54 and VD1A notes. Static existing selector/fallback/selector-count checks passed in V8; full Node/browser/CI pending. No version increment or hardware/visual acceptance.
