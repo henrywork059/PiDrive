@@ -25,6 +25,8 @@ See [active roadmap progress](PROGRESS.md) for the scoped proposal count, partia
 
 - [UI/UX Improvement 2 — workflow and design-system roadmap](PiDrive_UI_UX_Improvement_2_Plan.md): reference-led improvements for PiSD, PiServer and piTrainer, with conditional PiSD Emulator test integration. New UI2-01–UI2-15 proposals; do not change the completed historical 56/56 and 9/9 accounting or approved web baseline. Planning only; reconcile concurrent performance/emulator branches before implementation.
 
+- [Visual Design Update 1 — owner-approved design direction](PiDrive_Visual_Design_Update_1_Plan.md): ten approved decisions, VD01–VD36 (0/36 implementation), 11 milestones, six batches; PiSD, PiServer, piTrainer and conditional PiSD Emulator presentation. Planning only; preserve 56/56 and 9/9 historical accounting, UI2 and performance contracts, pinned visual baseline and versions. Reconcile #98/#99 integration/release and #100 settings-flood plan before overlapping implementation.
+
 ## Suggested execution order
 
 1. **Safety and integrity:** implement the identified motor-control fail-safes, input validation, AI verification repairs, and train/validation split safeguards before cosmetic updates.
