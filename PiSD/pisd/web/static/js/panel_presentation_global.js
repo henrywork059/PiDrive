@@ -53,17 +53,57 @@
   }
 
   function readRuntimeLocal() {
-    try { return JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) || '{}') || {}; }
-    catch (_err) { return {}; }
+    try {
+      const runtime = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) || '{}');
+      return runtime && typeof runtime === 'object' && !Array.isArray(runtime) ? runtime : {};
+    } catch (_err) { return {}; }
+  }
+
+  // Presentation synchronization is cache propagation, not a backend refresh.
+  // Compare JSON values structurally so key ordering and unrelated runtime
+  // timestamps cannot cause a new write or request.
+  function equalValue(a, b) {
+    if (a === b) return true;
+    if (!a || !b || typeof a !== 'object' || typeof b !== 'object' || Array.isArray(a) !== Array.isArray(b)) return false;
+    const keys = Object.keys(a);
+    return keys.length === Object.keys(b).length && keys.every(key =>
+      Object.prototype.hasOwnProperty.call(b, key) && equalValue(a[key], b[key]));
+  }
+
+  function panelValue(raw, runtime = false) {
+    try {
+      const parsed = JSON.parse(raw);
+      const panel = runtime ? parsed?.panel_presentation : parsed;
+      return panel && typeof panel === 'object' && !Array.isArray(panel) ? normalize(panel) : null;
+    } catch (_err) { return null; }
+  }
+
+  let revision = 0;
+  let pendingLoad = null;
+  let synchronizedPanel = null;
+
+  function cachedPanel(key) {
+    try { return panelValue(localStorage.getItem(key), key === SETTINGS_STORAGE_KEY); }
+    catch (_err) { return null; }
+  }
+
+  function readCurrent() {
+    return normalize(cachedPanel(SETTINGS_STORAGE_KEY) || cachedPanel(STORAGE_KEY) || synchronizedPanel || readLocal());
   }
 
   function save(settings) {
     const normalized = normalize(settings);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
-    const runtime = readRuntimeLocal();
-    runtime.panel_presentation = normalized;
-    runtime.saved_at = new Date().toISOString();
-    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(runtime));
+    const panelChanged = !equalValue(cachedPanel(STORAGE_KEY), normalized);
+    const runtimeChanged = !equalValue(cachedPanel(SETTINGS_STORAGE_KEY), normalized);
+    if (panelChanged || runtimeChanged) revision += 1;
+    if (panelChanged) localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+    if (runtimeChanged) {
+      const runtime = readRuntimeLocal();
+      runtime.panel_presentation = normalized;
+      runtime.saved_at = new Date().toISOString();
+      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(runtime));
+    }
+    synchronizedPanel = normalize(normalized);
     return normalized;
   }
 
@@ -96,7 +136,7 @@
   }
 
   function apply(input) {
-    const settings = normalize(input || readLocal());
+    const settings = normalize(input || readCurrent());
     const body = document.body;
     if (body) {
       body.dataset.pisdTheme = settings.theme;
@@ -137,32 +177,67 @@
     return settings;
   }
 
-  async function loadFromBackend() {
-    try {
-      const response = await fetch('/api/settings', { cache: 'no-store' });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const payload = await response.json();
-      const panel = payload?.settings?.panel_presentation;
-      if (panel && typeof panel === 'object') {
-        const normalized = save(panel);
-        apply(normalized);
-        return normalized;
+  function loadFromBackend() {
+    if (pendingLoad) return pendingLoad;
+    const started = revision;
+    const initialPanel = cachedPanel(STORAGE_KEY);
+    const initialRuntime = cachedPanel(SETTINGS_STORAGE_KEY);
+    const superseded = () => started !== revision ||
+      !equalValue(initialPanel, cachedPanel(STORAGE_KEY)) ||
+      !equalValue(initialRuntime, cachedPanel(SETTINGS_STORAGE_KEY));
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3500);
+    pendingLoad = (async () => {
+      try {
+        const response = await fetch('/api/settings', { cache: 'no-store', signal: controller.signal });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const payload = await response.json();
+        const panel = payload?.settings?.panel_presentation;
+        if (panel && typeof panel === 'object' && !Array.isArray(panel)) {
+          // A page-specific startup read may already have cached this exact
+          // response. Allow that match, but never replace a newer different
+          // presentation value with a delayed GET.
+          if (superseded() && !equalValue(normalize(panel), readCurrent())) return readCurrent();
+          const normalized = save(panel);
+          apply(normalized);
+          return normalized;
+        }
+      } catch (_err) {
+        // Keep UI usable if the backend settings endpoint is unavailable.
       }
-    } catch (_err) {
-      // Keep UI usable if the backend settings endpoint is unavailable.
-    }
-    const runtime = readRuntimeLocal();
-    const fallback = runtime.panel_presentation || readLocal();
-    return apply(fallback);
+      if (superseded()) return readCurrent();
+      const fallback = cachedPanel(SETTINGS_STORAGE_KEY) || readLocal();
+      synchronizedPanel = fallback;
+      return apply(fallback);
+    })().finally(() => { clearTimeout(timeout); pendingLoad = null; });
+    return pendingLoad;
   }
 
-  window.PiSDPanelPresentation = { STORAGE_KEY, SETTINGS_STORAGE_KEY, DEFAULTS, normalize, read: readLocal, save, apply, loadFromBackend };
+  window.PiSDPanelPresentation = { STORAGE_KEY, SETTINGS_STORAGE_KEY, DEFAULTS, normalize, read: readCurrent, save, apply, loadFromBackend };
 
   document.addEventListener('DOMContentLoaded', () => {
-    apply(readLocal());
+    synchronizedPanel = readCurrent();
+    apply(synchronizedPanel);
     loadFromBackend();
   });
   window.addEventListener('storage', event => {
-    if (event.key === STORAGE_KEY || event.key === SETTINGS_STORAGE_KEY) loadFromBackend();
+    if (event.key !== STORAGE_KEY && event.key !== SETTINGS_STORAGE_KEY) return;
+    if (event.storageArea && event.storageArea !== localStorage) return;
+    const isRuntime = event.key === SETTINGS_STORAGE_KEY;
+    const previous = panelValue(event.oldValue, isRuntime);
+    const next = panelValue(event.newValue, isRuntime);
+    // Ignore manual-drive/config-only updates, deleted/invalid caches and
+    // queued events whose value has already been replaced by a later write.
+    if (!next || equalValue(previous, next) || !equalValue(next, cachedPanel(event.key))) return;
+    // The full runtime cache is also written by real page-specific settings
+    // loaders. Do not let a delayed dedicated-cache event replace it.
+    const runtimePanel = cachedPanel(SETTINGS_STORAGE_KEY);
+    if (!isRuntime && runtimePanel && !equalValue(next, runtimePanel)) return;
+    revision += 1;
+    if (!equalValue(synchronizedPanel, next)) {
+      synchronizedPanel = next;
+      apply(next);
+    }
+    // Remote notifications never write storage or call GET /api/settings.
   });
 })();

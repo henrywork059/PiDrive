@@ -22,3 +22,6 @@ test('read-specific pending state blocks concurrent mutation',()=>{const x=creat
 test('failed read releases lock and permits load retry',()=>{const x=createSettingsFeedback();x.fail(x.begin({phase:'Loading'}),'timed out');assert.equal(x.snapshot().phase,'Failed');assert.equal(x.snapshot().retry,true);assert.notEqual(x.begin({phase:'Loading'}),null);});
 test('edit during read prevents old read from confirming draft',()=>{const x=createSettingsFeedback();const r=x.begin({phase:'Loading'});x.edit();assert.equal(x.complete(r,true,'Loaded',false),false);assert.equal(x.snapshot().phase,'Unsaved');assert.equal(x.snapshot().busy,false);});
 console.log(count + '/18 deterministic settings feedback tests passed');
+
+// Registered settings regression: production multi-context presentation synchronization.
+require('./test_panel_presentation_sync.cjs');

@@ -83,6 +83,62 @@ class FrameTest(unittest.TestCase):
                     expect(page.locator("#cameraImage")).to_be_visible(timeout=15000)
                     page.wait_for_function("document.querySelector('#cameraImage').naturalWidth > 0")
                     self.assertEqual(runtime.status()["hardware_enabled"], False)
+                    # Exercise the actual PiSD pages in multiple same-origin
+                    # contexts, not a mocked UI or a different controller origin.
+                    settings_reads = []
+                    def capture_settings_read(request):
+                        if request.method == "GET" and request.url.split("?", 1)[0] == pisd + "/api/settings":
+                            settings_reads.append(request.url)
+                    page.context.on("request", capture_settings_read)
+                    direct = page.context.new_page()
+                    editor = page.context.new_page()
+                    direct.goto(pisd + "/manual-drive")
+                    editor.goto(pisd + "/panel-presentation")
+                    expect(direct.locator("#manualDriveShell")).to_be_visible()
+                    expect(editor.locator("#ppFeedback")).to_have_text("Panel presentation settings ready.", timeout=15000)
+                    # Explicitly settle initial presentation reads. These are
+                    # not part of the quiet-window measurement.
+                    for view in (direct, editor):
+                        view.evaluate("() => window.PiSDPanelPresentation.loadFromBackend()")
+                    page.wait_for_timeout(1000)
+                    startup_reads = len(settings_reads)
+                    page.wait_for_timeout(1000)
+                    self.assertEqual(len(settings_reads), startup_reads, "settings echo continued after startup")
+                    original_theme = editor.locator("#ppTheme").input_value()
+                    original_autosave = editor.locator("#ppAutoSave").is_checked()
+                    changed_theme = "light" if original_theme != "light" else "dark"
+                    editor.locator("#ppAutoSave").uncheck()
+                    editor.locator("#ppTheme").select_option(changed_theme)
+                    editor.locator("#ppSave").click()
+                    expect(editor.locator("#ppSavedState")).to_have_text("saved backend", timeout=15000)
+                    expect(direct.locator("body")).to_have_attribute("data-pisd-theme", changed_theme)
+                    expect(frame.locator("body")).to_have_attribute("data-pisd-theme", changed_theme)
+                    self.assertEqual(editor.request.get(pisd + "/api/settings").json()["settings"]["panel_presentation"]["theme"], changed_theme)
+                    # Simulate a runtime-cache notification with no presentation
+                    # change. The stored timestamp must not bounce between tabs.
+                    direct.evaluate("""() => {
+                        const key = 'pisd.runtimeSettings.v2';
+                        const data = JSON.parse(localStorage.getItem(key));
+                        data.saved_at = 'settings-flood-regression';
+                        localStorage.setItem(key, JSON.stringify(data));
+                    }""")
+                    page.wait_for_timeout(1000)
+                    self.assertEqual(direct.evaluate("() => JSON.parse(localStorage.getItem('pisd.runtimeSettings.v2')).saved_at"), "settings-flood-regression")
+                    self.assertEqual(len(settings_reads), startup_reads, "save or unrelated storage notification echoed a GET")
+                    # Restore the original presentation through the actual
+                    # save control; leave all other fixture settings intact.
+                    editor.locator("#ppTheme").select_option(original_theme)
+                    editor.locator("#ppAutoSave").evaluate("(el, checked) => { el.checked = checked; }", original_autosave)
+                    editor.locator("#ppSave").click()
+                    expect(editor.locator("#ppSavedState")).to_have_text("saved backend", timeout=15000)
+                    expect(direct.locator("body")).to_have_attribute("data-pisd-theme", original_theme)
+                    self.assertEqual(editor.request.get(pisd + "/api/settings").json()["settings"]["panel_presentation"]["theme"], original_theme)
+                    page.bring_to_front()
+                    page.wait_for_timeout(1000)
+                    self.assertEqual(len(settings_reads), startup_reads, "restoring settings echoed a GET")
+                    quiet_start = len(settings_reads)
+                    page.wait_for_timeout(60000)
+                    self.assertEqual(len(settings_reads), quiet_start, "autonomous settings GET during 60-second quiet window")
                     frame.locator("#mdrvLiveCamera").click()
                     expect(frame.locator("#mdrvPreview")).to_have_attribute("data-preview-mode", "live", timeout=10000)
                     frame.locator("#mdrvArm").check()
@@ -93,6 +149,17 @@ class FrameTest(unittest.TestCase):
                     eventually(lambda: abs(runtime.status()["engine"]["vehicle"]["y_m"]) > .01)
                     frame.locator("#mdrvStopTop").click()
                     eventually(lambda: abs(runtime.status()["engine"]["motor"]["left_intended"]) < .001 and abs(runtime.status()["engine"]["motor"]["right_intended"]) < .001)
+                    # Keep both additional tabs open through real manual drive
+                    # and STOP. No late nonzero virtual motor command may
+                    # appear after STOP, even beyond the lease expiry.
+                    page.wait_for_timeout(1000)
+                    self.assertLess(abs(runtime.status()["engine"]["motor"]["left_intended"]), .001)
+                    self.assertLess(abs(runtime.status()["engine"]["motor"]["right_intended"]), .001)
+                    self.assertEqual(len(settings_reads), quiet_start, "manual drive or STOP echoed a settings GET")
+                    print(f"Settings synchronization: {startup_reads} startup/explicit browser GETs; zero quiet/save/drive/STOP GET echoes", flush=True)
+                    direct.close()
+                    editor.close()
+                    page.context.remove_listener("request", capture_settings_read)
                     for button in page.locator(".viewport").all():
                         button.click()
                         expect(frame.locator("#manualDriveShell")).to_be_visible()
