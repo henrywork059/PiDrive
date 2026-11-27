@@ -69,6 +69,11 @@ class MainWindow(QMainWindow):
         self.version_label = QLabel(STATUS_VERSION_TEXT)
         self.version_label.setObjectName('appVersionLabel')
         self.version_label.setProperty('role', 'muted')
+        # The active stage's readiness remains readable without a tooltip or color cue.
+        self.workflow_readiness_label = QLabel('Checking workflow')
+        self.workflow_readiness_label.setObjectName('workflowReadinessLabel')
+        self.workflow_readiness_label.setAccessibleName('Current workflow readiness')
+        self.status.addPermanentWidget(self.workflow_readiness_label)
         self.status.addPermanentWidget(self._make_shortcuts_button())
         self.status.addPermanentWidget(self.version_label)
         self.setStatusBar(self.status)
@@ -143,7 +148,22 @@ class MainWindow(QMainWindow):
             else:
                 prefix, symbol = 'Needs input — ', QStyle.SP_MessageBoxInformation
             self.tabs.setTabIcon(index, self.style().standardIcon(symbol))
-            self.tabs.setTabToolTip(index, prefix + detail)
+            message = prefix + detail
+            if self.tabs.tabToolTip(index) != message:
+                self.tabs.setTabToolTip(index, message)
+            accessible_name = self.tabs.tabText(index) + ' — ' + message
+            bar = self.tabs.tabBar()
+            if bar.accessibleTabName(index) != accessible_name:
+                bar.setAccessibleTabName(index, accessible_name)
+            label = getattr(self, 'workflow_readiness_label', None)
+            if label is not None and index == self.tabs.currentIndex():
+                short_text = prefix.rstrip(' —')
+                if label.text() != short_text:
+                    label.setText(short_text)
+                if label.toolTip() != message:
+                    label.setToolTip(message)
+                if label.accessibleName() != accessible_name:
+                    label.setAccessibleName(accessible_name)
 
     def resizeEvent(self, event) -> None:  # noqa: N802 - Qt API name
         super().resizeEvent(event)
