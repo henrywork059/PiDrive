@@ -181,7 +181,7 @@ jobs:
         env:
           CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          if [ "${{ github.head_ref }}" = update/performance-2-review-resources ]; then
+          if [ "${{ github.head_ref }}" = update/performance-2-review-resources ] || [ "${{ github.head_ref }}" = update/ui2-trainer-workflows ]; then
             python tools/check_forward_packages.py --target "$CANDIDATE_SHA" --inherited-from ba05d2acfa537acefd031dde3f1b79977f27652d
           else
             python tools/check_forward_packages.py --target "$CANDIDATE_SHA"
