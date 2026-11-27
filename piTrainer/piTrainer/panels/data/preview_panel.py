@@ -128,7 +128,9 @@ class PreviewPanel(QGroupBox):
 
     def set_dataframe(self, df: pd.DataFrame) -> None:
         self.stop_autoplay()
-        self.df = df.reset_index(drop=True).copy()
+        # One owning snapshot; reset only its index, not the data blocks.
+        self.df = df.copy()
+        self.df.index = pd.RangeIndex(len(self.df))
         rows = dataframe_preview_rows(self.df)
         columns = preview_columns(rows)
         self._with_blocked_selection(lambda: self._reset_model(rows, columns))
