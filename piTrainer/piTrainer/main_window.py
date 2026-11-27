@@ -144,6 +144,8 @@ class MainWindow(QMainWindow):
                 prefix, symbol = 'Needs input — ', QStyle.SP_MessageBoxInformation
             self.tabs.setTabIcon(index, self.style().standardIcon(symbol))
             self.tabs.setTabToolTip(index, prefix + detail)
+            # Mirror readiness in the native accessible tab name, not only its icon/tooltip.
+            self.tabs.tabBar().setAccessibleTabName(index, self.tabs.tabText(index) + ' — ' + prefix + detail)
 
     def resizeEvent(self, event) -> None:  # noqa: N802 - Qt API name
         super().resizeEvent(event)
