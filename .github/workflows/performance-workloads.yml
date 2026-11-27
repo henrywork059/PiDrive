@@ -1,0 +1,35 @@
+name: Performance Update 1 camera workload qualification
+on:
+  pull_request:
+    branches: [main]
+    paths: ['tools/benchmark_camera_workloads.py', '.github/workflows/performance-workloads.yml']
+permissions:
+  contents: read
+concurrency:
+  group: camera-workloads-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  camera-workloads:
+    if: ${{ github.head_ref == 'update/performance-1-computation' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install matched hardware-free dependencies
+        run: python -m pip install "numpy>=1.26,<2" "pandas>=2.2,<3" "Pillow>=10,<12" "opencv-python-headless>=4.8,<4.12" "psutil>=5.9,<8" "Flask>=3,<4" "flask-cors>=4,<5" "requests>=2.31,<3" "python-dotenv>=1,<2" "PyYAML>=6,<7"
+      - name: Execute five paired camera workload rounds
+        run: |
+          python tools/benchmark_camera_workloads.py --base 14c57c990ff0f9bae2003e4e8aa552d17a4227c7 --candidate 4ee5e3022e0cbd4031d26fd99edf306d147a9441 --rounds 5 --duration 1.0 --output "$RUNNER_TEMP/camera-workloads/results.json"
+      - name: Preserve matched workload evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: camera-workloads
+          path: ${{ runner.temp }}/camera-workloads
+          if-no-files-found: error

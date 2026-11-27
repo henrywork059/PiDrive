@@ -1,6 +1,6 @@
 # PiDrive — Two performance optimization updates
 
-**Proposed 2026-11-27. Status: planned, not implemented or benchmarked.**
+**Proposed 2026-11-27. Update 1 implementation CI-qualified at 4ee5e302; workload acceptance in progress. Update 2 remains planned.**
 Planning reference: main at `a31cbff0a0802fb246f053b281ddc42cef367713`; consult the live HEAD again before implementation. The completed 56/56 proposal, 9/9 batch software roadmap remains closed. This is an additional two-milestone performance track, not a reclassification of old requirements or a stable-release authorization.
 
 ## Scope and baseline
@@ -95,3 +95,9 @@ Reviewed 2026-11-27. Use installed dependency versions when applying APIs. Recom
 Two substantial milestones; separate component-owned source commits and patch notes, patch-only archives if requested. Update 1 is low-risk compute elimination plus a benchmark baseline; Update 2 is measured pipeline/scheduling work plus sustained resource verification. Avoid documentation-only candidate increments and unnecessary micro-patches. Before each milestone, read AGENTS.md, the latest plus three previous patch notes, actual code and current CI; preserve the approved screenshot reference and all user-local data. Each delivered patch must include exact changes, baseline and candidate hashes, commands, test results, benchmark artifacts and hardware limits. No merge of new implementation branches, stable promotion, deployment or inactive-component changes authorized by this planning document.
 
 Related: [roadmap progress](PROGRESS.md), [completed development schedule](DEVELOPMENT_SCHEDULE.md), [handover](RELEASE_CANDIDATE_HANDOVER.md), [acceptance gate](../stabilization_acceptance.md).
+
+## Update 1 workload qualification — 2026-11-27
+
+Application source candidate `4ee5e3022e0cbd4031d26fd99edf306d147a9441` (PiSD 0.11.46, PiServer 0.4.54, piTrainer 0.11.33) passed Linux 45997141640 and Windows 45997141553 (5/5 jobs), all three forward package dry runs, 78 browser cases, and exact operation-level benchmarks. [Evidence and limits](https://github.com/henrywork059/PiDrive/pull/88#issuecomment-7218138993). Keep these version markers and source unchanged during the workload qualification.
+
+New opt-in `tools/benchmark_camera_workloads.py` and dedicated CI workflow compare the original main `14c57c990ff0f9bae2003e4e8aa552d17a4227c7` and the exact qualified application SHA, in fresh subprocesses per revision/component/pair, five alternating pairs, idle / one / two viewers / recording / inference / concurrent / reconnect. Real service threads, writers and multipart generators; PiSD simulation and fake PiServer request device, copying synthetic interpreter, TCP loopback body transfer. Report process CPU, sampled RSS and per-process high-water RSS, encode/publish and capture counts, recording and inference counts, frame age and bytes; no physical power, real detector throughput or whole-system claim. Timing goals remain provisional; do not close P1.1/P1.2/P1.6 until actual results and parity reviewed. No speculative runtime edits, new component version or release authorization.
