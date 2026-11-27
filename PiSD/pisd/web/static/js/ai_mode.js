@@ -68,6 +68,14 @@
       if (element.textContent !== readiness[key].text) element.textContent = readiness[key].text;
       if (element.dataset.tone !== readiness[key].tone) element.dataset.tone = readiness[key].tone;
     }
+    const ai = status?.ai_mode || status?.ai || {};
+    for (const [element, value] of [
+      [els.aiRunMode, ai.mode || 'idle'],
+      [els.aiModelReady, ai.model_ready ? 'ready' : (ai.model_loaded ? 'loaded' : 'not loaded')]
+    ]) {
+      const text = readiness.isVerified ? value : 'Unverified';
+      if (element && element.textContent !== text) element.textContent = text;
+    }
   }
   async function pollOperatingReadiness() {
     // An active AI run already polls the full status every 250 ms.
