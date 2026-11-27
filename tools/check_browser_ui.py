@@ -576,6 +576,8 @@ def main():
                             expect(page.locator("#estopToggle")).to_have_attribute("aria-pressed", "mixed")
                             expect(page.locator("#statusBanner")).to_contain_text("unverified")
                             assert page.locator("#statusBanner").get_attribute("role") == "status"
+                            for metric_id in ("metricModel", "metricCamera", "metricError", "metricBackend", "metricAlgorithm"):
+                                expect(page.locator("#" + metric_id)).to_have_text("Unverified")
                             # Clicking emergency STOP while status is unknown must
                             # never submit rearm {enabled:false}, even if a previous
                             # status sample had indicated an engaged E-STOP.
@@ -596,6 +598,8 @@ def main():
                             expect(page.locator("#maintenanceBadge")).not_to_have_text("offline")
                             expect(page.locator("#metricDriveState")).not_to_have_text("Unverified")
                             assert page.locator("#estopToggle").get_attribute("aria-pressed") in ("true", "false")
+                            for metric_id in ("metricModel", "metricCamera", "metricError", "metricBackend", "metricAlgorithm"):
+                                expect(page.locator("#" + metric_id)).not_to_have_text("Unverified")
                             # UX75: a pending status GET must time out and free the
                             # single-flight guard; it must not leave stale motor
                             # telemetry looking verified or permit an unverified
