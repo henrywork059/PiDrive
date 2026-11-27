@@ -147,6 +147,16 @@
       if (element.textContent !== readiness[key].text) element.textContent = readiness[key].text;
       if (element.dataset.tone !== readiness[key].tone) element.dataset.tone = readiness[key].tone;
     }
+    // Keep the compact telemetry strip aligned with the verified readiness read.
+    for (const [id, value] of Object.entries({
+      mdrvCameraState: status?.camera?.running ? 'run' : (status?.camera?.backend || 'off'),
+      mdrvMotorState: status?.motor?.adapter || 'unknown',
+      mdrvCameraFps: status?.camera?.measured_capture_fps ?? status?.camera?.fps ?? 'n/a'
+    })) {
+      const element = $(id);
+      const text = readiness.isVerified ? String(value) : 'Unverified';
+      if (element && element.textContent !== text) element.textContent = text;
+    }
   }
   async function pollOperatingReadiness() {
     if (readinessPollBusy || document.hidden) return;
@@ -1064,9 +1074,6 @@
     lastReadinessStatus = status;
     renderOperatingReadiness(status, false);
     updateOverlayMotorSettings(status?.motor || {});
-    $('mdrvCameraState').textContent = status.camera?.running ? 'run' : (status.camera?.backend || 'off');
-    $('mdrvMotorState').textContent = status.motor?.adapter || 'unknown';
-    $('mdrvCameraFps').textContent = status.camera?.measured_capture_fps ?? status.camera?.fps ?? 'n/a';
     if (includeRecording) renderRecording(status.recording);
     renderPreviewFromStatus(status);
     renderMotorSignalsFromStatus(status);
