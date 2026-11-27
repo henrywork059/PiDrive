@@ -1,5 +1,17 @@
 # Active roadmap progress — 2026-11-27
 
+## Verified acceptance checkpoint at ba2420536b733659c6cb4796490cdb38f8d31914
+
+**54/56 verified implemented (96.4%), 8/9 batches complete.** All previously specified primary/STOP touch targets now verified. No new requirement counted without the remaining R35 audit and UX75 baseline approval.
+
+Exact verified source ba2420536b733659c6cb4796490cdb38f8d31914, Linux [45915971367](https://github.com/henrywork059/PiDrive/actions/runs/45915971367) 4/4 and Windows [45915971393](https://github.com/henrywork059/PiDrive/actions/runs/45915971393) 1/1. Independently verified actual archives PiSD 15161709968 SHA-256 dcdd9d6261d15e90647071e05f21d17e6b8868a7b8b27c4fe9106920d7eea2f3 and PiServer 15162386493 SHA-256 9d3a3230a2a0e3442a29d8a6c028c09003ed1fdc562e7e9ab4370a951b0e683c. All six matrices, 78/78 cases, 8/8 recording journeys, no case/page errors. 256/256 actual width and height measurements >=44px (PiSD STOP 96, recording 48, dialogs 48; PiServer STOP 16, dialogs 48). Node PiSD responsive 18/18, PiServer responsive 15/15, accessibility 34/34; Windows native 40 tests, Linux trainer passed. Forward dry runs 15/10/11 changed files passed.
+
+Independent 105-PNG comparison to 35be24a: PiSD 83 images, 56 byte-identical, eight full-page dimension increases 15–16px; PiServer 22 images, ten byte-identical, no dimension changes; none missing. Phone and landscape dialog montage independently inspected. Owner review package and manifest prepared, no images saved as approved golden. Manifest SHA-256 407e870465cbfaecd697c9c5890acc51a5fa23f5953b25027cfd87a1e46f13c5. No native Qt screenshot artifact; desktop visual approval separate.
+
+Remaining R35: existing automated keyboard, touch, focus, named control and non-color assertions passed, but the original all-active-control audit is not yet complete. New read-only Chromium computed accessibility inventory at 45190b6ee15ba10e97a762fd4d242176563f9e78 records rendered page/dialog controls and review findings; exact CI and findings review required. This inventory cannot replace native screen-reader or physical touch/hardware review. UX75: repeatable interaction gates passed; approval of exact screenshot baseline pending. See [owner review checkpoint](../ui_baseline_review.md). Candidate markers PiSD 0.11.45, PiServer 0.4.53, piTrainer 0.11.32 unchanged; no version allocation, golden approval, merge, promotion or deployment.
+
+## Previous verified checkpoint (superseded)
+
 ## Verified software implementation at 35be24a8ff55adbd50545542d2b2c3130cf814f9
 
 **54/56 implemented (96.4%), 2 remaining, 8/9 batches complete.** UX56 and R50 accepted in scoped software implementation at exact green baseline. Batch 7 complete; Batch 4 remains open. R50 acceptance is for implemented automated regression mechanisms, not approval of golden screenshots; UX75 retains that explicit approval requirement.

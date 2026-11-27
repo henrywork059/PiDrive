@@ -57,7 +57,7 @@ Current baseline mapping: 1, 2, 3, 5, 6, 7, 8, 9 complete in software scope; 4 r
 
 ### Batch 4 — UI regression and accessibility foundation
 
-**Components:** All active interfaces. **Status:** In progress; R45 counted in baseline and R36/R50 verified; R35 and UX75 remain open. New narrow primary touch-target gate pending; owner golden approval remains required.
+**Components:** All active interfaces. **Status:** In progress; R45 counted in baseline and R36/R50 verified; R35 and UX75 remain open. Narrow primary touch-target gate passed at exact ba24205 (256/256 dimensions); computed accessibility inventory and review of findings pending. Owner golden approval remains required.
 
 **Scope:** Finish desktop accessibility audit and PiSD token/drift coverage; add native Qt and browser interaction/geometry smoke tests covering keyboard, touch, focus, no-data, failures and 390/768/1024/1440 widths. Record accepted baseline captures before visual changes. Use this suite for subsequent UI batches.
 
