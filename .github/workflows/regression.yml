@@ -32,7 +32,7 @@ jobs:
             js_tests: 'tests/test_preview_freshness.cjs tests/test_settings_feedback.cjs tests/test_accessibility_r35.cjs tests/test_adaptive_polling_r43.cjs tests/test_recording_feedback_ux75.cjs tests/test_session_refresh_ux75.cjs tests/test_layout_presets_ux60.cjs tests/test_preflight_ui_r48.cjs tests/test_recent_events_ui_r49.cjs tests/test_request_trace_ui_r47.cjs tests/test_responsive_r36.cjs tests/test_ui_copy_r46.cjs tests/test_ui_style_tokens_r45.cjs tests/test_destructive_ux74.cjs'
           - component: piTrainer
             deps: '"pandas>=2.2,<3" "numpy>=1.26,<2" "Pillow>=10,<12" "PySide6>=6.7,<6.9" "matplotlib>=3.8,<4"'
-            python_tests: 'tests/test_dataset_projection_p2.py tests/test_record_streaming_p2.py tests/test_dataset_integrity.py tests/test_metadata_atomicity.py tests/test_export_manifest.py tests/test_model_manifest.py tests/test_background_tasks_r39.py tests/test_preview_r38.py tests/test_selection_scope.py tests/test_filter_positions_p2.py tests/test_review_context_ux61.py tests/test_train_runs_r40.py tests/test_ui_copy_r46.py tests/test_ui_style_contract_r45.py tests/test_session_keyboard_r35.py tests/test_validation_controls_r35.py tests/test_shared_accessibility_r35.py tests/test_recording_to_export_f10.py tests/test_splitter_restore_r50.py tests/test_splitter_minimums_r50.py tests/test_validation_marker_lifecycle_r50.py tests/test_validation_to_data_r50.py'
+            python_tests: 'tests/test_plot_projection_p2.py tests/test_dataset_projection_p2.py tests/test_record_streaming_p2.py tests/test_dataset_integrity.py tests/test_metadata_atomicity.py tests/test_export_manifest.py tests/test_model_manifest.py tests/test_background_tasks_r39.py tests/test_preview_r38.py tests/test_selection_scope.py tests/test_filter_positions_p2.py tests/test_review_context_ux61.py tests/test_train_runs_r40.py tests/test_ui_copy_r46.py tests/test_ui_style_contract_r45.py tests/test_session_keyboard_r35.py tests/test_validation_controls_r35.py tests/test_shared_accessibility_r35.py tests/test_recording_to_export_f10.py tests/test_splitter_restore_r50.py tests/test_splitter_minimums_r50.py tests/test_validation_marker_lifecycle_r50.py tests/test_validation_to_data_r50.py'
             js_tests: ''
     defaults:
       run:
@@ -183,7 +183,7 @@ jobs:
         run: python tools/check_forward_packages.py --target "$CANDIDATE_SHA"
 
       - name: Run original and extended performance benchmarks against exact trusted revisions
-        if: ${{ !cancelled() && github.event_name == 'pull_request' && (github.head_ref == 'update/performance-1-computation' || github.head_ref == 'update/performance-2-resources') }}
+        if: ${{ !cancelled() && github.event_name == 'pull_request' && (github.head_ref == 'update/performance-1-computation' || (github.head_ref == 'update/performance-2-resources' || github.head_ref == 'update/performance-2-review-resources')) }}
         env:
           CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
@@ -196,7 +196,7 @@ jobs:
           python tools/benchmark_performance_update1.py --base 14c57c990ff0f9bae2003e4e8aa552d17a4227c7 --candidate "$CANDIDATE_SHA" --profile-dir "$RUNNER_TEMP/performance-update1/profiles" | tee "$RUNNER_TEMP/performance-update1/extended.json"
           git worktree remove --force "$RUNNER_TEMP/perf-original"
       - name: Preserve performance benchmark evidence
-        if: ${{ !cancelled() && github.event_name == 'pull_request' && (github.head_ref == 'update/performance-1-computation' || github.head_ref == 'update/performance-2-resources') }}
+        if: ${{ !cancelled() && github.event_name == 'pull_request' && (github.head_ref == 'update/performance-1-computation' || (github.head_ref == 'update/performance-2-resources' || github.head_ref == 'update/performance-2-review-resources')) }}
         uses: actions/upload-artifact@v4
         with:
           name: performance-update1

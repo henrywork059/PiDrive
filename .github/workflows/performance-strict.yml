@@ -2,7 +2,7 @@ name: Strict Performance Update 1 qualification
 on:
   pull_request:
     branches: [main, update/performance-1-computation]
-    paths: ['piTrainer/piTrainer/services/data/filter_service.py', 'tools/benchmark_performance_strict.py', 'tools/benchmark_trainer_cache_budget.py', '.github/workflows/performance-strict.yml', 'PiSD/pisd/services/camera_service.py', 'PiServer/piserver/services/camera_service.py', 'piTrainer/piTrainer/services/data/record_loader_service.py', 'piTrainer/piTrainer/panels/data/preview_panel.py', 'piTrainer/piTrainer/panels/data/preview_model.py', 'piTrainer/piTrainer/utils/image_utils.py']
+    paths: ['piTrainer/piTrainer/services/data/plot_service.py', 'piTrainer/piTrainer/panels/data/data_plot_panel.py', 'piTrainer/piTrainer/services/data/filter_service.py', 'tools/benchmark_performance_strict.py', 'tools/benchmark_trainer_cache_budget.py', '.github/workflows/performance-strict.yml', 'PiSD/pisd/services/camera_service.py', 'PiServer/piserver/services/camera_service.py', 'piTrainer/piTrainer/services/data/record_loader_service.py', 'piTrainer/piTrainer/panels/data/preview_panel.py', 'piTrainer/piTrainer/panels/data/preview_model.py', 'piTrainer/piTrainer/utils/image_utils.py']
 permissions:
   contents: read
 concurrency:
@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   strict:
-    if: ${{ (github.head_ref == 'update/performance-1-computation' || github.head_ref == 'update/performance-2-resources') }}
+    if: ${{ (github.head_ref == 'update/performance-1-computation' || (github.head_ref == 'update/performance-2-resources' || github.head_ref == 'update/performance-2-review-resources')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     strategy:
