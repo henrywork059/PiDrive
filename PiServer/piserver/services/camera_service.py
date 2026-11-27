@@ -536,10 +536,14 @@ class CameraService:
                     jpeg_bytes = self._encode_preview_jpeg_cv(frame)
 
             preview_source = None
-            if frame is None and processing_enabled:
-                preview_source = None
-            elif frame is None:
-                preview_source = self._placeholder_frame()
+            # Only build a placeholder if it can actually be consumed: initial
+            # display or a due preview without an encoded frame. Never publish
+            # placeholder pixels as raw/live data or change capture cadence.
+            if frame is None and not processing_enabled:
+                with self._frame_lock:
+                    needs_initial_frame = self._frame is None
+                if needs_initial_frame or (preview_due and jpeg_bytes is None):
+                    preview_source = self._placeholder_frame()
 
             if frame is None and not live:
                 with self._service_lock:

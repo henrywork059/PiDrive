@@ -1060,7 +1060,9 @@ class AIDriveService:
         self.performance.observe_elapsed("decode", decode_start)
         resize_start = self.performance.start()
         image = image.resize(self._input_size)
-        array = np.asarray(image).astype("float32") / 255.0
+        # astype owns the float buffer; divide in place with identical arithmetic.
+        array = np.asarray(image).astype("float32")
+        array /= 255.0
         self.performance.observe_elapsed("resize", resize_start)
         with self._lock:
             backend = self._backend

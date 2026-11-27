@@ -345,5 +345,30 @@ class RealQtImageTests(unittest.TestCase):
             self.assertEqual(overlaid.size(), base.size())
 
 
+class PerformancePreviewRowsTests(unittest.TestCase):
+    def test_fast_path_and_fallback_match_previous_rows(self):
+        import numpy as np
+        import pandas as pd
+        from piTrainer.services.data.preview_service import dataframe_preview_rows, PREVIEW_COLUMN_ORDER
+        rng = np.random.default_rng(17)
+        frame = pd.DataFrame({
+            "session": ["a", "a", "b", "b"], "frame_id": ["1", "2", "1", "2"],
+            "steering": rng.random(4, dtype=np.float32),
+            "throttle": rng.random(4, dtype=np.float32),
+            "mode": ["manual", "ai", "manual", "ai"],
+            "ts": ["2026-01-01"] * 4, "abs_image": ["x"] * 4,
+            "overlay_settings": [{} for _ in range(4)],
+        }, index=[8, 3, 3, 1])
+        for sample in (frame, frame.assign(session=pd.Series(["a", "a", "b", "b"], index=frame.index, dtype="string")),
+                       frame[["steering", "throttle"]], frame.iloc[:0]):
+            for limit in (None, 0, 1, -1, 10):
+                selected = sample if limit is None else sample.head(limit)
+                cols = [c for c in PREVIEW_COLUMN_ORDER if c in sample.columns]
+                expected = [{c: row.get(c, "") for c in cols} for _, row in selected.iterrows()]
+                actual = dataframe_preview_rows(sample, limit)
+                self.assertEqual(actual, expected)
+                self.assertEqual([list(row) for row in actual], [list(row) for row in expected])
+
+
 if __name__ == '__main__':
     unittest.main()

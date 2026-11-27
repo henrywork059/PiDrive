@@ -1539,16 +1539,19 @@ function renderPreviewHealth() {
   const age = health.ageMs === null ? 'no frame' : `${(health.ageMs / 1000).toFixed(1)}s old`;
   const indicator = document.getElementById('previewHealth');
   if (indicator) {
-    indicator.className = `preview-health ${health.state.toLowerCase()}`;
-    indicator.textContent = `${health.state} · ${age}`;
+    const className = `preview-health ${health.state.toLowerCase()}`;
+    const text = `${health.state} · ${age}`;
+    if (indicator.className !== className) indicator.className = className;
+    if (indicator.textContent !== text) indicator.textContent = text;
   }
   const viewer = document.querySelector('.viewer-frame');
   if (viewer) viewer.classList.toggle('preview-is-stale', health.hasFrame && health.state !== 'Live');
   const metric = document.getElementById('metricPreview');
-  if (metric) metric.textContent = health.state;
+  if (metric && metric.textContent !== health.state) metric.textContent = health.state;
   const meta = document.getElementById('cameraPreviewMeta');
   const status = state.latestStatus || {};
-  if (meta) meta.textContent = `Backend: ${status.camera_backend || 'unknown'} · ${health.state} · ${age}${status.camera_error ? ' · ' + status.camera_error : ''}`;
+  const metaText = `Backend: ${status.camera_backend || 'unknown'} · ${health.state} · ${age}${status.camera_error ? ' · ' + status.camera_error : ''}`;
+  if (meta && meta.textContent !== metaText) meta.textContent = metaText;
 }
 function previewDelayMs() {
   const fps = Number(document.getElementById("cameraPreviewFps")?.value || state.cameraConfig?.preview_fps || 12);

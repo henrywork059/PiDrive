@@ -173,5 +173,19 @@ class ModelCompatibilityTests(unittest.TestCase):
         self.assertIsNone(self.svc.predict_uv_from_frame(np.zeros((2,2,3), np.uint8)))
 
 
+class PerformanceInputParityTests(unittest.TestCase):
+    def test_prepare_input_preserves_exact_float_pixels_and_source(self):
+        rng = np.random.default_rng(17)
+        frame = rng.integers(0, 256, (240, 426, 3), dtype=np.uint8)
+        original = frame.copy()
+        for size in ((160, 120), (426, 240)):
+            actual = ModelService._prepare_input(None, frame, size)
+            expected = cv2.resize(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), size).astype(np.float32) / 255.0
+            np.testing.assert_array_equal(actual, expected[None, ...])
+            self.assertEqual(actual.dtype, np.float32)
+            self.assertTrue(actual.flags.c_contiguous)
+        np.testing.assert_array_equal(frame, original)
+
+
 if __name__ == '__main__':
     unittest.main()

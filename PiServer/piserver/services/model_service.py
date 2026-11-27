@@ -221,7 +221,9 @@ class ModelService:
         try:
             img = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
             img = cv2.resize(img, input_size)
-            img = img.astype(np.float32) / 255.0
+            # The uint8-to-float cast owns its buffer; avoid a second allocation.
+            img = img.astype(np.float32)
+            img /= 255.0
             return np.expand_dims(img, axis=0)
         except (TypeError, ValueError, cv2.error):
             return None

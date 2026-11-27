@@ -212,5 +212,33 @@ class HardwareOwnershipTests(unittest.TestCase):
             self.assertFalse(self.lock_path.exists())
 
 
+class PerformancePlaceholderTests(unittest.TestCase):
+    def test_idle_live_capture_does_not_rebuild_unused_placeholder(self):
+        import threading
+        from unittest.mock import Mock
+        from types import SimpleNamespace
+        svc = SimpleNamespace(
+            _running=True, _service_lock=threading.RLock(), _frame_lock=threading.RLock(),
+            _desired_capture_fps_locked=lambda: 100, preview_fps=12,
+            preview_enabled=False, processing_enabled=False,
+            _picam2=object(), _capture=None, _frame=None, _raw_frame=None,
+            performance=Mock(), _placeholder_frame=Mock(return_value=object()),
+            _publish_jpeg=Mock(),
+        )
+        captures = []
+        def capture(need_frame, need_preview):
+            captures.append((need_frame, need_preview))
+            if len(captures) == 4:
+                svc._running = False
+            return None, None, True, ""
+        svc._capture_picamera_request = capture
+        camera_module.CameraService._loop(svc)
+        self.assertEqual(captures, [(False, False)] * 4)
+        svc._placeholder_frame.assert_called_once_with()
+        svc._publish_jpeg.assert_not_called()
+        self.assertIsNotNone(svc._frame)
+        self.assertIsNone(svc._raw_frame)
+
+
 if __name__ == '__main__':
     unittest.main()

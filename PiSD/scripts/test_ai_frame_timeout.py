@@ -114,5 +114,29 @@ class AICameraFreshnessTests(unittest.TestCase):
         self.assertFalse(service.status()["camera_frame_stale"])
 
 
+class PerformanceInputParityTests(unittest.TestCase):
+    def test_prepare_input_preserves_exact_float_pixels(self):
+        import io
+        import threading
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        import numpy as np
+        from PIL import Image
+        rng = np.random.default_rng(17)
+        image = Image.fromarray(rng.integers(0, 256, (240, 426, 3), dtype=np.uint8))
+        buf = io.BytesIO()
+        image.save(buf, format="JPEG")
+        data = buf.getvalue()
+        for size in ((160, 120), (426, 240)):
+            svc = SimpleNamespace(performance=Mock(), _input_size=size,
+                                  _lock=threading.RLock(), _backend="tflite")
+            actual, backend = AIDriveService._prepare_input(svc, data)
+            expected = np.asarray(Image.open(io.BytesIO(data)).convert("RGB").resize(size)).astype("float32") / 255.0
+            np.testing.assert_array_equal(actual, expected[None, ...])
+            self.assertEqual(backend, "tflite")
+            self.assertEqual(actual.dtype, np.float32)
+            self.assertTrue(actual.flags.c_contiguous)
+
+
 if __name__ == "__main__":
     unittest.main()
