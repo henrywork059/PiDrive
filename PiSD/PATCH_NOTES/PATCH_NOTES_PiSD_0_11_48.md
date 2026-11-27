@@ -14,3 +14,6 @@ Owner observed the road camera working and direct port 5050 access succeeding, b
 
 ## Anti-rollback and verification
 Built forward from main 0.11.47; inspected 0.11.47/46/45/44 notes and current launchers, preserved previous performance, layout, recording and STOP code. Draft #94 also provisionally reserves 0.11.48; owner explicitly requested this repair at that version, so #94 requires forward reconciliation before merging. No changes to saved settings or approved screenshots. Exact CI and browser evidence pending; no physical test claimed.
+
+## Shared package qualification
+Main's previous merge moved PiServer/trainer package ancestry off the first-parent chain. Port the exact inherited-component guard from pending UI2 branch (already on #93); the previous qualification 46026465707 passed all four jobs, and the component trees are identical to ba05d2ac. Unchanged components may reuse that exact ancestor only if tree hashes match; changed components retain all existing package validation against their own one-step baseline. No package checks removed.

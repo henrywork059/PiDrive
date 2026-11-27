@@ -118,8 +118,7 @@ def install_access_control(app, token: str, *, emulator_frame_port: int | None =
     def security_headers(response):
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         if (emulator_frame_port is not None and app.config.get("pisd_runtime_mode") == "emulator"
-                and is_loopback(request.remote_addr) and request.host == request.host_url.split("//", 1)[-1].rstrip("/")
-                and request.host.split(":", 1)[0] == "127.0.0.1"):
+                and is_loopback(request.remote_addr) and request.host.split(":", 1)[0] == "127.0.0.1"):
             # CSP checks all ancestors; trust only the selected controller origin.
             response.headers.pop("X-Frame-Options", None)
             response.headers.add("Content-Security-Policy", f"frame-ancestors http://127.0.0.1:{emulator_frame_port}")

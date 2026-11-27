@@ -81,6 +81,8 @@ class FrameTest(unittest.TestCase):
                     self.assertNotIn("x-frame-options", response.headers)
                     self.assertEqual(page.request.post(pisd + "/api/control/manual", headers={"Origin": control}, data={"throttle": .5}).status, 403)
                     expect(page.locator("#cameraImage")).to_be_visible(timeout=15000)
+                    page.wait_for_function("document.querySelector('#cameraImage').naturalWidth > 0")
+                    self.assertEqual(runtime.status()["hardware_enabled"], False)
                     frame.locator("#mdrvLiveCamera").click()
                     expect(frame.locator("#mdrvPreview")).to_have_attribute("data-preview-mode", "live", timeout=10000)
                     frame.locator("#mdrvArm").check()
@@ -88,15 +90,18 @@ class FrameTest(unittest.TestCase):
                     page.keyboard.press("ArrowUp")
                     page.keyboard.press("ArrowUp")
                     eventually(lambda: abs(runtime.status()["engine"]["motor"]["left_intended"]) > .01)
+                    eventually(lambda: abs(runtime.status()["engine"]["vehicle"]["y_m"]) > .01)
                     frame.locator("#mdrvStopTop").click()
                     eventually(lambda: abs(runtime.status()["engine"]["motor"]["left_intended"]) < .001 and abs(runtime.status()["engine"]["motor"]["right_intended"]) < .001)
                     for button in page.locator(".viewport").all():
                         button.click()
                         expect(frame.locator("#manualDriveShell")).to_be_visible()
+                    frame.locator("#manualDriveShell").evaluate("(el) => el.dataset.beforeRestart = 'yes'")
                     generation = runtime.status()["generation"]
                     page.locator("#restartButton").click()
                     eventually(lambda: runtime.status()["generation"] > generation)
                     expect(frame.locator("#manualDriveShell")).to_be_visible(timeout=20000)
+                    expect(frame.locator("#manualDriveShell")).not_to_have_attribute("data-before-restart", "yes", timeout=20000)
                     # Different local origin must not gain framing authority.
                     other = Flask("untrusted")
                     @other.get("/")
@@ -106,7 +111,8 @@ class FrameTest(unittest.TestCase):
                     threading.Thread(target=alien.serve_forever, daemon=True).start()
                     try:
                         hostile = browser.new_page()
-                        hostile.goto(f"http://127.0.0.1:{alien.server_port}/")
+                        with hostile.expect_event("console", predicate=lambda msg: "frame-ancestors" in msg.text.lower(), timeout=15000):
+                            hostile.goto(f"http://127.0.0.1:{alien.server_port}/")
                         expect(hostile.frame_locator("iframe").locator("#manualDriveShell")).to_have_count(0, timeout=5000)
                         hostile.close()
                     finally:
