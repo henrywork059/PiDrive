@@ -1,5 +1,23 @@
 # Active roadmap progress — 2026-11-27
 
+## Verified software implementation at 35be24a8ff55adbd50545542d2b2c3130cf814f9
+
+**54/56 implemented (96.4%), 2 remaining, 8/9 batches complete.** UX56 and R50 accepted in scoped software implementation at exact green baseline. Batch 7 complete; Batch 4 remains open. R50 acceptance is for implemented automated regression mechanisms, not approval of golden screenshots; UX75 retains that explicit approval requirement.
+
+Exact green baseline 35be24a8ff55adbd50545542d2b2c3130cf814f9: Linux [45914883482](https://github.com/henrywork059/PiDrive/actions/runs/45914883482) 4/4 and Windows [45914883473](https://github.com/henrywork059/PiDrive/actions/runs/45914883473) 1/1. Independently matched actual artifacts PiSD 15161413659 SHA-256 3f90798edda903730ec9c5754cd516ff0f0ac79b088c318ff2ec9bf9b48d84a7 and PiServer 15161513250 SHA-256 e0c2db2bd3adae6d48cecd0528c112984900f678f6acfd1400dc82a3f8f43ff3. Six matrices exact revision, 78/78 zero case/page errors; 8/8 Manual/AI recording journeys including all seven checkpoints, exactly four recording POST requests per journey, duplicate/stale guard and actual handler tests passed. PiSD R36 17/17, PiServer R36 14/14 and R35 34/34; all 16 stacked STOP target dimensions 44px high. Windows native Qt eight suites passed (40 tests total); Linux trainer passed. Forward dry runs PiSD/PiServer/piTrainer 15/10/11 changed files passed. Selected actual screenshots reviewed.
+
+| Track | Active | Verified implementation | Remaining |
+| --- | ---: | ---: | ---: |
+| F | 10 | 10 | 0 |
+| U | 13 | 13 | 0 |
+| R | 19 | 18 | 1 |
+| UX | 14 | 13 | 1 |
+| Total | 56 | 54 | 2 |
+
+Remaining: R35 and UX75. R35 retains comprehensive active-control keyboard/name/visible-focus and input-parity scope; no full assistive-tech/physical-touch or arbitrary custom-theme validation claimed. UX75 retains accepted screenshot baseline and integrated usability gate. Actual review found Manual Apply 26.2px at 390 width, AI Apply 26.2px and PiServer Style Save 32px. Follow-up eb61df3266caceb68225e586565b565c71e9cd63 makes selected recording/Apply/Close and style dialog actions 44px at narrow/stacked widths, verifies four scales and hit-test without mutation. Exact replacement CI required before this change is accepted. Existing candidates PiSD 0.11.45, PiServer 0.4.53, piTrainer 0.11.32 unchanged; no new version allocation until verified. Owner screenshot approval, physical safety and release acceptance remain separate.
+
+## Previous verified software baseline (superseded)
+
 ## Verified software implementation at c896700c068f1d9be14c84300c1035037cdd4a3f
 
 **52/56 implemented (92.9%), 4 remaining, 7/9 batches complete.** F8 and R52 scoped software implementation accepted at exact green parent; batch 8 complete. Previous 50/56 baseline preserved below.
