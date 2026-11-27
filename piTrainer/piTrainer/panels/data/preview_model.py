@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import Any
 import re
 
@@ -114,11 +115,12 @@ class RecordPreviewModel(QAbstractTableModel):
         if self._sort_column < 0 or self._sort_column >= len(self.columns):
             return
         column_name = self.columns[self._sort_column]
-        pairs = list(zip(self.rows, self._source_rows))
+        rows, sources = self.rows, self._source_rows
+        order = list(range(len(rows)))
         reverse = self._is_descending(self._sort_order)
-        pairs.sort(key=lambda pair: self._sort_key_for_row(pair[0], column_name), reverse=reverse)
-        self.rows = [row for row, _source in pairs]
-        self._source_rows = [source for _row, source in pairs]
+        order.sort(key=lambda index: self._sort_key_for_row(rows[index], column_name), reverse=reverse)
+        self.rows = [rows[index] for index in order]
+        self._source_rows = [sources[index] for index in order]
 
     def _sort_rows_by_default_order(self) -> None:
         """Default review order: chronological session, then frame id.
@@ -130,10 +132,23 @@ class RecordPreviewModel(QAbstractTableModel):
         """
         if not self.rows:
             return
-        pairs = list(zip(self.rows, self._source_rows))
-        pairs.sort(key=lambda pair: self._default_sort_key(pair[0], pair[1]))
-        self.rows = [row for row, _source in pairs]
-        self._source_rows = [source for _row, source in pairs]
+        rows, sources = self.rows, self._source_rows
+        # The sort-local cache is bounded and cannot outlive the source rows.
+        session_key = lru_cache(maxsize=256)(self._session_datetime_key)
+
+        def key(index):
+            row = rows[index]
+            session, timestamp = row.get('session', ''), row.get('ts', '')
+            if type(session) is str and type(timestamp) is str:
+                return (session_key(session, timestamp),
+                        self._sort_key(row.get('frame_id', ''), 'frame_id'),
+                        int(sources[index]))
+            return self._default_sort_key(row, sources[index])
+
+        order = list(range(len(rows)))
+        order.sort(key=key)
+        self.rows = [rows[index] for index in order]
+        self._source_rows = [sources[index] for index in order]
 
     def _default_sort_key(self, row: dict[str, Any], source_row: int):
         return (

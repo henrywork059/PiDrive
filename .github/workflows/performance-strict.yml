@@ -2,7 +2,7 @@ name: Strict Performance Update 1 qualification
 on:
   pull_request:
     branches: [main]
-    paths: ['tools/benchmark_performance_strict.py', 'tools/benchmark_trainer_cache_budget.py', '.github/workflows/performance-strict.yml', 'PiSD/pisd/services/camera_service.py', 'PiServer/piserver/services/camera_service.py', 'piTrainer/piTrainer/services/data/record_loader_service.py', 'piTrainer/piTrainer/panels/data/preview_panel.py', 'piTrainer/piTrainer/utils/image_utils.py']
+    paths: ['tools/benchmark_performance_strict.py', 'tools/benchmark_trainer_cache_budget.py', '.github/workflows/performance-strict.yml', 'PiSD/pisd/services/camera_service.py', 'PiServer/piserver/services/camera_service.py', 'piTrainer/piTrainer/services/data/record_loader_service.py', 'piTrainer/piTrainer/panels/data/preview_panel.py', 'piTrainer/piTrainer/panels/data/preview_model.py', 'piTrainer/piTrainer/utils/image_utils.py']
 permissions:
   contents: read
 concurrency:

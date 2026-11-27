@@ -247,6 +247,43 @@ class PerformanceSourceLookupTests(unittest.TestCase):
         check()
 
 
+    def test_sort_permutation_matches_legacy_keys_and_stable_ties(self):
+        from piTrainer.panels.data.preview_model import RecordPreviewModel
+        app = QApplication.instance() or QApplication([])
+        model = RecordPreviewModel()
+        # More unique timestamps than the bounded sort-local cache can hold,
+        # repeated keys, duplicate frame IDs, invalid dates and legacy values.
+        rows = [
+            {"session": "20260101_120000_manual_a", "ts": f"t{i}",
+             "frame_id": f"f{i % 13}", "steering": i % 5}
+            for i in range(400)
+        ]
+        rows.extend([
+            {"session": None, "ts": None, "frame_id": None, "steering": None},
+            {"session": ["legacy", 2], "ts": {"date": "2026-01-03"},
+             "frame_id": "f10", "steering": "bad"},
+            {"session": "20261301_000000", "ts": "bad", "frame_id": "f2", "steering": .3},
+            {"session": "s", "ts": "2026-01-02T12:00:00Z", "frame_id": "f2", "steering": "0.3"},
+            {"session": "s", "ts": "2026-01-02T12:00:00Z", "frame_id": "f2", "steering": "0.3"},
+            {},
+        ])
+        columns = ["session", "frame_id", "steering", "ts"]
+        for fixture in (rows, list(reversed(rows)), []):
+            expected = sorted(range(len(fixture)), key=lambda i: model._default_sort_key(fixture[i], i))
+            model.set_preview_rows(fixture, columns)
+            def check():
+                self.assertEqual([model.source_row(i) for i in range(model.rowCount())], expected)
+                for view, source in enumerate(expected):
+                    self.assertIs(model.rows[view], fixture[source])
+                    self.assertEqual(model.view_row_for_source_row(source), view)
+            check()
+            for column, name in enumerate(columns):
+                for order in (Qt.AscendingOrder, Qt.DescendingOrder, Qt.AscendingOrder):
+                    expected.sort(key=lambda i: model._sort_key_for_row(fixture[i], name),
+                                  reverse=(order == Qt.DescendingOrder))
+                    model.sort(column, order)
+                    check()
+
     def test_matching_identity_preserves_duplicates_and_legacy_string_conversion(self):
         app = QApplication.instance() or QApplication([])
         panel = PreviewPanel()
