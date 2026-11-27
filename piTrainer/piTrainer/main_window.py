@@ -4,7 +4,7 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeySequence, QShortcut
-from PySide6.QtWidgets import QApplication, QLabel, QMainWindow, QMessageBox, QPushButton, QStatusBar, QStyle, QTabWidget
+from PySide6.QtWidgets import QApplication, QLabel, QMainWindow, QMessageBox, QPushButton, QStatusBar, QStyle, QTabWidget, QHBoxLayout, QVBoxLayout, QWidget
 
 from .app_state import AppState
 from .pages.data_page import DataPage
@@ -62,13 +62,37 @@ class MainWindow(QMainWindow):
         self.validation_page.config_panel.model_path_edit.textChanged.connect(self.refresh_workflow_readiness)
         self.export_validation_page.config_panel.tflite_path_edit.textChanged.connect(self.refresh_workflow_readiness)
 
-        self.setCentralWidget(self.tabs)
+        # Navigation only: never executes work or modifies selected inputs.
+        workspace = QWidget()
+        layout = QVBoxLayout(workspace)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
+        guidance = QHBoxLayout()
+        guidance.setContentsMargins(8, 4, 8, 0)
+        self.workflow_detail_label = QLabel()
+        self.workflow_detail_label.setTextFormat(Qt.PlainText)
+        self.workflow_detail_label.setWordWrap(True)
+        self.workflow_detail_label.setObjectName('workflowReadinessLabel')
+        guidance.addWidget(self.workflow_detail_label, 1)
+        self.workflow_prerequisite_button = QPushButton()
+        self.workflow_prerequisite_button.hide()
+        self._workflow_prerequisite_index = None
+        self.workflow_prerequisite_button.clicked.connect(self._open_workflow_prerequisite)
+        guidance.addWidget(self.workflow_prerequisite_button)
+        layout.addLayout(guidance)
+        layout.addWidget(self.tabs, 1)
+        self.setCentralWidget(workspace)
 
         self.status = QStatusBar()
         self.status.setSizeGripEnabled(True)
         self.version_label = QLabel(STATUS_VERSION_TEXT)
         self.version_label.setObjectName('appVersionLabel')
         self.version_label.setProperty('role', 'muted')
+        # The active stage's readiness remains readable without a tooltip or color cue.
+        self.workflow_readiness_label = QLabel('Checking workflow')
+        self.workflow_readiness_label.setObjectName('workflowReadinessLabel')
+        self.workflow_readiness_label.setAccessibleName('Current workflow readiness')
+        self.status.addPermanentWidget(self.workflow_readiness_label)
         self.status.addPermanentWidget(self._make_shortcuts_button())
         self.status.addPermanentWidget(self.version_label)
         self.setStatusBar(self.status)
@@ -143,7 +167,55 @@ class MainWindow(QMainWindow):
             else:
                 prefix, symbol = 'Needs input — ', QStyle.SP_MessageBoxInformation
             self.tabs.setTabIcon(index, self.style().standardIcon(symbol))
-            self.tabs.setTabToolTip(index, prefix + detail)
+            message = prefix + detail
+            if self.tabs.tabToolTip(index) != message:
+                self.tabs.setTabToolTip(index, message)
+            accessible_name = self.tabs.tabText(index) + ' — ' + message
+            bar = self.tabs.tabBar()
+            if bar.accessibleTabName(index) != accessible_name:
+                bar.setAccessibleTabName(index, accessible_name)
+            label = getattr(self, 'workflow_readiness_label', None)
+            if label is not None and index == self.tabs.currentIndex():
+                short_text = prefix.rstrip(' —')
+                if label.text() != short_text:
+                    label.setText(short_text)
+                if label.toolTip() != message:
+                    label.setToolTip(message)
+                if label.accessibleName() != accessible_name:
+                    label.setAccessibleName(accessible_name)
+
+        # Route to a missing prerequisite without starting or changing work.
+        index = self.tabs.currentIndex()
+        target = None
+        if index in (1, 2) and not active:
+            target = 0
+        elif index in (3, 5):
+            config = validation if index == 3 else check
+            if not dataset_available(config):
+                target = 2 if active and config.dataset_source() in ('Validation split', 'Training split') else 0
+            elif index == 3 and not validation_model and validation.model_source() == 'Current trained model':
+                target = 2
+            elif index == 5 and not check_ready and model:
+                target = 4
+        elif index == 4 and not model:
+            target = 2
+        if hasattr(self, 'workflow_detail_label'):
+            message = self.tabs.tabToolTip(index)
+            if self.workflow_detail_label.text() != message:
+                self.workflow_detail_label.setText(message)
+            self._workflow_prerequisite_index = target
+            button = self.workflow_prerequisite_button
+            if target is not None:
+                caption = 'Open ' + self.tabs.tabText(target).split(' ', 1)[1]
+                if button.text() != caption:
+                    button.setText(caption)
+            button.setVisible(target is not None)
+
+    def _open_workflow_prerequisite(self) -> None:
+        self.refresh_workflow_readiness()
+        target = self._workflow_prerequisite_index
+        if target is not None:
+            self.tabs.setCurrentIndex(target)
 
     def resizeEvent(self, event) -> None:  # noqa: N802 - Qt API name
         super().resizeEvent(event)

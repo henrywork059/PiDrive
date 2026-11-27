@@ -39,6 +39,11 @@ def build_stylesheet(density: str = "comfortable") -> str:
         border-top: 1px solid @COLOR_BORDER_SUBTLE@;
         padding: 3px 8px;
     }
+    QLabel#workflowReadinessLabel {
+        color: @COLOR_TEXT_PRIMARY@;
+        background: transparent;
+        font-weight: 650;
+    }
     QFrame[role='pageShell'] {
         background: @COLOR_BG_SHELL@;
         border: none;
