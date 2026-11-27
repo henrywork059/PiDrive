@@ -66,6 +66,25 @@ class ConfigRecoveryTests(unittest.TestCase):
         self.assertEqual(SettingsManager(self.path).get()["camera"]["future_key"], "keep")
         self.assertFalse(list(self.path.parent.glob("*.bak")))
 
+    def test_explicit_workspace_does_not_use_normal_settings_path(self):
+        normal_bytes = b'{"manual_drive":{"speed":0.43}}'
+        self.path.write_bytes(normal_bytes)
+        workspace = Path(self.directory.name) / "workspace"
+        config = workspace / "config"
+        config.mkdir(parents=True)
+        isolated = config / "runtime_settings.json"
+        isolated.write_text(json.dumps({"manual_drive": {"speed": 0.27}}))
+        with patch("pisd.app.RUNTIME_SETTINGS_PATH", self.path), patch.dict("os.environ", {"PISD_ACCESS_TOKEN": ""}):
+            app = create_app(hardware_enabled=False, runtime_root=workspace)
+        services = app.config["pisd_services"]
+        self.addCleanup(services["camera"].stop)
+        self.addCleanup(services["motor"].close)
+        self.addCleanup(services["ai_drive"].close)
+        self.assertAlmostEqual(services["settings"].get()["manual_drive"]["speed"], 0.27)
+        self.assertTrue(services["settings"].save({"manual_drive": {"speed": 0.31}})[0])
+        self.assertEqual(self.path.read_bytes(), normal_bytes)
+        self.assertAlmostEqual(SettingsManager(isolated).get()["manual_drive"]["speed"], 0.31)
+
     def test_visible_warning_and_stop_available(self):
         self.path.write_bytes(b"invalid-json")
         with patch("pisd.app.RUNTIME_SETTINGS_PATH", self.path), patch.dict("os.environ", {"PISD_ACCESS_TOKEN": ""}):
