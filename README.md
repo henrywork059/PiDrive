@@ -66,3 +66,7 @@ Then install the specific project requirements file.
 ## Known doc-version caveat
 
 Some `PATCH_NOTES/` files document attempted or forward patches that may not match this checkout exactly. Validate behavior against code constants and entry points before deploying.
+
+## Current integration status
+
+The completed three-component software roadmap is 56/56 and 9/9. See the [release-candidate handover](docs/roadmaps/RELEASE_CANDIDATE_HANDOVER.md) for verified versions, owner-approved web baseline, merge history and remaining physical/native acceptance gates.
