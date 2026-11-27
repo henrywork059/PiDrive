@@ -95,7 +95,9 @@
     const normalized = normalize(settings);
     const panelChanged = !equalValue(cachedPanel(STORAGE_KEY), normalized);
     const runtimeChanged = !equalValue(cachedPanel(SETTINGS_STORAGE_KEY), normalized);
-    if (panelChanged || runtimeChanged) revision += 1;
+    // Explicit save intent supersedes older reads even when the cached value
+    // is identical. The revision is in-memory only, not a storage write.
+    revision += 1;
     if (panelChanged) localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
     if (runtimeChanged) {
       const runtime = readRuntimeLocal();

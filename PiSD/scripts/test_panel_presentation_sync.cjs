@@ -172,3 +172,16 @@ test('page-specific startup cache wins over stale dedicated events and matching 
   assert.equal(JSON.parse(f.values.get(a.api.STORAGE_KEY)).theme, 'light');
   assert.equal(f.counts().requests, 4);
 });
+
+test('an explicit same-value cache save invalidates an earlier differing read', async () => {
+  const {f, a, key} = await started();
+  const load = a.api.loadFromBackend();
+  const saved = f.values.get(key);
+  const before = f.counts().writes;
+  a.api.save(a.api.read());
+  assert.equal(f.counts().writes, before);
+  f.pending.shift()({theme: 'light'});
+  await load;
+  assert.equal(a.body.dataset.pisdTheme, 'dark');
+  assert.equal(f.values.get(key), saved);
+});
