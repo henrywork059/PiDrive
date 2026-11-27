@@ -332,7 +332,10 @@ def _materialize_record_columns(batches) -> pd.DataFrame:
         count += len(batch)
     if not count:
         return pd.DataFrame()
-    # Even an all-empty dictionary batch retains its number of rows.
+    if not columns:
+        # The list-of-dicts constructor has a distinct empty-column Index
+        # on supported pandas versions. Preserve its exact legacy type.
+        return pd.DataFrame([{}] * count)
     return pd.DataFrame(columns, index=pd.RangeIndex(count))
 
 
