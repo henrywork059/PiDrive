@@ -658,7 +658,8 @@ function setBanner(id, text, tone = "muted") {
   const el = document.getElementById(id);
   if (!el) return;
   if (el.textContent !== text) el.textContent = text;
-  el.className = `banner ${tone}`;
+  const className = `banner ${tone}`;
+  if (el.className !== className) el.className = className;
 }
 
 function updateRangeText() {
@@ -1028,10 +1029,17 @@ function markStatusUnverified(error) {
     if (title) title.textContent = "E-STOP STATUS UNKNOWN";
     if (subtitle) subtitle.textContent = "Request STOP · rearm unavailable";
   }
-  for (const id of ["metricDriveState", "metricApplied", "metricWheels"]) {
+  // These fields are observations from the server, unlike the local target.
+  // Do not show old camera/model/algorithm/errors as live after a failed read.
+  for (const id of ["metricDriveState", "metricApplied", "metricWheels",
+    "metricCamera", "metricModel", "metricAlgorithm", "metricMaxThrottle",
+    "metricSteerMix", "metricSteerBias", "metricFps", "metricBackend", "metricError"]) {
     const metric = document.getElementById(id);
-    if (metric) metric.textContent = "Unverified";
+    if (metric && metric.textContent !== "Unverified") metric.textContent = "Unverified";
   }
+  const saved = document.getElementById("metricLastSave");
+  if (saved) saved.title = "Last confirmed save, not live telemetry.";
+
   const message = error?.message || "PiServer status unavailable. Check the connection.";
   setBanner("statusBanner", `${message} Live state unverified; STOP can be requested, never assumed.`, "muted");
   const banner = document.getElementById("statusBanner");
@@ -1054,7 +1062,7 @@ function updateStatusUi(data) {
 
   const setText = (id, text) => {
     const el = document.getElementById(id);
-    if (el) el.textContent = text;
+    if (el && el.textContent !== text) el.textContent = text;
   };
 
   setText("metricDriveState", driveState);
