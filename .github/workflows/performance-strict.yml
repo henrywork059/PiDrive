@@ -2,7 +2,7 @@ name: Strict Performance Update 1 qualification
 on:
   pull_request:
     branches: [main]
-    paths: ['tools/benchmark_performance_strict.py', '.github/workflows/performance-strict.yml', 'piTrainer/piTrainer/services/data/record_loader_service.py']
+    paths: ['tools/benchmark_performance_strict.py', 'tools/benchmark_trainer_cache_budget.py', '.github/workflows/performance-strict.yml', 'PiSD/pisd/services/camera_service.py', 'PiServer/piserver/services/camera_service.py', 'piTrainer/piTrainer/services/data/record_loader_service.py', 'piTrainer/piTrainer/panels/data/preview_panel.py', 'piTrainer/piTrainer/utils/image_utils.py']
 permissions:
   contents: read
 concurrency:
@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        kind: [camera, trainer]
+        kind: [camera, trainer, cache]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -27,21 +27,27 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install native Qt system libraries
-        if: ${{ matrix.kind == 'trainer' }}
+        if: ${{ matrix.kind != 'camera' }}
         run: |
           sudo apt-get update
           sudo apt-get install -y libegl1 libgl1 libxkbcommon0 libdbus-1-3 libxcb-cursor0
       - name: Install matched fixture dependencies
         run: |
           python -m pip install "numpy>=1.26,<2" "pandas>=2.2,<3" "Pillow>=10,<12" "opencv-python-headless>=4.8,<4.12" "psutil>=5.9,<8" "Flask>=3,<4" "flask-cors>=4,<5" "requests>=2.31,<3" "python-dotenv>=1,<2" "PyYAML>=6,<7"
-          if [ "${{ matrix.kind }}" = trainer ]; then
+          if [ "${{ matrix.kind }}" != camera ]; then
             python -m pip install -r piTrainer/requirements-desktop.txt
           fi
       - name: Run focused long workloads or native Qt review
+        if: ${{ matrix.kind != 'cache' }}
         env:
           CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           python tools/benchmark_performance_strict.py --kind "${{ matrix.kind }}" --base 14c57c990ff0f9bae2003e4e8aa552d17a4227c7 --prior 4ee5e3022e0cbd4031d26fd99edf306d147a9441 --candidate "$CANDIDATE_SHA" --rounds 5 --duration 8 --rows 30000 --output "$RUNNER_TEMP/strict-${{ matrix.kind }}/results.json"
+      - name: Compare cache budgets in separate native Qt workers
+        if: ${{ matrix.kind == 'cache' }}
+        env:
+          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
+        run: python tools/benchmark_trainer_cache_budget.py --revision "$CANDIDATE_SHA" --rounds 5 --rows 30000 --output "$RUNNER_TEMP/strict-cache/results.json"
       - name: Preserve completed evidence
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4

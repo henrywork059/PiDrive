@@ -70,7 +70,7 @@ def attach_attribution(component):
     return totals
 
 
-def trainer_workload(count):
+def trainer_workload(count, cache_budget_mib=None):
     import numpy as np
     import pandas as pd
     import psutil
@@ -83,7 +83,19 @@ def trainer_workload(count):
     from piTrainer.panels.data.data_plot_panel import DataPlotPanel
     from piTrainer.panels.data.image_preview_panel import ImagePreviewPanel
     from piTrainer.utils.image_utils import clear_scaled_pixmap_cache, scaled_pixmap_cache_stats
+    from piTrainer.utils import image_utils
     import PySide6
+    # Experiment only: mutate the isolated worker's cache limit, never
+    # production source/configuration. Normal strict review remains unchanged.
+    if cache_budget_mib is not None:
+        image_utils._MAX_CACHE_BYTES = cache_budget_mib * 1024 * 1024
+    original_pixmap = image_utils.QPixmap
+    decodes = [0]
+    if cache_budget_mib is not None:
+        def counted_pixmap(*args, **kwargs):
+            decodes[0] += 1
+            return original_pixmap(*args, **kwargs)
+        image_utils.QPixmap = counted_pixmap
     proc = psutil.Process()
     app = QApplication.instance() or QApplication([])
     memory = {}
@@ -167,6 +179,24 @@ def trainer_workload(count):
             digests.append((record["session"],record["frame_id"],float(record["steering"]),float(record["throttle"])))
             samples.append((time.perf_counter()-start)*1000)
         mark("navigation", started)
+        cold_decodes = decodes[0]
+        repeat_samples = []
+        repeat_decodes = 0
+        if cache_budget_mib is not None:
+            # Keep the established review path and add a deterministic revisit
+            # loop (recent and distant) for the budget experiment. Compare
+            # responsiveness and actual source decodes, not only retained bytes.
+            before_repeat = decodes[0]
+            for j in range(24):
+                tick = time.perf_counter()
+                assert table.select_adjacent_record(-1 if j < 12 else 1)
+                render_selected()
+                record = table.selected_record()
+                assert table.record_identity(record) == table.record_identity(image.current_record)
+                digests.append(("revisit", record["session"], record["frame_id"]))
+                repeat_samples.append((time.perf_counter()-tick)*1000)
+            repeat_decodes = decodes[0] - before_repeat
+            memory["after_revisits"] = proc.memory_info().rss
         # Filter/rebuild/sort as on the Data workspace, with all original rows
         # and metadata retained in memory. Validate selected identity after sort.
         rebuild = []
@@ -192,8 +222,13 @@ def trainer_workload(count):
                 "rebuild_p95_ms":percentile(rebuild),"rebuild_ms":rebuild,
                 "cache":cache,"semantic_sha256":hashlib.sha256(json.dumps(digests,sort_keys=True).encode()).hexdigest(),
                 "versions":{"pandas":pd.__version__,"numpy":np.__version__,"qt":PySide6.__version__}}
+        if cache_budget_mib is not None:
+            result.update({"cache_budget_mib":cache_budget_mib, "cold_decodes":cold_decodes,
+                           "repeat_decodes":repeat_decodes, "repeat_action_p95_ms":percentile(repeat_samples),
+                           "repeat_action_ms":repeat_samples, "total_decodes":decodes[0]})
         table.close();image.close();plot.close()
         clear_scaled_pixmap_cache()
+        image_utils.QPixmap = original_pixmap
         return result
 
 
@@ -203,7 +238,7 @@ def worker(args):
     sys.path.insert(0,str(checkout/args.component))
     with contextlib.redirect_stdout(sys.stderr):
         if args.component=="piTrainer":
-            result=trainer_workload(args.rows)
+            result=trainer_workload(args.rows, args.cache_budget_mib)
         else:
             import cv2
             cv2.setNumThreads(1)
@@ -222,6 +257,7 @@ def main():
     p.add_argument("--rows",type=int,default=30000);p.add_argument("--output",type=Path)
     p.add_argument("--worker",action="store_true");p.add_argument("--checkout");p.add_argument("--revision")
     p.add_argument("--component");p.add_argument("--case");p.add_argument("--attribute",action="store_true")
+    p.add_argument("--cache-budget-mib",type=int,choices=(8,16,32,64))
     args=p.parse_args()
     if args.worker:
         worker(args);return
