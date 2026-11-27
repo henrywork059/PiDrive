@@ -79,3 +79,5 @@ Stacked on exact qualified integration parent a4b9496b9c5d302b9a574e7e69984d8686
 | SF-07 | Deterministic request counts recorded; matched real-browser CPU/RSS/latency and frame freshness measurements pending. |
 
 Local Chromium is restricted by managed URL policy, including loopback. Do not claim local live-browser reproduction, physical safety, Windows qualification or completion. Independently inspect final remote CI before acceptance. Existing UI baseline and safety contracts unchanged.
+
+First live browser run 46040042057 passed 13/13 emulator service tests but failed opening a second page in the single-page Playwright convenience context. Correct the test to use an explicit shared context; no production code change and no gate relaxation. Local two manual-lease safety cases passed against exact GitHub blobs. Replacement live qualification remains open.

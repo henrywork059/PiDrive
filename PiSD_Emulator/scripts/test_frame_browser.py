@@ -70,7 +70,7 @@ class FrameTest(unittest.TestCase):
             with sync_playwright() as pw:
                 browser = pw.chromium.launch()
                 try:
-                    page = browser.new_page(viewport={"width": 1600, "height": 1000})
+                    page = browser.new_context(viewport={"width": 1600, "height": 1000}).new_page()
                     page.goto(control)
                     page.locator("#pisdPort").fill(str(pisd_port))
                     page.locator("#startButton").click()
