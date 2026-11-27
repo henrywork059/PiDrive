@@ -671,3 +671,8 @@ Local-only mode remains the default (`python3 PiSD.py`); no token is required on
 ### Runtime configuration recovery (0.11.26)
 
 Malformed `config/runtime_settings.json` is preserved byte-for-byte as a sibling `runtime_settings.json.corrupt-<digest>.bak` before replacement. The original stays in place until a successful settings save. Startup falls back to defaults only when the settings cannot be loaded; a later failed load retains the previous in-memory settings. Inspect the Settings recovery warning and local server log, then review the backup before restoring or explicitly saving new values. If the original cannot be read or a recovery copy cannot be verified, saving fails without replacing the original. Do not commit recovery files or delete them until recovery is confirmed. No migration of existing valid configuration is introduced.
+
+
+## Unified 1.0.0 release candidate (2026-11-28)
+
+Owner authorized PiSD, PiServer and piTrainer to use version `1.0.0`, followed by `1.0.x` forward bug-fix patches after acceptance. New minor and major families require explicit approval. Until the candidate is qualified and promoted, the last accepted rollback baselines remain in force. No physical P0 test, stable publication, or deployment is implied by the candidate version marker. Historical components and previous notes remain unchanged. See `docs/roadmaps/RELEASE_1_0_0.md` in the monorepo.

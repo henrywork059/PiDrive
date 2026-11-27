@@ -357,3 +357,8 @@ The existing `GET /api/status` includes an additive `safety` object (schema vers
 ## Runtime configuration recovery (0_4_30)
 
 Malformed `config/runtime.json` is copied byte-for-byte into a private sibling `runtime.json.corrupt-<digest>.bak`; the original is not replaced until a successful save. Startup with an unreadable configuration uses defaults; a failed reload of a running service retains its effective settings and refuses to reapply defaults. The Status dock displays a recovery warning, with full local paths in the server log. Save refuses to replace unreadable data or malformed data without a verified backup. Review the recovery file before relying on fallback settings. Valid unknown keys are retained when saving runtime snapshots. Do not commit recovery files or remove them before recovery is confirmed.
+
+
+## Unified 1.0.0 release candidate (2026-11-28)
+
+Owner authorized PiSD, PiServer and piTrainer to use version `1.0.0`, followed by `1.0.x` forward bug-fix patches after acceptance. New minor and major families require explicit approval. Until the candidate is qualified and promoted, the last accepted rollback baselines remain in force. No physical P0 test, stable publication, or deployment is implied by the candidate version marker. Historical components and previous notes remain unchanged. See `docs/roadmaps/RELEASE_1_0_0.md` in the monorepo.
