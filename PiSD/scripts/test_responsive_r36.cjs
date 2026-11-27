@@ -84,4 +84,11 @@ test('recording gate rejects duplicate commands and stale or out-of-order reads'
   assert.equal(gate.accept(newer),false);
   assert.equal(gate.accept(gate.read()),true);
 });
-console.log(n+'/17 PiSD R36 responsive checks passed');
+test('touch recording and Apply/Close targets retain 44px hit area',()=>{
+  const rule=css.match(/:is\(#mdrvCaptureFrame, #mdrvRecordToggle, #aiSaveSnapshot, #aiRecordToggle,[\s\S]*?#aiWorkflowSettingsClose\)\s*\{([^}]+)\}/);
+  assert.ok(rule);
+  assert.match(rule[1],/min-height:\s*44px !important/);
+  assert.match(rule[1],/min-width:\s*44px !important/);
+  assert.match(rule[1],/transform:\s*none !important/);
+});
+console.log(n+'/18 PiSD R36 responsive checks passed');

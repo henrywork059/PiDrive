@@ -22,6 +22,40 @@ def reachable(locator, width, height, label):
     return {key: round(value, 1) for key, value in box.items()}
 
 
+def touch_targets(page, selectors, width, height, component):
+    """Check actual dimensions at saved-style scale extremes, without activation."""
+    rows = page.evaluate("""({selectors, component}) => {
+      const root = document.documentElement;
+      const keys = component === 'PiSD' ? ['--pisd-ui-button-scale'] : ['--font-scale','--font-scale-factor'];
+      const old = keys.map(key => [root.style.getPropertyValue(key), root.style.getPropertyPriority(key)]);
+      const scales = component === 'PiSD' ? [['0.70'],['0.92'],['1'],['1.25']] :
+        [['70%','0.7'],['80%','0.8'],['100%','1'],['115%','1.15']];
+      try {
+        return scales.map(scale => {
+          keys.forEach((key,i) => root.style.setProperty(key,scale[i]));
+          return {scale:scale[0], targets:selectors.map(selector => {
+            const el = document.querySelector(selector);
+            if (!el || !el.getClientRects().length) throw Error('Missing target '+selector);
+            const rect = el.getBoundingClientRect();
+            return {selector,width:rect.width,height:rect.height};
+          })};
+        });
+      } finally {
+        keys.forEach((key,i) => old[i][0] ? root.style.setProperty(key,...old[i]) : root.style.removeProperty(key));
+      }
+    }""", {'selectors': selectors, 'component': component})
+    assert all(target['width'] >= 44 and target['height'] >= 44
+               for row in rows for target in row['targets']), rows
+    for selector in selectors:
+        locator = page.locator(selector)
+        expect(locator).to_be_enabled()
+        box = reachable(locator, width, height, selector)
+        assert box['width'] >= 44 and box['height'] >= 44, (selector, box)
+        # Trial action performs hit-testing and stability checks, not a click.
+        locator.click(trial=True)
+    return rows
+
+
 def square(locator):
     locator.page.wait_for_function('(el) => { const r=el.getBoundingClientRect(); return r.width >= 100 && Math.abs(r.width-r.height) <= 2; }', arg=locator.element_handle())
     box = locator.bounding_box()
@@ -233,6 +267,9 @@ def main():
                         case['primary'] = reachable(page.locator(primary), width, height, 'Primary')
                         if preview:
                             case['preview'] = reachable(page.locator(preview), width, height, 'Preview')
+                        if args.component == 'PiSD' and width <= 900 and page_name in ('manual', 'ai'):
+                            ids = ['#mdrvCaptureFrame', '#mdrvRecordToggle'] if page_name == 'manual' else ['#aiSaveSnapshot', '#aiRecordToggle']
+                            case['recording_touch_targets'] = touch_targets(page, ids, width, height, args.component)
                         if opener:
                             control = page.locator(opener)
                             if width <= 900:
@@ -242,6 +279,13 @@ def main():
                             save = {'dashboard': '#saveStyleSettingsBtn', 'manual': '#mdrvOverlaySettingsApply',
                                     'ai': '#aiWorkflowSettingsApply'}[page_name]
                             case['dialog_save'] = reachable(page.locator(save), width, height, 'Dialog Save/Apply')
+                            if width <= (900 if args.component == 'PiSD' else 1080):
+                                ids = {'dashboard': ['#saveStyleSettingsBtn', '#resetStyleSettingsBtn', '#closeStyleSettingsBtn'],
+                                       'manual': ['#mdrvOverlaySettingsApply', '#mdrvOverlaySettingsClose'],
+                                       'ai': ['#aiWorkflowSettingsApply', '#aiWorkflowSettingsClose']}[page_name]
+                                case['dialog_touch_targets'] = touch_targets(page, ids, width, height, args.component)
+                                # Restore screenshot framing to the primary action after Close hit-testing.
+                                reachable(page.locator(save), width, height, 'Dialog Save/Apply')
                             page.screenshot(path=str(args.output / f'{page_name}-{width}x{height}-dialog.png'))
                             if page_name == 'manual':
                                 length = page.locator('#mdrvOverlayLengthScale')

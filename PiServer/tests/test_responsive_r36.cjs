@@ -39,4 +39,11 @@ test('extracted operator format preserves display contract and script order',()=
   assert.equal(m.formatDateTime('2026-01-01T00:00:00Z'),new Date('2026-01-01T00:00:00Z').toLocaleString());
   assert.ok(html.indexOf("filename='operator_format.js'")<html.indexOf("filename='app.js'"));
 });
-console.log(n+'/14 PiServer R36 responsive checks passed');
+test('style dialog actions retain touch target size in stacked mode',()=>{
+  const rule=css.match(/:is\(#saveStyleSettingsBtn, #resetStyleSettingsBtn, #closeStyleSettingsBtn\)\s*\{([^}]+)\}/);
+  assert.ok(rule);
+  assert.match(rule[1],/min-height:\s*44px !important/);
+  assert.match(rule[1],/min-width:\s*44px !important/);
+  assert.match(rule[1],/transform:\s*none !important/);
+});
+console.log(n+'/15 PiServer R36 responsive checks passed');

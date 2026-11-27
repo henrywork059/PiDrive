@@ -3746,3 +3746,15 @@ button.active,
     transform: none !important;
   }
 }
+
+/* R35: keep style dialog actions reachable in stacked/touch workspaces.
+   The existing body scroll chain and layout persistence are unchanged. */
+@media (max-width: 1080px) {
+  :is(#saveStyleSettingsBtn, #resetStyleSettingsBtn, #closeStyleSettingsBtn) {
+    min-height: 44px !important;
+    min-width: 44px !important;
+    height: auto !important;
+    transform: none !important;
+    white-space: normal !important;
+  }
+}
