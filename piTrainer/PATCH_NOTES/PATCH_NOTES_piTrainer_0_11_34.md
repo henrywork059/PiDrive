@@ -1,6 +1,6 @@
 # piTrainer 0.11.34 — Performance Update 2.2 bounded JSONL ingestion (provisional)
 
-Package baseline: 04c62e457060270a6f3398a703de0b9b393162fa
+Package baseline: 7fa1807bccb4140ad8ba8ed904e5d912f379cf44
 Original performance comparison baseline: 14c57c990ff0f9bae2003e4e8aa552d17a4227c7
 
 ## Request, cause, and forward baseline
