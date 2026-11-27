@@ -37,3 +37,25 @@ test("status action labels and version retain hardware semantics",()=>{
  assert.match(html,/id="motorApplyBtn"/);
  const m=server.match(/APP_VERSION\s*=\s*"0_4_(\d+)"/);assert.ok(m&&Number(m[1])>=25);
 });
+
+test("UI2 offline status invalidates server observations without mutating local target or STOP authority",()=>{
+ const start=app.indexOf("function markStatusUnverified(error) {"), end=app.indexOf("\nfunction updateStatusUi(data)",start);
+ assert.ok(start>=0&&end>start);
+ const ids=["metricDriveState","metricApplied","metricWheels","metricCamera","metricModel","metricAlgorithm","metricMaxThrottle","metricSteerMix","metricSteerBias","metricFps","metricBackend","metricError","metricManual","metricLastSave"];
+ const nodes=Object.fromEntries(ids.map(id=>[id,{textContent:"last value",title:""}]));
+ let banner="";
+ const ctx=vm.createContext({state:{statusVerified:true},document:{getElementById:id=>nodes[id],querySelector:()=>null},setBanner:(_id,value)=>{banner=value;}});
+ vm.runInContext(app.slice(start,end),ctx);
+ ctx.markStatusUnverified(new Error("Disconnected"));
+ assert.equal(ctx.state.statusVerified,false);
+ for(const id of ids.slice(0,-2))assert.equal(nodes[id].textContent,"Unverified",id);
+ assert.equal(nodes.metricManual.textContent,"last value");
+ assert.equal(nodes.metricLastSave.textContent,"last value");
+ assert.match(nodes.metricLastSave.title,/Last confirmed/);
+ assert.match(banner,/STOP can be requested/);
+});
+test("UI2 initial dashboard does not imply verified motor status",()=>{
+ assert.match(html,/id="metricDriveState">Unverified/);
+ assert.match(html,/id="estopToggle"[^>]*aria-pressed="mixed"/);
+ assert.match(html,/E-STOP STATUS UNKNOWN/);
+});

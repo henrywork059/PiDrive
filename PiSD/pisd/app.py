@@ -746,6 +746,8 @@ def create_app(
     def api_ai_status():
         return jsonify(ok_payload(
             "AI mode status loaded.",
+            runtime_mode=app.config["pisd_runtime_mode"],
+            hardware_requested=bool(hardware_enabled),
             ai=ai_drive_service.status(),
             safety=ai_drive_service.safety_status(),
             motor=motor_service.status(),

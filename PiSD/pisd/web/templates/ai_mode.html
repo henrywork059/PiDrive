@@ -44,7 +44,7 @@
           <span class="mdrv-code" data-code-for="ai">PISD-OK-000</span>
         </div>
       </div>
-      <p class="ai-summary">Load a model, start live, then preview or drive.</p>
+      <p class="ai-summary">Runtime: <strong id="aiRuntimeMode" class="pisd-runtime-status" data-tone="warning">Checking</strong> · Load a model, start live, then preview or drive.</p>
       <section class="pisd-readiness-strip" id="aiReadinessStrip" aria-label="Operating-mode readiness" role="status" aria-live="polite">
         <div class="pisd-readiness-item"><span>Camera</span><strong id="aiReadyCamera" data-tone="warning">Checking</strong></div>
         <div class="pisd-readiness-item"><span>Model</span><strong id="aiReadyModel" data-tone="warning">Checking</strong></div>
@@ -52,6 +52,13 @@
         <div class="pisd-readiness-item"><span>Motor authorization</span><strong id="aiReadyMotor" data-tone="warning">Unconfirmed</strong></div>
         <div class="pisd-readiness-reason"><span>Stop / next step</span><strong id="aiReadyReason" data-tone="warning">Checking backend status.</strong></div>
       </section>
+      <nav class="pisd-task-jumps" aria-label="Workflow shortcuts">
+        <a href="#aiRefreshModels">Model</a>
+        <a href="#aiLive">Camera</a>
+        <a href="#aiRecordToggle">Recording</a>
+        <a href="#aiWorkflowSettingsOpen">Rate settings</a>
+        <a href="#aiRefreshFiles">Recordings library</a>
+      </nav>
       <div id="aiWorkflowSettingsPopup" class="mdrv-overlay-settings-popup ai-settings-popup" role="dialog" aria-modal="true" aria-labelledby="aiWorkflowSettingsTitle" hidden>
         <div class="mdrv-overlay-settings-card ai-settings-card" role="document">
           <div class="mdrv-overlay-settings-head">

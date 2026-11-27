@@ -23,7 +23,7 @@
     </nav>
 
     <div class="toolbar-actions">
-      <div id="maintenanceBadge" class="badge off">run</div>
+      <div id="maintenanceBadge" class="badge unknown">checking</div>
       <span id="layoutPreviewMessage" role="status" class="small-note">Layout controls affect this browser only.</span>
       <button class="ghost-btn" id="previewLayoutBtn" aria-describedby="layoutPreviewMessage" type="button" data-action-role="layout">Preview layout</button>
       <button class="ghost-btn" id="cancelLayoutPreviewBtn" aria-describedby="layoutPreviewMessage" type="button" hidden data-action-role="layout">Cancel preview</button>
@@ -39,35 +39,45 @@
       <article class="dock-panel" data-panel="status">
         <div class="panel-head">
           <span>Status</span>
-          <span class="panel-mini">live</span>
+          <span class="panel-mini">checking</span>
         </div>
         <div class="panel-body status-body" data-essentials-only="true">
           <label class="small-note status-density-control"><input type="checkbox" id="essentialsOnly" checked aria-controls="operatorMetrics" aria-describedby="telemetryHint"> Essentials only (keep controls)</label>
           <span class="small-note" id="telemetryHint">Uncheck for more telemetry.</span>
           <div id="operatorMetrics" class="metric-grid status-metric-grid">
-            <div class="metric-card metric-card-primary priority-high"><label>Drive</label><strong id="metricDriveState">ready</strong></div>
-            <div class="metric-card metric-card-primary priority-high"><label>Output</label><strong id="metricApplied">S 0.00 · T 0.00</strong></div>
+            <div class="metric-card metric-card-primary priority-high"><label>Drive</label><strong id="metricDriveState">Unverified</strong></div>
+            <div class="metric-card metric-card-primary priority-high"><label>Output</label><strong id="metricApplied">Unverified</strong></div>
             <div class="metric-card metric-card-primary priority-medium"><label>Target</label><strong id="metricManual">S 0.00 · T 0.00</strong></div>
-            <div class="metric-card metric-card-primary priority-high"><label>Last save</label><strong id="metricLastSave">none</strong></div>
+            <div class="metric-card metric-card-primary priority-high"><label>Last save</label><strong id="metricLastSave">Unverified</strong></div>
             <div class="metric-card metric-card-primary priority-high"><label>Preview</label><strong id="metricPreview">placeholder</strong></div>
-            <div class="metric-card metric-card-alert priority-high"><label>Error</label><strong id="metricError">none</strong></div>
-            <div class="metric-card metric-card-primary priority-medium"><label>Camera</label><strong id="metricCamera">unknown</strong></div>
+            <div class="metric-card metric-card-alert priority-high"><label>Error</label><strong id="metricError">Unverified</strong></div>
+            <div class="metric-card metric-card-primary priority-medium"><label>Camera</label><strong id="metricCamera">Unverified</strong></div>
             <button id="overlayToggleBtn" class="metric-card metric-card-primary metric-card-action overlay-toggle off priority-medium" type="button" aria-pressed="false" aria-label="Overlay" aria-describedby="overlayModeValue overlayModeHelp">
               <span class="metric-card-action-label">Overlay</span>
               <strong id="overlayModeValue" class="metric-card-action-value">OFF</strong>
               <span id="overlayModeHelp" class="metric-card-action-note">Cycle view</span>
             </button>
-            <div class="metric-card priority-medium"><label>Model</label><strong id="metricModel">none</strong></div>
-            <div class="metric-card priority-medium"><label>Algo</label><strong id="metricAlgorithm">manual</strong></div>
-            <div class="metric-card priority-medium"><label>Max</label><strong id="metricMaxThrottle">0.55</strong></div>
-            <div class="metric-card priority-medium"><label>Mix</label><strong id="metricSteerMix">0.50</strong></div>
-            <div class="metric-card priority-medium"><label>Bias</label><strong id="metricSteerBias">0.00</strong></div>
-            <div class="metric-card priority-low"><label>Wheels</label><strong id="metricWheels">0.00 / 0.00</strong></div>
-            <div class="metric-card priority-low"><label>FPS</label><strong id="metricFps">0.0 FPS</strong></div>
-            <div class="metric-card priority-low"><label>Backend</label><strong id="metricBackend">unknown</strong></div>
+            <div class="metric-card priority-medium"><label>Model</label><strong id="metricModel">Unverified</strong></div>
+            <div class="metric-card priority-medium"><label>Algo</label><strong id="metricAlgorithm">Unverified</strong></div>
+            <div class="metric-card priority-medium"><label>Max</label><strong id="metricMaxThrottle">Unverified</strong></div>
+            <div class="metric-card priority-medium"><label>Mix</label><strong id="metricSteerMix">Unverified</strong></div>
+            <div class="metric-card priority-medium"><label>Bias</label><strong id="metricSteerBias">Unverified</strong></div>
+            <div class="metric-card priority-low"><label>Wheels</label><strong id="metricWheels">Unverified</strong></div>
+            <div class="metric-card priority-low"><label>FPS</label><strong id="metricFps">Unverified</strong></div>
+            <div class="metric-card priority-low"><label>Backend</label><strong id="metricBackend">Unverified</strong></div>
           </div>
 
-          <div id="statusBanner" class="banner muted" role="status" aria-live="polite">Ready.</div>
+          <div id="statusBanner" class="banner muted" role="status" aria-live="polite">Checking server status…</div>
+          <nav class="ps-task-jumps" aria-label="Workflow shortcuts">
+            <a href="#jump-viewer">Preview</a>
+            <a href="#jump-runtime" data-jump-pages="manual auto">Runtime</a>
+            <a href="#jump-manual" data-jump-pages="manual training">Drive controls</a>
+            <a href="#jump-record" data-jump-pages="manual training auto">Recording</a>
+            <a href="#jump-model" data-jump-pages="training auto">Model</a>
+            <a href="#jump-sessions" data-jump-pages="training">Sessions</a>
+            <a href="#jump-camera" data-jump-pages="camera">Camera settings</a>
+            <a href="#jump-motor" data-jump-pages="motor">Motor settings</a>
+          </nav>
           <div id="configRecoveryBanner" class="banner muted" role="alert" hidden></div>
           <details data-preflight-root aria-label="Read-only startup preflight">
                       <summary>Startup preflight (read-only)</summary>
@@ -96,16 +106,16 @@
           <span class="panel-mini">safety</span>
         </div>
         <div class="panel-body estop-body">
-          <button id="estopToggle" class="estop-toggle off" type="button" aria-pressed="false">
-            <span class="estop-toggle-title">E-STOP OFF</span>
-            <span class="estop-toggle-subtitle">Tap to engage emergency stop</span>
+          <button id="estopToggle" class="estop-toggle off" type="button" data-status="unknown" aria-pressed="mixed">
+            <span class="estop-toggle-title">E-STOP STATUS UNKNOWN</span>
+            <span class="estop-toggle-subtitle">Request STOP · rearm unavailable</span>
           </button>
         </div>
         <div class="resize-handle"></div>
       </article>
 
       <article class="dock-panel" data-panel="viewer">
-        <div class="panel-head">
+        <div class="panel-head" id="jump-viewer" tabindex="-1" data-drive-keys-ignore>
           <span>Preview</span>
           <span class="panel-mini">view</span>
         </div>
@@ -155,7 +165,7 @@
       </article>
 
       <article class="dock-panel" data-panel="runtime">
-        <div class="panel-head">
+        <div class="panel-head" id="jump-runtime" tabindex="-1" data-drive-keys-ignore>
           <span>Tuning</span>
           <span class="panel-mini">saved</span>
         </div>
@@ -190,7 +200,7 @@
       </article>
 
       <article class="dock-panel" data-panel="model">
-        <div class="panel-head">
+        <div class="panel-head" id="jump-model" tabindex="-1" data-drive-keys-ignore>
           <span>Models</span>
           <span class="panel-mini">TFLite</span>
         </div>
@@ -223,7 +233,7 @@
       </article>
 
       <article class="dock-panel" data-panel="manual">
-        <div class="panel-head">
+        <div class="panel-head" id="jump-manual" tabindex="-1" data-drive-keys-ignore>
           <span>Drive</span>
           <span class="panel-mini">smooth</span>
         </div>
@@ -268,7 +278,7 @@
       </article>
 
       <article class="dock-panel" data-panel="record">
-        <div class="panel-head">
+        <div class="panel-head" id="jump-record" tabindex="-1" data-drive-keys-ignore>
           <span>Record</span>
           <span class="panel-mini">capture</span>
         </div>
@@ -297,7 +307,7 @@
       </article>
 
       <article class="dock-panel" data-panel="sessions">
-        <div class="panel-head">
+        <div class="panel-head" id="jump-sessions" tabindex="-1" data-drive-keys-ignore>
           <span>Export</span>
           <span class="panel-mini">export</span>
         </div>
@@ -327,7 +337,7 @@
       </article>
 
       <article class="dock-panel" data-panel="camera">
-        <div class="panel-head">
+        <div class="panel-head" id="jump-camera" tabindex="-1" data-drive-keys-ignore>
           <span>Camera</span>
           <span class="panel-mini">apply</span>
         </div>
@@ -453,7 +463,7 @@
       </article>
 
       <article class="dock-panel" data-panel="motor">
-        <div class="panel-head">
+        <div class="panel-head" id="jump-motor" tabindex="-1" data-drive-keys-ignore>
           <span>Motor</span>
           <span class="panel-mini">setup</span>
         </div>

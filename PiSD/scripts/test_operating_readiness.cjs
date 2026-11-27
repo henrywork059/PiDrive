@@ -43,4 +43,8 @@ test('manual output fault visible', () => {const s=make();s.motor.last_intended_
 test('idle selected panel is not conflated with active correction', () => assert.equal(projectReadiness(make(),{selectedPanel:'correction'}).source.text,'Idle · Correction selected'));
 test('reason trims long backend error', () => {const s=make();s.safety.latched=true;s.safety.reason='x'.repeat(600);assert.equal(projectReadiness(s).reason.text.length,170);});
 test('explicit stale camera warning for AI drive', () => {const s=make();Object.assign(s.ai_mode,{running:true,mode:'drive',drive_output_enabled:true,camera_frame_stale:true});assert.equal(projectReadiness(s).reason.text.includes('stale'),true);});
-console.log(count + '/32 readiness tests passed');
+test('emulator is explicitly virtual and cannot imply GPIO', () => {const s=make();s.runtime_mode='emulator';Object.assign(s.motor,{hardware_enabled:false,adapter:'emulator'});const v=projectReadiness(s);assert.equal(v.runtime.text,'Emulator');assert.equal(v.motor.text,'Emulator · virtual output');});
+test('hardware request with unavailable adapter displays fallback', () => {const s=make();s.hardware_requested=true;Object.assign(s.motor,{hardware_enabled:false,adapter:'simulation'});const v=projectReadiness(s);assert.equal(v.runtime.text,'Hardware fallback');assert.equal(v.motor.text,'Fallback · no physical output');});
+test('missing adapter verification and offline cannot imply a runtime', () => {assert.equal(projectReadiness({motor:{}}).runtime.text,'Unconfirmed');assert.equal(projectReadiness(make(),{offline:true}).runtime.text,'Unconfirmed');});
+test('conflicting emulator and physical adapter fails closed for the label', () => {const s=make();s.runtime_mode='emulator';assert.equal(projectReadiness(s).runtime.text,'Unconfirmed');});
+console.log(count + ' readiness tests passed');

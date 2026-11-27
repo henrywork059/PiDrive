@@ -10,6 +10,21 @@
   const limit = value => clean(value).slice(0, 170);
   const indicator = (text, tone = 'neutral') => ({ text, tone });
 
+  // Display-only projection of the actual motor adapter, not requested mode alone.
+  function projectRuntime(status) {
+    const motor = status.motor || {};
+    if (status.runtime_mode === 'emulator' || motor.adapter === 'emulator') {
+      return motor.hardware_enabled === false && motor.adapter === 'emulator'
+        ? indicator('Emulator', 'warning') : indicator('Unconfirmed', 'danger');
+    }
+    if (motor.hardware_enabled === true) return indicator('Hardware adapter', 'neutral');
+    if (motor.hardware_enabled !== false) return indicator('Unconfirmed', 'warning');
+    if (status.runtime_mode === 'hardware' || status.hardware_requested === true || motor.requested_hardware === true) {
+      return indicator('Hardware fallback', 'warning');
+    }
+    return indicator('Simulation', 'warning');
+  }
+
   function projectReadiness(status, options = {}) {
     const screen = options.screen === 'manual' ? 'manual' : 'ai';
     const confirmed = options.confirmed === true;
@@ -17,6 +32,7 @@
       ? options.selectedPanel : 'limiter';
     if (!status || typeof status !== 'object' || options.offline === true || status.ok === false) {
       return {
+        runtime: indicator('Unconfirmed', 'warning'),
         camera: indicator('Unknown', 'warning'),
         model: indicator('Unknown', 'warning'),
         source: indicator('Unconfirmed', 'warning'),
@@ -26,6 +42,7 @@
       };
     }
 
+    const runtime = projectRuntime(status);
     const camera = status.camera || {};
     const ai = status.ai_mode || status.ai || {};
     const motor = status.motor || {};
@@ -83,8 +100,13 @@
     let motorView;
     if (fault) {
       motorView = indicator('Blocked · safety latch', 'danger');
+    } else if (runtime.text === 'Unconfirmed') {
+      motorView = indicator('Unconfirmed adapter', 'warning');
     } else if (motor.hardware_enabled !== true) {
-      motorView = indicator('Simulation · no physical output', 'warning');
+      motorView = runtime.text === 'Emulator' ? indicator('Emulator · virtual output', 'warning')
+        : runtime.text === 'Hardware fallback' ? indicator('Fallback · no physical output', 'warning')
+        : runtime.text === 'Simulation' ? indicator('Simulation · no physical output', 'warning')
+        : indicator('Unconfirmed adapter', 'warning');
     } else if (aiDrive) {
       motorView = indicator('AI drive authorized', 'good');
     } else if (!confirmed) {
@@ -105,7 +127,10 @@
     } else if (screen === 'ai' && ai.model_ready !== true) {
       reason = indicator('Load a compatible AI model to drive.', 'warning');
     } else if (motor.hardware_enabled !== true) {
-      reason = indicator('Simulation mode; no physical motor output.', 'warning');
+      reason = runtime.text === 'Emulator' ? indicator('Virtual motor output only; no physical GPIO.', 'warning')
+        : runtime.text === 'Hardware fallback' ? indicator('Hardware requested; physical motor adapter unavailable.', 'warning')
+        : runtime.text === 'Simulation' ? indicator('Simulation mode; no physical motor output.', 'warning')
+        : indicator('Motor adapter cannot be confirmed.', 'warning');
     } else if (!confirmed && !aiDrive) {
       reason = indicator('Check the single motor safety confirmation before driving.', 'warning');
     } else if (aiPreview && screen === 'ai' && selectedPanel !== 'manual' && selectedPanel !== 'assist') {
@@ -120,7 +145,7 @@
       reason = indicator('No active stop reported.', 'good');
     }
 
-    return { camera: cameraView, model: modelView, source: sourceView,
+    return { runtime, camera: cameraView, model: modelView, source: sourceView,
       motor: motorView, reason, isVerified: true };
   }
 

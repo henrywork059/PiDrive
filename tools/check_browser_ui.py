@@ -11,6 +11,7 @@ import re
 import sys
 import tempfile
 import traceback
+import time
 from contextlib import ExitStack
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -388,6 +389,32 @@ def main():
                         for label, selector in (("stop", stop), ("primary", primary), ("preview", preview)):
                             if selector:
                                 case["geometry"][label] = check_geometry(page.locator(selector).first, width, height, label)
+                        # Navigate actual compact-view shortcuts without actuating anything.
+                        if name in ("manual", "ai", "dashboard"):
+                            shortcuts = page.locator(".pisd-task-jumps a, .ps-task-jumps a")
+                            if width <= 1024:
+                                visible = page.locator(".pisd-task-jumps a:visible, .ps-task-jumps a:visible")
+                                assert visible.count() > 0, "Compact task navigation missing"
+                                jumps = []
+                                for link in visible.all():
+                                    href = link.get_attribute("href")
+                                    target = page.locator(href)
+                                    expect(target).to_have_count(1)
+                                    expect(target).to_be_visible()
+                                    before = list(mutations)
+                                    start = time.perf_counter()
+                                    link.click()
+                                    expect(page).to_have_url(re.compile(re.escape(href) + "$"))
+                                    bounds = target.bounding_box()
+                                    assert bounds and bounds["y"] < height and bounds["y"] + bounds["height"] > 0
+                                    assert mutations == before, "Navigation invoked a mutation"
+                                    jumps.append({"target": href, "interactions": 1,
+                                                  "elapsed_ms": round((time.perf_counter() - start) * 1000, 2),
+                                                  "geometry": bounds})
+                                case["workflow_shortcuts"] = jumps
+                                page.evaluate("window.scrollTo(0, 0)")
+                            else:
+                                assert page.locator(".pisd-task-jumps a:visible, .ps-task-jumps a:visible").count() == 0, "Desktop dock changed"
                         # Empty libraries are genuine fixture GET results, not hard-coded HTML.
                         if name in ("manual", "ai"):
                             prefix = "mdrv" if name == "manual" else "ai"
@@ -576,6 +603,8 @@ def main():
                             expect(page.locator("#estopToggle")).to_have_attribute("aria-pressed", "mixed")
                             expect(page.locator("#statusBanner")).to_contain_text("unverified")
                             assert page.locator("#statusBanner").get_attribute("role") == "status"
+                            for metric_id in ("metricModel", "metricCamera", "metricError", "metricBackend", "metricAlgorithm"):
+                                expect(page.locator("#" + metric_id)).to_have_text("Unverified")
                             # Clicking emergency STOP while status is unknown must
                             # never submit rearm {enabled:false}, even if a previous
                             # status sample had indicated an engaged E-STOP.
@@ -596,6 +625,8 @@ def main():
                             expect(page.locator("#maintenanceBadge")).not_to_have_text("offline")
                             expect(page.locator("#metricDriveState")).not_to_have_text("Unverified")
                             assert page.locator("#estopToggle").get_attribute("aria-pressed") in ("true", "false")
+                            for metric_id in ("metricModel", "metricCamera", "metricError", "metricBackend", "metricAlgorithm"):
+                                expect(page.locator("#" + metric_id)).not_to_have_text("Unverified")
                             # UX75: a pending status GET must time out and free the
                             # single-flight guard; it must not leave stale motor
                             # telemetry looking verified or permit an unverified

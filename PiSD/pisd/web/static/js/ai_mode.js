@@ -48,7 +48,9 @@
   // R32: backend status, not page selection, governs the indicated motor owner.
   let lastReadinessStatus = initial;
   let readinessPollBusy = false;
-  function renderOperatingReadiness(status = lastReadinessStatus, offline = false) {
+  let readinessOffline = false;
+  function renderOperatingReadiness(status = lastReadinessStatus, offline = readinessOffline) {
+    readinessOffline = offline;
     const readiness = window.PiSDOperatingReadiness.projectReadiness(status, {
       screen: 'ai',
       confirmed: Boolean(els.aiEnableMotor?.checked),
@@ -57,6 +59,7 @@
       offline
     });
     for (const [key, id] of Object.entries({
+      runtime: 'aiRuntimeMode',
       camera: 'aiReadyCamera', model: 'aiReadyModel', source: 'aiReadySource',
       motor: 'aiReadyMotor', reason: 'aiReadyReason'
     })) {
@@ -64,6 +67,14 @@
       if (!element) continue;
       if (element.textContent !== readiness[key].text) element.textContent = readiness[key].text;
       if (element.dataset.tone !== readiness[key].tone) element.dataset.tone = readiness[key].tone;
+    }
+    const ai = status?.ai_mode || status?.ai || {};
+    for (const [element, value] of [
+      [els.aiRunMode, ai.mode || 'idle'],
+      [els.aiModelReady, ai.model_ready ? 'ready' : (ai.model_loaded ? 'loaded' : 'not loaded')]
+    ]) {
+      const text = readiness.isVerified ? value : 'Unverified';
+      if (element && element.textContent !== text) element.textContent = text;
     }
   }
   async function pollOperatingReadiness() {
@@ -75,7 +86,7 @@
       const data = await api('/api/ai/status');
       if (data?.ok !== true || !data.ai || !data.safety) throw new Error('AI readiness status unavailable');
       lastReadinessStatus = { ...data, ai_mode: data.ai };
-      renderOperatingReadiness(lastReadinessStatus);
+      renderOperatingReadiness(lastReadinessStatus, false);
       if (recordingGate.accept(recordingRead)) renderRecording(data.recording);
     } catch (error) {
       renderOperatingReadiness(lastReadinessStatus, true);
@@ -605,7 +616,7 @@
       renderCameraWorkflowSettings(data.camera || (data.settings || {}).camera || {});
       renderAI(data.ai || {});
       lastReadinessStatus = { ...data, ai_mode: data.ai || {} };
-      renderOperatingReadiness(lastReadinessStatus);
+      renderOperatingReadiness(lastReadinessStatus, false);
       if (recordingGate.accept(recordingRead)) renderRecording(data.recording);
       if (data.errors) renderLastErrorLog(data.errors || {});
       if (els.aiGlobalCode) els.aiGlobalCode.textContent = data.code || 'PISD-OK-000';
@@ -1897,7 +1908,7 @@
   renderRecording(initial.recording || {});
   wireRanges();
   bind();
-  renderOperatingReadiness(initial);
+  renderOperatingReadiness(initial, false);
   window.setInterval(pollOperatingReadiness, 1400);
   refreshModels().then(() => refreshStatus()).then(() => refreshAIRecordingFiles()).then(() => refreshLastErrors());
   pollOperatingReadiness();
