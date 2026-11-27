@@ -1,5 +1,23 @@
 # Active roadmap progress — 2026-11-27
 
+## Verified software implementation at c896700c068f1d9be14c84300c1035037cdd4a3f
+
+**52/56 implemented (92.9%), 4 remaining, 7/9 batches complete.** F8 and R52 scoped software implementation accepted at exact green parent; batch 8 complete. Previous 50/56 baseline preserved below.
+
+Exact verified baseline c896700c068f1d9be14c84300c1035037cdd4a3f, Linux 45869995144 4/4 and Windows 45869995084 1/1. Independently matched actual artifact SHA-256: PiSD 15142042478 0b1431c45e418713b078dd0e46acd87056f8497da6585168cc30d3d0aa6baf56; PiServer 15142681656 9533e6a19e1868805e1bf5afa0b701f5d775c110ed8c9f77539b86f3cb03b91c. All 78 matrix cases exact revision, zero errors. Selected actual screenshots reviewed. Forward-package dry runs 14/10/11 changed files passed. PiSD recording storage 4/4, responsive Node 16/16, AI toolbar four actual journeys passed; PiServer responsive 14/14, accessibility 34/34 and all 16 stacked STOP font-scale measurements 44px. Native trainer review-context 7/7 and validation-to-data 5/5 on both OS. Prior isolated formatter/docking parity and metadata characterization tests passed; existing route/config/launch interfaces unchanged.
+
+| Track | Active | Verified implementation | Remaining |
+| --- | ---: | ---: | ---: |
+| F | 10 | 10 | 0 |
+| U | 13 | 13 | 0 |
+| R | 19 | 17 | 2 |
+| UX | 14 | 12 | 2 |
+| Total | 56 | 52 | 4 |
+
+Remaining: R35, R50, UX56, UX75. Batch 4 and 7 remain open. PiSD 4301c00fe420d5c03aeed41386fbe5ed1b186d10 implements immediate recording acknowledgement, duplicate request suppression, stale/out-of-order recording read rejection and idle confirmed recording polling; subsequent accessibility metadata and actual Manual/AI idle/status workflow checks pending exact CI. R35/R50/UX75 retain original scope: automated tests are extensive, but owner approved baseline/golden visual review and remaining comprehensive input/assistive-technology/custom-theme acceptance are not asserted. Physical hardware and release approval separate. Current candidate markers remain PiSD 0.11.45, PiServer 0.4.53, piTrainer 0.11.32; do not allocate new versions on unverified code.
+
+## Previous verified software baseline (superseded)
+
 ## Verified software implementation at 5751280f107fb84c87bf0c113902ad49dc323dcd
 
 **50/56 implemented (89.3%), 6 remaining, 6/9 batches complete.** Eight newly accepted IDs: UX55, UX57, UX58, UX59, UX60, UX61, UX63, UX65. Batch 6 and 9 software scope complete; remaining batches 4, 7, 8. Cross-batch completion allowed by owner; physical hardware and owner visual acceptance separate.

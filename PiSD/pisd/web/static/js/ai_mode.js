@@ -587,7 +587,7 @@
     const session = document.getElementById('aiRecordingSession');
     if (session) session.textContent = details.sessionText;
     if (els.aiRecordingState) {
-      els.aiRecordingState.dataset.recording = recordingRunning ? 'on' : 'off';
+      els.aiRecordingState.dataset.recording = recordingRunning ? 'on' : recording?.running === false ? 'off' : 'unknown';
       els.aiRecordingState.textContent = recordingRunning ? `REC on · Frames: ${details.countText}` : recording?.running === false ? 'REC off' : 'REC unknown';
     }
     if (els.aiRecordToggle) {

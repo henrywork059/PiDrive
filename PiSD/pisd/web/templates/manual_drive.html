@@ -73,8 +73,8 @@
       </div>
       <div class="mdrv-row mdrv-compact-actions mdrv-preview-top-actions" aria-label="Manual preview actions">
         <button id="mdrvLiveCamera" class="mdrv-button mdrv-primary mdrv-live-action" title="Start camera service and switch the preview image to MJPEG live stream.">Start live</button>
-        <button id="mdrvCaptureFrame" class="mdrv-button mdrv-primary mdrv-snapshot-action">Snapshot</button>
-        <button id="mdrvRecordToggle" class="mdrv-button">Record</button>
+        <button id="mdrvCaptureFrame" class="mdrv-button mdrv-primary mdrv-snapshot-action" aria-describedby="mdrvCaptureNotice">Snapshot</button>
+        <button id="mdrvRecordToggle" class="mdrv-button" aria-describedby="mdrvRecordingIndicator mdrvRecordingCount mdrvRecordingSession">Record</button>
       </div>
       <div class="mdrv-recording-details" aria-label="Confirmed recording details"><span id="mdrvRecordingSession">Session: unknown</span></div>
       <div id="mdrvPreviewFrame" class="mdrv-preview-frame mdrv-overlay-enabled" data-preview-mode="idle" data-preview-state="idle">

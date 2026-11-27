@@ -6,7 +6,7 @@ This is the current execution plan, replacing one-proposal-at-a-time scheduling.
 
 - Active: PiSD, PiServer, piTrainer. No new PiBooter/CustomTrainer/CustomDrive or legacy piCar work.
 - Original proposals: 75; retired exclusive proposals: 19; active: 56.
-- Current verified software baseline: **50/56 implemented, 6 remaining, 6/9 batches complete**. See [progress audit](PROGRESS.md) for per-ID accounting and candidate evidence. All remaining requirements and batches are authorized, including Batch 6 onward. Original batch mapping below is retained for traceability; the 30 IDs are the historical schedule scope, not the current remaining count.
+- Current verified software baseline: **52/56 implemented, 4 remaining, 7/9 batches complete**. See [progress audit](PROGRESS.md) for per-ID accounting and candidate evidence. All remaining requirements and batches are authorized, including Batch 6 onward. Original batch mapping below is retained for traceability; the 30 IDs are the historical schedule scope, not the current remaining count.
 - Batch numbers are planning units, not component versions, PR numbers, or calendar deadlines. Deliver related work together where safe, using separate component-owned commits, patch notes and patch-only archives when requested. No monolithic cross-component source rewrite.
 - Sequence is dependency- and acceptance-gated, not an invented time estimate. Independent work may proceed once its stated prerequisites are met; no unsafe parallel release or merging without authorization.
 
@@ -16,7 +16,7 @@ Former PR #84 (PiSD 0.11.22, PiServer 0.4.28, piTrainer 0.11.10, then also PiBoo
 
 ## Batch sequence
 
-Current baseline mapping: 1, 2, 3, 5, 6, 9 complete in software scope; 4, 7, 8 remaining. Dependency-aware cross-batch implementation is authorized; acceptance gates remain mandatory. The six previous STOP failures passed at exact green 2a36fe3; preserve these gates throughout later-batch implementation.
+Current baseline mapping: 1, 2, 3, 5, 6, 8, 9 complete in software scope; 4, 7 remaining. Dependency-aware cross-batch implementation is authorized; acceptance gates remain mandatory. The six previous STOP failures passed at exact green 2a36fe3; preserve these gates throughout later-batch implementation.
 
 | Batch | Priority | Focus | Original IDs | Count | Prerequisites |
 | --- | --- | --- | --- | ---: | --- |
@@ -81,7 +81,7 @@ Current baseline mapping: 1, 2, 3, 5, 6, 9 complete in software scope; 4, 7, 8 r
 
 ### Batch 7 — PiSD driving interface
 
-**Components:** PiSD. **Status:** In progress; R49/UX54/UX55/UX57 verified, UX56 native recording toolbar verification pending.
+**Components:** PiSD. **Status:** In progress; R49/UX54/UX55/UX57 verified, AI UX56 four actual cases passed; Manual and idle read/acknowledgement changes pending exact gate.
 
 **Scope:** Finish sanitized bounded recent operator events; task-first front page; preview-first hierarchy with status and STOP reachable; recording mini-toolbar using confirmed counters/outcomes; geometry/appearance calibration grouping with scoped reset.
 
@@ -89,7 +89,7 @@ Current baseline mapping: 1, 2, 3, 5, 6, 9 complete in software scope; 4, 7, 8 r
 
 ### Batch 8 — Code modularization
 
-**Components:** Affected active modules, especially PiServer. **Status:** In progress; pure docking geometry, recorder metadata and display formatting extracted; exact new parity gate pending.
+**Components:** Affected active modules, especially PiServer. **Status:** Complete in verified active software scope: exact c896700 combined CI, recorder metadata and operator format characterization, prior docking parity, forward packages passed.
 
 **Scope:** Characterize behavior before extracting pure parsing, formatting, validation and controller/DOM helpers. Keep stable public APIs, config paths, component boundaries and launchers. Prefer small staged extractions rather than a rewrite.
 

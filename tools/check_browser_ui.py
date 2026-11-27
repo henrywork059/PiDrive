@@ -170,6 +170,7 @@ def main():
                     stall_pisd_folders = [False]
                     pisd_recording = [None]
                     reject_pisd_recording = [False]
+                    omit_pisd_recording = [False]
                     def route_request(route):
                         req = route.request
                         parsed = urlsplit(req.url)
@@ -222,7 +223,10 @@ def main():
                             return
                         if name in ("manual", "ai") and pisd_recording[0] is not None and parsed.path == ("/api/ai/status" if name == "ai" else "/api/status"):
                             payload = client.get(parsed.path, base_url=ORIGIN).get_json()
-                            route.fulfill(status=200, json=dict(payload, recording=pisd_recording[0]))
+                            payload = dict(payload, recording=pisd_recording[0])
+                            if omit_pisd_recording[0]:
+                                payload.pop("recording", None)
+                            route.fulfill(status=200, json=payload)
                             return
                         if name in ("manual", "ai") and parsed.path == "/api/recording/items":
                             if stall_pisd_folders[0]:
@@ -412,26 +416,40 @@ def main():
                                 state_label = page.locator("#aiRecordingState")
                                 session = page.locator("#aiRecordingSession")
                                 outcome = page.locator("#aiRecordingNotice")
+                                expect(record).to_have_accessible_name("Record")
+                                expect(snapshot).to_have_accessible_name("Snapshot")
                                 activate_library(record)
                                 expect(outcome).to_have_text("Recording start acknowledged.")
                                 expect(state_label).to_have_text("REC on · Frames: 7")
                                 expect(session).to_have_text("Session: fixture-ai")
+                                expect(record).to_have_accessible_name("Stop rec")
+                                expect(record).to_have_accessible_description("REC on · Frames: 7 Session: fixture-ai")
                                 activate_library(snapshot)
                                 expect(outcome).to_have_text("Snapshot saved: fixture-frame")
                                 expect(state_label).to_have_text("REC on · Frames: 7")
+                                pisd_recording[0] = dict(pisd_recording[0], frame_count=8)
+                                expect(state_label).to_have_text("REC on · Frames: 8", timeout=8000)
+                                omit_pisd_recording[0] = True
+                                with page.expect_response(lambda response: urlsplit(response.url).path == "/api/ai/status"):
+                                    pass
+                                expect(state_label).to_have_text("REC on · Frames: 8")
+                                omit_pisd_recording[0] = False
                                 reject_pisd_recording[0] = True
                                 activate_library(record)
                                 expect(outcome).to_contain_text("Recording request not confirmed")
-                                expect(state_label).to_have_text("REC on · Frames: 7")
+                                expect(state_label).to_have_text("REC on · Frames: 8")
                                 expect(session).to_have_text("Session: fixture-ai")
                                 reject_pisd_recording[0] = False
                                 activate_library(record)
                                 expect(outcome).to_have_text("Recording stop acknowledged.")
                                 expect(state_label).to_have_text("REC off")
                                 expect(session).to_have_text("No active session")
+                                expect(record).to_have_accessible_name("Record")
                                 expect(page.locator("#aiStopAll")).to_be_enabled()
                                 case["recording_toolbar"] = {"confirmed_start": True, "snapshot_without_status": True,
-                                                             "rejected_stop_retained": True, "confirmed_stop": True}
+                                                             "rejected_stop_retained": True, "confirmed_stop": True,
+                                                             "idle_count_refresh": True, "partial_status_retained": True,
+                                                             "accessible_names_and_description": True}
                             if name == "manual":
                                 pisd_recording[0] = {"running": False, "frame_count": 0}
                                 record = page.locator("#mdrvRecordToggle")
@@ -441,14 +459,25 @@ def main():
                                 outcome = page.locator("#mdrvCaptureNotice")
                                 count = page.locator("#mdrvRecordingCount")
                                 before_recording = len(mutations)
+                                expect(record).to_have_accessible_name("Record")
+                                expect(snapshot).to_have_accessible_name("Snapshot")
                                 activate_library(record)
                                 expect(outcome).to_contain_text("Recording start acknowledged.")
                                 expect(state_label).to_have_text("REC on")
                                 expect(session).to_have_text("Session: fixture-manual")
                                 expect(count).to_have_text("Frames: 7 (last confirmed)")
+                                expect(record).to_have_accessible_name("Stop record")
+                                expect(record).to_have_accessible_description("REC on Frames: 7 (last confirmed) Session: fixture-manual")
                                 activate_library(snapshot)
                                 expect(outcome).to_contain_text("Frame captured: fixture-frame")
                                 expect(state_label).to_have_text("REC on")
+                                pisd_recording[0] = dict(pisd_recording[0], frame_count=8)
+                                expect(count).to_have_text("Frames: 8 (last confirmed)", timeout=8000)
+                                omit_pisd_recording[0] = True
+                                with page.expect_response(lambda response: urlsplit(response.url).path == "/api/status"):
+                                    pass
+                                expect(count).to_have_text("Frames: 8 (last confirmed)")
+                                omit_pisd_recording[0] = False
                                 reject_pisd_recording[0] = True
                                 activate_library(record)
                                 expect(outcome).to_contain_text("Recording request not confirmed")
@@ -459,11 +488,14 @@ def main():
                                 expect(outcome).to_have_text("Recording stop acknowledged.")
                                 expect(state_label).to_have_text("REC off")
                                 expect(session).to_have_text("No active session")
+                                expect(record).to_have_accessible_name("Record")
                                 assert [p for p in mutations[before_recording:] if p.startswith("/api/recording/")] == [
                                     "/api/recording/start", "/api/recording/capture", "/api/recording/stop", "/api/recording/stop"]
                                 expect(page.locator("#mdrvStopTop")).to_be_enabled()
                                 case["recording_toolbar"] = {"confirmed_start": True, "snapshot_without_status": True,
-                                                             "rejected_stop_retained": True, "confirmed_stop": True}
+                                                             "rejected_stop_retained": True, "confirmed_stop": True,
+                                                             "idle_count_refresh": True, "partial_status_retained": True,
+                                                             "accessible_names_and_description": True}
                             # Restore a fresh empty collection for subsequent checks.
                             pisd_folders[0] = (200, {"ok": True, "collections": {"recordings": [], "snapshots": []}})
                             refresh_folders()
