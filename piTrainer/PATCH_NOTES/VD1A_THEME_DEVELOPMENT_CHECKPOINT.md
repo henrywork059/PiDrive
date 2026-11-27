@@ -8,3 +8,5 @@ Updated central dark palette, added light palette, startup selection and Appeara
 
 
 Second checkpoint: registered additive token/persistence regressions and actual Chromium / native Qt capture tests in existing CI; no original matrix removed. Added explicit contrast variants and persistence-preserving fixes. CI not yet executed at time of this commit; rendered and release acceptance remain open.
+
+- First candidate CI identified the exact light checkbox SVG as a forbidden package change. Extend the reviewed static-asset allowlist only to that exact file, exercise both approved SVGs in the package regression, and preserve arbitrary SVG and all existing blocked-path rejections. Qualification remains pending.

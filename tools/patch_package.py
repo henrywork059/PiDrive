@@ -58,9 +58,12 @@ def allowed(component, path):
     if len(parts) == 2:
         return parts[1] in ROOT_FILES | {COMPONENTS[component][0]} or bool(
             re.fullmatch(r"requirements(?:-[a-z]+)?\.txt", parts[1]))
-    # The trainer stylesheet requires one reviewed static checkmark asset.
+    # The trainer stylesheet requires these two exact reviewed static checkmark assets.
     # Do not admit arbitrary SVGs or relax any path, history or blob checks.
-    if component == "piTrainer" and path == "piTrainer/piTrainer/ui/checkbox_check.svg":
+    if component == "piTrainer" and path in {
+        "piTrainer/piTrainer/ui/checkbox_check.svg",
+        "piTrainer/piTrainer/ui/checkbox_check_light.svg",
+    }:
         return True
     return parts[1] in COMPONENTS[component][4] and Path(path).suffix in EXTENSIONS
 
