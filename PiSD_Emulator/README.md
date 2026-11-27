@@ -51,6 +51,10 @@ Both the control workspace and PiSD server bind to `127.0.0.1`. Emulator mode cr
 - Emulator settings, models, and recordings are isolated from the PiSD source tree. Generated recording and snapshot manifests say `synthetic_simulation`; trainer label fields are unchanged.
 - Existing PiSD `AIDriveService` loads models from the emulator workspace and sends its outputs through the same virtual motor adapter. This path is implemented but has not yet been validated with a compatible model.
 
+## Embedded interface (PiSD 0.11.48)
+
+The actual PiSD page permits framing only by the exact loopback control origin selected by `--control-port`. Normal PiSD retains its frame denial policy. Open the controller using `127.0.0.1`, not a hostname alias. Runtime restart or port changes reload the frame. Browser qualification is tracked in CI; no physical hardware validation is implied.
+
 ## Validation
 
 Run the emulator engine and service adapter checks from the repository root:

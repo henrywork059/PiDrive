@@ -16,6 +16,24 @@ WEB_DIR = Path(__file__).resolve().parents[1] / "web"
 
 def create_control_app(runtime: PiSDRuntime) -> Flask:
     app = Flask(__name__)
+    trusted_origin = f"http://127.0.0.1:{runtime.control_port}"
+
+    @app.before_request
+    def local_control_only():
+        # The controller is a privileged local origin; reject rebinding and CSRF.
+        if request.remote_addr != "127.0.0.1" or request.host_url.rstrip("/") != trusted_origin:
+            return jsonify(ok=False, error="Local emulator origin required."), 403
+        if request.method not in {"GET", "HEAD", "OPTIONS"}:
+            origin = request.headers.get("Origin")
+            site = request.headers.get("Sec-Fetch-Site")
+            if (origin is not None and origin != trusted_origin) or (site is not None and site != "same-origin") or not request.is_json:
+                return jsonify(ok=False, error="Cross-origin emulator control denied."), 403
+
+    @app.after_request
+    def controller_headers(response):
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Content-Security-Policy"] = "frame-ancestors 'none'"
+        return response
 
     @app.get("/")
     def index():

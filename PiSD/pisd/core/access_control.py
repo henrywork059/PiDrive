@@ -56,7 +56,9 @@ def _same_origin(request, *, require_proof: bool) -> bool:
     return not require_proof or origin is not None or site == "same-origin"
 
 
-def install_access_control(app, token: str) -> None:
+def install_access_control(app, token: str, *, emulator_frame_port: int | None = None) -> None:
+    if emulator_frame_port is not None and (type(emulator_frame_port) is not int or not 1024 <= emulator_frame_port <= 65535):
+        raise ValueError("Invalid emulator control port.")
     from flask import jsonify, redirect, render_template, request, session, url_for
 
     app.secret_key = secrets.token_bytes(32)
@@ -115,7 +117,13 @@ def install_access_control(app, token: str) -> None:
     @app.after_request
     def security_headers(response):
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
-        response.headers.setdefault("X-Frame-Options", "DENY")
+        if (emulator_frame_port is not None and app.config.get("pisd_runtime_mode") == "emulator"
+                and is_loopback(request.remote_addr) and request.host.split(":", 1)[0] == "127.0.0.1"):
+            # CSP checks all ancestors; trust only the selected controller origin.
+            response.headers.pop("X-Frame-Options", None)
+            response.headers.add("Content-Security-Policy", f"frame-ancestors http://127.0.0.1:{emulator_frame_port}")
+        else:
+            response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers.setdefault("Referrer-Policy", "same-origin")
         if not request.path.startswith("/testing/static/"):
             response.headers["Cache-Control"] = "no-store"

@@ -28,13 +28,15 @@ def default_workspace() -> Path:
 class PiSDRuntime:
     """Starts the production PiSD app with explicitly injected virtual devices."""
 
-    def __init__(self, repository_root: Path | str, workspace: Path | str | None = None, port: int = 5050):
+    def __init__(self, repository_root: Path | str, workspace: Path | str | None = None, port: int = 5050, *, control_port: int = 8760):
         self.repository_root = Path(repository_root).resolve()
         self.pisd_root = self.repository_root / "PiSD"
         if self.pisd_root.is_dir() and str(self.pisd_root) not in sys.path:
             sys.path.insert(0, str(self.pisd_root))
         self.workspace = Path(workspace).expanduser().resolve() if workspace else default_workspace()
         self.port = self._validate_port(port)
+        self.control_port = self._validate_port(control_port)
+        self._generation = 0
         self.engine = VehicleEngine(self._read_emulator_settings())
         self.renderer = RoadRenderer()
         self._lock = threading.RLock()
@@ -96,6 +98,8 @@ class PiSDRuntime:
             if self._running:
                 return self.status()
             selected_port = self._validate_port(port if port is not None else self.port)
+            if selected_port == self.control_port:
+                raise ValueError("PiSD and emulator control ports must differ.")
             self.workspace.mkdir(parents=True, exist_ok=True)
             for directory in ("config", "models", "recordings"):
                 (self.workspace / directory).mkdir(parents=True, exist_ok=True)
@@ -105,6 +109,7 @@ class PiSDRuntime:
                     hardware_enabled=False,
                     emulator=self,
                     runtime_root=self.workspace,
+                    emulator_frame_port=self.control_port,
                 )
                 try:
                     from werkzeug.serving import make_server
@@ -127,6 +132,7 @@ class PiSDRuntime:
                 thread.start()
                 with self._state_lock:
                     self._running = True
+                    self._generation += 1
                 self._record_event("ok", f"PiSD {self.pisd_version} started in emulator mode at http://127.0.0.1:{self.port}/.")
                 return self.status()
             except Exception as exc:
@@ -141,13 +147,13 @@ class PiSDRuntime:
         with self._state_lock:
             app = self._app
         if app is not None:
-            return str(app.config.get("pisd_version", "0.11.47"))
+            return str(app.config.get("pisd_version", "0.11.48"))
         try:
             from pisd import __version__
 
             return str(__version__)
         except Exception:
-            return "0.11.47"
+            return "0.11.48"
 
     def _shutdown_partial_locked(self) -> None:
         with self._state_lock:
@@ -247,6 +253,7 @@ class PiSDRuntime:
     def status(self) -> dict[str, Any]:
         with self._state_lock:
             running = self._running
+            generation = self._generation
             port = self.port
             last_error = self._last_error
             events = list(self._events)
@@ -254,6 +261,7 @@ class PiSDRuntime:
         return {
             "runtime_mode": "emulator",
             "running": running,
+            "generation": generation,
             "version": self.pisd_version,
             "url": f"http://127.0.0.1:{port}/" if running else "",
             "manual_drive_url": f"http://127.0.0.1:{port}/manual-drive" if running else "",

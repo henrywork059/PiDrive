@@ -31,7 +31,7 @@ def main(argv: list[str] | None = None) -> int:
     if not 1024 <= args.control_port <= 65535:
         print("Control port must be between 1024 and 65535.", file=sys.stderr)
         return 2
-    runtime = PiSDRuntime(PROJECT_ROOT, workspace=args.workspace, port=args.pisd_port)
+    runtime = PiSDRuntime(PROJECT_ROOT, workspace=args.workspace, port=args.pisd_port, control_port=args.control_port)
     app = create_control_app(runtime)
     try:
         from werkzeug.serving import make_server

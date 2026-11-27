@@ -63,9 +63,12 @@ def create_app(
     emulator: Any | None = None,
     runtime_root: Path | str | None = None,
     defaults_path: Path | str | None = None,
+    emulator_frame_port: int | None = None,
 ):
     if emulator is not None and hardware_enabled:
         raise ValueError("PiSD Emulator cannot be started with hardware enabled.")
+    if emulator_frame_port is not None and (emulator is None or type(emulator_frame_port) is not int or not 1024 <= emulator_frame_port <= 65535):
+        raise ValueError("Frame permission requires an emulator and a valid local control port.")
     try:
         from flask import Flask, Response, jsonify, render_template, request, send_file, url_for
     except ImportError as exc:  # pragma: no cover
@@ -112,7 +115,7 @@ def create_app(
     app.config["pisd_version"] = __version__
     app.config["pisd_errors"] = APP_ERRORS
     install_mutation_trace(app)
-    install_access_control(app, access_token)
+    install_access_control(app, access_token, emulator_frame_port=emulator_frame_port)
     recent_events = RecentEvents()
 
     @app.after_request
