@@ -238,6 +238,34 @@ def build_stylesheet(density: str = "comfortable") -> str:
     QCheckBox:focus, QFrame#sessionListResizeHandle:focus {
         border: 1px solid @COLOR_INFO@;
     }
+    /* VD14: a role (or a legacy pulse/spotlight flag) must not override
+       disabled appearance. Preserve each role's existing border width. */
+    QPushButton[role]:disabled,
+    QPushButton[role='nextStep'][pulse='true']:disabled,
+    QPushButton[role='nextStep'][spotlight='true']:disabled,
+    QPushButton#pageBannerNextButton:disabled {
+        background: @COLOR_BG_INPUT@;
+        color: @COLOR_TEXT_DISABLED@;
+        border-color: @COLOR_BORDER_SUBTLE@;
+    }
+    /* A dashed edge distinguishes keyboard focus without changing geometry.
+       Use the existing role foreground on bright or dark action fills. */
+    QPushButton:focus:enabled, QPushButton[role]:focus:enabled {
+        border-style: dashed;
+    }
+    QPushButton[role='primary']:focus:enabled,
+    QPushButton[role='nextStep']:focus:enabled,
+    QPushButton[role='amber']:focus:enabled,
+    QPushButton#pageBannerNextButton:focus:enabled {
+        border-style: dashed;
+        border-color: @COLOR_TEXT_ON_WARNING@;
+    }
+    QPushButton[role='primary']:pressed:focus:enabled,
+    QPushButton[role='nextStep']:pressed:focus:enabled,
+    QPushButton[role='danger']:focus:enabled,
+    QPushButton#pageBannerNextButton:pressed:focus:enabled {
+        border-color: @COLOR_TEXT_ON_DARK@;
+    }
     QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox, QListWidget, QTextEdit, QPlainTextEdit, QTableWidget, QTableView {
         min-height: @INPUT_MIN@px;
         background: @COLOR_BG_INPUT@;

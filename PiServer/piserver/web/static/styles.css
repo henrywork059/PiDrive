@@ -3924,3 +3924,18 @@ html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="ligh
     border-color: var(--line-strong) !important;
   }
 }
+
+/* VD14: preserve role colours for enabled controls only; do not alter
+   availability, pressed-state semantics, layout, or the legacy style. */
+@media (forced-colors: none) {
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) button:disabled,
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #pageTabs .tab-btn:disabled {
+    background: var(--panel-alt) !important;
+    color: var(--muted) !important;
+    border-color: var(--line-strong) !important;
+    opacity: 1 !important;
+    cursor: not-allowed;
+    box-shadow: none !important;
+    transform: none !important;
+  }
+}

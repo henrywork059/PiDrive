@@ -42,6 +42,23 @@ def inspect(page, selector, minimum=4.5):
     return values
 
 
+def check_disabled_control(page, selector, surface, muted):
+    """Inspect a temporary disabled presentation state; no click or API mutation."""
+    loc = page.locator(selector).first
+    expect(loc).to_be_visible()
+    original = loc.evaluate("el => el.disabled")
+    try:
+        loc.evaluate("el => { el.disabled = true; }")
+        expect(loc).to_be_disabled()
+        expect(loc).to_have_css("background-color", surface)
+        expect(loc).to_have_css("color", muted)
+        expect(loc).to_have_css("opacity", "1")
+        expect(loc).to_have_css("cursor", "not-allowed")
+        return inspect(page, selector)
+    finally:
+        loc.evaluate("(el, value) => { el.disabled = value; }", original)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("component", choices=("PiSD", "PiServer"))
@@ -122,6 +139,11 @@ def main():
                             checks = {"body": inspect(page, "body")}
                             if stop:
                                 checks["stop"] = inspect(page, stop)
+                            if page.locator("#aiDownloadZip").count() and page.locator("#aiDownloadZip").is_visible():
+                                checks["disabled_action"] = check_disabled_control(
+                                    page, "#aiDownloadZip",
+                                    "rgb(231, 235, 241)" if mode == "light" else "rgb(41, 47, 57)",
+                                    "rgb(86, 97, 113)" if mode == "light" else "rgb(165, 175, 191)")
                             capture(name, mode, width, checks)
                 # Fresh browser context receives theme from the actual settings backend.
                 fresh = browser.new_context()
@@ -176,6 +198,11 @@ def main():
                     expect(focus_target).to_have_css("outline-width", "3px")
                     expect(focus_target).to_have_css("outline-style", "solid")
                     expect(focus_target).to_have_css("outline-color", "rgb(49, 95, 209)" if mode == "light" else "rgb(251, 191, 36)")
+                    disabled = check_disabled_control(
+                        page, "#openStyleSettingsBtn",
+                        "rgb(231, 235, 241)" if mode == "light" else "rgb(41, 47, 57)",
+                        "rgb(86, 97, 113)" if mode == "light" else "rgb(165, 175, 191)")
+                    report.setdefault("disabled_controls", []).append({"theme": mode, **disabled})
                     assert page.evaluate("() => localStorage.getItem('PiServerStyleCustom:v0_3_5')") == legacy
                     assert page.evaluate("() => window.PiServerStyle.getResolvedVars()['--panel-pad']") == "19px"
                     report["persistence"].append({"theme": mode, "reload": True, "legacy_settings_preserved": True})
