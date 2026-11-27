@@ -17,6 +17,65 @@ import test_recording_to_export_f10 as recording_fixture
 
 
 class RealTfliteExportTests(unittest.TestCase):
+    def test_nonconstant_real_interpreter_thread_and_delegate_parity(self):
+        root = Path(__file__).resolve().parents[2]
+        sys.path.insert(0, str(root))
+        from tools.benchmark_tflite_threads import compare
+
+        @tf.function(input_signature=[tf.TensorSpec([1, 12, 16, 3], tf.float32)],
+                     autograph=False)
+        def synthetic_control(image):
+            # Nonconstant two-value output, binary-exact input and reductions.
+            # This is an operation fixture, not a trained driving model.
+            return tf.reduce_sum(image[:, :, :, :2], axis=[1, 2]) / 256.0
+
+        with tempfile.TemporaryDirectory() as tmp:
+            model = Path(tmp) / "nonconstant.tflite"
+            converter = tf.lite.TFLiteConverter.from_concrete_functions(
+                [synthetic_control.get_concrete_function()])
+            model.write_bytes(converter.convert())
+            inputs = np.random.default_rng(37).integers(
+                0, 256, (8, 12, 16, 3), dtype=np.uint8).astype(np.float32) / 256
+            probe = tf.lite.Interpreter(model_path=str(model))
+            probe.allocate_tensors()
+            i, = probe.get_input_details()
+            o, = probe.get_output_details()
+            values = []
+            for image in inputs:
+                probe.set_tensor(i["index"], image[None, ...])
+                probe.invoke()
+                values.append(probe.get_tensor(o["index"]).tobytes())
+            self.assertGreater(len(set(values)), 1)
+            default = compare(tf.lite.Interpreter, model, inputs)
+            self.assertTrue(all(x["complete"] and x["exact_output_parity"] for x in default["summary"]))
+            report = {"model_sha256": hashlib.sha256(model.read_bytes()).hexdigest(),
+                      "inputs_sha256": hashlib.sha256(inputs.tobytes()).hexdigest(),
+                      "default_delegates": default, "fixture": "nonconstant synthetic control",
+                      "tensorflow": tf.__version__, "deployment_authorized": False}
+            resolver = getattr(getattr(tf.lite.experimental, "OpResolverType", None),
+                               "BUILTIN_WITHOUT_DEFAULT_DELEGATES", None)
+            if resolver is None:
+                report["builtin_only"] = {"supported": False, "reason": "Resolver unavailable"}
+            else:
+                def builtin_only(**kwargs):
+                    return tf.lite.Interpreter(
+                        experimental_op_resolver_type=resolver, **kwargs)
+                try:
+                    comparison = compare(builtin_only, model, inputs)
+                except (TypeError, ValueError, RuntimeError) as exc:
+                    report["builtin_only"] = {"supported": False, "reason": str(exc)}
+                else:
+                    expected = next(r["output_sha256"] for row in default["rounds"]
+                                    for r in row["results"] if r["threads"] is None)
+                    exact = all(r.get("output_sha256") == expected
+                                for row in comparison["rounds"] for r in row["results"])
+                    report["builtin_only"] = {"supported": True, "cross_mode_exact_parity": exact,
+                                              "comparison": comparison}
+                    self.assertTrue(exact, "Built-in-only output differs from default delegate output")
+            report_path = Path(os.environ.get("PIDRIVE_THREAD_REPORT", str(Path(tmp) / "threads.json")))
+            report_path.parent.mkdir(parents=True, exist_ok=True)
+            report_path.with_name("nonconstant.json").write_text(json.dumps(report, indent=2)+"\n", encoding="utf-8")
+
     def test_named_heads_export_in_runtime_order(self):
         inputs = tf.keras.Input(shape=(12, 16, 3), name="image")
         pooled = tf.keras.layers.GlobalAveragePooling2D()(inputs)

@@ -46,14 +46,15 @@ def _first_existing_path(candidates: list[Path]) -> Path | None:
     return None
 
 
-def _resolve_image_path(session_dir: Path, record: dict) -> Path | None:
+def _resolve_image_path(session_dir: Path, record: dict, *, _session_resolved: bool = False) -> Path | None:
     """Resolve PiSD and legacy image path fields to an existing image when possible.
 
     Fast path is intentionally optimized for PiSD labels.jsonl:
     `session_dir / row["frame"]`. This keeps loading responsive for large
     sessions and still works when a session folder is copied to a PC.
     """
-    session_dir = Path(session_dir).expanduser().resolve()
+    if not _session_resolved:
+        session_dir = Path(session_dir).expanduser().resolve()
 
     frame_rel = record.get("frame")
     if frame_rel:
@@ -164,9 +165,10 @@ def build_row(
     *,
     source: str = "records.jsonl",
     manifest_defaults: dict[str, Any] | None = None,
+    _session_resolved: bool = False,
 ) -> dict:
     record = _training_label_record(record)
-    image_path = _resolve_image_path(session_dir, record)
+    image_path = _resolve_image_path(session_dir, record, _session_resolved=_session_resolved)
     steering = coalesce_value(record, STEER_KEYS, 0.0)
     throttle = coalesce_value(record, THROTTLE_KEYS, 0.0)
     overlay_meta = _overlay_metadata(record, manifest_defaults)
@@ -177,7 +179,7 @@ def build_row(
         inferred_mode = session_name
     row = {
         "session": session_name,
-        "session_dir": str(Path(session_dir).resolve()),
+        "session_dir": str(session_dir) if _session_resolved else str(Path(session_dir).resolve()),
         "source": source,
         "frame_id": record.get("frame_id", record.get("id", record.get("source_frame_seq", ""))),
         "frame_index": record.get("frame_index", record.get("source_frame_seq", "")),
@@ -228,7 +230,7 @@ def _hidden_record_identities(path: Path) -> set[tuple[str, str, str]]:
             identities.add(_record_identity_key(record))
     return identities
 
-def _iter_usable_label_rows(session_name: str, session_dir: Path):
+def _iter_usable_label_rows(session_name: str, session_dir: Path, *, _session_resolved: bool = False):
     """Yield only usable primary labels; keep at most one parsed row in flight."""
     labels_path = session_dir / "labels.jsonl"
     if not labels_path.exists():
@@ -238,7 +240,8 @@ def _iter_usable_label_rows(session_name: str, session_dir: Path):
         if not isinstance(record, dict) or is_record_hidden(record):
             continue
         row = build_row(session_name, session_dir, record,
-                        source="labels.jsonl", manifest_defaults=manifest_defaults)
+                        source="labels.jsonl", manifest_defaults=manifest_defaults,
+                        _session_resolved=_session_resolved)
         if str(row.get("abs_image", "")):
             yield row
 
@@ -252,6 +255,7 @@ def _iter_records_rows(
     session_name: str,
     session_dir: Path,
     hidden_label_identities: set[tuple[str, str, str]] | None = None,
+    *, _session_resolved: bool = False,
 ):
     records_path = session_dir / "records.jsonl"
     if not records_path.exists():
@@ -262,7 +266,7 @@ def _iter_records_rows(
         if (isinstance(record, dict) and not is_record_hidden(record)
                 and _record_identity_key(record) not in hidden_label_identities):
             yield build_row(session_name, session_dir, record, source="records.jsonl",
-                            manifest_defaults=manifest_defaults)
+                            manifest_defaults=manifest_defaults, _session_resolved=_session_resolved)
 
 
 def _load_records_rows(
@@ -279,14 +283,16 @@ def _iter_selected_session_rows(records_root: Path, sessions: list[str]):
         session_dir = resolve_session_dir(records_root, session_name)
         # First *usable* label wins over records.jsonl for the whole session.
         # Probe a single label rather than materializing all session label rows.
-        primary = _iter_usable_label_rows(session_name, session_dir)
+        # resolve_session_dir has already canonicalized this directory. Image
+        # existence and each image path are still resolved live for every row.
+        primary = _iter_usable_label_rows(session_name, session_dir, _session_resolved=True)
         first = next(primary, None)
         if first is not None:
             yield first
             yield from primary
             continue
         hidden = _hidden_record_identities(session_dir / "labels.jsonl")
-        yield from _iter_records_rows(session_name, session_dir, hidden)
+        yield from _iter_records_rows(session_name, session_dir, hidden, _session_resolved=True)
 
 
 def iter_record_batches(records_root: Path, sessions: list[str], batch_size: int = 512):
@@ -317,6 +323,9 @@ def load_records_dataframe(records_root: Path, sessions: list[str]) -> pd.DataFr
     if not rows:
         return pd.DataFrame()
     df = pd.DataFrame(rows)
+    # DataFrame owns the column buffers; release transient row dictionaries
+    # before coercing columns. The final batch also holds row references.
+    del rows, batch
     df["steering"] = pd.to_numeric(df["steering"], errors="coerce").fillna(0.0).clip(-1.0, 1.0).astype("float32")
     df["throttle"] = pd.to_numeric(df["throttle"], errors="coerce").fillna(0.0).clip(-1.0, 1.0).astype("float32")
     df["abs_image"] = df["abs_image"].astype(str)
@@ -328,7 +337,9 @@ def load_records_dataframe(records_root: Path, sessions: list[str]) -> pd.DataFr
         df["overlay_settings_source"] = ""
     if "has_overlay_settings" not in df.columns:
         df["has_overlay_settings"] = df["overlay_settings"].map(bool)
-    return df.reset_index(drop=True)
+    # Construction from row dictionaries creates the required RangeIndex;
+    # column normalization above never changes it. Avoid a full reset copy.
+    return df
 
 
 def build_filtered_dataframe(df: pd.DataFrame, only_manual: bool) -> pd.DataFrame:

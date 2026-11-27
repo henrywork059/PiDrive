@@ -68,3 +68,51 @@ def test_streaming_matches_legacy_rows_with_source_order_and_hidden_record_suppr
 def test_batch_bounds_rejected(batch_size):
     with pytest.raises(ValueError):
         list(loader.iter_record_batches(Path('unused'), [], batch_size=batch_size))
+
+
+def test_canonical_session_context_preserves_paths_and_live_image_existence(tmp_path):
+    session = tmp_path / "recordings" / "day" / "drive"
+    (session / "frames").mkdir(parents=True)
+    first = session / "frames" / "one.jpg"
+    first.write_bytes(b"fixture")
+    alias = session / "frames" / "alias.jpg"
+    try:
+        alias.symlink_to(first)
+    except OSError:
+        alias.write_bytes(b"fixture")
+    records = [
+        {"frame": "frames/one.jpg", "frame_id": 1, "steering": "0.4"},
+        {"image": "frames/alias.jpg", "frame_id": 2},
+        {"relative_file": "recordings/day/drive/frames/one.jpg", "frame_id": 3},
+        {"frame": "frames/missing.jpg", "frame_id": 4},
+        {"training_label": {"frame": "frames/one.jpg", "frame_id": 5}},
+    ]
+    defaults = {"overlay_settings": {"contrast": 1.1}}
+    for record in records:
+        old = loader.build_row("drive", session, record, manifest_defaults=defaults)
+        new = loader.build_row("drive", session.resolve(), record,
+                               manifest_defaults=defaults, _session_resolved=True)
+        assert old == new
+
+    (session / "labels.jsonl").write_text(
+        "\n".join(json.dumps(x) for x in [records[0], records[0]])+"\n", encoding="utf-8")
+    batches = loader.iter_record_batches(tmp_path, ["recordings/day/drive"], batch_size=1)
+    assert next(batches)[0]["abs_image"] == str(first.resolve())
+    first.unlink()
+    assert list(batches) == []
+
+
+def test_materialized_range_index_and_row_order(tmp_path):
+    session = tmp_path / "drive"
+    (session / "frames").mkdir(parents=True)
+    (session / "frames" / "one.jpg").write_bytes(b"fixture")
+    (session / "labels.jsonl").write_text(
+        "\n".join(json.dumps({"frame":"frames/one.jpg","frame_id":i,
+                             "steering":None if i==1 else 0.5,"throttle":2})
+                  for i in range(3))+"\n",encoding="utf-8")
+    df = loader.load_records_dataframe(tmp_path, ["drive", "drive"])
+    assert isinstance(df.index, pd.RangeIndex)
+    assert list(df.index) == list(range(6))
+    assert df["frame_id"].tolist() == [0,1,2,0,1,2]
+    assert df["steering"].tolist() == [0.5,0.0,0.5,0.5,0.0,0.5]
+    assert df["throttle"].tolist() == [1.0]*6
