@@ -8,6 +8,7 @@ This document is synchronized to the **current repository snapshot** (not histor
 
 ### Actively used projects
 - `PiSD/` — Pi-side driving runtime and web control
+- `PiSD_Emulator/` — local simulator for the actual PiSD runtime and driving UI
 - `PiServer/` — modular Flask runtime and web dashboard for camera/motor/control/model operations
 - `piTrainer/` — desktop trainer for driving models (steer/throttle)
 
@@ -50,6 +51,7 @@ Then install the specific project requirements file.
 ## Launch commands (canonical)
 
 - PiSD (simulation): `python PiSD/PiSD.py`
+- PiSD Emulator: `python PiSD_Emulator/run_emulator.py --open-browser`
 - PiServer: `python PiServer/server.py`
 - piTrainer: `python piTrainer/main.py`
 
@@ -69,4 +71,4 @@ Some `PATCH_NOTES/` files document attempted or forward patches that may not mat
 
 ## Current integration status
 
-The completed three-component software roadmap is 56/56 and 9/9. See the [release-candidate handover](docs/roadmaps/RELEASE_CANDIDATE_HANDOVER.md) for verified versions, owner-approved web baseline, merge history and remaining physical/native acceptance gates.
+The PiSD, PiServer, and piTrainer software roadmap is 56/56 and 9/9. PiSD Emulator is a new workstream; its current implementation and remaining browser-verification work are documented in `PiSD_Emulator/README.md`. See the [release-candidate handover](docs/roadmaps/RELEASE_CANDIDATE_HANDOVER.md) for the existing projects' verified versions, owner-approved web baseline, merge history and remaining physical/native acceptance gates.

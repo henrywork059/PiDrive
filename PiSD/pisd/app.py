@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import time
 from io import BytesIO
 from datetime import datetime, timezone
@@ -31,16 +32,17 @@ WEB_TEMPLATE_DIR = WEB_ROOT / "templates"
 WEB_STATIC_DIR = WEB_ROOT / "static"
 
 
-def load_defaults() -> dict[str, Any]:
+def load_defaults(path: Path | str | None = None) -> dict[str, Any]:
+    defaults_path = Path(path) if path is not None else DEFAULTS_PATH
     try:
-        with DEFAULTS_PATH.open("r", encoding="utf-8") as handle:
+        with defaults_path.open("r", encoding="utf-8") as handle:
             data = json.load(handle)
         if not isinstance(data, dict):
             APP_ERRORS.report(
                 PiSDErrorCodes.APP_CONFIG_LOAD_FAILED,
                 "config/defaults.json did not contain a JSON object; using empty defaults.",
                 severity="warning",
-                context={"path": str(DEFAULTS_PATH)},
+                context={"path": str(defaults_path)},
             )
             return {}
         return data
@@ -49,13 +51,21 @@ def load_defaults() -> dict[str, Any]:
             PiSDErrorCodes.APP_CONFIG_LOAD_FAILED,
             f"Failed to load config/defaults.json; using empty defaults: {exc}",
             severity="warning",
-            context={"path": str(DEFAULTS_PATH)},
+            context={"path": str(defaults_path)},
             exc=exc,
         )
         return {}
 
 
-def create_app(hardware_enabled: bool = False):
+def create_app(
+    hardware_enabled: bool = False,
+    *,
+    emulator: Any | None = None,
+    runtime_root: Path | str | None = None,
+    defaults_path: Path | str | None = None,
+):
+    if emulator is not None and hardware_enabled:
+        raise ValueError("PiSD Emulator cannot be started with hardware enabled.")
     try:
         from flask import Flask, Response, jsonify, render_template, request, send_file, url_for
     except ImportError as exc:  # pragma: no cover
@@ -71,13 +81,24 @@ def create_app(hardware_enabled: bool = False):
 
     # Reject invalid access configuration before constructing hardware services.
     access_token = configured_access_token()
-    defaults = load_defaults()
-    settings_manager = SettingsManager(RUNTIME_SETTINGS_PATH, defaults)
+    data_root = Path(runtime_root).resolve() if runtime_root is not None else PROJECT_ROOT
+    isolated_defaults = Path(defaults_path) if defaults_path is not None else data_root / "config" / "defaults.json"
+    if runtime_root is not None and not isolated_defaults.exists():
+        isolated_defaults.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(DEFAULTS_PATH, isolated_defaults)
+    defaults = load_defaults(isolated_defaults if runtime_root is not None or defaults_path is not None else None)
+    # Keep the ordinary runtime path contract (including isolated fixture overrides).
+    # Only an explicitly supplied workspace redirects persistent settings.
+    settings_path = data_root / "config" / "runtime_settings.json" if runtime_root is not None else RUNTIME_SETTINGS_PATH
+    settings_manager = SettingsManager(settings_path, defaults)
     runtime_settings = settings_manager.get()
-    camera_service = CameraService(runtime_settings.get("camera") or defaults.get("camera"), hardware_enabled=hardware_enabled)
-    motor_service = MotorService(runtime_settings.get("motor") or defaults.get("motor"), hardware_enabled=hardware_enabled)
-    recording_service = RecordingService(PROJECT_ROOT, settings_provider=settings_manager.get)
-    ai_drive_service = AIDriveService(PROJECT_ROOT, runtime_settings.get("ai_mode") or {})
+    camera_provider = emulator.render_frame if emulator is not None else None
+    motor_output_sink = emulator.set_motor_outputs if emulator is not None else None
+    camera_service = CameraService(runtime_settings.get("camera") or defaults.get("camera"), hardware_enabled=hardware_enabled, frame_provider=camera_provider)
+    motor_service = MotorService(runtime_settings.get("motor") or defaults.get("motor"), hardware_enabled=hardware_enabled, output_sink=motor_output_sink)
+    source_metadata = {"kind": "synthetic_simulation", "generated_by": "PiSD_Emulator", "physical_camera": False} if emulator is not None else None
+    recording_service = RecordingService(data_root, settings_provider=settings_manager.get, source_metadata=source_metadata)
+    ai_drive_service = AIDriveService(data_root, runtime_settings.get("ai_mode") or {})
 
     app = Flask(
         __name__,
@@ -86,6 +107,9 @@ def create_app(hardware_enabled: bool = False):
         static_url_path="/testing/static",
     )
     app.config["pisd_services"] = {"camera": camera_service, "motor": motor_service, "settings": settings_manager, "recording": recording_service, "ai_drive": ai_drive_service}
+    app.config["pisd_runtime_mode"] = "emulator" if emulator is not None else ("hardware" if hardware_enabled else "basic_simulation")
+    app.config["pisd_emulator"] = emulator
+    app.config["pisd_version"] = __version__
     app.config["pisd_errors"] = APP_ERRORS
     install_mutation_trace(app)
     install_access_control(app, access_token)
@@ -130,6 +154,8 @@ def create_app(hardware_enabled: bool = False):
             "app": "PiSD",
             "version": __version__,
             "hardware_requested": bool(hardware_enabled),
+            "runtime_mode": app.config["pisd_runtime_mode"],
+            "emulator": emulator.status() if emulator is not None else None,
             "timestamp_utc": datetime.now(timezone.utc).isoformat(),
             "code": PiSDErrorCodes.OK,
             "camera": camera_service.status(),
