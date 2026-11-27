@@ -23,7 +23,7 @@
     </nav>
 
     <div class="toolbar-actions">
-      <div id="maintenanceBadge" class="badge off">run</div>
+      <div id="maintenanceBadge" class="badge unknown">checking</div>
       <span id="layoutPreviewMessage" role="status" class="small-note">Layout controls affect this browser only.</span>
       <button class="ghost-btn" id="previewLayoutBtn" aria-describedby="layoutPreviewMessage" type="button" data-action-role="layout">Preview layout</button>
       <button class="ghost-btn" id="cancelLayoutPreviewBtn" aria-describedby="layoutPreviewMessage" type="button" hidden data-action-role="layout">Cancel preview</button>
@@ -39,18 +39,18 @@
       <article class="dock-panel" data-panel="status">
         <div class="panel-head">
           <span>Status</span>
-          <span class="panel-mini">live</span>
+          <span class="panel-mini">checking</span>
         </div>
         <div class="panel-body status-body" data-essentials-only="true">
           <label class="small-note status-density-control"><input type="checkbox" id="essentialsOnly" checked aria-controls="operatorMetrics" aria-describedby="telemetryHint"> Essentials only (keep controls)</label>
           <span class="small-note" id="telemetryHint">Uncheck for more telemetry.</span>
           <div id="operatorMetrics" class="metric-grid status-metric-grid">
-            <div class="metric-card metric-card-primary priority-high"><label>Drive</label><strong id="metricDriveState">ready</strong></div>
-            <div class="metric-card metric-card-primary priority-high"><label>Output</label><strong id="metricApplied">S 0.00 · T 0.00</strong></div>
+            <div class="metric-card metric-card-primary priority-high"><label>Drive</label><strong id="metricDriveState">Unverified</strong></div>
+            <div class="metric-card metric-card-primary priority-high"><label>Output</label><strong id="metricApplied">Unverified</strong></div>
             <div class="metric-card metric-card-primary priority-medium"><label>Target</label><strong id="metricManual">S 0.00 · T 0.00</strong></div>
             <div class="metric-card metric-card-primary priority-high"><label>Last save</label><strong id="metricLastSave">none</strong></div>
             <div class="metric-card metric-card-primary priority-high"><label>Preview</label><strong id="metricPreview">placeholder</strong></div>
-            <div class="metric-card metric-card-alert priority-high"><label>Error</label><strong id="metricError">none</strong></div>
+            <div class="metric-card metric-card-alert priority-high"><label>Error</label><strong id="metricError">Unverified</strong></div>
             <div class="metric-card metric-card-primary priority-medium"><label>Camera</label><strong id="metricCamera">unknown</strong></div>
             <button id="overlayToggleBtn" class="metric-card metric-card-primary metric-card-action overlay-toggle off priority-medium" type="button" aria-pressed="false" aria-label="Overlay" aria-describedby="overlayModeValue overlayModeHelp">
               <span class="metric-card-action-label">Overlay</span>
@@ -62,12 +62,12 @@
             <div class="metric-card priority-medium"><label>Max</label><strong id="metricMaxThrottle">0.55</strong></div>
             <div class="metric-card priority-medium"><label>Mix</label><strong id="metricSteerMix">0.50</strong></div>
             <div class="metric-card priority-medium"><label>Bias</label><strong id="metricSteerBias">0.00</strong></div>
-            <div class="metric-card priority-low"><label>Wheels</label><strong id="metricWheels">0.00 / 0.00</strong></div>
+            <div class="metric-card priority-low"><label>Wheels</label><strong id="metricWheels">Unverified</strong></div>
             <div class="metric-card priority-low"><label>FPS</label><strong id="metricFps">0.0 FPS</strong></div>
             <div class="metric-card priority-low"><label>Backend</label><strong id="metricBackend">unknown</strong></div>
           </div>
 
-          <div id="statusBanner" class="banner muted" role="status" aria-live="polite">Ready.</div>
+          <div id="statusBanner" class="banner muted" role="status" aria-live="polite">Checking server status…</div>
           <div id="configRecoveryBanner" class="banner muted" role="alert" hidden></div>
           <details data-preflight-root aria-label="Read-only startup preflight">
                       <summary>Startup preflight (read-only)</summary>
@@ -96,9 +96,9 @@
           <span class="panel-mini">safety</span>
         </div>
         <div class="panel-body estop-body">
-          <button id="estopToggle" class="estop-toggle off" type="button" aria-pressed="false">
-            <span class="estop-toggle-title">E-STOP OFF</span>
-            <span class="estop-toggle-subtitle">Tap to engage emergency stop</span>
+          <button id="estopToggle" class="estop-toggle off" type="button" data-status="unknown" aria-pressed="mixed">
+            <span class="estop-toggle-title">E-STOP STATUS UNKNOWN</span>
+            <span class="estop-toggle-subtitle">Request STOP · rearm unavailable</span>
           </button>
         </div>
         <div class="resize-handle"></div>
