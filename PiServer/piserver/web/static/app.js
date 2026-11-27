@@ -1449,8 +1449,8 @@ async function applyPreviewResourceProfile() {
     state.cameraConfig = actual.config || {};
     renderPreviewResourceProfile(state.cameraConfig);
     const applied = state.cameraConfig.preview_resource_profile === selected;
-    setBanner("cameraResourceMessage", applied && data.saved ? "Applied and saved."
-      : (data.message || "Profile was not confirmed and saved."), "muted");
+    setBanner("cameraResourceMessage", !applied ? "Profile readback mismatch; current effective settings shown."
+      : data.saved ? "Applied and saved." : "Applied at runtime, but settings were not saved.", "muted");
   } catch (error) {
     setBanner("cameraResourceMessage", error.message || "Preview profile request failed.", "muted");
   } finally {

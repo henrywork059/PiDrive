@@ -33,3 +33,5 @@ Exact parent 458304862e45c5fd33b39cb0f6246a318e728a6c all 11 jobs passed; 60-sec
 Operator control: web camera settings expose Standard/Economy, explicit Apply preview profile, live effective FPS/JPEG and separate saved/runtime confirmation; economy also caps browser snapshot polling, without changing existing Standard scheduling. Ordinary camera Apply remains separate. UI/browser qualification pending.
 
 Resource qualification extension: 120 seconds per main/lores/lores-economy mode, output byte rate, configured/effective profile, CPU/RSS and preview age. Separate real service loop mock reconnect injects two request failures, asserts old/new device close/release balance and recovered main-frame parity. No real device or recording throughput claim; candidate results pending.
+
+Profile UI readback mismatch now explicitly shown instead of reusing a potentially successful POST message. Native browser fixture checks visible/accessibly named profile, read-only selection, intercepted rejection, unchanged effective values, enabled retry/STOP, and captures new panel. Real API persistence test separate. Candidate CI pending.
