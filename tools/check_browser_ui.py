@@ -42,6 +42,63 @@ PAGES = {
 }
 
 
+# R35: use Chromium's computed accessibility tree, not just aria-label
+# attributes. Inventory-only: a flagged node requires review (e.g. roving
+# tabindex, composite controls); it is never silently treated as accepted.
+AX_CONTROL_ROLES = {
+    "button", "checkbox", "combobox", "link", "listbox", "menuitem",
+    "menuitemcheckbox", "menuitemradio", "radio", "searchbox", "slider",
+    "spinbutton", "switch", "tab", "textbox", "treeitem",
+}
+
+
+def accessibility_inventory(page):
+    """Read the actual rendered AX tree; no focus, activation or mutation."""
+    cdp = page.context.new_cdp_session(page)
+    try:
+        tree = cdp.send("Accessibility.getFullAXTree")["nodes"]
+        controls = []
+        for node in tree:
+            if node.get("ignored"):
+                continue
+            role = node.get("role", {}).get("value", "")
+            properties = {prop["name"]: prop.get("value", {}).get("value")
+                          for prop in node.get("properties", [])}
+            focusable = properties.get("focusable") is True
+            if role not in AX_CONTROL_ROLES and not (focusable and node.get("backendDOMNodeId")):
+                continue
+            backend_id = node.get("backendDOMNodeId")
+            # Avoid collecting fixture field values; names and structural identifiers only.
+            name = str(node.get("name", {}).get("value") or "").strip()
+            row = {"role": role, "name": name, "focusable": focusable,
+                   "disabled": properties.get("disabled") is True,
+                   "backend_node": backend_id}
+            flags = []
+            if not row["disabled"] and role in AX_CONTROL_ROLES:
+                if not name:
+                    flags.append("missing_computed_name")
+                if not focusable:
+                    flags.append("focus_path_review")
+            if flags:
+                row["review"] = flags
+                if backend_id:
+                    # Resolve a structural locator for flagged controls only.
+                    info = cdp.send("DOM.describeNode", {"backendNodeId": backend_id})["node"]
+                    attrs = dict(zip(info.get("attributes", [])[::2], info.get("attributes", [])[1::2]))
+                    row["tag"] = info.get("localName", "")
+                    row["id"] = attrs.get("id", "")
+                    row["role_attribute"] = attrs.get("role", "")
+                    row["tabindex"] = attrs.get("tabindex")
+            controls.append(row)
+        assert controls, "Empty accessibility inventory"
+        return {"controls": controls, "active_control_count": sum(
+                    not row["disabled"] and row["role"] in AX_CONTROL_ROLES for row in controls),
+                "review_count": sum(bool(row.get("review")) for row in controls),
+                "scope": "rendered AX tree; review findings are not owner acceptance"}
+    finally:
+        cdp.detach()
+
+
 def fixture(component, temp, stack):
     stack.enter_context(patch.dict(os.environ, {"PISD_ACCESS_TOKEN": "", "PISERVER_ACCESS_TOKEN": "", "PISERVER_HOST": "127.0.0.1"}))
     if component == "PiSD":
@@ -322,6 +379,7 @@ def main():
                             expect(page.locator("#mdrvSpeed")).to_have_attribute("max", "0.63")
                             assert page.locator("#mdrvOverlayLengthScale").evaluate("(el) => Number(el.value)") == 1.35
                         page.screenshot(path=str(args.output / f"{name}-{width}.png"), full_page=True, animations="disabled")
+                        case["accessibility_inventory"] = accessibility_inventory(page)
                         for label, selector in (("stop", stop), ("primary", primary), ("preview", preview)):
                             if selector:
                                 case["geometry"][label] = check_geometry(page.locator(selector).first, width, height, label)

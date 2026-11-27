@@ -9,7 +9,7 @@ from urllib.parse import urlsplit
 
 from playwright.sync_api import expect, sync_playwright
 
-from check_browser_ui import HEIGHTS, ORIGIN, WIDTHS, PAGES, fixture
+from check_browser_ui import HEIGHTS, ORIGIN, WIDTHS, PAGES, fixture, accessibility_inventory
 
 
 def reachable(locator, width, height, label):
@@ -287,6 +287,7 @@ def main():
                                 # Restore screenshot framing to the primary action after Close hit-testing.
                                 reachable(page.locator(save), width, height, 'Dialog Save/Apply')
                             page.screenshot(path=str(args.output / f'{page_name}-{width}x{height}-dialog.png'))
+                            case['dialog_accessibility_inventory'] = accessibility_inventory(page)
                             if page_name == 'manual':
                                 length = page.locator('#mdrvOverlayLengthScale')
                                 opacity = page.locator('#mdrvOverlayOpacity')
