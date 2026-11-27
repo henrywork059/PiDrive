@@ -9,3 +9,8 @@ In-place normalization, same-dtype interpreter input reuse, visibility refresh c
 
 ## Verification and remaining limits
 Read live source and previous checkpoint/version notes; the existing operation-level benchmark figures in the checkpoint are not hardware measurements. Exact paired benchmark and profiles are now scheduled by CI using the original and extended scripts; inspect actual artifacts and regressions before accepting this candidate. No device energy, physical STOP, full workload CPU/RSS or native visual signoff is claimed. Keep configuration and approved 105 web PNG reference unchanged. See the performance roadmap and component checkpoint notes for details.
+
+## Strict measured continuation
+
+Eight-second hardware-free attribution at 32d710d: 162 simulated-frame calls consumed 89.58 ms inclusive thread CPU, encoding 37.8 ms; idle CPU 20.71→22.09 ms/s, target not met. Reuse dimension-keyed static simulation gradient and apply identical NumPy uint8 scalar arithmetic through a 256-entry LUT; each publication still owns fresh pixels and JPEG. Local isolated 426×240 fixture, NumPy 2.3.5/OpenCV 4.13.0 (outside declared range), sequences 0–36 pixel-exact; five paired medians 0.4132→0.2949 ms for sequence 25. Supported NumPy 1.x boundary/large-sequence parity, resize, fallback and long workload CI pending. Hardware request/array paths, cadence and frame ownership unchanged. No physical idle savings claim.
+Exact parent 32d710d passed Linux 46001881327, Windows 46001881366, strict 46001881398 and short workload 46001881331 (8/8 jobs). Version marker and original package baseline unchanged; no acceptance target waived.

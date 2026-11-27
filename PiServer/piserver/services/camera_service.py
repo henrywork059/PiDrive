@@ -392,7 +392,9 @@ class CameraService:
         if pil_image is None or np is None:
             return None
         try:
-            arr = np.array(pil_image)
+            # Pillow exposes a read-only array; all return paths below own
+            # their output. Avoid an extra full-frame copy before conversion.
+            arr = np.asarray(pil_image)
             if getattr(arr, "ndim", 0) == 2:
                 if cv2 is not None:
                     return cv2.cvtColor(arr, cv2.COLOR_GRAY2BGR)
@@ -400,6 +402,12 @@ class CameraService:
             if getattr(arr, "ndim", 0) == 3:
                 channels = int(arr.shape[2])
                 if channels >= 3:
+                    if cv2 is not None and arr.dtype == np.uint8 and channels in (3, 4):
+                        try:
+                            code = cv2.COLOR_RGB2BGR if channels == 3 else cv2.COLOR_RGBA2BGR
+                            return cv2.cvtColor(arr, code)
+                        except Exception:
+                            pass  # Keep the exact existing NumPy fallback.
                     rgb = arr[:, :, :3]
                     return rgb[:, :, ::-1].copy()
             return arr.copy()

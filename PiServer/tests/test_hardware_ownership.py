@@ -240,5 +240,34 @@ class PerformancePlaceholderTests(unittest.TestCase):
         self.assertIsNone(svc._raw_frame)
 
 
+class PerformancePILConversionParityTests(unittest.TestCase):
+    def test_owned_bgr_pixels_for_pil_modes_and_numpy_fallback(self):
+        from unittest.mock import patch
+        import numpy as np
+        from PIL import Image
+        from piserver.services import camera_service as cm
+        rng=np.random.default_rng(17)
+        image=Image.fromarray(rng.integers(0,256,(240,426,3),dtype=np.uint8))
+        for backend in (cm.cv2,None):
+            with patch.object(cm,"cv2",backend):
+                for mode in ("RGB","RGBA","L","P","CMYK","I","F","1"):
+                    source=image.convert(mode)
+                    arr=np.array(source)
+                    if arr.ndim==2:
+                        expected=backend.cvtColor(arr,backend.COLOR_GRAY2BGR) if backend is not None and arr.dtype in (np.uint8,np.uint16,np.float32) else np.stack([arr]*3,axis=-1)
+                    else:
+                        expected=arr[:,:,:3][:,:,::-1].copy() if arr.ndim==3 and arr.shape[2]>=3 else arr.copy()
+                    actual=cm.CameraService()._frame_from_pil(source)
+                    if backend is not None and arr.ndim==2 and arr.dtype not in (np.uint8,np.uint16,np.float32):
+                        # Legacy OpenCV rejects these grayscale dtypes.
+                        self.assertIsNone(actual)
+                        continue
+                    np.testing.assert_array_equal(actual,expected)
+                    self.assertEqual(actual.dtype,expected.dtype)
+                    self.assertTrue(actual.flags.writeable)
+                    actual.flat[0]=0
+                    np.testing.assert_array_equal(np.array(source),arr)
+
+
 if __name__ == '__main__':
     unittest.main()

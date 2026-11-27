@@ -174,5 +174,44 @@ class PerformanceStreamTests(unittest.TestCase):
         np.testing.assert_array_equal(x, before)
 
 
+class PerformanceSimulationParityTests(unittest.TestCase):
+    def test_static_geometry_and_lut_preserve_pixels_across_sizes_and_sequences(self):
+        from unittest.mock import patch
+        import numpy as np
+        from pisd.services import camera_service as cm
+        camera = cm.CameraService(hardware_enabled=False)
+        cv = cm.cv2
+        for backend in (cv, None):
+            with patch.object(cm, "cv2", backend):
+                for width, height in ((426,240),(160,120),(640,480),(426,240)):
+                    camera.config.width, camera.config.height = width, height
+                    previous = None
+                    for seq in (0,1,36,37,51,52,85,86,255,256,1000,10000):
+                        camera.frame_seq = seq
+                        x = np.linspace(0,255,width,dtype=np.uint8)
+                        y = np.linspace(0,255,height,dtype=np.uint8)[:,None]
+                        expected = np.zeros((height,width,3),dtype=np.uint8)
+                        try:
+                            expected[:,:,0] = (x[None,:]+seq*3)%255
+                            expected[:,:,1] = (y+seq*5)%255
+                            expected[:,:,2] = ((x[None,:]//2+y//2+seq*7)%255).astype(np.uint8)
+                        except OverflowError:
+                            # NumPy 2 changed scalar promotion. Match legacy
+                            # exception semantics rather than silently alter pixels.
+                            with self.assertRaises(OverflowError):
+                                camera._make_simulated_frame()
+                            continue
+                        if backend is not None:
+                            backend.putText(expected,f"PiSD SIM {seq}",(12,max(24,height//8)),
+                                            backend.FONT_HERSHEY_SIMPLEX,.65,(255,255,255),2,backend.LINE_AA)
+                        actual = camera._make_simulated_frame()
+                        np.testing.assert_array_equal(actual,expected)
+                        self.assertTrue(actual.flags.c_contiguous)
+                        self.assertTrue(actual.flags.writeable)
+                        if previous is not None:
+                            self.assertFalse(np.shares_memory(previous,actual))
+                        previous=actual
+
+
 if __name__ == "__main__":
     unittest.main()
