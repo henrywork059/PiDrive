@@ -20,11 +20,12 @@ def main():
     p.add_argument("--revision",required=True);p.add_argument("--base",required=True)
     p.add_argument("--output",type=Path,required=True)
     p.add_argument("--rounds",type=int,default=5);p.add_argument("--rows",type=int,default=30000)
+    p.add_argument('--include-low-budgets', action='store_true', help='Also measure 4 and 2 MiB; production stays 8 MiB')
     a=p.parse_args()
     if a.rounds<5 or a.rows<10000 or a.rows%2:p.error("at least five rounds and even >=10000 rows")
     ref=camera.trusted(a.revision)
     base=camera.trusted(a.base)
-    budgets=[64,32,16,8]
+    budgets=[64,32,16,8] + ([4,2] if a.include_low_budgets else [])
     treatments=[("base64",base,64)]+[(str(b),ref,b) for b in budgets]
     runs={key:[] for key,_,_ in treatments}
     with tempfile.TemporaryDirectory(prefix="pidrive-cache-budget-") as tmp:
