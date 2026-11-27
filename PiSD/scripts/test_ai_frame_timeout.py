@@ -138,5 +138,41 @@ class PerformanceInputParityTests(unittest.TestCase):
             self.assertTrue(actual.flags.c_contiguous)
 
 
+class PerformanceStreamTests(unittest.TestCase):
+    def test_cached_stopped_jpeg_backs_off_and_recovery_publishes(self):
+        import ast
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        # Execute the actual nested generator without opening a Pi or server.
+        tree = ast.parse((PROJECT_ROOT / "pisd/app.py").read_text(encoding="utf-8"))
+        endpoint = next(n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == "video_feed")
+        generate = next(n for n in endpoint.body if isinstance(n, ast.FunctionDef) and n.name == "generate")
+        camera = SimpleNamespace(start=Mock(), wait_for_jpeg_frame=Mock(side_effect=[
+            (b"first", 1, "", 5), (b"first", 1, "", 5),
+            (b"first", 1, "", 5), (b"second", 2, "", 6)]))
+        clock = SimpleNamespace(monotonic=Mock(side_effect=[1.0, 2.0]), sleep=Mock())
+        scope = {"camera_service": camera, "time": clock, "_live_preview_interval": lambda: 0.05}
+        exec(compile(ast.Module(body=[generate], type_ignores=[]), "video_feed", "exec"), scope)
+        stream = scope["generate"]()
+        self.assertIn(b"first", next(stream))
+        self.assertIn(b"second", next(stream))
+        self.assertEqual(clock.sleep.call_count, 2)
+        clock.sleep.assert_called_with(0.05)
+        self.assertEqual(camera.wait_for_jpeg_frame.call_count, 4)
+
+    def test_same_dtype_input_reuses_owned_tensor_and_integer_parity(self):
+        import numpy as np
+        x = np.linspace(0, 1, 300, dtype=np.float32).reshape(1, 10, 10, 3)
+        before = x.copy()
+        self.assertIs(AIDriveService._coerce_tflite_input(x, {"dtype": np.float32}), x)
+        for dtype, zero in ((np.int8, -128), (np.uint8, 0)):
+            scale = 1 / 255
+            limits = np.iinfo(dtype)
+            expected = np.clip(np.round(x / scale + zero), limits.min, limits.max).astype(dtype)
+            actual = AIDriveService._coerce_tflite_input(x, {"dtype": dtype, "quantization": (scale, zero)})
+            np.testing.assert_array_equal(actual, expected)
+        np.testing.assert_array_equal(x, before)
+
+
 if __name__ == "__main__":
     unittest.main()

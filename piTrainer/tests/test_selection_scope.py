@@ -219,5 +219,33 @@ class PreviewSortIdentityTests(unittest.TestCase):
         preview.deleteLater()
 
 
+@unittest.skipUnless(PreviewPanel is not None, 'PySide6 desktop GUI unavailable')
+class PerformanceSourceLookupTests(unittest.TestCase):
+    def test_reverse_mapping_after_default_sort_header_sort_edit_and_reset(self):
+        from piTrainer.panels.data.preview_model import RecordPreviewModel
+        app = QApplication.instance() or QApplication([])
+        model = RecordPreviewModel()
+        rows = [{"frame_id": f"f{i}", "session": "session", "steering": float(i)} for i in (10, 2, 1, 5)]
+        columns = ["frame_id", "session", "steering"]
+        model.set_preview_rows(rows, columns)
+        def check():
+            for source in range(model.rowCount()):
+                view = model.view_row_for_source_row(source)
+                self.assertEqual(model.source_row(view), source)
+            self.assertEqual(model.view_row_for_source_row(-1), -1)
+            self.assertEqual(model.view_row_for_source_row(model.rowCount()), -1)
+        check()
+        for column in (0, 2, 1):
+            for order in (Qt.DescendingOrder, Qt.AscendingOrder):
+                model.sort(column, order)
+                check()
+        model.set_value(2, "steering", -0.5)
+        self.assertEqual(model.rows[model.view_row_for_source_row(2)]["steering"], -0.5)
+        model.set_preview_rows([], columns)
+        check()
+        model.set_preview_rows(rows[:2], columns)
+        check()
+
+
 if __name__ == '__main__':
     unittest.main()

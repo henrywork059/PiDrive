@@ -1074,7 +1074,9 @@ class AIDriveService:
 
         dtype = input_detail.get("dtype", tensor.dtype)
         if np.issubdtype(dtype, np.floating):
-            return tensor.astype(dtype)
+            # set_tensor copies into interpreter-owned storage. The input is
+            # already owned by this inference call; avoid a same-dtype copy.
+            return tensor.astype(dtype, copy=False)
         q_scale, q_zero = input_detail.get("quantization", (0.0, 0)) or (0.0, 0)
         if q_scale and float(q_scale) > 0.0:
             quantized = np.round((tensor / float(q_scale)) + float(q_zero))

@@ -586,6 +586,10 @@ def create_app(hardware_enabled: bool = False):
                 if frame is None:
                     continue
                 if last_seq is not None and seq == last_seq:
+                    # A stopped camera can immediately return its last JPEG.
+                    # Back off instead of spinning while an MJPEG viewer waits
+                    # for recovery. Never emit it as a fresh frame.
+                    time.sleep(0.05)
                     continue
                 last_seq = seq
                 now = time.monotonic()

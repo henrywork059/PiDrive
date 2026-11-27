@@ -233,7 +233,8 @@ class ModelService:
             return x
         dtype = input_details.get("dtype", None)
         if dtype is None or dtype == np.float32:
-            return x.astype(np.float32)
+            # set_tensor copies; do not duplicate our owned float32 input.
+            return x.astype(np.float32, copy=False)
         scale, zero_point = input_details.get("quantization", (0.0, 0))
         if scale and scale > 0.0:
             q = np.rint(x / scale + zero_point)

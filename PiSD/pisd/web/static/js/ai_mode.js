@@ -63,7 +63,7 @@
       const element = document.getElementById(id);
       if (!element) continue;
       if (element.textContent !== readiness[key].text) element.textContent = readiness[key].text;
-      element.dataset.tone = readiness[key].tone;
+      if (element.dataset.tone !== readiness[key].tone) element.dataset.tone = readiness[key].tone;
     }
   }
   async function pollOperatingReadiness() {

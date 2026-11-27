@@ -187,5 +187,19 @@ class PerformanceInputParityTests(unittest.TestCase):
         np.testing.assert_array_equal(frame, original)
 
 
+class PerformanceTensorReuseTests(unittest.TestCase):
+    def test_same_dtype_input_reuses_owned_tensor_and_integer_parity(self):
+        x = np.linspace(0, 1, 300, dtype=np.float32).reshape(1, 10, 10, 3)
+        before = x.copy()
+        self.assertIs(ModelService._quantize_if_needed(None, x, {"dtype": np.float32}), x)
+        for dtype, zero in ((np.int8, -128), (np.uint8, 0)):
+            scale = 1 / 255
+            limits = np.iinfo(dtype)
+            expected = np.clip(np.rint(x / scale + zero), limits.min, limits.max).astype(dtype)
+            actual = ModelService._quantize_if_needed(None, x, {"dtype": dtype, "quantization": (scale, zero)})
+            np.testing.assert_array_equal(actual, expected)
+        np.testing.assert_array_equal(x, before)
+
+
 if __name__ == '__main__':
     unittest.main()
