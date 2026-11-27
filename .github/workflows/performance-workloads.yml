@@ -51,8 +51,8 @@ jobs:
           python-version: '3.11'
       - name: Install matched hardware-free dependencies
         run: python -m pip install "numpy>=1.26,<2" "pandas>=2.2,<3" "Pillow>=10,<12" "opencv-python-headless>=4.8,<4.12" "psutil>=5.9,<8" "Flask>=3,<4"
-      - name: Native stream mock operations and 60-second-per-mode capture-loop soak
-        run: python tools/benchmark_p2_preview.py --seconds 60 --rounds 5 --requests 150 --output "$RUNNER_TEMP/p2-resources/preview.json"
+      - name: Native stream mock operations and 120-second-per-mode profile and reconnect capture-loop soak
+        run: python tools/benchmark_p2_preview.py --seconds 120 --rounds 5 --requests 150 --output "$RUNNER_TEMP/p2-resources/preview.json"
       - name: Matched exact-revision JSONL ingestion
         run: python tools/benchmark_p2_record_loading.py --base 1b02da5b22c35c2b31b04761e17f2d6ee6a44862 --candidate "${{ github.event.pull_request.head.sha }}" --rounds 5 --rows 30000 --output "$RUNNER_TEMP/p2-resources/loading.json"
       - name: Preserve resource evidence

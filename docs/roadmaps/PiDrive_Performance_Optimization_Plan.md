@@ -228,3 +228,5 @@ Parent 458304862e45c5fd33b39cb0f6246a318e728a6c all 11 CI jobs passed. Evidence 
 P2.5 initial explicit persistent preview-only standard/economy profile: cap rate 6 and quality 40, base settings unchanged, profile-only API apply without camera restart, configured/effective readback, no default switch or lores reconfiguration. Reversible presentation only; no main capture cadence, model or recorder changes. Deterministic profile regression registered; matched benchmark and operator UI remain to qualify. P2.5 partial, no physical acceptance.
 
 Operator UI added for P2.5 with separate live profile application, effective settings, persistence confirmation and economy-aware browser polling. Standard retains original browser scheduling. Existing camera apply/restart path unaffected.
+
+P2.6 soak expanded to 120 seconds per standard-main, standard-lores and economy-lores mode (single sequential soak each), including actual published byte totals/rates and separate two-failure mock device reopen/regained raw-frame parity with release/close verification. Full 30–60 minute target and physical testing remain open. Exact candidate CI pending.

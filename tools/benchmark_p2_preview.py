@@ -142,8 +142,20 @@ def operations(source, rgb, plane, count):
             "main_reads": fake.main_reads, "lores_reads": fake.lores_reads}
 
 
-def soak(source, rgb, plane, duration):
+def soak(source, rgb, plane, duration, profile="standard"):
     service, fake = start_service(source, rgb, plane)
+    ok, reason, effective = service.apply_settings({"preview_resource_profile": profile})
+    assert ok, reason
+    published_bytes = 0
+    original_publish = service._publish_jpeg
+
+    def publish(data):
+        nonlocal published_bytes
+        if data is not None:
+            published_bytes += len(data)
+        original_publish(data)
+
+    service._publish_jpeg = publish
     expected = np.ascontiguousarray(rgb[:, :, ::-1])
     process = psutil.Process()
     samples, ages = [], []
@@ -174,7 +186,9 @@ def soak(source, rgb, plane, duration):
         service.close()
     assert_retired(fake)
     stats = service.get_preview_delivery_stats()
-    assert received > 0 and verified > 0 and stats["subscriber_skipped_frames"] > 0
+    assert received > 0 and verified > 0
+    if profile == "standard":
+        assert stats["subscriber_skipped_frames"] > 0
     assert stats["scheduled_preview_attempts"] == stats["published_frames"] + stats["scheduled_preview_misses"]
     assert stats["scheduled_preview_misses"] == 0
     elapsed = time.monotonic()-wall0
@@ -182,7 +196,60 @@ def soak(source, rgb, plane, duration):
             "releases": fake.releases, "received": received, "verified_raw_frames": verified,
             "preview_age_p95_ms": float(np.percentile(ages, 95))*1000,
             "peak_rss_bytes": max(s["rss_bytes"] for s in samples), "rss_samples": samples,
-            "delivery": stats, "main_reads": fake.main_reads, "lores_reads": fake.lores_reads}
+            "delivery": stats, "main_reads": fake.main_reads, "lores_reads": fake.lores_reads,
+            "profile": profile, "effective_preview_fps": effective["effective_preview_fps"],
+            "effective_preview_quality": effective["effective_preview_quality"],
+            "published_jpeg_bytes": published_bytes, "published_bytes_per_s": published_bytes / elapsed}
+
+
+def reconnect_fixture(rgb, plane):
+    """Actual capture loop reopens after two injected capture-request failures."""
+    service, first = start_service("lores", rgb, plane)
+    original = first.capture_request
+    failures = 0
+    devices = [first]
+
+    def failing():
+        nonlocal failures
+        if first.requests >= 20 and failures < 2:
+            failures += 1
+            raise RuntimeError("injected capture transport failure")
+        return original()
+
+    first.capture_request = failing
+
+    def create():
+        new = FixtureCamera(rgb, plane)
+        devices.append(new)
+        return new
+
+    expected = np.ascontiguousarray(rgb[:, :, ::-1])
+    service._running = True
+    service._thread = threading.Thread(target=service._loop, daemon=True)
+    saw_recovery = False
+    deadline = time.monotonic() + 8
+    try:
+        with patch.object(cm, "Picamera2", create), patch.object(
+                service, "_open_opencv_locked", side_effect=AssertionError("unexpected OpenCV fallback")):
+            service._thread.start()
+            while time.monotonic() < deadline:
+                if len(devices) > 1 and devices[-1].requests >= 10:
+                    raw, captured = service.get_raw_frame_sample()
+                    if raw is not None:
+                        np.testing.assert_array_equal(raw, expected)
+                        saw_recovery = True
+                        break
+                time.sleep(.05)
+            assert service._thread.is_alive()
+            assert failures == 2 and saw_recovery and len(devices) == 2
+    finally:
+        service.close()
+    for device in devices:
+        assert_retired(device)
+    return {"injected_capture_failures": failures, "devices_opened": len(devices),
+            "recovered_main_frame": saw_recovery, "request_counts": [d.requests for d in devices],
+            "release_counts": [d.releases for d in devices],
+            "physical_acceptance": False}
 
 
 def main():
@@ -207,6 +274,11 @@ def main():
                           for key, rows in results.items()},
               "soak": {source: soak(source, rgb, plane, args.seconds) for source in ("main", "lores")},
               "physical_acceptance": False}
+    # Keep the original standard main/lores soaks and compare economy using
+    # the same source, raw input and duration. Single sequential soak per mode;
+    # report counts and costs, never assert a noisy CPU target.
+    report["soak"]["lores_economy"] = soak("lores", rgb, plane, args.seconds, "economy")
+    report["reconnect"] = reconnect_fixture(rgb, plane)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2)+"\n", encoding="utf-8")
     print(json.dumps(report["summary"], indent=2))
