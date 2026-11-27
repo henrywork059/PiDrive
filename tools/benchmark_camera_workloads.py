@@ -90,7 +90,7 @@ def tcp_pair():
     return tx, rx
 
 
-def run_case(checkout, component, case, duration):
+def run_case(checkout, component, case, duration, *, pisd_request=False):
     import cv2
     import numpy as np
     import psutil
@@ -157,8 +157,43 @@ def run_case(checkout, component, case, duration):
                                     "live_preview_fps": 60, "preview_quality": 60}, hardware_enabled=False)
             settings = SettingsManager(root / "runtime_settings.json")
             assert settings.save({"camera": {"live_preview_fps": 60}})[0]
-            wrap(camera, "_make_simulated_frame", "capture_requests")
-            wrap(camera, "_encode_jpeg", "preview_encode_calls", "preview_encoded_bytes")
+            if pisd_request:
+                # Never instantiate a real device. Exercise the actual PiSD
+                # request capture, metadata, publication and release paths.
+                from pisd.services import camera_service as cm
+                assert not Path("/proc/device-tree/model").exists()
+                rng = np.random.default_rng(17)
+                source = Image.fromarray(rng.integers(0,256,(SIZE[1],SIZE[0],3),dtype=np.uint8))
+                class Request:
+                    def make_image(self, stream):
+                        assert stream == "main"
+                        count("request_image_extractions")
+                        return source.copy()
+                    def get_metadata(self):
+                        return {"ExposureTime":1000,"SensorTimestamp":time.monotonic_ns()}
+                    def release(self):
+                        count("request_releases")
+                class Device:
+                    def capture_request(self):
+                        count("capture_requests")
+                        return Request()
+                    def stop(self): pass
+                    def close(self): pass
+                cm.Picamera2 = object()  # non-None sentinel, not callable
+                def open_fixture():
+                    camera._picam2 = Device()
+                    return True, "Fixture Picamera2"
+                def forbidden_simulation():
+                    count("unexpected_simulation")
+                    raise AssertionError("Request workload fell back to simulation")
+                camera.hardware_enabled = True
+                camera.config.capture_source = "request"
+                camera._open_picamera2_locked = open_fixture
+                camera._make_simulated_frame = forbidden_simulation
+                wrap(camera, "_jpeg_from_pil", "preview_encode_calls", "preview_encoded_bytes")
+            else:
+                wrap(camera, "_make_simulated_frame", "capture_requests")
+                wrap(camera, "_encode_jpeg", "preview_encode_calls", "preview_encoded_bytes")
             publish = camera._publish_frame
             def published(frame, jpeg, loop_ms):
                 seq = camera.frame_seq + 1
@@ -337,6 +372,13 @@ def run_case(checkout, component, case, duration):
             assert counters["capture_requests"] > 0
             # Allow the first publication to complete before workload starts.
             time.sleep(.10)
+            if pisd_request:
+                import io
+                expected_jpeg = io.BytesIO()
+                source.save(expected_jpeg,format="JPEG",quality=int(camera.config.preview_quality),optimize=False)
+                np.testing.assert_array_equal(camera.get_latest_frame(),np.array(source)[:,:,::-1])
+                assert camera.get_jpeg_frame() == expected_jpeg.getvalue()
+                assert camera.backend == "picamera2" and camera._last_capture_source == "request"
             before = counters.copy()
             rss.append(process.memory_info().rss)
             cpu0, wall0 = time.process_time(), time.monotonic()
@@ -383,6 +425,10 @@ def run_case(checkout, component, case, duration):
         counts = {k: after[k] - before[k] for k in set(after) | set(before)}
         counts["capture_requests"] = counts.get("capture_requests", 0)
         assert counts["capture_requests"] > 0, (component, case, counts)
+        if pisd_request:
+            assert counters["unexpected_simulation"] == 0
+            assert counters["capture_requests"] == counters["request_releases"] == counters["request_image_extractions"]
+            assert abs(counts.get("preview_publications",0)-counts["capture_requests"]) <= 1
         records = []
         if recorder:
             for path in root.rglob("records.jsonl"):

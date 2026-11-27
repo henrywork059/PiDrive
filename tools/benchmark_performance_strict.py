@@ -42,7 +42,9 @@ def attach_attribution(component):
         from pisd.services.ai_drive_service import AIDriveService
         from pisd.services.recording_service import RecordingService
         targets = [(CameraService, "_make_simulated_frame"), (CameraService, "_encode_jpeg"),
-                   (CameraService, "_publish_frame"), (AIDriveService, "_predict_from_jpeg"),
+                   (CameraService, "_publish_frame"), (CameraService, "_capture_picamera_request"),
+                   (CameraService, "_frame_from_pil"), (CameraService, "_jpeg_from_pil"),
+                   (AIDriveService, "_predict_from_jpeg"),
                    (AIDriveService, "_prepare_input"), (RecordingService, "_save_frame_record_locked")]
     else:
         from piserver.services.camera_service import CameraService
@@ -243,7 +245,7 @@ def worker(args):
             import cv2
             cv2.setNumThreads(1)
             attribution=attach_attribution(args.component) if args.attribute else None
-            result=camera.run_case(checkout,args.component,args.case,args.duration)
+            result=camera.run_case(checkout,args.component,args.case,args.duration,pisd_request=args.pisd_request)
             if attribution is not None:
                 result["inclusive_thread_cpu_attribution"]=dict(attribution)
     print(json.dumps(result))
@@ -252,12 +254,13 @@ def worker(args):
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument("--base");p.add_argument("--prior");p.add_argument("--candidate")
-    p.add_argument("--kind",choices=("camera","trainer"),default="camera")
+    p.add_argument("--kind",choices=("camera","trainer","request"),default="camera")
     p.add_argument("--rounds",type=int,default=5);p.add_argument("--duration",type=float,default=8)
     p.add_argument("--rows",type=int,default=30000);p.add_argument("--output",type=Path)
     p.add_argument("--worker",action="store_true");p.add_argument("--checkout");p.add_argument("--revision")
     p.add_argument("--component");p.add_argument("--case");p.add_argument("--attribute",action="store_true")
     p.add_argument("--cache-budget-mib",type=int,choices=(8,16,32,64))
+    p.add_argument("--pisd-request",action="store_true")
     args=p.parse_args()
     if args.worker:
         worker(args);return
@@ -273,7 +276,9 @@ def main():
         try:
             for ref,checkout in zip(refs,checkouts):
                 camera.git("worktree","add","--detach",str(checkout),ref)
-            jobs=[("piTrainer","review")] if args.kind=="trainer" else [(c,k) for c,cs in CASES.items() for k in cs]
+            jobs=([("piTrainer","review")] if args.kind=="trainer" else
+                  [("PiSD",k) for k in ("idle","concurrent")] if args.kind=="request" else
+                  [(c,k) for c,cs in CASES.items() for k in cs])
             for component,case in jobs:
                 key=component+"/"+case
                 runs=[[] for _ in refs]
@@ -282,6 +287,7 @@ def main():
                          "--revision",refs[i],"--component",component,"--case",case,
                          "--duration",str(args.duration),"--rows",str(args.rows)]
                     if attribute:cmd.append("--attribute")
+                    if args.kind=="request":cmd.append("--pisd-request")
                     run=subprocess.run(cmd,capture_output=True,text=True,timeout=180,
                         env={**os.environ,"QT_QPA_PLATFORM":"offscreen","PYTHONDONTWRITEBYTECODE":"1",
                              "OPENBLAS_NUM_THREADS":"1","OMP_NUM_THREADS":"1","MPLCONFIGDIR":str(Path(temp)/"mpl")})
@@ -299,7 +305,7 @@ def main():
                 if args.kind=="trainer":
                     assert len({r["semantic_sha256"] for series in runs for r in series})==1,"review semantic parity failed"
                 result["runs"][key]=dict(zip(refs,runs))
-                if args.kind=="camera":
+                if args.kind in ("camera","request"):
                     result["attribution"][key]={refs[i]:execute(i,True) for i in range(len(refs))}
                 # Preserve completed cases even if a later workload fails.
                 args.output.parent.mkdir(parents=True,exist_ok=True)

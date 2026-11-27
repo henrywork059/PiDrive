@@ -1039,7 +1039,9 @@ class CameraService:
         if pil_image is None or np is None:
             return None
         try:
-            arr = np.array(pil_image)
+            # The return paths below own their output. Pillow's array is
+            # read-only; avoid copying it before producing the owned BGR frame.
+            arr = np.asarray(pil_image)
             if getattr(arr, "ndim", 0) == 2:
                 if cv2 is not None:
                     return cv2.cvtColor(arr, cv2.COLOR_GRAY2BGR)
@@ -1047,6 +1049,12 @@ class CameraService:
             if getattr(arr, "ndim", 0) == 3:
                 channels = int(arr.shape[2])
                 if channels >= 3:
+                    if cv2 is not None and arr.dtype == np.uint8 and channels in (3, 4):
+                        try:
+                            code = cv2.COLOR_RGB2BGR if channels == 3 else cv2.COLOR_RGBA2BGR
+                            return cv2.cvtColor(arr, code)
+                        except Exception:
+                            pass  # Preserve the original NumPy fallback.
                     rgb = arr[:, :, :3]
                     return rgb[:, :, ::-1].copy()
             return arr.copy()
@@ -1149,16 +1157,24 @@ class CameraService:
             # Match the legacy NumPy scalar promotion and uint8 arithmetic.
             # Apply the identical transform to 256 codes instead of repeating
             # wide-array addition/modulo for every pixel in every frame.
-            frame = np.empty((height, width, 3), dtype=np.uint8)
-            frame[:, :, 0] = (x[None, :] + seq * 3) % 255
-            frame[:, :, 1] = (y + seq * 5) % 255
+            # Preserve the assignment-to-uint8 behavior even when NumPy 1.x
+            # promotes a large sequence scalar. Broadcast views are read-only;
+            # merge returns a new owned frame, not a reusable published buffer.
+            horizontal = ((x[None, :] + seq * 3) % 255).astype(np.uint8, copy=False)
+            vertical = ((y + seq * 5) % 255).astype(np.uint8, copy=False)
             lut = ((codes + seq * 7) % 255).astype(np.uint8)
+            frame = None
             if cv2 is not None:
                 try:
-                    frame[:, :, 2] = cv2.LUT(blue_base, lut)
+                    blue = cv2.LUT(blue_base, lut)
+                    frame = cv2.merge((np.broadcast_to(horizontal, (height, width)),
+                                       np.broadcast_to(vertical, (height, width)), blue))
                 except Exception:
-                    frame[:, :, 2] = lut[blue_base]
-            else:
+                    pass
+            if frame is None:
+                frame = np.empty((height, width, 3), dtype=np.uint8)
+                frame[:, :, 0] = horizontal
+                frame[:, :, 1] = vertical
                 frame[:, :, 2] = lut[blue_base]
             if cv2 is not None:
                 cv2.putText(

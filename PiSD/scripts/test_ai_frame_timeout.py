@@ -211,6 +211,68 @@ class PerformanceSimulationParityTests(unittest.TestCase):
                         if previous is not None:
                             self.assertFalse(np.shares_memory(previous,actual))
                         previous=actual
+                        if backend is not None:
+                            params = [int(backend.IMWRITE_JPEG_QUALITY), 60]
+                            ok, encoded = backend.imencode(".jpg", actual, params)
+                            ref_ok, ref_encoded = backend.imencode(".jpg", expected, params)
+                            self.assertTrue(ok and ref_ok)
+                            self.assertEqual(encoded.tobytes(), ref_encoded.tobytes())
+        if cv is not None:
+            camera.config.width, camera.config.height = 426, 240
+            camera.frame_seq = 25
+            expected = camera._make_simulated_frame()
+            with patch.object(cv, "merge", side_effect=RuntimeError("test fallback")):
+                np.testing.assert_array_equal(camera._make_simulated_frame(), expected)
+
+    def test_request_pil_conversion_preserves_pixels_jpeg_and_request_release(self):
+        from unittest.mock import patch, Mock
+        import numpy as np
+        from PIL import Image
+        from pisd.services import camera_service as cm
+        camera = cm.CameraService({"width":426,"height":240,"preview_quality":60},hardware_enabled=False)
+        rng = np.random.default_rng(17)
+        image = Image.fromarray(rng.integers(0,256,(240,426,3),dtype=np.uint8))
+        for backend in (cm.cv2, None):
+            with patch.object(cm,"cv2",backend):
+                for mode in ("RGB","RGBA","L","P","CMYK","I","F","1"):
+                    source = image.convert(mode)
+                    arr = np.array(source)
+                    if arr.ndim == 2 and backend is not None and arr.dtype not in (np.uint8,np.uint16,np.float32):
+                        self.assertIsNone(camera._frame_from_pil(source))
+                        continue
+                    if arr.ndim == 2:
+                        expected = backend.cvtColor(arr,backend.COLOR_GRAY2BGR) if backend is not None else np.stack([arr]*3,axis=-1)
+                    else:
+                        expected = arr[:,:,:3][:,:,::-1].copy() if arr.ndim==3 and arr.shape[2]>=3 else arr.copy()
+                    actual = camera._frame_from_pil(source)
+                    np.testing.assert_array_equal(actual,expected)
+                    self.assertEqual(actual.dtype,expected.dtype)
+                    self.assertTrue(actual.flags.writeable)
+                    actual.flat[0] = 0
+                    np.testing.assert_array_equal(np.array(source),arr)
+        if cm.cv2 is not None:
+            expected = np.array(image)[:,:,::-1].copy()
+            with patch.object(cm.cv2,"cvtColor",side_effect=RuntimeError("test fallback")):
+                np.testing.assert_array_equal(camera._frame_from_pil(image),expected)
+        import io
+        buf = io.BytesIO()
+        image.save(buf,format="JPEG",quality=60,optimize=False)
+        request = Mock()
+        request.make_image.return_value = image
+        request.get_metadata.return_value = {"ExposureTime":1000,"SensorTimestamp":123}
+        camera._picam2 = Mock()
+        camera._picam2.capture_request.return_value = request
+        frame,jpeg = camera._capture_picamera_request()
+        np.testing.assert_array_equal(frame,np.array(image)[:,:,::-1])
+        self.assertEqual(jpeg,buf.getvalue())
+        request.release.assert_called_once()
+        self.assertEqual(camera._last_capture_source,"request")
+        self.assertEqual(camera._last_metadata["SensorTimestamp"],123)
+        request.reset_mock()
+        request.make_image.side_effect = RuntimeError("capture failure")
+        with self.assertRaisesRegex(RuntimeError,"capture failure"):
+            camera._capture_picamera_request()
+        request.release.assert_called_once()
 
 
 if __name__ == "__main__":
