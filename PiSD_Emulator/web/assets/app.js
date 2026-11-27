@@ -94,7 +94,7 @@ function render(data) {
   $("runtimeDot").classList.toggle("online", online);
   $("runtimeLabel").textContent = online ? "EMULATOR ONLINE" : "OFFLINE";
   $("modeBadge").textContent = online ? "Advanced emulator" : "Basic simulation";
-  $("versionLabel").textContent = `PiSD ${data.version || "0.11.0"}`;
+  $("versionLabel").textContent = `PiSD ${data.version || "unknown"}`;
   $("runtimeUrl").textContent = online ? data.url : "Not running";
   $("openPisd").href = online ? data.url : "#";
   $("openManual").href = online ? data.manual_drive_url : "#";

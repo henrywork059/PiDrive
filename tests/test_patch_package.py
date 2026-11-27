@@ -229,6 +229,41 @@ class PackageTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"ancestor"):
             component_target(self.root, changed, "PiServer", other)
 
+    def test_explicit_v1_transition_and_first_patch(self):
+        for c, previous in p.V1_BASELINES.items():
+            with self.subTest(component=c):
+                self.git("checkout", "--detach", self.base)
+                _, marker, _, _, _ = p.COMPONENTS[c]
+                self.write(c + "/" + marker, self.marker(c, previous))
+                self.write(p.note_path(c, previous), "qualified prior candidate")
+                legacy = self.commit("legacy candidate")
+                self.write(c + "/" + marker, self.marker(c, (1, 0, 0)))
+                self.write(p.note_path(c, (1, 0, 0)), f"Package baseline: {legacy}\n")
+                bad = self.commit("missing transition declaration")
+                with self.assertRaisesRegex(ValueError, "Unauthorized"):
+                    p.expected(self.root, c, legacy, bad)
+                with self.assertRaisesRegex(ValueError, "forward"):
+                    package_base(self.root, bad, c)
+                previous_text = ".".join(map(str, previous))
+                self.write(p.note_path(c, (1, 0, 0)),
+                           f"Package baseline: {legacy}\nRelease transition: {previous_text} -> 1.0.0\n")
+                promoted = self.commit("explicit release candidate")
+                self.assertEqual(package_base(self.root, promoted, c), legacy)
+                archive = self.root / (c + "-v1.zip")
+                p.build(self.root, c, legacy, promoted, archive)
+                self.git("checkout", "--detach", legacy)
+                self.assertEqual(p.validate(self.root, c, legacy, promoted, archive)["target_version"], "1.0.0")
+                self.git("checkout", "--detach", promoted)
+                self.write(c + "/" + marker, self.marker(c, (1, 0, 1)))
+                self.write(p.note_path(c, (1, 0, 1)), "forward patch")
+                patched = self.commit("v1 patch")
+                self.assertEqual(package_base(self.root, patched, c), promoted)
+                p.expected(self.root, c, promoted, patched)
+                self.write(c + "/" + marker, self.marker(c, (1, 1, 0)))
+                invalid = self.commit("unauthorized family")
+                with self.assertRaisesRegex(ValueError, "Wrong version family"):
+                    p.version(self.root, invalid, c)
+
     def test_package_base_rejects_same_version_or_malformed_declaration(self):
         self.git("checkout","--detach",self.target)
         self.write(p.note_path("PiSD",(0,11,2)), f"Package baseline: {self.target}\n")
