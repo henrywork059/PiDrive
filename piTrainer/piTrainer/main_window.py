@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QKeySequence, QShortcut
+from PySide6.QtGui import QActionGroup, QKeySequence, QShortcut
 from PySide6.QtWidgets import QApplication, QLabel, QMainWindow, QMessageBox, QPushButton, QStatusBar, QStyle, QTabWidget, QHBoxLayout, QVBoxLayout, QWidget
 
 from .app_state import AppState
@@ -16,6 +16,7 @@ from .pages.validation_page import ValidationPage
 from .services.data.session_service import resolve_session_dir
 from .ui.formatting import apply_standard_widget_format, density_for_width
 from .ui.styles import build_stylesheet
+from .ui.theme import current_theme, saved_theme, save_theme
 from .version import APP_WORKFLOW_TITLE, STATUS_VERSION_TEXT
 
 
@@ -96,6 +97,7 @@ class MainWindow(QMainWindow):
         self.status.addPermanentWidget(self._make_shortcuts_button())
         self.status.addPermanentWidget(self.version_label)
         self.setStatusBar(self.status)
+        self._setup_appearance_menu()
         self.set_status_message(
             f'Ready — {STATUS_VERSION_TEXT}. Follow the green buttons from 1 Data to 6 TFLite Check. Drag splitters to resize panels.'
         )
@@ -109,6 +111,33 @@ class MainWindow(QMainWindow):
         self.export_page.refresh_from_state()
         self.export_validation_page.refresh_from_state()
         self.refresh_workflow_readiness()
+
+    def _setup_appearance_menu(self) -> None:
+        menu = self.menuBar().addMenu("Appearance")
+        group = QActionGroup(self)
+        group.setExclusive(True)
+        self._appearance_actions = {}
+        for value, label in (("dark", "Obsidian & Blue"), ("light", "Light")):
+            action = menu.addAction(label)
+            action.setCheckable(True)
+            action.setChecked(value == saved_theme())
+            group.addAction(action)
+            self._appearance_actions[value] = action
+            action.triggered.connect(lambda checked, name=value: self._choose_appearance(name) if checked else None)
+        self._appearance_group = group
+        menu.addSeparator()
+        note = menu.addAction("Applies on next launch")
+        note.setEnabled(False)
+
+    def _choose_appearance(self, name: str) -> None:
+        if not save_theme(name):
+            self._appearance_actions[saved_theme()].setChecked(True)
+            QMessageBox.warning(self, "Appearance", "Could not save the theme preference.")
+            return
+        if name != current_theme():
+            self.statusBar().showMessage("Theme saved. Restart piTrainer when convenient to apply it.", 12000)
+        else:
+            self.statusBar().showMessage("Theme preference saved.", 5000)
 
     def refresh_workflow_readiness(self, *_args) -> None:
         """Show confirmed local milestones separately from input readiness and historical results."""

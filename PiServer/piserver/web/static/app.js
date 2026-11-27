@@ -170,6 +170,8 @@ function updateStyleRangeReadout(field, el) {
 
 function syncStyleInputsFromCurrentVars() {
   const resolved = readResolvedStyleVars();
+  const theme = document.getElementById('styleThemePreset');
+  if (theme) theme.value = styleManager()?.getCurrentTheme?.() || 'opsFlat';
   styleSettingsFields.forEach((field) => {
     const el = document.getElementById(field.id);
     if (!el) return;
@@ -215,7 +217,7 @@ function closeStyleSettings() {
   const modal = document.getElementById("styleSettingsModal");
   if (!modal) return;
   const manager = styleManager();
-  manager?.applyTheme?.(manager.getCurrentTheme?.());
+  manager?.restoreSelectedTheme?.();
   modal.classList.add("hidden");
   modal.setAttribute("aria-hidden", "true");
   document.getElementById("openStyleSettingsBtn")?.focus();
@@ -1974,11 +1976,16 @@ function setupEvents() {
     el.addEventListener("click", () => closeStyleSettings());
   });
 
+  document.getElementById("styleThemePreset")?.addEventListener("change", (event) => {
+    styleManager()?.applyTheme?.(event.target.value);
+    syncStyleInputsFromCurrentVars();
+  });
   document.getElementById("saveStyleSettingsBtn")?.addEventListener("click", () => {
     applyStyleOverridesToPage(collectStyleOverridesFromInputs());
+    const savedTheme = styleManager()?.saveSelectedTheme?.();
     syncStyleInputsFromCurrentVars();
     closeStyleSettings();
-    setBanner("statusBanner", "Saved web style settings for this browser.", "muted");
+    setBanner("statusBanner", savedTheme ? "Saved web style settings for this browser." : "Theme preference could not be saved.", savedTheme ? "muted" : "error");
   });
 
   document.getElementById("resetStyleSettingsBtn")?.addEventListener("click", () => {

@@ -4,7 +4,7 @@ import sys
 
 from PySide6.QtWidgets import QApplication, QMessageBox, QStyleFactory
 
-from .main_window import MainWindow
+from .ui.theme import saved_theme, set_theme
 from .ui.styles import build_stylesheet
 from .security.version_gate import check_version_gate
 from .version import APP_NAME, APP_VERSION
@@ -17,6 +17,7 @@ def run() -> int:
     app.setApplicationVersion(APP_VERSION)
     if "Fusion" in QStyleFactory.keys():
         app.setStyle("Fusion")
+    set_theme(saved_theme())
     app.setStyleSheet(build_stylesheet())
 
     gate_result = check_version_gate(APP_VERSION)
@@ -25,6 +26,7 @@ def run() -> int:
         QMessageBox.critical(None, gate_result.title, f"{gate_result.message}{detail}")
         return 2
 
+    from .main_window import MainWindow
     window = MainWindow()
     window.show()
     return app.exec()

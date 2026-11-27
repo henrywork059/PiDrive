@@ -1,0 +1,38 @@
+"use strict";
+const assert=require("node:assert/strict"),fs=require("node:fs"),vm=require("node:vm"),path=require("node:path");
+const source=fs.readFileSync(path.join(__dirname,"../piserver/web/static/theme.js"),"utf8");
+const store=new Map();
+function boot() {
+ const values=new Map(),classes=new Set();
+ const document={documentElement:{dataset:{},style:{colorScheme:"",setProperty(k,v){values.set(k,v)}},classList:{add(...a){a.forEach(x=>classes.add(x))},remove(...a){a.forEach(x=>classes.delete(x))}}}};
+ const window={localStorage:{getItem(k){return store.get(k)??null},setItem(k,v){store.set(k,v)},removeItem(k){store.delete(k)}}};
+ vm.runInNewContext(source,{document,window});
+ return {api:window.PiServerStyle,values,root:document.documentElement};
+}
+let {api,values,root}=boot();
+api.saveCustomOverrides({"--accent":"#112233","--panel-pad":"19px","--font-scale":"92%"});
+const legacy=store.get("PiServerStyleCustom:v0_3_5");
+api.applyTheme("obsidian");
+assert.equal(values.get("--bg"),"#14171C");
+assert.equal(values.get("--accent"),"#6495FF");
+assert.equal(values.get("--panel-pad"),"19px");
+assert.equal(store.has("PiServerTheme:v1"),false);
+api.restoreSelectedTheme();
+assert.equal(api.getCurrentTheme(),"opsFlat");
+api.applyTheme("light");
+assert.equal(values.get("--bg"),"#F4F6FA");
+assert.equal(root.style.colorScheme,"light");
+assert.equal(api.saveSelectedTheme(),true);
+api.saveCustomOverrides({"--panel-pad":"23px"});
+({api,values,root}=boot());
+assert.equal(api.getCurrentTheme(),"light");
+assert.equal(values.get("--panel-pad"),"23px");
+api.applyTheme("opsFlat");
+assert.equal(values.get("--accent"),"#112233");
+assert.equal(values.get("--panel-pad"),"19px");
+assert.equal(store.get("PiServerStyleCustom:v0_3_5"),legacy);
+api.applyTheme("obsidian");
+assert.equal(values.get("--panel-pad"),"19px");
+api.applyTheme("light");
+assert.equal(values.get("--panel-pad"),"23px");
+console.log("VD theme preview, persistence and legacy/custom isolation passed");

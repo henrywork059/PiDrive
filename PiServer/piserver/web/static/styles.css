@@ -3774,3 +3774,129 @@ button.active,
   .panel-head[id^="jump-"] { scroll-margin-block-start: 14rem; }
   .panel-head[id^="jump-"]:focus-visible { outline: 2px solid currentColor; outline-offset: -2px; }
 }
+
+
+/* VD04–VD07: colour-only variants, preserving Ops Flat geometry. */
+@media (forced-colors: none) {
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]), html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) body { background: var(--bg) !important; color: var(--text) !important; }
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .topbar,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .dock-panel,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .panel-head,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .panel-body,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .style-modal-card,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .style-modal-head,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .style-modal-foot,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .style-settings-section,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .style-settings-section-head,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .style-preview-surface,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .style-preview-panel,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .settings-card,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .settings-preview-topbar {
+  background: var(--panel) !important;
+  color: var(--text) !important;
+  border-color: var(--line) !important;
+}
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .metric-card,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .metric-card-primary,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .metric-card-alert,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .metric-card-action,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .banner,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .panel-section,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .camera-overlay-panel,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .record-meta-card,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .export-card,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .status-footer,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .manual-readout,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .compact-field,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .overlay-two-pill,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .style-preview-banner,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .preview-footer,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .overlay-chip,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .overlay-label,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .joystick-area {
+  background: var(--panel-alt) !important;
+  color: var(--text) !important;
+  border-color: var(--line) !important;
+}
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) button,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) select,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) option,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) optgroup,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) input[type=text],
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) input[type=number],
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) input[type=file],
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) input[type=color],
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) textarea,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .ghost-btn,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .link-btn {
+  background: var(--panel-alt) !important;
+  color: var(--text) !important;
+  border-color: var(--line-strong) !important;
+}
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) button.active,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .tab-btn.active,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .run-btn.active,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .overlay-toggle.active {
+  background: var(--accent) !important;
+  color: var(--vd-on-accent) !important;
+  border-color: var(--accent) !important;
+}
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .danger-btn,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .estop-toggle.off {
+  background: var(--danger) !important;
+  color: #FFFFFF !important;
+  border-color: var(--danger) !important;
+}
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .warn-btn,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .estop-toggle.on,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .badge.warn,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .banner.warn {
+  background: var(--vd-warning-bg) !important;
+  color: var(--warn) !important;
+  border-color: var(--warn) !important;
+}
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .badge.on,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .banner.ok,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .settings-apply-state[data-state=applied] {
+  background: var(--vd-success-bg) !important;
+  color: var(--ok) !important;
+  border-color: var(--ok) !important;
+}
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .badge.off,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .banner.error,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .settings-apply-state[data-state=failed] {
+  background: var(--vd-error-bg) !important;
+  color: var(--vd-error) !important;
+  border-color: var(--vd-error) !important;
+}
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .metric-card label,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .metric-card-action-label,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .metric-card-action-note,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .field label,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .record-meta-card label,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .overlay-block-label,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .panel-mini,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .brand-subtitle,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .small-note,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .value-text,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .preview-meta,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .style-modal-subtitle,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .style-setting-value,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .style-setting-row label {
+  color: var(--muted) !important;
+}
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .metric-card strong,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .metric-card-action-value,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .value-text strong,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .record-btn-title,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .status-big-value,
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .style-modal-title {
+  color: var(--text) !important;
+}
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .joystick-dot {
+  background: var(--accent) !important;
+  border-color: var(--line-strong) !important;
+}
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) input[type=range] { accent-color: var(--accent) !important; }
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) :where(button, a[href], input, select, textarea, summary, [tabindex="0"]):focus-visible { outline: 3px solid var(--vd-focus) !important; outline-offset: 2px; }
+}

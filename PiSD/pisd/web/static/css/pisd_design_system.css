@@ -670,3 +670,561 @@ body.manual-drive-page #manualDriveFilesPanel { grid-area: files !important; }
     box-shadow: none !important;
   }
 }
+
+
+/* VD04–VD07: colour roles only; existing layout and high contrast remain intact. */
+body[data-pisd-theme="dark"] {
+  color-scheme: dark;
+  --vd-bg: #14171C;
+  --vd-surface: #20252D;
+  --vd-soft: #292F39;
+  --vd-line: #363F4B;
+  --vd-outline: #64748B;
+  --vd-text: #EDF1F7;
+  --vd-muted: #A5AFBF;
+  --vd-accent: #6495FF;
+  --vd-on: #14171C;
+  --vd-good: #86EFAC;
+  --vd-warn: #FDE68A;
+  --vd-error: #FDA4AF;
+  --vd-record: #FDA4AF;
+  --vd-capture: #99F6E4;
+  --vd-goodBg: #20362A;
+  --vd-warnBg: #3B321F;
+  --vd-errorBg: #42252C;
+  --vd-captureBg: #163734;
+  --vd-focus: #FBBF24;
+  --vd-focusShadow: #14171C;
+  --pisd-page-bg: var(--vd-bg);
+  --pisd-page-bg-soft: var(--vd-bg);
+  --pisd-page-bg-2: var(--vd-bg);
+  --pisd-panel-bg: var(--vd-surface);
+  --pisd-panel-bg-2: var(--vd-soft);
+  --pisd-panel-bg-strong: var(--vd-soft);
+  --pisd-panel-line: var(--vd-line);
+  --pisd-panel-line-strong: var(--vd-outline);
+  --pisd-panel-border: var(--vd-line);
+  --pisd-panel-border-strong: var(--vd-outline);
+  --pisd-text: var(--vd-text);
+  --pisd-muted: var(--vd-muted);
+  --pisd-blue: var(--vd-accent);
+  --pisd-accent: var(--vd-accent);
+  --pisd-green: var(--vd-good);
+  --pisd-ok: var(--vd-good);
+  --pisd-yellow: var(--vd-warn);
+  --pisd-red: var(--vd-error);
+  --pisd-danger: var(--vd-error);
+  --pisd-focus-ring: var(--vd-focus);
+  --pisd-focus-shadow: var(--vd-focusShadow);
+  --pisd-status-text-good: var(--vd-good);
+  --pisd-status-text-warning: var(--vd-warn);
+  --pisd-status-text-danger: var(--vd-error);
+  --pisd-status-text-neutral: var(--vd-text);
+  --pisd-palette-bg: var(--vd-bg);
+  --pisd-palette-surface: var(--vd-surface);
+  --pisd-palette-surface-soft: var(--vd-soft);
+  --pisd-palette-line: var(--vd-line);
+  --pisd-palette-text: var(--vd-text);
+  --pisd-palette-muted: var(--vd-muted);
+  --pisd-palette-primary: var(--vd-accent);
+  --pisd-palette-ok: var(--vd-good);
+  --pisd-palette-warning: var(--vd-warn);
+  --pisd-palette-recording: var(--vd-record);
+  --pisd-palette-capture: var(--vd-capture);
+  --bg: var(--vd-bg);
+  --panel: var(--vd-surface);
+  --panel-2: var(--vd-soft);
+  --border: var(--vd-outline);
+  --text: var(--vd-text);
+  --muted: var(--vd-muted);
+  --primary: var(--vd-accent);
+  --danger: var(--vd-error);
+  --ok: var(--vd-good);
+  --warn: var(--vd-warn);
+  --fail: var(--vd-error);
+  --st-bg: var(--vd-bg);
+  --st-surface: var(--vd-surface);
+  --st-surface-2: var(--vd-soft);
+  --st-surface-strong: var(--vd-soft);
+  --st-panel: var(--vd-surface);
+  --st-border: var(--vd-outline);
+  --st-border-strong: var(--vd-outline);
+  --st-text: var(--vd-text);
+  --st-muted: var(--vd-muted);
+  --st-accent: var(--vd-accent);
+  --st-accent-strong: var(--vd-accent);
+  --st-blue: var(--vd-accent);
+  --st-danger: var(--vd-error);
+  --st-ok: var(--vd-good);
+  --st-warning: var(--vd-warn);
+  --mdrv-bg: var(--vd-bg);
+  --mdrv-surface: var(--vd-surface);
+  --mdrv-surface-2: var(--vd-soft);
+  --mdrv-surface-strong: var(--vd-soft);
+  --mdrv-panel: var(--vd-surface);
+  --mdrv-border: var(--vd-outline);
+  --mdrv-border-strong: var(--vd-outline);
+  --mdrv-text: var(--vd-text);
+  --mdrv-muted: var(--vd-muted);
+  --mdrv-accent: var(--vd-accent);
+  --mdrv-accent-strong: var(--vd-accent);
+  --mdrv-blue: var(--vd-accent);
+  --mdrv-danger: var(--vd-error);
+  --mdrv-ok: var(--vd-good);
+  --mdrv-warning: var(--vd-warn);
+  --md-bg: var(--vd-bg);
+  --md-surface: var(--vd-surface);
+  --md-surface-2: var(--vd-soft);
+  --md-surface-strong: var(--vd-soft);
+  --md-panel: var(--vd-surface);
+  --md-border: var(--vd-outline);
+  --md-border-strong: var(--vd-outline);
+  --md-text: var(--vd-text);
+  --md-muted: var(--vd-muted);
+  --md-accent: var(--vd-accent);
+  --md-accent-strong: var(--vd-accent);
+  --md-blue: var(--vd-accent);
+  --md-danger: var(--vd-error);
+  --md-ok: var(--vd-good);
+  --md-warning: var(--vd-warn);
+  --fp-bg: var(--vd-bg);
+  --fp-surface: var(--vd-surface);
+  --fp-surface-2: var(--vd-soft);
+  --fp-surface-strong: var(--vd-soft);
+  --fp-panel: var(--vd-surface);
+  --fp-border: var(--vd-outline);
+  --fp-border-strong: var(--vd-outline);
+  --fp-text: var(--vd-text);
+  --fp-muted: var(--vd-muted);
+  --fp-accent: var(--vd-accent);
+  --fp-accent-strong: var(--vd-accent);
+  --fp-blue: var(--vd-accent);
+  --fp-danger: var(--vd-error);
+  --fp-ok: var(--vd-good);
+  --fp-warning: var(--vd-warn);
+  --mtun-bg: var(--vd-bg);
+  --mtun-surface: var(--vd-surface);
+  --mtun-surface-2: var(--vd-soft);
+  --mtun-surface-strong: var(--vd-soft);
+  --mtun-panel: var(--vd-surface);
+  --mtun-border: var(--vd-outline);
+  --mtun-border-strong: var(--vd-outline);
+  --mtun-text: var(--vd-text);
+  --mtun-muted: var(--vd-muted);
+  --mtun-accent: var(--vd-accent);
+  --mtun-accent-strong: var(--vd-accent);
+  --mtun-blue: var(--vd-accent);
+  --mtun-danger: var(--vd-error);
+  --mtun-ok: var(--vd-good);
+  --mtun-warning: var(--vd-warn);
+  --pp-bg: var(--vd-bg);
+  --pp-surface: var(--vd-surface);
+  --pp-surface-2: var(--vd-soft);
+  --pp-surface-strong: var(--vd-soft);
+  --pp-panel: var(--vd-surface);
+  --pp-border: var(--vd-outline);
+  --pp-border-strong: var(--vd-outline);
+  --pp-text: var(--vd-text);
+  --pp-muted: var(--vd-muted);
+  --pp-accent: var(--vd-accent);
+  --pp-accent-strong: var(--vd-accent);
+  --pp-blue: var(--vd-accent);
+  --pp-danger: var(--vd-error);
+  --pp-ok: var(--vd-good);
+  --pp-warning: var(--vd-warn);
+  --pt-bg: var(--vd-bg);
+  --pt-surface: var(--vd-surface);
+  --pt-surface-2: var(--vd-soft);
+  --pt-surface-strong: var(--vd-soft);
+  --pt-panel: var(--vd-surface);
+  --pt-border: var(--vd-outline);
+  --pt-border-strong: var(--vd-outline);
+  --pt-text: var(--vd-text);
+  --pt-muted: var(--vd-muted);
+  --pt-accent: var(--vd-accent);
+  --pt-accent-strong: var(--vd-accent);
+  --pt-blue: var(--vd-accent);
+  --pt-danger: var(--vd-error);
+  --pt-ok: var(--vd-good);
+  --pt-warning: var(--vd-warn);
+  --pisd-palette-danger: #B91C2C;
+}
+body[data-pisd-theme="light"] {
+  color-scheme: light;
+  --vd-bg: #F4F6FA;
+  --vd-surface: #FFFFFF;
+  --vd-soft: #E7EBF1;
+  --vd-line: #CED5DF;
+  --vd-outline: #64748B;
+  --vd-text: #20252D;
+  --vd-muted: #566171;
+  --vd-accent: #315FD1;
+  --vd-on: #FFFFFF;
+  --vd-good: #166534;
+  --vd-warn: #92400E;
+  --vd-error: #B91C1C;
+  --vd-record: #B91C1C;
+  --vd-capture: #115E59;
+  --vd-goodBg: #E5F5E9;
+  --vd-warnBg: #FFF1D6;
+  --vd-errorBg: #FCE8E8;
+  --vd-captureBg: #DDF5F1;
+  --vd-focus: #315FD1;
+  --vd-focusShadow: #FFFFFF;
+  --pisd-page-bg: var(--vd-bg);
+  --pisd-page-bg-soft: var(--vd-bg);
+  --pisd-page-bg-2: var(--vd-bg);
+  --pisd-panel-bg: var(--vd-surface);
+  --pisd-panel-bg-2: var(--vd-soft);
+  --pisd-panel-bg-strong: var(--vd-soft);
+  --pisd-panel-line: var(--vd-line);
+  --pisd-panel-line-strong: var(--vd-outline);
+  --pisd-panel-border: var(--vd-line);
+  --pisd-panel-border-strong: var(--vd-outline);
+  --pisd-text: var(--vd-text);
+  --pisd-muted: var(--vd-muted);
+  --pisd-blue: var(--vd-accent);
+  --pisd-accent: var(--vd-accent);
+  --pisd-green: var(--vd-good);
+  --pisd-ok: var(--vd-good);
+  --pisd-yellow: var(--vd-warn);
+  --pisd-red: var(--vd-error);
+  --pisd-danger: var(--vd-error);
+  --pisd-focus-ring: var(--vd-focus);
+  --pisd-focus-shadow: var(--vd-focusShadow);
+  --pisd-status-text-good: var(--vd-good);
+  --pisd-status-text-warning: var(--vd-warn);
+  --pisd-status-text-danger: var(--vd-error);
+  --pisd-status-text-neutral: var(--vd-text);
+  --pisd-palette-bg: var(--vd-bg);
+  --pisd-palette-surface: var(--vd-surface);
+  --pisd-palette-surface-soft: var(--vd-soft);
+  --pisd-palette-line: var(--vd-line);
+  --pisd-palette-text: var(--vd-text);
+  --pisd-palette-muted: var(--vd-muted);
+  --pisd-palette-primary: var(--vd-accent);
+  --pisd-palette-ok: var(--vd-good);
+  --pisd-palette-warning: var(--vd-warn);
+  --pisd-palette-recording: var(--vd-record);
+  --pisd-palette-capture: var(--vd-capture);
+  --bg: var(--vd-bg);
+  --panel: var(--vd-surface);
+  --panel-2: var(--vd-soft);
+  --border: var(--vd-outline);
+  --text: var(--vd-text);
+  --muted: var(--vd-muted);
+  --primary: var(--vd-accent);
+  --danger: var(--vd-error);
+  --ok: var(--vd-good);
+  --warn: var(--vd-warn);
+  --fail: var(--vd-error);
+  --st-bg: var(--vd-bg);
+  --st-surface: var(--vd-surface);
+  --st-surface-2: var(--vd-soft);
+  --st-surface-strong: var(--vd-soft);
+  --st-panel: var(--vd-surface);
+  --st-border: var(--vd-outline);
+  --st-border-strong: var(--vd-outline);
+  --st-text: var(--vd-text);
+  --st-muted: var(--vd-muted);
+  --st-accent: var(--vd-accent);
+  --st-accent-strong: var(--vd-accent);
+  --st-blue: var(--vd-accent);
+  --st-danger: var(--vd-error);
+  --st-ok: var(--vd-good);
+  --st-warning: var(--vd-warn);
+  --mdrv-bg: var(--vd-bg);
+  --mdrv-surface: var(--vd-surface);
+  --mdrv-surface-2: var(--vd-soft);
+  --mdrv-surface-strong: var(--vd-soft);
+  --mdrv-panel: var(--vd-surface);
+  --mdrv-border: var(--vd-outline);
+  --mdrv-border-strong: var(--vd-outline);
+  --mdrv-text: var(--vd-text);
+  --mdrv-muted: var(--vd-muted);
+  --mdrv-accent: var(--vd-accent);
+  --mdrv-accent-strong: var(--vd-accent);
+  --mdrv-blue: var(--vd-accent);
+  --mdrv-danger: var(--vd-error);
+  --mdrv-ok: var(--vd-good);
+  --mdrv-warning: var(--vd-warn);
+  --md-bg: var(--vd-bg);
+  --md-surface: var(--vd-surface);
+  --md-surface-2: var(--vd-soft);
+  --md-surface-strong: var(--vd-soft);
+  --md-panel: var(--vd-surface);
+  --md-border: var(--vd-outline);
+  --md-border-strong: var(--vd-outline);
+  --md-text: var(--vd-text);
+  --md-muted: var(--vd-muted);
+  --md-accent: var(--vd-accent);
+  --md-accent-strong: var(--vd-accent);
+  --md-blue: var(--vd-accent);
+  --md-danger: var(--vd-error);
+  --md-ok: var(--vd-good);
+  --md-warning: var(--vd-warn);
+  --fp-bg: var(--vd-bg);
+  --fp-surface: var(--vd-surface);
+  --fp-surface-2: var(--vd-soft);
+  --fp-surface-strong: var(--vd-soft);
+  --fp-panel: var(--vd-surface);
+  --fp-border: var(--vd-outline);
+  --fp-border-strong: var(--vd-outline);
+  --fp-text: var(--vd-text);
+  --fp-muted: var(--vd-muted);
+  --fp-accent: var(--vd-accent);
+  --fp-accent-strong: var(--vd-accent);
+  --fp-blue: var(--vd-accent);
+  --fp-danger: var(--vd-error);
+  --fp-ok: var(--vd-good);
+  --fp-warning: var(--vd-warn);
+  --mtun-bg: var(--vd-bg);
+  --mtun-surface: var(--vd-surface);
+  --mtun-surface-2: var(--vd-soft);
+  --mtun-surface-strong: var(--vd-soft);
+  --mtun-panel: var(--vd-surface);
+  --mtun-border: var(--vd-outline);
+  --mtun-border-strong: var(--vd-outline);
+  --mtun-text: var(--vd-text);
+  --mtun-muted: var(--vd-muted);
+  --mtun-accent: var(--vd-accent);
+  --mtun-accent-strong: var(--vd-accent);
+  --mtun-blue: var(--vd-accent);
+  --mtun-danger: var(--vd-error);
+  --mtun-ok: var(--vd-good);
+  --mtun-warning: var(--vd-warn);
+  --pp-bg: var(--vd-bg);
+  --pp-surface: var(--vd-surface);
+  --pp-surface-2: var(--vd-soft);
+  --pp-surface-strong: var(--vd-soft);
+  --pp-panel: var(--vd-surface);
+  --pp-border: var(--vd-outline);
+  --pp-border-strong: var(--vd-outline);
+  --pp-text: var(--vd-text);
+  --pp-muted: var(--vd-muted);
+  --pp-accent: var(--vd-accent);
+  --pp-accent-strong: var(--vd-accent);
+  --pp-blue: var(--vd-accent);
+  --pp-danger: var(--vd-error);
+  --pp-ok: var(--vd-good);
+  --pp-warning: var(--vd-warn);
+  --pt-bg: var(--vd-bg);
+  --pt-surface: var(--vd-surface);
+  --pt-surface-2: var(--vd-soft);
+  --pt-surface-strong: var(--vd-soft);
+  --pt-panel: var(--vd-surface);
+  --pt-border: var(--vd-outline);
+  --pt-border-strong: var(--vd-outline);
+  --pt-text: var(--vd-text);
+  --pt-muted: var(--vd-muted);
+  --pt-accent: var(--vd-accent);
+  --pt-accent-strong: var(--vd-accent);
+  --pt-blue: var(--vd-accent);
+  --pt-danger: var(--vd-error);
+  --pt-ok: var(--vd-good);
+  --pt-warning: var(--vd-warn);
+  --pisd-palette-danger: #B91C2C;
+}
+@media (forced-colors: none) {
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) { background: var(--vd-bg) !important; color: var(--vd-text) !important; }
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .st-topbar,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .mdrv-topbar,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .topbar,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .md-topbar,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pp-topbar,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pt-hero,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .mtun-hero,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .fp-hero,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .st-card,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .mdrv-panel,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .card,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .md-panel,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pp-card,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pp-preview-panel,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pt-panel,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pt-control-section,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pt-report-wrap,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pt-lab-toolbar,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .fp-mode-card,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .fp-quick-actions,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .mtun-panel,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .mdrv-overlay-settings-card,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .ai-field,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .ai-panel-tabs,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .ai-runtime-help,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .mtun-empty-state {
+  background: var(--vd-surface) !important;
+  color: var(--vd-text) !important;
+  border-color: var(--vd-line) !important;
+}
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .mdrv-status-strip span,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .mdrv-pad-readout span,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .mdrv-file-summary div,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .mdrv-drive-debug-panel span,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .md-status-grid div,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .fp-status-strip span,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pt-metric,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pt-chip,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pt-placeholder,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pt-action-tile,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .ai-readout-grid div,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .ai-checks label,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .mtun-status-strip > span,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pisd-readiness-strip,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pisd-readiness-item,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pisd-readiness-reason,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .mdrv-overlay-settings-grid fieldset {
+  background: var(--vd-soft) !important;
+  border-color: var(--vd-line) !important;
+}
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .mdrv-console,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .md-console,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .st-console,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .fp-console,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pt-console,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pp-console,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .ai-console,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .ai-runtime-help pre,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .console {
+  background: var(--vd-soft) !important;
+  color: var(--vd-text) !important;
+  border-color: var(--vd-line) !important;
+}
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]),
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) select,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) textarea,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) option {
+  background: var(--vd-surface) !important;
+  color: var(--vd-text) !important;
+  border-color: var(--vd-outline) !important;
+}
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pisd-front-link,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .st-button,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .mdrv-button,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .button,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .md-button,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .md-link-button,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pp-button,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pt-button,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pt-link-button,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .fp-button,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .mtun-button,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .mtun-back,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .ai-back,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .ai-card-action,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pt-mini-button,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .st-import,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pisd-task-jumps a {
+  background: var(--vd-soft) !important;
+  color: var(--vd-text) !important;
+  border-color: var(--vd-outline) !important;
+}
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .st-primary,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .mdrv-primary,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .md-button-primary,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pp-primary,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pt-button-primary,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .button.primary,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .ai-panel-tab.is-active {
+  background: var(--vd-accent) !important;
+  color: var(--vd-on) !important;
+  border-color: var(--vd-accent) !important;
+}
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .mdrv-button.mdrv-live-action,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .mdrv-button.mdrv-snapshot-action {
+  background: var(--vd-goodBg) !important;
+  color: var(--vd-good) !important;
+  border-color: var(--vd-good) !important;
+}
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .st-danger,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .mdrv-danger,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .mdrv-big-stop,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .button.danger,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .md-button-danger,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .md-drive-stop,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .md-big-stop,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pp-danger,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pt-button-danger,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .fp-danger,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .mtun-danger,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .ai-button-danger {
+  background: #B91C2C !important;
+  color: #FFFFFF !important;
+  border-color: #B91C2C !important;
+}
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .st-code-pill,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .mdrv-code,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .code-pill,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .md-code-pill,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .md-panel-code,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pp-code-pill,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pt-code-pill,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pt-panel-code,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .fp-code,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .mtun-code,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .st-apply-state[data-state=applied],
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .ai-error-console[data-state=ok],
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) #aiRuntimeSupport[data-state=ok],
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) #aiLoadError[data-state=ok] {
+  background: var(--vd-goodBg) !important;
+  color: var(--vd-good) !important;
+  border-color: var(--vd-good) !important;
+}
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .mdrv-capture-notice:not([data-state=error]) {
+  background: var(--vd-captureBg) !important;
+  color: var(--vd-capture) !important;
+  border-color: var(--vd-capture) !important;
+}
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .mdrv-arm,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .md-arm-row,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .ai-warning,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .warning,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .code-pill.warn,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .st-apply-state:not([data-state]),
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .st-apply-state[data-state=loading] {
+  background: var(--vd-warnBg) !important;
+  color: var(--vd-warn) !important;
+  border-color: var(--vd-warn) !important;
+}
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .st-code-pill[data-state=error],
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .mdrv-code[data-state=error],
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .md-code-pill[data-state=error],
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .md-panel-code[data-state=error],
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .code-pill.fail,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .st-apply-state[data-state=failed],
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .ai-error-console[data-state=error],
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .mdrv-capture-notice[data-state=error],
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) #aiRuntimeSupport[data-state=missing],
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) #aiLoadError[data-state=error],
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) #aiWorkflowSettingsStatus[data-state=error] {
+  background: var(--vd-errorBg) !important;
+  color: var(--vd-error) !important;
+  border-color: var(--vd-error) !important;
+}
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .st-apply-state[data-state=applying],
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) #aiWorkflowSettingsStatus[data-state=busy] {
+  color: var(--vd-accent) !important;
+}
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .mdrv-recording-indicator[data-recording=on] {
+  background: var(--vd-errorBg) !important;
+  color: var(--vd-record) !important;
+  border-color: var(--vd-record) !important;
+}
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .mdrv-drag-pad {
+  background: var(--vd-soft) !important;
+  border-color: var(--vd-outline) !important;
+}
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .mdrv-drag-knob {
+  background: var(--vd-accent) !important;
+  border-color: var(--vd-outline) !important;
+}
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .mdrv-preview-frame,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .md-preview-frame,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .ai-preview-box,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .preview-box,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pt-preview-surface,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pp-preview-surface {
+  background: #14171C !important;
+}
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) input[type=range], body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) input[type=checkbox], body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) input[type=radio] { accent-color: var(--vd-accent); }
+}
