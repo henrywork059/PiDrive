@@ -58,6 +58,8 @@ Then install the specific project requirements file.
 ## Instructional docs index
 
 - Engineering, refinement, and UI/UX update plans: [Development roadmaps](docs/roadmaps/README.md)
+- Developer reference and engineering playbooks: [Developer handbook](docs/development/README.md)
+- Development history and errors: [Development and regression log](docs/roadmaps/DEVELOPMENT_AND_ERROR_LOG.md)
 - Repository maintenance/process: `INSTRUCTIONS.md`
 - Cross-project bug prevention guidance: `BUG_PREVENTION_NOTES.md`
 - PiServer usage: `PiServer/README.md`
