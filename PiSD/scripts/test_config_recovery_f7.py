@@ -80,5 +80,20 @@ class ConfigRecoveryTests(unittest.TestCase):
         self.assertEqual(client.post("/api/control/stop").status_code, 200)
 
 
+class PerformanceSettingsReadTests(unittest.TestCase):
+    def test_preview_scalar_tracks_successful_save_reload_and_failed_write(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "runtime_settings.json"
+            store = SettingsManager(path)
+            self.assertEqual(store.get_camera_live_preview_fps(20),
+                             float(store.get()["camera"].get("live_preview_fps", 20)))
+            self.assertTrue(store.save({"camera": {"live_preview_fps": 17}})[0])
+            self.assertEqual(store.get_camera_live_preview_fps(20), 17)
+            with patch.object(store._recovery, "write", side_effect=OSError("test failure")):
+                self.assertFalse(store.save({"camera": {"live_preview_fps": 29}})[0])
+            self.assertEqual(store.get_camera_live_preview_fps(20), 17)
+            self.assertEqual(SettingsManager(path).get_camera_live_preview_fps(20), 17)
+
+
 if __name__ == "__main__":
     unittest.main()

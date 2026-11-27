@@ -569,9 +569,7 @@ def create_app(hardware_enabled: bool = False):
     def video_feed():
         def _live_preview_interval() -> float:
             try:
-                settings = settings_manager.get()
-                camera_settings = settings.get("camera") if isinstance(settings.get("camera"), dict) else {}
-                fps = float(camera_settings.get("live_preview_fps", camera_service.config.live_preview_fps))
+                fps = settings_manager.get_camera_live_preview_fps(camera_service.config.live_preview_fps)
             except Exception:
                 fps = float(getattr(camera_service.config, "live_preview_fps", 20) or 20)
             fps = max(1.0, min(60.0, fps))
