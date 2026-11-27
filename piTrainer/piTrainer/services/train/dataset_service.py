@@ -27,7 +27,13 @@ def _prepare_dataset_rows(df):
     return normalize_horizontal_flip_labels(without_hidden_rows(df))
 
 
-def make_tf_dataset(df: pd.DataFrame, img_h: int, img_w: int, batch_size: int, shuffle: bool, augment: bool):
+def bounded_input_active(requested: bool, shuffle: bool, augment: bool) -> bool:
+    # Never silently change the scheduling of stochastic augmentation or shuffle.
+    return requested is True and not bool(shuffle or augment)
+
+
+def make_tf_dataset(df: pd.DataFrame, img_h: int, img_w: int, batch_size: int, shuffle: bool, augment: bool,
+                    *, bounded_input: bool = False):
     import tensorflow as tf
 
     df = _prepare_dataset_rows(df)
@@ -72,7 +78,14 @@ def make_tf_dataset(df: pd.DataFrame, img_h: int, img_w: int, batch_size: int, s
     # Faster input pipeline for local image folders. Order is not meaningful once
     # samples are shuffled, so allow TensorFlow to overlap decode/resize work.
     options.experimental_deterministic = not bool(shuffle or augment)
+    bounded = bounded_input_active(bounded_input, shuffle, augment)
+    if bounded:
+        # Scope limits to this dataset, not the process/model compute threads.
+        options.autotune.enabled = False
+        options.threading.private_threadpool_size = 2
+        options.threading.max_intra_op_parallelism = 1
+        options.experimental_optimization.inject_prefetch = False
     dataset = dataset.with_options(options)
-    dataset = dataset.map(_load, num_parallel_calls=tf.data.AUTOTUNE)
-    dataset = dataset.batch(max(1, int(batch_size))).prefetch(tf.data.AUTOTUNE)
+    dataset = dataset.map(_load, num_parallel_calls=2 if bounded else tf.data.AUTOTUNE)
+    dataset = dataset.batch(max(1, int(batch_size))).prefetch(1 if bounded else tf.data.AUTOTUNE)
     return dataset

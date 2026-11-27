@@ -42,6 +42,13 @@ class TrainConfigPanel(QGroupBox):
         self.only_manual = QCheckBox("Prefer manual rows"); self.only_manual.setChecked(cfg.only_manual)
         self.augment = QCheckBox("Light augmentation"); self.augment.setChecked(cfg.augment)
         self.shuffle = QCheckBox("Shuffle rows"); self.shuffle.setChecked(cfg.shuffle)
+        self.bounded_input = QCheckBox("Bound deterministic input resources")
+        self.bounded_input.setChecked(getattr(cfg, 'bounded_input', False) is True)
+        self.bounded_input.setToolTip("Opt in to two decode workers and one prefetched batch for validation and unshuffled, non-randomly augmented training. Stochastic training keeps its original automatic scheduling.")
+        self.bounded_input.setAccessibleDescription(self.bounded_input.toolTip())
+        self.bounded_input_status = QLabel()
+        self.bounded_input_status.setWordWrap(True)
+        self.bounded_input_status.setProperty('role', 'muted')
 
         layout = QVBoxLayout(self)
         layout.setSpacing(8)
@@ -55,6 +62,18 @@ class TrainConfigPanel(QGroupBox):
         self.early_stopping.toggled.connect(self._update_enabled_state)
         self.reduce_lr.toggled.connect(self._update_enabled_state)
         self._update_enabled_state()
+        for control in (self.bounded_input, self.shuffle, self.augment):
+            control.toggled.connect(self._update_input_status)
+        self._update_input_status()
+
+    def _update_input_status(self) -> None:
+        if not self.bounded_input.isChecked():
+            text = "Training and validation: automatic input scheduling."
+        elif self.shuffle.isChecked() or self.augment.isChecked():
+            text = "Training: automatic (shuffle or random augmentation enabled). Validation: bounded."
+        else:
+            text = "Training and validation: bounded (2 decode workers, 1 prefetched batch)."
+        self.bounded_input_status.setText(text)
 
     def _section_form(self) -> tuple[QWidget, QFormLayout]:
         widget = QWidget()
@@ -128,6 +147,8 @@ class TrainConfigPanel(QGroupBox):
         form.addRow(self.only_manual)
         form.addRow(self.augment)
         form.addRow(self.shuffle)
+        form.addRow(self.bounded_input)
+        form.addRow(self.bounded_input_status)
         return widget
 
     def _update_enabled_state(self) -> None:
@@ -154,6 +175,7 @@ class TrainConfigPanel(QGroupBox):
         cfg.only_manual = self.only_manual.isChecked()
         cfg.augment = self.augment.isChecked()
         cfg.shuffle = self.shuffle.isChecked()
+        cfg.bounded_input = self.bounded_input.isChecked()
         cfg.split_mode = self.split_mode.currentText()
         cfg.session_split = cfg.split_mode == 'By session'
         cfg.dropout_rate = self.dropout_rate.value()
