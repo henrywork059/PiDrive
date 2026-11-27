@@ -48,24 +48,45 @@ def package_base(root, target, component):
     return base
 
 
+def component_target(root, target, component, inherited_from=None):
+    """Reuse a previously qualified component source only if its tree is identical.
+
+    A merged stacked PR can move its package baseline off main's first-parent
+    chain. Do not weaken package_base: validate the original exact source
+    revision for an unchanged component, never an altered component.
+    """
+    check_commit(root, target)
+    if inherited_from is None:
+        return target
+    check_commit(root, inherited_from)
+    if git(root, "merge-base", inherited_from, target).decode().strip() != inherited_from:
+        raise ValueError("Inherited package source must be an ancestor")
+    if (git(root, "rev-parse", target + ":" + component)
+            == git(root, "rev-parse", inherited_from + ":" + component)):
+        return inherited_from
+    return target
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", required=True, help="Trusted full candidate commit SHA")
+    parser.add_argument("--inherited-from", help="Exact previously qualified ancestor; identical component trees only")
     args = parser.parse_args()
     root = Path(git(Path.cwd(), "rev-parse", "--show-toplevel").decode().strip())
     for component in COMPONENTS:
-        base = package_base(root, args.target, component)
+        target = component_target(root, args.target, component, args.inherited_from)
+        base = package_base(root, target, component)
         with tempfile.TemporaryDirectory(prefix="pidrive-package-") as temp:
             archive = Path(temp) / "patch.zip"
             checkout = Path(temp) / "baseline"
-            manifest = build(root, component, base, args.target, archive)
+            manifest = build(root, component, base, target, archive)
             git(root, "worktree", "add", "--detach", str(checkout), base)
             try:
-                assert validate(checkout, component, base, args.target, archive) == manifest
+                assert validate(checkout, component, base, target, archive) == manifest
                 assert git(checkout, "status", "--porcelain") == b""
             finally:
                 git(root, "worktree", "remove", "--force", str(checkout))
-            print(component, manifest["baseline_version"], "->", manifest["target_version"],
+            print(component, "package source", target, manifest["baseline_version"], "->", manifest["target_version"],
                   len(manifest["files"]), "changed files: dry-run passed", flush=True)
 
 

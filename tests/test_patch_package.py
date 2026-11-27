@@ -13,7 +13,7 @@ p = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(p)
 # Load the actual forward-check helper with the same package module.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
-from check_forward_packages import package_base
+from check_forward_packages import package_base, component_target
 
 
 class PackageTests(unittest.TestCase):
@@ -215,6 +215,19 @@ class PackageTests(unittest.TestCase):
         self.write("PiSD/pisd/__init__.py", self.marker("PiSD",(0,11,2)) + "VALUE = 3\n")
         touched = self.commit("ordinary code edit")
         self.assertEqual(package_base(self.root, touched, "PiSD"), self.base)
+
+    def test_inherited_source_only_for_identical_component_tree(self):
+        self.git("checkout","--detach",self.base)
+        self.write("PiServer/README.md", "unrelated branch content")
+        other = self.commit("other parent")
+        self.git("checkout","--detach",self.target)
+        self.write("PiSD/README.md", "new component content")
+        changed = self.commit("candidate change")
+        self.assertEqual(component_target(self.root, changed, "PiSD", self.target), changed)
+        self.assertEqual(component_target(self.root, changed, "PiServer", self.target), self.target)
+        self.assertEqual(component_target(self.root, changed, "PiServer"), changed)
+        with self.assertRaisesRegex(ValueError,"ancestor"):
+            component_target(self.root, changed, "PiServer", other)
 
     def test_package_base_rejects_same_version_or_malformed_declaration(self):
         self.git("checkout","--detach",self.target)
