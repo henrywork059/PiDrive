@@ -1,4 +1,11 @@
-/* PiSD R32: a compact read-only status strip, no changed controls or docking. */
+/* PiSD R32/UI2: compact read-only status strips share semantic foreground tokens.
+ * Preserve the accepted contrast values and leave user theme/layout values intact. */
+:root {
+  --pisd-status-text-good: #86efac;
+  --pisd-status-text-warning: #fcd34d;
+  --pisd-status-text-danger: #fda4af;
+  --pisd-status-text-neutral: var(--mdrv-text, #e2e8f0);
+}
 .pisd-readiness-strip {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -45,10 +52,10 @@
   font-size: .81rem;
   font-weight: 600;
 }
-.pisd-readiness-strip strong[data-tone="good"] { color: #86efac; }
-.pisd-readiness-strip strong[data-tone="warning"] { color: #fcd34d; }
-.pisd-readiness-strip strong[data-tone="danger"] { color: #fda4af; }
-.pisd-readiness-strip strong[data-tone="neutral"] { color: var(--mdrv-text, #e2e8f0); }
+.pisd-readiness-strip strong[data-tone="good"], .pisd-runtime-status[data-tone="good"] { color: var(--pisd-status-text-good); }
+.pisd-readiness-strip strong[data-tone="warning"], .pisd-runtime-status[data-tone="warning"] { color: var(--pisd-status-text-warning); }
+.pisd-readiness-strip strong[data-tone="danger"], .pisd-runtime-status[data-tone="danger"] { color: var(--pisd-status-text-danger); }
+.pisd-readiness-strip strong[data-tone="neutral"], .pisd-runtime-status[data-tone="neutral"] { color: var(--pisd-status-text-neutral); }
 @media (max-width: 1050px) {
   .pisd-readiness-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
