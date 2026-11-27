@@ -247,5 +247,35 @@ class PerformanceSourceLookupTests(unittest.TestCase):
         check()
 
 
+    def test_matching_identity_preserves_duplicates_and_legacy_string_conversion(self):
+        app = QApplication.instance() or QApplication([])
+        panel = PreviewPanel()
+        rows = pd.DataFrame({
+            "session": ["s", "s", "other", "s"],
+            "frame_id": ["a", "a", "a", "b"],
+            "ts": ["t", "t", "t", "t"],
+            "abs_image": ["p", "p", "p", "q"],
+            "steering": [.1, .2, .3, .4],
+        }, index=[5, 5, 2, 1])
+        variants = [rows, rows.assign(frame_id=[1,1,2,3]),
+                    rows.assign(ts=pd.array(["t",pd.NA,"t","t"],dtype="string")),
+                    rows.assign(abs_image=[None,"p","p","q"]),
+                    rows.drop(columns="ts"), rows.assign(session=rows["session"].astype("category"))]
+        for frame in variants:
+            panel.set_dataframe(frame)
+            for source in range(len(panel.df)):
+                identity = panel.record_identity(panel.df.iloc[source].to_dict())
+                expected = [i for i in range(len(panel.df)) if panel.record_identity(panel.df.iloc[i].to_dict()) == identity]
+                self.assertEqual(list(panel._matching_source_rows(identity)), expected)
+                self.assertTrue(panel.select_record_identity(identity))
+                self.assertEqual(panel.current_row(), expected[0])
+            self.assertFalse(panel.select_record_identity(("missing","missing","missing","missing")))
+        panel.set_dataframe(rows)
+        identity = panel.record_identity(rows.iloc[0].to_dict())
+        self.assertTrue(panel.update_record_values(identity, {"steering": -.5}))
+        self.assertEqual(panel.df["steering"].tolist(), [-.5,-.5,.3,.4])
+        panel.close()
+
+
 if __name__ == '__main__':
     unittest.main()
