@@ -181,6 +181,7 @@ jobs:
         run: |
           set -euo pipefail
           python -m pip install "numpy>=1.26,<2" "pandas>=2.2,<3" "Pillow>=10,<12" "opencv-python-headless>=4.8,<4.12"
+          python -m unittest discover -s tests -p test_benchmark_tflite_threads.py -v
           mkdir -p "$RUNNER_TEMP/performance-update1"
           git worktree add --detach "$RUNNER_TEMP/perf-original" 31f2226596e3552aacb4ce745ce72f50ca216af1
           python "$RUNNER_TEMP/perf-original/tools/benchmark_performance_update1.py" --base 14c57c990ff0f9bae2003e4e8aa552d17a4227c7 --candidate 31f2226596e3552aacb4ce745ce72f50ca216af1 | tee "$RUNNER_TEMP/performance-update1/original.json"
