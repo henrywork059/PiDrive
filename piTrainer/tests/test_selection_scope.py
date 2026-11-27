@@ -219,5 +219,100 @@ class PreviewSortIdentityTests(unittest.TestCase):
         preview.deleteLater()
 
 
+@unittest.skipUnless(PreviewPanel is not None, 'PySide6 desktop GUI unavailable')
+class PerformanceSourceLookupTests(unittest.TestCase):
+    def test_reverse_mapping_after_default_sort_header_sort_edit_and_reset(self):
+        from piTrainer.panels.data.preview_model import RecordPreviewModel
+        app = QApplication.instance() or QApplication([])
+        model = RecordPreviewModel()
+        rows = [{"frame_id": f"f{i}", "session": "session", "steering": float(i)} for i in (10, 2, 1, 5)]
+        columns = ["frame_id", "session", "steering"]
+        model.set_preview_rows(rows, columns)
+        def check():
+            for source in range(model.rowCount()):
+                view = model.view_row_for_source_row(source)
+                self.assertEqual(model.source_row(view), source)
+            self.assertEqual(model.view_row_for_source_row(-1), -1)
+            self.assertEqual(model.view_row_for_source_row(model.rowCount()), -1)
+        check()
+        for column in (0, 2, 1):
+            for order in (Qt.DescendingOrder, Qt.AscendingOrder):
+                model.sort(column, order)
+                check()
+        model.set_value(2, "steering", -0.5)
+        self.assertEqual(model.rows[model.view_row_for_source_row(2)]["steering"], -0.5)
+        model.set_preview_rows([], columns)
+        check()
+        model.set_preview_rows(rows[:2], columns)
+        check()
+
+
+    def test_sort_permutation_matches_legacy_keys_and_stable_ties(self):
+        from piTrainer.panels.data.preview_model import RecordPreviewModel
+        app = QApplication.instance() or QApplication([])
+        model = RecordPreviewModel()
+        # More unique timestamps than the bounded sort-local cache can hold,
+        # repeated keys, duplicate frame IDs, invalid dates and legacy values.
+        rows = [
+            {"session": "20260101_120000_manual_a", "ts": f"t{i}",
+             "frame_id": f"f{i % 13}", "steering": i % 5}
+            for i in range(400)
+        ]
+        rows.extend([
+            {"session": None, "ts": None, "frame_id": None, "steering": None},
+            {"session": ["legacy", 2], "ts": {"date": "2026-01-03"},
+             "frame_id": "f10", "steering": "bad"},
+            {"session": "20261301_000000", "ts": "bad", "frame_id": "f2", "steering": .3},
+            {"session": "s", "ts": "2026-01-02T12:00:00Z", "frame_id": "f2", "steering": "0.3"},
+            {"session": "s", "ts": "2026-01-02T12:00:00Z", "frame_id": "f2", "steering": "0.3"},
+            {},
+        ])
+        columns = ["session", "frame_id", "steering", "ts"]
+        for fixture in (rows, list(reversed(rows)), []):
+            expected = sorted(range(len(fixture)), key=lambda i: model._default_sort_key(fixture[i], i))
+            model.set_preview_rows(fixture, columns)
+            def check():
+                self.assertEqual([model.source_row(i) for i in range(model.rowCount())], expected)
+                for view, source in enumerate(expected):
+                    self.assertIs(model.rows[view], fixture[source])
+                    self.assertEqual(model.view_row_for_source_row(source), view)
+            check()
+            for column, name in enumerate(columns):
+                for order in (Qt.AscendingOrder, Qt.DescendingOrder, Qt.AscendingOrder):
+                    expected.sort(key=lambda i: model._sort_key_for_row(fixture[i], name),
+                                  reverse=(order == Qt.DescendingOrder))
+                    model.sort(column, order)
+                    check()
+
+    def test_matching_identity_preserves_duplicates_and_legacy_string_conversion(self):
+        app = QApplication.instance() or QApplication([])
+        panel = PreviewPanel()
+        rows = pd.DataFrame({
+            "session": ["s", "s", "other", "s"],
+            "frame_id": ["a", "a", "a", "b"],
+            "ts": ["t", "t", "t", "t"],
+            "abs_image": ["p", "p", "p", "q"],
+            "steering": [.1, .2, .3, .4],
+        }, index=[5, 5, 2, 1])
+        variants = [rows, rows.assign(frame_id=[1,1,2,3]),
+                    rows.assign(ts=pd.array(["t",pd.NA,"t","t"],dtype="string")),
+                    rows.assign(abs_image=[None,"p","p","q"]),
+                    rows.drop(columns="ts"), rows.assign(session=rows["session"].astype("category"))]
+        for frame in variants:
+            panel.set_dataframe(frame)
+            for source in range(len(panel.df)):
+                identity = panel.record_identity(panel.df.iloc[source].to_dict())
+                expected = [i for i in range(len(panel.df)) if panel.record_identity(panel.df.iloc[i].to_dict()) == identity]
+                self.assertEqual(list(panel._matching_source_rows(identity)), expected)
+                self.assertTrue(panel.select_record_identity(identity))
+                self.assertEqual(panel.current_row(), expected[0])
+            self.assertFalse(panel.select_record_identity(("missing","missing","missing","missing")))
+        panel.set_dataframe(rows)
+        identity = panel.record_identity(rows.iloc[0].to_dict())
+        self.assertTrue(panel.update_record_values(identity, {"steering": -.5}))
+        self.assertEqual(panel.df["steering"].tolist(), [-.5,-.5,.3,.4])
+        panel.close()
+
+
 if __name__ == '__main__':
     unittest.main()

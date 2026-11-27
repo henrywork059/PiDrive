@@ -569,9 +569,7 @@ def create_app(hardware_enabled: bool = False):
     def video_feed():
         def _live_preview_interval() -> float:
             try:
-                settings = settings_manager.get()
-                camera_settings = settings.get("camera") if isinstance(settings.get("camera"), dict) else {}
-                fps = float(camera_settings.get("live_preview_fps", camera_service.config.live_preview_fps))
+                fps = settings_manager.get_camera_live_preview_fps(camera_service.config.live_preview_fps)
             except Exception:
                 fps = float(getattr(camera_service.config, "live_preview_fps", 20) or 20)
             fps = max(1.0, min(60.0, fps))
@@ -586,6 +584,10 @@ def create_app(hardware_enabled: bool = False):
                 if frame is None:
                     continue
                 if last_seq is not None and seq == last_seq:
+                    # A stopped camera can immediately return its last JPEG.
+                    # Back off instead of spinning while an MJPEG viewer waits
+                    # for recovery. Never emit it as a fresh frame.
+                    time.sleep(0.05)
                     continue
                 last_seq = seq
                 now = time.monotonic()

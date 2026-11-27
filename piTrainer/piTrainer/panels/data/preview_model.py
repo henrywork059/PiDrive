@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import Any
 import re
 
@@ -53,6 +54,7 @@ class RecordPreviewModel(QAbstractTableModel):
         self.rows: list[dict[str, Any]] = []
         self.columns: list[str] = []
         self._source_rows: list[int] = []
+        self._view_rows: list[int] = []
         self._sort_column = -1
         self._sort_order = Qt.AscendingOrder
 
@@ -64,6 +66,7 @@ class RecordPreviewModel(QAbstractTableModel):
         self._sort_column = -1
         self._sort_order = Qt.AscendingOrder
         self._sort_rows_by_default_order()
+        self._rebuild_source_lookup()
         self.endResetModel()
 
     def source_row(self, view_row: int) -> int:
@@ -71,11 +74,22 @@ class RecordPreviewModel(QAbstractTableModel):
             return int(self._source_rows[view_row])
         return -1
 
+    def _rebuild_source_lookup(self) -> None:
+        # Source rows are dense indices into the current dataframe. Rebuild
+        # once per reset/sort; selection and bulk edits no longer scan O(n)
+        # rows for each source identity.
+        self._view_rows = [-1] * len(self._source_rows)
+        for view, source in enumerate(self._source_rows):
+            self._view_rows[source] = view
+
     def view_row_for_source_row(self, source_row: int) -> int:
         try:
-            return self._source_rows.index(int(source_row))
+            source = int(source_row)
         except ValueError:
             return -1
+        if 0 <= source < len(self._view_rows):
+            return self._view_rows[source]
+        return -1
 
     def sort(self, column: int, order=Qt.AscendingOrder) -> None:  # noqa: N802 - Qt API name
         if column < 0 or column >= len(self.columns):
@@ -90,10 +104,10 @@ class RecordPreviewModel(QAbstractTableModel):
         self._sort_column = int(column)
         self._sort_order = order
         self._sort_rows_in_place()
-        view_rows = {source: row for row, source in enumerate(self._source_rows)}
-        new_indexes = [self.index(view_rows[source], column)
-                       if source in view_rows else QModelIndex()
-                       for source, column in identities]
+        self._rebuild_source_lookup()
+        new_indexes = [self.index(view, column) if view >= 0 else QModelIndex()
+                       for source, column in identities
+                       for view in [self.view_row_for_source_row(source)]]
         self.changePersistentIndexList(old_indexes, new_indexes)
         self.layoutChanged.emit()
 
@@ -101,11 +115,12 @@ class RecordPreviewModel(QAbstractTableModel):
         if self._sort_column < 0 or self._sort_column >= len(self.columns):
             return
         column_name = self.columns[self._sort_column]
-        pairs = list(zip(self.rows, self._source_rows))
+        rows, sources = self.rows, self._source_rows
+        order = list(range(len(rows)))
         reverse = self._is_descending(self._sort_order)
-        pairs.sort(key=lambda pair: self._sort_key_for_row(pair[0], column_name), reverse=reverse)
-        self.rows = [row for row, _source in pairs]
-        self._source_rows = [source for _row, source in pairs]
+        order.sort(key=lambda index: self._sort_key_for_row(rows[index], column_name), reverse=reverse)
+        self.rows = [rows[index] for index in order]
+        self._source_rows = [sources[index] for index in order]
 
     def _sort_rows_by_default_order(self) -> None:
         """Default review order: chronological session, then frame id.
@@ -117,10 +132,23 @@ class RecordPreviewModel(QAbstractTableModel):
         """
         if not self.rows:
             return
-        pairs = list(zip(self.rows, self._source_rows))
-        pairs.sort(key=lambda pair: self._default_sort_key(pair[0], pair[1]))
-        self.rows = [row for row, _source in pairs]
-        self._source_rows = [source for _row, source in pairs]
+        rows, sources = self.rows, self._source_rows
+        # The sort-local cache is bounded and cannot outlive the source rows.
+        session_key = lru_cache(maxsize=256)(self._session_datetime_key)
+
+        def key(index):
+            row = rows[index]
+            session, timestamp = row.get('session', ''), row.get('ts', '')
+            if type(session) is str and type(timestamp) is str:
+                return (session_key(session, timestamp),
+                        self._sort_key(row.get('frame_id', ''), 'frame_id'),
+                        int(sources[index]))
+            return self._default_sort_key(row, sources[index])
+
+        order = list(range(len(rows)))
+        order.sort(key=key)
+        self.rows = [rows[index] for index in order]
+        self._source_rows = [sources[index] for index in order]
 
     def _default_sort_key(self, row: dict[str, Any], source_row: int):
         return (

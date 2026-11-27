@@ -100,8 +100,23 @@ class CacheBudgetTests(unittest.TestCase):
         for index in range(65):
             self.cache.load_scaled_pixmap(self.frame(index), 1920, 1080)
         stats = self.cache.scaled_pixmap_cache_stats()
-        self.assertLessEqual(stats['estimated_bytes'], 64 * 1024 * 1024)
+        self.assertEqual(stats['max_bytes'], 8 * 1024 * 1024)
+        self.assertLessEqual(stats['estimated_bytes'], stats['max_bytes'])
         self.assertLessEqual(stats['items'], 96)
+
+    def test_budget_eviction_keeps_recent_scaled_pixels_and_returns_full_image(self):
+        paths = [self.frame(f'budget_{i}', 1024, 1024) for i in range(3)]
+        first = self.cache.load_scaled_pixmap(paths[0], 1024, 1024)
+        second = self.cache.load_scaled_pixmap(paths[1], 1024, 1024)
+        self.assertIs(self.cache.load_scaled_pixmap(paths[0], 1024, 1024), first)
+        third = self.cache.load_scaled_pixmap(paths[2], 1024, 1024)
+        self.assertEqual(self.cache.scaled_pixmap_cache_stats()['estimated_bytes'], 8 * 1024 * 1024)
+        self.assertIs(self.cache.load_scaled_pixmap(paths[0], 1024, 1024), first)
+        self.assertIsNot(self.cache.load_scaled_pixmap(paths[1], 1024, 1024), second)
+        self.assertEqual((third.width(), third.height()), (1024, 1024))
+        huge = self.cache.load_scaled_pixmap(self.frame('4k',3840,2160),3840,2160)
+        self.assertEqual((huge.width(), huge.height()), (3840,2160))
+        self.assertLessEqual(self.cache.scaled_pixmap_cache_stats()['estimated_bytes'],8*1024*1024)
 
     def test_lru_hit_does_not_redecode(self):
         path = self.frame('one')
@@ -343,6 +358,75 @@ class RealQtImageTests(unittest.TestCase):
                 base, {'steering': 0.3, 'throttle': 0.4, 'overlay_settings': {}}, options)
             self.assertFalse(overlaid.isNull())
             self.assertEqual(overlaid.size(), base.size())
+
+
+class PerformancePreviewRowsTests(unittest.TestCase):
+    def test_fast_path_and_fallback_match_previous_rows(self):
+        import numpy as np
+        import pandas as pd
+        from piTrainer.services.data.preview_service import dataframe_preview_rows, PREVIEW_COLUMN_ORDER
+        rng = np.random.default_rng(17)
+        frame = pd.DataFrame({
+            "session": ["a", "a", "b", "b"], "frame_id": ["1", "2", "1", "2"],
+            "steering": rng.random(4, dtype=np.float32),
+            "throttle": rng.random(4, dtype=np.float32),
+            "mode": ["manual", "ai", "manual", "ai"],
+            "ts": ["2026-01-01"] * 4, "abs_image": ["x"] * 4,
+            "overlay_settings": [{} for _ in range(4)],
+        }, index=[8, 3, 3, 1])
+        for sample in (frame, frame.assign(session=pd.Series(["a", "a", "b", "b"], index=frame.index, dtype="string")),
+                       frame[["steering", "throttle"]], frame.iloc[:0]):
+            for limit in (None, 0, 1, -1, 10):
+                selected = sample if limit is None else sample.head(limit)
+                cols = [c for c in PREVIEW_COLUMN_ORDER if c in sample.columns]
+                expected = [{c: row.get(c, "") for c in cols} for _, row in selected.iterrows()]
+                actual = dataframe_preview_rows(sample, limit)
+                self.assertEqual(actual, expected)
+                self.assertEqual([list(row) for row in actual], [list(row) for row in expected])
+
+
+class PerformanceDatasetFilterTests(unittest.TestCase):
+    def test_positional_filter_preserves_legacy_rows_dtypes_and_isolation(self):
+        import numpy as np
+        import pandas as pd
+        from piTrainer.services.data.record_loader_service import build_filtered_dataframe
+
+        def reference(df, only_manual):
+            if df.empty:
+                return df
+            selected = df[df["abs_image"].astype(str).str.len() > 0].copy()
+            selected = selected[selected["abs_image"].map(os.path.isfile)].copy()
+            if only_manual and "mode" in selected.columns:
+                mode = selected["mode"].astype(str).str.lower()
+                mask = mode.isin({"manual", "user", "train", "manual_drive"}) | mode.str.contains("manual", na=False)
+                if mask.any():
+                    selected = selected[mask].copy()
+            return selected.reset_index(drop=True)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            image = Path(tmp) / "frame.jpg"
+            image.write_bytes(b"fixture")
+            frame = pd.DataFrame({
+                "abs_image": [str(image), str(image), "", str(Path(tmp) / "missing"), str(image)],
+                "mode": ["AI", "MANUAL", "manual", "manual", "user"],
+                "steering": np.array([.1,.2,.3,.4,.5], dtype=np.float32),
+                "frame_id": ["a","b","c","d","e"],
+                "overlay_settings": [{"flip": False} for _ in range(5)],
+            }, index=[7,3,3,1,7])
+            variants = [frame, frame.assign(mode="AI"), frame.assign(abs_image=""),
+                        frame.assign(abs_image=str(Path(tmp) / "missing")),
+                        frame.iloc[:0], frame.drop(columns="mode"),
+                        frame.assign(abs_image=frame["abs_image"].astype("string")),
+                        frame.assign(mode=frame["mode"].astype("category"))]
+            for sample in variants:
+                for manual in (False, True):
+                    with self.subTest(manual=manual, dtype=str(sample.dtypes)):
+                        original = sample.copy(deep=True)
+                        actual = build_filtered_dataframe(sample, manual)
+                        pd.testing.assert_frame_equal(actual, reference(sample, manual))
+                        if len(actual):
+                            actual.loc[actual.index[0], "steering"] = 0.9
+                        pd.testing.assert_frame_equal(sample, original)
 
 
 if __name__ == '__main__':

@@ -21,16 +21,19 @@ from piserver.services.recorder_service import RecorderService
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 WEB_DIR = Path(__file__).resolve().parent / "web"
-APP_VERSION = "0_4_53"
+APP_VERSION = "0_4_54"
 
 
 def mjpeg_generator(camera_service):
     seq = 0
     while True:
-        frame, seq = camera_service.wait_for_jpeg(seq, timeout=1.0)
-        if frame is None:
+        frame, next_seq = camera_service.wait_for_jpeg(seq, timeout=1.0)
+        # A timeout/stop may return cached bytes with the same sequence.
+        # Do not retransmit stale JPEGs or spin on a stopped camera.
+        if frame is None or next_seq == seq:
             time.sleep(0.05)
             continue
+        seq = next_seq
         yield (
             b"--frame\r\n"
             b"Content-Type: image/jpeg\r\n"

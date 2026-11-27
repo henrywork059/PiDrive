@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import numpy as np
 import pandas as pd
 from PySide6.QtCore import QModelIndex, QSignalBlocker, QTimer, Qt
 from PySide6.QtWidgets import (
@@ -294,14 +295,36 @@ class PreviewPanel(QGroupBox):
             self.table.selectRow(index.row())
         self._set_current_index(index, no_update=True)
 
+    def _matching_source_rows(self, identity: tuple[str, str, str, str]):
+        # Normal recording identities are non-null strings. Compare just these
+        # four columns rather than materializing every full metadata row.
+        # Preserve the old row-to-dict string conversion for unusual dtypes,
+        # missing fields, duplicate columns and nulls.
+        keys = ("session", "frame_id", "ts", "abs_image")
+        if (
+            isinstance(identity, tuple) and len(identity) == len(keys)
+            and all(isinstance(value, str) for value in identity)
+            and self.df.columns.is_unique
+            and all(key in self.df.columns
+                    and pd.api.types.is_string_dtype(self.df[key])
+                    and self.df[key].notna().all() for key in keys)
+        ):
+            mask = np.ones(len(self.df), dtype=bool)
+            for key, value in zip(keys, identity):
+                mask &= self.df[key].eq(value).to_numpy(dtype=bool, na_value=False)
+            yield from np.flatnonzero(mask).tolist()
+            return
+        for source_row in range(len(self.df)):
+            if self.record_identity(self.df.iloc[source_row].to_dict()) == identity:
+                yield source_row
+
     def select_record_identity(self, identity: tuple[str, str, str, str]) -> bool:
         if not identity:
             return False
-        for source_row in range(len(self.df)):
-            record = self.df.iloc[source_row].to_dict()
-            if self.record_identity(record) == identity:
-                view_row = self._view_row_for_source_row(source_row)
-                return self._select_view_row(view_row)
+        if len(self.df) and self.record_identity(self.df.iloc[0].to_dict()) == identity:
+            return self._select_view_row(self._view_row_for_source_row(0))
+        for source_row in self._matching_source_rows(identity):
+            return self._select_view_row(self._view_row_for_source_row(source_row))
         return False
 
     def update_record_values(
@@ -314,11 +337,7 @@ class PreviewPanel(QGroupBox):
         """Update visible row values without rebuilding the table."""
         if not identity or self.df.empty:
             return False
-        matched_source_rows: list[int] = []
-        for source_row in range(len(self.df)):
-            record = self.df.iloc[source_row].to_dict()
-            if self.record_identity(record) == identity:
-                matched_source_rows.append(source_row)
+        matched_source_rows = list(self._matching_source_rows(identity))
         if not matched_source_rows:
             return False
 

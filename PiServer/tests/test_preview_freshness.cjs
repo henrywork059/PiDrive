@@ -20,3 +20,32 @@ test('paused preview never claims Live',()=>{tick=0;const h=createPreviewFreshne
 test('invalid sequence cannot establish freshness',()=>{tick=0;const h=createPreviewFreshness(clock);h.setBackendLive(true);assert.equal(h.accept(NaN),false);assert.equal(h.accept(-1),false);assert.equal(h.snapshot().hasFrame,false);});
 test('offline backend rejects JPEG even with new sequence',()=>{tick=0;const h=createPreviewFreshness(clock);h.setBackendLive(false);assert.equal(h.accept(1),false);assert.equal(h.snapshot().state,'Disconnected');});
 console.log(checks + '/14 deterministic preview tests passed');
+
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+test('unchanged preview health avoids repeated text/class writes; changes still render', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'piserver', 'web', 'static', 'app.js'), 'utf8');
+  const start = src.indexOf('function renderPreviewHealth() {');
+  const end = src.indexOf('\nfunction previewDelayMs()', start);
+  assert.ok(start >= 0 && end > start);
+  let writes = 0;
+  const node = () => {
+    let text = '', cls = '';
+    return {get textContent(){return text;}, set textContent(v){text=v;writes++;},
+      get className(){return cls;}, set className(v){cls=v;writes++;}};
+  };
+  const nodes = {previewHealth:node(), metricPreview:node(), cameraPreviewMeta:node()};
+  let health = {state:'Paused', ageMs:null, hasFrame:false};
+  const ctx = vm.createContext({previewHealth:{snapshot:()=>health},
+    state:{latestStatus:{}}, document:{getElementById:id=>nodes[id],querySelector:()=>null}});
+  vm.runInContext(src.slice(start,end),ctx);
+  ctx.renderPreviewHealth();
+  assert.equal(writes,4);
+  ctx.renderPreviewHealth();
+  assert.equal(writes,4);
+  health = {state:'Live',ageMs:100,hasFrame:true};
+  ctx.renderPreviewHealth();
+  assert.equal(writes,8);
+  assert.equal(nodes.previewHealth.textContent,'Live · 0.1s old');
+});

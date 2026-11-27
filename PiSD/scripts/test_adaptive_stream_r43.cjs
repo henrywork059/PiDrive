@@ -28,7 +28,8 @@ test("AI hidden stream pause preserves all safety stop paths",()=>{
 });
 test("AI returns to live stream without a new camera/motor command",()=>{
   assert.match(ai,/els\.aiPreviewImage\.src = \`\/video_feed\?t=\$\{Date\.now\(\)\}\`;/);
-  assert.match(ai,/void pollOperatingReadiness\(\); \/\/ immediate fresh server state/);
+  assert.match(ai,/void refreshStatus\(\); \/\/ immediate full UI state after hidden stop\s*\} else \{\s*void pollOperatingReadiness\(\); \/\/ immediate fresh server state/);
+  assert.equal((ai.match(/document\.addEventListener\('visibilitychange'/g)||[]).length, 1);
 });
 test("legacy dashboard reconnects only when live preview requested",()=>{
   assert.match(dashboard,/legacyLivePreviewRequested = true;/);

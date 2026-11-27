@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 from .session_service import resolve_session_dir
@@ -297,11 +298,17 @@ def load_records_dataframe(records_root: Path, sessions: list[str]) -> pd.DataFr
 def build_filtered_dataframe(df: pd.DataFrame, only_manual: bool) -> pd.DataFrame:
     if df.empty:
         return df
-    filtered = df[df["abs_image"].astype(str).str.len() > 0].copy()
-    filtered = filtered[filtered["abs_image"].map(os.path.isfile)].copy()
-    if only_manual and "mode" in filtered.columns:
-        mode_values = filtered["mode"].astype(str).str.lower()
+    # Filter narrow columns/positions before materializing the full record
+    # table. Positional masks also preserve duplicate input indexes and order.
+    positions = np.flatnonzero((df["abs_image"].astype(str).str.len() > 0).to_numpy(dtype=bool, na_value=False))
+    if not len(positions):
+        # Retain the legacy pandas empty-mask behavior across supported versions.
+        filtered = df.iloc[positions].copy()
+        return filtered[filtered["abs_image"].map(os.path.isfile)].copy().reset_index(drop=True)
+    positions = positions[df["abs_image"].iloc[positions].map(os.path.isfile).to_numpy(dtype=bool)]
+    if only_manual and "mode" in df.columns:
+        mode_values = df["mode"].iloc[positions].astype(str).str.lower()
         manual_mask = mode_values.isin({"manual", "user", "train", "manual_drive"}) | mode_values.str.contains("manual", na=False)
         if manual_mask.any():
-            filtered = filtered[manual_mask].copy()
-    return filtered.reset_index(drop=True)
+            positions = positions[manual_mask.to_numpy(dtype=bool)]
+    return df.iloc[positions].reset_index(drop=True)
