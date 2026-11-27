@@ -68,6 +68,16 @@
           </div>
 
           <div id="statusBanner" class="banner muted" role="status" aria-live="polite">Checking server status…</div>
+          <nav class="ps-task-jumps" aria-label="Workflow shortcuts">
+            <a href="#jump-viewer">Preview</a>
+            <a href="#jump-runtime" data-jump-pages="manual auto">Runtime</a>
+            <a href="#jump-manual" data-jump-pages="manual training">Drive controls</a>
+            <a href="#jump-record" data-jump-pages="manual training auto">Recording</a>
+            <a href="#jump-model" data-jump-pages="training auto">Model</a>
+            <a href="#jump-sessions" data-jump-pages="training">Sessions</a>
+            <a href="#jump-camera" data-jump-pages="camera">Camera settings</a>
+            <a href="#jump-motor" data-jump-pages="motor">Motor settings</a>
+          </nav>
           <div id="configRecoveryBanner" class="banner muted" role="alert" hidden></div>
           <details data-preflight-root aria-label="Read-only startup preflight">
                       <summary>Startup preflight (read-only)</summary>
@@ -105,7 +115,7 @@
       </article>
 
       <article class="dock-panel" data-panel="viewer">
-        <div class="panel-head">
+        <div class="panel-head" id="jump-viewer" tabindex="-1" data-drive-keys-ignore>
           <span>Preview</span>
           <span class="panel-mini">view</span>
         </div>
@@ -155,7 +165,7 @@
       </article>
 
       <article class="dock-panel" data-panel="runtime">
-        <div class="panel-head">
+        <div class="panel-head" id="jump-runtime" tabindex="-1" data-drive-keys-ignore>
           <span>Tuning</span>
           <span class="panel-mini">saved</span>
         </div>
@@ -190,7 +200,7 @@
       </article>
 
       <article class="dock-panel" data-panel="model">
-        <div class="panel-head">
+        <div class="panel-head" id="jump-model" tabindex="-1" data-drive-keys-ignore>
           <span>Models</span>
           <span class="panel-mini">TFLite</span>
         </div>
@@ -223,7 +233,7 @@
       </article>
 
       <article class="dock-panel" data-panel="manual">
-        <div class="panel-head">
+        <div class="panel-head" id="jump-manual" tabindex="-1" data-drive-keys-ignore>
           <span>Drive</span>
           <span class="panel-mini">smooth</span>
         </div>
@@ -268,7 +278,7 @@
       </article>
 
       <article class="dock-panel" data-panel="record">
-        <div class="panel-head">
+        <div class="panel-head" id="jump-record" tabindex="-1" data-drive-keys-ignore>
           <span>Record</span>
           <span class="panel-mini">capture</span>
         </div>
@@ -297,7 +307,7 @@
       </article>
 
       <article class="dock-panel" data-panel="sessions">
-        <div class="panel-head">
+        <div class="panel-head" id="jump-sessions" tabindex="-1" data-drive-keys-ignore>
           <span>Export</span>
           <span class="panel-mini">export</span>
         </div>
@@ -327,7 +337,7 @@
       </article>
 
       <article class="dock-panel" data-panel="camera">
-        <div class="panel-head">
+        <div class="panel-head" id="jump-camera" tabindex="-1" data-drive-keys-ignore>
           <span>Camera</span>
           <span class="panel-mini">apply</span>
         </div>
@@ -453,7 +463,7 @@
       </article>
 
       <article class="dock-panel" data-panel="motor">
-        <div class="panel-head">
+        <div class="panel-head" id="jump-motor" tabindex="-1" data-drive-keys-ignore>
           <span>Motor</span>
           <span class="panel-mini">setup</span>
         </div>

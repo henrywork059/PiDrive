@@ -62,3 +62,15 @@
 @media (max-width: 520px) {
   .pisd-readiness-strip { grid-template-columns: 1fr; }
 }
+
+/* UI2: compact-view navigation only; keep all existing controls and layouts. */
+.pisd-task-jumps { display: none; }
+@media (max-width: 1099px) {
+  .pisd-task-jumps { display: flex; flex-wrap: wrap; gap: .35rem; margin: .5rem 0; }
+  .pisd-task-jumps a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: .25rem .65rem; border: 1px solid var(--mdrv-border, #64748b); border-radius: .45rem; color: var(--mdrv-text, #e2e8f0); text-decoration: underline; text-underline-offset: .2em; font-size: .85rem; }
+  .pisd-task-jumps a:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+  :is(#mdrvLiveCamera, #mdrvRecordToggle, #mdrvOverlaySettingsOpen, #mdrvRefreshFiles, #aiRefreshModels, #aiLive, #aiRecordToggle, #aiWorkflowSettingsOpen, #aiRefreshFiles) { scroll-margin-block-start: 8rem; }
+}
+@media (max-width: 759px) {
+  :is(#mdrvLiveCamera, #mdrvRecordToggle, #mdrvOverlaySettingsOpen, #mdrvRefreshFiles, #aiRefreshModels, #aiLive, #aiRecordToggle, #aiWorkflowSettingsOpen, #aiRefreshFiles) { scroll-margin-block-start: 1rem; }
+}

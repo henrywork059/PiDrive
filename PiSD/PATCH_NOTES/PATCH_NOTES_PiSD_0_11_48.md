@@ -14,3 +14,8 @@ UI2-02/03/04/05/13: the actual emulator and hardware-fallback adapters were conf
 
 ## Verification and limits
 Previous UI2 Linux run 46028062905 passed all component regression jobs but failed the merged PiServer package baseline check. Emulator 46027914565 likewise passed components but failed historical note comparison; current merged main restores historical note. New explicit one-step package baseline retains current source; unchanged trainer must use an exact identical previously qualified ancestor, not skip package checks. No approved baseline changes; actual new web screenshots and visual comparison, native touch, physical Pi, latency and performance qualification remain pending. No change to motor commands, leases, STOP, GPIO, camera lifecycle, AI/model contracts, auth, saved config or data. No merge/stable promotion.
+
+## Revision B — compact workflow navigation
+- Manual Drive and AI Mode expose narrow-view navigation directly to the existing camera, recording, calibration/rate settings, model and recording-library controls as applicable. Links do not execute those controls. Desktop layouts, motor authority, STOP, capture and recording contracts, and saved presentation/config values are unchanged.
+- Browser regression adds real anchor activation, single navigation interaction, elapsed time, target geometry and no-mutation checks; current layout/recording gates remain intact. New CI and candidate screenshots pending; no measured improvement claimed yet.
+- Current provisional version retained; existing approved web screenshot reference untouched.

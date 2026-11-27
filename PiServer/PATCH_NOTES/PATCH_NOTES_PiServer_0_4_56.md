@@ -13,3 +13,7 @@ UI2-02/03/07/08: initial dashboard asserted run/ready/E-STOP OFF before status v
 
 ## Verification and limits
 Actual modified JS syntax checked using V8. Extracted actual markStatusUnverified function verified 12 server values invalidated, local target and last confirmed save retained, initial STOP mixed. Prior Linux component regression passed; new exact browser/Node/Python/package CI and visual comparison pending. Not a hardware or performance certification. No default preview profile, config, custom style/layout, device command or persistence change. No merge/stable promotion.
+
+## Revision B — stacked workspace navigation
+- Status panel links to the current page's existing preview, runtime, recording, model, session, camera and motor settings panels as applicable. No hidden-page jump or control invocation; focusable headings ignore drive keys. Existing tabs, E-STOP, docking persistence, APIs and settings semantics unchanged. Desktop dock unchanged.
+- Real browser test records single-interaction link activation, elapsed time, geometry and no mutation; new CI and candidate screenshots pending. No performance or full workflow acceptance claim. No new provisional version.

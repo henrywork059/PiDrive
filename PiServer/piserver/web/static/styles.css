@@ -3758,3 +3758,19 @@ button.active,
     white-space: normal !important;
   }
 }
+
+/* UI2: navigation between stacked panels; never change dock geometry or state. */
+.ps-task-jumps { display: none; }
+@media (max-width: 1080px) {
+  .ps-task-jumps { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+  .ps-task-jumps a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 4px 10px; border: 1px solid currentColor; border-radius: 6px; color: var(--text); text-decoration: underline; text-underline-offset: .2em; }
+  .ps-task-jumps a:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+  .ps-task-jumps a[data-jump-pages] { display: none; }
+  body[data-page="manual"] .ps-task-jumps a[data-jump-pages~="manual"],
+  body[data-page="training"] .ps-task-jumps a[data-jump-pages~="training"],
+  body[data-page="auto"] .ps-task-jumps a[data-jump-pages~="auto"],
+  body[data-page="camera"] .ps-task-jumps a[data-jump-pages~="camera"],
+  body[data-page="motor"] .ps-task-jumps a[data-jump-pages~="motor"] { display: inline-flex; }
+  .panel-head[id^="jump-"] { scroll-margin-block-start: 14rem; }
+  .panel-head[id^="jump-"]:focus-visible { outline: 2px solid currentColor; outline-offset: -2px; }
+}
