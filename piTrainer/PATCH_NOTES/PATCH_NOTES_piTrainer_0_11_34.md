@@ -15,3 +15,7 @@ Make large recorded-session JSONL ingestion bounded while retaining exact record
 
 ## Verification and outstanding qualification
 Candidate committed for full Linux/Windows/strict review CI; before combined results it is not accepted as a resource gain. Final DataFrame still materializes all rows, so this reduces transient per-session buffering, not total dataset RSS to a fixed bound. No change to saved configs, split/seed, provenance, export, row identity, random augmentation, UI or model family. Real large-dataset RSS/epoch and native Qt acceptance pending.
+
+
+## Revision 2.3 — real interpreter qualification
+Parent 1b02da5 passed all ten jobs. Strict trainer artifact 15208531867 SHA256 cfb72ac52fb7be898f5fc374896008220dfc0bb542e4acbfeaf67f158acfc682: review p95 161.794→19.149 ms, RSS 343.789→304.719 MiB, CPU 9.175→5.512s, semantic parity. Strict cache 15208950468 SHA256 aeb0fb3ae29dafc5869dbf0c7ff7e7e01218e6e9eda4635213ec493f2f0d8b19 parity. Existing real exported-model regression now runs five paired offline interpreter thread comparisons with the actual export and eight seeded prepared tensors, preserves JSON artifact and asserts exact output digests. Synthetic constant-head fixture is not a representative trained model; no local TensorFlow runtime or actual Pi measurements claimed. Existing production defaults unchanged; provisional version retained.

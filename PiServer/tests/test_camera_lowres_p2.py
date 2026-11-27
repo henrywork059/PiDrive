@@ -42,6 +42,10 @@ class Camera:
     def configure(self, cfg):
         pass
 
+    def stream_configuration(self, name):
+        config = self.cfg[name]
+        return {**config, 'stride': config['size'][0]}
+
     def start(self):
         pass
 
@@ -110,6 +114,39 @@ class PreviewResourceTests(unittest.TestCase):
         self.assertEqual([req.lores_calls for req in obj.requests], [1, 0])
         self.assertTrue(all(req.releases == 1 for req in obj.requests))
         self.assertEqual(self.service.get_config()['preview_stream_active'], 'main')
+
+    def test_effective_format_mismatch_falls_back_before_start(self):
+        self.service.apply_settings({'preview_source': 'lores'}, restart=False)
+        with patch.object(cam, 'Picamera2', Camera), patch.object(
+                Camera, 'stream_configuration',
+                return_value={'format': 'NV12', 'size': (320, 180), 'stride': 320}):
+            self.assertTrue(self.service._open_picamera2_locked()[0])
+        self.assertTrue(Camera.instances[0].closed)
+        self.assertEqual(self.service.get_config()['preview_stream_active'], 'main')
+        self.assertIn('YUV420', self.service.get_config()['preview_stream_fallback_reason'])
+
+    def test_padded_stream_uses_effective_stride_and_preserves_main(self):
+        self.service.apply_settings({'preview_source': 'lores'}, restart=False)
+        with patch.object(cam, 'Picamera2', Camera), patch.object(
+                Camera, 'stream_configuration',
+                return_value={'format': 'YUV420', 'size': (320, 180), 'stride': 384}):
+            self.assertTrue(self.service._open_picamera2_locked()[0])
+        obj = Camera.instances[-1]
+        original = obj.capture_request
+        def padded():
+            req = original()
+            req.make_array = lambda name: np.full((270, 384), 128, dtype=np.uint8)
+            return req
+        obj.capture_request = padded
+        frame, jpeg, live, error = self.service._capture_picamera_request(True, True)
+        self.assertTrue(live, error)
+        self.assertEqual(self.service.get_config()['preview_stream_stride'], 384)
+        self.assertEqual(self.service.get_config()['preview_stream_active'], 'lores')
+        np.testing.assert_array_equal(frame[0, 0], [140, 80, 20])
+        import cv2
+        self.assertEqual(cv2.imdecode(np.frombuffer(jpeg, dtype=np.uint8), 1).shape,
+                         (180, 320, 3))
+        self.assertEqual(obj.requests[-1].releases, 1)
 
     def test_latest_frame_single_slot_and_skips(self):
         for value in [b'a', b'b', b'c', b'd']:

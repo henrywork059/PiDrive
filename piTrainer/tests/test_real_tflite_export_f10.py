@@ -1,6 +1,10 @@
 """F10 real CPU TensorFlow conversion, no training or hardware actuation."""
 import tempfile
 import sys
+import os
+import json
+import hashlib
+import subprocess
 from io import BytesIO
 import unittest
 from pathlib import Path
@@ -57,6 +61,20 @@ class RealTfliteExportTests(unittest.TestCase):
             self.assertNotIn(str(fixture.root), str(manifest['experiment']))
             # Import only runtime model services, never the hardware launchers.
             root = Path(__file__).resolve().parents[2]
+            # Real interpreter, exact prepared tensor fixture, five paired trials.
+            # This deterministic export is deliberately not a trained driving model.
+            report_path = Path(os.environ.get("PIDRIVE_THREAD_REPORT", str(Path(tmp) / "threads.json")))
+            tensor_path = Path(tmp) / "prepared.npy"
+            tensors = np.random.default_rng(27).integers(0, 256, (8, 12, 16, 3), dtype=np.uint8).astype(np.float32) / 255
+            np.save(tensor_path, tensors, allow_pickle=False)
+            subprocess.run([sys.executable, str(root / "tools/benchmark_tflite_threads.py"),
+                            "--model", artifact.path, "--inputs", str(tensor_path),
+                            "--rounds", "5", "--warmup", "10", "--invocations", "100",
+                            "--threads", "1", "2", "4", "--output", str(report_path)], check=True)
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+            self.assertEqual(report["model_sha256"], hashlib.sha256(Path(artifact.path).read_bytes()).hexdigest())
+            self.assertTrue(all(row["complete"] and row["exact_output_parity"] for row in report["summary"]))
+            self.assertFalse(report["deployment_authorized"])
             sys.path[:0] = [str(root / 'PiSD'), str(root / 'PiServer')]
             from pisd.services.ai_drive_service import AIDriveService
             from piserver.services.model_service import ModelService
