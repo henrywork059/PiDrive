@@ -11,6 +11,7 @@ from ...services.data.plot_service import (
     build_plot_summary,
     filter_plot_dataframe,
     plot_sessions_for_combo,
+    plot_input_snapshot,
     render_plot,
 )
 
@@ -69,7 +70,7 @@ class DataPlotPanel(QGroupBox):
         self.refresh_plot()
 
     def set_dataframe(self, df: pd.DataFrame) -> None:
-        self.df = df.reset_index(drop=True).copy() if not df.empty else pd.DataFrame()
+        self.df = plot_input_snapshot(df)
         sessions = plot_sessions_for_combo(self.df)
         current_text = self.session_combo.currentText()
         self._set_combo_items(sessions)

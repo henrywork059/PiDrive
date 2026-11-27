@@ -8,7 +8,7 @@ from PySide6.QtCore import QThread, Signal
 
 from ...app_state import TrainConfig
 from ..data.augmentation_service import boolean_series, normalize_horizontal_flip_labels
-from .dataset_service import make_tf_dataset
+from .dataset_service import bounded_input_active, make_tf_dataset
 from .model_service import build_model, compile_model
 
 
@@ -170,10 +170,16 @@ class TrainingWorker(QThread):
 
             self.step_changed.emit("Building TensorFlow datasets", -1)
             self.log_message.emit("Building TensorFlow datasets...")
-            train_ds = make_tf_dataset(self.train_df, img_h=self.config.img_h, img_w=self.config.img_w, batch_size=self.config.batch_size, shuffle=self.config.shuffle, augment=self.config.augment)
+            requested_bound = getattr(self.config, 'bounded_input', False) is True
+            train_bound = bounded_input_active(requested_bound, self.config.shuffle, self.config.augment)
+            if requested_bound:
+                self.log_message.emit(
+                    f"Input resources: training={'bounded' if train_bound else 'automatic (stochastic)'}; "
+                    "validation=bounded (2 decode workers, 1 prefetched batch).")
+            train_ds = make_tf_dataset(self.train_df, img_h=self.config.img_h, img_w=self.config.img_w, batch_size=self.config.batch_size, shuffle=self.config.shuffle, augment=self.config.augment, bounded_input=requested_bound)
             val_ds = None
             if not self.val_df.empty:
-                val_ds = make_tf_dataset(self.val_df, img_h=self.config.img_h, img_w=self.config.img_w, batch_size=self.config.batch_size, shuffle=False, augment=False)
+                val_ds = make_tf_dataset(self.val_df, img_h=self.config.img_h, img_w=self.config.img_w, batch_size=self.config.batch_size, shuffle=False, augment=False, bounded_input=requested_bound)
 
             self.step_changed.emit('Preparing epoch review frames', -1)
             self._prepare_review_batch()

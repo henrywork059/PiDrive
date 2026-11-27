@@ -259,7 +259,7 @@ def main():
     p.add_argument("--rows",type=int,default=30000);p.add_argument("--output",type=Path)
     p.add_argument("--worker",action="store_true");p.add_argument("--checkout");p.add_argument("--revision")
     p.add_argument("--component");p.add_argument("--case");p.add_argument("--attribute",action="store_true")
-    p.add_argument("--cache-budget-mib",type=int,choices=(8,16,32,64))
+    p.add_argument("--cache-budget-mib",type=int,choices=(2,4,8,16,32,64))
     p.add_argument("--pisd-request",action="store_true")
     args=p.parse_args()
     if args.worker:

@@ -1,0 +1,39 @@
+# piTrainer 0.11.35 — Performance Update 2.5 review memory candidate
+
+Package baseline: 77b3fe8d6a76200caa7f96149c7d7c4bc66cb396
+Original performance comparison baseline: 14c57c990ff0f9bae2003e4e8aa552d17a4227c7
+
+PRs #88/#89 were already merged externally. Main contains qualified ba05d2a and only additional roadmap documentation. New draft branch from exact main. Latest four notes 0.11.34/33/32/31 reviewed; 0.11.35 absent from main and open emulator PR #90. No stable promotion.
+
+Parent strict trainer artifact 15211044318 SHA256 7a7280b375cd60a9f40a4e38401a872d60206aee0ccf4241bff33e5ab596bc5d: original peak RSS 361074688→317960192 bytes, p95 86.896→13.306ms, CPU 6.094→3.081s, 15/15 semantic parity. Resource 15211444385 SHA256 4b966ab28ae3353ada9ca11dd7143d6a04bcd7b545675b3e0475f6fa648d342b: prior metadata preparation CPU 92.518→84.284ms, process peak RSS 172355584→172261376 bytes (negligible). 25% whole-review RSS target open.
+
+## Changes
+- services/data/plot_service.py, panels/data/data_plot_panel.py: isolated four-column plot snapshot, full review metadata remains in source. Missing/duplicate column fallback, session filter, order, numeric coercion, summary and all six plot types retained. Avoid redundant index-reset copies.
+- panels/data/preview_panel.py: one full owning copy followed by index assignment rather than two data copies.
+- tests/test_plot_projection_p2.py: all plot artist/summary parity, session filters, nulls, duplicate indexes, copy-on-write modes and unusual schemas.
+- version.py: provisional 0.11.35 marker.
+
+Local five-pair synthetic 24k-row 34-column snapshot+all-session filter: CPU 3.765→1.034ms, traced peak 18.687→1.471MiB (COW off); COW on CPU .912→.724ms, peak 12.460→1.471MiB. Exact projected value equality; pandas 2.2.3/NumPy 2.3.5. Isolated equivalent operations, not native Qt or whole-review RSS. CI pending. No cache, recording, label, configuration, random augmentation or safety changes.
+
+
+### Bounded offline validation image preparation
+validation_inputs.py now separates existing ordered row/label normalization from image loading; PreparedImageSource owns paths/flip flags, loads contiguous slices using the identical RGB conversion/flip/PIL resize/float32 division. Keras retains one dense model.predict call but allocates the final tensor once instead of a list plus stack. TFLite runner reads only interpreter-sized chunks while retaining original dynamic/fixed batch selection, tail padding, tensor quantization, global output mapping, labels, metrics and provenance. No inference thread/delegate change. Offline failure may occur during a later chunk rather than before the first model invocation; no partial validation result returned. No image cache or physical control. Local 384-image 120×160 PIL experiment (five pairs, repeated fixture, alternating flips): median CPU .848→.836s, traced peak 168.879→84.818MiB and identical tensor SHA256 48a34e82c962f65a8957ebcc16bc4633dfdfd4d7205c0fb74d7f6678ef922c2f. TFLite bounded source avoids full dataset image tensor, with metadata and predictions still retained. Added deterministic fake fixed/dynamic/quantized batch parity and real TFLite fixed/dynamic model regression; CI pending. No epoch-level or whole-process peak RSS claim.
+
+Qualification adds actual 384-row fresh-process legacy/dense/stream image preparation comparisons, matched fixture and digest, peak RSS/CPU and materialized-row count. New tests included in mandatory Linux CI and real TFLite smoke. Current results pending.
+
+
+Forward-package gate repair: initial post-merge CI 46028377559 failed only because unchanged PiServer's declared package baseline is on the original stacked branch, not main's first-parent chain. New explicit inherited-from exact source selection verifies full ancestor and entire component-tree identity before using the historical qualified source. Any changed component is still checked at candidate HEAD with original first-parent/base/version/history/hash/rollback checks. Regression added; no historical patch note edits or relaxed package validation. Exact rerun pending.
+
+
+## Update 2.6 — column-oriented ingestion
+Qualified parent 4d2f66a all 11 CI jobs passed. Strict trainer 15213711998 SHA256 81663d87510ce981a74de48e6554a01486219ca108e366d45303ede4c8fad0b9: original RSS 361959424→309600256 bytes (-14.47%), review p95 114.071→15.698ms, CPU 7.508→3.620s; 15/15 semantic parity. Resource 15213024031 SHA256 bf203cc6272488c5e053c0b9425702fa6d308ba0e1495df9053164d5663ad7e1: real offline validation preparation legacy/dense/stream peak RSS 299098112/175943680/91504640 bytes, CPU .994/1.048/.885s, identical semantic digests, 384/384/16 materialized image rows. All prior streaming, plot and validation improvements retained. No version increment within same provisional candidate. Column materialization consumes bounded batches, accumulates ordered column lists rather than global row dictionaries, uses NaN for missing keys, preserves explicit None, infers types only once per full dataset. Existing source priority, metadata, normalization and live path checks unchanged. Local equivalent synthetic 30k-row 29-column fixture, five paired traced runs, median peak 114833564→62131553 bytes, CPU 2.534→2.773s (+9.4% under tracing); 300 mixed-value/missing-key parity cases passed on pandas 2.2.3/NumPy 2.3.5. Whole-loader and native strict RSS/CPU pending, no claim of meeting 25%. New actual JSONL and randomized dtype parity tests. No cache or runtime changes.
+
+
+### Explicit bounded deterministic input option
+TrainConfig.bounded_input defaults False; TrainConfigPanel adds opt-in checkbox and live effective mode description in Dataset Options; existing run snapshots retain requested settings. TrainingWorker forwards option to train/validation datasets and logs effective mode. Only deterministic inputs (no shuffle or random augmentation) use dataset-local two-worker pool, intra-op cap one, AUTOTUNE off, explicit map parallelism two and prefetch one batch, no implicit injected prefetch. Stochastic training retains exactly previous scheduling and seed/random augmentation path even with checkbox selected; validation can still use bounded mode. Batch size, labels, split, preprocessing, model and process-wide compute threads unchanged. Explicit limits are dataset operation/buffer controls, not a total memory guarantee. New real epoch benchmark and deterministic parity tests pending; no default change or persistence claim beyond existing run snapshot/config lifecycle.
+
+Qualification: real TF regression compares two iterations including final partial batch, exact pixels/labels, effective bounded options and stochastic fallback. Five fresh-process paired real Small CNN training+validation runs, 96 synthetic rows, two epochs, identical seeds and prepared data, dropout disabled for deterministic fixture, CPU-only oneDNN disabled and common process thread caps, records CPU/wall/peak RSS, exact initial/final weight and metric equality. Separate five-pair 30k-row incremental JSONL comparison against 4d2f66a, immutable original strict baseline unchanged. Results pending.
+
+Cache evaluation only: extend existing native Qt sweep to opt-in 4 and 2 MiB treatments, retain original 64/32/16/8 and original baseline, same cold/revisit and semantic checks. Current production 8 MiB untouched. No smaller budget adoption without paired RSS/decode/latency evidence. No telemetry change.
+
+CI regression repair: f683593 Linux 46030957560 job 140614430518 passed all randomized nonempty-schema assertions and actual JSONL cases, but three parameterized all-empty-dict assertions found a RangeIndex versus empty object Index mismatch. Preserve exact list-of-dicts constructor for degenerate no-column input only; ordinary production row schema remains column-oriented. Existing tests unchanged, full CI rerun pending.

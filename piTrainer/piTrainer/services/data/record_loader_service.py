@@ -313,19 +313,36 @@ def iter_record_batches(records_root: Path, sessions: list[str], batch_size: int
         yield batch
 
 
-def load_records_dataframe(records_root: Path, sessions: list[str]) -> pd.DataFrame:
-    # Final DataFrame is still materialized, but per-session JSONL rows are
-    # processed in bounded batches without duplicate full session row lists.
-    rows: list[dict] = []
-    for batch in iter_record_batches(records_root, sessions):
-        rows.extend(batch)
+def _materialize_record_columns(batches) -> pd.DataFrame:
+    """Retain column values, not a second complete table of row dictionaries.
 
-    if not rows:
+    First-seen key order matches DataFrame(list_of_dicts). Missing keys are
+    distinct from explicit None; infer dtypes once over the complete column
+    rather than coercing per batch. Only the bounded input batch is retained.
+    """
+    columns = {}
+    count = 0
+    for batch in batches:
+        for row in batch:
+            for key in row:
+                if key not in columns:
+                    columns[key] = [np.nan] * count
+        for key, values in columns.items():
+            values.extend(row.get(key, np.nan) for row in batch)
+        count += len(batch)
+    if not count:
         return pd.DataFrame()
-    df = pd.DataFrame(rows)
-    # DataFrame owns the column buffers; release transient row dictionaries
-    # before coercing columns. The final batch also holds row references.
-    del rows, batch
+    if not columns:
+        # The list-of-dicts constructor has a distinct empty-column Index
+        # on supported pandas versions. Preserve its exact legacy type.
+        return pd.DataFrame([{}] * count)
+    return pd.DataFrame(columns, index=pd.RangeIndex(count))
+
+
+def load_records_dataframe(records_root: Path, sessions: list[str]) -> pd.DataFrame:
+    df = _materialize_record_columns(iter_record_batches(records_root, sessions))
+    if df.empty:
+        return df
     df["steering"] = pd.to_numeric(df["steering"], errors="coerce").fillna(0.0).clip(-1.0, 1.0).astype("float32")
     df["throttle"] = pd.to_numeric(df["throttle"], errors="coerce").fillna(0.0).clip(-1.0, 1.0).astype("float32")
     df["abs_image"] = df["abs_image"].astype(str)
@@ -337,7 +354,7 @@ def load_records_dataframe(records_root: Path, sessions: list[str]) -> pd.DataFr
         df["overlay_settings_source"] = ""
     if "has_overlay_settings" not in df.columns:
         df["has_overlay_settings"] = df["overlay_settings"].map(bool)
-    # Construction from row dictionaries creates the required RangeIndex;
+    # Column materialization creates the required RangeIndex;
     # column normalization above never changes it. Avoid a full reset copy.
     return df
 

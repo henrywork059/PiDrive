@@ -7,6 +7,20 @@ import pandas as pd
 from ...ui.theme import theme_color
 
 
+# Retain only plot input columns, not a second copy of all record metadata.
+_PLOT_COLUMNS = frozenset(("session", "steering", "throttle", "mode"))
+
+
+def plot_input_snapshot(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return pd.DataFrame()
+    columns = [column for column in df.columns if column in _PLOT_COLUMNS]
+    source = df.loc[:, columns] if df.columns.is_unique and columns else df
+    snapshot = source.copy()
+    snapshot.index = pd.RangeIndex(len(snapshot))
+    return snapshot
+
+
 def plot_sessions_for_combo(df: pd.DataFrame) -> list[str]:
     if df.empty or 'session' not in df.columns:
         return []
@@ -18,8 +32,11 @@ def filter_plot_dataframe(df: pd.DataFrame, session_name: str) -> pd.DataFrame:
         return df.copy()
     if session_name and session_name != 'All loaded sessions' and 'session' in df.columns:
         filtered = df[df['session'].astype(str) == session_name].copy()
-        return filtered.reset_index(drop=True)
-    return df.reset_index(drop=True).copy()
+        filtered.index = pd.RangeIndex(len(filtered))
+        return filtered
+    result = df.copy()
+    result.index = pd.RangeIndex(len(result))
+    return result
 
 
 def build_plot_summary(df: pd.DataFrame) -> dict[str, Any]:

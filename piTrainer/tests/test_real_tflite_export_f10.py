@@ -19,6 +19,71 @@ import test_recording_to_export_f10 as recording_fixture
 
 
 class RealTfliteExportTests(unittest.TestCase):
+    def test_bounded_deterministic_dataset_and_stochastic_fallback(self):
+        from piTrainer.services.train.dataset_service import make_tf_dataset, bounded_input_active
+        with tempfile.TemporaryDirectory() as tmp:
+            rng=np.random.default_rng(42)
+            paths=[]
+            for i in range(7):
+                p=str(Path(tmp)/f"{i}.jpg")
+                tf.io.write_file(p,tf.io.encode_jpeg(rng.integers(0,256,(32,48,3),dtype=np.uint8)))
+                paths.append(p)
+            df=pd.DataFrame({"abs_image":paths,"frame_id":range(7),
+                "steering":np.linspace(-.4,.4,7),"throttle":np.linspace(.1,.7,7),
+                "aug_flip_lr":[False,True,False,True,False,True,False],
+                "source_steering":np.linspace(-.4,.4,7),
+                "source_throttle":np.linspace(.1,.7,7),
+                "aug_brightness_delta":[0,.02,0,-.02,0,0,0]})
+            old=make_tf_dataset(df,24,32,3,False,False)
+            new=make_tf_dataset(df,24,32,3,False,False,bounded_input=True)
+            options=new.options()
+            self.assertFalse(options.autotune.enabled)
+            self.assertEqual(options.threading.private_threadpool_size,2)
+            self.assertEqual(options.threading.max_intra_op_parallelism,1)
+            self.assertTrue(options.experimental_deterministic)
+            for epoch in range(2):
+                a=list(old.as_numpy_iterator());b=list(new.as_numpy_iterator())
+                self.assertEqual([len(x) for x,_ in b],[3,3,1])
+                for (x,y),(x2,y2) in zip(a,b):
+                    np.testing.assert_array_equal(x,x2)
+                    for key in ("steering","throttle"):
+                        np.testing.assert_array_equal(y[key],y2[key])
+            for shuffle,augment in ((True,False),(False,True),(True,True)):
+                self.assertFalse(bounded_input_active(True,shuffle,augment))
+                orig=make_tf_dataset(df,24,32,3,shuffle,augment)
+                requested=make_tf_dataset(df,24,32,3,shuffle,augment,bounded_input=True)
+                self.assertEqual(orig.options().autotune.enabled,requested.options().autotune.enabled)
+                self.assertEqual(orig.options().threading.private_threadpool_size,
+                                 requested.options().threading.private_threadpool_size)
+                self.assertEqual(orig.options().experimental_deterministic,
+                                 requested.options().experimental_deterministic)
+
+    def test_real_tflite_streamed_inputs_equal_eager(self):
+        from PIL import Image
+        from piTrainer.services.validation.validation_inputs import PreparedImageSource
+        from piTrainer.services.validation.tflite_runner import _run_tflite_predictions
+        with tempfile.TemporaryDirectory() as tmp:
+            paths=[]
+            rng=np.random.default_rng(19)
+            for i in range(7):
+                p=Path(tmp)/f"{i}.png"
+                Image.fromarray(rng.integers(0,256,(24,32,3),dtype=np.uint8)).save(p)
+                paths.append(str(p))
+            source=PreparedImageSource(paths,[False,True,False,True,False,True,False],12,16)
+            dense=source[:]
+            s=np.linspace(-.5,.5,7,dtype=np.float32)
+            t=np.linspace(.2,.8,7,dtype=np.float32)
+            for fixed in (None,1,3):
+                @tf.function(input_signature=[tf.TensorSpec([fixed,12,16,3],tf.float32)],autograph=False)
+                def control(image):
+                    return tf.reduce_mean(image[:,:,:,:2],axis=[1,2])
+                model=tf.lite.TFLiteConverter.from_concrete_functions([control.get_concrete_function()]).convert()
+                eager=_run_tflite_predictions(tf.lite.Interpreter(model_content=model),dense,s,t,3)
+                streamed=_run_tflite_predictions(tf.lite.Interpreter(model_content=model),source,s,t,3)
+                for a,b in zip(eager[:2],streamed[:2]):
+                    np.testing.assert_array_equal(a,b)
+                self.assertEqual(eager[2:],streamed[2:])
+
     def test_real_dataset_projection_matches_legacy_pixels_and_labels(self):
         from piTrainer.services.train import dataset_service as ds
         with tempfile.TemporaryDirectory() as tmp:

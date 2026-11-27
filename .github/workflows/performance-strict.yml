@@ -2,7 +2,7 @@ name: Strict Performance Update 1 qualification
 on:
   pull_request:
     branches: [main, update/performance-1-computation]
-    paths: ['piTrainer/piTrainer/services/data/filter_service.py', 'tools/benchmark_performance_strict.py', 'tools/benchmark_trainer_cache_budget.py', '.github/workflows/performance-strict.yml', 'PiSD/pisd/services/camera_service.py', 'PiServer/piserver/services/camera_service.py', 'piTrainer/piTrainer/services/data/record_loader_service.py', 'piTrainer/piTrainer/panels/data/preview_panel.py', 'piTrainer/piTrainer/panels/data/preview_model.py', 'piTrainer/piTrainer/utils/image_utils.py']
+    paths: ['piTrainer/piTrainer/services/data/plot_service.py', 'piTrainer/piTrainer/panels/data/data_plot_panel.py', 'piTrainer/piTrainer/services/data/filter_service.py', 'tools/benchmark_performance_strict.py', 'tools/benchmark_trainer_cache_budget.py', '.github/workflows/performance-strict.yml', 'PiSD/pisd/services/camera_service.py', 'PiServer/piserver/services/camera_service.py', 'piTrainer/piTrainer/services/data/record_loader_service.py', 'piTrainer/piTrainer/panels/data/preview_panel.py', 'piTrainer/piTrainer/panels/data/preview_model.py', 'piTrainer/piTrainer/utils/image_utils.py']
 permissions:
   contents: read
 concurrency:
@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   strict:
-    if: ${{ (github.head_ref == 'update/performance-1-computation' || github.head_ref == 'update/performance-2-resources') }}
+    if: ${{ (github.head_ref == 'update/performance-1-computation' || (github.head_ref == 'update/performance-2-resources' || (github.head_ref == 'update/performance-2-review-resources' || github.head_ref == 'integration/performance-ui2-main-20261128'))) }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     strategy:
@@ -47,7 +47,12 @@ jobs:
         if: ${{ matrix.kind == 'cache' }}
         env:
           CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
-        run: python tools/benchmark_trainer_cache_budget.py --base 14c57c990ff0f9bae2003e4e8aa552d17a4227c7 --revision "$CANDIDATE_SHA" --rounds 5 --rows 30000 --output "$RUNNER_TEMP/strict-cache/results.json"
+        run: |
+          extra=()
+          if { [ "${{ github.head_ref }}" = update/performance-2-review-resources ] || [ "${{ github.head_ref }}" = integration/performance-ui2-main-20261128 ]; }; then
+            extra+=(--include-low-budgets)
+          fi
+          python tools/benchmark_trainer_cache_budget.py --base 14c57c990ff0f9bae2003e4e8aa552d17a4227c7 --revision "$CANDIDATE_SHA" --rounds 5 --rows 30000 --output "$RUNNER_TEMP/strict-cache/results.json" "${extra[@]}"
       - name: Preserve completed evidence
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
