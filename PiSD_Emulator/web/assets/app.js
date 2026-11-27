@@ -3,6 +3,9 @@ const runtimeError = $("runtimeError");
 let state = null;
 let paused = false;
 let cameraRefreshBusy = false;
+let frameIdentity = null;
+let pollBusy = false;
+let actionEpoch = 0;
 
 async function api(path, body = undefined) {
   const response = await fetch(path, {
@@ -139,16 +142,24 @@ function render(data) {
   }
   if (online) {
     $("frameEmpty").hidden = true;
-    if ($("pisdFrame").src === "about:blank") $("pisdFrame").src = data.manual_drive_url;
+    const identity = `${data.generation}:${data.manual_drive_url}`;
+    if (frameIdentity !== identity) {
+      frameIdentity = identity;
+      $("pisdFrame").src = data.manual_drive_url;
+    }
     $("pisdFrame").style.display = "block";
   } else {
     $("frameEmpty").hidden = false;
     $("pisdFrame").style.display = "none";
+    frameIdentity = null;
     $("pisdFrame").src = "about:blank";
   }
 }
 
 async function poll() {
+  if (pollBusy) return;
+  pollBusy = true;
+  const epoch = actionEpoch;
   try {
     const data = await api("/api/status");
     if (data.running && data.url) {
@@ -158,11 +169,12 @@ async function poll() {
         data._pisd_status = pisd;
       } catch (_) {}
     }
+    if (epoch !== actionEpoch) return;
     render(data);
     $("pollStatus").textContent = `Updated ${new Date().toLocaleTimeString()}`;
   } catch (error) {
     $("pollStatus").textContent = error.message;
-  }
+  } finally { pollBusy = false; }
 }
 
 async function refreshCamera() {
@@ -191,7 +203,12 @@ async function refreshCamera() {
 
 async function runAction(action) {
   showError("");
-  try { render(await api(action, { port: Number($("pisdPort").value) })); }
+  actionEpoch++;
+  try {
+    const data = await api(action, { port: Number($("pisdPort").value) });
+    actionEpoch++;
+    render(data);
+  }
   catch (error) { showError(error.message); await poll(); }
 }
 
