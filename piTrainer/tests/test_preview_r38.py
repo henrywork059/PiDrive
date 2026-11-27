@@ -100,8 +100,23 @@ class CacheBudgetTests(unittest.TestCase):
         for index in range(65):
             self.cache.load_scaled_pixmap(self.frame(index), 1920, 1080)
         stats = self.cache.scaled_pixmap_cache_stats()
-        self.assertLessEqual(stats['estimated_bytes'], 64 * 1024 * 1024)
+        self.assertEqual(stats['max_bytes'], 8 * 1024 * 1024)
+        self.assertLessEqual(stats['estimated_bytes'], stats['max_bytes'])
         self.assertLessEqual(stats['items'], 96)
+
+    def test_budget_eviction_keeps_recent_scaled_pixels_and_returns_full_image(self):
+        paths = [self.frame(f'budget_{i}', 1024, 1024) for i in range(3)]
+        first = self.cache.load_scaled_pixmap(paths[0], 1024, 1024)
+        second = self.cache.load_scaled_pixmap(paths[1], 1024, 1024)
+        self.assertIs(self.cache.load_scaled_pixmap(paths[0], 1024, 1024), first)
+        third = self.cache.load_scaled_pixmap(paths[2], 1024, 1024)
+        self.assertEqual(self.cache.scaled_pixmap_cache_stats()['estimated_bytes'], 8 * 1024 * 1024)
+        self.assertIs(self.cache.load_scaled_pixmap(paths[0], 1024, 1024), first)
+        self.assertIsNot(self.cache.load_scaled_pixmap(paths[1], 1024, 1024), second)
+        self.assertEqual((third.width(), third.height()), (1024, 1024))
+        huge = self.cache.load_scaled_pixmap(self.frame('4k',3840,2160),3840,2160)
+        self.assertEqual((huge.width(), huge.height()), (3840,2160))
+        self.assertLessEqual(self.cache.scaled_pixmap_cache_stats()['estimated_bytes'],8*1024*1024)
 
     def test_lru_hit_does_not_redecode(self):
         path = self.frame('one')

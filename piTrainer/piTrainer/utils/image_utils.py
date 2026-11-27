@@ -13,7 +13,10 @@ from PySide6.QtGui import QPixmap, QTransform
 # sizes. Both item and estimated decoded-pixel budgets must now be respected.
 _PIXMAP_CACHE: OrderedDict[tuple[str, int, int, bool, int, int], QPixmap] = OrderedDict()
 _MAX_CACHE_ITEMS = 96
-_MAX_CACHE_BYTES = 64 * 1024 * 1024
+# Strict Update 1: the measured 8 MiB budget cut whole-review peak RSS
+# without changing image pixels, labels, scaling, or immediate cache hits.
+# Larger images still render normally; they are merely not retained.
+_MAX_CACHE_BYTES = 8 * 1024 * 1024
 _PIXMAP_CACHE_BYTES = 0
 
 
