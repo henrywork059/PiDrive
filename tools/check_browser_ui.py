@@ -178,7 +178,7 @@ def main():
                             return
                         if req.method != "GET":
                             mutations.append(parsed.path)
-                            if name == "ai" and pisd_recording[0] is not None and parsed.path in {
+                            if name in ("manual", "ai") and pisd_recording[0] is not None and parsed.path in {
                                 "/api/recording/start", "/api/recording/stop", "/api/recording/capture"
                             }:
                                 if reject_pisd_recording[0]:
@@ -186,7 +186,7 @@ def main():
                                     return
                                 if parsed.path == "/api/recording/start":
                                     pisd_recording[0] = {"running": True, "frame_count": 7,
-                                                         "active_session": {"session_id": "fixture-ai"}}
+                                                         "active_session": {"session_id": "fixture-" + name}}
                                 elif parsed.path == "/api/recording/stop":
                                     pisd_recording[0] = {"running": False, "frame_count": 7}
                                 # Capture deliberately omits recording metadata.
@@ -220,7 +220,7 @@ def main():
                             route.fulfill(status=503, content_type="application/json",
                                           body='{"ok":false,"message":"Synthetic rejected mutation"}')
                             return
-                        if name == "ai" and pisd_recording[0] is not None and parsed.path == "/api/ai/status":
+                        if name in ("manual", "ai") and pisd_recording[0] is not None and parsed.path == ("/api/ai/status" if name == "ai" else "/api/status"):
                             payload = client.get(parsed.path, base_url=ORIGIN).get_json()
                             route.fulfill(status=200, json=dict(payload, recording=pisd_recording[0]))
                             return
@@ -430,6 +430,38 @@ def main():
                                 expect(state_label).to_have_text("REC off")
                                 expect(session).to_have_text("No active session")
                                 expect(page.locator("#aiStopAll")).to_be_enabled()
+                                case["recording_toolbar"] = {"confirmed_start": True, "snapshot_without_status": True,
+                                                             "rejected_stop_retained": True, "confirmed_stop": True}
+                            if name == "manual":
+                                pisd_recording[0] = {"running": False, "frame_count": 0}
+                                record = page.locator("#mdrvRecordToggle")
+                                snapshot = page.locator("#mdrvCaptureFrame")
+                                state_label = page.locator("#mdrvRecordingIndicator")
+                                session = page.locator("#mdrvRecordingSession")
+                                outcome = page.locator("#mdrvCaptureNotice")
+                                count = page.locator("#mdrvRecordingCount")
+                                before_recording = len(mutations)
+                                activate_library(record)
+                                expect(outcome).to_contain_text("Recording start acknowledged.")
+                                expect(state_label).to_have_text("REC on")
+                                expect(session).to_have_text("Session: fixture-manual")
+                                expect(count).to_have_text("Frames: 7 (last confirmed)")
+                                activate_library(snapshot)
+                                expect(outcome).to_contain_text("Frame captured: fixture-frame")
+                                expect(state_label).to_have_text("REC on")
+                                reject_pisd_recording[0] = True
+                                activate_library(record)
+                                expect(outcome).to_contain_text("Recording request not confirmed")
+                                expect(state_label).to_have_text("REC on")
+                                expect(session).to_have_text("Session: fixture-manual")
+                                reject_pisd_recording[0] = False
+                                activate_library(record)
+                                expect(outcome).to_have_text("Recording stop acknowledged.")
+                                expect(state_label).to_have_text("REC off")
+                                expect(session).to_have_text("No active session")
+                                assert [p for p in mutations[before_recording:] if p.startswith("/api/recording/")] == [
+                                    "/api/recording/start", "/api/recording/capture", "/api/recording/stop", "/api/recording/stop"]
+                                expect(page.locator("#mdrvStopTop")).to_be_enabled()
                                 case["recording_toolbar"] = {"confirmed_start": True, "snapshot_without_status": True,
                                                              "rejected_stop_retained": True, "confirmed_stop": True}
                             # Restore a fresh empty collection for subsequent checks.

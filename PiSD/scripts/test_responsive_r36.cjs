@@ -66,4 +66,22 @@ test('shared recording projection retains confirmed state only for incomplete re
   assert.equal(retain(active,{running:'false'}),active);
   assert.deepEqual(retain(active,{running:false}),{running:false});
 });
-console.log(n+'/16 PiSD R36 responsive checks passed');
+test('recording gate rejects duplicate commands and stale or out-of-order reads',()=>{
+  const gate=globalThis.PiSDRecordingReader.createRecordingGate();
+  const before=gate.read();
+  assert.equal(gate.begin(),true);
+  assert.equal(gate.begin(),false);
+  assert.equal(gate.accept(before),false);
+  const during=gate.read();
+  gate.finish();
+  assert.equal(gate.accept(during),false);
+  assert.equal(gate.accept(before),false);
+  const older=gate.read(), newer=gate.read();
+  assert.equal(gate.accept(newer),true);
+  assert.equal(gate.accept(older),false);
+  assert.equal(gate.begin(),true);
+  gate.finish();
+  assert.equal(gate.accept(newer),false);
+  assert.equal(gate.accept(gate.read()),true);
+});
+console.log(n+'/17 PiSD R36 responsive checks passed');

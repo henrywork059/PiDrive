@@ -108,6 +108,7 @@
   let lastMotorOutput = { ...STOP_OUTPUT };
   let recordingRunning = Boolean(initialStatus.recording?.running);
   let confirmedRecording = null;
+  const recordingGate = window.PiSDRecordingReader.createRecordingGate();
   let recordingCollections = { recordings: [], snapshots: [] };
   const folderReader = window.PiSDRecordingReader.createReader();
   const PREVIEW_STALE_MS = 2500;
@@ -147,6 +148,7 @@
   async function pollOperatingReadiness() {
     if (readinessPollBusy || document.hidden) return;
     readinessPollBusy = true;
+    const recordingRead = recordingGate.read();
     try {
       const response = await fetch('/api/status', { cache: 'no-store' });
       if (!response.ok) throw new Error('status request failed');
@@ -154,6 +156,7 @@
       if (!status || status.app !== 'PiSD') throw new Error('invalid PiSD status');
       lastReadinessStatus = status;
       renderOperatingReadiness(status);
+      if (recordingGate.accept(recordingRead)) renderRecording(status.recording);
     } catch (error) {
       renderOperatingReadiness(lastReadinessStatus, true);
     } finally {
@@ -916,8 +919,9 @@
 
   function updateRecordingIndicator(running) {
     if (!recordingIndicator) return;
-    recordingIndicator.dataset.recording = running ? 'on' : 'off';
-    recordingIndicator.textContent = running ? 'REC on' : 'REC off';
+    const state = running === true ? 'on' : running === false ? 'off' : 'unknown';
+    recordingIndicator.dataset.recording = state;
+    recordingIndicator.textContent = 'REC ' + state;
   }
 
   function readRuntimeLocal() {
@@ -1034,15 +1038,8 @@
     return { response, payload };
   }
 
-  function renderStatus(status) {
-    lastReadinessStatus = status;
-    renderOperatingReadiness(status);
-    updateOverlayMotorSettings(status?.motor || {});
-    $('mdrvHardware').textContent = status.hardware_requested ? 'on' : 'sim';
-    $('mdrvCameraState').textContent = status.camera?.running ? 'run' : (status.camera?.backend || 'off');
-    $('mdrvMotorState').textContent = status.motor?.hardware_enabled ? 'hw' : 'sim';
-    $('mdrvCameraFps').textContent = status.camera?.measured_capture_fps ?? status.camera?.fps ?? 'n/a';
-    const recording = window.PiSDRecordingReader.retainConfirmedRecording(confirmedRecording, status.recording);
+  function renderRecording(incoming) {
+    const recording = window.PiSDRecordingReader.retainConfirmedRecording(confirmedRecording, incoming);
     if (typeof recording.running === 'boolean') confirmedRecording = recording;
     const rec = recording.running === true;
     recordingRunning = rec;
@@ -1052,12 +1049,23 @@
       recordButton.textContent = rec ? 'Stop record' : 'Record';
       recordButton.classList.toggle('mdrv-recording-on', rec);
     }
-    updateRecordingIndicator(rec);
+    updateRecordingIndicator(recording.running);
     const count = recording.frame_count;
     const counter = $('mdrvRecordingCount');
     if (counter) counter.textContent = Number.isInteger(count) && count >= 0 ? `Frames: ${count} (last confirmed)` : 'Frames: unknown';
     const session = $('mdrvRecordingSession');
     if (session) session.textContent = window.PiSDRecordingReader.describeRecording(recording).sessionText;
+  }
+
+  function renderStatus(status, includeRecording = true) {
+    lastReadinessStatus = status;
+    renderOperatingReadiness(status);
+    updateOverlayMotorSettings(status?.motor || {});
+    $('mdrvHardware').textContent = status.hardware_requested ? 'on' : 'sim';
+    $('mdrvCameraState').textContent = status.camera?.running ? 'run' : (status.camera?.backend || 'off');
+    $('mdrvMotorState').textContent = status.motor?.hardware_enabled ? 'hw' : 'sim';
+    $('mdrvCameraFps').textContent = status.camera?.measured_capture_fps ?? status.camera?.fps ?? 'n/a';
+    if (includeRecording) renderRecording(status.recording);
     renderPreviewFromStatus(status);
     renderMotorSignalsFromStatus(status);
     setCode('status', status.code || 'PISD-OK-000');
@@ -1066,8 +1074,10 @@
 
   async function refreshStatus(userVisible = false) {
     try {
-      const { payload } = await api('GET', '/api/status', undefined, 'status');
-      renderStatus(payload);
+      const recordingRead = recordingGate.read();
+      const { response, payload } = await api('GET', '/api/status', undefined, 'status');
+      if (!response.ok || payload?.ok === false) throw new Error('Status read not confirmed');
+      renderStatus(payload, recordingGate.accept(recordingRead));
       if (userVisible) {
         setShortStatus(`Status refreshed without touching camera preview or motor command: ${payload?.code || 'PISD-OK-000'}`, payload?.code || 'PISD-OK-000');
         await refreshRecordingItems();
@@ -1360,43 +1370,48 @@
   }
 
   async function captureFrame() {
+    if (!recordingGate.begin()) return;
     try {
-      const { payload } = await api('POST', '/api/recording/capture', { label: 'manual_capture', overlay_settings: overlaySettingsForRecording() }, 'camera');
+      const { response, payload } = await api('POST', '/api/recording/capture', { label: 'manual_capture', overlay_settings: overlaySettingsForRecording() }, 'camera');
       const record = payload?.record || {};
-      if (payload?.ok) {
+      if (response.ok && payload?.ok === true) {
+        renderRecording(payload.recording);
         const file = record.relative_file || record.file || '';
         showCaptureNotice(`Frame captured: ${record.frame_id || 'saved'} ${file ? '(' + shortPath(file) + ')' : ''}`, payload.code);
       } else {
         showCaptureNotice(`Capture failed: ${payload?.code || 'PISD-REC-002'}`, payload?.code || 'PISD-REC-002');
       }
-      await refreshStatus();
-      await refreshRecordingItems();
     } catch (err) {
       showCaptureNotice(`Capture failed: ${String(err)}`, 'PISD-REC-002');
       writeLog('capture frame failed', { ok: false, code: 'PISD-REC-002', message: String(err) });
-    }
+    } finally { recordingGate.finish(); }
+    await refreshStatus();
+    await refreshRecordingItems();
   }
 
   async function toggleRecording() {
+    if (!recordingGate.begin()) return;
+    const stopping = recordingRunning;
     const manual = readRuntimeLocal().manual_drive || {};
     try {
-      if (recordingRunning) {
-        const { payload } = await api('POST', '/api/recording/stop', {}, 'camera');
-        if (payload?.ok === false) return;
-        showCaptureNotice(`Recording stopped: ${payload?.code || 'PISD-OK-000'}`, payload?.code || 'PISD-OK-000');
+      const {response, payload} = await api('POST', stopping ? '/api/recording/stop' : '/api/recording/start',
+        stopping ? {} : {label:'manual_drive', fps:manual.recording_fps || DEFAULTS.recording_fps,
+          overlay_settings:overlaySettingsForRecording()}, 'camera');
+      if (typeof payload?.recording?.running === 'boolean') renderRecording(payload.recording);
+      if (!response.ok || payload?.ok !== true) {
+        showCaptureNotice('Recording request not confirmed. Refresh status.', payload?.code || 'PISD-REC-002');
       } else {
-        const { payload } = await api('POST', '/api/recording/start', { label: 'manual_drive', fps: manual.recording_fps || DEFAULTS.recording_fps, overlay_settings: overlaySettingsForRecording() }, 'camera');
-        if (payload?.ok === false) return;
-        const session = payload?.recording?.active_session || {};
-        showCaptureNotice(`Recording started${session.session_id ? ': ' + session.session_id : ''}`, payload?.code || 'PISD-OK-000');
+        const session = payload.recording?.active_session?.session_id;
+        showCaptureNotice(stopping ? 'Recording stop acknowledged.' :
+          'Recording start acknowledged.' + (session ? ' Session: ' + session : ''), payload.code || 'PISD-OK-000');
       }
-      await refreshStatus();
-      await refreshRecordingItems();
     } catch (err) {
-      writeLog('toggle recording failed', { ok: false, code: 'PISD-REC-002', message: String(err) });
-    }
+      showCaptureNotice('Recording request not confirmed. Refresh status.', 'PISD-REC-002');
+      writeLog('toggle recording failed', {ok:false, code:'PISD-REC-002', message:String(err)});
+    } finally { recordingGate.finish(); }
+    await refreshStatus();
+    await refreshRecordingItems();
   }
-
 
   function sendFailSafeStop(reason = 'pagehide') {
     if (!manualDriveActive && !dragging && !driveStateIsMoving(lastPayload, lastMotorOutput)) return;

@@ -59,5 +59,18 @@
     if (typeof incoming?.running === 'boolean') return incoming;
     return previous || {};
   }
-  root.PiSDRecordingReader = {createReader, describeRecording, retainConfirmedRecording};
+  function createRecordingGate() {
+    let revision = 0, pending = false, readSequence = 0, appliedSequence = 0;
+    return {
+      begin() { if (pending) return false; pending = true; revision++; return true; },
+      finish() { pending = false; revision++; },
+      read() { return {revision, sequence: ++readSequence, pending}; },
+      accept(token) {
+        if (!token || pending || token.pending || token.revision !== revision || token.sequence < appliedSequence) return false;
+        appliedSequence = token.sequence;
+        return true;
+      }
+    };
+  }
+  root.PiSDRecordingReader = {createReader, describeRecording, retainConfirmedRecording, createRecordingGate};
 })(typeof window !== 'undefined' ? window : globalThis);

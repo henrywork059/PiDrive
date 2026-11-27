@@ -42,6 +42,7 @@
   let aiRunning = false;
   let recordingRunning = Boolean(initial.recording?.running);
   let confirmedRecording = null;
+  const recordingGate = window.PiSDRecordingReader.createRecordingGate();
   let overlayEnabled = true;
   let lastAIStatus = initial.ai_mode || {};
   // R32: backend status, not page selection, governs the indicated motor owner.
@@ -69,11 +70,13 @@
     // An active AI run already polls the full status every 250 ms.
     if (readinessPollBusy || statusTimer || document.hidden) return;
     readinessPollBusy = true;
+    const recordingRead = recordingGate.read();
     try {
       const data = await api('/api/ai/status');
       if (data?.ok !== true || !data.ai || !data.safety) throw new Error('AI readiness status unavailable');
       lastReadinessStatus = { ...data, ai_mode: data.ai };
       renderOperatingReadiness(lastReadinessStatus);
+      if (recordingGate.accept(recordingRead)) renderRecording(data.recording);
     } catch (error) {
       renderOperatingReadiness(lastReadinessStatus, true);
     } finally {
@@ -594,6 +597,7 @@
   }
 
   async function refreshStatus() {
+    const recordingRead = recordingGate.read();
     try {
       const data = await api('/api/ai/status');
       updateOverlayMotorSettings(data.motor || {});
@@ -602,7 +606,7 @@
       renderAI(data.ai || {});
       lastReadinessStatus = { ...data, ai_mode: data.ai || {} };
       renderOperatingReadiness(lastReadinessStatus);
-      renderRecording(data.recording || {});
+      if (recordingGate.accept(recordingRead)) renderRecording(data.recording);
       if (data.errors) renderLastErrorLog(data.errors || {});
       if (els.aiGlobalCode) els.aiGlobalCode.textContent = data.code || 'PISD-OK-000';
       return data;
@@ -1421,6 +1425,7 @@
   }
 
   async function saveAISnapshot() {
+    if (!recordingGate.begin()) return;
     try {
       await api('/api/camera/start', { method: 'POST', body: {} }).catch(() => null);
       const data = await api('/api/recording/capture', { method: 'POST', body: { label: 'ai_mode_capture', command_source: 'ai_safe_command' } });
@@ -1438,10 +1443,11 @@
     } catch (err) {
       showRecordingNotice('Snapshot not confirmed. Check connection or recent errors.');
       log(err.message, err.payload || {});
-    }
+    } finally { recordingGate.finish(); }
   }
 
   async function toggleAIRecording() {
+    if (!recordingGate.begin()) return;
     try {
       if (recordingRunning) {
         const data = await api('/api/recording/stop', { method: 'POST', body: {} });
@@ -1456,13 +1462,13 @@
         showRecordingNotice('Recording start acknowledged.');
         log('AI recording started.', data.recording?.active_session || data.recording || {});
       }
-      await refreshStatus();
-      await refreshAIRecordingFiles();
     } catch (err) {
       if (typeof err.payload?.recording?.running === 'boolean') renderRecording(err.payload.recording);
       showRecordingNotice('Recording request not confirmed. Refresh status.');
       log(err.message, err.payload || {});
-    }
+    } finally { recordingGate.finish(); }
+    await refreshStatus();
+    await refreshAIRecordingFiles();
   }
 
   function startStatusLoop() {
