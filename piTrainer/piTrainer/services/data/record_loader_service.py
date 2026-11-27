@@ -228,19 +228,41 @@ def _hidden_record_identities(path: Path) -> set[tuple[str, str, str]]:
             identities.add(_record_identity_key(record))
     return identities
 
-def _load_labels_rows(session_name: str, session_dir: Path) -> list[dict]:
+def _iter_usable_label_rows(session_name: str, session_dir: Path):
+    """Yield only usable primary labels; keep at most one parsed row in flight."""
     labels_path = session_dir / "labels.jsonl"
     if not labels_path.exists():
-        return []
+        return
     manifest_defaults = _load_manifest_defaults(session_dir)
-    rows = [
-        build_row(session_name, session_dir, record, source="labels.jsonl", manifest_defaults=manifest_defaults)
-        for _line_no, record in _iter_jsonl(labels_path)
-        if isinstance(record, dict) and not is_record_hidden(record)
-    ]
-    # labels.jsonl is the primary PiSD training file, but keep only usable image rows.
-    usable = [row for row in rows if str(row.get("abs_image", ""))]
-    return usable
+    for _line_no, record in _iter_jsonl(labels_path):
+        if not isinstance(record, dict) or is_record_hidden(record):
+            continue
+        row = build_row(session_name, session_dir, record,
+                        source="labels.jsonl", manifest_defaults=manifest_defaults)
+        if str(row.get("abs_image", "")):
+            yield row
+
+
+def _load_labels_rows(session_name: str, session_dir: Path) -> list[dict]:
+    """Retain the original list API for existing callers and tests."""
+    return list(_iter_usable_label_rows(session_name, session_dir))
+
+
+def _iter_records_rows(
+    session_name: str,
+    session_dir: Path,
+    hidden_label_identities: set[tuple[str, str, str]] | None = None,
+):
+    records_path = session_dir / "records.jsonl"
+    if not records_path.exists():
+        return
+    hidden_label_identities = hidden_label_identities or set()
+    manifest_defaults = _load_manifest_defaults(session_dir)
+    for _line_no, record in _iter_jsonl(records_path):
+        if (isinstance(record, dict) and not is_record_hidden(record)
+                and _record_identity_key(record) not in hidden_label_identities):
+            yield build_row(session_name, session_dir, record, source="records.jsonl",
+                            manifest_defaults=manifest_defaults)
 
 
 def _load_records_rows(
@@ -248,35 +270,49 @@ def _load_records_rows(
     session_dir: Path,
     hidden_label_identities: set[tuple[str, str, str]] | None = None,
 ) -> list[dict]:
-    records_path = session_dir / "records.jsonl"
-    if not records_path.exists():
-        return []
-    hidden_label_identities = hidden_label_identities or set()
-    manifest_defaults = _load_manifest_defaults(session_dir)
-    rows = [
-        build_row(session_name, session_dir, record, source="records.jsonl", manifest_defaults=manifest_defaults)
-        for _line_no, record in _iter_jsonl(records_path)
-        if isinstance(record, dict)
-        and not is_record_hidden(record)
-        and _record_identity_key(record) not in hidden_label_identities
-    ]
-    return rows
+    """Retain the original list API for existing callers and tests."""
+    return list(_iter_records_rows(session_name, session_dir, hidden_label_identities))
+
+
+def _iter_selected_session_rows(records_root: Path, sessions: list[str]):
+    for session_name in sessions:
+        session_dir = resolve_session_dir(records_root, session_name)
+        # First *usable* label wins over records.jsonl for the whole session.
+        # Probe a single label rather than materializing all session label rows.
+        primary = _iter_usable_label_rows(session_name, session_dir)
+        first = next(primary, None)
+        if first is not None:
+            yield first
+            yield from primary
+            continue
+        hidden = _hidden_record_identities(session_dir / "labels.jsonl")
+        yield from _iter_records_rows(session_name, session_dir, hidden)
+
+
+def iter_record_batches(records_root: Path, sessions: list[str], batch_size: int = 512):
+    """Bound transient row buffering; stable session and JSONL source order.
+
+    Consumers must not confuse batch boundaries with training epoch shuffling.
+    No asynchronous workers, unordered prefetch or random augmentation caching.
+    """
+    if isinstance(batch_size, bool) or not isinstance(batch_size, int) or not 1 <= batch_size <= 4096:
+        raise ValueError("batch_size must be an integer between 1 and 4096")
+    batch: list[dict] = []
+    for row in _iter_selected_session_rows(records_root, sessions):
+        batch.append(row)
+        if len(batch) == batch_size:
+            yield batch
+            batch = []
+    if batch:
+        yield batch
 
 
 def load_records_dataframe(records_root: Path, sessions: list[str]) -> pd.DataFrame:
+    # Final DataFrame is still materialized, but per-session JSONL rows are
+    # processed in bounded batches without duplicate full session row lists.
     rows: list[dict] = []
-    for session_name in sessions:
-        session_dir = resolve_session_dir(records_root, session_name)
-
-        # Latest PiSD loading priority:
-        # 1) labels.jsonl (primary training labels)
-        # 2) records.jsonl training_label / direct debug fields (fallback)
-        label_rows = _load_labels_rows(session_name, session_dir)
-        if label_rows:
-            rows.extend(label_rows)
-            continue
-        hidden_label_identities = _hidden_record_identities(session_dir / "labels.jsonl")
-        rows.extend(_load_records_rows(session_name, session_dir, hidden_label_identities=hidden_label_identities))
+    for batch in iter_record_batches(records_root, sessions):
+        rows.extend(batch)
 
     if not rows:
         return pd.DataFrame()

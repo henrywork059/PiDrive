@@ -199,3 +199,8 @@ P2.3 partial offline qualification harness: tools/benchmark_tflite_threads.py co
 ### Update 2.2 — PiServer optional native preview / bounded delivery (candidate)
 
 PiServer 0.4.55 on stacked Update 2 branch: opt-in Picamera2 lores YUV420 preview with owned JPEG conversion, high-res main input unaffected, non-support/configuration/runtime fallback and circuit breaker. Default main preview unchanged. Existing latest-JPEG bounded slot now reports age, bytes, and per-subscriber skips separately from recorder losses. Deterministic mock-camera regression newly mandatory in PiServer Linux CI. No actual Pi sensor capability, color consistency or energy claims. Forward-package base for PiServer 04c62e457060270a6f3398a703de0b9b393162fa; original benchmark baseline retained 14c57c990ff0f9bae2003e4e8aa552d17a4227c7. P2.1/P2.2 partial; P2.3/P2.4 retain previously committed partial work; P2.5/P2.6 pending. Stable/physical acceptance not authorized.
+
+
+### Update 2.2 — piTrainer bounded JSONL ingestion (candidate)
+
+New piTrainer 0.11.34 uses lazy labels/records iterators, batch-size-bound transient row collection (default 512, strict 1..4096) and a single-row probe for source precedence. Existing complete DataFrame schema and conversion, labels priority, hidden identities, source ordering, annotation metadata, random augmentation and training paths remain intact. Existing list helper APIs are retained. Deterministic fixture parity newly mandatory; large native-memory resource benefit still to be independently measured. Forward-package base 04c62e457060270a6f3398a703de0b9b393162fa; original performance baseline retained 14c57c990ff0f9bae2003e4e8aa552d17a4227c7. P2.4 remains partial; no stable release authorized.
