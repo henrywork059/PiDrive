@@ -34,6 +34,7 @@ class TrainConfig:
     l2_reg: float = 0.0
     review_sample_count: int = 24
     compute_device: str = 'Auto (GPU if available)'
+    bounded_input: bool = False
 
 
 @dataclass

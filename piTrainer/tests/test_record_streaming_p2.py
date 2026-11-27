@@ -116,3 +116,42 @@ def test_materialized_range_index_and_row_order(tmp_path):
     assert df["frame_id"].tolist() == [0,1,2,0,1,2]
     assert df["steering"].tolist() == [0.5,0.0,0.5,0.5,0.0,0.5]
     assert df["throttle"].tolist() == [1.0]*6
+
+
+@pytest.mark.parametrize("batch_size", [1,7,512])
+def test_column_materialization_preserves_global_inference(batch_size):
+    import random
+    rng = random.Random(17)
+    values = [None, True, False, 0, 1, 2**63, 2**64, .5, float("nan"),
+              "a", "", {}, [], {"k": 1}, [1]]
+    for _ in range(100):
+        rows = [dict(id=i, **{k:rng.choice(values) for k in ("a","b","c","d")
+                             if rng.random()<.8})
+                for i in range(rng.randint(1,90))]
+        expected = pd.DataFrame(rows)
+        actual = loader._materialize_record_columns(
+            rows[i:i+batch_size] for i in range(0,len(rows),batch_size))
+        pd.testing.assert_frame_equal(expected, actual)
+    pd.testing.assert_frame_equal(loader._materialize_record_columns([[{},{}],[{}]]),
+                                  pd.DataFrame([{}, {}, {}]))
+
+
+def test_actual_jsonl_column_loading_against_legacy_materialization(tmp_path):
+    session = tmp_path / "drive"
+    (session/"frames").mkdir(parents=True)
+    (session/"frames"/"one.jpg").write_bytes(b"fixture")
+    rows = [{"frame":"frames/one.jpg","frame_id":i,
+             "steering":None if i%7==0 else str((i%100-50)/50),
+             "throttle":.4,"overlay_settings":{"brightness":1.1},
+             **({"cam_w":None} if i<512 else {"cam_w":426}),
+             **({"format":"RGB888"} if i%13 else {}),
+             **({"source_frame_bytes":2**63} if i==513 else {})}
+            for i in range(1100)]
+    (session/"labels.jsonl").write_text(
+        "\n".join(json.dumps(r) for r in rows)+"\n",encoding="utf-8")
+    with patch.object(loader, "_materialize_record_columns",
+                      side_effect=lambda batches: pd.DataFrame([row for batch in batches for row in batch])):
+        expected=loader.load_records_dataframe(tmp_path,["drive","drive"])
+    actual=loader.load_records_dataframe(tmp_path,["drive","drive"])
+    pd.testing.assert_frame_equal(actual,expected)
+    assert actual.index.equals(pd.RangeIndex(2200))

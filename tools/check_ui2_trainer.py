@@ -13,6 +13,7 @@ from pathlib import Path
 import platform
 import sys
 import tempfile
+import time
 
 
 def main() -> None:
@@ -113,6 +114,24 @@ def main() -> None:
                     window.state.filtered_df = original
                     window.refresh_workflow_readiness()
                 check_names("empty restored")
+                manifest["prerequisite_navigation"] = []
+                if args.require_readable_status and hasattr(window, "workflow_prerequisite_button"):
+                    for stage, destination in ((1, 0), (2, 0), (3, 0), (4, 2), (5, 0)):
+                        tabs.setCurrentIndex(stage)
+                        app.processEvents()
+                        assert window.workflow_detail_label.text() == tabs.tabToolTip(stage)
+                        assert window.workflow_prerequisite_button.isVisible()
+                        start = time.perf_counter()
+                        QTest.mouseClick(window.workflow_prerequisite_button, Qt.LeftButton)
+                        app.processEvents()
+                        assert tabs.currentIndex() == destination
+                        assert window.state.filtered_df.empty and window.state.model is None
+                        manifest["prerequisite_navigation"].append({
+                            "stage": expected[stage], "destination": expected[destination],
+                            "clicks": 1, "elapsed_ms": (time.perf_counter() - start) * 1000,
+                        })
+                    tabs.setCurrentIndex(0)
+                    app.processEvents()
 
                 for width, height in ((1024, 768), (1440, 900)):
                     window.resize(width, height)
@@ -135,6 +154,11 @@ def main() -> None:
                             "page": name, "file": target.name, "visible_status": visible_status,
                             "requested": [width, height],
                             "actual": [pixmap.width(), pixmap.height()],
+                            "logical_window": [window.width(), window.height()],
+                            "device_pixel_ratio": pixmap.devicePixelRatio(),
+                            "available_screen": [window.screen().availableGeometry().width(),
+                                                 window.screen().availableGeometry().height()],
+                            "requested_geometry_met": [window.width(), window.height()] == [width, height],
                             "sha256": hashlib.sha256(target.read_bytes()).hexdigest(),
                         })
                     QTest.keyClick(bar, Qt.Key_Left)

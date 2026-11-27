@@ -19,6 +19,45 @@ import test_recording_to_export_f10 as recording_fixture
 
 
 class RealTfliteExportTests(unittest.TestCase):
+    def test_bounded_deterministic_dataset_and_stochastic_fallback(self):
+        from piTrainer.services.train.dataset_service import make_tf_dataset, bounded_input_active
+        with tempfile.TemporaryDirectory() as tmp:
+            rng=np.random.default_rng(42)
+            paths=[]
+            for i in range(7):
+                p=str(Path(tmp)/f"{i}.jpg")
+                tf.io.write_file(p,tf.io.encode_jpeg(rng.integers(0,256,(32,48,3),dtype=np.uint8)))
+                paths.append(p)
+            df=pd.DataFrame({"abs_image":paths,"frame_id":range(7),
+                "steering":np.linspace(-.4,.4,7),"throttle":np.linspace(.1,.7,7),
+                "aug_flip_lr":[False,True,False,True,False,True,False],
+                "source_steering":np.linspace(-.4,.4,7),
+                "source_throttle":np.linspace(.1,.7,7),
+                "aug_brightness_delta":[0,.02,0,-.02,0,0,0]})
+            old=make_tf_dataset(df,24,32,3,False,False)
+            new=make_tf_dataset(df,24,32,3,False,False,bounded_input=True)
+            options=new.options()
+            self.assertFalse(options.autotune.enabled)
+            self.assertEqual(options.threading.private_threadpool_size,2)
+            self.assertEqual(options.threading.max_intra_op_parallelism,1)
+            self.assertTrue(options.experimental_deterministic)
+            for epoch in range(2):
+                a=list(old.as_numpy_iterator());b=list(new.as_numpy_iterator())
+                self.assertEqual([len(x) for x,_ in b],[3,3,1])
+                for (x,y),(x2,y2) in zip(a,b):
+                    np.testing.assert_array_equal(x,x2)
+                    for key in ("steering","throttle"):
+                        np.testing.assert_array_equal(y[key],y2[key])
+            for shuffle,augment in ((True,False),(False,True),(True,True)):
+                self.assertFalse(bounded_input_active(True,shuffle,augment))
+                orig=make_tf_dataset(df,24,32,3,shuffle,augment)
+                requested=make_tf_dataset(df,24,32,3,shuffle,augment,bounded_input=True)
+                self.assertEqual(orig.options().autotune.enabled,requested.options().autotune.enabled)
+                self.assertEqual(orig.options().threading.private_threadpool_size,
+                                 requested.options().threading.private_threadpool_size)
+                self.assertEqual(orig.options().experimental_deterministic,
+                                 requested.options().experimental_deterministic)
+
     def test_real_tflite_streamed_inputs_equal_eager(self):
         from PIL import Image
         from piTrainer.services.validation.validation_inputs import PreparedImageSource

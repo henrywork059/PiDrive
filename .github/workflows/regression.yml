@@ -144,6 +144,9 @@ jobs:
               # Test-only dependency for actual runtime model-service inference; not a trainer install requirement.
               "$smoke" -m pip install "opencv-python-headless>=4.8,<4.12"
               PIDRIVE_THREAD_REPORT="$RUNNER_TEMP/p2-thread-report/threads.json" TF_NUM_INTEROP_THREADS=1 TF_NUM_INTRAOP_THREADS=1 "$smoke" -m unittest discover -s tests -p test_real_tflite_export_f10.py -v
+              if [ "${{ github.head_ref }}" = update/performance-2-review-resources ]; then
+                TF_NUM_INTEROP_THREADS=1 TF_NUM_INTRAOP_THREADS=1 TF_ENABLE_ONEDNN_OPTS=0 CUDA_VISIBLE_DEVICES=-1 "$smoke" ../tools/benchmark_p2_training_epoch.py --rounds 5 --rows 96 --epochs 2 --output "$RUNNER_TEMP/p2-thread-report/training-epoch.json"
+              fi
               python -m venv "$RUNNER_TEMP/desktop-smoke"
               desktop="$RUNNER_TEMP/desktop-smoke/bin/python"
               "$desktop" -m pip install -r requirements-desktop.txt
