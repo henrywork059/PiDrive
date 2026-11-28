@@ -15,8 +15,9 @@ from urllib.parse import urlsplit
 from playwright.sync_api import expect
 
 
-GEOMETRY = """s => {
-    const f=document.querySelector(s),i=f.querySelector('img'),o=f.querySelector('.mdrv-drive-overlay');
+# Locator.evaluate passes the located frame element, not its selector.
+GEOMETRY = """f => {
+    const i=f.querySelector('img'),o=f.querySelector('.mdrv-drive-overlay');
     const a=i.getBoundingClientRect(),b=o.getBoundingClientRect();
     return {image:[a.x,a.y,a.width,a.height],overlay:[b.x,b.y,b.width,b.height],
         natural:[i.naturalWidth,i.naturalHeight],fit:getComputedStyle(i).objectFit,
