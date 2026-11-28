@@ -234,3 +234,38 @@ def test_native_tab_interaction_and_disabled_selection():
                 tabs.close()
     finally:
         theme.set_theme("dark")
+
+
+def test_flat_form_group_preserves_children_and_title():
+    from PySide6.QtWidgets import QApplication, QFrame, QGroupBox, QLineEdit, QVBoxLayout
+
+    app = QApplication.instance() or QApplication([])
+    try:
+        for mode in ("dark", "light"):
+            theme.set_theme(mode)
+            panel = QFrame()
+            panel.setProperty("role", "splitterPanel")
+            layout = QVBoxLayout(panel)
+            group = QGroupBox("Configuration")
+            group.setProperty("role", "formGroup")
+            layout.addWidget(group)
+            fields = QVBoxLayout(group)
+            field = QLineEdit("Keep this value")
+            fields.addWidget(field)
+            panel.setStyleSheet(build_stylesheet())
+            panel.resize(400, 180)
+            panel.show()
+            try:
+                app.processEvents()
+                assert group.title() == "Configuration"
+                assert field.isVisible() and field.isEnabled()
+                assert field.geometry().width() > 0
+                assert field.text() == "Keep this value"
+                field.setFocus()
+                app.processEvents()
+                assert field.text() == "Keep this value"
+                assert group.isAncestorOf(field)
+            finally:
+                panel.close()
+    finally:
+        theme.set_theme("dark")

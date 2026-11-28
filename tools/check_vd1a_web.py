@@ -82,6 +82,22 @@ def check_action_feedback(page, selector):
     return {"hover": hover_contrast, "pressed": press_contrast, "geometry_preserved": True}
 
 
+def check_flat_readouts(page, selector):
+    """Preserve real label/value elements and grid geometry; flatten only chrome."""
+    rows = page.locator(selector)
+    assert rows.count() > 0, selector
+    visible = 0
+    for row in rows.all():
+        expect(row).to_have_css("background-color", "rgba(0, 0, 0, 0)")
+        expect(row).to_have_css("border-radius", "0px")
+        expect(row).to_have_css("box-shadow", "none")
+        assert row.locator("strong").count() == 1
+        if row.is_visible():
+            visible += 1
+            expect(row.locator("strong")).to_be_visible()
+    return {"selector":selector,"count":rows.count(),"visible":visible}
+
+
 def check_selected_cue(locator, selected):
     expect(locator).to_have_attribute("aria-pressed", str(selected).lower())
     expect(locator).to_have_css("text-decoration-line", "underline" if selected else "none")
@@ -93,7 +109,10 @@ def check_appearance_controls(page, slider_selector, select_selector):
     slider, select = page.locator(slider_selector), page.locator(select_selector)
     initial = slider.input_value()
     slider.scroll_into_view_if_needed()
+    # Establish keyboard modality after the previous pointer interaction.
+    page.keyboard.press("Tab")
     slider.focus()
+    assert slider.evaluate("el => el.matches(':focus-visible')"), slider_selector
     expect(slider).to_have_css("outline-style", "solid")
     style = slider.evaluate("""el => {
         const s = getComputedStyle(el, '::-webkit-slider-thumb');
@@ -261,6 +280,10 @@ def main():
                                     page, "#aiDownloadZip",
                                     "rgb(231, 235, 241)" if mode == "light" else "rgb(41, 47, 57)",
                                     "rgb(86, 97, 113)" if mode == "light" else "rgb(165, 175, 191)")
+                            if page.locator("#mdrvFileSummary").count():
+                                checks["flat_metadata"] = check_flat_readouts(page,"#mdrvFileSummary > div")
+                            if page.locator("#aiFileSummary").count():
+                                checks["flat_metadata"] = check_flat_readouts(page,"#aiFileSummary > div")
                             capture(name, mode, width, checks)
                     # Preserve all original captures; add static synthetic scene evidence.
                     for width, height in ((1440, 900), (768, 1024), (390, 844), (844, 390)):
@@ -411,6 +434,8 @@ def main():
                             checks = {"body": inspect(page, "body"),
                                       "selected_tab": inspect(page, f'#pageTabs [data-page="{tab}"]'),
                                       "stop": inspect(page, "#estopToggle")}
+                            checks["flat_metadata"] = check_flat_readouts(page,"#workspace div.record-meta-card.priority-low, #workspace div.record-meta-card.priority-medium")
+                            checks["flat_secondary_metrics"] = check_flat_readouts(page,"#workspace div.metric-card.priority-low")
                             capture(tab, mode, width, checks)
                     # Camera cockpit uses an isolated synthetic decoded frame, not a live claim.
                     for width,height in ((1440,900),(768,1024),(390,844),(844,390)):

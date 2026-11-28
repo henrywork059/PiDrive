@@ -123,6 +123,11 @@ def build_stylesheet(density: str = "comfortable") -> str:
     }
     QFrame[role='splitterPanel'] QGroupBox[role='formGroup'] {
         margin-top: 8px;
+        /* VD1T: retain the original border width and group title layout;
+           passive form grouping uses a divider rather than a nested card. */
+        border-color: transparent;
+        border-bottom-color: @COLOR_BORDER_SUBTLE@;
+        border-radius: 0px;
     }
     QPushButton {
         min-height: @BUTTON_MIN@px;

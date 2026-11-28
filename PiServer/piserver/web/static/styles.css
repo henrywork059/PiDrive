@@ -4165,3 +4165,15 @@ html body #workspace .viewer-frame[data-camera-cockpit="on"] :is(#frameOverlay, 
     text-underline-offset: 0.2em;
   }
 }
+
+/* VD1T / VD15: flatten secondary passive readouts only. Retain the dock,
+   alert cards, primary status, recording feedback and actionable controls. */
+@media (forced-colors: none) {
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #workspace :is(div.metric-card.priority-low:not(.metric-card-alert):not(.metric-card-action),div.record-meta-card.priority-low,div.record-meta-card.priority-medium) {
+    background: transparent !important;
+    border-color: transparent !important;
+    border-bottom-color: var(--line-strong) !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+}

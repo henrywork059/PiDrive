@@ -1421,3 +1421,16 @@ body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) #panelPresentationCo
     text-underline-offset: 0.2em;
   }
 }
+
+/* VD1T / VD15: file metadata is information, not a separate card.
+   Keep existing grid tracks, spacing, identifiers, labels and state messages.
+   Do not flatten live driving telemetry, warnings or interactive controls. */
+@media (forced-colors: none) {
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) :is(#mdrvFileSummary,#aiFileSummary) > div {
+    background: transparent !important;
+    border-color: transparent !important;
+    border-bottom-color: var(--vd-divider) !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+}
