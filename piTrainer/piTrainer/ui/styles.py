@@ -27,8 +27,8 @@ def build_stylesheet(density: str = "comfortable") -> str:
     QToolBar {
         background: @COLOR_BG_PANEL_ALT@;
         border-bottom: 1px solid @COLOR_BORDER_SUBTLE@;
-        spacing: 8px;
-        padding: 6px;
+        spacing: @TOOLBAR_GAP@px;
+        padding: @TOOLBAR_PAD@px;
     }
     QMainWindow::separator {
         background: @COLOR_PRIMARY@;
@@ -318,7 +318,7 @@ def build_stylesheet(density: str = "comfortable") -> str:
         border-radius: 9px;
     }
     QTableWidget::item, QTableView::item {
-        padding: 5px;
+        padding: @TABLE_CELL_PAD@px;
     }
     QTableWidget::item:selected, QTableView::item:selected, QListWidget::item:selected {
         background: @COLOR_SELECTION@;
@@ -397,7 +397,7 @@ def build_stylesheet(density: str = "comfortable") -> str:
         background: @COLOR_BG_PANEL_LIFT@;
         color: @COLOR_TEXT_PRIMARY@;
         border: 1px solid @COLOR_BORDER@;
-        padding: 5px;
+        padding: @TABLE_CELL_PAD@px;
         font-weight: 700;
     }
     QTabWidget::pane {

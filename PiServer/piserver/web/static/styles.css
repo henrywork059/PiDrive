@@ -4189,3 +4189,26 @@ html body #workspace .viewer-frame[data-camera-cockpit="on"] :is(#frameOverlay, 
     box-shadow: inset 0 -1px 0 var(--line) !important;
   }
 }
+
+/* VD1V / VD17: adapt settings fields to touch-sized stacked workspaces.
+   Do not change desktop dock sizes, manual controls or the E-stop. */
+@media (max-width: 760px) {
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #workspace .dock-panel:is([data-panel="camera"],[data-panel="motor"]) .field-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    row-gap: max(8px, var(--field-gap)) !important;
+  }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #workspace .dock-panel:is([data-panel="camera"],[data-panel="motor"]) .field-grid :is(.field,label,select,input) {
+    min-inline-size: 0;
+    max-inline-size: 100%;
+  }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #workspace .dock-panel:is([data-panel="camera"],[data-panel="motor"]) .field-grid :is(select,input[type=number],input[type=text],input[type=range]),
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #styleSettingsModal :is(select,input[type=range],input[type=color]) {
+    box-sizing: border-box;
+    min-height: 44px !important;
+    min-block-size: 44px !important;
+  }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #workspace .dock-panel:is([data-panel="camera"],[data-panel="motor"]) .check-line {
+    min-block-size: 44px;
+    overflow-wrap: anywhere;
+  }
+}

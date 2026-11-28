@@ -211,6 +211,11 @@ def stylesheet_tokens(density: str = "comfortable") -> dict[str, str]:
         "MAIN_TAB_MIN": str(profile.main_tab_min),
         "WORKFLOW_TAB_MIN": str(profile.workflow_tab_min),
         "SCROLLBAR": str(profile.scrollbar),
+        # Keep comfortable appearance unchanged; compact short windows
+        # recover vertical space in passive chrome, not by shrinking actions.
+        "TABLE_CELL_PAD": str({"compact": 3, "comfortable": 5, "spacious": 6}.get(density, 5)),
+        "TOOLBAR_PAD": str({"compact": 4, "comfortable": 6, "spacious": 8}.get(density, 6)),
+        "TOOLBAR_GAP": str({"compact": 6, "comfortable": 8, "spacious": 10}.get(density, 8)),
     }
     tokens.update({f"COLOR_{name.upper()}": value for name, value in THEME_COLORS.items()})
     return tokens

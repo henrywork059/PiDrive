@@ -120,6 +120,18 @@ def check_flat_sections(page, selector, heading_selector=None):
     return {"selector":selector,"count":sections.count(),"visible":visible}
 
 
+def check_density_field(page, selector):
+    """Measure an actual control without mutating device settings."""
+    field = page.locator(selector).first
+    expect(field).to_be_visible()
+    field.scroll_into_view_if_needed()
+    box = field.bounding_box()
+    assert box and box["height"] >= 44 and box["width"] >= 44, (selector, box)
+    assert box["x"] >= -1 and box["x"] + box["width"] <= page.viewport_size["width"] + 1, (selector, box)
+    assert box["y"] >= -1 and box["y"] + box["height"] <= page.viewport_size["height"] + 1, (selector, box)
+    return {"selector":selector, **box}
+
+
 def check_selected_cue(locator, selected):
     expect(locator).to_have_attribute("aria-pressed", str(selected).lower())
     expect(locator).to_have_css("text-decoration-line", "underline" if selected else "none")
@@ -312,6 +324,11 @@ def main():
                             elif name in ("manual","ai"):
                                 checks["flat_sections"] = check_flat_sections(page,
                                     "#manualDriveFilesPanel" if name == "manual" else "#aiFilesPanel", ".mdrv-panel-head")
+                            if name == "settings" and width == 390:
+                                checks["density_fields"] = [
+                                    check_density_field(page, '#stPresentationForm select[name="density"]'),
+                                    check_density_field(page, '#stPresentationForm input[name="fontScale"]'),
+                                ]
                             capture(name, mode, width, checks)
                     # Preserve all original captures; add static synthetic scene evidence.
                     for width, height in ((1440, 900), (768, 1024), (390, 844), (844, 390)):
@@ -466,6 +483,9 @@ def main():
                             checks["flat_secondary_metrics"] = check_flat_readouts(page,"#workspace div.metric-card.priority-low")
                             checks["flat_sections"] = check_flat_sections(page,
                                 '#workspace .dock-panel:is([data-panel="model"],[data-panel="sessions"],[data-panel="camera"],[data-panel="motor"]) .panel-section:not(.panel-section-strong):not(.panel-section-footer)')
+                            if width == 390 and tab in ("camera","motor"):
+                                checks["density_fields"] = [check_density_field(page,
+                                    "#cameraResolutionPreset" if tab == "camera" else "#steeringDirection")]
                             capture(tab, mode, width, checks)
                     # Camera cockpit uses an isolated synthetic decoded frame, not a live claim.
                     for width,height in ((1440,900),(768,1024),(390,844),(844,390)):

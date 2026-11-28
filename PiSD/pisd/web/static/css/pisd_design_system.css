@@ -1448,3 +1448,28 @@ body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) #panelPresentationCo
     box-shadow: inset 0 -1px 0 var(--vd-divider) !important;
   }
 }
+
+/* VD1V / VD17: responsive settings density without changing saved scales.
+   Keep larger existing minimums and leave driving/preview geometry alone. */
+@media (max-width: 640px) {
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .st-form-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    row-gap: max(8px, var(--pisd-panel-gap)) !important;
+  }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .st-form-grid :is(label,input,select) {
+    min-inline-size: 0;
+    max-inline-size: 100%;
+  }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .st-form-grid label { overflow-wrap: anywhere; }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .st-form-grid :is(select,input[type=number],input[type=text],input[type=range]),
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) #ppForm :is(select,input[type=range]) {
+    box-sizing: border-box;
+    min-height: 44px !important;
+    min-block-size: 44px !important;
+  }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) :is(#stLoadSettings,#stSaveSettings,#stApplySettings,#stStopAll) {
+    min-height: max(44px, calc(31px * var(--pisd-ui-button-scale, .92))) !important;
+    min-width: 44px !important;
+    white-space: normal;
+  }
+}

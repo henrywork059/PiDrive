@@ -307,3 +307,22 @@ def test_content_tabs_flat_pane_preserves_navigation_and_editor():
                 tabs.close()
     finally:
         theme.set_theme("dark")
+
+
+def test_density_chrome_tokens_preserve_action_minimums():
+    from piTrainer.ui.formatting import get_density_profile, stylesheet_tokens
+
+    for mode, table_pad, toolbar_pad, toolbar_gap in (
+        ("compact", 3, 4, 6), ("comfortable", 5, 6, 8), ("spacious", 6, 8, 10),
+    ):
+        tokens = stylesheet_tokens(mode)
+        css = build_stylesheet(mode)
+        profile = get_density_profile(mode)
+        assert tokens["TABLE_CELL_PAD"] == str(table_pad)
+        assert tokens["TOOLBAR_PAD"] == str(toolbar_pad)
+        assert tokens["TOOLBAR_GAP"] == str(toolbar_gap)
+        assert f"padding: {table_pad}px;" in css
+        assert f"min-height: {profile.button_min}px;" in css
+        assert f"min-height: {profile.input_min}px;" in css
+        assert "@TABLE_CELL_PAD@" not in css
+        assert "@TOOLBAR_PAD@" not in css
