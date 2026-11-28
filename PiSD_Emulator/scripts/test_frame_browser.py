@@ -334,7 +334,7 @@ class FrameTest(unittest.TestCase):
                         capture_v17_baseline(browser, runtime, pisd, evidence_dir,
                                              os.environ.get("PISD_EMULATOR_EVIDENCE_REVISION"))
                         capture_v17_shell(browser, runtime, pisd, evidence_dir,
-                                          os.environ.get("PISD_EMULATOR_EVIDENCE_REVISION"))
+                                          os.environ.get("PISD_EMULATOR_EVIDENCE_REVISION"), page)
                 finally:
                     browser.close()
             runtime.close()

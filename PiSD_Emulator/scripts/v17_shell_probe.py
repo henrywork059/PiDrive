@@ -7,7 +7,7 @@ from urllib.parse import urlsplit
 from playwright.sync_api import expect
 
 
-def capture_v17_shell(browser, runtime, origin, output, revision):
+def capture_v17_shell(browser, runtime, origin, output, revision, outer_page):
     output = Path(output)
     report = {"revision": revision, "hardware_enabled": False, "cases": []}
     assert runtime.status()["hardware_enabled"] is False
@@ -64,11 +64,22 @@ def capture_v17_shell(browser, runtime, origin, output, revision):
                     assert sum(s.endswith("/manual_drive.js") or s.endswith("/ai_mode.js") for s in scripts)==1, scripts
                     assert sum(s.endswith("/global_space_stop.js") for s in scripts)==1, scripts
                     neutral()
+                    # Decoded synthetic frames exercise the real rendering
+                    # geometry independently of the emulator camera's aspect.
+                    case["aspect_cases"]=[]
+                    for fw,fh in ((640,480),(1280,720),(480,480)):
+                        page.locator(frame+" img").evaluate("""async (img, dims) => {
+                          const [w,h]=dims;
+                          img.src='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="'+w+'" height="'+h+'"><rect width="100%" height="100%" fill="#37556a"/></svg>');
+                          await img.decode();
+                        }""",[fw,fh])
+                        page.wait_for_function("""([s,w,h])=>{const f=document.querySelector(s),i=f.querySelector('img'),o=f.querySelector('.mdrv-drive-overlay'),a=i.getBoundingClientRect(),b=o.getBoundingClientRect();return i.naturalWidth===w&&i.naturalHeight===h&&a.height>0&&Math.abs(a.width/a.height-w/h)<.03&&['x','y','width','height'].every(k=>Math.abs(a[k]-b[k])<=2)&&getComputedStyle(i).objectFit==='contain';}""",arg=[frame,fw,fh],timeout=10000)
+                        case["aspect_cases"].append(alignment(page,frame))
                     offset=len(requests)
                     page.locator(live).click()
                     expect(page.locator(frame)).to_have_attribute("data-preview-mode","live",timeout=15000)
                     page.wait_for_function("""s => { const i=document.querySelector(s+' img');return i&&new URL(i.currentSrc||i.src,location.href).pathname==='/video_feed'&&i.naturalWidth>0; }""",arg=frame,timeout=15000)
-                    for theme in ("dark","light","legacy"):
+                    for theme in ("dark","light","contrast"):
                         # Existing presentation application, no persisted setting change.
                         page.evaluate("""theme => { const p=window.PiSDPanelPresentation; p.apply({...p.read(),theme}); window.scrollTo(0,0); }""",theme)
                         page.wait_for_function("""s=>{const f=document.querySelector(s),i=f.querySelector('img'),o=f.querySelector('.mdrv-drive-overlay'),a=i.getBoundingClientRect(),b=o.getBoundingClientRect();return scrollY===0&&a.height>0&&['x','y','width','height'].every(k=>Math.abs(a[k]-b[k])<=2)&&getComputedStyle(i).objectFit==='contain';}""",arg=frame,timeout=10000)
@@ -94,6 +105,17 @@ def capture_v17_shell(browser, runtime, origin, output, revision):
                     assert case["stream_requests"]==1,case
                     neutral()
                     expect(page.locator(arm)).not_to_be_checked()
+                    # The original STOP dispatcher must retain the AI-specific
+                    # stop request on the new URL, not just the motor STOP.
+                    page.evaluate("document.activeElement?.blur()")
+                    stop_offset=len(requests)
+                    with page.expect_request(lambda r:r.method=="POST" and urlsplit(r.url).path=="/api/control/stop",timeout=10000):
+                        page.keyboard.press("Space")
+                    page.wait_for_timeout(350)
+                    stop_paths=[p for m,p,_ in requests[stop_offset:] if m=="POST"]
+                    assert stop_paths==(["/api/ai/stop","/api/control/stop"] if mode=="ai" else ["/api/control/stop"]),stop_paths
+                    case["space_stop_paths"]=stop_paths
+                    neutral()
                     assert not errors,errors
                 except Exception as exc:
                     case["failure"]=str(exc)
@@ -123,4 +145,25 @@ def capture_v17_shell(browser, runtime, origin, output, revision):
             context.close()
             (output/"v17-m01-shell.json").write_text(json.dumps(report,indent=2),encoding="utf-8")
         neutral()
+    # Use the real running emulator iframe, not a different simulated origin.
+    generation=runtime.status()["generation"]
+    outer_page.bring_to_front()
+    outer_page.locator("#pisdFrame").evaluate("(el,url)=>{el.src=url;}",origin+"/drive?mode=manual")
+    frame=outer_page.frame_locator("#pisdFrame")
+    expect(frame.locator("body")).to_have_attribute("data-pisd-v17-ready","true",timeout=20000)
+    expect(frame.locator("#mdrvStopTop")).to_be_visible()
+    frame.get_by_role("navigation",name="Driving cockpit mode").get_by_role("link",name="AI",exact=True).click()
+    expect(frame.locator("body")).to_have_attribute("data-pisd-v17","ai",timeout=20000)
+    expect(frame.locator("#aiStopAll")).to_be_visible()
+    expect(frame.locator("#aiEnableMotor")).not_to_be_checked()
+    assert runtime.status()["generation"]==generation
+    neutral()
+    path=output/"v17-m01-iframe-ai.png"
+    outer_page.screenshot(path=str(path))
+    report["iframe"]={"file":path.name,"sha256":hashlib.sha256(path.read_bytes()).hexdigest(),"generation":generation,"authorization":False}
+    frame.get_by_role("link",name="Classic layout").click()
+    expect(frame.locator("#aiModeShell")).to_be_visible()
+    assert frame.locator("body").get_attribute("data-pisd-v17") is None
+    neutral()
+    (output/"v17-m01-shell.json").write_text(json.dumps(report,indent=2),encoding="utf-8")
     return report

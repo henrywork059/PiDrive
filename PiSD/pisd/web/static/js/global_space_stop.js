@@ -37,7 +37,8 @@
     lastStopAt = now;
     const detail = { reason: 'space-global-stop', path: window.location.pathname };
     window.dispatchEvent(new CustomEvent('pisd:space-stop', { detail }));
-    if (window.location.pathname === '/ai-mode') {
+    const v17AI = window.location.pathname === '/drive' && document.body?.dataset?.pisdV17 === 'ai';
+    if (window.location.pathname === '/ai-mode' || v17AI) {
       await postJson('/api/ai/stop', detail);
     }
     await postJson('/api/control/stop', detail);

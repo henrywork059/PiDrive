@@ -2,7 +2,7 @@
    Real image dimensions own overlay coordinates; do not set overlay geometry. */
 body[data-pisd-v17][data-pisd-theme="dark"] {
   --vd-bg: #17191D;
-  --vd-panel: #20252B;
+  --vd-surface: #20252B;
   --v17-accent: #57FFED;
   --v17-stop: #B82D39;
 }
@@ -111,6 +111,10 @@ body[data-pisd-v17] .v17-readiness .pisd-readiness-reason {
   align-items: baseline;
 }
 body[data-pisd-v17] .v17-readiness .pisd-readiness-reason strong { min-width: 0; overflow-wrap: anywhere; }
+body[data-pisd-v17] .v17-readiness strong[data-tone="good"] { color: var(--pisd-status-text-good); }
+body[data-pisd-v17] .v17-readiness strong[data-tone="warning"] { color: var(--pisd-status-text-warning); }
+body[data-pisd-v17] .v17-readiness strong[data-tone="danger"] { color: var(--pisd-status-text-danger); }
+body[data-pisd-v17] .v17-readiness strong[data-tone="neutral"] { color: var(--pisd-status-text-neutral); }
 body[data-pisd-v17][data-pisd-v17-ready="true"] .ai-grid {
   display: grid !important;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)) !important;
