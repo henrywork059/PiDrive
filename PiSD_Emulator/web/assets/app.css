@@ -11,3 +11,19 @@ body[data-emulator-workspace="wide"] .web-panel{min-width:0}
 #wideWorkspaceToggle[aria-pressed="true"]{color:var(--text);border-color:var(--orange)}
 #wideWorkspaceToggle:focus-visible{outline:3px solid var(--teal);outline-offset:2px}
 @media(max-width:900px){#wideWorkspaceToggle{min-height:44px}}
+
+/* VD1Y: virtual motor values and measured wheel speed remain distinct.
+   Preserve existing polling, frame contain-fit and wide-workspace behavior. */
+.motor-readout strong,.readout-grid strong,.camera-meta,.gpio-table-wrap td {
+  font-variant-numeric:tabular-nums;
+}
+.motor-readout>span,.motor-readout small,.readout-grid span,.camera-meta {
+  font-size:11px;
+  line-height:1.4;
+}
+.motor-readout strong {font-size:clamp(18px,1.5vw,24px)}
+.readout-grid strong {font-size:12px;overflow-wrap:anywhere}
+.camera-meta {flex-wrap:wrap;justify-content:flex-start;column-gap:12px;row-gap:4px}
+.camera-meta>span {min-width:0;overflow-wrap:anywhere}
+.motor-readout {min-width:0}
+.motor-readout .meter-label {display:block;font-size:10px;letter-spacing:0;margin-bottom:4px;line-height:1.3}

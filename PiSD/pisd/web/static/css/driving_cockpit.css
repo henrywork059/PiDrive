@@ -182,3 +182,28 @@ body.ai-page[data-pisd-cockpit="immersive"] #aiSafetyPanel .ai-panel-tab {
     white-space: normal !important;
   }
 }
+
+/* VD1Y: physical touch floor, not just pre-transform CSS dimensions.
+   Keep saved scale for normal mode and desktop, retain larger requested
+   sizes on narrow cockpit controls without scaling their hit rectangles. */
+@media (max-width: 900px) {
+  body.ai-page[data-pisd-cockpit="immersive"] #aiPreviewPanel :is(.ai-camera-head-actions button,.ai-preview-run-actions button),
+  body.ai-page[data-pisd-cockpit="immersive"] #aiSafetyPanel .ai-panel-tab,
+  body.manual-drive-page[data-pisd-cockpit="immersive"] #manualDriveCameraPanel :is(#mdrvLiveCamera,#mdrvCaptureFrame,#mdrvRecordToggle,#mdrvOverlayToggle),
+  body[data-pisd-cockpit="immersive"] #drivingCockpitToggle {
+    transform: none !important;
+    min-height: max(44px, calc(44px * var(--pisd-ui-button-scale,1))) !important;
+    min-block-size: max(44px, calc(44px * var(--pisd-ui-button-scale,1))) !important;
+    min-width: 44px !important;
+  }
+}
+/* VD23: numerical stability without changing guide positions or values. */
+body[data-pisd-cockpit="immersive"] :is(#mdrvPreviewFrame,#aiPreviewFrame) :is(.mdrv-overlay-meter strong,.mdrv-overlay-wheel-row strong) {
+  font-variant-numeric: tabular-nums;
+  font-family: "PiDrive Plex Mono","IBM Plex Mono",ui-monospace,monospace !important;
+  white-space: nowrap;
+}
+body[data-pisd-cockpit="immersive"] :is(#mdrvPreviewFrame,#aiPreviewFrame) .mdrv-overlay-hud em {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}

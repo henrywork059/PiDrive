@@ -4212,3 +4212,25 @@ html body #workspace .viewer-frame[data-camera-cockpit="on"] :is(#frameOverlay, 
     overflow-wrap: anywhere;
   }
 }
+
+/* VD23: readable signed telemetry with unchanged overlay geometry and
+   explicit camera health state colors. Keep native forced-color treatment. */
+html body #workspace .viewer-frame[data-camera-cockpit="on"] .overlay-block-value {
+  font-family: "PiDrive Plex Mono","IBM Plex Mono",ui-monospace,monospace !important;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+@media (forced-colors: none) {
+  html body #workspace .viewer-frame[data-camera-cockpit="on"] .preview-health {
+    background: #0a4b2a !important;
+    color: #e5fff1 !important;
+  }
+  html body #workspace .viewer-frame[data-camera-cockpit="on"] .preview-health:is(.delayed,.paused) {
+    background: #6a460e !important;
+    color: #fff4d5 !important;
+  }
+  html body #workspace .viewer-frame[data-camera-cockpit="on"] .preview-health.disconnected {
+    background: #841a1d !important;
+    color: #fff0f0 !important;
+  }
+}

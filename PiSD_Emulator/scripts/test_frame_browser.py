@@ -199,6 +199,19 @@ class FrameTest(unittest.TestCase):
                     print(f"Settings synchronization: {startup_reads} startup/explicit browser GETs; zero quiet/save/drive/STOP GET echoes", flush=True)
                     evidence["stopped_motor"] = {key: runtime.status()["engine"]["motor"][key] for key in ("left_intended","right_intended")}
                     evidence["settings_get_echoes"] = len(settings_reads) - quiet_start
+                    # The outer monitor is a separate poll of virtual telemetry.
+                    expect(page.locator("#leftOutput")).to_have_text("0.00", timeout=10000)
+                    expect(page.locator("#rightOutput")).to_have_text("0.00", timeout=10000)
+                    expect(page.locator("#leftOutput")).to_have_css("font-variant-numeric", "tabular-nums")
+                    expect(page.locator("#rightOutput")).to_have_css("font-variant-numeric", "tabular-nums")
+                    expect(page.locator(".motor-readout .meter-label")).to_have_count(2)
+                    expect(page.locator(".camera-meta")).to_have_css("flex-wrap", "wrap")
+                    evidence["monitor_readback"] = {
+                        "left": page.locator("#leftOutput").inner_text(),
+                        "right": page.locator("#rightOutput").inner_text(),
+                        "left_wheel": page.locator("#leftWheel").inner_text(),
+                        "right_wheel": page.locator("#rightWheel").inner_text(),
+                    }
                     capture_evidence("after-stop")
                     frame.locator("#drivingCockpitToggle").click()
                     expect(frame.locator("#drivingCockpitToggle")).to_have_attribute("aria-pressed", "false")

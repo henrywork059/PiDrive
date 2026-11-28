@@ -222,7 +222,12 @@ def main():
                                           reduced_motion="reduce", service_workers="block")
             errors = []
             saves = []
+            # PiServer's actual page buttons send a control envelope. Keep
+            # navigation state in this isolated fixture only; no command is
+            # forwarded to the backend, and nonzero intent is rejected.
+            fixture_page = "manual"
             def route_request(route):
+                nonlocal fixture_page
                 req = route.request
                 url = urlsplit(req.url)
                 if f"{url.scheme}://{url.netloc}" != ORIGIN:
@@ -234,6 +239,24 @@ def main():
                         route.fulfill(status=204, body="")
                         return
                     res = client.get(target, base_url=ORIGIN)
+                    if args.component == "PiServer" and url.path == "/api/status" and res.status_code == 200:
+                        data = res.get_json()
+                        data["current_page"] = fixture_page
+                        route.fulfill(status=200, json=data)
+                        return
+                elif args.component == "PiServer" and req.method == "POST" and url.path == "/api/control":
+                    payload = req.post_data_json
+                    requested = payload.get("current_page")
+                    if (requested in {"manual","training","auto","camera","motor"}
+                            and float(payload.get("steering",0)) == 0
+                            and float(payload.get("throttle",0)) == 0
+                            and set(payload) <= {"current_page","steering","throttle","max_throttle","steer_mix","steer_bias","algorithm"}
+                            and payload.get("algorithm","manual") == "manual"):
+                        fixture_page = requested
+                        route.fulfill(status=200, json={"ok":True,"fixture_navigation_only":True})
+                    else:
+                        route.fulfill(status=503, json={"ok":False,"message":"Fixture rejects actuator mutation"})
+                    return
                 elif args.component == "PiSD" and req.method == "POST" and url.path == "/api/settings":
                     payload = req.post_data_json
                     assert set(payload) == {"panel_presentation"}, payload.keys()
@@ -451,6 +474,7 @@ def main():
                                     assert abs(geometry["image"][key] - geometry["overlay"][key]) <= 2, geometry
                                 assert geometry["backing"] == "rgb(20, 23, 28)", geometry
                                 assert contrast(geometry["foreground"], geometry["backing"]) >= 4.5, geometry
+                                expect(page.locator(frame+" .mdrv-overlay-meter strong").first).to_have_css("font-variant-numeric", "tabular-nums")
                             if name == "manual":
                                 await_source = page.locator("#mdrvPreview")
                                 await_source.evaluate("""async (el,src) => {
@@ -558,6 +582,7 @@ def main():
                             selected = page.locator(f'#pageTabs [data-page="{tab}"]')
                             selected.click()
                             check_selected_cue(selected, True)
+                            expect(page.locator("body")).to_have_attribute("data-page", tab)
                             for other in page.locator('#pageTabs .tab-btn[aria-pressed="false"]').all():
                                 check_selected_cue(other, False)
                             expect(selected).to_have_css("background-color", "rgb(49, 95, 209)" if mode == "light" else "rgb(100, 149, 255)")
@@ -617,6 +642,10 @@ def main():
                             capture(f"camera-cockpit-{scene}-{height}",mode,width,{"geometry":geometry})
                             assert geometry["fit"] == "contain", geometry
                             assert max(abs(geometry["expected"][k]-geometry["actual"][k]) for k in geometry["expected"]) <= 2, geometry
+                            expect(page.locator("#overlayThrottleValue")).to_have_css("font-variant-numeric", "tabular-nums")
+                            health = page.locator("#previewHealth")
+                            colors = health.evaluate("el => ({fg:getComputedStyle(el).color,bg:getComputedStyle(el).backgroundColor})")
+                            assert contrast(colors["fg"],colors["bg"]) >= 4.5, colors
                         toggle.click()
                         check_selected_cue(toggle, False)
                         assert stop.get_attribute("aria-pressed") == before_stop
