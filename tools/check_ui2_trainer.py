@@ -325,6 +325,53 @@ def main() -> None:
                                 geometry_errors.append(data)
                         finally:
                             target_button.clicked.disconnect(observe_click)
+                # Inspect all real workspace menu actions and panel focus
+                # transitions after the original captures and action probes.
+                if hasattr(window, "workspace_menu"):
+                    manifest["workspace_panel_navigation"] = []
+                    for stage, label in enumerate(expected):
+                        tabs.setCurrentIndex(stage)
+                        app.processEvents()
+                        page = tabs.currentWidget()
+                        window._refresh_workspace_menu()
+                        titles = page.workspace_panel_titles()
+                        actions = window._workspace_panel_actions
+                        before = [list(splitter.sizes()) for splitter in page._splitters]
+                        panels = []
+                        for index, action in enumerate(actions):
+                            action.trigger()
+                            app.processEvents()
+                            frame, header = page._workspace_panels[index]
+                            panels.append({"title": titles[index], "menu": action.text(),
+                                           "focused": app.focusWidget() is header,
+                                           "visible": frame.isVisible() and header.isVisible(),
+                                           "accessible_name": header.accessibleName()})
+                        next_ok = previous_ok = False
+                        if actions:
+                            actions[0].trigger()
+                            app.processEvents()
+                            window._cycle_workspace_panel(1)
+                            app.processEvents()
+                            next_ok = app.focusWidget() is page._workspace_panels[1 % len(actions)][1]
+                            window._cycle_workspace_panel(-1)
+                            app.processEvents()
+                            previous_ok = app.focusWidget() is page._workspace_panels[0][1]
+                        after = [list(splitter.sizes()) for splitter in page._splitters]
+                        data = {"stage": label, "panels": panels, "next": next_ok,
+                                "previous": previous_ok, "splitters_before": before,
+                                "splitters_after": after, "geometry_unchanged": before == after,
+                                "session_height_preserved": panel.list_widget.height() == panel._current_session_list_height(),
+                                "state_unchanged": window.state.filtered_df.empty and window.state.model is None}
+                        target = output / f"panel-navigation-{stage+1}.png"
+                        pixmap = window.grab()
+                        assert not pixmap.isNull() and pixmap.save(str(target), "PNG")
+                        data.update(file=target.name, sha256=hashlib.sha256(target.read_bytes()).hexdigest())
+                        manifest["workspace_panel_navigation"].append(data)
+                        if (not panels or len(actions) != len(titles)
+                            or not all(p["focused"] and p["visible"] and p["accessible_name"] == p["title"] + " panel" for p in panels)
+                            or not all(data[k] for k in ("next", "previous", "geometry_unchanged",
+                                                       "session_height_preserved", "state_unchanged"))):
+                            geometry_errors.append(data)
                 manifest["geometry_errors"] = geometry_errors
                 (output / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
                 assert not geometry_errors, geometry_errors

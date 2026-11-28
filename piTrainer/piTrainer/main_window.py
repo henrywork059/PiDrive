@@ -104,6 +104,7 @@ class MainWindow(QMainWindow):
         self.status.addPermanentWidget(self.version_label)
         self.setStatusBar(self.status)
         self._setup_appearance_menu()
+        self._setup_workspace_menu()
         self.set_status_message(
             f'Ready — {STATUS_VERSION_TEXT}. Follow the green buttons from 1 Data to 6 TFLite Check. Drag splitters to resize panels.'
         )
@@ -117,6 +118,41 @@ class MainWindow(QMainWindow):
         self.export_page.refresh_from_state()
         self.export_validation_page.refresh_from_state()
         self.refresh_workflow_readiness()
+
+    def _setup_workspace_menu(self) -> None:
+        self.workspace_menu = self.menuBar().addMenu('Workspace')
+        self.workspace_menu.aboutToShow.connect(self._refresh_workspace_menu)
+
+    def _refresh_workspace_menu(self) -> None:
+        menu = self.workspace_menu
+        menu.clear()
+        page = self.current_dock_page()
+        titles = getattr(page, 'workspace_panel_titles', lambda: ())()
+        self._workspace_panel_actions = []
+        for index, title in enumerate(titles):
+            action = menu.addAction('Focus ' + title)
+            action.triggered.connect(lambda checked=False, i=index: self._focus_workspace_panel(i))
+            self._workspace_panel_actions.append(action)
+        if titles:
+            menu.addSeparator()
+        next_panel = menu.addAction('Next panel')
+        next_panel.setEnabled(bool(titles))
+        next_panel.triggered.connect(lambda checked=False: self._cycle_workspace_panel(1))
+        previous_panel = menu.addAction('Previous panel')
+        previous_panel.setEnabled(bool(titles))
+        previous_panel.triggered.connect(lambda checked=False: self._cycle_workspace_panel(-1))
+
+    def _focus_workspace_panel(self, index: int) -> None:
+        page = self.current_dock_page()
+        focus = getattr(page, 'focus_workspace_panel', None)
+        if callable(focus):
+            focus(index)
+
+    def _cycle_workspace_panel(self, direction: int) -> None:
+        page = self.current_dock_page()
+        cycle = getattr(page, 'cycle_workspace_panel', None)
+        if callable(cycle):
+            cycle(direction)
 
     def _setup_appearance_menu(self) -> None:
         menu = self.menuBar().addMenu("Appearance")

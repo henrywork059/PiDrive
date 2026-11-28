@@ -4,6 +4,7 @@ from collections.abc import Iterable, Sequence
 
 from PySide6.QtCore import QSettings, QTimer, Qt
 from PySide6.QtWidgets import (
+    QApplication,
     QDockWidget,
     QFrame,
     QLabel,
@@ -198,6 +199,7 @@ class DockPage(QMainWindow):
         self.page_id = page_id
         self.setObjectName(f"dock_page_{page_id}")
         self._splitters: list[QSplitter] = []
+        self._workspace_panels: list[tuple[QFrame, QLabel]] = []
         self.setDockOptions(
             QMainWindow.AllowNestedDocks
             | QMainWindow.AllowTabbedDocks
@@ -241,6 +243,7 @@ class DockPage(QMainWindow):
 
     def clear_docks(self) -> None:
         self._splitters = []
+        self._workspace_panels = []
         for dock in self.findChildren(QDockWidget):
             self.removeDockWidget(dock)
             dock.deleteLater()
@@ -269,6 +272,10 @@ class DockPage(QMainWindow):
         header.setObjectName("splitterPanelTitle")
         header.setProperty("role", "panelTitle")
         header.setWordWrap(False)
+        header.setFocusPolicy(Qt.StrongFocus)
+        header.setAccessibleName(title + ' panel')
+        header.setAccessibleDescription('Workspace panel heading. Tab moves to its controls.')
+        self._workspace_panels.append((frame, header))
 
         widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         content_scroll = make_panel_content_scroll(
@@ -288,6 +295,35 @@ class DockPage(QMainWindow):
             layout.addWidget(subtitle_label)
         layout.addWidget(content_scroll, 1)
         return frame
+
+    def workspace_panel_titles(self) -> tuple[str, ...]:
+        """Return registered panels in their existing construction order."""
+        return tuple(header.text() for _, header in self._workspace_panels)
+
+    def focus_workspace_panel(self, index: int) -> bool:
+        """Focus a visible panel heading without changing splitter geometry."""
+        if not 0 <= index < len(self._workspace_panels):
+            return False
+        frame, header = self._workspace_panels[index]
+        if not frame.isVisible() or not header.isVisible() or not header.isEnabled():
+            return False
+        header.setFocus(Qt.OtherFocusReason)
+        return header.hasFocus()
+
+    def cycle_workspace_panel(self, direction: int = 1) -> bool:
+        visible = [index for index, (frame, header) in enumerate(self._workspace_panels)
+                   if frame.isVisible() and header.isVisible() and header.isEnabled()]
+        if not visible:
+            return False
+        focused = QApplication.focusWidget()
+        current = next((index for index in visible
+                        if focused is not None and
+                        (focused is self._workspace_panels[index][0] or
+                         self._workspace_panels[index][0].isAncestorOf(focused))), None)
+        step = 1 if direction >= 0 else -1
+        if current is None:
+            return self.focus_workspace_panel(visible[0 if step > 0 else -1])
+        return self.focus_workspace_panel(visible[(visible.index(current) + step) % len(visible)])
 
     def make_splitter(
         self,

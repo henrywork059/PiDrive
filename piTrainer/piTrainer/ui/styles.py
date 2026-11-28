@@ -744,6 +744,11 @@ def build_stylesheet(density: str = "comfortable") -> str:
         padding: 4px 6px;
         font-weight: 750;
     }
+    QFrame[role='splitterPanel'] QLabel#splitterPanelTitle:focus {
+        background: @COLOR_INFO_SURFACE@;
+        color: @COLOR_TEXT_PRIMARY@;
+        border-bottom: 1px solid @COLOR_INFO@;
+    }
     QFrame[role='splitterPanel'] QTabWidget[role='workflowTabs']::pane {
         border: none;
         border-radius: 0px;
