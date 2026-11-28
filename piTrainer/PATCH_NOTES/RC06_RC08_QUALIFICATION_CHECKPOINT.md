@@ -1,0 +1,7 @@
+# RC06–RC08 — isolated 1.0.0 qualification checkpoint
+
+Request: verify exact current main, six workflows, source archives and actual native Windows frozen executable. Base 7f8fcf5a5cec1a246e970a679d00cb9a3b0d169c; PR #105 remains separate. Prior 1.0.0 and preceding three numbered notes per component inspected. No version bump or baseline change.
+
+Changes: extend existing branch predicates only for qualification/1.0.0-rc06-08, preserve original benchmark fixtures/targets and workflow scopes. New qualification workflow builds full tracked component source archives and validates each member against Git, omitting runtime config, data, caches and bytecode. Version-gate support message corrected without changing minimum, allow/block lists or policy. Frozen executable explicit diagnostic argument runs only after existing normal version gate; no bypass, no hardware, temporary synthetic inputs, actual MainWindow, TrainingWorker, Keras and TFLite export and inference. Normal launch unchanged. Actual one-folder transfer ZIP must match build file-for-file, be extracted and run. Report numerical conversion differences, do not invent model accuracy threshold.
+
+Limits: diagnostic entrypoint in isolated qualification binary; not authorization to ship the diagnostic or promote the release. CI, archive binary inspection, physical/native owner acceptance and strict benchmark review pending. No merge, publication, deployment, stable promotion or work on PR #105.

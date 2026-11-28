@@ -1,0 +1,96 @@
+name: RC06-RC08 isolated release qualification
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  full-source-archives:
+    if: github.head_ref == 'qualification/1.0.0-rc06-08'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Build and verify exact tracked source archives
+        env:
+          REVISION: ${{ github.event.pull_request.head.sha }}
+        run: python tools/qualify_full_release.py --revision "$REVISION" --output "$RUNNER_TEMP/rc-source"
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: rc-full-source-archives
+          path: ${{ runner.temp }}/rc-source
+          if-no-files-found: error
+  frozen-windows:
+    if: github.head_ref == 'qualification/1.0.0-rc06-08'
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      QT_QPA_PLATFORM: windows
+      TF_NUM_INTEROP_THREADS: '1'
+      TF_NUM_INTRAOP_THREADS: '1'
+      PYTHONUTF8: '1'
+      REVISION: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install full declared dependencies and builder
+        shell: pwsh
+        run: |
+          if ((git rev-parse HEAD).Trim() -ne $env:REVISION) { throw 'Wrong revision' }
+          python -m pip install -r piTrainer/requirements.txt "pyinstaller>=6,<7"
+          if ($LASTEXITCODE -ne 0) { throw 'Dependency install failed' }
+          New-Item -ItemType Directory -Path "$env:RUNNER_TEMP/rc-windows" -Force | Out-Null
+          python -m pip freeze | Set-Content "$env:RUNNER_TEMP/rc-windows/dependencies.txt"
+          $env:REVISION | Set-Content "$env:RUNNER_TEMP/rc-windows/revision.txt"
+      - name: Build actual one-folder executable
+        shell: pwsh
+        run: |
+          & ./piTrainer/PACKAGING/build_windows_onedir.ps1 -SkipInstall
+          if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
+          if (!(Test-Path piTrainer/dist_exe/PiTrainer_win_onedir.zip)) { throw 'Missing transfer ZIP' }
+      - name: Verify transfer ZIP and run extracted frozen executable
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $zip = (Resolve-Path piTrainer/dist_exe/PiTrainer_win_onedir.zip).Path
+          $ev = "$env:RUNNER_TEMP/rc-windows"
+          $dest = "$env:RUNNER_TEMP/rc-extracted"
+          python tools/verify_frozen_archive.py $zip piTrainer/dist_exe/PiTrainer $dest "$ev/archive.json"
+          if ($LASTEXITCODE -ne 0) { throw 'Archive verification failed' }
+          $exe = Join-Path $dest 'PiTrainer/PiTrainer.exe'
+          $env:LOCALAPPDATA = "$env:RUNNER_TEMP/rc-localappdata"
+          New-Item -ItemType Directory -Path $env:LOCALAPPDATA -Force | Out-Null
+          $out = "$ev/probe"
+          $proc = Start-Process -FilePath $exe -ArgumentList @('--qualification-self-test', ('"' + $out + '"')) -PassThru -WorkingDirectory $dest
+          if (!$proc.WaitForExit(300000)) { $proc.Kill(); throw 'Frozen executable timed out' }
+          if ($proc.ExitCode -ne 0) { throw "Frozen executable exit $($proc.ExitCode)" }
+          $r = Get-Content "$out/report.json" -Raw | ConvertFrom-Json
+          if (!$r.complete -or !$r.frozen -or $r.gate_source -ne 'online') { throw 'Frozen qualification incomplete or online gate not verified' }
+          $hash = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLower()
+          if ($hash -ne $r.exe_sha256) { throw 'Executable identity mismatch' }
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: rc-windows-functional-evidence
+          path: ${{ runner.temp }}/rc-windows
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: rc-windows-onedir-candidate
+          path: piTrainer/dist_exe/PiTrainer_win_onedir.zip
+          if-no-files-found: warn

@@ -27,6 +27,10 @@ def run() -> int:
         QMessageBox.critical(None, gate_result.title, f"{gate_result.message}{detail}")
         return 2
 
+    if getattr(sys, 'frozen', False) and len(sys.argv) == 3 and sys.argv[1] == '--qualification-self-test':
+        from .qualification_probe import run_probe
+        return run_probe(app, sys.argv[2], gate_result.source)
+
     from .main_window import MainWindow
     window = MainWindow()
     window.show()
