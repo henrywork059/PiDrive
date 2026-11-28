@@ -1,5 +1,7 @@
 """Live Chromium regression against the real emulator and PiSD Flask servers."""
 import os
+import hashlib
+import json
 import socket
 import sys
 import tempfile
@@ -139,8 +141,46 @@ class FrameTest(unittest.TestCase):
                     quiet_start = len(settings_reads)
                     page.wait_for_timeout(60000)
                     self.assertEqual(len(settings_reads), quiet_start, "autonomous settings GET during 60-second quiet window")
+                    # Widen the real iframe without restarting or changing authorization.
+                    frame.locator("#manualDriveShell").evaluate("(el) => el.dataset.cockpitContinuity = 'yes'")
+                    before_width = page.locator("#pisdFrame").bounding_box()["width"]
+                    before_generation = runtime.status()["generation"]
+                    before_arm = frame.locator("#mdrvArm").is_checked()
+                    page.locator("#wideWorkspaceToggle").click()
+                    expect(page.locator("#wideWorkspaceToggle")).to_have_attribute("aria-pressed", "true")
+                    eventually(lambda: page.locator("#pisdFrame").bounding_box()["width"] > before_width)
+                    expect(frame.locator("#manualDriveShell")).to_have_attribute("data-cockpit-continuity", "yes")
+                    self.assertEqual(runtime.status()["generation"], before_generation)
+                    self.assertEqual(frame.locator("#mdrvArm").is_checked(), before_arm)
+                    frame.locator("#drivingCockpitToggle").click()
+                    expect(frame.locator("body")).to_have_attribute("data-pisd-cockpit", "immersive")
+                    self.assertEqual(frame.locator("#mdrvArm").is_checked(), before_arm)
                     frame.locator("#mdrvLiveCamera").click()
                     expect(frame.locator("#mdrvPreview")).to_have_attribute("data-preview-mode", "live", timeout=10000)
+                    def live_alignment():
+                        return frame.locator("#mdrvPreviewFrame").evaluate("""el => {
+                            const image=el.querySelector("img"), overlay=el.querySelector(".mdrv-drive-overlay");
+                            const a=image.getBoundingClientRect(), b=overlay.getBoundingClientRect();
+                            return image.naturalWidth > 0 && a.height > 0 && Math.abs(a.width/a.height-image.naturalWidth/image.naturalHeight)<.03 && ["x","y","width","height"].every(k=>Math.abs(a[k]-b[k])<=2) && getComputedStyle(image).objectFit==="contain";
+                        }""")
+                    eventually(live_alignment)
+                    evidence_dir = os.environ.get("PISD_EMULATOR_EVIDENCE_DIR")
+                    evidence = {"revision": os.environ.get("PISD_EMULATOR_EVIDENCE_REVISION"), "hardware_enabled": runtime.status()["hardware_enabled"], "generation": before_generation, "iframe_width_before": before_width, "iframe_width_wide": page.locator("#pisdFrame").bounding_box()["width"], "authorization_before": before_arm, "authorization_after_toggle": frame.locator("#mdrvArm").is_checked(), "live_alignment": live_alignment(), "captures": []}
+                    def capture_evidence(name):
+                        if not evidence_dir:
+                            return
+                        output = Path(evidence_dir)
+                        output.mkdir(parents=True, exist_ok=True)
+                        path = output / (name + ".png")
+                        page.screenshot(path=str(path))
+                        evidence["captures"].append({"file": path.name, "sha256": hashlib.sha256(path.read_bytes()).hexdigest()})
+                        (output / "manifest.json").write_text(json.dumps(evidence, indent=2), encoding="utf-8")
+                    evidence["geometry"] = frame.locator("#mdrvPreviewFrame").evaluate("""el => {
+                        const image=el.querySelector("img"), overlay=el.querySelector(".mdrv-drive-overlay");
+                        const a=image.getBoundingClientRect(), b=overlay.getBoundingClientRect();
+                        return {natural:[image.naturalWidth,image.naturalHeight], image:[a.x,a.y,a.width,a.height], overlay:[b.x,b.y,b.width,b.height], fit:getComputedStyle(image).objectFit, preview_state:el.dataset.previewState};
+                    }""")
+                    capture_evidence("live-cockpit")
                     frame.locator("#mdrvArm").check()
                     frame.locator("#mdrvDragPad").focus()
                     page.keyboard.press("ArrowUp")
@@ -157,10 +197,20 @@ class FrameTest(unittest.TestCase):
                     self.assertLess(abs(runtime.status()["engine"]["motor"]["right_intended"]), .001)
                     self.assertEqual(len(settings_reads), quiet_start, "manual drive or STOP echoed a settings GET")
                     print(f"Settings synchronization: {startup_reads} startup/explicit browser GETs; zero quiet/save/drive/STOP GET echoes", flush=True)
+                    evidence["stopped_motor"] = {key: runtime.status()["engine"]["motor"][key] for key in ("left_intended","right_intended")}
+                    evidence["settings_get_echoes"] = len(settings_reads) - quiet_start
+                    capture_evidence("after-stop")
+                    frame.locator("#drivingCockpitToggle").click()
+                    expect(frame.locator("#drivingCockpitToggle")).to_have_attribute("aria-pressed", "false")
+                    page.locator("#wideWorkspaceToggle").click()
+                    expect(page.locator("#wideWorkspaceToggle")).to_have_attribute("aria-pressed", "false")
+                    expect(frame.locator("#manualDriveShell")).to_have_attribute("data-cockpit-continuity", "yes")
+                    self.assertEqual(runtime.status()["generation"], before_generation)
+                    self.assertFalse(runtime.status()["hardware_enabled"])
                     direct.close()
                     editor.close()
                     page.context.remove_listener("request", capture_settings_read)
-                    for button in page.locator(".viewport").all():
+                    for button in page.locator(".viewport[data-width]").all():
                         button.click()
                         expect(frame.locator("#manualDriveShell")).to_be_visible()
                     frame.locator("#manualDriveShell").evaluate("(el) => el.dataset.beforeRestart = 'yes'")

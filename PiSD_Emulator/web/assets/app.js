@@ -229,8 +229,16 @@ $("speedRange").addEventListener("input", async (event) => {
   $("speedValue").textContent = `${Number(event.target.value).toFixed(1)}×`;
   await api("/api/simulation/speed", { scale: Number(event.target.value) });
 });
-document.querySelectorAll(".viewport").forEach((button) => button.addEventListener("click", () => {
-  document.querySelectorAll(".viewport").forEach((item) => item.classList.remove("active"));
+$("wideWorkspaceToggle").addEventListener("click", () => {
+  const button = $("wideWorkspaceToggle");
+  const enabled = button.getAttribute("aria-pressed") !== "true";
+  button.setAttribute("aria-pressed", String(enabled));
+  button.textContent = enabled ? "Standard workspace" : "Wide workspace";
+  if (enabled) document.body.dataset.emulatorWorkspace = "wide";
+  else delete document.body.dataset.emulatorWorkspace;
+});
+document.querySelectorAll(".viewport[data-width]").forEach((button) => button.addEventListener("click", () => {
+  document.querySelectorAll(".viewport[data-width]").forEach((item) => item.classList.remove("active"));
   button.classList.add("active");
   const width = button.dataset.width;
   $("frameShell").style.width = width;

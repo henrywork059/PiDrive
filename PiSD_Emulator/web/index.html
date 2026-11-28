@@ -48,7 +48,7 @@
     </aside>
 
     <section class="center-column panel web-panel">
-      <div class="panel-heading web-heading"><div><span class="eyebrow">ACTUAL FRONTEND UNDER TEST</span><h2>PiSD Web Interface</h2></div><div class="viewport-controls"><button class="viewport active" data-width="100%">Desktop</button><button class="viewport" data-width="768px">Tablet</button><button class="viewport" data-width="390px">Mobile</button></div></div>
+      <div class="panel-heading web-heading"><div><span class="eyebrow">ACTUAL FRONTEND UNDER TEST</span><h2>PiSD Web Interface</h2></div><div class="viewport-controls"><button id="wideWorkspaceToggle" class="viewport" type="button" aria-pressed="false" aria-controls="frameShell" title="Widen the embedded workspace without changing runtime or viewport preset.">Wide workspace</button><button class="viewport active" data-width="100%">Desktop</button><button class="viewport" data-width="768px">Tablet</button><button class="viewport" data-width="390px">Mobile</button></div></div>
       <div class="web-frame-wrap"><div id="frameShell" class="frame-shell"><div id="frameEmpty" class="empty-state">Start PiSD, then load the real Manual Drive page here.</div><iframe id="pisdFrame" title="Live PiSD Manual Drive page" src="about:blank"></iframe></div></div>
       <div class="web-footer"><span>The embedded page is served by PiSD itself. Camera, controls, AI, and recording use the live PiSD backend.</span><a id="openManual" href="#" target="_blank" rel="noreferrer">Open Manual Drive ↗</a></div>
     </section>

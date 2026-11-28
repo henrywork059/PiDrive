@@ -117,6 +117,7 @@
       <article class="dock-panel" data-panel="viewer">
         <div class="panel-head" id="jump-viewer" tabindex="-1" data-drive-keys-ignore role="heading" aria-level="2" aria-label="Preview">
           <span>Preview</span>
+          <button id="cameraCockpitToggle" class="ghost-btn" type="button" data-drive-keys-ignore aria-pressed="false" aria-controls="frameOverlay" title="Align overlays to the contained image; does not change camera settings or motor output.">Camera cockpit</button>
           <span class="panel-mini">view</span>
         </div>
         <div class="panel-body viewer-body">
@@ -533,6 +534,7 @@
   <script src="{{ url_for('static', filename='layout_presets.js') }}?v={{ app_version }}"></script>
   <script src="{{ url_for('static', filename='operator_format.js') }}?v={{ app_version }}"></script>
   <script src="{{ url_for('static', filename='app.js') }}?v={{ app_version }}"></script>
+  <script src="{{ url_for('static', filename='camera_cockpit.js') }}?v={{ app_version }}"></script>
   <script src="{{ url_for('static', filename='preflight.js') }}?v={{ app_version }}"></script>
   <script src="{{ url_for('static', filename='recent_events.js') }}?v={{ app_version }}"></script>
 

@@ -4037,3 +4037,37 @@ html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="ligh
     padding-inline: 4px;
   }
 }
+
+/* VD1P: presentation-only camera content alignment. Keep saved dock geometry,
+   actual freshness labels, existing overlay state and E-stop untouched. */
+html body #workspace .viewer-frame[data-camera-cockpit="on"] #videoFeed {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  box-sizing: border-box !important;
+  border: 0 !important;
+  object-fit: contain !important;
+}
+html body #workspace .viewer-frame[data-camera-cockpit="on"] :is(#frameOverlay, #snapshotFlash) {
+  inset: auto !important;
+  left: var(--camera-cockpit-x, 0px) !important;
+  top: var(--camera-cockpit-y, 0px) !important;
+  width: var(--camera-cockpit-width, 0px) !important;
+  height: var(--camera-cockpit-height, 0px) !important;
+}
+.viewer-frame[data-camera-cockpit="on"][data-camera-geometry="waiting"] #frameOverlay { visibility: hidden; }
+@media (forced-colors: none) {
+  html body #workspace .viewer-frame[data-camera-cockpit="on"] :is(.overlay-block, .overlay-two-pill, .preview-meta) {
+    background: #14171c !important;
+    color: #edf1f7 !important;
+    backdrop-filter: none !important;
+  }
+  html body #workspace .viewer-frame[data-camera-cockpit="on"] :is(.overlay-block-label, .overlay-block-value) {
+    color: #edf1f7 !important;
+  }
+}
+#cameraCockpitToggle { min-width: 0; white-space: normal; }
+@media (max-width: 900px) {
+  #cameraCockpitToggle { min-height: 44px !important; min-block-size: 44px !important; }
+}

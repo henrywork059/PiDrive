@@ -26,3 +26,12 @@ jobs:
       - run: node --check PiSD_Emulator/web/assets/app.js
       - run: python PiSD_Emulator/scripts/test_emulator.py
       - run: python PiSD_Emulator/scripts/test_frame_browser.py
+        env:
+          PISD_EMULATOR_EVIDENCE_DIR: ${{ runner.temp }}/vd1p-emulator-cockpit
+          PISD_EMULATOR_EVIDENCE_REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vd1p-emulator-cockpit
+          path: ${{ runner.temp }}/vd1p-emulator-cockpit
+          if-no-files-found: warn

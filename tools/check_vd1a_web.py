@@ -365,6 +365,39 @@ def main():
                                       "selected_tab": inspect(page, f'#pageTabs [data-page="{tab}"]'),
                                       "stop": inspect(page, "#estopToggle")}
                             capture(tab, mode, width, checks)
+                    # Camera cockpit uses an isolated synthetic decoded frame, not a live claim.
+                    for width,height in ((1440,900),(768,1024),(390,844),(844,390)):
+                        page.set_viewport_size({"width":width,"height":height})
+                        page.locator('#pageTabs [data-page="camera"]').click()
+                        stop = page.locator("#estopToggle")
+                        stop.click(trial=True)
+                        toggle = page.locator("#cameraCockpitToggle")
+                        before = page.evaluate("() => JSON.stringify(Object.entries(localStorage).sort())")
+                        before_stop = stop.get_attribute("aria-pressed")
+                        toggle.click()
+                        expect(toggle).to_have_attribute("aria-pressed", "true")
+                        for scene, iw, ih, fill in (("bright",640,480,"#ffffff"),("dark",1280,720,"#05080b"),("complex",480,640,"#d3a04b")):
+                            page.locator("#videoFeed").evaluate("""async (image, [w,h,fill]) => {
+                                const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="100%" height="100%" fill="${fill}"/><path d="M0 ${h} L${w/2} ${h/4} L${w} ${h}" fill="none" stroke="#607080" stroke-width="12"/></svg>`;
+                                image.src="data:image/svg+xml,"+encodeURIComponent(svg);
+                                await image.decode();
+                                await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+                            }""", [iw,ih,fill])
+                            geometry = page.locator(".viewer-frame").evaluate("""el => {
+                                const image=el.querySelector("#videoFeed"), overlay=el.querySelector("#frameOverlay");
+                                const a=image.getBoundingClientRect(), b=overlay.getBoundingClientRect();
+                                const scale=Math.min(a.width/image.naturalWidth,a.height/image.naturalHeight);
+                                const w=image.naturalWidth*scale,h=image.naturalHeight*scale;
+                                return {expected:{x:a.x+(a.width-w)/2,y:a.y+(a.height-h)/2,width:w,height:h},actual:{x:b.x,y:b.y,width:b.width,height:b.height},fit:getComputedStyle(image).objectFit,health:el.querySelector("#previewHealth").textContent};
+                            }""")
+                            capture(f"camera-cockpit-{scene}-{height}",mode,width,{"geometry":geometry})
+                            assert geometry["fit"] == "contain", geometry
+                            assert max(abs(geometry["expected"][k]-geometry["actual"][k]) for k in geometry["expected"]) <= 2, geometry
+                        toggle.click()
+                        expect(toggle).to_have_attribute("aria-pressed","false")
+                        assert stop.get_attribute("aria-pressed") == before_stop
+                        assert page.evaluate("() => JSON.stringify(Object.entries(localStorage).sort())") == before
+                        assert page.locator(".viewer-frame").get_attribute("data-camera-cockpit") is None
                 assert page.evaluate("() => localStorage.getItem('PiServerStyleCustom:v0_3_5')") == legacy
             assert not errors, errors
             report["page_errors"] = errors
