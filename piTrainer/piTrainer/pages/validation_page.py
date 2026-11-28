@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from ..services.task_outputs import confirmed_receipt_paths
+
 from ..app_state import TrainConfig
 import pandas as pd
 
@@ -197,7 +199,8 @@ class ValidationPage(DockPage):
             )
             self.main_window.set_status_message('Validation complete.')
             self.refresh_from_state()
-            return (f"Validation completed: {result['rows_used']} rows", ())
+            return (f"Validation completed: {result['rows_used']} rows",
+                    confirmed_receipt_paths((receipt or {}).get("path")))
 
         def failed(error):
             self.log_panel.append_line(f'Validation failed: {error}')

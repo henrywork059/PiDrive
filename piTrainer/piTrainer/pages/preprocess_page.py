@@ -8,7 +8,7 @@ from ..app_state import AppState
 from ..panels.common.log_panel import LogPanel
 from ..panels.common.task_progress_panel import TaskProgressPanel
 from ..services.background_task import BackgroundTaskRunner
-from ..services.task_outputs import confirmed_dataset_paths
+from ..services.task_outputs import confirmed_dataset_paths, confirmed_receipt_paths
 from ..services.preprocess.applied_binding import AppliedPreprocessBinding
 from ..panels.preprocess.preprocess_actions_panel import PreprocessActionsPanel
 from ..panels.preprocess.preprocess_config_panel import PreprocessConfigPanel
@@ -344,6 +344,7 @@ class PreprocessPage(DockPage):
             self.state.preprocess_recipe = recipe
             self._preprocess_applied = True
             self.state.filtered_df = result_df
+            receipt = None
             try:
                 receipt = self._applied_binding.capture(
                     result_df, recipe, root=receipt_root, source_df=source_snapshot,
@@ -386,7 +387,8 @@ class PreprocessPage(DockPage):
             self.main_window.set_status_message(message)
             self.log_panel.append_line(message)
 
-            return (f"Preprocessing applied: {summary['rows_after']} active rows", ())
+            return (f"Preprocessing applied: {summary['rows_after']} active rows",
+                    confirmed_receipt_paths((receipt or {}).get("receipt_path")))
 
         self.task_runner.start(
             'Apply preprocessing', work, completed,

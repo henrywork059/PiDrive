@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from ..services.task_outputs import confirmed_receipt_paths
+
 from ..app_state import TrainConfig
 import pandas as pd
 
@@ -207,7 +209,8 @@ class ExportValidationPage(DockPage):
                 self.log_panel.append_line(f'  Note: {note}')
             self.main_window.set_status_message('TFLite check complete.')
             self.refresh_from_state()
-            return (f"TFLite check completed: {result['rows_used']} rows", ())
+            return (f"TFLite check completed: {result['rows_used']} rows",
+                    confirmed_receipt_paths((receipt or {}).get("path")))
 
         def failed(error):
             self.log_panel.append_line(f'TFLite check failed: {error}')

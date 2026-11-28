@@ -13,6 +13,16 @@ def _confirmed_file(path: Path) -> Path:
     return candidate
 
 
+def confirmed_receipt_paths(path) -> tuple[str, ...]:
+    """A missing optional receipt must not claim an output or invalidate a completed calculation."""
+    if not path:
+        return ()
+    try:
+        return (str(_confirmed_file(Path(path))),)
+    except (OSError, RuntimeError, TypeError, ValueError):
+        return ()
+
+
 def confirmed_model_paths(model_paths) -> tuple[str, ...]:
     """Only present models with both nonempty artifact and manifest files."""
     paths = tuple(model_paths)

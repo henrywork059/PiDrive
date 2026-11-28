@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import faulthandler
+import shutil
 import json
 import os
 from pathlib import Path
@@ -71,15 +73,65 @@ def main():
                 report["captures"].append({"file": path.name, "sha256": digest(path),
                                            "size": [pix.width(), pix.height()]})
                 write_report()
+            def pump(seconds):
+                deadline = time.monotonic() + seconds
+                while time.monotonic() < deadline:
+                    app.processEvents()
+                    # Explicitly release Python's GIL to TensorFlow and Qt
+                    # worker callbacks rather than repeatedly calling qWait.
+                    time.sleep(.02)
+                app.processEvents()
+
             def wait(page, label, timeout=150):
-                deadline = time.monotonic() + timeout
-                while page.has_active_task() and time.monotonic() < deadline:
-                    QTest.qWait(50)
-                QTest.qWait(100)
-                assert not page.has_active_task(), label + " timeout"
+                started = time.monotonic()
                 progress = page.task_progress
-                assert progress.step_label.text().startswith("Succeeded:"), (label, progress.step_label.text(), progress.result_label.text())
-                report[label+"_progress"] = progress.step_label.text()
+                trace = output / (label + "-thread-trace.txt")
+                transitions = []
+                last = None
+                with trace.open("w", encoding="utf-8") as diagnostic:
+                    faulthandler.dump_traceback_later(45, repeat=True, file=diagnostic)
+                    try:
+                        while page.has_active_task() and time.monotonic() - started < timeout:
+                            pump(.05)
+                            step = progress.step_label.text()
+                            if step != last:
+                                transitions.append({"elapsed_s": time.monotonic()-started, "step": step})
+                                last = step
+                                report[label+"_transitions"] = transitions
+                                write_report()
+                        pump(.1)
+                        report[label+"_elapsed_s"] = time.monotonic()-started
+                        report[label+"_progress"] = progress.step_label.text()
+                        log = page.log_panel.text.toPlainText()
+                        (output / (label+"-log.txt")).write_text(log, encoding="utf-8")
+                        write_report()
+                        if page.has_active_task():
+                            faulthandler.dump_traceback(file=diagnostic, all_threads=True)
+                            report["failure"] = label + " timeout; original 150-second gate retained"
+                            report["timeout_step"] = progress.step_label.text()
+                            write_report()
+                            if label == "training":
+                                page.stop_training()
+                            # Never destroy a live QThread. Allow normal safe
+                            # worker retirement, then exit only this isolated CI
+                            # process if it cannot finish. Not application logic.
+                            grace = time.monotonic()+10
+                            while page.has_active_task() and time.monotonic()<grace:
+                                pump(.05)
+                            report["worker_retired_after_timeout"] = not page.has_active_task()
+                            write_report()
+                            if page.has_active_task():
+                                diagnostic.flush()
+                                sys.stdout.flush()
+                                sys.stderr.flush()
+                                os._exit(1)
+                            raise AssertionError(label + " timeout")
+                        assert progress.step_label.text().startswith("Succeeded:"), (label, progress.step_label.text(), progress.result_label.text())
+                    finally:
+                        faulthandler.cancel_dump_traceback_later()
+                if trace.stat().st_size == 0:
+                    trace.unlink()
+
             root = Path(tmp) / "recordings"
             names = ["2026-11-24/manual_a", "2026-11-25/manual_b"]
             files = []
@@ -100,6 +152,10 @@ def main():
                 path.write_text("".join(json.dumps(row)+"\n" for row in rows), encoding="utf-8")
                 files.append(path)
             original = [digest(path) for path in files]
+            shutil.copytree(root, output / "fixture-recordings")
+            report["fixture_files"] = [{"file": str(p.relative_to(output)), "sha256": digest(p)}
+                                       for p in sorted((output / "fixture-recordings").rglob("*")) if p.is_file()]
+            write_report()
             data = window.data_page
             window.state.records_root = str(root)
             data.session_source_panel.path_edit.setText(str(root))
@@ -132,8 +188,21 @@ def main():
             cfg.reduce_lr.setChecked(False)
             window.tabs.setCurrentIndex(2)
             train.start_training()
-            wait(train, "training")
             state = window.state
+            partition_columns = ["session", "abs_image", "source_frame_id", "frame_id", "steering", "throttle", "aug_flip_lr"]
+            partitions = {}
+            for label, frame in (("train", state.train_df), ("validation", state.val_df)):
+                columns = [c for c in partition_columns if c in frame.columns]
+                partitions[label] = json.loads(frame[columns].to_json(orient="records", double_precision=15))
+            partition_path = output / "partitions.json"
+            partition_path.write_text(json.dumps(partitions, indent=2, allow_nan=False), encoding="utf-8")
+            report["partitions"] = {"file": partition_path.name, "sha256": digest(partition_path),
+                                    "train_rows": len(state.train_df), "validation_rows": len(state.val_df),
+                                    "session_disjoint": not bool(set(state.train_df.session)&set(state.val_df.session)),
+                                    "source_disjoint": not bool(set(state.train_df.abs_image)&set(state.val_df.abs_image))}
+            assert report["partitions"]["session_disjoint"] and report["partitions"]["source_disjoint"]
+            write_report()
+            wait(train, "training")
             assert state.model is not None and len(state.history["loss"]) == 2
             assert len(state.train_df) and len(state.val_df)
             assert not set(state.train_df.session) & set(state.val_df.session)
@@ -155,8 +224,11 @@ def main():
                 raw = {k:np.asarray(result[k]).tolist() for k in
                        ("steering_true","throttle_true","steering_pred","throttle_pred","combined_error")}
                 assert all(np.isfinite(v).all() for v in raw.values())
-                raw.update({k:result[k] for k in ("sessions","frame_ids","source_frame_ids","aug_flip_lr")})
-                raw.update({"receipt_sha256": digest(receipt["path"]), "rows_sha256": receipt["rows_sha256"],
+                raw.update({k:result[k] for k in ("sessions","frame_ids","source_frame_ids","abs_images","aug_flip_lr")})
+                receipt_path = Path(receipt["path"])
+                assert receipt_path.is_file()
+                raw.update({"receipt_file": str(receipt_path.relative_to(output)),
+                            "receipt_sha256": digest(receipt_path), "rows_sha256": receipt["rows_sha256"],
                             "run_id": run["run_id"], "rows_used": result["rows_used"],
                             "backend": result["prediction_backend"],
                             "metrics": {k:float(result[k]) for k in ("steering_mae","throttle_mae","steering_rmse","throttle_rmse")}})
@@ -203,12 +275,14 @@ def main():
             check.validate_export()
             lite = check_result(check, "tflite-validation", 5)
             assert keras["rows_sha256"] == lite["rows_sha256"]
-            for key in ("sessions","frame_ids","source_frame_ids","aug_flip_lr","steering_true","throttle_true"):
+            for key in ("sessions","frame_ids","source_frame_ids","abs_images","aug_flip_lr","steering_true","throttle_true"):
                 assert keras[key] == lite[key], key
             report["prediction_delta"] = {key: float(np.max(np.abs(np.asarray(keras[key])-np.asarray(lite[key]))))
                                           for key in ("steering_pred","throttle_pred")}
             assert [digest(p) for p in files] == original
             report["source_metadata_unchanged"] = True
+            report["model_files"] = [{"file": str(p.relative_to(output)), "sha256": digest(p), "bytes": p.stat().st_size}
+                                     for p in sorted((output / "models").rglob("*")) if p.is_file()]
             report["complete"] = True
             write_report()
             window.close()
