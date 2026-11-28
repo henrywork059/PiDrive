@@ -105,3 +105,15 @@ At /scenarios, select model inference, manual heartbeat API, or left/right virtu
 Open /environment from /scenarios. Save up to 32 named custom road profiles (40–240 m, 1–24 curvature segments in whole metres, signed curvature in 1/m, road width, explicit obstacles, centre/edge markings, day/dusk/night brightness). Profiles persist in workspace/config/emulator_environments.json, with explicit overwrite and corrupt-store preservation. Apply only while stopped; selected profile is session-local, retained across runtime restarts and physics-setting changes, and can be restored from saved list after closing the app. Replay is selected separately. Custom geometry is an open sampled centreline, not an arbitrary 3-D track editor. Environment metadata accompanies generated recordings. Original built-in track selection remains available.
 
 Open /diagnostics for real PiSD API route/method/status/handler time, physics FPS and vehicle speed graphs, optional visible-only one-second sampling and JSON download. In-memory rings: 400 requests, 180 samples; no body, query, credentials, header or arbitrary URL storage. Handler latency excludes stream transfer; denied requests may have null timings. Events export only timestamp/level to avoid free-text paths or errors; browser-console capture outside this new UI remains open. No extra settings requests. New browser test and export evidence pending exact CI.
+
+## E03 browser console observer (candidate)
+
+With the emulator control app already running, install optional Playwright and Chromium:
+
+```bash
+python -m pip install "playwright>=1.50,<2"
+python -m playwright install chromium
+python PiSD_Emulator/scripts/observe_browser.py --output browser-observation.json
+```
+
+Use the newly opened Chromium window for local emulator interactions. The observer records up to 400 severity/exception metadata events for the configured controller/PiSD ports; no raw text, stack traces, URLs, credentials or arguments. Capture is limited to this browser context, not existing browsers; if the PiSD port changes, launch a fresh observation. Exceptions have page-level attribution, not precise iframe attribution. Default observation is five minutes (adjust with --seconds); use STOP before closing the browser. The observer does not stop the runtime. Existing output files are never overwritten. Linux may require Playwright system dependencies. The new cross-platform live browser workflow is not yet qualified.
