@@ -730,17 +730,13 @@ def build_stylesheet(density: str = "comfortable") -> str:
     QAbstractScrollArea::corner {
         background: @COLOR_SCROLL_TRACK@;
     }
-    /* VD1F: flat Data workspace chrome. Keep semantic button, focus,
-       disclosure, table, splitter and input styling unchanged. */
-    QFrame#data_workflow_controls_panel,
-    QFrame#data_record_review_panel,
-    QFrame#data_image_preview_panel {
+    /* VD1H: extend the qualified Data chrome to all splitter workspaces.
+       Keep semantic buttons, focus, disclosures, tables and inputs. */
+    QFrame[role='splitterPanel'] {
         border: none;
         border-radius: 0px;
     }
-    QFrame#data_workflow_controls_panel QLabel#splitterPanelTitle,
-    QFrame#data_record_review_panel QLabel#splitterPanelTitle,
-    QFrame#data_image_preview_panel QLabel#splitterPanelTitle {
+    QFrame[role='splitterPanel'] QLabel#splitterPanelTitle {
         background: transparent;
         border: none;
         border-bottom: 1px solid @COLOR_BORDER_SUBTLE@;
@@ -748,12 +744,11 @@ def build_stylesheet(density: str = "comfortable") -> str:
         padding: 4px 6px;
         font-weight: 750;
     }
-    QFrame#data_workflow_controls_panel QTabWidget[role='workflowTabs']::pane,
-    QFrame#data_record_review_panel QTabWidget[role='workflowTabs']::pane {
+    QFrame[role='splitterPanel'] QTabWidget[role='workflowTabs']::pane {
         border: none;
         border-radius: 0px;
     }
-    QFrame#data_workflow_controls_panel QFrame#collapsibleSectionBody {
+    QFrame[role='splitterPanel'] QFrame#collapsibleSectionBody {
         border: none;
         border-radius: 0px;
     }

@@ -255,6 +255,76 @@ def main() -> None:
                         "sha256": hashlib.sha256(target.read_bytes()).hexdigest()}
                     if not geometry_met:
                         geometry_errors.append(manifest["native_screen_fit"])
+                # New navigation-only affordance: exercise each actual target
+                # after the historical capture matrix, without running any task.
+                if hasattr(window, "workflow_locate_button"):
+                    from piTrainer.ui.layout_widgets import CollapsibleSection
+                    from PySide6.QtWidgets import QTabWidget
+                    if sys.platform != "win32":
+                        window.resize(1024, 768)
+                    manifest["workspace_action_navigation"] = []
+                    targets = (
+                        window.data_page.session_source_panel.load_btn,
+                        window.preprocess_page.actions_panel.apply_btn,
+                        window.train_page.control_panel.start_btn,
+                        window.validation_page.actions_panel.run_button,
+                        window.export_page.actions_panel.export_btn,
+                        window.export_validation_page.actions_panel.run_button,
+                    )
+                    for stage, target_button in enumerate(targets):
+                        tabs.setCurrentIndex(stage)
+                        app.processEvents()
+                        parent = target_button.parentWidget()
+                        changed_tabs = []
+                        collapsed = []
+                        while parent is not None and parent is not tabs:
+                            if isinstance(parent, CollapsibleSection):
+                                parent.set_expanded(False)
+                                collapsed.append(parent)
+                            if isinstance(parent, QTabWidget) and parent.count() > 1:
+                                for j in range(parent.count()):
+                                    if parent.widget(j).isAncestorOf(target_button):
+                                        parent.setCurrentIndex((j + 1) % parent.count())
+                                        changed_tabs.append((parent, j))
+                                        break
+                            parent = parent.parentWidget()
+                        app.processEvents()
+                        triggered = []
+                        def observe_click(*_):
+                            triggered.append(True)
+                        target_button.clicked.connect(observe_click)
+                        try:
+                            enabled_before = target_button.isEnabled()
+                            QTest.mouseClick(window.workflow_locate_button, Qt.LeftButton)
+                            QTest.qWait(150)
+                            rect = QRect(target_button.mapTo(window, target_button.rect().topLeft()),
+                                         target_button.size())
+                            hit = window.childAt(rect.center())
+                            region_ok = QRegion(target_button.rect()).subtracted(
+                                target_button.visibleRegion()).isEmpty()
+                            data = {"stage": expected[stage], "action": target_button.text(),
+                                    "window": [window.width(), window.height()],
+                                    "rect": [rect.x(), rect.y(), rect.width(), rect.height()],
+                                    "fully_reachable": (target_button.isVisible()
+                                        and window.rect().contains(rect) and region_ok
+                                        and (hit is target_button or
+                                             (hit is not None and target_button.isAncestorOf(hit)))),
+                                    "tabs_restored": all(t.currentIndex() == j for t, j in changed_tabs),
+                                    "sections_exercised": len(collapsed),
+                                    "tabs_exercised": len(changed_tabs),
+                                    "action_not_triggered": not triggered,
+                                    "enabled_unchanged": target_button.isEnabled() == enabled_before,
+                                    "state_unchanged": window.state.filtered_df.empty and window.state.model is None}
+                            pixmap = window.grab()
+                            path = output / f"locate-stage-{stage + 1}.png"
+                            assert not pixmap.isNull() and pixmap.save(str(path), "PNG")
+                            data.update(file=path.name, sha256=hashlib.sha256(path.read_bytes()).hexdigest())
+                            manifest["workspace_action_navigation"].append(data)
+                            if not all(data[key] for key in ("fully_reachable", "tabs_restored",
+                                    "action_not_triggered", "enabled_unchanged", "state_unchanged")):
+                                geometry_errors.append(data)
+                        finally:
+                            target_button.clicked.disconnect(observe_click)
                 manifest["geometry_errors"] = geometry_errors
                 (output / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
                 assert not geometry_errors, geometry_errors

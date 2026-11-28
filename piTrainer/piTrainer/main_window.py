@@ -80,6 +80,12 @@ class MainWindow(QMainWindow):
         self._workflow_prerequisite_index = None
         self.workflow_prerequisite_button.clicked.connect(self._open_workflow_prerequisite)
         guidance.addWidget(self.workflow_prerequisite_button)
+        self.workflow_locate_button = QPushButton('Find action')
+        self.workflow_locate_button.setObjectName('workflowLocateAction')
+        self.workflow_locate_button.setProperty('role', 'secondary')
+        self.workflow_locate_button.setMaximumWidth(140)
+        self.workflow_locate_button.clicked.connect(self._locate_workflow_action)
+        guidance.addWidget(self.workflow_locate_button)
         layout.addLayout(guidance)
         layout.addWidget(self.tabs, 1)
         self.setCentralWidget(workspace)
@@ -239,6 +245,19 @@ class MainWindow(QMainWindow):
                 if button.text() != caption:
                     button.setText(caption)
             button.setVisible(target is not None)
+        if hasattr(self, 'workflow_locate_button'):
+            page = self.tabs.currentWidget()
+            label = getattr(page, 'workspace_action_label', '')
+            locate = self.workflow_locate_button
+            locate.setVisible(bool(label))
+            locate.setAccessibleName('Find ' + label)
+            locate.setToolTip('Locate ' + label + ' without running it.')
+
+    def _locate_workflow_action(self) -> None:
+        page = self.tabs.currentWidget()
+        locate = getattr(page, 'locate_primary_action', None)
+        if callable(locate):
+            locate()
 
     def _open_workflow_prerequisite(self) -> None:
         self.refresh_workflow_readiness()

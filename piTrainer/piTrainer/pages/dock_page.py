@@ -222,15 +222,22 @@ class DockPage(QMainWindow):
     ) -> None:
         """Set the page's central workspace without the old page banner.
 
-        The page-level top banner is intentionally disabled for now so each
-        workflow opens directly into the splitter workspace. The unused banner
-        arguments stay in the method signature for page compatibility and for a
-        future easy restore if the banner is wanted again.
+        Keep the page banner disabled. Expose the existing navigation-only
+        reveal callback through the shared workflow guidance row instead.
         """
-        _ = (step, title, summary, next_step, next_callback, next_tooltip)
+        _ = (step, title, summary)
+        self.workspace_action_label = next_step
+        self._workspace_next_callback = next_callback
+        self.workspace_action_tooltip = next_tooltip
         widget.setObjectName(f"{self.page_id}_workspace_widget")
         widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.setCentralWidget(widget)
+
+    def locate_primary_action(self) -> None:
+        """Reveal the existing primary control; never execute its action."""
+        callback = getattr(self, '_workspace_next_callback', None)
+        if callable(callback):
+            callback()
 
     def clear_docks(self) -> None:
         self._splitters = []
@@ -352,30 +359,38 @@ class DockPage(QMainWindow):
     def reveal_widget(self, widget: QWidget | None, *, message: str = '') -> None:
         """Bring a nested action widget into view without triggering it.
 
-        Used by the compact page banner: pressing the banner button opens the
-        correct workflow tab/section, scrolls to the real green action button,
-        and briefly highlights it so the user knows which control to click.
+        Used by the shared workflow guidance: open the correct tab/section,
+        scroll to the existing action, and briefly highlight it. Do not
+        override explicit hidden or disabled states.
         """
         if widget is None:
             return
         self._activate_tab_ancestors(widget)
         self._expand_section_ancestors(widget)
-        widget.show()
-        widget.setFocus(Qt.OtherFocusReason)
+        if not widget.isVisible():
+            return
+        if widget.isEnabled():
+            widget.setFocus(Qt.OtherFocusReason)
         self._ensure_widget_visible(widget)
         self._spotlight_widget(widget)
         if message and hasattr(self, 'main_window'):
             self.main_window.set_status_message(message)
 
     def _activate_tab_ancestors(self, widget: QWidget) -> None:
+        ancestors = []
         current = widget.parentWidget()
         while current is not None:
-            parent = current.parentWidget()
-            if isinstance(parent, QTabWidget):
-                index = parent.indexOf(current)
-                if index >= 0:
-                    parent.setCurrentIndex(index)
-            current = parent
+            if isinstance(current, QTabWidget):
+                ancestors.append(current)
+            current = current.parentWidget()
+        # QTabWidget inserts a QStackedWidget between itself and each page.
+        # Select the containing page, starting with the outermost tab widget.
+        for tabs in reversed(ancestors):
+            for index in range(tabs.count()):
+                page = tabs.widget(index)
+                if page is widget or page.isAncestorOf(widget):
+                    tabs.setCurrentIndex(index)
+                    break
 
     def _expand_section_ancestors(self, widget: QWidget) -> None:
         current = widget.parentWidget()
@@ -385,10 +400,13 @@ class DockPage(QMainWindow):
             current = current.parentWidget()
 
     def _ensure_widget_visible(self, widget: QWidget) -> None:
-        for scroll_area in self.findChildren(QScrollArea):
-            content = scroll_area.widget()
-            if content is not None and (content is widget or content.isAncestorOf(widget)):
-                scroll_area.ensureWidgetVisible(widget, 24, 24)
+        current = widget.parentWidget()
+        while current is not None:
+            if isinstance(current, QScrollArea):
+                content = current.widget()
+                if content is not None and (content is widget or content.isAncestorOf(widget)):
+                    current.ensureWidgetVisible(widget, 24, 24)
+            current = current.parentWidget()
 
     def _spotlight_widget(self, widget: QWidget) -> None:
         widget.setProperty('spotlight', True)
