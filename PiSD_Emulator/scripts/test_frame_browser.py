@@ -74,6 +74,36 @@ class FrameTest(unittest.TestCase):
                 try:
                     page = browser.new_context(viewport={"width": 1600, "height": 1000}).new_page()
                     page.goto(control)
+                    # Enabled primary styling belongs to the offline runtime state.
+                    # Use real outer viewport widths, without starting a session.
+                    offline_captures = []
+                    initial_viewport = page.viewport_size
+                    for mode, bg, accent in (("light","rgb(244, 246, 250)","rgb(49, 95, 209)"),
+                                             ("dark","rgb(20, 23, 28)","rgb(100, 149, 255)")):
+                        page.locator("#emulatorTheme").select_option(mode)
+                        expect(page.locator("#startButton")).to_be_enabled()
+                        expect(page.locator("#startButton")).to_have_css("background-color", accent)
+                        expect(page.locator("body")).to_have_css("background-color", bg)
+                        assert page.evaluate("""async () => {
+                            const faces = await Promise.all([
+                                document.fonts.load('13px "PiDrive Inter"'),
+                                document.fonts.load('13px "PiDrive Plex Mono"')
+                            ]);
+                            return faces.every(list => list.length > 0 && list.every(f => f.status === 'loaded'));
+                        }""")
+                        for width, height in ((390,844),(768,1024),(1440,900)):
+                            page.set_viewport_size({"width":width,"height":height})
+                            expect(page.locator("#startButton")).to_be_enabled()
+                            self.assertFalse(runtime.status()["hardware_enabled"])
+                            evidence_dir = os.environ.get("PISD_EMULATOR_EVIDENCE_DIR")
+                            if evidence_dir:
+                                output = Path(evidence_dir)
+                                output.mkdir(parents=True, exist_ok=True)
+                                path = output / f"workspace-offline-{mode}-{width}.png"
+                                page.screenshot(path=str(path), full_page=True)
+                                offline_captures.append({"file":path.name,"sha256":hashlib.sha256(path.read_bytes()).hexdigest(),
+                                                         "theme":mode,"viewport":[width,height],"runtime":"offline"})
+                    page.set_viewport_size(initial_viewport)
                     page.locator("#pisdPort").fill(str(pisd_port))
                     page.locator("#startButton").click()
                     frame = page.frame_locator("#pisdFrame")
@@ -167,7 +197,7 @@ class FrameTest(unittest.TestCase):
                         }""")
                     eventually(live_alignment)
                     evidence_dir = os.environ.get("PISD_EMULATOR_EVIDENCE_DIR")
-                    evidence = {"revision": os.environ.get("PISD_EMULATOR_EVIDENCE_REVISION"), "hardware_enabled": runtime.status()["hardware_enabled"], "generation": before_generation, "iframe_width_before": before_width, "iframe_width_wide": page.locator("#pisdFrame").bounding_box()["width"], "authorization_before": before_arm, "authorization_after_toggle": frame.locator("#mdrvArm").is_checked(), "live_alignment": live_alignment(), "captures": []}
+                    evidence = {"revision": os.environ.get("PISD_EMULATOR_EVIDENCE_REVISION"), "hardware_enabled": runtime.status()["hardware_enabled"], "generation": before_generation, "iframe_width_before": before_width, "iframe_width_wide": page.locator("#pisdFrame").bounding_box()["width"], "authorization_before": before_arm, "authorization_after_toggle": frame.locator("#mdrvArm").is_checked(), "live_alignment": live_alignment(), "captures": offline_captures}
                     def capture_evidence(name):
                         if not evidence_dir:
                             return
@@ -228,7 +258,13 @@ class FrameTest(unittest.TestCase):
                                              ("dark","rgb(20, 23, 28)","rgb(100, 149, 255)")):
                         page.locator("#emulatorTheme").select_option(mode)
                         expect(page.locator("body")).to_have_css("background-color", bg)
-                        expect(page.locator("#startButton")).to_have_css("background-color", accent)
+                        # Start must remain disabled while PiSD is running.
+                        expect(page.locator("#startButton")).to_be_disabled()
+                        expect(page.locator("#startButton")).to_have_css("background-color",
+                            "rgb(255, 255, 255)" if mode == "light" else "rgb(25, 29, 36)")
+                        expect(page.locator("#startButton")).to_have_css("color",
+                            "rgb(86, 97, 113)" if mode == "light" else "rgb(165, 175, 191)")
+                        expect(page.locator("#startButton")).to_have_css("opacity", "1")
                         assert page.evaluate("""async () => {
                             const faces = await Promise.all([
                                 document.fonts.load('13px "PiDrive Inter"'),

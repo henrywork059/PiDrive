@@ -351,6 +351,8 @@ def main():
                             expect(page.locator("body")).to_have_attribute("data-pisd-theme", mode)
                             expect(page.locator("body")).to_have_css("background-color", expected)
                             checks = {"body": inspect(page, "body")}
+                            if name == "motor_tuning":
+                                checks["rebuild_explanation"] = inspect(page, ".mtun-empty-state li")
                             if name == "manual":
                                 expect(page.get_by_role("group", name="Live runtime signals and intended motor output")).to_be_visible()
                                 expect(page.locator("#mdrvMotorOut")).to_have_css("white-space", "normal")

@@ -1548,3 +1548,12 @@ body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) :is(#mdrvCameraFps,#
     width:16px;height:16px;flex-basis:16px;
   }
 }
+
+/* VD1AE: actual light-theme motor-tuning screenshot showed the legacy
+   pale lavender explanation list on white. Use the curated semantic
+   foreground; leave legacy/custom appearance and workflow unchanged. */
+@media (forced-colors: none) {
+  body.motor-tuning-page:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .mtun-empty-state ul {
+    color: var(--vd-text) !important;
+  }
+}
