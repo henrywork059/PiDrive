@@ -11,6 +11,11 @@ COMPONENTS = {"PiSD": "PiSD.py", "PiServer": "server.py", "piTrainer": "main.py"
 BASE = "7f8fcf5a5cec1a246e970a679d00cb9a3b0d169c"
 EXTENSIONS = {".py", ".md", ".css", ".js", ".html", ".txt", ".cjs", ".service", ".ps1", ".spec", ".svg", ".sh", ".bat", ".json"}
 CONFIG = {"PiSD/config/defaults.json", "piTrainer/config/version_gate.json"}
+# These exact reviewed tracked files are synthetic test input / documentation, not user data.
+REVIEWED_FIXTURES = {
+    "PiSD/scripts/fixtures/steering_replay.jsonl": "311f9cf1a97f6319cc12e770097c5eace3c3adf9",
+    "PiSD/test_outputs/README.md": "eaaba9a019b0889dcc0f7c5164dabc67f41bcc04",
+}
 EXCLUDED_PARTS = {"__pycache__", "test_outputs", "models", "recordings", "datasets", "dist", "dist_exe", "build", "build_exe", "exports", "logs", ".venv", "cache"}
 SECRET = re.compile(rb"-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----|gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}|AKIA[0-9A-Z]{16}")
 
@@ -34,7 +39,10 @@ def inventory(revision, component):
         if mode not in ("100644", "100755") or kind != "blob":
             raise ValueError("Unsupported Git entry: " + path)
         reason = None
-        if any(x.lower() in EXCLUDED_PARTS for x in p.parts[1:]) or p.suffix in {".pyc", ".jsonl"}:
+        if path in REVIEWED_FIXTURES:
+            if oid != REVIEWED_FIXTURES[path]:
+                raise ValueError("Reviewed fixture changed; re-review before packaging: " + path)
+        elif any(x.lower() in EXCLUDED_PARTS for x in p.parts[1:]) or p.suffix in {".pyc", ".jsonl"}:
             reason = "generated/cache/data"
         elif "config" in p.parts and p.suffix == ".json" and path not in CONFIG:
             reason = "local runtime configuration"
@@ -49,6 +57,9 @@ def inventory(revision, component):
         included[path] = (data, mode, oid)
     if component + "/" + COMPONENTS[component] not in included:
         raise ValueError("Missing canonical launcher")
+    for path in REVIEWED_FIXTURES:
+        if path.startswith(component + "/") and path not in included:
+            raise ValueError("Missing reviewed test fixture: " + path)
     return included, excluded
 
 def build(output, revision):
