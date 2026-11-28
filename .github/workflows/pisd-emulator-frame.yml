@@ -16,6 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
@@ -25,6 +26,19 @@ jobs:
       - run: python -m compileall -q PiSD/pisd PiSD_Emulator
       - run: node --check PiSD_Emulator/web/assets/app.js
       - run: python PiSD_Emulator/scripts/test_emulator.py
+      - name: Verify isolated emulator source-package launcher and served assets
+        if: ${{ github.event_name == 'pull_request' && github.head_ref == 'update/visual-design-1b-controls' }}
+        env:
+          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          # Temporary source staging only, never a published package or user workspace.
+          stage="$(mktemp -d "$RUNNER_TEMP/emulator-source.XXXXXX")"
+          trap 'rm -rf "$stage"' EXIT
+          git archive --format=tar "$CANDIDATE_SHA" PiSD PiSD_Emulator | tar -xf - -C "$stage"
+          cd "$stage"
+          python PiSD_Emulator/run_emulator.py --help
+          python PiSD_Emulator/scripts/test_emulator.py
       - run: python PiSD_Emulator/scripts/test_frame_browser.py
         env:
           PISD_EMULATOR_EVIDENCE_DIR: ${{ runner.temp }}/vd1p-emulator-cockpit

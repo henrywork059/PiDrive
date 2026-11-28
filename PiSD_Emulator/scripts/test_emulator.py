@@ -23,6 +23,7 @@ from pisd.services.recording_service import RecordingService
 from pisd_emulator.engine import TrackPath, VehicleEngine
 from pisd_emulator.renderer import RoadRenderer
 from pisd_emulator.runtime import PiSDRuntime
+from pisd_emulator.control_app import create_control_app
 
 
 class EmulatorEngineTests(unittest.TestCase):
@@ -150,6 +151,81 @@ class PiSDAdapterTests(unittest.TestCase):
             self.assertEqual(status["version"], runtime.pisd_version)
             self.assertTrue(status["version"])
             runtime.close()
+
+
+    def test_emulator_settings_roundtrip_and_unknown_key_preservation(self) -> None:
+        # Independent temporary workspace; never touch a user's configuration.
+        with tempfile.TemporaryDirectory() as temp:
+            workspace = Path(temp) / "saved"
+            config = workspace / "config" / "emulator_settings.json"
+            config.parent.mkdir(parents=True)
+            original = {"max_speed_mps": 0.72, "future_setting": {"keep": True}}
+            config.write_text(json.dumps(original), encoding="utf-8")
+            runtime = PiSDRuntime(REPOSITORY_ROOT, workspace=workspace)
+            other = PiSDRuntime(REPOSITORY_ROOT, workspace=Path(temp) / "other")
+            try:
+                client = create_control_app(runtime).test_client()
+                origin = f"http://127.0.0.1:{runtime.control_port}"
+                response = client.post("/api/simulation/settings", base_url=origin,
+                                       json={"max_speed_mps": 0.8, "hardware_enabled": True})
+                self.assertEqual(response.status_code, 200)
+                data = response.get_json()
+                self.assertFalse(data["hardware_enabled"])
+                self.assertFalse(data["gpio_access"])
+                self.assertFalse(data["running"])
+                self.assertEqual(data["generation"], 0)
+                self.assertAlmostEqual(data["engine"]["physics"]["config"]["max_speed_mps"], 0.8)
+                saved = json.loads(config.read_text(encoding="utf-8"))
+                self.assertEqual(saved, {"max_speed_mps": 0.8, "future_setting": {"keep": True}})
+                self.assertFalse(config.with_suffix(".tmp").exists())
+                self.assertAlmostEqual(other.status()["engine"]["physics"]["config"]["max_speed_mps"], 0.72)
+                self.assertFalse((other.workspace / "config" / "emulator_settings.json").exists())
+                # A foreign origin must not modify the already persisted value.
+                before = config.read_bytes()
+                denied = client.post("/api/simulation/settings", base_url=origin,
+                                     headers={"Origin": "http://127.0.0.1:9999"},
+                                     json={"max_speed_mps": 0.9})
+                self.assertEqual(denied.status_code, 403)
+                self.assertEqual(config.read_bytes(), before)
+            finally:
+                runtime.close()
+                other.close()
+            recreated = PiSDRuntime(REPOSITORY_ROOT, workspace=workspace)
+            try:
+                self.assertAlmostEqual(recreated.status()["engine"]["physics"]["config"]["max_speed_mps"], 0.8)
+                self.assertFalse(recreated.status()["hardware_enabled"])
+                self.assertFalse(recreated.status()["running"])
+                self.assertEqual(json.loads(config.read_text(encoding="utf-8")), saved)
+            finally:
+                recreated.close()
+
+    def test_bundled_workspace_assets_are_served_without_hardware(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            runtime = PiSDRuntime(REPOSITORY_ROOT, workspace=temp)
+            try:
+                origin = f"http://127.0.0.1:{runtime.control_port}"
+                client = create_control_app(runtime).test_client()
+                index = client.get("/", base_url=origin)
+                self.assertEqual(index.status_code, 200)
+                self.assertIn(b"id=\"emulatorTheme\"", index.data)
+                index.close()
+                for name in ("app.css", "app.js", "fonts/InterVariable.woff2",
+                             "fonts/IBMPlexMono-Regular.woff2", "fonts/Inter-LICENSE.txt",
+                             "fonts/IBMPlexMono-LICENSE.txt"):
+                    source = COMPONENT_ROOT / "web" / "assets" / name
+                    response = client.get("/assets/" + name, base_url=origin)
+                    try:
+                        self.assertEqual(response.status_code, 200, name)
+                        self.assertEqual(response.data, source.read_bytes(), name)
+                        if name.startswith("fonts/"):
+                            original = PISD_ROOT / "pisd" / "web" / "static" / name
+                            self.assertEqual(response.data, original.read_bytes(), name)
+                    finally:
+                        response.close()
+                self.assertFalse(runtime.status()["hardware_enabled"])
+                self.assertFalse(runtime.status()["running"])
+            finally:
+                runtime.close()
 
 
 if __name__ == "__main__":
