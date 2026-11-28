@@ -30,3 +30,7 @@ Status meanings: **Implemented, unverified** means code and a local unit/service
 - `python PiSD_Emulator/scripts/test_emulator.py` — 13 tests passed.
 - `python PiSD/PiSD.py --status-only` — expected to remain available without Flask; run after applying the patch.
 - Flask and browser dependencies were not present here, so live app/API/UI and screenshot acceptance remains open.
+
+## E04/E05 candidate reconciliation — 2026-11-28
+
+Requirements 1–5, 9, 12–14 have subsequent scoped Linux browser evidence from #96/#102/#104 (including origin rejection, virtual drive/STOP, multi-context settings and restart). Do not infer physical or Windows live browser acceptance. Requirements 6, 10 and 11 have a new real-model/recording/camera-fault integration test candidate; replay from recording labels and image folders is implemented, open-loop. Exact CI pending; no complete milestone claim. Existing acceptance requirements unchanged.

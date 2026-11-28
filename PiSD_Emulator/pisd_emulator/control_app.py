@@ -43,6 +43,30 @@ def create_control_app(runtime: PiSDRuntime) -> Flask:
     def assets(filename: str):
         return send_from_directory(WEB_DIR / "assets", filename)
 
+    @app.get("/scenarios")
+    def scenarios():
+        return send_from_directory(WEB_DIR, "scenarios.html")
+
+    @app.post("/api/scenarios/replay")
+    def replay():
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict) or "source" not in data:
+            return jsonify(ok=False, error="Supply source (null for generated camera)."), 400
+        try:
+            return jsonify(runtime.configure_replay(data["source"], data.get("loop", False)))
+        except (ValueError, TypeError, OSError) as exc:
+            return jsonify(ok=False, error=str(exc)), 400
+
+    @app.post("/api/scenarios/camera-fault")
+    def camera_fault():
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict) or type(data.get("active")) is not bool:
+            return jsonify(ok=False, error="Supply boolean active."), 400
+        try:
+            return jsonify(runtime.set_camera_fault(data["active"]))
+        except ValueError as exc:
+            return jsonify(ok=False, error=str(exc)), 400
+
     @app.get("/api/status")
     def status():
         return jsonify(runtime.status())

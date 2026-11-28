@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PiSD Emulator scenarios</title><link rel="stylesheet" href="/assets/app.css"></head>
+<body><main style="max-width:760px;margin:24px auto;padding:16px">
+<p><a href="/">Return to emulator workspace</a></p><h1>Camera scenarios</h1>
+<section class="panel" style="padding:16px;margin:16px 0">
+<h2>Camera input</h2><p>Stop PiSD before choosing a source. Replay is open-loop: vehicle motion cannot change recorded images.</p>
+<label for="source">Workspace-relative folder</label><input id="source" placeholder="recordings/date/session or replay/images" maxlength="512">
+<label><input type="checkbox" id="loop"> Explicitly loop replay</label>
+<div class="button-row"><button id="replay" class="button">Select replay</button><button id="generated" class="button">Generated road</button></div>
+</section><section class="panel" style="padding:16px;margin:16px 0"><h2>Camera capture fault</h2><p>Inject a capture failure while PiSD is running. Removing the fault does not rearm AI.</p>
+<div class="button-row"><button id="fault" class="button danger">Inject camera fault</button><button id="clear" class="button">Remove fault</button></div></section>
+<p id="feedback" role="status" aria-live="polite"></p><button id="refresh" class="button">Refresh status</button><pre id="status" style="white-space:pre-wrap"></pre></main>
+<script src="/assets/scenarios.js" defer></script></body></html>

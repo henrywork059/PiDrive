@@ -81,3 +81,9 @@ Complete E02/E03 live verification: start the runtime with dependencies installe
 
 
 The unified 1.0.0 candidate follows the PiSD runtime version; the emulator has no independent release number. Existing 0.11.48 frame-policy repair remains in force. Qualification pending.
+
+## E04/E05 — replay and camera-fault candidate
+
+Open `http://127.0.0.1:8760/scenarios` (use the configured control port). Stop PiSD before selecting an existing workspace-relative `recordings/<date>/<session>` or `replay/<folder>`. Recording labels determine frame order; standalone JPG/PNG sequences use lexical filename order. The camera runs at its configured capture rate, not original recording timestamps. Looping is opt-in; exhaustion deliberately stops fresh capture. Replay is open-loop and does not respond to vehicle movement. No recorded motor commands are played back. Replay-derived recordings are identified in metadata. Copy input images into the isolated workspace; no arbitrary host path or video import yet.
+
+While PiSD runs, inject a camera capture fault from the scenarios page; clearing it only restores the provider, not AI rearm. Stop the runtime to clear the injected fault. Existing local origin and hardware restrictions remain. Run `python PiSD_Emulator/scripts/test_scenarios.py` with TensorFlow CPU installed for real Keras model/recording/replay/fault checks. The fixture is deterministic and not an accuracy benchmark. Candidate CI pending; actual AI browser journey and piTrainer import remain separate.

@@ -77,3 +77,7 @@ Milestones are functional checkpoints. This component does not increment a versi
 ## Next work item
 
 Run the live Flask app on a machine with PiSD requirements installed, test Manual Drive → MotorService → virtual vehicle → CameraService → actual PiSD preview, and record screenshots plus safe STOP evidence. Then implement Playwright browser coverage.
+
+## 2026-11-28 — E04/E05 functional candidate
+
+Main 7f8fcf5 includes #96 iframe restrictions, #102 storage feedback correction, and #104 stability fixes. Linux real browser manual-drive/STOP, settings quiet window and lifecycle already exercised; do not repeat those as unimplemented. This separate branch avoids overlapping #105 workspace presentation files. Added workspace-only recording/image replay and capture-failure injection at the real camera provider, scenario control page and real Keras service-level acceptance candidate. No boxes above are upgraded to complete until exact CI results and artifact/behavior review. Video replay, real AI page interactions, piTrainer import, other fault types, Windows live browser and broader release qualification remain open.
