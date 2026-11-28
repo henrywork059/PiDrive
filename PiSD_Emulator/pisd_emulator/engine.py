@@ -219,6 +219,15 @@ class VehicleEngine:
             self._command_queue.clear()
             self._reset_pose_locked()
 
+    def disconnect_motor_outputs(self) -> None:
+        """Fail closed at the simulated actuator, including delayed commands."""
+        with self._lock:
+            self._target_left = self._target_right = 0.0
+            self._hardware_left = self._hardware_right = 0.0
+            self._delayed_left = self._delayed_right = 0.0
+            self._command_queue.clear()
+            self._last_command = {"mode": "virtual_motor_disconnected"}
+
     def reset(self) -> None:
         with self._lock:
             self._target_left = self._target_right = 0.0

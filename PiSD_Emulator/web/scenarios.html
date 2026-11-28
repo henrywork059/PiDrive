@@ -4,10 +4,11 @@
 <p><a href="/">Return to emulator workspace</a></p><h1>Camera scenarios</h1>
 <section class="panel" style="padding:16px;margin:16px 0">
 <h2>Camera input</h2><p>Stop PiSD before choosing a source. Replay is open-loop: vehicle motion cannot change recorded images.</p>
-<label for="source">Workspace-relative folder</label><input id="source" placeholder="recordings/date/session or replay/images" maxlength="512">
+<label for="source">Workspace-relative folder or video</label><input id="source" placeholder="recordings/date/session or replay/drive.mp4" maxlength="512">
 <label><input type="checkbox" id="loop"> Explicitly loop replay</label>
 <div class="button-row"><button id="replay" class="button">Select replay</button><button id="generated" class="button">Generated road</button></div>
 </section><section class="panel" style="padding:16px;margin:16px 0"><h2>Camera capture fault</h2><p>Inject a capture failure while PiSD is running. Removing the fault does not rearm AI.</p>
 <div class="button-row"><button id="fault" class="button danger">Inject camera fault</button><button id="clear" class="button">Remove fault</button></div></section>
+<section class="panel" style="padding:16px;margin:16px 0"><h2>Virtual motor disconnect</h2><p>Reject nonzero virtual output and clear delayed motor commands. Stop PiSD to recover. PiSD commanded values may differ from applied virtual output.</p><button id="motorDisconnect" class="button danger">Disconnect virtual motor</button></section>
 <p id="feedback" role="status" aria-live="polite"></p><button id="refresh" class="button">Refresh status</button><pre id="status" style="white-space:pre-wrap"></pre></main>
 <script src="/assets/scenarios.js" defer></script></body></html>

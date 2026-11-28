@@ -13,7 +13,7 @@ from typing import Any
 
 from .engine import TRACKS, VehicleEngine
 from .renderer import RoadRenderer
-from .replay import ImageReplay
+from .replay import ImageReplay, VideoReplay, open_replay
 
 
 def default_workspace() -> Path:
@@ -43,7 +43,9 @@ class PiSDRuntime:
         self._lock = threading.RLock()
         self._state_lock = threading.RLock()
         self._camera_input_lock = threading.RLock()
-        self._replay: ImageReplay | None = None
+        self._replay: ImageReplay | VideoReplay | None = None
+        self._motor_fault_lock = threading.RLock()
+        self._motor_disconnected = False
         self._camera_fault = False
         self._server: Any | None = None
         self._server_thread: threading.Thread | None = None
@@ -122,6 +124,7 @@ class PiSDRuntime:
                             "kind": "synthetic_simulation", "generated_by": "PiSD_Emulator",
                             "physical_camera": False, "camera_input": "replay",
                             "replay_source": self._replay.source,
+                            "replay_media": self._replay.status().get("media", "images"),
                         }
                 try:
                     from werkzeug.serving import make_server
@@ -195,6 +198,10 @@ class PiSDRuntime:
         self.engine.stop()
         with self._camera_input_lock:
             self._camera_fault = False
+            if isinstance(self._replay, VideoReplay):
+                self._replay.close()
+        with self._motor_fault_lock:
+            self._motor_disconnected = False
         with self._state_lock:
             self._server = None
             self._server_thread = None
@@ -263,7 +270,7 @@ class PiSDRuntime:
         with self._lock:
             if self._running:
                 raise ValueError("Stop PiSD before changing the camera source.")
-            candidate = None if source is None else ImageReplay(self.workspace, source, loop)
+            candidate = None if source is None else open_replay(self.workspace, source, loop)
             with self._camera_input_lock:
                 self._replay = candidate
             self._record_event("ok", "Replay configured." if candidate else "Generated road camera selected.")
@@ -299,8 +306,33 @@ class PiSDRuntime:
                 return self._replay.render(camera_settings)
         return self.renderer.render(self.engine, camera_settings)
 
+    def inject_motor_disconnect(self) -> dict[str, Any]:
+        # This fault is sticky for the runtime generation. Removing it while AI
+        # or manual intent survives could replay an earlier nonzero command.
+        with self._lock:
+            if not self._running:
+                raise ValueError("Start PiSD before injecting a motor disconnect.")
+            with self._motor_fault_lock:
+                self._motor_disconnected = True
+                self.engine.disconnect_motor_outputs()
+            self._record_event("warning", "Virtual motor disconnected; stop the runtime to recover.")
+            return self.status()
+
+    def motor_fault_status(self) -> bool:
+        with self._motor_fault_lock:
+            return self._motor_disconnected
+
     def set_motor_outputs(self, payload: dict[str, Any]) -> None:
-        self.engine.set_motor_outputs(payload)
+        with self._motor_fault_lock:
+            if self._motor_disconnected:
+                self.engine.disconnect_motor_outputs()
+                keys = ("left_intended", "right_intended", "left_hardware", "right_hardware")
+                if any(abs(float(payload.get(key, 0))) > 1e-6 for key in keys):
+                    # Existing MotorService records the adapter failure; its
+                    # requested values are not proof of applied virtual output.
+                    raise RuntimeError("Injected virtual motor disconnect.")
+                return
+            self.engine.set_motor_outputs(payload)
 
     def status(self) -> dict[str, Any]:
         with self._state_lock:
@@ -326,6 +358,7 @@ class PiSDRuntime:
             "tracks": [{"id": key, "name": name} for key, name in TRACKS.items()],
             "engine": self.engine.snapshot(),
             "camera_input": self.camera_input_status(),
+            "motor_disconnected": self.motor_fault_status(),
             "events": events,
         }
 

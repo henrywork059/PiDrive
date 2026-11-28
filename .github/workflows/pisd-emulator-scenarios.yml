@@ -21,8 +21,16 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: python -m pip install -r PiSD/requirements.txt "tensorflow-cpu==2.16.1"
+      - run: python -m pip install -r PiSD/requirements.txt "tensorflow-cpu==2.16.1" "pandas>=2.2,<3" "playwright>=1.50,<2"
+      - run: python -m playwright install --with-deps chromium
       - run: python -m compileall -q PiSD/pisd PiSD_Emulator
       - run: node --check PiSD_Emulator/web/assets/scenarios.js
       - run: python PiSD_Emulator/scripts/test_emulator.py
       - run: python PiSD_Emulator/scripts/test_scenarios.py
+      - run: python PiSD_Emulator/scripts/test_ai_browser_scenarios.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: emulator-ai-scenarios
+          path: emulator-scenario-evidence/
+          if-no-files-found: warn

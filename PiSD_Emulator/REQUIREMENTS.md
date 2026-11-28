@@ -34,3 +34,7 @@ Status meanings: **Implemented, unverified** means code and a local unit/service
 ## E04/E05 candidate reconciliation — 2026-11-28
 
 Requirements 1–5, 9, 12–14 have subsequent scoped Linux browser evidence from #96/#102/#104 (including origin rejection, virtual drive/STOP, multi-context settings and restart). Do not infer physical or Windows live browser acceptance. Requirements 6, 10 and 11 have a new real-model/recording/camera-fault integration test candidate; replay from recording labels and image folders is implemented, open-loop. Exact CI pending; no complete milestone claim. Existing acceptance requirements unchanged.
+
+### E04/E05 second checkpoint
+
+Requirement 6 (real Keras service loop), 10 (recording labels and ZIP), 11 (camera capture fault/latch/rearm) passed scoped Linux software gate at a0ab6514. Actual AI page and trainer import, video and motor disconnect are implemented or test-covered in the new candidate pending exact CI. No full E04/E05 acceptance yet.

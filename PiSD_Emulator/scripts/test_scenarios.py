@@ -19,7 +19,7 @@ sys.path[:0] = [str(ROOT / "PiSD"), str(ROOT / "PiSD_Emulator")]
 from PIL import Image
 from pisd_emulator.runtime import PiSDRuntime
 from pisd_emulator.control_app import create_control_app
-from pisd_emulator.replay import ImageReplay
+from pisd_emulator.replay import ImageReplay, VideoReplay, open_replay
 
 def free_port():
     with socket.socket() as sock:
@@ -64,6 +64,82 @@ class ScenarioTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 ImageReplay(root, "replay/frames")
 
+    def test_video_sequence_and_motor_disconnect(self):
+        import cv2
+        import numpy as np
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            folder = root / "replay"
+            folder.mkdir()
+            path = folder / "clip.avi"
+            writer = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*"MJPG"), 10, (80, 60))
+            self.assertTrue(writer.isOpened())
+            try:
+                for color in ((230, 10, 10), (10, 230, 10), (10, 10, 230)):
+                    frame = np.zeros((60, 80, 3), np.uint8)
+                    frame[:] = color
+                    writer.write(frame)
+            finally:
+                writer.release()
+            settings = SimpleNamespace(width=80,height=60,brightness=0,contrast=1,saturation=1,hflip=False,vflip=False)
+            replay = open_replay(root, "replay/clip.avi", False)
+            self.assertIsInstance(replay, VideoReplay)
+            try:
+                self.assertEqual(replay.status()["frame_count"], 3)
+                for i in range(3):
+                    self.assertEqual(int(np.argmax(replay.render(settings)[30,40])), i)
+                with self.assertRaisesRegex(RuntimeError, "exhausted"):
+                    replay.render(settings)
+                self.assertIsNone(replay.capture)
+                replay.reset()
+                self.assertEqual(int(np.argmax(replay.render(settings)[30,40])), 0)
+            finally:
+                replay.close()
+            loop = open_replay(root, "replay/clip.avi", True)
+            try:
+                self.assertEqual([int(np.argmax(loop.render(settings)[30,40])) for _ in range(4)], [0,1,2,0])
+            finally:
+                loop.close()
+            for invalid in (str(path), "replay/../clip.avi", "recordings/clip.avi"):
+                with self.assertRaises(ValueError):
+                    open_replay(root, invalid)
+            port, control_port = free_port(), free_port()
+            while port == control_port:
+                control_port = free_port()
+            runtime = PiSDRuntime(ROOT, workspace=root, port=port, control_port=control_port)
+            controller = create_control_app(runtime).test_client()
+            origin = f"http://127.0.0.1:{control_port}"
+            def post(url, data, **kw):
+                return controller.post(url, base_url=origin, json=data, **kw)
+            try:
+                self.assertEqual(post("/api/scenarios/replay", {"source":"replay/clip.avi","loop":True}).status_code, 200)
+                runtime.start()
+                wait(lambda: runtime.camera_input_status()["delivered"] >= 4)
+                services = runtime._app.config["pisd_services"]
+                self.assertEqual(services["recording"].source_metadata["replay_media"], "video")
+                motor = services["motor"]
+                motor.update(steering=0, throttle=.5)
+                wait(lambda: not zero(runtime))
+                self.assertEqual(post("/api/scenarios/motor-disconnect", {"confirm":False}).status_code, 400)
+                self.assertEqual(post("/api/scenarios/motor-disconnect", {"confirm":True}, headers={"Origin":"http://evil.test"}).status_code, 403)
+                self.assertEqual(post("/api/scenarios/motor-disconnect", {"confirm":True}).status_code, 200)
+                self.assertTrue(zero(runtime))
+                for _ in range(3):
+                    motor.update(steering=0, throttle=.5)
+                    self.assertTrue(zero(runtime))
+                self.assertIn("Injected virtual motor disconnect", motor.status()["last_error"])
+                wait(lambda: abs(runtime.engine.snapshot()["vehicle"]["speed_mps"]) < .01)
+                motor.stop()
+                self.assertTrue(runtime.status()["motor_disconnected"])
+                runtime.stop()
+                self.assertFalse(runtime.status()["motor_disconnected"])
+                self.assertIsNone(runtime._replay.capture)
+                runtime.start()
+                self.assertTrue(zero(runtime))
+                self.assertFalse(runtime.status()["motor_disconnected"])
+            finally:
+                runtime.close()
+
     def test_real_ai_record_replay_and_camera_fault(self):
         import tensorflow as tf
         import numpy as np
@@ -78,7 +154,8 @@ class ScenarioTests(unittest.TestCase):
             def post(path, data, **kw):
                 return controller.post(path, base_url=origin, json=data, **kw)
             try:
-                self.assertEqual(controller.get("/scenarios", base_url=origin).status_code, 200)
+                with controller.get("/scenarios", base_url=origin) as response:
+                    self.assertEqual(response.status_code, 200)
                 self.assertEqual(post("/api/scenarios/camera-fault", {"active": True}).status_code, 400)
                 self.assertEqual(post("/api/scenarios/camera-fault", {"active": True}, headers={"Origin":"http://evil.test"}).status_code, 403)
                 runtime.start()

@@ -67,6 +67,16 @@ def create_control_app(runtime: PiSDRuntime) -> Flask:
         except ValueError as exc:
             return jsonify(ok=False, error=str(exc)), 400
 
+    @app.post("/api/scenarios/motor-disconnect")
+    def motor_disconnect():
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict) or data.get("confirm") is not True:
+            return jsonify(ok=False, error="Explicit confirm=true required."), 400
+        try:
+            return jsonify(runtime.inject_motor_disconnect())
+        except ValueError as exc:
+            return jsonify(ok=False, error=str(exc)), 400
+
     @app.get("/api/status")
     def status():
         return jsonify(runtime.status())
