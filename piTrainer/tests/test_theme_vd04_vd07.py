@@ -196,3 +196,41 @@ def test_native_form_keyboard_and_disabled_state():
                 root.close()
     finally:
         theme.set_theme("dark")
+
+
+def test_native_tab_interaction_and_disabled_selection():
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QApplication, QTabWidget, QWidget
+
+    app = QApplication.instance() or QApplication([])
+    try:
+        for mode in ("dark", "light"):
+            theme.set_theme(mode)
+            tabs = QTabWidget()
+            tabs.setObjectName("mainWorkflowTabs")
+            for title in ("Data", "Preprocess", "Train"):
+                tabs.addTab(QWidget(), title)
+            tabs.setStyleSheet(build_stylesheet())
+            tabs.resize(600, 220)
+            tabs.show()
+            try:
+                bar = tabs.tabBar()
+                bar.setFocus(Qt.FocusReason.TabFocusReason)
+                app.processEvents()
+                before = [bar.tabRect(i).size() for i in range(3)]
+                tabs.setTabEnabled(1, False)
+                QTest.keyClick(bar, Qt.Key.Key_Right)
+                assert tabs.currentIndex() == 2
+                assert not tabs.isTabEnabled(1)
+                QTest.keyClick(bar, Qt.Key.Key_Left)
+                assert tabs.currentIndex() == 0
+                tabs.setTabEnabled(1, True)
+                QTest.keyClick(bar, Qt.Key.Key_Right)
+                assert tabs.currentIndex() == 1
+                app.processEvents()
+                assert [bar.tabRect(i).size() for i in range(3)] == before
+            finally:
+                tabs.close()
+    finally:
+        theme.set_theme("dark")

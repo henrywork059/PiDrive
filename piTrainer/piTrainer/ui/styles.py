@@ -787,6 +787,46 @@ def build_stylesheet(density: str = "comfortable") -> str:
         border-radius: 0px;
         padding: 6px 3px 3px 3px;
     }
+    /* VD1S: selected tab focus uses its actual foreground, rather than
+       the page foreground on an accent fill. Keep the one-pixel edge. */
+    QTabWidget#mainWorkflowTabs QTabBar::tab:selected:focus {
+        border-top: 1px dashed @COLOR_TEXT_ON_ACCENT@;
+        border-left: 1px dashed @COLOR_TEXT_ON_ACCENT@;
+        border-right: 1px dashed @COLOR_TEXT_ON_ACCENT@;
+    }
+    QTabBar::tab:disabled {
+        background: @COLOR_BG_INPUT@;
+        color: @COLOR_TEXT_DISABLED@;
+        border-color: @COLOR_BORDER_SUBTLE@;
+    }
+    QTabWidget#mainWorkflowTabs QTabBar::tab:disabled,
+    QTabWidget[role='workflowTabs'] QTabBar::tab:disabled {
+        background: @COLOR_BG_INPUT@;
+        color: @COLOR_TEXT_DISABLED@;
+        border-color: @COLOR_BORDER_SUBTLE@;
+    }
+    QCheckBox::indicator:checked:hover:enabled,
+    #sessionRowCheckbox::indicator:checked:hover:enabled {
+        background: @COLOR_INFO@;
+        border-color: @COLOR_INFO_HOVER@;
+    }
+    QCheckBox::indicator:checked:focus:enabled,
+    #sessionRowCheckbox::indicator:checked:focus:enabled {
+        border: 2px dashed @COLOR_TEXT_PRIMARY@;
+    }
+    QCheckBox::indicator:pressed:enabled,
+    #sessionRowCheckbox::indicator:pressed:enabled {
+        border-style: dashed;
+    }
+    #sessionRowCheckbox::indicator:disabled {
+        background: @COLOR_BG_PANEL_ALT@;
+        border: 2px solid @COLOR_BORDER@;
+    }
+    #sessionRowCheckbox::indicator:checked:disabled {
+        background: @COLOR_INFO@;
+        border: 2px solid @COLOR_BORDER@;
+        image: url("__CHECKBOX_MARK__");
+    }
     """
     for key, value in values.items():
         css = css.replace(f"@{key}@", str(value))

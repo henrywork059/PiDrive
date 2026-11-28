@@ -82,6 +82,12 @@ def check_action_feedback(page, selector):
     return {"hover": hover_contrast, "pressed": press_contrast, "geometry_preserved": True}
 
 
+def check_selected_cue(locator, selected):
+    expect(locator).to_have_attribute("aria-pressed", str(selected).lower())
+    expect(locator).to_have_css("text-decoration-line", "underline" if selected else "none")
+    return {"selected": selected, "non_color_cue": True}
+
+
 def check_appearance_controls(page, slider_selector, select_selector):
     """Real keyboard input; restore the draft before existing save gates."""
     slider, select = page.locator(slider_selector), page.locator(select_selector)
@@ -266,11 +272,14 @@ def main():
                             page.goto(ORIGIN + route, wait_until="domcontentloaded")
                             expect(page.locator("body")).to_have_attribute("data-pisd-theme", mode)
                             toggle = page.locator("#drivingCockpitToggle")
-                            expect(toggle).to_have_attribute("aria-pressed", "false")
+                            check_selected_cue(toggle, False)
+                            if width == 1440:
+                                report.setdefault("cockpit_action_feedback", []).append({"theme":mode,"page":name, **check_action_feedback(page,"#drivingCockpitToggle")})
+                                check_selected_cue(toggle, False)
                             before_arm = page.locator(arm).is_checked()
                             before_saves = len(saves)
                             toggle.click()
-                            expect(toggle).to_have_attribute("aria-pressed", "true")
+                            check_selected_cue(toggle, True)
                             expect(page.locator("body")).to_have_attribute("data-pisd-cockpit", "immersive")
                             assert page.locator(arm).is_checked() == before_arm
                             assert len(saves) == before_saves
@@ -307,7 +316,7 @@ def main():
                                 assert geometry["backing"] == "rgb(20, 23, 28)", geometry
                                 assert contrast(geometry["foreground"], geometry["backing"]) >= 4.5, geometry
                             toggle.click()
-                            expect(toggle).to_have_attribute("aria-pressed", "false")
+                            check_selected_cue(toggle, False)
                             assert page.locator("body").get_attribute("data-pisd-cockpit") is None
                             assert page.locator(arm).is_checked() == before_arm
                             assert len(saves) == before_saves
@@ -395,7 +404,9 @@ def main():
                         for tab in ("manual","training","auto","camera","motor"):
                             selected = page.locator(f'#pageTabs [data-page="{tab}"]')
                             selected.click()
-                            expect(selected).to_have_attribute("aria-pressed", "true")
+                            check_selected_cue(selected, True)
+                            for other in page.locator('#pageTabs .tab-btn[aria-pressed="false"]').all():
+                                check_selected_cue(other, False)
                             expect(selected).to_have_css("background-color", "rgb(49, 95, 209)" if mode == "light" else "rgb(100, 149, 255)")
                             checks = {"body": inspect(page, "body"),
                                       "selected_tab": inspect(page, f'#pageTabs [data-page="{tab}"]'),
@@ -410,8 +421,12 @@ def main():
                         toggle = page.locator("#cameraCockpitToggle")
                         before = page.evaluate("() => JSON.stringify(Object.entries(localStorage).sort())")
                         before_stop = stop.get_attribute("aria-pressed")
+                        check_selected_cue(toggle, False)
+                        if width == 1440:
+                            report.setdefault("cockpit_action_feedback", []).append({"theme":mode, **check_action_feedback(page,"#cameraCockpitToggle")})
+                            check_selected_cue(toggle, False)
                         toggle.click()
-                        expect(toggle).to_have_attribute("aria-pressed", "true")
+                        check_selected_cue(toggle, True)
                         for scene, iw, ih, fill in (("bright",640,480,"#ffffff"),("dark",1280,720,"#05080b"),("complex",480,640,"#d3a04b")):
                             page.locator("#videoFeed").evaluate("""async (image, [w,h,fill]) => {
                                 const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="100%" height="100%" fill="${fill}"/><path d="M0 ${h} L${w/2} ${h/4} L${w} ${h}" fill="none" stroke="#607080" stroke-width="12"/></svg>`;
@@ -430,7 +445,7 @@ def main():
                             assert geometry["fit"] == "contain", geometry
                             assert max(abs(geometry["expected"][k]-geometry["actual"][k]) for k in geometry["expected"]) <= 2, geometry
                         toggle.click()
-                        expect(toggle).to_have_attribute("aria-pressed","false")
+                        check_selected_cue(toggle, False)
                         assert stop.get_attribute("aria-pressed") == before_stop
                         assert page.evaluate("() => JSON.stringify(Object.entries(localStorage).sort())") == before
                         assert page.locator(".viewer-frame").get_attribute("data-camera-cockpit") is None
