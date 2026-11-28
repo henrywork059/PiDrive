@@ -27,3 +27,21 @@ AI: /api/ai/config, /api/ai/delete-model, /api/ai/load-model, /api/ai/manual-cor
 
 ### M01 route safety parity follow-up
 Source audit found global_space_stop.js keyed explicit AI STOP to pathname /ai-mode. Preserve that original guard and extend it only to the server-marked V17 AI route (/drive plus data-pisd-v17=ai). Manual STOP and all existing endpoints unchanged; no new authority logic. Add actual browser Space STOP request-order/readback and Node dispatcher path tests. Correct Graphite surface token and preserve readiness tone after moving the reason node; use real supported high-contrast theme. Candidate verification pending.
+
+
+## Exact M01 candidate audit — 2026-11-29
+
+Qualified evidence revision 9870e6bc76d13d1d33f295765c4669dcf26c1d87, PR #112. All five requested workflows 46169675739, 46169675707, 46169675656, 46169675860, 46169675697: 9/9 jobs passed; no actual failed job. Main 7f36b395c4065232712b45932abf74cf0ecd05bf and independent #110/#111 heads unchanged. Independently downloaded all eight candidate archives and the original M0 cockpit archive; ZIP CRC and GitHub SHA-256 match. Candidate artifacts: 15273098019 (27 PNGs), 15273735371 (165), 15273626163 (74), 15273351130 (12), 15272972057 (3), 15272878345 (3), 15273372041 (6), 15273092937 (0). All 290 candidate PNGs decoded; 27 cockpit, 82 PiSD VD1A, 48 PiServer VD1A and 6 trained-workflow screenshot hashes verified (163 total). Original M0 15273136509: 14/14 hashes matched. All six exact-revision regression matrices 32+8+25+4+4+5=78 cases, zero case/page errors; both VD1A manifests zero page errors. Actual all 13 M01 screenshots reviewed, including full-size mobile AI. Candidate classic M0 geometry and quiet counts match the original M0 exactly; startup timing varied across runs. New shell report:
+
+| Mode/viewport | M0 camera top px | M01 dark top px | M0 six-second GETs | M01 six-second GETs | M0/M01 area px ratio |
+|---|---:|---:|---:|---:|---:|
+| Manual 1440x900 | 446.28 | 112.77 | 11 | 11 | 1.731 |
+| Manual 390x844 | 547.31 (scrollY=576) | 243.39 | 11 | 12 | 0.977 |
+| AI 1440x900 | 354.02 | 108.61 | 4 | 4 | 1.741 |
+| AI 390x844 | 934.17 | 277.27 | 4 | 5 | 0.965 |
+
+All 12 synthetic aspect cases and 12 real live theme cases have 0px image/overlay rectangle difference and contain fit; all 12 live theme images inside viewport, all STOP heights 44px; one video stream per case; zero quiet mutations; virtual neutral, old DOM IDs, Classic return and real iframe generation preserved. Space STOP ordered paths Manual control/stop; AI ai/stop then control/stop. No actual authority or physical motor qualification. The mobile header still consumes considerable vertical space, and legacy controls remain below the camera; not the final V17 minimalist HUD/joystick. Retain those findings. Six-second samples differ by one GET on mobile, consistent with possible timer phase but not proof of identical frequency. The first M01 artifact has no matched new-shell latency, focused navigation or live resize-restore evidence. M01 still OPEN.
+
+### Matched qualification follow-up
+
+Add v17_m01_comparison.py after existing emulator assertions. Same-run classic/V17 two samples per variant, both modes and desktop/mobile, alternating order; 17-second quiet window and timestamped endpoint counts/median intervals, one-stream and neutral checks, latency components and end-to-end observations (no invented acceptance threshold), named link keyboard traversal and visible focus, STOP hit-testing after scrolling, live 768/1024/1440 and original viewport restore without reconnect. Count comparison uses existing 850/1400 ms polling periods and a one-request phase envelope, not a new performance acceptance waiver. All earlier gates retained; no new production feature. Correct test reporting denominator 28 to 30 and remove once-only pagehide observer teardown so repeated BFCache restore/exit can detach the same presentation observer; this is lifecycle consistency, not evidence of a previously observed hardware failure. New exact CI and independent comparison artifact pending. No M02, version change, merge, deployment, owner PASS or promotion.

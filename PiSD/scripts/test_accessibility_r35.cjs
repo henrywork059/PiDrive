@@ -249,4 +249,4 @@ test('all settings and presentation ranges specify units; actions reference exis
   for(const id of ['ppApply','ppSave','ppReset'])
     assert.ok(presentation.includes('id="'+id+'" aria-describedby="ppFeedback"'));
 });
-console.log(n+'/28 PiSD safety/input tests passed');
+console.log(n+'/30 PiSD safety/input tests passed');

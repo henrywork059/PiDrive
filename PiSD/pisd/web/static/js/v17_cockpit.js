@@ -40,7 +40,7 @@
   measure();
   const observer = new ResizeObserver(measure);
   observer.observe(header);
-  window.addEventListener("pagehide", () => observer.disconnect(), {once: true});
+  window.addEventListener("pagehide", () => observer.disconnect());
   // BFCache restoration must reattach the presentation observer, not a
   // controller or a stream. Existing controllers own lifecycle/STOP.
   window.addEventListener("pageshow", event => {
