@@ -3,6 +3,7 @@ from __future__ import annotations
 import numpy as np
 
 from ...ui.theme import theme_color
+from ...ui.plot_style import style_plot_axis, style_plot_legend
 
 
 def render_validation_plot(ax, result: dict, plot_type: str) -> None:
@@ -13,30 +14,11 @@ def render_validation_plot(ax, result: dict, plot_type: str) -> None:
     steering_error = np.asarray(result['steering_error'])
     throttle_error = np.asarray(result['throttle_error'])
 
-    ax.set_facecolor(theme_color('plot_axis'))
-    ax.tick_params(colors=theme_color('text_secondary'))
-    for spine in ax.spines.values():
-        spine.set_color(theme_color('border'))
-
-    label_color = theme_color('text_secondary')
-    title_color = theme_color('text_primary')
-    ax.xaxis.label.set_color(label_color)
-    ax.yaxis.label.set_color(label_color)
-    ax.title.set_color(title_color)
-    ax.grid(True, color=theme_color('plot_grid'), alpha=0.35)
-
-    def _style_legend() -> None:
-        legend = ax.legend(loc='best')
-        if legend is None:
-            return
-        legend.get_frame().set_facecolor(theme_color('plot_bg'))
-        legend.get_frame().set_edgecolor(theme_color('border'))
-        for text in legend.get_texts():
-            text.set_color(theme_color('text_secondary'))
+    style_plot_axis(ax)
 
     if plot_type == 'Prediction vs Ground Truth':
         ax.scatter(steering_true, steering_pred, alpha=0.72, label='Steering', color=theme_color('plot_steering'))
-        ax.scatter(throttle_true, throttle_pred, alpha=0.72, label='Speed', color=theme_color('plot_speed'))
+        ax.scatter(throttle_true, throttle_pred, alpha=0.72, marker='x', label='Speed', color=theme_color('plot_speed'))
         combined = np.concatenate([steering_true, throttle_true, steering_pred, throttle_pred])
         lo, hi = float(np.min(combined)), float(np.max(combined))
         if lo == hi:
@@ -45,7 +27,7 @@ def render_validation_plot(ax, result: dict, plot_type: str) -> None:
         ax.set_xlabel('Ground truth (normalized)')
         ax.set_ylabel('Prediction (normalized)')
         ax.set_title('Prediction vs Ground Truth')
-        _style_legend()
+        style_plot_legend(ax)
         return
 
     if plot_type == 'Prediction Error Histogram':
@@ -55,17 +37,17 @@ def render_validation_plot(ax, result: dict, plot_type: str) -> None:
         ax.set_xlabel('Prediction error (normalized)')
         ax.set_ylabel('Frame count')
         ax.set_title('Prediction Error Histogram')
-        _style_legend()
+        style_plot_legend(ax)
         return
 
     sample_count = min(120, len(steering_true))
     x = np.arange(sample_count)
     ax.plot(x, steering_true[:sample_count], label='Steering GT', color=theme_color('plot_steering'), linewidth=1.8)
-    ax.plot(x, steering_pred[:sample_count], label='Steering Pred', color=theme_color('primary_hover'), linewidth=1.5)
+    ax.plot(x, steering_pred[:sample_count], label='Steering Pred', color=theme_color('primary_hover'), linewidth=1.5, linestyle='--')
     ax.plot(x, throttle_true[:sample_count], label='Speed GT', color=theme_color('plot_speed'), linewidth=1.8)
-    ax.plot(x, throttle_pred[:sample_count], label='Speed Pred', color=theme_color('warning_hover'), linewidth=1.5)
+    ax.plot(x, throttle_pred[:sample_count], label='Speed Pred', color=theme_color('warning_hover'), linewidth=1.5, linestyle='--')
     ax.set_xlabel('Sample index (frame)')
     ax.set_ylabel('Normalized control value')
     ax.set_title('Sample Prediction Trace')
-    _style_legend()
+    style_plot_legend(ax)
 

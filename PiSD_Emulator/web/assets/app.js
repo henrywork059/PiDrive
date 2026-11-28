@@ -229,9 +229,23 @@ $("speedRange").addEventListener("input", async (event) => {
   $("speedValue").textContent = `${Number(event.target.value).toFixed(1)}×`;
   await api("/api/simulation/speed", { scale: Number(event.target.value) });
 });
-document.querySelectorAll(".viewport").forEach((button) => button.addEventListener("click", () => {
-  document.querySelectorAll(".viewport").forEach((item) => item.classList.remove("active"));
-  button.classList.add("active");
+$("wideWorkspaceToggle").addEventListener("click", () => {
+  const button = $("wideWorkspaceToggle");
+  const enabled = button.getAttribute("aria-pressed") !== "true";
+  button.setAttribute("aria-pressed", String(enabled));
+  button.textContent = enabled ? "Standard workspace" : "Wide workspace";
+  if (enabled) document.body.dataset.emulatorWorkspace = "wide";
+  else delete document.body.dataset.emulatorWorkspace;
+});
+// Independent, reversible outer appearance; no settings writes or runtime calls.
+$("emulatorTheme").addEventListener("change", (event) => {
+  document.documentElement.dataset.emulatorTheme = event.target.value === "light" ? "light" : "dark";
+});
+document.querySelectorAll(".viewport[data-width]").forEach((button) => button.addEventListener("click", () => {
+  document.querySelectorAll(".viewport[data-width]").forEach((item) => {
+    item.classList.toggle("active", item === button);
+    item.setAttribute("aria-pressed", String(item === button));
+  });
   const width = button.dataset.width;
   $("frameShell").style.width = width;
 }));

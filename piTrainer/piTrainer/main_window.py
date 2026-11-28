@@ -16,6 +16,7 @@ from .pages.validation_page import ValidationPage
 from .services.data.session_service import resolve_session_dir
 from .ui.formatting import apply_standard_widget_format, density_for_width
 from .ui.styles import build_stylesheet
+from .ui.status_presentation import bind_status_inspector
 from .ui.theme import current_theme, saved_theme, save_theme
 from .version import APP_WORKFLOW_TITLE, STATUS_VERSION_TEXT
 
@@ -72,6 +73,8 @@ class MainWindow(QMainWindow):
         guidance.setContentsMargins(8, 4, 8, 0)
         self.workflow_detail_label = QLabel()
         self.workflow_detail_label.setTextFormat(Qt.PlainText)
+        self.workflow_detail_label.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard)
+        self.workflow_detail_label.setAccessibleName('Current workflow details')
         self.workflow_detail_label.setWordWrap(True)
         self.workflow_detail_label.setObjectName('workflowReadinessLabel')
         guidance.addWidget(self.workflow_detail_label, 1)
@@ -80,12 +83,19 @@ class MainWindow(QMainWindow):
         self._workflow_prerequisite_index = None
         self.workflow_prerequisite_button.clicked.connect(self._open_workflow_prerequisite)
         guidance.addWidget(self.workflow_prerequisite_button)
+        self.workflow_locate_button = QPushButton('Find action')
+        self.workflow_locate_button.setObjectName('workflowLocateAction')
+        self.workflow_locate_button.setProperty('role', 'secondary')
+        self.workflow_locate_button.setMaximumWidth(140)
+        self.workflow_locate_button.clicked.connect(self._locate_workflow_action)
+        guidance.addWidget(self.workflow_locate_button)
         layout.addLayout(guidance)
         layout.addWidget(self.tabs, 1)
         self.setCentralWidget(workspace)
 
         self.status = QStatusBar()
         self.status.setSizeGripEnabled(True)
+        bind_status_inspector(self.status)
         self.version_label = QLabel(STATUS_VERSION_TEXT)
         self.version_label.setObjectName('appVersionLabel')
         self.version_label.setProperty('role', 'muted')
@@ -98,6 +108,7 @@ class MainWindow(QMainWindow):
         self.status.addPermanentWidget(self.version_label)
         self.setStatusBar(self.status)
         self._setup_appearance_menu()
+        self._setup_workspace_menu()
         self.set_status_message(
             f'Ready — {STATUS_VERSION_TEXT}. Follow the green buttons from 1 Data to 6 TFLite Check. Drag splitters to resize panels.'
         )
@@ -111,6 +122,41 @@ class MainWindow(QMainWindow):
         self.export_page.refresh_from_state()
         self.export_validation_page.refresh_from_state()
         self.refresh_workflow_readiness()
+
+    def _setup_workspace_menu(self) -> None:
+        self.workspace_menu = self.menuBar().addMenu('Workspace')
+        self.workspace_menu.aboutToShow.connect(self._refresh_workspace_menu)
+
+    def _refresh_workspace_menu(self) -> None:
+        menu = self.workspace_menu
+        menu.clear()
+        page = self.current_dock_page()
+        titles = getattr(page, 'workspace_panel_titles', lambda: ())()
+        self._workspace_panel_actions = []
+        for index, title in enumerate(titles):
+            action = menu.addAction('Focus ' + title)
+            action.triggered.connect(lambda checked=False, i=index: self._focus_workspace_panel(i))
+            self._workspace_panel_actions.append(action)
+        if titles:
+            menu.addSeparator()
+        next_panel = menu.addAction('Next panel')
+        next_panel.setEnabled(bool(titles))
+        next_panel.triggered.connect(lambda checked=False: self._cycle_workspace_panel(1))
+        previous_panel = menu.addAction('Previous panel')
+        previous_panel.setEnabled(bool(titles))
+        previous_panel.triggered.connect(lambda checked=False: self._cycle_workspace_panel(-1))
+
+    def _focus_workspace_panel(self, index: int) -> None:
+        page = self.current_dock_page()
+        focus = getattr(page, 'focus_workspace_panel', None)
+        if callable(focus):
+            focus(index)
+
+    def _cycle_workspace_panel(self, direction: int) -> None:
+        page = self.current_dock_page()
+        cycle = getattr(page, 'cycle_workspace_panel', None)
+        if callable(cycle):
+            cycle(direction)
 
     def _setup_appearance_menu(self) -> None:
         menu = self.menuBar().addMenu("Appearance")
@@ -212,6 +258,8 @@ class MainWindow(QMainWindow):
                     label.setToolTip(message)
                 if label.accessibleName() != accessible_name:
                     label.setAccessibleName(accessible_name)
+                if label.accessibleDescription() != message:
+                    label.setAccessibleDescription(message)
 
         # Route to a missing prerequisite without starting or changing work.
         index = self.tabs.currentIndex()
@@ -239,6 +287,19 @@ class MainWindow(QMainWindow):
                 if button.text() != caption:
                     button.setText(caption)
             button.setVisible(target is not None)
+        if hasattr(self, 'workflow_locate_button'):
+            page = self.tabs.currentWidget()
+            label = getattr(page, 'workspace_action_label', '')
+            locate = self.workflow_locate_button
+            locate.setVisible(bool(label))
+            locate.setAccessibleName('Find ' + label)
+            locate.setToolTip('Locate ' + label + ' without running it.')
+
+    def _locate_workflow_action(self) -> None:
+        page = self.tabs.currentWidget()
+        locate = getattr(page, 'locate_primary_action', None)
+        if callable(locate):
+            locate()
 
     def _open_workflow_prerequisite(self) -> None:
         self.refresh_workflow_readiness()
@@ -252,7 +313,7 @@ class MainWindow(QMainWindow):
 
     def _apply_responsive_density(self) -> None:
         width = max(1, int(self.width()))
-        density = density_for_width(width)
+        density = density_for_width(width, height=self.height())
         if density == self._ui_density:
             apply_standard_widget_format(self, density=density)
             return
@@ -261,6 +322,10 @@ class MainWindow(QMainWindow):
         if app is not None:
             app.setStyleSheet(build_stylesheet(density))
         apply_standard_widget_format(self, density=density)
+        # The global stylesheet was just replaced. Keep the explicit Session
+        # Source geometry rather than inheriting the generic input minimum.
+        if hasattr(self, 'data_page'):
+            self.data_page.session_source_panel.refresh_session_list_geometry()
 
     def _setup_shortcuts(self) -> None:
         QShortcut(QKeySequence('Ctrl+1'), self, activated=lambda: self.tabs.setCurrentIndex(0))

@@ -99,3 +99,39 @@ def test_chunk_source_does_not_decode_unrequested_paths(tmp_path):
     src=PreparedImageSource([str(path),str(tmp_path/"missing.png")],[False,False],2,2)
     assert src[:1].shape==(1,2,2,3)
     with pytest.raises(FileNotFoundError): src[1:2]
+
+
+def test_matched_conversion_comparison_and_rejections():
+    from copy import deepcopy
+    from piTrainer.services.validation.conversion_comparison import compare_conversion
+    from piTrainer.services.validation.validation_receipts import evaluated_rows_hash
+    n = 105
+    base = {"rows_used": n, "sessions": ["s"]*n, "frame_ids": [str(i) for i in range(n)],
+            "source_frame_ids": ["f"]*n, "abs_images": [f"/fixture/{i}.jpg" for i in range(n)],
+            "aug_flip_lr": [False]*n, "steering_true": [0.0]*n, "throttle_true": [.5]*n,
+            "steering_pred": [0.0]*n, "throttle_pred": [.5]*n}
+    a, b = deepcopy(base), deepcopy(base)
+    a.update(prediction_backend="Keras model.predict", experiment_context={"run_id":"a"*32, "status":"Tracked in-memory training run."})
+    b.update(prediction_backend="TFLite Interpreter", experiment_context={"run_id":"a"*32, "status":"Verified model/run association.", "model_sha256":"b"*64})
+    for result, ident in ((a, "c"), (b, "d")):
+        result["validation_receipt"] = {"id": ident*32, "rows_sha256": evaluated_rows_hash(result)}
+    b["steering_pred"][-1] = .25
+    b["throttle_pred"][2] = .75
+    actual = compare_conversion(a, b)
+    assert actual["available"] and actual["rows_used"] == n and len(actual["rows"]) == 100
+    assert actual["steering_max"] == .25 and actual["speed_max"] == .25
+    assert actual["steering_mean"] == pytest.approx(.25/n)
+    assert {r["row"] for r in actual["rows"][:2]} == {3, 105}
+    for mutate in (
+        lambda x: x["experiment_context"].update(run_id="e"*32),
+        lambda x: x["experiment_context"].update(status="Unknown"),
+        lambda x: x["frame_ids"].reverse(),
+        lambda x: x["steering_true"].__setitem__(0, .1),
+        lambda x: x["steering_pred"].__setitem__(0, float("nan")),
+        lambda x: x["validation_receipt"].update(rows_sha256="x"),
+        lambda x: x["throttle_pred"].pop(),
+    ):
+        bad = deepcopy(b)
+        mutate(bad)
+        assert not compare_conversion(a, bad)["available"]
+    assert not compare_conversion(None, b)["available"]

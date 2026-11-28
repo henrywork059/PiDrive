@@ -2,6 +2,10 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
+
+from ...ui.typography import align_numeric_table_item
+from ...ui.context_icons import set_context_icon
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -24,8 +28,10 @@ class TrainComparisonPanel(QGroupBox):
         self.run_a.setToolTip("First training run (stable run ID)")
         self.run_b.setToolTip("Second training run (stable run ID)")
         self.refresh_btn = QPushButton("Refresh Runs")
+        set_context_icon(self.refresh_btn, "refresh")
         self.refresh_btn.clicked.connect(refresh_callback)
         self.inspect_btn = QPushButton("Inspect Model")
+        set_context_icon(self.inspect_btn, "search")
         self.inspect_btn.clicked.connect(self.inspect_model)
         self.info = QLabel("No saved training run summaries found.")
         self.info.setWordWrap(True)
@@ -115,6 +121,9 @@ class TrainComparisonPanel(QGroupBox):
                 item.setToolTip(str(value))
                 if col:
                     item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+                    # Do not reinterpret paths, identifiers, Unknown or mixed units.
+                    if re.fullmatch(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?", str(value)):
+                        align_numeric_table_item(item)
                 self.table.setItem(index, col, item)
         self.table.resizeRowsToContents()
 

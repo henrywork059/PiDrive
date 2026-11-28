@@ -1,0 +1,223 @@
+/* VD1N: temporary camera-priority view. Retain original controls and order. */
+body[data-pisd-cockpit="immersive"] :is(#mdrvPreviewFrame, #aiPreviewFrame) {
+  --cockpit-ratio: var(--cockpit-camera-ratio, 1.77777778);
+  width: min(100%, calc(76svh * var(--cockpit-ratio))) !important;
+  margin-inline: auto !important;
+  /* The decoded image, not a delayed load-event ratio, sets frame height. */
+  aspect-ratio: auto !important;
+  display: block !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  flex: 0 0 auto !important;
+  box-sizing: border-box !important;
+  container-type: inline-size;
+}
+body[data-pisd-cockpit="immersive"] :is(#mdrvPreviewFrame, #aiPreviewFrame) > img {
+  position: static !important;
+  display: block !important;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  aspect-ratio: auto 16 / 9 !important;
+  object-fit: contain !important;
+}
+@media (min-width: 1280px) {
+  body.manual-drive-page[data-pisd-cockpit="immersive"] .mdrv-shell,
+  body.ai-page[data-pisd-cockpit="immersive"] .ai-shell {
+    width: calc(100% - 16px) !important;
+    max-width: none !important;
+  }
+  body.manual-drive-page[data-pisd-cockpit="immersive"] .mdrv-shell {
+    grid-template-columns: minmax(0, 1fr) minmax(320px, calc(24vw - 4px)) !important;
+  }
+  body.ai-page[data-pisd-cockpit="immersive"] .ai-grid {
+    grid-template-columns: repeat(12, minmax(0, 1fr)) !important;
+  }
+  body.ai-page[data-pisd-cockpit="immersive"] :is(#aiPreviewPanel, #aiRunPanel) {
+    grid-column: 1 / span 9 !important;
+  }
+  body.ai-page[data-pisd-cockpit="immersive"] :is(#aiSafetyPanel, #aiModelPanel, #aiFilesPanel) {
+    grid-column: 10 / span 3 !important;
+  }
+}
+/* Local opaque backing: preserve state borders, text, freshness and paths. */
+@media (forced-colors: none) {
+  body[data-pisd-cockpit="immersive"] :is(#mdrvPreviewFrame, #aiPreviewFrame)
+    :is(.mdrv-overlay-hud, .mdrv-overlay-meter, .mdrv-overlay-wheel-row) {
+    background: #14171c !important;
+    color: #edf1f7 !important;
+    backdrop-filter: none !important;
+    border-radius: 6px !important;
+    box-shadow: none !important;
+  }
+  body[data-pisd-cockpit="immersive"] :is(#mdrvPreviewFrame, #aiPreviewFrame)
+    :is(.mdrv-overlay-hud, .mdrv-overlay-meter, .mdrv-overlay-wheel-row) :is(span, strong, em) {
+    color: #edf1f7 !important;
+  }
+}
+body[data-pisd-cockpit="immersive"] :is(#mdrvPreviewFrame, #aiPreviewFrame) .mdrv-overlay-hud {
+  max-width: 58%;
+  flex-wrap: wrap;
+  gap: .2rem .4rem;
+}
+body[data-pisd-cockpit="immersive"] :is(#mdrvPreviewFrame, #aiPreviewFrame) .mdrv-overlay-wheel-row {
+  max-width: 38%;
+  flex-wrap: wrap;
+  gap: .2rem .5rem;
+}
+@container (max-width: 520px) {
+  body[data-pisd-cockpit="immersive"] :is(#mdrvPreviewFrame, #aiPreviewFrame) .mdrv-overlay-hud {
+    max-width: calc(100% - .9rem);
+    left: .45rem;
+    top: .45rem;
+  }
+  body[data-pisd-cockpit="immersive"] :is(#mdrvPreviewFrame, #aiPreviewFrame) .mdrv-overlay-wheel-row {
+    max-width: calc(100% - .9rem);
+    right: .45rem;
+    top: 2.95rem;
+  }
+}
+@media (max-width: 900px) {
+  #drivingCockpitToggle {
+    min-height: 44px !important;
+    min-block-size: 44px !important;
+    white-space: normal !important;
+  }
+}
+
+/* VD1W / VD21: Manual-only cockpit refinement. Camera image continues to
+   determine the frame's intrinsic height; no crop, transform or overlay
+   coordinate changes. Keep status/readiness, STOP and all DOM controls. */
+@media (min-width: 1280px) and (min-height: 760px) {
+  body.manual-drive-page[data-pisd-cockpit="immersive"] #mdrvPreviewFrame {
+    width: min(100%, calc(82svh * var(--cockpit-ratio))) !important;
+  }
+}
+body.manual-drive-page[data-pisd-cockpit="immersive"] #manualDriveCameraPanel {
+  align-self: start !important;
+}
+body.manual-drive-page[data-pisd-cockpit="immersive"] #manualDriveCameraPanel > .mdrv-panel-head {
+  flex-wrap: wrap;
+  align-items: center !important;
+}
+body.manual-drive-page[data-pisd-cockpit="immersive"] #manualDriveCameraPanel .mdrv-camera-head-actions {
+  min-width: 0;
+  max-width: 100%;
+}
+body.manual-drive-page[data-pisd-cockpit="immersive"] #manualDriveCameraPanel .mdrv-preview-top-actions {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: clamp(6px, .55vw, 10px) !important;
+}
+body.manual-drive-page[data-pisd-cockpit="immersive"] #manualDriveCameraPanel .mdrv-preview-top-actions > button {
+  flex: 1 1 110px;
+  min-width: 0;
+  white-space: normal;
+}
+body.manual-drive-page[data-pisd-cockpit="immersive"] #manualDriveCameraPanel :is(.mdrv-recording-details, #mdrvCaptureNotice) {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 900px) {
+  body.manual-drive-page[data-pisd-cockpit="immersive"] #manualDriveCameraPanel :is(#mdrvLiveCamera,#mdrvCaptureFrame,#mdrvRecordToggle,#mdrvOverlayToggle) {
+    min-height: 44px !important;
+    min-block-size: 44px !important;
+    min-width: 44px !important;
+    white-space: normal !important;
+  }
+}
+
+/* VD1X / VD22: AI-only opt-in cockpit. Preserve existing operational
+   ordering, readiness, action roles, model selection and intrinsic image. */
+@media (min-width: 1280px) and (min-height: 760px) {
+  body.ai-page[data-pisd-cockpit="immersive"] #aiPreviewFrame {
+    width: min(100%, calc(82svh * var(--cockpit-ratio))) !important;
+  }
+}
+body.ai-page[data-pisd-cockpit="immersive"] #aiPreviewPanel {
+  align-self: start !important;
+}
+body.ai-page[data-pisd-cockpit="immersive"] #aiPreviewPanel > .mdrv-panel-head {
+  flex-wrap: wrap;
+  align-items: center !important;
+}
+body.ai-page[data-pisd-cockpit="immersive"] #aiPreviewPanel .ai-camera-head-actions {
+  min-width: 0;
+  max-width: 100%;
+  flex-wrap: wrap !important;
+}
+body.ai-page[data-pisd-cockpit="immersive"] #aiPreviewPanel .ai-preview-run-actions {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: clamp(6px, .55vw, 10px) !important;
+}
+body.ai-page[data-pisd-cockpit="immersive"] #aiPreviewPanel .ai-preview-run-actions > button {
+  flex: 1 1 135px;
+  min-width: 0;
+  white-space: normal;
+}
+body.ai-page[data-pisd-cockpit="immersive"] #aiPreviewPanel :is(.mdrv-recording-details,#aiPreviewCaption) {
+  overflow-wrap: anywhere;
+}
+body.ai-page[data-pisd-cockpit="immersive"] #aiSafetyPanel .ai-panel-tabs {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+body.ai-page[data-pisd-cockpit="immersive"] #aiSafetyPanel .ai-panel-tab {
+  min-width: 0;
+  white-space: normal;
+}
+@media (forced-colors: none) {
+  body.ai-page[data-pisd-cockpit="immersive"] #aiSafetyPanel .ai-panel-tab[aria-selected="true"] {
+    text-decoration: underline !important;
+    text-underline-offset: .2em;
+  }
+}
+@media (max-width: 900px) {
+  body.ai-page[data-pisd-cockpit="immersive"] #aiPreviewPanel :is(.ai-camera-head-actions button,.ai-preview-run-actions button),
+  body.ai-page[data-pisd-cockpit="immersive"] #aiSafetyPanel .ai-panel-tab {
+    min-height: 44px !important;
+    min-block-size: 44px !important;
+    min-width: 44px !important;
+    white-space: normal !important;
+  }
+}
+
+/* VD1Y: physical touch floor, not just pre-transform CSS dimensions.
+   Keep saved scale for normal mode and desktop, retain larger requested
+   sizes on narrow cockpit controls without scaling their hit rectangles. */
+@media (max-width: 900px) {
+  body.ai-page[data-pisd-cockpit="immersive"] #aiPreviewPanel :is(.ai-camera-head-actions button,.ai-preview-run-actions button),
+  body.ai-page[data-pisd-cockpit="immersive"] #aiSafetyPanel .ai-panel-tab,
+  body.manual-drive-page[data-pisd-cockpit="immersive"] #manualDriveCameraPanel :is(#mdrvLiveCamera,#mdrvCaptureFrame,#mdrvRecordToggle,#mdrvOverlayToggle),
+  body[data-pisd-cockpit="immersive"] #drivingCockpitToggle {
+    transform: none !important;
+    min-height: max(44px, calc(44px * var(--pisd-ui-button-scale,1))) !important;
+    min-block-size: max(44px, calc(44px * var(--pisd-ui-button-scale,1))) !important;
+    min-width: 44px !important;
+  }
+}
+/* VD23: numerical stability without changing guide positions or values. */
+body[data-pisd-cockpit="immersive"] :is(#mdrvPreviewFrame,#aiPreviewFrame) :is(.mdrv-overlay-meter strong,.mdrv-overlay-wheel-row strong) {
+  font-variant-numeric: tabular-nums;
+  font-family: "PiDrive Plex Mono","IBM Plex Mono",ui-monospace,monospace !important;
+  white-space: nowrap;
+}
+body[data-pisd-cockpit="immersive"] :is(#mdrvPreviewFrame,#aiPreviewFrame) .mdrv-overlay-hud em {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+/* VD1AA: restore the strict responsive normal track explicitly at the
+   desktop cockpit breakpoint. Do not override tablet/phone rules.
+   No transition of track sizes during a presentation-only mode switch. */
+@media (min-width: 1280px) {
+  body.manual-drive-page:not([data-pisd-cockpit="immersive"]) .mdrv-shell {
+    grid-template-columns:
+      minmax(var(--pisd-layout-preview-min), 1fr)
+      minmax(var(--pisd-layout-control-min), min(var(--pisd-layout-control-ideal), var(--pisd-layout-control-max))) !important;
+  }
+  body.manual-drive-page .mdrv-shell {
+    transition-property: none !important;
+  }
+}

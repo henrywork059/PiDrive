@@ -6,6 +6,7 @@ from PySide6.QtWidgets import QApplication, QMessageBox, QStyleFactory
 
 from .ui.theme import apply_application_palette, saved_theme, set_theme
 from .ui.styles import build_stylesheet
+from .ui.typography import apply_local_typography
 from .security.version_gate import check_version_gate
 from .version import APP_NAME, APP_VERSION
 
@@ -19,6 +20,7 @@ def run() -> int:
         app.setStyle("Fusion")
     set_theme(saved_theme())
     apply_application_palette(app)
+    apply_local_typography(app)
     app.setStyleSheet(build_stylesheet())
 
     gate_result = check_version_gate(APP_VERSION)

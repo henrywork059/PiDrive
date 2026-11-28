@@ -11,7 +11,9 @@
   <link rel="stylesheet" href="{{ static_asset('css/pisd_layout_system.css') }}">
   <link rel="stylesheet" href="{{ static_asset('css/ai_mode.css') }}">
   <link rel="stylesheet" href="{{ static_asset('css/operating_readiness.css') }}">
+  <link rel="stylesheet" href="{{ static_asset('css/driving_cockpit.css') }}">
   <script src="{{ static_asset('js/panel_presentation_global.js') }}" defer></script>
+  <script src="{{ static_asset('js/driving_cockpit.js') }}" defer></script>
 </head>
 <body class="ai-page">
   <header class="mdrv-topbar ai-topbar">
@@ -102,7 +104,8 @@
             <h2>Live AI preview</h2>
           </div>
           <div class="mdrv-camera-head-actions ai-camera-head-actions">
-            <button id="aiOverlayToggle" class="mdrv-button mdrv-overlay-toggle" type="button" aria-pressed="true" title="Show or hide the AI model path overlay drawn from the safe AI steering/throttle command.">Overlay: On</button>
+            <button type="button" class="mdrv-button" id="drivingCockpitToggle" aria-pressed="false" aria-controls="aiPreviewFrame" title="Temporary camera-priority layout. Does not start camera, motors or AI.">Cockpit view</button>
+          <button id="aiOverlayToggle" class="mdrv-button mdrv-overlay-toggle" type="button" aria-pressed="true" title="Show or hide the AI model path overlay drawn from the safe AI steering/throttle command.">Overlay: On</button>
             <button id="aiLive" class="mdrv-button mdrv-live-action ai-button">Start live</button>
             <button id="aiSaveSnapshot" class="mdrv-button mdrv-snapshot-action ai-button" type="button" aria-describedby="aiRecordingNotice">Snapshot</button>
             <button id="aiRecordToggle" class="mdrv-button ai-button ai-ai-record-action" type="button" aria-describedby="aiRecordingState aiRecordingSession">Record</button>
@@ -201,7 +204,7 @@
           <button id="aiUploadModel" class="mdrv-button ai-button ai-button-secondary" type="button">Upload model</button>
           <span id="aiUploadHint" class="ai-upload-hint">Supported: .keras, .tflite, .h5, .onnx, .pt. Runtime support is built in for piTrainer .keras/.tflite models.</span>
         </div>
-        <dl class="ai-readout-grid">
+        <dl class="ai-readout-grid" aria-label="Selected model and runtime inspector">
           <div><dt>Selected</dt><dd id="aiSelectedModel">none</dd></div>
           <div><dt>Backend</dt><dd id="aiBackend">none</dd></div>
           <div><dt>Input</dt><dd id="aiInputShape">-</dd></div>
@@ -340,7 +343,7 @@ python3 scripts/check_ai_runtime.py</pre>
           <span class="mdrv-code" data-code-for="run">PISD-OK-000</span>
         </div>
         <p class="ai-note">Start AI drive requires a loaded model and confirmation.</p>
-        <dl class="ai-readout-grid ai-readout-large">
+        <dl class="ai-readout-grid ai-readout-large" aria-label="Model, corrected and safe control outputs">
           <div><dt>Model steering</dt><dd id="aiRawSteering">0.00</dd></div>
           <div><dt>Model throttle</dt><dd id="aiRawThrottle">0.00</dd></div>
           <div><dt>Corrected steering</dt><dd id="aiMixedSteering">0.00</dd></div>

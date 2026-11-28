@@ -1249,3 +1249,311 @@ body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) input[type=range], b
     color: #EDF1F7 !important;
   }
 }
+
+/* VD14: disabled controls remain legible and cannot resemble an enabled action.
+   Match actual native disabled state, not runtime status or aria-pressed. */
+@media (forced-colors: none) {
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) button:disabled,
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) button:disabled:is(#aiStartPreview,#aiSaveSnapshot,#aiRecordToggle,.mdrv-button) {
+    background: var(--vd-soft) !important;
+    color: var(--vd-muted) !important;
+    border-color: var(--vd-outline) !important;
+    opacity: 1 !important;
+    cursor: not-allowed;
+    box-shadow: none !important;
+    transform: none !important;
+  }
+}
+
+/* VD14: presentation-only actions get a distinct inset edge on hover and
+   press. No dimensions, role fills, STOP, or handler changes. */
+@media (forced-colors: none) {
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) :is(#ppApply,#ppSave,#ppReset):enabled:hover {
+    box-shadow: inset 0 0 0 1px currentColor !important;
+  }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) :is(#ppApply,#ppSave,#ppReset):enabled:active {
+    box-shadow: inset 0 0 0 2px currentColor !important;
+  }
+}
+
+/* VD1D: local licensed assets, native fallback when unavailable. */
+@font-face {
+  font-family: "PiDrive Inter";
+  src: url("../fonts/InterVariable.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "PiDrive Plex Mono";
+  src: url("../fonts/IBMPlexMono-Regular.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) {
+  font-family: "PiDrive Inter", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+}
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) :is(pre,code,.pp-range-value) {
+  font-family: "PiDrive Plex Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;
+}
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) :is(.pp-range-value,#mdrvCameraFps,#mdrvIntentOut,#mdrvMotorOut,#mdrvOverlayDebugSteering,#mdrvOverlayDebugThrottle,#mdrvOverlayDebugLeft,#mdrvOverlayDebugRight,#mdrvPreviewAgeDebug,#mdrvPreviewFpsDebug) {
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 640px) {
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pp-control-grid { grid-template-columns: minmax(0, 1fr); }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pp-control-grid :is(label,input,select) { min-inline-size: 0; max-inline-size: 100%; }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pp-card-head { flex-wrap: wrap; overflow-wrap: anywhere; }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pp-actions { min-inline-size: 0; max-inline-size: 100%; }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pp-actions :is(button,a) {
+    /* Shared physical min-height is important; override it only here. */
+    min-height: 44px !important;
+    min-width: 44px !important;
+    min-block-size: 44px !important;
+    min-inline-size: 44px !important;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    white-space: normal;
+  }
+}
+
+/* VD1F: flatten decorative grouping only, not the configurable workspace
+   panels, sliders, focus rings, status semantics or preview samples. */
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) #panelPresentationControls .pp-control-grid label:has(input[name$="Weight"]) {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: .25rem 0;
+}
+
+/* VD13 / VD1R: native form semantics retained. Custom track/handle only in
+   appearance editor; no changes to drive inputs, control dimensions or events. */
+@media (forced-colors: none) {
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) #ppForm input[type=range] {
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent !important;
+    padding: 0 !important;
+    cursor: pointer;
+  }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) #ppForm input[type=range]::-webkit-slider-runnable-track {
+    height: 8px;
+    background: var(--vd-soft);
+    border: 1px solid #64748B;
+    border-radius: 4px;
+    box-sizing: border-box;
+  }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) #ppForm input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    margin-top: -6px;
+    border: 2px solid var(--vd-text);
+    border-radius: 50%;
+    background: var(--vd-accent);
+    box-sizing: border-box;
+  }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) #ppForm input[type=range]::-moz-range-track {
+    height: 6px;
+    background: var(--vd-soft);
+    border: 1px solid #64748B;
+    border-radius: 4px;
+  }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) #ppForm input[type=range]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--vd-text);
+    border-radius: 50%;
+    background: var(--vd-accent);
+  }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) #ppForm input[type=range]:disabled { cursor: not-allowed; opacity: 1; }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) #ppForm input[type=range]:disabled::-webkit-slider-thumb {
+    background: var(--vd-muted); border-color: #64748B;
+  }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) #ppForm input[type=range]:disabled::-moz-range-thumb {
+    background: var(--vd-muted); border-color: #64748B;
+  }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) #ppForm :is(select,input[type=text],input[type=number],textarea):disabled {
+    background: var(--vd-soft) !important;
+    color: var(--vd-muted) !important;
+    border-color: #64748B !important;
+    cursor: not-allowed;
+    opacity: 1;
+  }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) #ppForm :is(input[type=checkbox],input[type=radio]) {
+    accent-color: var(--vd-accent);
+  }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) #ppForm :is(input,select,textarea):focus-visible {
+    outline: 2px solid var(--vd-focus) !important;
+    outline-offset: 2px;
+  }
+}
+
+/* VD1S / VD14: non-actuating presentation and navigation actions only.
+   Selection follows existing aria-pressed; no handler, layout or safety changes. */
+@media (forced-colors: none) {
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) :is(#ppExport,#ppImportButton,#drivingCockpitToggle,#mdrvOverlayToggle,#aiOverlayToggle):enabled:hover {
+    box-shadow: inset 0 0 0 1px currentColor !important;
+    transform: none !important;
+  }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) :is(#ppExport,#ppImportButton,#drivingCockpitToggle,#mdrvOverlayToggle,#aiOverlayToggle):enabled:active {
+    box-shadow: inset 0 0 0 2px currentColor !important;
+    transform: none !important;
+  }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) :is(#drivingCockpitToggle,#mdrvOverlayToggle,#aiOverlayToggle)[aria-pressed="true"] {
+    text-decoration: underline !important;
+    text-underline-offset: 0.2em;
+    text-decoration-thickness: 2px;
+  }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) :is(#drivingCockpitToggle,#mdrvOverlayToggle,#aiOverlayToggle)[aria-pressed="false"] {
+    text-decoration: none !important;
+  }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) :is(#ppExport,#ppImportButton,#drivingCockpitToggle,#mdrvOverlayToggle,#aiOverlayToggle):enabled:focus-visible {
+    outline: 3px solid var(--vd-focus) !important;
+    outline-offset: 2px;
+  }
+}
+@media (forced-colors: active) {
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) :is(#drivingCockpitToggle,#mdrvOverlayToggle,#aiOverlayToggle)[aria-pressed="true"] {
+    text-decoration: underline !important;
+    text-underline-offset: 0.2em;
+  }
+}
+
+/* VD1T / VD15: file metadata is information, not a separate card.
+   Keep existing grid tracks, spacing, identifiers, labels and state messages.
+   Do not flatten live driving telemetry, warnings or interactive controls. */
+@media (forced-colors: none) {
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) :is(#mdrvFileSummary,#aiFileSummary) > div {
+    background: transparent !important;
+    border-color: transparent !important;
+    border-bottom-color: var(--vd-divider) !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+}
+
+/* VD1U / VD16: ordinary settings and file workspaces use section dividers,
+   not elevated cards. Preserve the existing border widths, grid/padding,
+   saved layout variables, input surfaces and important operational panels. */
+@media (forced-colors: none) {
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) :is(#settingsPanelPresentationPanel,#settingsCameraPanel,#settingsAISettingsPanel,#manualDriveFilesPanel,#aiFilesPanel) {
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+  }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) :is(#settingsPanelPresentationPanel,#settingsCameraPanel,#settingsAISettingsPanel,#manualDriveFilesPanel,#aiFilesPanel) > :is(.st-card-head,.mdrv-panel-head) {
+    box-shadow: inset 0 -1px 0 var(--vd-divider) !important;
+  }
+}
+
+/* VD1V / VD17: responsive settings density without changing saved scales.
+   Keep larger existing minimums and leave driving/preview geometry alone. */
+@media (max-width: 640px) {
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .st-form-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    row-gap: max(8px, var(--pisd-panel-gap)) !important;
+  }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .st-form-grid :is(label,input,select) {
+    min-inline-size: 0;
+    max-inline-size: 100%;
+  }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .st-form-grid label { overflow-wrap: anywhere; }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .st-form-grid :is(select,input[type=number],input[type=text],input[type=range]),
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) #ppForm :is(select,input[type=range]) {
+    box-sizing: border-box;
+    min-height: 44px !important;
+    min-block-size: 44px !important;
+  }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) :is(#stLoadSettings,#stSaveSettings,#stApplySettings,#stStopAll) {
+    min-height: max(44px, calc(31px * var(--pisd-ui-button-scale, .92))) !important;
+    min-width: 44px !important;
+    white-space: normal;
+  }
+}
+
+/* VD1AA: keep focus within view below the existing sticky header.
+   No change to action order or keyboard/STOP handlers. */
+@media (max-width: 900px) {
+  :is(#manualDriveShell,#aiModeShell) :is(button, input, select, a[href], [tabindex="0"]) {
+    scroll-margin-block-start: 10rem;
+    scroll-margin-block-end: 12px;
+  }
+  body.manual-drive-page #mdrvStopTop,
+  body.ai-page #aiStopAll {
+    min-height: max(44px, calc(44px * var(--pisd-ui-button-scale,1))) !important;
+    min-block-size: max(44px, calc(44px * var(--pisd-ui-button-scale,1))) !important;
+    min-width: 44px !important;
+    transform: none !important;
+    white-space: normal !important;
+  }
+}
+@media (forced-colors: active) {
+  :is(#drivingCockpitToggle,#mdrvOverlayToggle,#aiOverlayToggle):focus-visible,
+  :is(#mdrvStopTop,#aiStopAll):focus-visible {
+    outline: 3px solid Highlight !important;
+    outline-offset: 3px !important;
+  }
+}
+
+/* VD1AB / VD11: original locally bundled outline glyphs; labels remain
+   authoritative. No external resources, new DOM nodes or icon-only actions. */
+@media (forced-colors: none) {
+  :is(#mdrvRefresh,#mdrvRefreshFiles,#aiRefreshModels,#aiRefreshFiles,#mdrvOverlaySettingsOpen,#drivingCockpitToggle)::before {
+    content: "";
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    flex: 0 0 1em;
+    margin-inline-end: .35em;
+    vertical-align: -.13em;
+    background: currentColor;
+    -webkit-mask: var(--vd-context-icon) center / contain no-repeat;
+    mask: var(--vd-context-icon) center / contain no-repeat;
+    pointer-events: none;
+  }
+  :is(#mdrvRefresh,#mdrvRefreshFiles,#aiRefreshModels,#aiRefreshFiles) { --vd-context-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M20%209a8%208%200%201%200%20.2%206M20%204v5h-5%22%2F%3E%3C%2Fsvg%3E"); }
+  :is(#mdrvOverlaySettingsOpen) { --vd-context-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M4%206h16M4%2012h16M4%2018h16%22%2F%3E%3Ccircle%20cx%3D%229%22%20cy%3D%226%22%20r%3D%222%22%20fill%3D%22white%22%2F%3E%3Ccircle%20cx%3D%2215%22%20cy%3D%2212%22%20r%3D%222%22%20fill%3D%22white%22%2F%3E%3Ccircle%20cx%3D%228%22%20cy%3D%2218%22%20r%3D%222%22%20fill%3D%22white%22%2F%3E%3C%2Fsvg%3E"); }
+  :is(#drivingCockpitToggle) { --vd-context-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M9%204H4v5m11-5h5v5M4%2015v5h5m11-5v5h-5%22%2F%3E%3C%2Fsvg%3E"); }
+}
+
+/* VD1AC / VD19: readouts keep their source values, tones and existing
+   grid. Long readiness reasons must not disappear behind an ellipsis. */
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) #manualDriveStatusPanel .mdrv-status-strip > span,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .ai-readout-grid > div {
+  min-width: 0;
+}
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) #manualDriveStatusPanel .mdrv-status-strip > span > strong,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pisd-readiness-item > strong,
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .ai-readout-grid dd {
+  white-space: normal !important;
+  overflow-wrap: anywhere !important;
+  text-overflow: clip !important;
+  font-variant-numeric: tabular-nums;
+}
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pisd-readiness-item > span {
+  white-space: normal;
+}
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) :is(#mdrvCameraFps,#mdrvIntentOut,#mdrvMotorOut,#aiRawSteering,#aiRawThrottle,#aiMixedSteering,#aiMixedThrottle,#aiSafeSteering,#aiSafeThrottle,#aiLeftMotor,#aiRightMotor,#aiInferenceMs,#aiLoopHz,#aiFrameSeq) {
+  font-family: "PiDrive Plex Mono", "IBM Plex Mono", ui-monospace, monospace !important;
+  font-variant-numeric: tabular-nums;
+}
+
+/* VD33: contextual icons share the native 16px desktop target; preserve
+   the existing smaller relative footprint at constrained widths. */
+@media (min-width:1280px) and (forced-colors:none) {
+  :is(#mdrvRefresh,#mdrvRefreshFiles,#aiRefreshModels,#aiRefreshFiles,#mdrvOverlaySettingsOpen,#drivingCockpitToggle)::before {
+    width:16px;height:16px;flex-basis:16px;
+  }
+}
+
+/* VD1AE: actual light-theme motor-tuning screenshot showed the legacy
+   pale lavender explanation list on white. Use the curated semantic
+   foreground; leave legacy/custom appearance and workflow unchanged. */
+@media (forced-colors: none) {
+  body.motor-tuning-page:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .mtun-empty-state ul {
+    color: var(--vd-text) !important;
+  }
+}

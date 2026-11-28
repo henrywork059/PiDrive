@@ -188,9 +188,12 @@ def get_density_profile(density: str = "comfortable") -> DensityProfile:
     return DENSITY_PROFILES.get(density, DENSITY_PROFILES["comfortable"])
 
 
-def density_for_width(width: int) -> str:
+def density_for_width(width: int, height: int | None = None) -> str:
+    """Preserve width profiles; short windows also use compact chrome."""
     width = max(1, int(width))
     if width < 1180:
+        return "compact"
+    if height is not None and height < 760:
         return "compact"
     if width > 1680:
         return "spacious"
@@ -208,6 +211,11 @@ def stylesheet_tokens(density: str = "comfortable") -> dict[str, str]:
         "MAIN_TAB_MIN": str(profile.main_tab_min),
         "WORKFLOW_TAB_MIN": str(profile.workflow_tab_min),
         "SCROLLBAR": str(profile.scrollbar),
+        # Keep comfortable appearance unchanged; compact short windows
+        # recover vertical space in passive chrome, not by shrinking actions.
+        "TABLE_CELL_PAD": str({"compact": 3, "comfortable": 5, "spacious": 6}.get(density, 5)),
+        "TOOLBAR_PAD": str({"compact": 4, "comfortable": 6, "spacious": 8}.get(density, 6)),
+        "TOOLBAR_GAP": str({"compact": 6, "comfortable": 8, "spacious": 10}.get(density, 8)),
     }
     tokens.update({f"COLOR_{name.upper()}": value for name, value in THEME_COLORS.items()})
     return tokens
@@ -350,7 +358,10 @@ def apply_standard_widget_format(root: QWidget, *, density: str = "comfortable")
 
     for list_widget in root.findChildren(QListWidget):
         list_widget.setAlternatingRowColors(True)
-        list_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        # Session Source owns a user-resizable, persisted fixed vertical size.
+        # Do not replace that specific policy with the generic expanding list.
+        if list_widget.objectName() != "sessionListWidget":
+            list_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
     # Standard label roles. Do not overwrite explicit labels.
     for label in root.findChildren(QLabel):

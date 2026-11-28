@@ -23,7 +23,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 12
+    timeout-minutes: 20
     env:
       QT_QPA_PLATFORM: ${{ matrix.os == 'windows-latest' && 'windows' || 'offscreen' }}
       PYTHONDONTWRITEBYTECODE: '1'
@@ -68,6 +68,9 @@ jobs:
             python tools/check_ui2_trainer.py --source piTrainer --output (Join-Path $evidence ('vd1a-' + $theme)) --revision $env:CANDIDATE_SHA --require-readable-status --theme $theme
             if ($LASTEXITCODE -ne 0) { throw "VD1A $theme capture failed" }
           }
+      - name: Attempt original-size qualification using supported native Windows display modes
+        if: runner.os == 'Windows'
+        run: python tools/check_vd1q_windows_display.py --baseline "$env:RUNNER_TEMP/ui2-main/piTrainer" --source piTrainer --output "$env:RUNNER_TEMP/ui2-evidence/native-display" --baseline-sha $env:BASELINE_SHA --revision $env:CANDIDATE_SHA
       - name: Preserve original and candidate evidence
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4

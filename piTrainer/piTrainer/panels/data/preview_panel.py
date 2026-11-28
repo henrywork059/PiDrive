@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import QItemSelectionModel
 
 from ...services.data.preview_service import dataframe_preview_rows, preview_columns
+from ...services.data.review_context import display
 from ...services.data.selection_scope import SelectionScope, count_selected_generated
 from .preview_model import RecordPreviewModel
 from .preview_table import CyclingPreviewTable
@@ -25,6 +26,7 @@ class PreviewPanel(QGroupBox):
     def __init__(self, selection_callback=None, playback_state_callback=None) -> None:
         super().__init__('Records')
         self.df = pd.DataFrame()
+        self.review_revision = 0
         self.selection_callback = selection_callback
         self.playback_state_callback = playback_state_callback
         self._handling_selection = False
@@ -130,6 +132,7 @@ class PreviewPanel(QGroupBox):
         self.stop_autoplay()
         # One owning snapshot; reset only its index, not the data blocks.
         self.df = df.copy()
+        self.review_revision += 1
         self.df.index = pd.RangeIndex(len(self.df))
         rows = dataframe_preview_rows(self.df)
         columns = preview_columns(rows)
@@ -349,6 +352,7 @@ class PreviewPanel(QGroupBox):
                     self.df.at[source_row, field_name] = float(value)
                 self.model.set_value(source_row, field_name, float(value))
 
+        self.review_revision += 1
         if not preserve_selection:
             view_row = self._view_row_for_source_row(matched_source_rows[0])
             if view_row >= 0:
@@ -471,15 +475,9 @@ class PreviewPanel(QGroupBox):
         self._handling_selection = True
         try:
             self._schedule_first_column_visible()
-            if self.selection_callback is None:
-                return
             row = self.current_row()
-            if row < 0 or row >= len(self.df):
-                self.selection_callback(None)
-                self._refresh_summary()
-                self._emit_playback_state()
-                return
-            self.selection_callback(self.selected_record())
+            if self.selection_callback is not None:
+                self.selection_callback(self.selected_record() if 0 <= row < len(self.df) else None)
             self._refresh_summary()
             self._emit_playback_state()
         finally:
@@ -499,13 +497,13 @@ class PreviewPanel(QGroupBox):
         session = str(record.get('session', ''))
         frame_id = str(record.get('frame_id', ''))
         mode = str(record.get('mode', ''))
-        steering = float(record.get('steering', 0.0) or 0.0)
-        throttle = float(record.get('throttle', 0.0) or 0.0)
+        steering = display(record.get('steering'))
+        throttle = display(record.get('throttle'))
         selected_count = len(self.selected_source_rows())
         selected_note = f" {selected_count} row(s) selected." if selected_count > 1 else ""
-        display_row = row + 1
+        display_row = self._current_view_row() + 1
         self.summary_label.setText(
-            f"Displaying {total} frame(s). Current: row {display_row}, session '{session}', frame '{frame_id}', mode '{mode}', Steering {steering:.3f}, Speed {throttle:.3f}.{selected_note}"
+            f"Displaying {total} frame(s). Current: row {display_row}/{total}, session '{session}', frame '{frame_id}', mode '{mode}', Steering {steering}, Speed {throttle}.{selected_note}"
         )
 
     def _emit_playback_state(self) -> None:

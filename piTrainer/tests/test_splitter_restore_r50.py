@@ -29,6 +29,37 @@ class SplitterRestoreTests(unittest.TestCase):
         self.app.processEvents()
         return page, splitter
 
+    def test_panel_navigation_preserves_saved_splitter_proportions(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            settings = QSettings(str(Path(tmp) / "layout.ini"), QSettings.IniFormat)
+            with patch("piTrainer.pages.dock_page.QSettings", return_value=settings):
+                page = DockPage("r50_navigation_fixture")
+                frames = [page.make_panel_frame(str(i), title, QLabel(title))
+                          for i, title in enumerate(("Input", "Review", "Output"))]
+                splitter = page.make_horizontal_splitter(frames, sizes=[200, 300, 200],
+                    minimums=[0, 0, 0], object_name="workspace")
+                page.set_workspace_widget(splitter)
+                page.resize(740, 500)
+                page.show()
+                self.addCleanup(page.close)
+                page.activateWindow()
+                self.app.processEvents()
+                splitter.setSizes([220, 260, 220])
+                splitter.capture_current_ratios()
+                page.save_layout()
+                settings.sync()
+                keys = {key: settings.value(key) for key in settings.allKeys()}
+                before = list(splitter.sizes())
+                self.assertEqual(page.workspace_panel_titles(), ("Input", "Review", "Output"))
+                self.assertTrue(page.focus_workspace_panel(1))
+                self.assertTrue(page.cycle_workspace_panel(1))
+                self.assertEqual(self.app.focusWidget().accessibleName(), "Output panel")
+                self.assertTrue(page.cycle_workspace_panel(-1))
+                self.assertEqual(self.app.focusWidget().accessibleName(), "Review panel")
+                self.assertFalse(page.focus_workspace_panel(-1))
+                self.assertEqual(splitter.sizes(), before)
+                self.assertEqual({key: settings.value(key) for key in settings.allKeys()}, keys)
+
     def test_save_restore_and_resize_keep_visible_user_proportions(self):
         with tempfile.TemporaryDirectory() as tmp:
             settings = QSettings(str(Path(tmp) / "layout.ini"), QSettings.IniFormat)

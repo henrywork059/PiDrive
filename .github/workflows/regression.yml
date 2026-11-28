@@ -153,7 +153,8 @@ jobs:
               # Test-only dependency for actual runtime model-service inference; not a trainer install requirement.
               "$smoke" -m pip install "opencv-python-headless>=4.8,<4.12"
               PIDRIVE_THREAD_REPORT="$RUNNER_TEMP/p2-thread-report/threads.json" TF_NUM_INTEROP_THREADS=1 TF_NUM_INTRAOP_THREADS=1 "$smoke" -m unittest discover -s tests -p test_real_tflite_export_f10.py -v
-              if { [ "${{ github.head_ref }}" = update/performance-2-review-resources ] || { [ "${{ github.head_ref }}" = integration/performance-ui2-main-20261128 ] || [ "${{ github.head_ref }}" = release/v1.0.0-candidate ] || [ "${{ github.head_ref }}" = qualification/1.0.0-rc06-08 ]; }; }; then
+              TF_NUM_INTEROP_THREADS=1 TF_NUM_INTRAOP_THREADS=1 CUDA_VISIBLE_DEVICES=-1 "$smoke" ../tools/check_vd1k_trained_workflow.py --output "$RUNNER_TEMP/vd1k-trained-workflow" --revision "${{ github.event.pull_request.head.sha || github.sha }}"
+              if { [ "${{ github.head_ref }}" = update/performance-2-review-resources ] || { [ "${{ github.head_ref }}" = integration/performance-ui2-main-20261128 ] || [ "${{ github.head_ref }}" = release/v1.0.0-candidate ] || [ "${{ github.head_ref }}" = update/visual-design-1b-controls ] || [ "${{ github.head_ref }}" = qualification/1.0.0-rc06-08 ]; }; }; then
                 TF_NUM_INTEROP_THREADS=1 TF_NUM_INTRAOP_THREADS=1 TF_ENABLE_ONEDNN_OPTS=0 CUDA_VISIBLE_DEVICES=-1 "$smoke" ../tools/benchmark_p2_training_epoch.py --rounds 5 --rows 96 --epochs 2 --output "$RUNNER_TEMP/p2-thread-report/training-epoch.json"
               fi
               python -m venv "$RUNNER_TEMP/desktop-smoke"
@@ -171,6 +172,14 @@ jobs:
         with:
           name: p2-real-tflite-threads
           path: ${{ runner.temp }}/p2-thread-report
+          if-no-files-found: error
+
+      - name: Preserve actual trained-workflow evidence
+        if: ${{ matrix.component == 'piTrainer' && !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: vd1k-trained-workflow
+          path: ${{ runner.temp }}/vd1k-trained-workflow
           if-no-files-found: error
 
   manifest-contract:
@@ -200,7 +209,7 @@ jobs:
           fi
 
       - name: Run original and extended performance benchmarks against exact trusted revisions
-        if: ${{ !cancelled() && github.event_name == 'pull_request' && (github.head_ref == 'update/performance-1-computation' || (github.head_ref == 'update/performance-2-resources' || (github.head_ref == 'update/performance-2-review-resources' || (github.head_ref == 'integration/performance-ui2-main-20261128' || (github.head_ref == 'release/v1.0.0-candidate' || github.head_ref == 'qualification/1.0.0-rc06-08'))))) }}
+        if: ${{ !cancelled() && github.event_name == 'pull_request' && (github.head_ref == 'update/performance-1-computation' || (github.head_ref == 'update/performance-2-resources' || (github.head_ref == 'update/performance-2-review-resources' || (github.head_ref == 'integration/performance-ui2-main-20261128' || (github.head_ref == 'release/v1.0.0-candidate' || github.head_ref == 'update/visual-design-1b-controls' || github.head_ref == 'qualification/1.0.0-rc06-08'))))) }}
         env:
           CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
@@ -213,7 +222,7 @@ jobs:
           python tools/benchmark_performance_update1.py --base 14c57c990ff0f9bae2003e4e8aa552d17a4227c7 --candidate "$CANDIDATE_SHA" --profile-dir "$RUNNER_TEMP/performance-update1/profiles" | tee "$RUNNER_TEMP/performance-update1/extended.json"
           git worktree remove --force "$RUNNER_TEMP/perf-original"
       - name: Preserve performance benchmark evidence
-        if: ${{ !cancelled() && github.event_name == 'pull_request' && (github.head_ref == 'update/performance-1-computation' || (github.head_ref == 'update/performance-2-resources' || (github.head_ref == 'update/performance-2-review-resources' || (github.head_ref == 'integration/performance-ui2-main-20261128' || (github.head_ref == 'release/v1.0.0-candidate' || github.head_ref == 'qualification/1.0.0-rc06-08'))))) }}
+        if: ${{ !cancelled() && github.event_name == 'pull_request' && (github.head_ref == 'update/performance-1-computation' || (github.head_ref == 'update/performance-2-resources' || (github.head_ref == 'update/performance-2-review-resources' || (github.head_ref == 'integration/performance-ui2-main-20261128' || (github.head_ref == 'release/v1.0.0-candidate' || github.head_ref == 'update/visual-design-1b-controls' || github.head_ref == 'qualification/1.0.0-rc06-08'))))) }}
         uses: actions/upload-artifact@v4
         with:
           name: performance-update1

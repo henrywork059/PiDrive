@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from ..services.task_outputs import confirmed_receipt_paths
+from ..services.validation.conversion_comparison import compare_conversion
+from ..panels.export_validation.conversion_comparison_panel import ConversionComparisonPanel
+
 from ..app_state import TrainConfig
 import pandas as pd
 
@@ -36,11 +40,14 @@ class ExportValidationPage(DockPage):
             clear_callback=self.clear_results,
         )
         self.plot_panel = ValidationPlotPanel()
+        self.comparison_panel = ConversionComparisonPanel(self.compare_completed_results)
         self.frame_review_panel = ValidationFrameReviewPanel(edit_in_data_callback=self.main_window.open_validation_frame_in_data_editor)
         self.log_panel = LogPanel('TFLite Check Log')
         self.task_progress = TaskProgressPanel()
         self.actions_panel.layout().addWidget(self.task_progress)
         self.task_runner = BackgroundTaskRunner(self.task_progress, self)
+        self.config_panel.dataset_source_combo.currentTextChanged.connect(self.refresh_selected_scope)
+        self.config_panel.max_rows_spin.valueChanged.connect(self.refresh_selected_scope)
 
         self.build_default_layout()
         self.restore_layout()
@@ -68,8 +75,10 @@ class ExportValidationPage(DockPage):
         result_tabs = make_workflow_tabs([
             ('1 Plot', self.plot_panel, 'Prediction error plot.'),
             ('2 Log', self.log_panel, 'Interpreter messages and errors.'),
+            ('3 Compare', self.comparison_panel, 'Compare matched historical Keras and TFLite predictions.'),
         ], object_name='exportValidationResultTabs')
 
+        self.result_tabs = result_tabs
         workspace = self.make_horizontal_splitter([
             self.make_panel_frame('workflow_controls', 'TFLite Workflow', workflow_tabs),
             self.make_panel_frame('results', 'TFLite Output', result_tabs),
@@ -89,7 +98,18 @@ class ExportValidationPage(DockPage):
             next_tooltip='Focus Run Check in 1 Run.',
         )
 
+    def refresh_selected_scope(self, *_args) -> None:
+        source = self.config_panel.dataset_source()
+        if source == 'Validation split':
+            frame = self.state.val_df
+        elif source == 'Training split':
+            frame = self.state.train_df
+        else:
+            frame = self.state.filtered_df
+        self.summary_panel.set_selected_scope(source, len(frame), self.config_panel.max_rows())
+
     def refresh_from_state(self) -> None:
+        self.refresh_selected_scope()
         self.summary_panel.set_model_state(
             tflite_path=self.config_panel.tflite_path(),
             dataset_rows={
@@ -169,6 +189,7 @@ class ExportValidationPage(DockPage):
 
         def completed(result):
             self.last_result = result
+            self.invalidate_comparison()
             receipt = result.get('validation_receipt')
             if receipt:
                 self.log_panel.append_line(f"Validation summary saved: {receipt['path']}")
@@ -194,7 +215,8 @@ class ExportValidationPage(DockPage):
                 self.log_panel.append_line(f'  Note: {note}')
             self.main_window.set_status_message('TFLite check complete.')
             self.refresh_from_state()
-            return (f"TFLite check completed: {result['rows_used']} rows", ())
+            return (f"TFLite check completed: {result['rows_used']} rows",
+                    confirmed_receipt_paths((receipt or {}).get("path")))
 
         def failed(error):
             self.log_panel.append_line(f'TFLite check failed: {error}')
@@ -205,11 +227,40 @@ class ExportValidationPage(DockPage):
             controls=(self.actions_panel.run_button, self.actions_panel.clear_button, self.actions_panel.browse_button, self.config_panel),
         )
 
+    def invalidate_comparison(self) -> None:
+        self.comparison_panel.invalidate()
+
+    def compare_completed_results(self) -> None:
+        if not self.main_window.can_start_task(self) or self.task_runner.active:
+            return
+        reference = getattr(self.main_window, 'validation_page', None)
+        keras = getattr(reference, 'last_result', None)
+        lite = self.last_result
+        self.invalidate_comparison()
+
+        def work(report):
+            report('Checking recorded row identities and prediction differences', None)
+            return compare_conversion(keras, lite)
+
+        def completed(result):
+            if self.last_result is not lite or getattr(reference, 'last_result', None) is not keras:
+                self.invalidate_comparison()
+                raise RuntimeError('Validation results changed during comparison.')
+            self.comparison_panel.set_comparison(result)
+            return ('Comparison complete' if result['available'] else 'Comparison unavailable: ' + result['reason'], ())
+
+        self.task_runner.start(
+            'Compare validation snapshots', work, completed,
+            controls=(self.comparison_panel.compare_button, self.actions_panel.run_button,
+                      self.actions_panel.clear_button, self.config_panel),
+        )
+
     def has_active_task(self) -> bool:
         return self.task_runner.active
 
     def clear_results(self) -> None:
         self.last_result = None
+        self.invalidate_comparison()
         self.plot_panel.set_result(None)
         self.frame_review_panel.set_result(None)
         self.summary_panel.set_result_text('TFLite check results cleared.')

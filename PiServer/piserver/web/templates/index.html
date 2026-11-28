@@ -44,7 +44,7 @@
         <div class="panel-body status-body" data-essentials-only="true">
           <label class="small-note status-density-control"><input type="checkbox" id="essentialsOnly" checked aria-controls="operatorMetrics" aria-describedby="telemetryHint"> Essentials only (keep controls)</label>
           <span class="small-note" id="telemetryHint">Uncheck for more telemetry.</span>
-          <div id="operatorMetrics" class="metric-grid status-metric-grid">
+          <div id="operatorMetrics" class="metric-grid status-metric-grid" role="group" aria-label="Runtime status and control outputs">
             <div class="metric-card metric-card-primary priority-high"><label>Drive</label><strong id="metricDriveState">Unverified</strong></div>
             <div class="metric-card metric-card-primary priority-high"><label>Output</label><strong id="metricApplied">Unverified</strong></div>
             <div class="metric-card metric-card-primary priority-medium"><label>Target</label><strong id="metricManual">S 0.00 · T 0.00</strong></div>
@@ -117,6 +117,7 @@
       <article class="dock-panel" data-panel="viewer">
         <div class="panel-head" id="jump-viewer" tabindex="-1" data-drive-keys-ignore role="heading" aria-level="2" aria-label="Preview">
           <span>Preview</span>
+          <button id="cameraCockpitToggle" class="ghost-btn" type="button" data-drive-keys-ignore aria-pressed="false" aria-controls="frameOverlay" title="Align overlays to the contained image; does not change camera settings or motor output.">Camera cockpit</button>
           <span class="panel-mini">view</span>
         </div>
         <div class="panel-body viewer-body">
@@ -533,6 +534,7 @@
   <script src="{{ url_for('static', filename='layout_presets.js') }}?v={{ app_version }}"></script>
   <script src="{{ url_for('static', filename='operator_format.js') }}?v={{ app_version }}"></script>
   <script src="{{ url_for('static', filename='app.js') }}?v={{ app_version }}"></script>
+  <script src="{{ url_for('static', filename='camera_cockpit.js') }}?v={{ app_version }}"></script>
   <script src="{{ url_for('static', filename='preflight.js') }}?v={{ app_version }}"></script>
   <script src="{{ url_for('static', filename='recent_events.js') }}?v={{ app_version }}"></script>
 

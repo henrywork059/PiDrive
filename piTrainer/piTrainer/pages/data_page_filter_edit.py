@@ -43,6 +43,10 @@ class DataPageFilterEditMixin:
             self.model_deploy_panel.set_prediction_count(prediction_count)
         if filtered_preview.empty:
             self.image_preview_panel.clear_preview()
+        preprocess = getattr(self.main_window, 'preprocess_page', None)
+        refresh_scope = getattr(preprocess, 'refresh_source_scope', None)
+        if callable(refresh_scope):
+            refresh_scope()
         self.main_window.set_status_message(f'Displaying {len(filtered_preview)} preview frame(s).')
 
     def clear_preview_filter(self) -> None:

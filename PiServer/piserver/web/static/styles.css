@@ -3924,3 +3924,377 @@ html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="ligh
     border-color: var(--line-strong) !important;
   }
 }
+
+/* VD14: preserve role colours for enabled controls only; do not alter
+   availability, pressed-state semantics, layout, or the legacy style. */
+@media (forced-colors: none) {
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) button:disabled,
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #pageTabs .tab-btn:disabled {
+    background: var(--panel-alt) !important;
+    color: var(--muted) !important;
+    border-color: var(--line-strong) !important;
+    opacity: 1 !important;
+    cursor: not-allowed;
+    box-shadow: none !important;
+    transform: none !important;
+  }
+}
+
+/* VD14: noncritical workspace and style actions retain their semantic
+   colours; an inset edge distinguishes hover from transient press. */
+@media (forced-colors: none) {
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) :is(#openStyleSettingsBtn,#saveStyleSettingsBtn,#resetStyleSettingsBtn,#closeStyleSettingsBtn,#pageTabs .tab-btn):enabled:hover {
+    box-shadow: inset 0 0 0 1px currentColor !important;
+  }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) :is(#openStyleSettingsBtn,#saveStyleSettingsBtn,#resetStyleSettingsBtn,#closeStyleSettingsBtn,#pageTabs .tab-btn):enabled:active {
+    box-shadow: inset 0 0 0 2px currentColor !important;
+  }
+}
+
+/* VD1D: local licensed assets, native fallback when unavailable. */
+@font-face {
+  font-family: "PiDrive Inter";
+  src: url("fonts/InterVariable.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "PiDrive Plex Mono";
+  src: url("fonts/IBMPlexMono-Regular.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) body {
+  font-family: "PiDrive Inter", Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+}
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) :is(pre,code,.style-setting-value) {
+  font-family: "PiDrive Plex Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;
+}
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) :is(.style-setting-value,#metricApplied,#metricManual,#metricMaxThrottle,#metricSteerMix,#metricSteerBias,#metricWheels,#metricFps) {
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 600px) {
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .style-setting-row-range { grid-template-columns: minmax(0, 1fr) auto; column-gap: 8px; }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .style-setting-row-range label { grid-column: 1 / -1; overflow-wrap: anywhere; }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .style-setting-row-range input { min-inline-size: 0; }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .style-setting-row-range .style-setting-value { text-align: end; }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .style-modal-foot { flex-wrap: wrap; }
+}
+
+/* VD1E: constrain the narrow style dialog to its fixed viewport, not
+   document scroll position. Keep header/footer reachable while body scrolls. */
+@media (max-width: 600px) {
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #styleSettingsModal .style-modal-card {
+    position: absolute;
+    inset: 8px;
+    width: auto;
+    height: auto;
+    max-width: none;
+    max-height: none;
+    min-height: 0;
+    margin: 0;
+  }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #styleSettingsModal .style-modal-body {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: auto;
+  }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #styleSettingsModal .style-modal-head > div {
+    flex: 1 1 0;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #styleSettingsModal .style-modal-foot {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    flex: 0 0 auto;
+  }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #styleSettingsModal .style-modal-foot button {
+    width: 100%;
+    min-height: 44px !important;
+    min-width: 44px !important;
+  }
+}
+
+/* VD1F: the editor groups need no nested card frames. Keep preview surfaces
+   and the configurable workspace itself unchanged. */
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #styleSettingsModal .style-settings-grid > .style-settings-section {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #styleSettingsModal .style-settings-grid .style-settings-section-head {
+  background: transparent !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+@media (max-width: 600px) {
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #styleSettingsModal .style-settings-grid > .style-settings-section {
+    padding-inline: 4px;
+  }
+}
+
+/* VD1P: presentation-only camera content alignment. Keep saved dock geometry,
+   actual freshness labels, existing overlay state and E-stop untouched. */
+html body #workspace .viewer-frame[data-camera-cockpit="on"] #videoFeed {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  box-sizing: border-box !important;
+  border: 0 !important;
+  object-fit: contain !important;
+}
+html body #workspace .viewer-frame[data-camera-cockpit="on"] :is(#frameOverlay, #snapshotFlash) {
+  inset: auto !important;
+  left: var(--camera-cockpit-x, 0px) !important;
+  top: var(--camera-cockpit-y, 0px) !important;
+  width: var(--camera-cockpit-width, 0px) !important;
+  height: var(--camera-cockpit-height, 0px) !important;
+}
+.viewer-frame[data-camera-cockpit="on"][data-camera-geometry="waiting"] #frameOverlay { visibility: hidden; }
+@media (forced-colors: none) {
+  html body #workspace .viewer-frame[data-camera-cockpit="on"] :is(.overlay-block, .overlay-two-pill, .preview-meta) {
+    background: #14171c !important;
+    color: #edf1f7 !important;
+    backdrop-filter: none !important;
+  }
+  html body #workspace .viewer-frame[data-camera-cockpit="on"] :is(.overlay-block-label, .overlay-block-value) {
+    color: #edf1f7 !important;
+  }
+}
+#cameraCockpitToggle { min-width: 0; white-space: normal; }
+@media (max-width: 900px) {
+  #cameraCockpitToggle { min-height: 44px !important; min-block-size: 44px !important; }
+}
+
+/* VD13 / VD1R: native form semantics retained. Custom track/handle only in
+   appearance editor; no changes to drive inputs, control dimensions or events. */
+@media (forced-colors: none) {
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #styleSettingsModal input[type=range] {
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent !important;
+    padding: 0 !important;
+    cursor: pointer;
+  }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #styleSettingsModal input[type=range]::-webkit-slider-runnable-track {
+    height: 8px;
+    background: var(--panel-alt);
+    border: 1px solid #64748B;
+    border-radius: 4px;
+    box-sizing: border-box;
+  }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #styleSettingsModal input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    margin-top: -6px;
+    border: 2px solid var(--text);
+    border-radius: 50%;
+    background: var(--accent);
+    box-sizing: border-box;
+  }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #styleSettingsModal input[type=range]::-moz-range-track {
+    height: 6px;
+    background: var(--panel-alt);
+    border: 1px solid #64748B;
+    border-radius: 4px;
+  }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #styleSettingsModal input[type=range]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--text);
+    border-radius: 50%;
+    background: var(--accent);
+  }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #styleSettingsModal input[type=range]:disabled { cursor: not-allowed; opacity: 1; }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #styleSettingsModal input[type=range]:disabled::-webkit-slider-thumb {
+    background: var(--muted); border-color: #64748B;
+  }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #styleSettingsModal input[type=range]:disabled::-moz-range-thumb {
+    background: var(--muted); border-color: #64748B;
+  }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #styleSettingsModal :is(select,input[type=text],input[type=number],textarea):disabled {
+    background: var(--panel-alt) !important;
+    color: var(--muted) !important;
+    border-color: #64748B !important;
+    cursor: not-allowed;
+    opacity: 1;
+  }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #styleSettingsModal :is(input[type=checkbox],input[type=radio]) {
+    accent-color: var(--accent);
+  }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #styleSettingsModal :is(input,select,textarea):focus-visible {
+    outline: 2px solid var(--accent) !important;
+    outline-offset: 2px;
+  }
+}
+
+/* VD1S / VD14: non-actuating presentation and navigation actions only.
+   Selection follows existing aria-pressed; no handler, layout or safety changes. */
+@media (forced-colors: none) {
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) :is(#cameraCockpitToggle,#pageTabs .tab-btn):enabled:hover {
+    box-shadow: inset 0 0 0 1px currentColor !important;
+    transform: none !important;
+  }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) :is(#cameraCockpitToggle,#pageTabs .tab-btn):enabled:active {
+    box-shadow: inset 0 0 0 2px currentColor !important;
+    transform: none !important;
+  }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) :is(#cameraCockpitToggle,#pageTabs .tab-btn)[aria-pressed="true"] {
+    text-decoration: underline !important;
+    text-underline-offset: 0.2em;
+    text-decoration-thickness: 2px;
+  }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) :is(#cameraCockpitToggle,#pageTabs .tab-btn)[aria-pressed="false"] {
+    text-decoration: none !important;
+  }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) :is(#cameraCockpitToggle,#pageTabs .tab-btn):enabled:focus-visible {
+    outline: 3px solid var(--vd-focus, #ffca65) !important;
+    outline-offset: 2px;
+  }
+}
+@media (forced-colors: active) {
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) :is(#cameraCockpitToggle,#pageTabs .tab-btn)[aria-pressed="true"] {
+    text-decoration: underline !important;
+    text-underline-offset: 0.2em;
+  }
+}
+
+/* VD1T / VD15: flatten secondary passive readouts only. Retain the dock,
+   alert cards, primary status, recording feedback and actionable controls. */
+@media (forced-colors: none) {
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #workspace :is(div.metric-card.priority-low:not(.metric-card-alert):not(.metric-card-action),div.record-meta-card.priority-low,div.record-meta-card.priority-medium) {
+    background: transparent !important;
+    border-color: transparent !important;
+    border-bottom-color: var(--line-strong) !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+}
+
+/* VD1U / VD16: inner ordinary sections use a flat hierarchy.
+   Outer dock, resize handles, strong operational sections, action footers
+   and preview sample remain unchanged; retain all configured dimensions. */
+@media (forced-colors: none) {
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #workspace .dock-panel:is([data-panel="model"],[data-panel="sessions"],[data-panel="camera"],[data-panel="motor"]) .panel-section:not(.panel-section-strong):not(.panel-section-footer) {
+    background: transparent !important;
+    border-color: transparent !important;
+    border-radius: 0 !important;
+    box-shadow: inset 0 -1px 0 var(--line) !important;
+  }
+}
+
+/* VD1V / VD17: adapt settings fields to touch-sized stacked workspaces.
+   Do not change desktop dock sizes, manual controls or the E-stop. */
+@media (max-width: 760px) {
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #workspace .dock-panel:is([data-panel="camera"],[data-panel="motor"]) .field-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    row-gap: max(8px, var(--field-gap)) !important;
+  }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #workspace .dock-panel:is([data-panel="camera"],[data-panel="motor"]) .field-grid :is(.field,label,select,input) {
+    min-inline-size: 0;
+    max-inline-size: 100%;
+  }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #workspace .dock-panel:is([data-panel="camera"],[data-panel="motor"]) .field-grid :is(select,input[type=number],input[type=text],input[type=range]),
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #styleSettingsModal :is(select,input[type=range],input[type=color]) {
+    box-sizing: border-box;
+    min-height: 44px !important;
+    min-block-size: 44px !important;
+  }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #workspace .dock-panel:is([data-panel="camera"],[data-panel="motor"]) .check-line {
+    min-block-size: 44px;
+    overflow-wrap: anywhere;
+  }
+}
+
+/* VD23: readable signed telemetry with unchanged overlay geometry and
+   explicit camera health state colors. Keep native forced-color treatment. */
+html body #workspace .viewer-frame[data-camera-cockpit="on"] .overlay-block-value {
+  font-family: "PiDrive Plex Mono","IBM Plex Mono",ui-monospace,monospace !important;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+@media (forced-colors: none) {
+  html body #workspace .viewer-frame[data-camera-cockpit="on"] .preview-health {
+    background: #0a4b2a !important;
+    color: #e5fff1 !important;
+  }
+  html body #workspace .viewer-frame[data-camera-cockpit="on"] .preview-health:is(.delayed,.paused) {
+    background: #6a460e !important;
+    color: #fff4d5 !important;
+  }
+  html body #workspace .viewer-frame[data-camera-cockpit="on"] .preview-health.disconnected {
+    background: #841a1d !important;
+    color: #fff0f0 !important;
+  }
+}
+
+/* VD1AA: use the existing native buttons, not a new navigation mechanism. */
+@media (max-width: 760px) {
+  #pageTabs .tab-btn {
+    min-height: 44px !important;
+    min-width: 44px !important;
+    white-space: normal !important;
+  }
+  #workspace :is(button,input,select,a[href],[tabindex="0"]) {
+    scroll-margin-block-start: 10rem;
+    scroll-margin-block-end: 12px;
+  }
+}
+@media (forced-colors: active) {
+  :is(#cameraCockpitToggle,#estopToggle,#pageTabs .tab-btn):focus-visible {
+    outline: 3px solid Highlight !important;
+    outline-offset: 3px !important;
+  }
+}
+
+/* VD1AB / VD11: original locally bundled outline glyphs; labels remain
+   authoritative. No external resources, new DOM nodes or icon-only actions. */
+@media (forced-colors: none) {
+  :is(#refreshModelsBtn,#refreshSessionsBtn,#openStyleSettingsBtn,#cameraCockpitToggle)::before {
+    content: "";
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    flex: 0 0 1em;
+    margin-inline-end: .35em;
+    vertical-align: -.13em;
+    background: currentColor;
+    -webkit-mask: var(--vd-context-icon) center / contain no-repeat;
+    mask: var(--vd-context-icon) center / contain no-repeat;
+    pointer-events: none;
+  }
+  :is(#refreshModelsBtn,#refreshSessionsBtn) { --vd-context-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M20%209a8%208%200%201%200%20.2%206M20%204v5h-5%22%2F%3E%3C%2Fsvg%3E"); }
+  :is(#openStyleSettingsBtn) { --vd-context-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M4%206h16M4%2012h16M4%2018h16%22%2F%3E%3Ccircle%20cx%3D%229%22%20cy%3D%226%22%20r%3D%222%22%20fill%3D%22white%22%2F%3E%3Ccircle%20cx%3D%2215%22%20cy%3D%2212%22%20r%3D%222%22%20fill%3D%22white%22%2F%3E%3Ccircle%20cx%3D%228%22%20cy%3D%2218%22%20r%3D%222%22%20fill%3D%22white%22%2F%3E%3C%2Fsvg%3E"); }
+  :is(#cameraCockpitToggle) { --vd-context-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M9%204H4v5m11-5h5v5M4%2015v5h5m11-5v5h-5%22%2F%3E%3C%2Fsvg%3E"); }
+}
+
+/* VD1AC: existing operator metrics stay in the saved dock. Text wraps
+   without replacing unknown/unverified state, status tones or actions. */
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #operatorMetrics .metric-card:not(.metric-card-action) {
+  min-width: 0;
+}
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #operatorMetrics .metric-card:not(.metric-card-action) :is(label,strong),
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #statusBanner {
+  white-space: normal !important;
+  overflow-wrap: anywhere !important;
+  text-overflow: clip !important;
+}
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #operatorMetrics :is(#metricManual,#metricApplied,#metricWheels,#metricFps,#metricMaxThrottle,#metricSteerMix,#metricSteerBias) {
+  font-family: "PiDrive Plex Mono", "IBM Plex Mono", ui-monospace, monospace !important;
+  font-variant-numeric: tabular-nums;
+}
+
+/* VD33: contextual icons share the native 16px desktop target; preserve
+   the existing smaller relative footprint at constrained widths. */
+@media (min-width:1280px) and (forced-colors:none) {
+  :is(#refreshModelsBtn,#refreshSessionsBtn,#openStyleSettingsBtn,#cameraCockpitToggle)::before {
+    width:16px;height:16px;flex-basis:16px;
+  }
+}

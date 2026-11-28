@@ -1,4 +1,5 @@
 import importlib.util
+import hashlib
 import json
 import subprocess
 import sys
@@ -171,6 +172,27 @@ class PackageTests(unittest.TestCase):
         bad = self.commit("unapproved asset")
         with self.assertRaisesRegex(ValueError, "Forbidden"):
             p.expected(self.root, self.c, self.base, bad)
+
+    def test_reviewed_font_assets_only(self):
+        root = Path(__file__).resolve().parents[1]
+        assets = {
+            "PiSD/pisd/web/static/fonts/InterVariable.woff2": ("5a8d3e72ad7ffb62af3b146e1b1f54ab5813a212", 352240),
+            "PiSD/pisd/web/static/fonts/IBMPlexMono-Regular.woff2": ("8bdb4c4b3f8fae88cc2e3c9c744952dccf89b15a", 49248),
+            "PiServer/piserver/web/static/fonts/InterVariable.woff2": ("5a8d3e72ad7ffb62af3b146e1b1f54ab5813a212", 352240),
+            "PiServer/piserver/web/static/fonts/IBMPlexMono-Regular.woff2": ("8bdb4c4b3f8fae88cc2e3c9c744952dccf89b15a", 49248),
+            "piTrainer/piTrainer/ui/fonts/InterVariable.ttf": ("4ab79e0102bbe0ffa1ed879b13e52ac8c6487833", 879708),
+            "piTrainer/piTrainer/ui/fonts/IBMPlexMono-Regular.ttf": ("4254c37f20ba57e829a3315fdc91cda4e63589f5", 173052),
+        }
+        for path, (sha, size) in assets.items():
+            with self.subTest(path=path):
+                component = path.split("/")[0]
+                self.assertTrue(p.allowed(component, path))
+                self.assertFalse(p.allowed(component, Path(path).with_name("unreviewed" + Path(path).suffix).as_posix()))
+                data = (root / path).read_bytes()
+                self.assertEqual(len(data), size)
+                self.assertEqual(hashlib.sha1(b"blob " + str(size).encode() + b"\0" + data).hexdigest(), sha)
+        for component in p.COMPONENTS:
+            self.assertFalse(p.allowed(component, component + "/config/InterVariable.ttf"))
 
     def test_each_other_component(self):
         for c in ("PiServer","piTrainer"):

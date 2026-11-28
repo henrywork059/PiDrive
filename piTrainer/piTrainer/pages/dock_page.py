@@ -4,6 +4,7 @@ from collections.abc import Iterable, Sequence
 
 from PySide6.QtCore import QSettings, QTimer, Qt
 from PySide6.QtWidgets import (
+    QApplication,
     QDockWidget,
     QFrame,
     QLabel,
@@ -198,6 +199,7 @@ class DockPage(QMainWindow):
         self.page_id = page_id
         self.setObjectName(f"dock_page_{page_id}")
         self._splitters: list[QSplitter] = []
+        self._workspace_panels: list[tuple[QFrame, QLabel]] = []
         self.setDockOptions(
             QMainWindow.AllowNestedDocks
             | QMainWindow.AllowTabbedDocks
@@ -222,18 +224,26 @@ class DockPage(QMainWindow):
     ) -> None:
         """Set the page's central workspace without the old page banner.
 
-        The page-level top banner is intentionally disabled for now so each
-        workflow opens directly into the splitter workspace. The unused banner
-        arguments stay in the method signature for page compatibility and for a
-        future easy restore if the banner is wanted again.
+        Keep the page banner disabled. Expose the existing navigation-only
+        reveal callback through the shared workflow guidance row instead.
         """
-        _ = (step, title, summary, next_step, next_callback, next_tooltip)
+        _ = (step, title, summary)
+        self.workspace_action_label = next_step
+        self._workspace_next_callback = next_callback
+        self.workspace_action_tooltip = next_tooltip
         widget.setObjectName(f"{self.page_id}_workspace_widget")
         widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.setCentralWidget(widget)
 
+    def locate_primary_action(self) -> None:
+        """Reveal the existing primary control; never execute its action."""
+        callback = getattr(self, '_workspace_next_callback', None)
+        if callable(callback):
+            callback()
+
     def clear_docks(self) -> None:
         self._splitters = []
+        self._workspace_panels = []
         for dock in self.findChildren(QDockWidget):
             self.removeDockWidget(dock)
             dock.deleteLater()
@@ -262,6 +272,10 @@ class DockPage(QMainWindow):
         header.setObjectName("splitterPanelTitle")
         header.setProperty("role", "panelTitle")
         header.setWordWrap(False)
+        header.setFocusPolicy(Qt.StrongFocus)
+        header.setAccessibleName(title + ' panel')
+        header.setAccessibleDescription('Workspace panel heading. Tab moves to its controls.')
+        self._workspace_panels.append((frame, header))
 
         widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         content_scroll = make_panel_content_scroll(
@@ -281,6 +295,35 @@ class DockPage(QMainWindow):
             layout.addWidget(subtitle_label)
         layout.addWidget(content_scroll, 1)
         return frame
+
+    def workspace_panel_titles(self) -> tuple[str, ...]:
+        """Return registered panels in their existing construction order."""
+        return tuple(header.text() for _, header in self._workspace_panels)
+
+    def focus_workspace_panel(self, index: int) -> bool:
+        """Focus a visible panel heading without changing splitter geometry."""
+        if not 0 <= index < len(self._workspace_panels):
+            return False
+        frame, header = self._workspace_panels[index]
+        if not frame.isVisible() or not header.isVisible() or not header.isEnabled():
+            return False
+        header.setFocus(Qt.OtherFocusReason)
+        return header.hasFocus()
+
+    def cycle_workspace_panel(self, direction: int = 1) -> bool:
+        visible = [index for index, (frame, header) in enumerate(self._workspace_panels)
+                   if frame.isVisible() and header.isVisible() and header.isEnabled()]
+        if not visible:
+            return False
+        focused = QApplication.focusWidget()
+        current = next((index for index in visible
+                        if focused is not None and
+                        (focused is self._workspace_panels[index][0] or
+                         self._workspace_panels[index][0].isAncestorOf(focused))), None)
+        step = 1 if direction >= 0 else -1
+        if current is None:
+            return self.focus_workspace_panel(visible[0 if step > 0 else -1])
+        return self.focus_workspace_panel(visible[(visible.index(current) + step) % len(visible)])
 
     def make_splitter(
         self,
@@ -352,30 +395,38 @@ class DockPage(QMainWindow):
     def reveal_widget(self, widget: QWidget | None, *, message: str = '') -> None:
         """Bring a nested action widget into view without triggering it.
 
-        Used by the compact page banner: pressing the banner button opens the
-        correct workflow tab/section, scrolls to the real green action button,
-        and briefly highlights it so the user knows which control to click.
+        Used by the shared workflow guidance: open the correct tab/section,
+        scroll to the existing action, and briefly highlight it. Do not
+        override explicit hidden or disabled states.
         """
         if widget is None:
             return
         self._activate_tab_ancestors(widget)
         self._expand_section_ancestors(widget)
-        widget.show()
-        widget.setFocus(Qt.OtherFocusReason)
+        if not widget.isVisible():
+            return
+        if widget.isEnabled():
+            widget.setFocus(Qt.OtherFocusReason)
         self._ensure_widget_visible(widget)
         self._spotlight_widget(widget)
         if message and hasattr(self, 'main_window'):
             self.main_window.set_status_message(message)
 
     def _activate_tab_ancestors(self, widget: QWidget) -> None:
+        ancestors = []
         current = widget.parentWidget()
         while current is not None:
-            parent = current.parentWidget()
-            if isinstance(parent, QTabWidget):
-                index = parent.indexOf(current)
-                if index >= 0:
-                    parent.setCurrentIndex(index)
-            current = parent
+            if isinstance(current, QTabWidget):
+                ancestors.append(current)
+            current = current.parentWidget()
+        # QTabWidget inserts a QStackedWidget between itself and each page.
+        # Select the containing page, starting with the outermost tab widget.
+        for tabs in reversed(ancestors):
+            for index in range(tabs.count()):
+                page = tabs.widget(index)
+                if page is widget or page.isAncestorOf(widget):
+                    tabs.setCurrentIndex(index)
+                    break
 
     def _expand_section_ancestors(self, widget: QWidget) -> None:
         current = widget.parentWidget()
@@ -385,10 +436,13 @@ class DockPage(QMainWindow):
             current = current.parentWidget()
 
     def _ensure_widget_visible(self, widget: QWidget) -> None:
-        for scroll_area in self.findChildren(QScrollArea):
-            content = scroll_area.widget()
-            if content is not None and (content is widget or content.isAncestorOf(widget)):
-                scroll_area.ensureWidgetVisible(widget, 24, 24)
+        current = widget.parentWidget()
+        while current is not None:
+            if isinstance(current, QScrollArea):
+                content = current.widget()
+                if content is not None and (content is widget or content.isAncestorOf(widget)):
+                    current.ensureWidgetVisible(widget, 24, 24)
+            current = current.parentWidget()
 
     def _spotlight_widget(self, widget: QWidget) -> None:
         widget.setProperty('spotlight', True)

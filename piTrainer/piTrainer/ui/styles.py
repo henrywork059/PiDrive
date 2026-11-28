@@ -4,6 +4,7 @@ from pathlib import Path
 
 from .formatting import stylesheet_tokens
 from .theme import current_theme
+from .typography import technical_font_stack
 
 
 def build_stylesheet(density: str = "comfortable") -> str:
@@ -26,8 +27,8 @@ def build_stylesheet(density: str = "comfortable") -> str:
     QToolBar {
         background: @COLOR_BG_PANEL_ALT@;
         border-bottom: 1px solid @COLOR_BORDER_SUBTLE@;
-        spacing: 8px;
-        padding: 6px;
+        spacing: @TOOLBAR_GAP@px;
+        padding: @TOOLBAR_PAD@px;
     }
     QMainWindow::separator {
         background: @COLOR_PRIMARY@;
@@ -36,7 +37,7 @@ def build_stylesheet(density: str = "comfortable") -> str:
     }
     QStatusBar {
         background: @COLOR_BG_APP@;
-        color: @COLOR_TEXT_MUTED@;
+        color: @COLOR_TEXT_PRIMARY@;
         border-top: 1px solid @COLOR_BORDER_SUBTLE@;
         padding: 3px 8px;
     }
@@ -44,6 +45,9 @@ def build_stylesheet(density: str = "comfortable") -> str:
         color: @COLOR_TEXT_PRIMARY@;
         background: transparent;
         font-weight: 650;
+    }
+    QLabel#workflowReadinessLabel:focus {
+        background: @COLOR_INFO_SURFACE@;
     }
     QFrame[role='pageShell'] {
         background: @COLOR_BG_SHELL@;
@@ -122,6 +126,11 @@ def build_stylesheet(density: str = "comfortable") -> str:
     }
     QFrame[role='splitterPanel'] QGroupBox[role='formGroup'] {
         margin-top: 8px;
+        /* VD1T: retain the original border width and group title layout;
+           passive form grouping uses a divider rather than a nested card. */
+        border-color: transparent;
+        border-bottom-color: @COLOR_BORDER_SUBTLE@;
+        border-radius: 0px;
     }
     QPushButton {
         min-height: @BUTTON_MIN@px;
@@ -219,6 +228,17 @@ def build_stylesheet(density: str = "comfortable") -> str:
         background: @COLOR_BG_PANEL_LIFT@;
         color: @COLOR_TEXT_SECONDARY@;
     }
+    /* Keep the existing secondary role while restoring distinct feedback
+       suppressed by its more specific default fill. */
+    QPushButton[role='secondary']:hover:enabled {
+        background: @COLOR_BG_OVERLAY@;
+        color: @COLOR_TEXT_PRIMARY@;
+        border-color: @COLOR_PRIMARY_HOVER@;
+    }
+    QPushButton[role='secondary']:pressed:enabled {
+        background: @COLOR_BG_INPUT_ALT@;
+        color: @COLOR_TEXT_PRIMARY@;
+    }
     QPushButton[role='amber'] {
         background: @COLOR_WARNING@;
         border-color: @COLOR_WARNING_BORDER@;
@@ -238,6 +258,34 @@ def build_stylesheet(density: str = "comfortable") -> str:
     QCheckBox:focus, QFrame#sessionListResizeHandle:focus {
         border: 1px solid @COLOR_INFO@;
     }
+    /* VD14: a role (or a legacy pulse/spotlight flag) must not override
+       disabled appearance. Preserve each role's existing border width. */
+    QPushButton[role]:disabled,
+    QPushButton[role='nextStep'][pulse='true']:disabled,
+    QPushButton[role='nextStep'][spotlight='true']:disabled,
+    QPushButton#pageBannerNextButton:disabled {
+        background: @COLOR_BG_INPUT@;
+        color: @COLOR_TEXT_DISABLED@;
+        border-color: @COLOR_BORDER_SUBTLE@;
+    }
+    /* A dashed edge distinguishes keyboard focus without changing geometry.
+       Use the existing role foreground on bright or dark action fills. */
+    QPushButton:focus:enabled, QPushButton[role]:focus:enabled {
+        border-style: dashed;
+    }
+    QPushButton[role='primary']:focus:enabled,
+    QPushButton[role='nextStep']:focus:enabled,
+    QPushButton[role='amber']:focus:enabled,
+    QPushButton#pageBannerNextButton:focus:enabled {
+        border-style: dashed;
+        border-color: @COLOR_TEXT_ON_WARNING@;
+    }
+    QPushButton[role='primary']:pressed:focus:enabled,
+    QPushButton[role='nextStep']:pressed:focus:enabled,
+    QPushButton[role='danger']:focus:enabled,
+    QPushButton#pageBannerNextButton:pressed:focus:enabled {
+        border-color: @COLOR_TEXT_ON_DARK@;
+    }
     QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox, QListWidget, QTextEdit, QPlainTextEdit, QTableWidget, QTableView {
         min-height: @INPUT_MIN@px;
         background: @COLOR_BG_INPUT@;
@@ -250,9 +298,25 @@ def build_stylesheet(density: str = "comfortable") -> str:
     QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus, QTextEdit:focus, QPlainTextEdit:focus, QTableWidget:focus, QTableView:focus, QListWidget:focus {
         border: 1px solid @COLOR_INFO@;
     }
+    /* VD1AA: retain the one-pixel border width; distinguish keyboard
+       table/list focus by pattern as well as the existing contrast color. */
+    QTableWidget:focus, QTableView:focus, QListWidget:focus {
+        border: 1px dashed @COLOR_INFO@;
+    }
+    /* VD13: preserve widget geometry and native editing behavior. */
+    QLineEdit:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled,
+    QComboBox:disabled, QTextEdit:disabled, QPlainTextEdit:disabled {
+        background: @COLOR_BG_PANEL_ALT@;
+        color: @COLOR_TEXT_MUTED@;
+        border-color: @COLOR_BORDER@;
+    }
+    QLineEdit:read-only {
+        background: @COLOR_BG_PANEL_ALT@;
+        color: @COLOR_TEXT_SECONDARY@;
+    }
     QPlainTextEdit {
         padding: 8px;
-        font-family: Consolas, 'Cascadia Mono', monospace;
+        font-family: __PITRAINER_MONO_STACK__;
         border-radius: 9px;
     }
     QTableWidget, QTableView {
@@ -262,11 +326,16 @@ def build_stylesheet(density: str = "comfortable") -> str:
         border-radius: 9px;
     }
     QTableWidget::item, QTableView::item {
-        padding: 5px;
+        padding: @TABLE_CELL_PAD@px;
     }
     QTableWidget::item:selected, QTableView::item:selected, QListWidget::item:selected {
         background: @COLOR_SELECTION@;
         color: @COLOR_TEXT_ON_DARK@;
+    }
+    /* Keep a non-color selected-cell cue without changing row geometry.
+       The record-preview warning selection retains its own stronger rules. */
+    QTableWidget::item:selected, QTableView::item:selected {
+        font-weight: 600;
     }
     QTableView#recordPreviewTable {
         alternate-background-color: @COLOR_BG_PANEL_LIFT@;
@@ -341,16 +410,19 @@ def build_stylesheet(density: str = "comfortable") -> str:
         background: @COLOR_BG_PANEL_LIFT@;
         color: @COLOR_TEXT_PRIMARY@;
         border: 1px solid @COLOR_BORDER@;
-        padding: 5px;
+        padding: @TABLE_CELL_PAD@px;
         font-weight: 700;
     }
     QTabWidget::pane {
         border: 1px solid @COLOR_BORDER_SUBTLE@;
         background: @COLOR_BG_PANEL@;
     }
+    /* VD1U: content tabs need only the top divider; preserve pane inset
+       and tab sizing, focus, selected colors and embedded widgets. */
     QTabWidget[role='contentTabs']::pane {
-        border: 1px solid @COLOR_BORDER_SUBTLE@;
-        border-radius: 8px;
+        border: 1px solid transparent;
+        border-top-color: @COLOR_BORDER_SUBTLE@;
+        border-radius: 0px;
         background: @COLOR_BG_SHELL@;
     }
     QTabWidget[role='contentTabs'] QTabBar::tab {
@@ -432,7 +504,7 @@ def build_stylesheet(density: str = "comfortable") -> str:
     QSlider::groove:horizontal {
         height: 7px;
         background: @COLOR_SLIDER_TRACK@;
-        border: 1px solid @COLOR_BORDER_SUBTLE@;
+        border: 1px solid @COLOR_BORDER@;
         border-radius: 4px;
     }
     QSlider::sub-page:horizontal {
@@ -491,6 +563,20 @@ def build_stylesheet(density: str = "comfortable") -> str:
     }
     QCheckBox::indicator:focus {
         border: 2px dashed @COLOR_TEXT_PRIMARY@;
+    }
+    QCheckBox:disabled {
+        color: @COLOR_TEXT_MUTED@;
+    }
+    QCheckBox::indicator:disabled {
+        background: @COLOR_BG_PANEL_ALT@;
+        border: 2px solid @COLOR_BORDER@;
+    }
+    QCheckBox::indicator:checked:disabled {
+        /* Keep the checkmark contrast in each theme; the muted label and
+           neutral border distinguish disabled from the enabled indicator. */
+        background: @COLOR_INFO@;
+        border: 2px solid @COLOR_BORDER@;
+        image: url("__CHECKBOX_MARK__");
     }
 
     #controlStack {
@@ -690,10 +776,82 @@ def build_stylesheet(density: str = "comfortable") -> str:
     QAbstractScrollArea::corner {
         background: @COLOR_SCROLL_TRACK@;
     }
+    /* VD1H: extend the qualified Data chrome to all splitter workspaces.
+       Keep semantic buttons, focus, disclosures, tables and inputs. */
+    QFrame[role='splitterPanel'] {
+        border: none;
+        border-radius: 0px;
+    }
+    QFrame[role='splitterPanel'] QLabel#splitterPanelTitle {
+        background: transparent;
+        border: none;
+        border-bottom: 1px solid @COLOR_BORDER_SUBTLE@;
+        border-radius: 0px;
+        padding: 4px 6px;
+        font-weight: 750;
+    }
+    QFrame[role='splitterPanel'] QLabel#splitterPanelTitle:focus {
+        background: @COLOR_INFO_SURFACE@;
+        color: @COLOR_TEXT_PRIMARY@;
+        border-bottom: 1px solid @COLOR_INFO@;
+    }
+    QFrame[role='splitterPanel'] QTabWidget[role='workflowTabs']::pane {
+        border: none;
+        border-radius: 0px;
+    }
+    QFrame[role='splitterPanel'] QFrame#collapsibleSectionBody {
+        border: none;
+        border-radius: 0px;
+    }
+    QGroupBox#sessionSourcePanel {
+        border: none;
+        border-radius: 0px;
+        padding: 6px 3px 3px 3px;
+    }
+    /* VD1S: selected tab focus uses its actual foreground, rather than
+       the page foreground on an accent fill. Keep the one-pixel edge. */
+    QTabWidget#mainWorkflowTabs QTabBar::tab:selected:focus {
+        border-top: 1px dashed @COLOR_TEXT_ON_ACCENT@;
+        border-left: 1px dashed @COLOR_TEXT_ON_ACCENT@;
+        border-right: 1px dashed @COLOR_TEXT_ON_ACCENT@;
+    }
+    QTabBar::tab:disabled {
+        background: @COLOR_BG_INPUT@;
+        color: @COLOR_TEXT_DISABLED@;
+        border-color: @COLOR_BORDER_SUBTLE@;
+    }
+    QTabWidget#mainWorkflowTabs QTabBar::tab:disabled,
+    QTabWidget[role='workflowTabs'] QTabBar::tab:disabled {
+        background: @COLOR_BG_INPUT@;
+        color: @COLOR_TEXT_DISABLED@;
+        border-color: @COLOR_BORDER_SUBTLE@;
+    }
+    QCheckBox::indicator:checked:hover:enabled,
+    #sessionRowCheckbox::indicator:checked:hover:enabled {
+        background: @COLOR_INFO@;
+        border-color: @COLOR_INFO_HOVER@;
+    }
+    QCheckBox::indicator:checked:focus:enabled,
+    #sessionRowCheckbox::indicator:checked:focus:enabled {
+        border: 2px dashed @COLOR_TEXT_PRIMARY@;
+    }
+    QCheckBox::indicator:pressed:enabled,
+    #sessionRowCheckbox::indicator:pressed:enabled {
+        border-style: dashed;
+    }
+    #sessionRowCheckbox::indicator:disabled {
+        background: @COLOR_BG_PANEL_ALT@;
+        border: 2px solid @COLOR_BORDER@;
+    }
+    #sessionRowCheckbox::indicator:checked:disabled {
+        background: @COLOR_INFO@;
+        border: 2px solid @COLOR_BORDER@;
+        image: url("__CHECKBOX_MARK__");
+    }
     """
     for key, value in values.items():
         css = css.replace(f"@{key}@", str(value))
     # Source checkout and PyInstaller onedir use the same module-relative asset.
     mark_name = 'checkbox_check_light.svg' if current_theme() == 'light' else 'checkbox_check.svg'
     mark = Path(__file__).resolve().with_name(mark_name).as_posix()
-    return css.replace('__CHECKBOX_MARK__', mark)
+    return css.replace('__CHECKBOX_MARK__', mark).replace('__PITRAINER_MONO_STACK__', technical_font_stack())

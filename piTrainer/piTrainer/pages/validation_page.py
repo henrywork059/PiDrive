@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from ..services.task_outputs import confirmed_receipt_paths
+
 from ..app_state import TrainConfig
 import pandas as pd
 
@@ -41,6 +43,8 @@ class ValidationPage(DockPage):
         self.task_progress = TaskProgressPanel()
         self.actions_panel.layout().addWidget(self.task_progress)
         self.task_runner = BackgroundTaskRunner(self.task_progress, self)
+        self.config_panel.dataset_source_combo.currentTextChanged.connect(self.refresh_selected_scope)
+        self.config_panel.max_rows_spin.valueChanged.connect(self.refresh_selected_scope)
 
         self.build_default_layout()
         self.restore_layout()
@@ -89,7 +93,18 @@ class ValidationPage(DockPage):
             next_tooltip='Focus Run Validation in 1 Run.',
         )
 
+    def refresh_selected_scope(self, *_args) -> None:
+        source = self.config_panel.dataset_source()
+        if source == 'Validation split':
+            frame = self.state.val_df
+        elif source == 'Training split':
+            frame = self.state.train_df
+        else:
+            frame = self.state.filtered_df
+        self.summary_panel.set_selected_scope(source, len(frame), self.config_panel.max_rows())
+
     def refresh_from_state(self) -> None:
+        self.refresh_selected_scope()
         self.summary_panel.set_model_state(
             in_memory_ready=self.state.model is not None,
             current_model_path=self.config_panel.model_path(),
@@ -170,6 +185,9 @@ class ValidationPage(DockPage):
 
         def completed(result):
             self.last_result = result
+            check = getattr(self.main_window, 'export_validation_page', None)
+            if hasattr(check, 'invalidate_comparison'):
+                check.invalidate_comparison()
             receipt = result.get('validation_receipt')
             if receipt:
                 self.log_panel.append_line(f"Validation summary saved: {receipt['path']}")
@@ -184,7 +202,8 @@ class ValidationPage(DockPage):
             )
             self.main_window.set_status_message('Validation complete.')
             self.refresh_from_state()
-            return (f"Validation completed: {result['rows_used']} rows", ())
+            return (f"Validation completed: {result['rows_used']} rows",
+                    confirmed_receipt_paths((receipt or {}).get("path")))
 
         def failed(error):
             self.log_panel.append_line(f'Validation failed: {error}')
@@ -200,6 +219,9 @@ class ValidationPage(DockPage):
 
     def clear_results(self) -> None:
         self.last_result = None
+        check = getattr(self.main_window, 'export_validation_page', None)
+        if hasattr(check, 'invalidate_comparison'):
+            check.invalidate_comparison()
         self.plot_panel.set_result(None)
         self.frame_review_panel.set_result(None)
         self.summary_panel.set_result_text('Validation results cleared.')

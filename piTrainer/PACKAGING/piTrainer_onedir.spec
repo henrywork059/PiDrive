@@ -48,6 +48,8 @@ checkbox_mark = ROOT / "piTrainer" / "ui" / "checkbox_check.svg"
 datas.append((str(checkbox_mark), "piTrainer/ui"))
 checkbox_mark_light = ROOT / "piTrainer" / "ui" / "checkbox_check_light.svg"
 datas.append((str(checkbox_mark_light), "piTrainer/ui"))
+for name in ("InterVariable.ttf", "IBMPlexMono-Regular.ttf", "Inter-LICENSE.txt", "IBMPlexMono-LICENSE.txt", "README.md"):
+    datas.append((str(ROOT / "piTrainer" / "ui" / "fonts" / name), "piTrainer/ui/fonts"))
 version_gate = ROOT / "config" / "version_gate.json"
 if version_gate.exists():
     datas.append((str(version_gate), "config"))

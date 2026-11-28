@@ -212,6 +212,7 @@ class SessionSourcePanel(QGroupBox):
         clear_btn.setProperty('role', 'secondary')
         clear_btn.clicked.connect(self.clear_all)
         self.load_btn = QPushButton('Load Selected')
+        self.load_btn.setObjectName('sessionLoadPrimaryAction')
         style_next_step_button(self.load_btn, 'Load Selected')
         self.load_btn.clicked.connect(self.load_callback)
 
@@ -223,10 +224,19 @@ class SessionSourcePanel(QGroupBox):
         layout.addWidget(help_label)
         layout.addLayout(path_row)
         layout.addWidget(self.summary_label)
-        layout.addWidget(self.list_widget)
-        layout.addWidget(self.resize_handle)
+        # Keep the primary and selection actions before the variable-height
+        # list. The user's persisted list height and resize handle are intact.
         layout.addLayout(select_row)
         layout.addWidget(self.load_btn)
+        layout.addWidget(self.list_widget)
+        layout.addWidget(self.resize_handle)
+        QWidget.setTabOrder(self.path_edit, browse_btn)
+        QWidget.setTabOrder(browse_btn, refresh_btn)
+        QWidget.setTabOrder(refresh_btn, select_all_btn)
+        QWidget.setTabOrder(select_all_btn, clear_btn)
+        QWidget.setTabOrder(clear_btn, self.load_btn)
+        QWidget.setTabOrder(self.load_btn, self.list_widget)
+        QWidget.setTabOrder(self.list_widget, self.resize_handle)
 
         self._apply_path_only()
         self._update_summary()
@@ -315,8 +325,11 @@ class SessionSourcePanel(QGroupBox):
     def _set_session_list_height(self, height: int, persist: bool = True) -> None:
         height = self._clamp_session_list_height(height)
         self._session_list_height = height
-        self.list_widget.setMinimumHeight(height)
-        self.list_widget.setMaximumHeight(height)
+        # Qt stylesheet polishing can set a generic input minimum. Reassert
+        # this panel's explicit size after polish, without changing the preference.
+        self.list_widget.ensurePolished()
+        self.list_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.list_widget.setFixedHeight(height)
         self.list_widget.updateGeometry()
         if persist:
             self._save_session_list_height(height)
@@ -332,6 +345,10 @@ class SessionSourcePanel(QGroupBox):
         and the chosen height is saved through QSettings.
         """
         self._set_session_list_height(self._session_list_height, persist=False)
+
+    def refresh_session_list_geometry(self) -> None:
+        """Reapply the current user height after a global stylesheet change."""
+        self._resize_session_list()
 
     def selected_sessions(self) -> list[str]:
         selected: list[str] = []

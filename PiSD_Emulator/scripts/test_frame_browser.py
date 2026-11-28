@@ -1,5 +1,7 @@
 """Live Chromium regression against the real emulator and PiSD Flask servers."""
 import os
+import hashlib
+import json
 import socket
 import sys
 import tempfile
@@ -72,6 +74,43 @@ class FrameTest(unittest.TestCase):
                 try:
                     page = browser.new_context(viewport={"width": 1600, "height": 1000}).new_page()
                     page.goto(control)
+                    # Enabled primary styling belongs to the offline runtime state.
+                    # Use real outer viewport widths, without starting a session.
+                    offline_captures = []
+                    initial_viewport = page.viewport_size
+                    for mode, bg, accent in (("light","rgb(244, 246, 250)","rgb(49, 95, 209)"),
+                                             ("dark","rgb(20, 23, 28)","rgb(100, 149, 255)")):
+                        page.locator("#emulatorTheme").select_option(mode)
+                        expect(page.locator("#startButton")).to_be_enabled()
+                        expect(page.locator("#startButton")).to_have_css("background-color", accent)
+                        expect(page.locator("body")).to_have_css("background-color", bg)
+                        assert page.evaluate("""async () => {
+                            const faces = await Promise.all([
+                                document.fonts.load('13px "PiDrive Inter"'),
+                                document.fonts.load('13px "PiDrive Plex Mono"')
+                            ]);
+                            return faces.every(list => list.length > 0 && list.every(f => f.status === 'loaded'));
+                        }""")
+                        for width, height in ((390,844),(768,1024),(1440,900)):
+                            page.set_viewport_size({"width":width,"height":height})
+                            expect(page.locator("#startButton")).to_be_enabled()
+                            expect(page.locator("#frameEmpty")).to_be_visible()
+                            expect(page.locator("#pisdFrame")).to_be_hidden()
+                            surface = "rgb(255, 255, 255)" if mode == "light" else "rgb(32, 37, 45)"
+                            foreground = "rgb(32, 37, 45)" if mode == "light" else "rgb(237, 241, 247)"
+                            expect(page.locator("#frameShell")).to_have_css("background-color", surface)
+                            expect(page.locator("#frameEmpty")).to_have_css("background-color", surface)
+                            expect(page.locator("#frameEmpty")).to_have_css("color", foreground)
+                            self.assertFalse(runtime.status()["hardware_enabled"])
+                            evidence_dir = os.environ.get("PISD_EMULATOR_EVIDENCE_DIR")
+                            if evidence_dir:
+                                output = Path(evidence_dir)
+                                output.mkdir(parents=True, exist_ok=True)
+                                path = output / f"workspace-offline-{mode}-{width}.png"
+                                page.screenshot(path=str(path), full_page=True)
+                                offline_captures.append({"file":path.name,"sha256":hashlib.sha256(path.read_bytes()).hexdigest(),
+                                                         "theme":mode,"viewport":[width,height],"runtime":"offline"})
+                    page.set_viewport_size(initial_viewport)
                     page.locator("#pisdPort").fill(str(pisd_port))
                     page.locator("#startButton").click()
                     frame = page.frame_locator("#pisdFrame")
@@ -139,8 +178,48 @@ class FrameTest(unittest.TestCase):
                     quiet_start = len(settings_reads)
                     page.wait_for_timeout(60000)
                     self.assertEqual(len(settings_reads), quiet_start, "autonomous settings GET during 60-second quiet window")
+                    # Widen the real iframe without restarting or changing authorization.
+                    frame.locator("#manualDriveShell").evaluate("(el) => el.dataset.cockpitContinuity = 'yes'")
+                    before_width = page.locator("#pisdFrame").bounding_box()["width"]
+                    before_generation = runtime.status()["generation"]
+                    before_arm = frame.locator("#mdrvArm").is_checked()
+                    expect(page.locator("#wideWorkspaceToggle")).to_have_text("Wide workspace")
+                    assert page.locator("#wideWorkspaceToggle").evaluate("el => getComputedStyle(el,'::before').maskImage").startswith('url("data:image/svg+xml,')
+                    page.locator("#wideWorkspaceToggle").click()
+                    expect(page.locator("#wideWorkspaceToggle")).to_have_attribute("aria-pressed", "true")
+                    eventually(lambda: page.locator("#pisdFrame").bounding_box()["width"] > before_width)
+                    expect(frame.locator("#manualDriveShell")).to_have_attribute("data-cockpit-continuity", "yes")
+                    self.assertEqual(runtime.status()["generation"], before_generation)
+                    self.assertEqual(frame.locator("#mdrvArm").is_checked(), before_arm)
+                    frame.locator("#drivingCockpitToggle").click()
+                    expect(frame.locator("body")).to_have_attribute("data-pisd-cockpit", "immersive")
+                    self.assertEqual(frame.locator("#mdrvArm").is_checked(), before_arm)
                     frame.locator("#mdrvLiveCamera").click()
                     expect(frame.locator("#mdrvPreview")).to_have_attribute("data-preview-mode", "live", timeout=10000)
+                    def live_alignment():
+                        return frame.locator("#mdrvPreviewFrame").evaluate("""el => {
+                            const image=el.querySelector("img"), overlay=el.querySelector(".mdrv-drive-overlay");
+                            const a=image.getBoundingClientRect(), b=overlay.getBoundingClientRect();
+                            return image.naturalWidth > 0 && a.height > 0 && Math.abs(a.width/a.height-image.naturalWidth/image.naturalHeight)<.03 && ["x","y","width","height"].every(k=>Math.abs(a[k]-b[k])<=2) && getComputedStyle(image).objectFit==="contain";
+                        }""")
+                    eventually(live_alignment)
+                    evidence_dir = os.environ.get("PISD_EMULATOR_EVIDENCE_DIR")
+                    evidence = {"revision": os.environ.get("PISD_EMULATOR_EVIDENCE_REVISION"), "hardware_enabled": runtime.status()["hardware_enabled"], "generation": before_generation, "iframe_width_before": before_width, "iframe_width_wide": page.locator("#pisdFrame").bounding_box()["width"], "authorization_before": before_arm, "authorization_after_toggle": frame.locator("#mdrvArm").is_checked(), "live_alignment": live_alignment(), "captures": offline_captures}
+                    def capture_evidence(name):
+                        if not evidence_dir:
+                            return
+                        output = Path(evidence_dir)
+                        output.mkdir(parents=True, exist_ok=True)
+                        path = output / (name + ".png")
+                        page.screenshot(path=str(path))
+                        evidence["captures"].append({"file": path.name, "sha256": hashlib.sha256(path.read_bytes()).hexdigest()})
+                        (output / "manifest.json").write_text(json.dumps(evidence, indent=2), encoding="utf-8")
+                    evidence["geometry"] = frame.locator("#mdrvPreviewFrame").evaluate("""el => {
+                        const image=el.querySelector("img"), overlay=el.querySelector(".mdrv-drive-overlay");
+                        const a=image.getBoundingClientRect(), b=overlay.getBoundingClientRect();
+                        return {natural:[image.naturalWidth,image.naturalHeight], image:[a.x,a.y,a.width,a.height], overlay:[b.x,b.y,b.width,b.height], fit:getComputedStyle(image).objectFit, preview_state:el.dataset.previewState};
+                    }""")
+                    capture_evidence("live-cockpit")
                     frame.locator("#mdrvArm").check()
                     frame.locator("#mdrvDragPad").focus()
                     page.keyboard.press("ArrowUp")
@@ -157,11 +236,73 @@ class FrameTest(unittest.TestCase):
                     self.assertLess(abs(runtime.status()["engine"]["motor"]["right_intended"]), .001)
                     self.assertEqual(len(settings_reads), quiet_start, "manual drive or STOP echoed a settings GET")
                     print(f"Settings synchronization: {startup_reads} startup/explicit browser GETs; zero quiet/save/drive/STOP GET echoes", flush=True)
+                    evidence["stopped_motor"] = {key: runtime.status()["engine"]["motor"][key] for key in ("left_intended","right_intended")}
+                    evidence["settings_get_echoes"] = len(settings_reads) - quiet_start
+                    # The outer monitor is a separate poll of virtual telemetry.
+                    expect(page.locator("#leftOutput")).to_have_text("0.00", timeout=10000)
+                    expect(page.locator("#rightOutput")).to_have_text("0.00", timeout=10000)
+                    expect(page.locator("#leftOutput")).to_have_css("font-variant-numeric", "tabular-nums")
+                    expect(page.locator("#rightOutput")).to_have_css("font-variant-numeric", "tabular-nums")
+                    expect(page.locator(".motor-readout .meter-label")).to_have_count(2)
+                    expect(page.locator(".camera-meta")).to_have_css("flex-wrap", "wrap")
+                    expect(page.locator(".monitor-panel .state-chip")).to_have_text("VIRTUAL ONLY")
+                    expect(page.get_by_role("group", name="Controller poll feedback")).to_be_visible()
+                    expect(page.locator("#pollStatus")).to_have_css("font-variant-numeric", "tabular-nums")
+                    evidence["controller_poll"] = page.locator("#pollStatus").inner_text()
+                    evidence["monitor_readback"] = {
+                        "left": page.locator("#leftOutput").inner_text(),
+                        "right": page.locator("#rightOutput").inner_text(),
+                        "left_wheel": page.locator("#leftWheel").inner_text(),
+                        "right_wheel": page.locator("#rightWheel").inner_text(),
+                    }
+                    capture_evidence("after-stop")
+                    # Change only the outer workspace; preserve the same live iframe,
+                    # authorization and viewport. Actual font faces must load locally.
+                    original_src = page.locator("#pisdFrame").get_attribute("src")
+                    original_arm = frame.locator("#mdrvArm").is_checked()
+                    original_width = page.locator("#pisdFrame").bounding_box()["width"]
+                    for mode, bg, accent in (("light","rgb(244, 246, 250)","rgb(49, 95, 209)"),
+                                             ("dark","rgb(20, 23, 28)","rgb(100, 149, 255)")):
+                        page.locator("#emulatorTheme").select_option(mode)
+                        expect(page.locator("body")).to_have_css("background-color", bg)
+                        # Start must remain disabled while PiSD is running.
+                        expect(page.locator("#startButton")).to_be_disabled()
+                        expect(page.locator("#startButton")).to_have_css("background-color",
+                            "rgb(255, 255, 255)" if mode == "light" else "rgb(25, 29, 36)")
+                        expect(page.locator("#startButton")).to_have_css("color",
+                            "rgb(86, 97, 113)" if mode == "light" else "rgb(165, 175, 191)")
+                        expect(page.locator("#startButton")).to_have_css("opacity", "1")
+                        assert page.evaluate("""async () => {
+                            const faces = await Promise.all([
+                                document.fonts.load('13px "PiDrive Inter"'),
+                                document.fonts.load('13px "PiDrive Plex Mono"')
+                            ]);
+                            return faces.every(list => list.length > 0 && list.every(f => f.status === 'loaded'));
+                        }""")
+                        assert page.locator("#pisdFrame").get_attribute("src") == original_src
+                        assert page.locator("#pisdFrame").bounding_box()["width"] == original_width
+                        assert frame.locator("#mdrvArm").is_checked() == original_arm
+                        self.assertEqual(runtime.status()["generation"], before_generation)
+                        self.assertFalse(runtime.status()["hardware_enabled"])
+                        expect(page.locator("#leftOutput")).to_have_text("0.00")
+                        expect(page.locator("#rightOutput")).to_have_text("0.00")
+                        capture_evidence("workspace-" + mode)
+                    self.assertEqual(len(settings_reads), quiet_start)
+                    frame.locator("#drivingCockpitToggle").click()
+                    expect(frame.locator("#drivingCockpitToggle")).to_have_attribute("aria-pressed", "false")
+                    page.locator("#wideWorkspaceToggle").click()
+                    expect(page.locator("#wideWorkspaceToggle")).to_have_attribute("aria-pressed", "false")
+                    expect(frame.locator("#manualDriveShell")).to_have_attribute("data-cockpit-continuity", "yes")
+                    self.assertEqual(runtime.status()["generation"], before_generation)
+                    self.assertFalse(runtime.status()["hardware_enabled"])
                     direct.close()
                     editor.close()
                     page.context.remove_listener("request", capture_settings_read)
-                    for button in page.locator(".viewport").all():
+                    for button in page.locator(".viewport[data-width]").all():
                         button.click()
+                        expect(button).to_have_attribute("aria-pressed", "true")
+                        expect(page.locator('.viewport[data-width][aria-pressed="true"]')).to_have_count(1)
+                        expect(button).to_have_css("text-decoration-line", "underline")
                         expect(frame.locator("#manualDriveShell")).to_be_visible()
                     frame.locator("#manualDriveShell").evaluate("(el) => el.dataset.beforeRestart = 'yes'")
                     generation = runtime.status()["generation"]
