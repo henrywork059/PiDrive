@@ -81,3 +81,39 @@ Complete E02/E03 live verification: start the runtime with dependencies installe
 
 
 The unified 1.0.0 candidate follows the PiSD runtime version; the emulator has no independent release number. Existing 0.11.48 frame-policy repair remains in force. Qualification pending.
+
+## E04/E05 — replay and camera-fault candidate
+
+Open `http://127.0.0.1:8760/scenarios` (use the configured control port). Stop PiSD before selecting an existing workspace-relative `recordings/<date>/<session>` or `replay/<folder>`. Recording labels determine frame order; standalone JPG/PNG sequences use lexical filename order. The camera runs at its configured capture rate, not original recording timestamps. Looping is opt-in; exhaustion deliberately stops fresh capture. Replay is open-loop and does not respond to vehicle movement. No recorded motor commands are played back. Replay-derived recordings are identified in metadata. Copy input images into the isolated workspace; no arbitrary host path or video import yet.
+
+While PiSD runs, inject a camera capture fault from the scenarios page; clearing it only restores the provider, not AI rearm. Stop the runtime to clear the injected fault. Existing local origin and hardware restrictions remain. Run `python PiSD_Emulator/scripts/test_scenarios.py` with TensorFlow CPU installed for real Keras model/recording/replay/fault checks. The fixture is deterministic and not an accuracy benchmark. Candidate CI pending; actual AI browser journey and piTrainer import remain separate.
+
+## E04/E05 continuation — local video and actuator fault
+
+The previous E04/E05 candidate passed all four workflows (46139136367, 46139136308, 46139136281, 46139136359), including real Keras service integration. Select a local video using the same scenario source input, e.g. `replay/drive.mp4`. Supported containers AVI/MP4/MOV/MKV depend on the local OpenCV FFmpeg decoder. Files are limited to 512 MiB, 10,000 known frames and bounded geometry. Decode one frame per configured camera tick; source FPS is informational, not timestamp-faithful playback. No streaming URLs or device IDs; decode failure does not generate fake fresh frames. Stop closes the decoder; restart starts from frame one. The motor-disconnect control zeros virtual output and discards queued delayed commands; nonzero requests produce the existing MotorService adapter error. The fault is sticky until runtime stop, so clearing it cannot restore prior drive intent. PiSD commanded values may still be nonzero, distinct from actual virtual motor output. This does not prove physical GPIO behavior.
+
+New actual AI browser and relocated trainer import candidate: `python PiSD_Emulator/scripts/test_ai_browser_scenarios.py` with TensorFlow CPU, pandas and Playwright Chromium installed. Uses existing UI controls and recording download endpoint; CI captures screenshots, ZIP and JSON report. No accuracy, full native trainer GUI or Windows live browser claim.
+
+## E05 service-fault scenarios
+
+The prior video/AI-browser candidate dd67c688 passed workflows 46140095672, 46140095710, 46140095677, 46140095656. Artifact 15261113863 independently inspected: outer SHA256/CRC, inner recording ZIP SHA256/CRC, 12 images and labels, four screenshot digests, all matched; 12 relocated trainer rows reported and source sequences matched. Actual AI screenshot geometry has excess whitespace; visual design remains separate. Video and motor disconnect passed CI but prior artifact omitted individual raw evidence.
+
+At /scenarios, select model inference, manual heartbeat API, or left/right virtual GPIO failure. These are per-runtime sticky faults: stop/restart PiSD to clear. Model failure is injected at the real inference call, not fabricated predictions. Heartbeat returns HTTP 503 without intercepting STOP or authentication. It tests lease loss, not all network/API operations. Virtual GPIO rejects nonzero simulated driver writes, inhibits both virtual motors and clears queued commands; STOP remains allowed. A Chromium offline/online test exercises actual manual network loss and no automatic resume. Server-side AI does not depend on a browser manual lease; network loss is not a claim that AI always stops. No physical GPIO used. Run test_service_faults.py in the existing scenario CI environment. New exact CI pending.
+
+## Custom environments and diagnostics — E02/E03 candidate
+
+Open /environment from /scenarios. Save up to 32 named custom road profiles (40–240 m, 1–24 curvature segments in whole metres, signed curvature in 1/m, road width, explicit obstacles, centre/edge markings, day/dusk/night brightness). Profiles persist in workspace/config/emulator_environments.json, with explicit overwrite and corrupt-store preservation. Apply only while stopped; selected profile is session-local, retained across runtime restarts and physics-setting changes, and can be restored from saved list after closing the app. Replay is selected separately. Custom geometry is an open sampled centreline, not an arbitrary 3-D track editor. Environment metadata accompanies generated recordings. Original built-in track selection remains available.
+
+Open /diagnostics for real PiSD API route/method/status/handler time, physics FPS and vehicle speed graphs, optional visible-only one-second sampling and JSON download. In-memory rings: 400 requests, 180 samples; no body, query, credentials, header or arbitrary URL storage. Handler latency excludes stream transfer; denied requests may have null timings. Events export only timestamp/level to avoid free-text paths or errors; browser-console capture outside this new UI remains open. No extra settings requests. New browser test and export evidence pending exact CI.
+
+## E03 browser console observer (candidate)
+
+With the emulator control app already running, install optional Playwright and Chromium:
+
+```bash
+python -m pip install "playwright>=1.50,<2"
+python -m playwright install chromium
+python PiSD_Emulator/scripts/observe_browser.py --output browser-observation.json
+```
+
+Use the newly opened Chromium window for local emulator interactions. The observer records up to 400 severity/exception metadata events for the configured controller/PiSD ports; no raw text, stack traces, URLs, credentials or arguments. Capture is limited to this browser context, not existing browsers; if the PiSD port changes, launch a fresh observation. Exceptions have page-level attribution, not precise iframe attribution. Default observation is five minutes (adjust with --seconds); use STOP before closing the browser. The observer does not stop the runtime. Existing output files are never overwritten. Linux may require Playwright system dependencies. The new cross-platform live browser workflow is not yet qualified.

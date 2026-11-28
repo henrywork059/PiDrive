@@ -41,6 +41,7 @@ class RoadRenderer:
         camera_heading = float(vehicle["heading_rad"])
         road_width = float(state["road_width_m"])
         points = state["track_points"]
+        environment = state["environment"]
 
         horizon = int(height * 0.37)
         fov = math.radians(62.0)
@@ -73,10 +74,17 @@ class RoadRenderer:
             road_polygon = left_edge + list(reversed(right_edge))
             draw.polygon(road_polygon, fill=(80, 83, 86))
             self._draw_scenery(draw, width, height, horizon, focal, camera_height_m, engine, camera_x, camera_y, camera_heading, points)
-            self._draw_edge_lines(draw, projected, half)
-            self._draw_lane_markers(draw, projected)
+            if environment["edge_lines"]:
+                self._draw_edge_lines(draw, projected, half)
+            if environment["markings"] != "none":
+                self._draw_lane_markers(draw, projected, solid=environment["markings"] == "solid")
             self._draw_obstacles(draw, engine, projected, width, horizon, camera_height_m, focal, camera_x, camera_y, camera_heading)
             self._draw_road_texture(draw, projected, road_width)
+
+        lighting = {"day":1.0,"dusk":.58,"night":.27}[environment["lighting"]]
+        if lighting != 1.0:
+            image = ImageEnhance.Brightness(image).enhance(lighting)
+            draw = ImageDraw.Draw(image)
 
         # Camera status stays legible in PiSD's existing preview, while the scene
         # itself is generated from the vehicle's current world pose.
@@ -114,12 +122,12 @@ class RoadRenderer:
             if len(line) >= 2:
                 draw.line(line, fill=color, width=2)
 
-    def _draw_lane_markers(self, draw: Any, projected: list[tuple[float, float, float, float, float]]) -> None:
+    def _draw_lane_markers(self, draw: Any, projected: list[tuple[float, float, float, float, float]], *, solid=False) -> None:
         for first, second in zip(projected, projected[1:]):
             station, forward, x1, y1, scale = first
             next_station, next_forward, x2, y2, _ = second
             dash_position = station % 7.0
-            if forward <= 1.5 or next_forward <= 1.5 or not 1.5 <= dash_position < 2.3:
+            if forward <= 1.5 or next_forward <= 1.5 or (not solid and not 1.5 <= dash_position < 2.3):
                 continue
             marker_width = max(1, min(7, int(0.07 * scale)))
             draw.line((x1, y1, x2, y2), fill=(228, 200, 66), width=marker_width)

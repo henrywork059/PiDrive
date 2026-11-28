@@ -6,6 +6,7 @@ on:
       - 'piTrainer/**'
       - 'tools/check_ui2_trainer.py'
       - '.github/workflows/ui2-trainer-visual.yml'
+      - '.github/workflows/release-qualification.yml'
   workflow_dispatch:
 
 permissions:
