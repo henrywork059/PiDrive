@@ -14,13 +14,15 @@
   <link rel="stylesheet" href="{{ static_asset('css/driving_cockpit.css') }}">
   <script src="{{ static_asset('js/panel_presentation_global.js') }}" defer></script>
   <script src="{{ static_asset('js/driving_cockpit.js') }}" defer></script>
+  {% if v17_mode is defined %}<link rel="stylesheet" href="{{ static_asset('css/v17_cockpit.css') }}">{% endif %}
 </head>
-<body class="ai-page">
+<body class="ai-page"{% if v17_mode is defined %} data-pisd-v17="{{ v17_mode }}"{% endif %}>
   <header class="mdrv-topbar ai-topbar">
     <div class="mdrv-title-block">
       <p class="mdrv-kicker">PiSD behavioural-cloning drive mode</p>
       <h1>AI Mode</h1>
     </div>
+    {% if v17_mode is defined %}{% include "v17_cockpit_navigation.html" %}{% endif %}
     <nav class="mdrv-actions" aria-label="AI mode actions">
       <a class="pisd-front-link ai-back" href="/">Back to Front Page</a>
       <span id="aiGlobalCode" class="mdrv-code">{{ initial_status.code }}</span>
@@ -430,6 +432,7 @@ python3 scripts/check_ai_runtime.py</pre>
   <script src="{{ static_asset('js/operating_readiness.js') }}"></script>
   <script src="{{ static_asset('js/manual_lease.js') }}"></script>
   <script src="{{ static_asset('js/dialog_focus.js') }}"></script>
+  {% if v17_mode is defined %}<script src="{{ static_asset('js/v17_cockpit.js') }}"></script>{% endif %}
   <script src="{{ static_asset('js/ai_mode.js') }}"></script>
 </body>
 </html>

@@ -1,0 +1,34 @@
+# V17 M0 / M01 entry checkpoint — 2026-11-29
+
+Status: M0 IN PROGRESS; M01 (plan V17-M1 shared shell) NOT STARTED. Owner requested starting M01, interpreted as development authorization with mandatory M0 prerequisite. No owner PASS, version allocation, deployment or merge. Component candidate 1.0.0 remains provisional.
+
+## Verified source and non-rollback
+- Main 7f36b395c4065232712b45932abf74cf0ecd05bf; plan PR #111 07a1dd74376582509253c7c2fbd6c90ec12a3e30. Separate VD36 PR #110 870693f24662023679f826f22643ea28ed360ad9 is four commits ahead of main, zero behind. Its 19 changed files are workflows, emulator auxiliary UI/test, release tooling and visual docs; no PiSD production source changes. Retain its work and independent owner gate. This checkpoint changes only an emulator acceptance test/helper and documentation, not any of those 19 files.
+- Main CI 46160967528 (four jobs), 46160967517 (one), 46160967530 (two), 46160967617 (one): 8/8 jobs passed. #110 exact-head nine workflows 46161772995, 46161773086, 46161773010, 46161773068, 46161773132, 46161773011, 46161773135, 46161773063, 46161773009: 19/19 jobs passed. No failed workflow to repair.
+- Reviewed actual manual/AI templates, JS controllers, app routes, common cockpit CSS/JS, global STOP and lease modules and VD1B/AD/AE/AF notes. Retain 56/56 original roadmap count, prior visual approval, and negative strict-performance results (VD1AF idle 23.69% vs 25%; concurrent 10.09%). No new waiver.
+- Independently downloaded #110 full-source archive 15269682953 (SHA-256 7f0de2060440895b18ccb26776cadfd3b658daea618a46914b5acb85f97cebc8). Outer and three inner CRCs, three archive SHA-256 sums, every manifest file size and SHA-256 verified (351 PiSD, 239 PiServer, 361 piTrainer files). Exact #110 revision, provisional 1.0.0. No older ZIP baseline substituted.
+
+## Baseline evidence (actual archive bytes)
+All listed downloaded ZIP CRCs and archive digests match GitHub metadata. Main 15269528090: 165 decoded PNGs; 82/82 manifest screenshot hashes; exact revision; three matrices 32+8+25 cases with zero case errors; zero VD1A page errors. Main 15270225465: 10/10 screenshot hashes, ten decoded PNGs, exact revision; emulator image and overlay rect both [20.609375,652.765625,574.234375,323.5], natural 426x240, contain; virtual left/right intended 0, authorization unchanged, zero settings GET echoes. Actual live-cockpit image inspected: status/diagnostic stack consumes much of viewport before camera. Main observer archives 15270385371/15270066563 (three decoded PNGs each), scenario 15269841713 (12 decoded PNGs).
+#110 15269464902: 165 decoded PNGs, 82/82 hashes, zero VD1A page errors. #110 15270082289: 10 decoded PNGs, 10/10 hashes, same exact live alignment, zero intended motor outputs and zero GET echoes. #110 strict request 15269897954: five-round CPU/wall median idle 0.0335760 to 0.0178612 (-46.80%), concurrent 0.0779122 to 0.0619560 (-20.48%), relative to its pinned 14c57c9 baseline; do not treat this one run as cancellation of earlier negative evidence or as browser-poll timing. #110 camera workload 15269423398 downloaded and CRC/SHA checked. Other #110 artifacts not independently audited in this turn.
+
+Direct desktop 1440x900 dark 4:3 fixture: Manual frame [45.703125,446.28125,982,736.5]; AI [44.125,354.015625,982,736.5], both exact overlay alignment. Existing narrow target 44px and visible focus gates retained. Existing screenshots are read-only evidence, not new V17 captures.
+
+## Initial traceability (existing action -> V17 destination)
+| Existing surface | Destination / preservation |
+|---|---|
+| /manual-drive, /ai-mode, /autopilot alias; front page and iframe | M01 shared logical shell, initial mode, old routes and compatibility; separate autopilot alias behavior unchanged |
+| mdrvPreview / aiPreviewImage, mdrvPreviewFrame / aiPreviewFrame, mdrvLiveCamera / aiLive, aiStopCamera, overlay toggles, existing cockpit toggle | M01 camera-first with one owner, intrinsic contain-fit, camera start/stop remains accessible, opt-in old layout retained |
+| mdrvStopTop/Pad/Big, aiStopAll/Stop, global Space STOP, mdrvArm/aiEnableMotor, aiSafetyRearm | M02 existing real authority/safety paths, always visible STOP, explicit interlocks preserved |
+| mdrvDragPad, aiManualDrivePad, aiAssistPad, aiCorrectionPad; speed/mix/limiter, keyboard/pointer, release/blur/pagehide | M02 combined joystick and safe authority; advanced correction and compatibility retained, no second controller running |
+| mdrvCaptureFrame / aiSaveSnapshot, record toggles and confirmed state, file kind/select/refresh/download/delete | M03 capture and saved data, existing labels, ZIP and trainer compatibility |
+| AI model refresh/select/load/upload/delete, manifest, predict once, preview vs drive | M02 explicit authority, M04 AI model category and existing preview inference |
+| mdrvSpeed, AI output mode, max steer/throttle/fixed throttle, smoothing, prediction/capture/preview FPS | M04 Driving/Camera/AI categories, existing effective values and apply semantics |
+| mdrvOverlaySettingsOpen, seven calibration inputs, group/all draft resets, apply and close | M05 legacy overlay geometry and settings; M06 separate opt-in physical renderer |
+| Refresh status/errors, readiness, runtime/preview/command diagnostics, action log, presentation settings, existing task links | M01 minimal HUD, M04 diagnostics and retained advanced surfaces |
+| Shared global Space STOP and manual_lease.js 250ms heartbeat, each controller readiness 1400ms, Manual preview metrics and AI status interval | One active controller at a time; explicit teardown, no extra requests, no weakening lease or STOP |
+
+This is an initial mapping, not a full per-control/payload/config/lease-state inventory. M0 requires remaining mapping, browser task timing and exact new evidence before M01 can integrate production code.
+
+## Implemented qualification addition
+Added v17_baseline_probe.py to existing isolated emulator acceptance; test_frame_browser.py calls it only when existing evidence output is enabled and after all original assertions. Measures direct Manual/AI at 1440x900 and 390x844: actual page-to-shell, optional live mode, decode wait, cockpit-toggle-to-aligned timings, camera geometry, six-second quiet GET/POST and MJPEG request counts, screenshots, page errors, neutral virtual readback and unchecked authorization. No new drive command, no test assertion removed, no production UI or runtime changes. Existing browser navigation may trigger existing fail-safe handlers; probe is not proof of M02 safety. New exact-head CI and actual artifact inspection pending. Local Git network and Flask dependency unavailable, so no local real server test claimed. M0 remains open: inspect new probe artifact, complete mapping/config and ownership inventory, reconcile any newer PRs, and obtain matched baseline task timing/poll evidence. Then start M01 production shell. No M02+ work.

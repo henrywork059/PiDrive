@@ -20,6 +20,9 @@ sys.path[:0] = [str(ROOT / "PiSD"), str(ROOT / "PiSD_Emulator")]
 from pisd.app import create_app
 from pisd_emulator.runtime import PiSDRuntime
 from pisd_emulator.control_app import create_control_app
+from v17_baseline_probe import capture_v17_baseline
+from v17_shell_probe import capture_v17_shell
+from v17_m01_comparison import capture_v17_comparison
 
 
 def free_port():
@@ -326,6 +329,15 @@ class FrameTest(unittest.TestCase):
                     finally:
                         alien.shutdown()
                         alien.server_close()
+                    # V17 M0 baseline, after all original acceptance assertions.
+                    # No driving commands or authorization changes by this probe.
+                    if evidence_dir:
+                        capture_v17_baseline(browser, runtime, pisd, evidence_dir,
+                                             os.environ.get("PISD_EMULATOR_EVIDENCE_REVISION"))
+                        capture_v17_shell(browser, runtime, pisd, evidence_dir,
+                                          os.environ.get("PISD_EMULATOR_EVIDENCE_REVISION"), page)
+                        capture_v17_comparison(browser, runtime, pisd, evidence_dir,
+                                               os.environ.get("PISD_EMULATOR_EVIDENCE_REVISION"))
                 finally:
                     browser.close()
             runtime.close()

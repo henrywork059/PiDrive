@@ -6,7 +6,7 @@ const path = require('node:path');
 const source = fs.readFileSync(path.join(__dirname, '../pisd/web/static/js/global_space_stop.js'), 'utf8');
 
 function simulate(focusedTag, options = {}) {
-  const body = {tagName:'BODY'};
+  const body = {tagName:'BODY',dataset:{pisdV17:options.mode}};
   const root = {tagName:'HTML'};
   let focus = focusedTag === 'BODY' ? body : {
     tagName: focusedTag,
@@ -25,8 +25,9 @@ function simulate(focusedTag, options = {}) {
     body, documentElement:root, activeElement:focus,
     addEventListener(event, listener) { if(event === 'keydown') handler = listener; }
   };
-  const window = {location:{pathname:'/manual-drive'},dispatchEvent(){dispatched++;}};
-  const fakeFetch = () => {posted++;return Promise.resolve({ok:true});};
+  const window = {location:{pathname:options.pathname || '/manual-drive'},dispatchEvent(){dispatched++;}};
+  const paths=[];
+  const fakeFetch = (url) => {posted++;paths.push(url);return Promise.resolve({ok:true});};
   const FakeCustomEvent = class {constructor(type, args){this.type=type;this.detail=args?.detail;}};
   const Clock = {now(){return 3000;}};
   new Function('document','window','fetch','CustomEvent','Date',source)(
@@ -37,11 +38,18 @@ function simulate(focusedTag, options = {}) {
     stopImmediatePropagation(){this.stopped=true;}
   };
   handler(event);
-  return {prevented,posted,dispatched,handler,window,document};
+  return {prevented,posted,dispatched,handler,window,document,paths};
 }
 let n=0;
 function test(name,fn){fn();n++;process.stdout.write('PASS '+name+'\n');}
 test('body Space still sends STOP',()=>{const x=simulate('BODY');assert.equal(x.prevented,true);assert.equal(x.posted,1);});
+test('V17 AI Space begins with AI stop, same as original AI route',()=>{
+  assert.deepEqual(simulate('BODY',{pathname:'/drive',mode:'ai'}).paths,['/api/ai/stop']);
+  assert.deepEqual(simulate('BODY',{pathname:'/ai-mode'}).paths,['/api/ai/stop']);
+});
+test('V17 Manual Space retains motor STOP',()=>{
+  assert.deepEqual(simulate('BODY',{pathname:'/drive',mode:'manual'}).paths,['/api/control/stop']);
+});
 test('focussed drive pad Space still sends STOP',()=>{const x=simulate('DIV');assert.equal(x.posted,1);assert.equal(x.prevented,true);});
 test('focused button Space preserves native click',()=>{const x=simulate('BUTTON');assert.equal(x.posted,0);assert.equal(x.prevented,false);});
 test('checkbox Space preserves native toggle',()=>{const x=simulate('INPUT',{type:'checkbox'});assert.equal(x.posted,0);assert.equal(x.prevented,false);});
@@ -241,4 +249,4 @@ test('all settings and presentation ranges specify units; actions reference exis
   for(const id of ['ppApply','ppSave','ppReset'])
     assert.ok(presentation.includes('id="'+id+'" aria-describedby="ppFeedback"'));
 });
-console.log(n+'/28 PiSD safety/input tests passed');
+console.log(n+'/30 PiSD safety/input tests passed');
