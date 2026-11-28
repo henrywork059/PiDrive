@@ -131,7 +131,8 @@ class UiStyleContractR45(unittest.TestCase):
         tokens = set(re.findall(r"@([A-Z][A-Z0-9_]*)@", self.template))
         known = {f"COLOR_{name.upper()}" for name in self.colors}
         known.update({"BASE_FONT", "BANNER_TITLE", "BUTTON_MIN", "NEXT_MIN",
-                      "INPUT_MIN", "MAIN_TAB_MIN", "WORKFLOW_TAB_MIN", "SCROLLBAR"})
+                      "INPUT_MIN", "MAIN_TAB_MIN", "WORKFLOW_TAB_MIN", "SCROLLBAR",
+                      "TABLE_CELL_PAD", "TOOLBAR_PAD", "TOOLBAR_GAP"})
         self.assertTrue(tokens, "Source stylesheet tokens disappeared")
         self.assertFalse(tokens - known, "Unknown CSS tokens: " + str(tokens - known))
 

@@ -86,3 +86,44 @@ body[data-pisd-cockpit="immersive"] :is(#mdrvPreviewFrame, #aiPreviewFrame) .mdr
     white-space: normal !important;
   }
 }
+
+/* VD1W / VD21: Manual-only cockpit refinement. Camera image continues to
+   determine the frame's intrinsic height; no crop, transform or overlay
+   coordinate changes. Keep status/readiness, STOP and all DOM controls. */
+@media (min-width: 1280px) and (min-height: 760px) {
+  body.manual-drive-page[data-pisd-cockpit="immersive"] #mdrvPreviewFrame {
+    width: min(100%, calc(82svh * var(--cockpit-ratio))) !important;
+  }
+}
+body.manual-drive-page[data-pisd-cockpit="immersive"] #manualDriveCameraPanel {
+  align-self: start !important;
+}
+body.manual-drive-page[data-pisd-cockpit="immersive"] #manualDriveCameraPanel > .mdrv-panel-head {
+  flex-wrap: wrap;
+  align-items: center !important;
+}
+body.manual-drive-page[data-pisd-cockpit="immersive"] #manualDriveCameraPanel .mdrv-camera-head-actions {
+  min-width: 0;
+  max-width: 100%;
+}
+body.manual-drive-page[data-pisd-cockpit="immersive"] #manualDriveCameraPanel .mdrv-preview-top-actions {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: clamp(6px, .55vw, 10px) !important;
+}
+body.manual-drive-page[data-pisd-cockpit="immersive"] #manualDriveCameraPanel .mdrv-preview-top-actions > button {
+  flex: 1 1 110px;
+  min-width: 0;
+  white-space: normal;
+}
+body.manual-drive-page[data-pisd-cockpit="immersive"] #manualDriveCameraPanel :is(.mdrv-recording-details, #mdrvCaptureNotice) {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 900px) {
+  body.manual-drive-page[data-pisd-cockpit="immersive"] #manualDriveCameraPanel :is(#mdrvLiveCamera,#mdrvCaptureFrame,#mdrvRecordToggle,#mdrvOverlayToggle) {
+    min-height: 44px !important;
+    min-block-size: 44px !important;
+    min-width: 44px !important;
+    white-space: normal !important;
+  }
+}

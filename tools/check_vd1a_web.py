@@ -346,6 +346,16 @@ def main():
                                 check_selected_cue(toggle, False)
                             before_arm = page.locator(arm).is_checked()
                             before_saves = len(saves)
+                            # Manual cockpit changes presentation only. Track the same
+                            # controls and normal grid across the reversible switch.
+                            normal_grid = None
+                            if name == "manual":
+                                normal_grid = page.locator("#manualDriveShell").evaluate("el => getComputedStyle(el).gridTemplateColumns")
+                                page.evaluate("""() => {
+                                    window.__vd1wControls = ['mdrvStopTop','mdrvStopPad','mdrvStopBig',
+                                        'mdrvArm','mdrvDragPad','mdrvSpeed','mdrvLiveCamera','mdrvCaptureFrame',
+                                        'mdrvRecordToggle','mdrvOverlayToggle'].map(id => document.getElementById(id));
+                                }""")
                             toggle.click()
                             check_selected_cue(toggle, True)
                             expect(page.locator("body")).to_have_attribute("data-pisd-cockpit", "immersive")
@@ -357,6 +367,26 @@ def main():
                             assert stop_box and stop_box["y"] >= -1 and stop_box["y"] + stop_box["height"] <= height + 1
                             if width <= 900:
                                 assert stop_box["height"] >= 44
+                            if name == "manual":
+                                camera = page.locator("#manualDriveCameraPanel")
+                                expect(camera).to_have_css("align-self", "start")
+                                row = camera.locator(".mdrv-preview-top-actions")
+                                expect(row).to_have_css("flex-wrap", "wrap")
+                                actions = []
+                                for control in row.locator("button").all():
+                                    expect(control).to_be_visible()
+                                    box = control.bounding_box()
+                                    assert box and box["width"] > 0 and box["height"] > 0
+                                    if width <= 900:
+                                        assert box["width"] >= 44 and box["height"] >= 44, box
+                                    actions.append(box)
+                                assert len(actions) == 3
+                                for i, a in enumerate(actions):
+                                    for b in actions[i+1:]:
+                                        assert (a["x"]+a["width"] <= b["x"]+1 or b["x"]+b["width"] <= a["x"]+1
+                                                or a["y"]+a["height"] <= b["y"]+1 or b["y"]+b["height"] <= a["y"]+1), (a,b)
+                                assert page.evaluate("() => window.__vd1wControls.every(el => el && document.getElementById(el.id) === el)")
+                                report.setdefault("manual_cockpit_controls", []).append({"theme":mode,"width":width,"height":height,"actions":actions,"same_controls":True})
                             for scene, fill in (("bright", "#ffffff"), ("dark", "#05080b"), ("complex", "#d3a04b")):
                                 geometry = page.locator(frame).evaluate("""async (frame, fill) => {
                                   const image=frame.querySelector('img');
@@ -386,6 +416,9 @@ def main():
                             toggle.click()
                             check_selected_cue(toggle, False)
                             assert page.locator("body").get_attribute("data-pisd-cockpit") is None
+                            if name == "manual":
+                                assert page.locator("#manualDriveShell").evaluate("el => getComputedStyle(el).gridTemplateColumns") == normal_grid
+                                assert page.evaluate("() => window.__vd1wControls.every(el => el && document.getElementById(el.id) === el)")
                             assert page.locator(arm).is_checked() == before_arm
                             assert len(saves) == before_saves
                 # Fresh browser context receives theme from the actual settings backend.
