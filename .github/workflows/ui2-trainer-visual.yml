@@ -7,6 +7,7 @@ on:
       - 'tools/check_ui2_trainer.py'
       - '.github/workflows/ui2-trainer-visual.yml'
       - '.github/workflows/release-qualification.yml'
+      - 'PiSD_Emulator/web/**'
   workflow_dispatch:
 
 permissions:

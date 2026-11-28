@@ -1,1 +1,27 @@
 .scenario-main{max-width:1040px;margin:24px auto;padding:16px}.scenario-panel{padding:16px;margin:16px 0;display:grid;gap:10px}.scenario-panel textarea,.scenario-panel input:not([type=checkbox]),.scenario-panel select{max-width:100%;width:100%;box-sizing:border-box;padding:8px;font:inherit}.scenario-panel textarea{font-family:monospace;resize:vertical}.scenario-actions{display:flex;gap:8px;flex-wrap:wrap}.scenario-panel button{padding:8px 12px}.scenario-main a{color:inherit;text-decoration:underline}.diagnostic-table{overflow:auto;max-height:420px}.diagnostic-table table{width:100%;border-collapse:collapse}.diagnostic-table td,.diagnostic-table th{padding:8px;text-align:left;white-space:nowrap}.diagnostic-chart{width:100%;height:220px;display:block}.scenario-main pre{white-space:pre-wrap;overflow-wrap:anywhere}
+/* VD36: auxiliary emulator pages use the same semantic roles as the outer
+   workspace. Only local presentation changes; no API or stored preferences. */
+.scenario-main {min-width:0;line-height:1.5}
+.scenario-main nav,.scenario-main>p {overflow-wrap:anywhere}
+.scenario-panel {min-width:0}
+.scenario-panel>* {min-width:0}
+.scenario-panel .button {font:inherit;font-weight:650;max-width:100%}
+.scenario-panel textarea {font-family:var(--mono);border:1px solid var(--outline);border-radius:6px}
+.scenario-main .appearance-row {margin:12px 0;justify-content:flex-start;gap:10px}
+.scenario-main .appearance-row select {width:auto;max-width:100%}
+.diagnostic-table {min-width:0;max-width:100%}
+.scenario-main a {text-underline-offset:.15em}
+.scenario-main pre {font-family:var(--mono)}
+@media(forced-colors:none) {
+  .scenario-main a {color:var(--accent)}
+  .scenario-panel textarea {background:var(--field);color:var(--text)}
+  .scenario-main :is(input,select,textarea):focus-visible {outline:3px solid var(--focus);outline-offset:2px}
+}
+@media(forced-colors:active) {
+  .scenario-main textarea:focus-visible {outline:3px solid Highlight;outline-offset:2px}
+}
+@media(max-width:768px) {
+  .scenario-main :is(button,select,input:not([type=checkbox])) {min-height:44px}
+  .scenario-main a {display:inline-block;min-height:44px;align-content:center}
+  .scenario-main .scenario-panel {padding:12px}
+}

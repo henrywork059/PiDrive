@@ -16,6 +16,16 @@ REVIEWED_FIXTURES = {
     "PiSD/scripts/fixtures/steering_replay.jsonl": "311f9cf1a97f6319cc12e770097c5eace3c3adf9",
     "PiSD/test_outputs/README.md": "eaaba9a019b0889dcc0f7c5164dabc67f41bcc04",
 }
+# Exact reviewed licensed typography assets already bundled by VD1D.
+# Do not allow arbitrary binaries by suffix or directory.
+REVIEWED_ASSETS = {
+    "PiSD/pisd/web/static/fonts/IBMPlexMono-Regular.woff2": "8bdb4c4b3f8fae88cc2e3c9c744952dccf89b15a",
+    "PiSD/pisd/web/static/fonts/InterVariable.woff2": "5a8d3e72ad7ffb62af3b146e1b1f54ab5813a212",
+    "PiServer/piserver/web/static/fonts/IBMPlexMono-Regular.woff2": "8bdb4c4b3f8fae88cc2e3c9c744952dccf89b15a",
+    "PiServer/piserver/web/static/fonts/InterVariable.woff2": "5a8d3e72ad7ffb62af3b146e1b1f54ab5813a212",
+    "piTrainer/piTrainer/ui/fonts/IBMPlexMono-Regular.ttf": "4254c37f20ba57e829a3315fdc91cda4e63589f5",
+    "piTrainer/piTrainer/ui/fonts/InterVariable.ttf": "4ab79e0102bbe0ffa1ed879b13e52ac8c6487833",
+}
 EXCLUDED_PARTS = {"__pycache__", "test_outputs", "models", "recordings", "datasets", "dist", "dist_exe", "build", "build_exe", "exports", "logs", ".venv", "cache"}
 SECRET = re.compile(rb"-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----|gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}|AKIA[0-9A-Z]{16}")
 
@@ -42,6 +52,9 @@ def inventory(revision, component):
         if path in REVIEWED_FIXTURES:
             if oid != REVIEWED_FIXTURES[path]:
                 raise ValueError("Reviewed fixture changed; re-review before packaging: " + path)
+        elif path in REVIEWED_ASSETS:
+            if oid != REVIEWED_ASSETS[path]:
+                raise ValueError("Reviewed asset changed; re-review before packaging: " + path)
         elif any(x.lower() in EXCLUDED_PARTS for x in p.parts[1:]) or p.suffix in {".pyc", ".jsonl"}:
             reason = "generated/cache/data"
         elif "config" in p.parts and p.suffix == ".json" and path not in CONFIG:
@@ -60,6 +73,15 @@ def inventory(revision, component):
     for path in REVIEWED_FIXTURES:
         if path.startswith(component + "/") and path not in included:
             raise ValueError("Missing reviewed test fixture: " + path)
+    for path in REVIEWED_ASSETS:
+        if path.startswith(component + "/"):
+            if path not in included:
+                raise ValueError("Missing reviewed font asset: " + path)
+            license_name = "Inter-LICENSE.txt" if PurePosixPath(path).name.startswith("Inter") else "IBMPlexMono-LICENSE.txt"
+            license_path = str(PurePosixPath(path).with_name(license_name))
+            license_oid = "9b2ca37b3ffc77391d8b2ebef4a974ef32bf46ea" if license_name.startswith("Inter") else "c35c4c618fab33da8695177b3a6cefe0810b7b28"
+            if license_path not in included or included[license_path][2] != license_oid:
+                raise ValueError("Missing or changed reviewed license: " + license_path)
     return included, excluded
 
 def build(output, revision):
