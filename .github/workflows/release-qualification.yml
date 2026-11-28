@@ -59,9 +59,17 @@ jobs:
       - name: Build actual one-folder executable
         shell: pwsh
         run: |
-          & ./piTrainer/PACKAGING/build_windows_onedir.ps1 -SkipInstall
-          if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
-          if (!(Test-Path piTrainer/dist_exe/PiTrainer_win_onedir.zip)) { throw 'Missing transfer ZIP' }
+          $root = $env:GITHUB_WORKSPACE
+          $builder = Join-Path $root 'piTrainer/PACKAGING/build_windows_onedir.ps1'
+          Push-Location $root
+          try {
+            & $builder -SkipInstall
+            if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
+          } finally {
+            Pop-Location
+          }
+          $zip = Join-Path $root 'piTrainer/dist_exe/PiTrainer_win_onedir.zip'
+          if (!(Test-Path -LiteralPath $zip -PathType Leaf)) { throw "Missing transfer ZIP: $zip" }
       - name: Verify transfer ZIP and run extracted frozen executable
         shell: pwsh
         run: |
