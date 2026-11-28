@@ -3,6 +3,7 @@
 Run inside the existing isolated emulator acceptance test. Never use with a
 hardware-enabled runtime. This measures the existing pages, not V17 readiness.
 """
+import hashlib
 import json
 import time
 from collections import Counter
@@ -39,6 +40,7 @@ def capture_v17_baseline(browser, runtime, origin, output, revision):
             context = browser.new_context(viewport={"width": width, "height": height})
             try:
                 page = context.new_page()
+                page.bring_to_front()
                 events = []
                 origin_parts = urlsplit(origin)
 
@@ -69,7 +71,7 @@ def capture_v17_baseline(browser, runtime, origin, output, revision):
                 started = time.monotonic()
                 expect(image).to_have_attribute("data-preview-mode", "live", timeout=15000)
                 page.wait_for_function(
-                    "(selector) => { const img=document.querySelector(selector+' img'); return img && img.naturalWidth>0 && img.naturalHeight>0; }",
+                    "(selector) => { const img=document.querySelector(selector+' img'); return img && new URL(img.currentSrc || img.src, location.href).pathname==='/video_feed' && img.naturalWidth>0 && img.naturalHeight>0; }",
                     arg=frame_id, timeout=15000)
                 case["live_decode_wait_ms"] = (time.monotonic() - started) * 1000
                 assert_neutral()
@@ -103,7 +105,9 @@ def capture_v17_baseline(browser, runtime, origin, output, revision):
                 expect(page.locator(arm)).not_to_be_checked()
                 case["motor_neutral"] = True
                 case["screenshot"] = f"v17-m0-{mode}-{width}.png"
-                page.screenshot(path=str(output / case["screenshot"]), full_page=True)
+                path = output / case["screenshot"]
+                page.screenshot(path=str(path), full_page=True)
+                case["screenshot_sha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
                 assert not case["errors"], case["errors"]
             except Exception as exc:
                 case["failure"] = str(exc)
