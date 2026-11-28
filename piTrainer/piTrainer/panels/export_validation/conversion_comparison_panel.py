@@ -24,16 +24,25 @@ class ConversionComparisonPanel(QGroupBox):
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table.setAlternatingRowColors(True)
         self.table.setMinimumHeight(150)
+        self.table.setTextElideMode(Qt.ElideMiddle)
+        self.row_detail = QLabel()
+        self.row_detail.setTextFormat(Qt.PlainText)
+        self.row_detail.setWordWrap(True)
+        self.row_detail.setAccessibleName('Selected comparison record and both predictions')
+        self.row_detail.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard)
+        self.table.currentCellChanged.connect(self._show_selected_record)
         self.table.horizontalHeader().setStretchLastSection(True)
         layout = QVBoxLayout(self)
         layout.addWidget(self.compare_button)
         layout.addWidget(self.summary_label)
         layout.addWidget(self.table, 1)
+        layout.addWidget(self.row_detail)
         self.invalidate()
 
     def invalidate(self):
         self.comparison = None
         self.table.setRowCount(0)
+        self.row_detail.clear()
         self.summary_label.setToolTip("")
         self.summary_label.setText("Compare the last completed Validate and TFLite Check results. "
                                    "A matching recorded run and identical evaluated rows are required.")
@@ -63,5 +72,23 @@ class ConversionComparisonPanel(QGroupBox):
                       f"{row['lite_speed']:.7g}", f"{row['speed_delta']:.3e}")
             for col, value in enumerate(values):
                 item = QTableWidgetItem(str(value))
+                item.setToolTip(str(value))
                 self.table.setItem(i, col, item)
         self.table.resizeColumnsToContents()
+        # Keep long identifiers from consuming the whole narrow viewport.
+        # Full values stay in cells, tooltips and the selected-record detail.
+        for col, cap in ((1, 150), (2, 96)):
+            self.table.setColumnWidth(col, min(self.table.columnWidth(col), cap))
+        if self.table.rowCount():
+            self.table.setCurrentCell(0, 0)
+
+    def _show_selected_record(self, row, *_):
+        records = (self.comparison or {}).get("rows", [])
+        if not 0 <= row < len(records):
+            self.row_detail.clear()
+            return
+        value = records[row]
+        self.row_detail.setText(
+            f"Row {value['row']} · {value['session']} · {value['frame']} · Flip: {value['flipped']}\n"
+            f"Steering: {value['keras_steering']:.7g} → {value['lite_steering']:.7g} | Δ {value['steering_delta']:.3e}\n"
+            f"Speed: {value['keras_speed']:.7g} → {value['lite_speed']:.7g} | Δ {value['speed_delta']:.3e}")

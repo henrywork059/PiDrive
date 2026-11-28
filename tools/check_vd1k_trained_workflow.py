@@ -291,10 +291,19 @@ def main():
                 assert comparison["speed_max"] == report["prediction_delta"]["throttle_pred"]
                 assert check.comparison_panel.table.rowCount() == len(state.val_df)
                 report["conversion_comparison"] = comparison
+                if hasattr(check.comparison_panel, "row_detail"):
+                    check.comparison_panel.table.setCurrentCell(1, 0)
+                    selected = comparison["rows"][1]
+                    detail = check.comparison_panel.row_detail.text()
+                    assert selected["session"] in detail and selected["frame"] in detail
+                    assert f"{selected['lite_speed']:.7g}" in detail and f"{selected['steering_delta']:.3e}" in detail
+                    report["comparison_selected_row_detail"] = detail
                 capture("conversion-comparison", 5)
                 validation.clear_results()
                 assert check.comparison_panel.comparison is None
                 assert check.comparison_panel.table.rowCount() == 0
+                if hasattr(check.comparison_panel, "row_detail"):
+                    assert not check.comparison_panel.row_detail.text()
                 report["comparison_invalidated_on_clear"] = True
             assert [digest(p) for p in files] == original
             report["source_metadata_unchanged"] = True

@@ -22,6 +22,7 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--revision", required=True)
     parser.add_argument("--require-readable-status", action="store_true")
+    parser.add_argument("--require-requested-geometry", action="store_true", help="Fail unless original requested native client sizes and actual frames fit.")
     parser.add_argument("--theme", choices=("dark", "light"), default=None)
     args = parser.parse_args()
     source = args.source.resolve()
@@ -194,6 +195,9 @@ def main() -> None:
 
                 for width, height in ((1024, 768), (1440, 900)):
                     window.resize(width, height)
+                    if args.require_requested_geometry:
+                        screen_rect = window.screen().availableGeometry()
+                        window.move(screen_rect.x() + 4, screen_rect.y() + 4)
                     tabs.setCurrentIndex(0)
                     window.activateWindow()
                     bar.setFocus(Qt.OtherFocusReason)
@@ -220,6 +224,10 @@ def main() -> None:
                             "available_screen": [window.screen().availableGeometry().width(),
                                                  window.screen().availableGeometry().height()],
                             "requested_geometry_met": [window.width(), window.height()] == [width, height],
+                            "native_frame": [window.frameGeometry().x(), window.frameGeometry().y(), window.frameGeometry().width(), window.frameGeometry().height()],
+                            "native_frame_on_screen": window.screen().availableGeometry().contains(window.frameGeometry()),
+                            "screen_dpr": window.screen().devicePixelRatio(),
+                            "logical_dpi": window.screen().logicalDotsPerInch(),
                             "sha256": hashlib.sha256(target.read_bytes()).hexdigest(),
                         })
                     QTest.keyClick(bar, Qt.Key_Left)
@@ -304,6 +312,7 @@ def main() -> None:
                                 target_button.visibleRegion()).isEmpty()
                             data = {"stage": expected[stage], "action": target_button.text(),
                                     "window": [window.width(), window.height()],
+                                    "native_frame_on_screen": window.screen().availableGeometry().contains(window.frameGeometry()),
                                     "rect": [rect.x(), rect.y(), rect.width(), rect.height()],
                                     "fully_reachable": (target_button.isVisible()
                                         and window.rect().contains(rect) and region_ok
@@ -320,6 +329,8 @@ def main() -> None:
                             assert not pixmap.isNull() and pixmap.save(str(path), "PNG")
                             data.update(file=path.name, sha256=hashlib.sha256(path.read_bytes()).hexdigest())
                             manifest["workspace_action_navigation"].append(data)
+                            if sys.platform == "win32" and not data["native_frame_on_screen"]:
+                                geometry_errors.append(data)
                             if not all(data[key] for key in ("fully_reachable", "tabs_restored",
                                     "action_not_triggered", "enabled_unchanged", "state_unchanged")):
                                 geometry_errors.append(data)
@@ -471,6 +482,9 @@ def main() -> None:
                         "expected_output_rows": len(transformed), "preview_summary": summary,
                         "active_unchanged": True})
                     assert [hashlib.sha256(p.read_bytes()).hexdigest() for p in metadata] == hashes
+                if args.require_requested_geometry:
+                    geometry_errors.extend({"requested_geometry": item} for item in manifest["captures"]
+                                           if not item["requested_geometry_met"] or not item["native_frame_on_screen"])
                 manifest["geometry_errors"] = geometry_errors
                 (output / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
                 assert not geometry_errors, geometry_errors
