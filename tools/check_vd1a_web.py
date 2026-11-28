@@ -349,12 +349,29 @@ def main():
                             # Manual cockpit changes presentation only. Track the same
                             # controls and normal grid across the reversible switch.
                             normal_grid = None
+                            original_source = None
                             if name == "manual":
-                                normal_grid = page.locator("#manualDriveShell").evaluate("el => getComputedStyle(el).gridTemplateColumns")
+                                # Match image state on both sides of the layout comparison.
+                                original_source = page.locator("#mdrvPreview").get_attribute("src")
+                                page.evaluate("""async () => {
+                                    await document.fonts.ready;
+                                    await document.getElementById('mdrvPreview').decode();
+                                    await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+                                }""")
+                                normal_grid = page.locator("#manualDriveShell").evaluate("el => ({columns:getComputedStyle(el).gridTemplateColumns,areas:getComputedStyle(el).gridTemplateAreas,width:el.clientWidth})")
                                 page.evaluate("""() => {
                                     window.__vd1wControls = ['mdrvStopTop','mdrvStopPad','mdrvStopBig',
                                         'mdrvArm','mdrvDragPad','mdrvSpeed','mdrvLiveCamera','mdrvCaptureFrame',
                                         'mdrvRecordToggle','mdrvOverlayToggle'].map(id => document.getElementById(id));
+                                }""")
+                            if name == "ai":
+                                ai_selection = page.locator("#aiModelSelect").input_value()
+                                ai_tabs = page.locator("#aiSafetyPanel [role=tab]").evaluate_all("els => els.map(e=>e.getAttribute('aria-selected'))")
+                                page.evaluate("""() => {
+                                    window.__vd1xControls = ['aiStopAll','aiEnableMotor','aiModelSelect',
+                                        'aiLoadModel','aiStartPreview','aiStartDrive','aiStop','aiSafetyRearm',
+                                        'aiLive','aiSaveSnapshot','aiRecordToggle','aiStopCamera',
+                                        'aiManualDriveTab','aiAssistTab','aiCorrectionTab','aiLimiterTab'].map(id=>document.getElementById(id));
                                 }""")
                             toggle.click()
                             check_selected_cue(toggle, True)
@@ -387,6 +404,27 @@ def main():
                                                 or a["y"]+a["height"] <= b["y"]+1 or b["y"]+b["height"] <= a["y"]+1), (a,b)
                                 assert page.evaluate("() => window.__vd1wControls.every(el => el && document.getElementById(el.id) === el)")
                                 report.setdefault("manual_cockpit_controls", []).append({"theme":mode,"width":width,"height":height,"actions":actions,"same_controls":True})
+                            if name == "ai":
+                                expect(page.locator("#aiPreviewPanel")).to_have_css("align-self", "start")
+                                expect(page.locator("#aiPreviewPanel .ai-preview-run-actions")).to_have_css("flex-wrap", "wrap")
+                                controls = []
+                                for control in page.locator("#aiPreviewPanel .ai-preview-run-actions button").all():
+                                    if not control.is_visible():
+                                        continue
+                                    box = control.bounding_box()
+                                    assert box and box["width"] > 0 and box["height"] > 0, box
+                                    if width <= 900:
+                                        assert box["width"] >= 44 and box["height"] >= 44, box
+                                    controls.append(box)
+                                assert len(controls) >= 3
+                                for i, a in enumerate(controls):
+                                    for b in controls[i+1:]:
+                                        assert (a["x"]+a["width"] <= b["x"]+1 or b["x"]+b["width"] <= a["x"]+1
+                                                or a["y"]+a["height"] <= b["y"]+1 or b["y"]+b["height"] <= a["y"]+1), (a,b)
+                                assert page.locator("#aiModelSelect").input_value() == ai_selection
+                                assert page.locator("#aiSafetyPanel [role=tab]").evaluate_all("els => els.map(e=>e.getAttribute('aria-selected'))") == ai_tabs
+                                assert page.evaluate("() => window.__vd1xControls.every(e=>e && document.getElementById(e.id)===e)")
+                                report.setdefault("ai_cockpit_controls", []).append({"theme":mode,"width":width,"height":height,"actions":controls,"same_controls":True})
                             for scene, fill in (("bright", "#ffffff"), ("dark", "#05080b"), ("complex", "#d3a04b")):
                                 geometry = page.locator(frame).evaluate("""async (frame, fill) => {
                                   const image=frame.querySelector('img');
@@ -413,12 +451,26 @@ def main():
                                     assert abs(geometry["image"][key] - geometry["overlay"][key]) <= 2, geometry
                                 assert geometry["backing"] == "rgb(20, 23, 28)", geometry
                                 assert contrast(geometry["foreground"], geometry["backing"]) >= 4.5, geometry
+                            if name == "manual":
+                                await_source = page.locator("#mdrvPreview")
+                                await_source.evaluate("""async (el,src) => {
+                                    el.src = src;
+                                    await el.decode();
+                                    await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+                                }""", original_source)
                             toggle.click()
                             check_selected_cue(toggle, False)
                             assert page.locator("body").get_attribute("data-pisd-cockpit") is None
                             if name == "manual":
-                                assert page.locator("#manualDriveShell").evaluate("el => getComputedStyle(el).gridTemplateColumns") == normal_grid
+                                page.evaluate("() => new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))")
+                                restored = page.locator("#manualDriveShell").evaluate("el => ({columns:getComputedStyle(el).gridTemplateColumns,areas:getComputedStyle(el).gridTemplateAreas,width:el.clientWidth})")
+                                report.setdefault("manual_restored_grid", []).append({"theme":mode,"width":width,"before":normal_grid,"after":restored})
+                                assert restored == normal_grid, (normal_grid, restored)
                                 assert page.evaluate("() => window.__vd1wControls.every(el => el && document.getElementById(el.id) === el)")
+                            else:
+                                assert page.locator("#aiModelSelect").input_value() == ai_selection
+                                assert page.locator("#aiSafetyPanel [role=tab]").evaluate_all("els => els.map(e=>e.getAttribute('aria-selected'))") == ai_tabs
+                                assert page.evaluate("() => window.__vd1xControls.every(e=>e && document.getElementById(e.id)===e)")
                             assert page.locator(arm).is_checked() == before_arm
                             assert len(saves) == before_saves
                 # Fresh browser context receives theme from the actual settings backend.
@@ -540,7 +592,20 @@ def main():
                                 const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="100%" height="100%" fill="${fill}"/><path d="M0 ${h} L${w/2} ${h/4} L${w} ${h}" fill="none" stroke="#607080" stroke-width="12"/></svg>`;
                                 image.src="data:image/svg+xml,"+encodeURIComponent(svg);
                                 await image.decode();
-                                await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+                                // Allow the actual source/load/resize callbacks to settle;
+                                // keep the original 2px bound, and capture failure if it
+                                // never converges. Do not set overlay geometry here.
+                                const frame=image.closest('.viewer-frame'), overlay=frame.querySelector('#frameOverlay');
+                                const end=performance.now()+1000;
+                                do {
+                                    await new Promise(r=>requestAnimationFrame(r));
+                                    const a=image.getBoundingClientRect(), b=overlay.getBoundingClientRect();
+                                    const scale=Math.min(a.width/image.naturalWidth,a.height/image.naturalHeight);
+                                    const w=image.naturalWidth*scale,h=image.naturalHeight*scale;
+                                    if(frame.dataset.cameraGeometry==='aligned' &&
+                                      Math.max(Math.abs(b.width-w),Math.abs(b.height-h),
+                                      Math.abs(b.x-a.x-(a.width-w)/2),Math.abs(b.y-a.y-(a.height-h)/2))<=2) break;
+                                } while(performance.now()<end);
                             }""", [iw,ih,fill])
                             geometry = page.locator(".viewer-frame").evaluate("""el => {
                                 const image=el.querySelector("#videoFeed"), overlay=el.querySelector("#frameOverlay");

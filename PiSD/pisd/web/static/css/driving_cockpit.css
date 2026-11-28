@@ -127,3 +127,58 @@ body.manual-drive-page[data-pisd-cockpit="immersive"] #manualDriveCameraPanel :i
     white-space: normal !important;
   }
 }
+
+/* VD1X / VD22: AI-only opt-in cockpit. Preserve existing operational
+   ordering, readiness, action roles, model selection and intrinsic image. */
+@media (min-width: 1280px) and (min-height: 760px) {
+  body.ai-page[data-pisd-cockpit="immersive"] #aiPreviewFrame {
+    width: min(100%, calc(82svh * var(--cockpit-ratio))) !important;
+  }
+}
+body.ai-page[data-pisd-cockpit="immersive"] #aiPreviewPanel {
+  align-self: start !important;
+}
+body.ai-page[data-pisd-cockpit="immersive"] #aiPreviewPanel > .mdrv-panel-head {
+  flex-wrap: wrap;
+  align-items: center !important;
+}
+body.ai-page[data-pisd-cockpit="immersive"] #aiPreviewPanel .ai-camera-head-actions {
+  min-width: 0;
+  max-width: 100%;
+  flex-wrap: wrap !important;
+}
+body.ai-page[data-pisd-cockpit="immersive"] #aiPreviewPanel .ai-preview-run-actions {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: clamp(6px, .55vw, 10px) !important;
+}
+body.ai-page[data-pisd-cockpit="immersive"] #aiPreviewPanel .ai-preview-run-actions > button {
+  flex: 1 1 135px;
+  min-width: 0;
+  white-space: normal;
+}
+body.ai-page[data-pisd-cockpit="immersive"] #aiPreviewPanel :is(.mdrv-recording-details,#aiPreviewCaption) {
+  overflow-wrap: anywhere;
+}
+body.ai-page[data-pisd-cockpit="immersive"] #aiSafetyPanel .ai-panel-tabs {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+body.ai-page[data-pisd-cockpit="immersive"] #aiSafetyPanel .ai-panel-tab {
+  min-width: 0;
+  white-space: normal;
+}
+@media (forced-colors: none) {
+  body.ai-page[data-pisd-cockpit="immersive"] #aiSafetyPanel .ai-panel-tab[aria-selected="true"] {
+    text-decoration: underline !important;
+    text-underline-offset: .2em;
+  }
+}
+@media (max-width: 900px) {
+  body.ai-page[data-pisd-cockpit="immersive"] #aiPreviewPanel :is(.ai-camera-head-actions button,.ai-preview-run-actions button),
+  body.ai-page[data-pisd-cockpit="immersive"] #aiSafetyPanel .ai-panel-tab {
+    min-height: 44px !important;
+    min-block-size: 44px !important;
+    min-width: 44px !important;
+    white-space: normal !important;
+  }
+}
