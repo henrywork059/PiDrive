@@ -94,6 +94,20 @@ class UiStyleContractR45(unittest.TestCase):
         self.assertIn("if width > 1680:", text)
         self.assertIn('return "comfortable"', text)
 
+    def test_height_density_preserves_width_contract(self):
+        # Execute only the real pure density function, without importing Qt.
+        node = next(n for n in self.formatting.body
+                    if isinstance(n, ast.FunctionDef) and n.name == "density_for_width")
+        namespace = {}
+        exec(compile(ast.Module(body=[node], type_ignores=[]), "<density>", "exec"), namespace)
+        density = namespace["density_for_width"]
+        for width, expected in ((1179, "compact"), (1180, "comfortable"),
+                                (1680, "comfortable"), (1681, "spacious")):
+            with self.subTest(width=width):
+                self.assertEqual(density(width), expected)
+                self.assertEqual(density(width, height=760), expected)
+                self.assertEqual(density(width, height=759), "compact")
+
     def test_all_semantic_status_colors_have_entries(self):
         names = {"bg_app", "bg_panel", "text_primary", "text_muted", "info",
                  "success", "warning", "danger", "selection", "border",

@@ -182,8 +182,14 @@ def main() -> None:
                             "list_height": panel.list_widget.height(),
                             "saved_list_height": panel._current_session_list_height(),
                             "density": window._ui_density}
+                    if hasattr(panel, "refresh_session_list_geometry"):
+                        data["list_min_height"] = panel.list_widget.minimumHeight()
+                        data["list_max_height"] = panel.list_widget.maximumHeight()
+                        data["list_height_matches_preference"] = (
+                            data["list_height"] == data["saved_list_height"]
+                            == data["list_min_height"] == data["list_max_height"])
                     manifest["data_action_geometry"].append(data)
-                    if not reachable:
+                    if not reachable or not data.get("list_height_matches_preference", True):
                         geometry_errors.append(data)
 
                 for width, height in ((1024, 768), (1440, 900)):

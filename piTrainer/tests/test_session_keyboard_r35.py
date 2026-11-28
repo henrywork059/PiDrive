@@ -66,6 +66,36 @@ class SessionKeyboardTests(unittest.TestCase):
         QTest.keyClick(handle, Qt.Key_Home)
         self.assertEqual(self.panel._current_session_list_height(), 260)
 
+    def test_saved_height_survives_density_and_stylesheet_changes(self):
+        from piTrainer.ui.formatting import apply_standard_widget_format
+        from PySide6.QtWidgets import QSizePolicy
+
+        original_css = self.app.styleSheet()
+        self.panel._set_session_list_height(320)
+        self.settings.sync()
+        try:
+            for profile in ("compact", "comfortable", "spacious", "compact"):
+                with self.subTest(profile=profile):
+                    self.app.setStyleSheet(build_stylesheet(profile))
+                    apply_standard_widget_format(self.panel, density=profile)
+                    self.panel.refresh_session_list_geometry()
+                    self.app.processEvents()
+                    widget = self.panel.list_widget
+                    self.assertEqual(widget.minimumHeight(), 320)
+                    self.assertEqual(widget.maximumHeight(), 320)
+                    self.assertEqual(widget.height(), 320)
+                    self.assertEqual(widget.sizePolicy().verticalPolicy(), QSizePolicy.Fixed)
+                    self.assertEqual(self.panel._current_session_list_height(), 320)
+                    self.assertEqual(int(self.settings.value(self.panel.LIST_HEIGHT_SETTINGS_KEY)), 320)
+            self.panel.resize_handle.setFocus()
+            QTest.keyClick(self.panel.resize_handle, Qt.Key_Up)
+            self.app.processEvents()
+            self.assertEqual(self.panel.list_widget.height(), 300)
+            self.assertEqual(self.panel._current_session_list_height(), 300)
+            self.assertEqual(int(self.settings.value(self.panel.LIST_HEIGHT_SETTINGS_KEY)), 300)
+        finally:
+            self.app.setStyleSheet(original_css)
+
     def test_focus_style_available_in_all_profiles(self):
         for profile in ("compact", "comfortable", "spacious"):
             css = build_stylesheet(profile)

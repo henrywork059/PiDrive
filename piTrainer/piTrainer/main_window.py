@@ -261,6 +261,10 @@ class MainWindow(QMainWindow):
         if app is not None:
             app.setStyleSheet(build_stylesheet(density))
         apply_standard_widget_format(self, density=density)
+        # The global stylesheet was just replaced. Keep the explicit Session
+        # Source geometry rather than inheriting the generic input minimum.
+        if hasattr(self, 'data_page'):
+            self.data_page.session_source_panel.refresh_session_list_geometry()
 
     def _setup_shortcuts(self) -> None:
         QShortcut(QKeySequence('Ctrl+1'), self, activated=lambda: self.tabs.setCurrentIndex(0))

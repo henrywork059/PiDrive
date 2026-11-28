@@ -325,8 +325,11 @@ class SessionSourcePanel(QGroupBox):
     def _set_session_list_height(self, height: int, persist: bool = True) -> None:
         height = self._clamp_session_list_height(height)
         self._session_list_height = height
-        self.list_widget.setMinimumHeight(height)
-        self.list_widget.setMaximumHeight(height)
+        # Qt stylesheet polishing can set a generic input minimum. Reassert
+        # this panel's explicit size after polish, without changing the preference.
+        self.list_widget.ensurePolished()
+        self.list_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.list_widget.setFixedHeight(height)
         self.list_widget.updateGeometry()
         if persist:
             self._save_session_list_height(height)
@@ -342,6 +345,10 @@ class SessionSourcePanel(QGroupBox):
         and the chosen height is saved through QSettings.
         """
         self._set_session_list_height(self._session_list_height, persist=False)
+
+    def refresh_session_list_geometry(self) -> None:
+        """Reapply the current user height after a global stylesheet change."""
+        self._resize_session_list()
 
     def selected_sessions(self) -> list[str]:
         selected: list[str] = []

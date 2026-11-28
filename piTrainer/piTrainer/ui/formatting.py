@@ -191,7 +191,9 @@ def get_density_profile(density: str = "comfortable") -> DensityProfile:
 def density_for_width(width: int, height: int | None = None) -> str:
     """Preserve width profiles; short windows also use compact chrome."""
     width = max(1, int(width))
-    if width < 1180 or (height is not None and height < 760):
+    if width < 1180:
+        return "compact"
+    if height is not None and height < 760:
         return "compact"
     if width > 1680:
         return "spacious"
@@ -351,7 +353,10 @@ def apply_standard_widget_format(root: QWidget, *, density: str = "comfortable")
 
     for list_widget in root.findChildren(QListWidget):
         list_widget.setAlternatingRowColors(True)
-        list_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        # Session Source owns a user-resizable, persisted fixed vertical size.
+        # Do not replace that specific policy with the generic expanding list.
+        if list_widget.objectName() != "sessionListWidget":
+            list_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
     # Standard label roles. Do not overwrite explicit labels.
     for label in root.findChildren(QLabel):
