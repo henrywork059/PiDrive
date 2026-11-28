@@ -208,6 +208,10 @@ class FrameTest(unittest.TestCase):
                     expect(page.locator("#rightOutput")).to_have_css("font-variant-numeric", "tabular-nums")
                     expect(page.locator(".motor-readout .meter-label")).to_have_count(2)
                     expect(page.locator(".camera-meta")).to_have_css("flex-wrap", "wrap")
+                    expect(page.locator(".monitor-panel .state-chip")).to_have_text("VIRTUAL ONLY")
+                    expect(page.get_by_role("group", name="Controller poll feedback")).to_be_visible()
+                    expect(page.locator("#pollStatus")).to_have_css("font-variant-numeric", "tabular-nums")
+                    evidence["controller_poll"] = page.locator("#pollStatus").inner_text()
                     evidence["monitor_readback"] = {
                         "left": page.locator("#leftOutput").inner_text(),
                         "right": page.locator("#rightOutput").inner_text(),

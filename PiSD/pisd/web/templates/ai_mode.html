@@ -204,7 +204,7 @@
           <button id="aiUploadModel" class="mdrv-button ai-button ai-button-secondary" type="button">Upload model</button>
           <span id="aiUploadHint" class="ai-upload-hint">Supported: .keras, .tflite, .h5, .onnx, .pt. Runtime support is built in for piTrainer .keras/.tflite models.</span>
         </div>
-        <dl class="ai-readout-grid">
+        <dl class="ai-readout-grid" aria-label="Selected model and runtime inspector">
           <div><dt>Selected</dt><dd id="aiSelectedModel">none</dd></div>
           <div><dt>Backend</dt><dd id="aiBackend">none</dd></div>
           <div><dt>Input</dt><dd id="aiInputShape">-</dd></div>
@@ -343,7 +343,7 @@ python3 scripts/check_ai_runtime.py</pre>
           <span class="mdrv-code" data-code-for="run">PISD-OK-000</span>
         </div>
         <p class="ai-note">Start AI drive requires a loaded model and confirmation.</p>
-        <dl class="ai-readout-grid ai-readout-large">
+        <dl class="ai-readout-grid ai-readout-large" aria-label="Model, corrected and safe control outputs">
           <div><dt>Model steering</dt><dd id="aiRawSteering">0.00</dd></div>
           <div><dt>Model throttle</dt><dd id="aiRawThrottle">0.00</dd></div>
           <div><dt>Corrected steering</dt><dd id="aiMixedSteering">0.00</dd></div>

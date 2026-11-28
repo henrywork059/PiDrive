@@ -37,7 +37,7 @@ def build_stylesheet(density: str = "comfortable") -> str:
     }
     QStatusBar {
         background: @COLOR_BG_APP@;
-        color: @COLOR_TEXT_MUTED@;
+        color: @COLOR_TEXT_PRIMARY@;
         border-top: 1px solid @COLOR_BORDER_SUBTLE@;
         padding: 3px 8px;
     }
@@ -45,6 +45,9 @@ def build_stylesheet(density: str = "comfortable") -> str:
         color: @COLOR_TEXT_PRIMARY@;
         background: transparent;
         font-weight: 650;
+    }
+    QLabel#workflowReadinessLabel:focus {
+        background: @COLOR_INFO_SURFACE@;
     }
     QFrame[role='pageShell'] {
         background: @COLOR_BG_SHELL@;

@@ -472,3 +472,29 @@ def test_contextual_icons_keep_text_and_native_button_action():
                     button.close()
     finally:
         theme.set_theme("dark")
+
+
+def test_status_inspector_tracks_current_message_without_stale_feedback():
+    from PySide6.QtWidgets import QApplication, QLabel, QStatusBar
+    from piTrainer.ui.status_presentation import bind_status_inspector
+    app = QApplication.instance() or QApplication([])
+    bar = QStatusBar()
+    readiness = QLabel("Needs input")
+    bar.addPermanentWidget(readiness)
+    try:
+        bind_status_inspector(bar)
+        assert bar.accessibleName() == "Application status"
+        for message in ("Validation selection changed", "Previous result is historical, not current"):
+            bar.showMessage(message)
+            app.processEvents()
+            assert bar.currentMessage() == message
+            assert bar.toolTip() == message
+            assert bar.accessibleDescription() == message
+            assert readiness.text() == "Needs input"
+        bar.clearMessage()
+        assert bar.currentMessage() == ""
+        assert bar.toolTip() == ""
+        assert bar.accessibleDescription() == "No current notification. Workflow readiness is shown separately."
+        assert readiness.text() == "Needs input"
+    finally:
+        bar.close()

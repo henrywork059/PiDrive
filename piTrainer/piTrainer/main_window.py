@@ -16,6 +16,7 @@ from .pages.validation_page import ValidationPage
 from .services.data.session_service import resolve_session_dir
 from .ui.formatting import apply_standard_widget_format, density_for_width
 from .ui.styles import build_stylesheet
+from .ui.status_presentation import bind_status_inspector
 from .ui.theme import current_theme, saved_theme, save_theme
 from .version import APP_WORKFLOW_TITLE, STATUS_VERSION_TEXT
 
@@ -72,6 +73,8 @@ class MainWindow(QMainWindow):
         guidance.setContentsMargins(8, 4, 8, 0)
         self.workflow_detail_label = QLabel()
         self.workflow_detail_label.setTextFormat(Qt.PlainText)
+        self.workflow_detail_label.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard)
+        self.workflow_detail_label.setAccessibleName('Current workflow details')
         self.workflow_detail_label.setWordWrap(True)
         self.workflow_detail_label.setObjectName('workflowReadinessLabel')
         guidance.addWidget(self.workflow_detail_label, 1)
@@ -92,6 +95,7 @@ class MainWindow(QMainWindow):
 
         self.status = QStatusBar()
         self.status.setSizeGripEnabled(True)
+        bind_status_inspector(self.status)
         self.version_label = QLabel(STATUS_VERSION_TEXT)
         self.version_label.setObjectName('appVersionLabel')
         self.version_label.setProperty('role', 'muted')
@@ -254,6 +258,8 @@ class MainWindow(QMainWindow):
                     label.setToolTip(message)
                 if label.accessibleName() != accessible_name:
                     label.setAccessibleName(accessible_name)
+                if label.accessibleDescription() != message:
+                    label.setAccessibleDescription(message)
 
         # Route to a missing prerequisite without starting or changing work.
         index = self.tabs.currentIndex()

@@ -31,14 +31,14 @@
   <main class="mdrv-shell" id="manualDriveShell">
     <section class="mdrv-panel mdrv-status-panel" id="manualDriveStatusPanel" data-panel-role="status" data-panel-h-weight="2" data-panel-v-weight="1">
       <div class="mdrv-panel-head compact"><div><p class="mdrv-label">Status</p><h2>Live signals</h2></div><span class="mdrv-code" data-code-for="status">{{ initial_status.code }}</span></div>
-      <div class="mdrv-status-strip">
+      <div class="mdrv-status-strip" role="group" aria-label="Live runtime signals and intended motor output">
         <span>Runtime <strong id="mdrvHardware" data-tone="warning">Checking</strong></span>
-        <span>Cam <strong id="mdrvCameraState">{{ initial_status.camera.backend }}</strong></span>
+        <span>Camera <strong id="mdrvCameraState">{{ initial_status.camera.backend }}</strong></span>
         <span>Motor <strong id="mdrvMotorState">{{ initial_status.motor.adapter }}</strong></span>
         <span>FPS <strong id="mdrvCameraFps">{{ initial_status.camera.measured_capture_fps if initial_status.camera.measured_capture_fps is defined else 'n/a' }}</strong></span>
-        <span>Rec <strong id="mdrvRecordingState">{{ 'on' if initial_status.recording.running else 'off' }}</strong></span>
-        <span>Cmd <strong id="mdrvIntentOut">S 0.00 / T 0.00</strong></span>
-        <span>Intent out <strong id="mdrvMotorOut">L +0.00 / R +0.00</strong></span>
+        <span>Recording <strong id="mdrvRecordingState">{{ 'on' if initial_status.recording.running else 'off' }}</strong></span>
+        <span>Command <strong id="mdrvIntentOut">S 0.00 / T 0.00</strong></span>
+        <span>Intended motor output <strong id="mdrvMotorOut">L +0.00 / R +0.00</strong></span>
       </div>
       <section class="pisd-readiness-strip" id="mdrvReadinessStrip" aria-label="Operating-mode readiness" role="status" aria-live="polite">
         <div class="pisd-readiness-item"><span>Camera</span><strong id="mdrvReadyCamera" data-tone="warning">Checking</strong></div>

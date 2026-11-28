@@ -46,3 +46,18 @@ body[data-emulator-workspace="wide"] .web-panel{min-width:0}
   }
   :is(#wideWorkspaceToggle) { --vd-context-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M9%204H4v5m11-5h5v5M4%2015v5h5m11-5v5h-5%22%2F%3E%3C%2Fsvg%3E"); }
 }
+
+/* VD1AC: poll feedback and isolation context are distinct from vehicle
+   and motor state. Preserve all actual poll messages and readout values. */
+footer {
+  color: var(--muted);
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 16px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+.poll-indicator {min-width:0;overflow-wrap:anywhere}
+#pollStatus {color:var(--text);font-variant-numeric:tabular-nums}
+.workspace-path code,.event span {overflow-wrap:anywhere}
+.monitor-panel .state-chip {white-space:normal;text-align:center}

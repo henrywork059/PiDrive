@@ -4274,3 +4274,19 @@ html body #workspace .viewer-frame[data-camera-cockpit="on"] .overlay-block-valu
   :is(#openStyleSettingsBtn) { --vd-context-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M4%206h16M4%2012h16M4%2018h16%22%2F%3E%3Ccircle%20cx%3D%229%22%20cy%3D%226%22%20r%3D%222%22%20fill%3D%22white%22%2F%3E%3Ccircle%20cx%3D%2215%22%20cy%3D%2212%22%20r%3D%222%22%20fill%3D%22white%22%2F%3E%3Ccircle%20cx%3D%228%22%20cy%3D%2218%22%20r%3D%222%22%20fill%3D%22white%22%2F%3E%3C%2Fsvg%3E"); }
   :is(#cameraCockpitToggle) { --vd-context-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M9%204H4v5m11-5h5v5M4%2015v5h5m11-5v5h-5%22%2F%3E%3C%2Fsvg%3E"); }
 }
+
+/* VD1AC: existing operator metrics stay in the saved dock. Text wraps
+   without replacing unknown/unverified state, status tones or actions. */
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #operatorMetrics .metric-card:not(.metric-card-action) {
+  min-width: 0;
+}
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #operatorMetrics .metric-card:not(.metric-card-action) :is(label,strong),
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #statusBanner {
+  white-space: normal !important;
+  overflow-wrap: anywhere !important;
+  text-overflow: clip !important;
+}
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #operatorMetrics :is(#metricManual,#metricApplied,#metricWheels,#metricFps,#metricMaxThrottle,#metricSteerMix,#metricSteerBias) {
+  font-family: "PiDrive Plex Mono", "IBM Plex Mono", ui-monospace, monospace !important;
+  font-variant-numeric: tabular-nums;
+}

@@ -44,7 +44,7 @@
         <div class="panel-body status-body" data-essentials-only="true">
           <label class="small-note status-density-control"><input type="checkbox" id="essentialsOnly" checked aria-controls="operatorMetrics" aria-describedby="telemetryHint"> Essentials only (keep controls)</label>
           <span class="small-note" id="telemetryHint">Uncheck for more telemetry.</span>
-          <div id="operatorMetrics" class="metric-grid status-metric-grid">
+          <div id="operatorMetrics" class="metric-grid status-metric-grid" role="group" aria-label="Runtime status and control outputs">
             <div class="metric-card metric-card-primary priority-high"><label>Drive</label><strong id="metricDriveState">Unverified</strong></div>
             <div class="metric-card metric-card-primary priority-high"><label>Output</label><strong id="metricApplied">Unverified</strong></div>
             <div class="metric-card metric-card-primary priority-medium"><label>Target</label><strong id="metricManual">S 0.00 · T 0.00</strong></div>

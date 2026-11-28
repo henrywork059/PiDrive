@@ -351,6 +351,17 @@ def main():
                             expect(page.locator("body")).to_have_attribute("data-pisd-theme", mode)
                             expect(page.locator("body")).to_have_css("background-color", expected)
                             checks = {"body": inspect(page, "body")}
+                            if name == "manual":
+                                expect(page.get_by_role("group", name="Live runtime signals and intended motor output")).to_be_visible()
+                                expect(page.locator("#mdrvMotorOut")).to_have_css("white-space", "normal")
+                                expect(page.locator("#mdrvMotorOut")).to_have_css("font-variant-numeric", "tabular-nums")
+                                checks["status_inspector"] = {"intended": page.locator("#mdrvMotorOut").inner_text(),
+                                                              "authorization": page.locator("#mdrvReadyMotor").inner_text()}
+                            elif name == "ai":
+                                expect(page.locator('.ai-readout-grid[aria-label="Selected model and runtime inspector"]')).to_be_visible()
+                                expect(page.locator("#aiSafeSteering")).to_have_css("font-variant-numeric", "tabular-nums")
+                                checks["status_inspector"] = {"model": page.locator("#aiRawSteering").inner_text(),
+                                                              "safe": page.locator("#aiSafeSteering").inner_text()}
                             if stop:
                                 checks["stop"] = inspect(page, stop)
                             if page.locator("#aiDownloadZip").count() and page.locator("#aiDownloadZip").is_visible():
@@ -626,6 +637,11 @@ def main():
                                       "stop": inspect(page, "#estopToggle")}
                             checks["flat_metadata"] = check_flat_readouts(page,"#workspace div.record-meta-card.priority-low, #workspace div.record-meta-card.priority-medium")
                             checks["flat_secondary_metrics"] = check_flat_readouts(page,"#workspace div.metric-card.priority-low")
+                            expect(page.locator("#operatorMetrics")).to_have_attribute("aria-label", "Runtime status and control outputs")
+                            expect(page.locator("#metricManual")).to_have_css("font-variant-numeric", "tabular-nums")
+                            expect(page.locator("#metricApplied")).to_have_css("white-space", "normal")
+                            checks["status_inspector"] = {"target":page.locator("#metricManual").inner_text(),
+                                                          "applied":page.locator("#metricApplied").inner_text()}
                             checks["flat_sections"] = check_flat_sections(page,
                                 '#workspace .dock-panel:is([data-panel="model"],[data-panel="sessions"],[data-panel="camera"],[data-panel="motor"]) .panel-section:not(.panel-section-strong):not(.panel-section-footer)')
                             if width == 390 and tab in ("camera","motor"):
