@@ -142,3 +142,8 @@ footer {
   #frameShell {background:var(--panel)}
   #frameEmpty {color:var(--text);background:var(--panel)}
 }
+
+/* VD36: make merged auxiliary workflows discoverable without moving the cockpit. */
+.auxiliary-links {display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:10px;font-size:11px}
+.auxiliary-links a {color:var(--accent);text-decoration:underline;text-underline-offset:.15em;overflow-wrap:anywhere}
+@media(max-width:768px){.auxiliary-links a{display:inline-flex;align-items:center;min-height:44px}}

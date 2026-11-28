@@ -22,7 +22,8 @@ class AuxiliaryVisualTests(unittest.TestCase):
             while cp == port:
                 port = free_port()
             runtime = PiSDRuntime(ROOT, workspace=Path(temp), port=port, control_port=cp)
-            server = make_server("127.0.0.1", cp, create_control_app(runtime), threaded=True)
+            controller = create_control_app(runtime)
+            server = make_server("127.0.0.1", cp, controller, threaded=True)
             thread = threading.Thread(target=server.serve_forever, daemon=True)
             thread.start()
             url = f"http://127.0.0.1:{cp}"
@@ -30,6 +31,13 @@ class AuxiliaryVisualTests(unittest.TestCase):
                 with sync_playwright() as pw:
                     browser = pw.chromium.launch()
                     try:
+                        workspace = browser.new_page(viewport={"width":1440,"height":900})
+                        try:
+                            workspace.goto(url)
+                            for route in ("environment","scenarios","diagnostics"):
+                                expect(workspace.locator(f'nav[aria-label="Emulator tools"] a[href="/{route}"]')).to_be_visible()
+                        finally:
+                            workspace.close()
                         for width, height in ((390,844),(768,900),(1440,900)):
                             for route, marker, message in (
                                 ("environment", "#message", "Confirmed."),
@@ -45,6 +53,10 @@ class AuxiliaryVisualTests(unittest.TestCase):
                                     expect(page.locator(marker)).to_contain_text(message)
                                     page.evaluate("document.fonts.ready")
                                     prior = list(requests)
+                                    if route == "scenarios":
+                                        expect(page.locator("#fault")).to_be_disabled()
+                                    if route == "environment":
+                                        expect(page.locator("#save")).to_be_enabled()
                                     for theme in ("dark","light"):
                                         page.locator("#auxiliaryTheme").select_option(theme)
                                         expect(page.locator("html")).to_have_attribute("data-emulator-theme",theme)
@@ -89,7 +101,7 @@ class AuxiliaryVisualTests(unittest.TestCase):
                     finally:
                         browser.close()
                 # Verify physical authority remains disabled using actual controller.
-                response=create_control_app(runtime).test_client().get("/api/status")
+                response=controller.test_client().get("/api/status")
                 self.assertFalse(response.get_json()["hardware_enabled"])
                 self.assertFalse(response.get_json()["running"])
             finally:

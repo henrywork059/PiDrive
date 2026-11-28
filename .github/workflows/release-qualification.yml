@@ -6,7 +6,7 @@ permissions:
   contents: read
 jobs:
   full-source-archives:
-    if: github.head_ref == 'qualification/1.0.0-rc06-08'
+    if: github.head_ref == 'qualification/1.0.0-rc06-08' || github.head_ref == 'update/visual-design-vd36'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -29,7 +29,7 @@ jobs:
           path: ${{ runner.temp }}/rc-source
           if-no-files-found: error
   frozen-windows:
-    if: github.head_ref == 'qualification/1.0.0-rc06-08'
+    if: github.head_ref == 'qualification/1.0.0-rc06-08' || github.head_ref == 'update/visual-design-vd36'
     runs-on: windows-latest
     timeout-minutes: 45
     env:
