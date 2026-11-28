@@ -87,6 +87,52 @@ def create_control_app(runtime: PiSDRuntime) -> Flask:
         except ValueError as exc:
             return jsonify(ok=False, error=str(exc)), 400
 
+    @app.get("/environment")
+    def environment():
+        return send_from_directory(WEB_DIR, "environment.html")
+
+    @app.get("/diagnostics")
+    def diagnostics_page():
+        return send_from_directory(WEB_DIR, "diagnostics.html")
+
+    @app.get("/api/environments")
+    def environments():
+        try:
+            return jsonify(runtime.environments())
+        except ValueError as exc:
+            return jsonify(ok=False,error=str(exc)),400
+
+    @app.post("/api/environments/save")
+    def save_environment():
+        data=request.get_json(silent=True)
+        if not isinstance(data,dict) or "profile" not in data:
+            return jsonify(ok=False,error="Supply profile."),400
+        try:
+            return jsonify(runtime.save_environment(data["profile"],data.get("replace",False)))
+        except (ValueError, TypeError, OSError, OverflowError) as exc:
+            return jsonify(ok=False,error=str(exc)),400
+
+    @app.post("/api/environments/select")
+    def select_environment():
+        data=request.get_json(silent=True)
+        if not isinstance(data,dict) or "name" not in data:
+            return jsonify(ok=False,error="Supply name or null."),400
+        try:
+            return jsonify(runtime.select_environment(data["name"]))
+        except ValueError as exc:
+            return jsonify(ok=False,error=str(exc)),400
+
+    @app.get("/api/diagnostics")
+    def diagnostics():
+        return jsonify(runtime.diagnostics())
+
+    @app.get("/api/diagnostics/export")
+    def diagnostics_export():
+        response=jsonify(runtime.diagnostics())
+        response.headers["Content-Disposition"] = 'attachment; filename="pisd-emulator-diagnostics.json"'
+        response.headers["Cache-Control"] = "no-store"
+        return response
+
     @app.get("/api/status")
     def status():
         return jsonify(runtime.status())

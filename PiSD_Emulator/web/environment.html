@@ -1,0 +1,12 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Custom environments</title><link rel="stylesheet" href="/assets/app.css"><link rel="stylesheet" href="/assets/environment.css"></head><body><main class="scenario-main">
+<nav><a href="/">Workspace</a> · <a href="/scenarios">Fault scenarios</a> · <a href="/diagnostics">Diagnostics</a></nav>
+<h1>Custom environments</h1><p>Build a road from straight and curved segments. Save profiles to the isolated workspace. Stop PiSD before applying a profile; replay sources are selected separately.</p>
+<section class="panel scenario-panel"><h2>Saved profiles</h2><label for="saved">Profile</label><select id="saved"></select><div class="scenario-actions"><button id="load">Edit selected</button><button id="apply">Apply selected</button><button id="default">Restore default road</button><button id="refresh">Refresh</button></div><p id="active"></p></section>
+<section class="panel scenario-panel"><h2>Environment editor</h2><label for="name">Name</label><input id="name" maxlength="40" value="Custom road"><label for="width">Road width (m)</label><input id="width" type="number" min=".4" max="4" step=".01" value=".92">
+<label for="segments">Segments (JSON, length in metres, signed curvature in 1/m)</label><textarea id="segments" rows="7" spellcheck="false">[{"length_m":20,"curvature":0},{"length_m":20,"curvature":0.08},{"length_m":20,"curvature":0}]</textarea>
+<label for="obstacles">Obstacles (JSON, station and lateral offset in metres)</label><textarea id="obstacles" rows="5" spellcheck="false">[{"station_m":10,"lateral_m":0.2,"kind":"cone"}]</textarea>
+<label for="markings">Centre markings</label><select id="markings"><option>dashed</option><option>solid</option><option>none</option></select>
+<label><input id="edges" type="checkbox" checked> Edge lines</label>
+<label for="lighting">Lighting</label><select id="lighting"><option>day</option><option>dusk</option><option>night</option></select>
+<button id="save">Save profile</button></section><p id="message" role="status" aria-live="polite"></p>
+</main><script src="/assets/environment.js" defer></script></body></html>

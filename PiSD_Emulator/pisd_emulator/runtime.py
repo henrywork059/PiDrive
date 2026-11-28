@@ -15,6 +15,8 @@ from .engine import TRACKS, VehicleEngine
 from .renderer import RoadRenderer
 from .replay import ImageReplay, VideoReplay, open_replay
 from .faults import ServiceFaults
+from .environments import EnvironmentStore
+from .diagnostics import Diagnostics
 
 
 def default_workspace() -> Path:
@@ -41,6 +43,9 @@ class PiSDRuntime:
         self._generation = 0
         self.engine = VehicleEngine(self._read_emulator_settings())
         self.renderer = RoadRenderer()
+        self._environment_store = EnvironmentStore(self.workspace)
+        self._active_environment = None
+        self._diagnostics = Diagnostics()
         self._lock = threading.RLock()
         self._state_lock = threading.RLock()
         self._camera_input_lock = threading.RLock()
@@ -119,6 +124,7 @@ class PiSDRuntime:
                     runtime_root=self.workspace,
                     emulator_frame_port=self.control_port,
                 )
+                self._diagnostics.install(app, self._generation + 1)
                 self._service_faults.install(app)
                 with self._camera_input_lock:
                     if self._replay is not None:
@@ -129,6 +135,9 @@ class PiSDRuntime:
                             "replay_source": self._replay.source,
                             "replay_media": self._replay.status().get("media", "images"),
                         }
+                if self._active_environment is not None and self._replay is None:
+                    recording = app.config["pisd_services"]["recording"]
+                    recording.source_metadata = {**recording.source_metadata, "environment": self._active_environment}
                 try:
                     from werkzeug.serving import make_server
                 except ImportError as exc:
@@ -233,6 +242,7 @@ class PiSDRuntime:
             raise ValueError(f"Unknown track '{track_id}'.")
         self._stop_pisd_motors()
         self.engine.change_track(track_id)
+        self._active_environment = None
         self._record_event("ok", f"Track changed to {TRACKS[track_id]}; vehicle pose reset.")
 
     def reset_vehicle(self) -> None:
@@ -263,11 +273,44 @@ class PiSDRuntime:
         if was_running:
             self.stop()
         self.engine = VehicleEngine(current)
+        if self._active_environment is not None:
+            self.engine.configure_environment(self._active_environment)
         self.renderer = RoadRenderer()
         self._record_event("ok", "Emulator physics settings saved.")
         if was_running:
             self.start()
         return self.status()
+
+    def environments(self) -> dict[str, Any]:
+        with self._lock:
+            return {"profiles": list(self._environment_store.read().values()),
+                    "active": self._active_environment, "running": self._running}
+
+    def save_environment(self, profile, replace=False) -> dict[str, Any]:
+        with self._lock:
+            self._environment_store.save(profile, replace)
+            return self.environments()
+
+    def select_environment(self, name) -> dict[str, Any]:
+        with self._lock:
+            if self._running:
+                raise ValueError("Stop PiSD before applying a saved environment.")
+            if name is None:
+                self.engine.change_track("straight")
+                self._active_environment = None
+            else:
+                if not isinstance(name, str):
+                    raise ValueError("Invalid environment name.")
+                profile = self._environment_store.read().get(name)
+                if profile is None:
+                    raise ValueError("Saved environment not found.")
+                self.engine.configure_environment(profile)
+                self._active_environment = profile
+            self._record_event("ok", "Saved environment selected." if name else "Default environment selected.")
+            return self.environments()
+
+    def diagnostics(self) -> dict[str, Any]:
+        return self._diagnostics.sample(self.status())
 
     def configure_replay(self, source: str | None, loop: bool = False) -> dict[str, Any]:
         # No live source switching: stop the real PiSD services first.

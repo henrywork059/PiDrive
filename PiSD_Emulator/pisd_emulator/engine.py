@@ -7,7 +7,8 @@ import random
 import threading
 import time
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from .environments import DEFAULT, validate_profile
 from typing import Any
 
 try:
@@ -53,12 +54,15 @@ class VehicleConfig:
 class TrackPath:
     """Pre-sampled track centreline with a deterministic curvature profile."""
 
-    def __init__(self, track_id: str, *, length_m: float = 240.0, step_m: float = 0.2):
+    def __init__(self, track_id: str, *, length_m: float = 240.0, step_m: float = 0.2, segments=None):
         if np is None:
             raise RuntimeError("PiSD Emulator requires NumPy. Install PiSD/requirements.txt first.")
-        if track_id not in TRACKS:
+        if track_id not in TRACKS and not (track_id == "custom" and segments):
             raise ValueError(f"Unknown track '{track_id}'. Available tracks: {', '.join(TRACKS)}")
         self.track_id = track_id
+        self.segments = tuple(segments or ())
+        if self.segments:
+            length_m = sum(s["length_m"] for s in self.segments)
         self.step_m = float(step_m)
         count = int(length_m / step_m) + 1
         points = np.zeros((count, 2), dtype=np.float64)
@@ -75,6 +79,13 @@ class TrackPath:
         self.headings = headings
 
     def _curvature(self, station_m: float) -> float:
+        if self.track_id == "custom":
+            end = 0.0
+            for segment in self.segments:
+                end += segment["length_m"]
+                if station_m < end:
+                    return segment["curvature"]
+            return self.segments[-1]["curvature"]
         if self.track_id == "left_curve":
             return -0.11
         if self.track_id == "right_curve":
@@ -130,6 +141,8 @@ class VehicleEngine:
         )
         self._lock = threading.RLock()
         self._track_id = "straight"
+        self._custom_profile = None
+        self._base_road_width = self.config.road_width_m
         self._path = TrackPath(self._track_id)
         self._obstacles = self._make_obstacles()
         self._x = 0.0
@@ -212,11 +225,28 @@ class VehicleEngine:
             raise ValueError(f"Unknown track '{track_id}'.")
         with self._lock:
             self._track_id = track_id
+            self._custom_profile = None
+            self.config = replace(self.config, road_width_m=self._base_road_width)
             self._path = TrackPath(track_id)
             self._obstacles = self._make_obstacles()
             self._target_left = self._target_right = 0.0
             self._hardware_left = self._hardware_right = 0.0
             self._command_queue.clear()
+            self._reset_pose_locked()
+
+    def configure_environment(self, profile) -> None:
+        candidate = validate_profile(profile)
+        path = TrackPath("custom", segments=candidate["segments"])
+        with self._lock:
+            if self._running:
+                raise ValueError("Stop the engine before changing custom environment.")
+            self._track_id = "custom"
+            self._custom_profile = candidate
+            self.config = replace(self.config, road_width_m=candidate["road_width_m"])
+            self._path = path
+            self._obstacles = [dict(o) for o in candidate["obstacles"]]
+            self._target_left = self._target_right = 0.0
+            self._hardware_left = self._hardware_right = 0.0
             self._reset_pose_locked()
 
     def disconnect_motor_outputs(self) -> None:
@@ -382,10 +412,10 @@ class VehicleEngine:
                 obstacle_index = min(len(self._path.points) - 1, int(obstacle["station_m"] / self._path.step_m))
                 obstacle_heading = float(self._path.headings[obstacle_index])
                 obstacle_center = self._path.points[obstacle_index]
-                lateral = float(obstacle["lateral_m"])
+                obstacle_lateral = float(obstacle["lateral_m"])
                 obstacle_points.append({
-                    "x_m": round(float(obstacle_center[0]) + math.cos(obstacle_heading) * lateral, 3),
-                    "y_m": round(float(obstacle_center[1]) - math.sin(obstacle_heading) * lateral, 3),
+                    "x_m": round(float(obstacle_center[0]) + math.cos(obstacle_heading) * obstacle_lateral, 3),
+                    "y_m": round(float(obstacle_center[1]) - math.sin(obstacle_heading) * obstacle_lateral, 3),
                     "kind": obstacle["kind"],
                 })
             gpio = self._gpio_snapshot_locked()
@@ -394,7 +424,8 @@ class VehicleEngine:
                 "running": self._running,
                 "paused": self._paused,
                 "track_id": self._track_id,
-                "track_name": TRACKS[self._track_id],
+                "track_name": self._custom_profile["name"] if self._custom_profile else TRACKS[self._track_id],
+                "environment": {key: self._custom_profile[key] for key in DEFAULT} if self._custom_profile else dict(DEFAULT),
                 "track_points": track_points,
                 "obstacles": obstacle_points,
                 "road_width_m": self.config.road_width_m,

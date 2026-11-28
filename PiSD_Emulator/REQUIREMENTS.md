@@ -42,3 +42,7 @@ Requirement 6 (real Keras service loop), 10 (recording labels and ZIP), 11 (came
 ### Third checkpoint
 
 Parent dd67c688: requirements 6/10/11/12 expanded software evidence: real AI browser, actual downloadable ZIP imported through existing trainer loader, video replay and motor disconnect tests passed. Independent artifact matched 12 rows/images and four screenshots. New model/API/GPIO/transport scenarios pending exact CI; no complete native trainer GUI, full network outage, hardware or cross-platform release acceptance.
+
+### Fourth checkpoint
+
+E05 scoped Linux service fault and browser transport evidence independently verified at c8da3455. New E02/E03 stopped-runtime custom track/lighting/markings/obstacle profiles, persistence and bounded request/metric history/export are implementation candidates pending exact CI. No physical, native trainer GUI or Windows live emulator acceptance.
