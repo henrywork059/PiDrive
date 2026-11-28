@@ -1,0 +1,49 @@
+name: RC09 native release geometry qualification
+on:
+  pull_request:
+    branches: ['qualification/1.0.0-rc06-08']
+permissions:
+  contents: read
+jobs:
+  native-display:
+    if: github.head_ref == 'qualification/1.0.0-rc09'
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      QT_QPA_PLATFORM: windows
+      PYTHONDONTWRITEBYTECODE: '1'
+      SOURCE_SHA: 3bba85c1d13bbe42211b3178ca87a45d70cc8f23
+      BASELINE_SHA: 0f28889459796c6672b0b830c095205c83579e11
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install existing desktop dependency ranges
+        run: python -m pip install "pandas>=2.2,<3" "numpy>=1.26,<2" "Pillow>=10,<12" "PySide6>=6.7,<6.9" "matplotlib>=3.8,<4"
+      - name: Exact immutable release and historical native source
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $source = Join-Path $env:RUNNER_TEMP 'rc09-release'
+          $baseline = Join-Path $env:RUNNER_TEMP 'rc09-native-baseline'
+          git worktree add --detach $source $env:SOURCE_SHA
+          if ($LASTEXITCODE -ne 0) { throw 'Release checkout failed' }
+          git worktree add --detach $baseline $env:BASELINE_SHA
+          if ($LASTEXITCODE -ne 0) { throw 'Baseline checkout failed' }
+          if ((git -C $source rev-parse HEAD).Trim() -ne $env:SOURCE_SHA) { throw 'Release SHA mismatch' }
+          if ((git -C $baseline rev-parse HEAD).Trim() -ne $env:BASELINE_SHA) { throw 'Baseline SHA mismatch' }
+          python -m py_compile tools/check_rc09_trainer.py tools/check_rc09_windows_display.py
+          if ($LASTEXITCODE -ne 0) { throw 'Harness compile failed' }
+          python tools/check_rc09_windows_display.py --baseline (Join-Path $baseline 'piTrainer') --source (Join-Path $source 'piTrainer') --output (Join-Path $env:RUNNER_TEMP 'rc09-native') --baseline-sha $env:BASELINE_SHA --revision $env:SOURCE_SHA
+          if ($LASTEXITCODE -ne 0) { throw 'Native geometry qualification failed' }
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: rc09-exact-release-native-display
+          path: ${{ runner.temp }}/rc09-native
+          if-no-files-found: error
