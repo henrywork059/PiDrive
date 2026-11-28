@@ -4071,3 +4071,66 @@ html body #workspace .viewer-frame[data-camera-cockpit="on"] :is(#frameOverlay, 
 @media (max-width: 900px) {
   #cameraCockpitToggle { min-height: 44px !important; min-block-size: 44px !important; }
 }
+
+/* VD13 / VD1R: native form semantics retained. Custom track/handle only in
+   appearance editor; no changes to drive inputs, control dimensions or events. */
+@media (forced-colors: none) {
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #styleSettingsModal input[type=range] {
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent !important;
+    padding: 0 !important;
+    cursor: pointer;
+  }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #styleSettingsModal input[type=range]::-webkit-slider-runnable-track {
+    height: 8px;
+    background: var(--panel-alt);
+    border: 1px solid #64748B;
+    border-radius: 4px;
+    box-sizing: border-box;
+  }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #styleSettingsModal input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    margin-top: -6px;
+    border: 2px solid var(--text);
+    border-radius: 50%;
+    background: var(--accent);
+    box-sizing: border-box;
+  }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #styleSettingsModal input[type=range]::-moz-range-track {
+    height: 6px;
+    background: var(--panel-alt);
+    border: 1px solid #64748B;
+    border-radius: 4px;
+  }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #styleSettingsModal input[type=range]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--text);
+    border-radius: 50%;
+    background: var(--accent);
+  }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #styleSettingsModal input[type=range]:disabled { cursor: not-allowed; opacity: 1; }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #styleSettingsModal input[type=range]:disabled::-webkit-slider-thumb {
+    background: var(--muted); border-color: #64748B;
+  }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #styleSettingsModal input[type=range]:disabled::-moz-range-thumb {
+    background: var(--muted); border-color: #64748B;
+  }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #styleSettingsModal :is(select,input[type=text],input[type=number],textarea):disabled {
+    background: var(--panel-alt) !important;
+    color: var(--muted) !important;
+    border-color: #64748B !important;
+    cursor: not-allowed;
+    opacity: 1;
+  }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #styleSettingsModal :is(input[type=checkbox],input[type=radio]) {
+    accent-color: var(--accent);
+  }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #styleSettingsModal :is(input,select,textarea):focus-visible {
+    outline: 2px solid var(--accent) !important;
+    outline-offset: 2px;
+  }
+}

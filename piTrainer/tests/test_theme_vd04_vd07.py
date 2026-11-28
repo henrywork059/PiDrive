@@ -140,3 +140,59 @@ def test_local_typography_registration_and_fallback(tmp_path):
             editor.close()
         apply_local_typography(app, tmp_path)
         app.setFont(original)
+
+
+def test_native_form_keyboard_and_disabled_state():
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QApplication, QCheckBox, QComboBox, QLineEdit, QSlider, QSpinBox, QVBoxLayout, QWidget
+
+    app = QApplication.instance() or QApplication([])
+    try:
+        for mode in ("dark", "light"):
+            theme.set_theme(mode)
+            root = QWidget()
+            layout = QVBoxLayout(root)
+            slider = QSlider(Qt.Orientation.Horizontal)
+            slider.setRange(0, 10)
+            slider.setValue(4)
+            check = QCheckBox("Toggle")
+            combo = QComboBox()
+            combo.addItems(["First", "Second"])
+            spin = QSpinBox()
+            spin.setValue(5)
+            edit = QLineEdit("Preserved")
+            widgets = (slider, check, combo, spin, edit)
+            for widget in widgets:
+                layout.addWidget(widget)
+            root.setStyleSheet(build_stylesheet())
+            root.resize(320, 300)
+            root.show()
+            try:
+                app.processEvents()
+                QTest.keyClick(slider, Qt.Key.Key_Right)
+                assert slider.value() == 5
+                QTest.keyClick(check, Qt.Key.Key_Space)
+                assert check.isChecked()
+                QTest.keyClick(combo, Qt.Key.Key_Down)
+                assert combo.currentIndex() == 1
+                QTest.keyClick(spin, Qt.Key.Key_Up)
+                assert spin.value() == 6
+                before = [widget.size() for widget in widgets]
+                for widget in widgets:
+                    widget.setEnabled(False)
+                app.processEvents()
+                assert [widget.size() for widget in widgets] == before
+                assert slider.value() == 5 and check.isChecked()
+                assert combo.currentIndex() == 1 and spin.value() == 6
+                assert edit.text() == "Preserved"
+                for widget in widgets:
+                    widget.setEnabled(True)
+                app.processEvents()
+                assert [widget.size() for widget in widgets] == before
+                QTest.keyClick(check, Qt.Key.Key_Space)
+                assert not check.isChecked()
+            finally:
+                root.close()
+    finally:
+        theme.set_theme("dark")

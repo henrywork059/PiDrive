@@ -1327,3 +1327,66 @@ body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) #panelPresentationCo
   box-shadow: none !important;
   padding: .25rem 0;
 }
+
+/* VD13 / VD1R: native form semantics retained. Custom track/handle only in
+   appearance editor; no changes to drive inputs, control dimensions or events. */
+@media (forced-colors: none) {
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) #ppForm input[type=range] {
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent !important;
+    padding: 0 !important;
+    cursor: pointer;
+  }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) #ppForm input[type=range]::-webkit-slider-runnable-track {
+    height: 8px;
+    background: var(--vd-soft);
+    border: 1px solid #64748B;
+    border-radius: 4px;
+    box-sizing: border-box;
+  }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) #ppForm input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    margin-top: -6px;
+    border: 2px solid var(--vd-text);
+    border-radius: 50%;
+    background: var(--vd-accent);
+    box-sizing: border-box;
+  }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) #ppForm input[type=range]::-moz-range-track {
+    height: 6px;
+    background: var(--vd-soft);
+    border: 1px solid #64748B;
+    border-radius: 4px;
+  }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) #ppForm input[type=range]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--vd-text);
+    border-radius: 50%;
+    background: var(--vd-accent);
+  }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) #ppForm input[type=range]:disabled { cursor: not-allowed; opacity: 1; }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) #ppForm input[type=range]:disabled::-webkit-slider-thumb {
+    background: var(--vd-muted); border-color: #64748B;
+  }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) #ppForm input[type=range]:disabled::-moz-range-thumb {
+    background: var(--vd-muted); border-color: #64748B;
+  }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) #ppForm :is(select,input[type=text],input[type=number],textarea):disabled {
+    background: var(--vd-soft) !important;
+    color: var(--vd-muted) !important;
+    border-color: #64748B !important;
+    cursor: not-allowed;
+    opacity: 1;
+  }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) #ppForm :is(input[type=checkbox],input[type=radio]) {
+    accent-color: var(--vd-accent);
+  }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) #ppForm :is(input,select,textarea):focus-visible {
+    outline: 2px solid var(--vd-focus) !important;
+    outline-offset: 2px;
+  }
+}

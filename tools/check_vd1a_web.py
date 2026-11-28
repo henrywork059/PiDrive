@@ -82,6 +82,38 @@ def check_action_feedback(page, selector):
     return {"hover": hover_contrast, "pressed": press_contrast, "geometry_preserved": True}
 
 
+def check_appearance_controls(page, slider_selector, select_selector):
+    """Real keyboard input; restore the draft before existing save gates."""
+    slider, select = page.locator(slider_selector), page.locator(select_selector)
+    initial = slider.input_value()
+    slider.scroll_into_view_if_needed()
+    slider.focus()
+    expect(slider).to_have_css("outline-style", "solid")
+    style = slider.evaluate("""el => {
+        const s = getComputedStyle(el, '::-webkit-slider-thumb');
+        return {appearance:getComputedStyle(el).appearance, type:el.type,
+                min:el.min,max:el.max,step:el.step};
+    }""")
+    assert style["appearance"] == "none" and style["type"] == "range", style
+    key = "ArrowLeft" if float(initial) >= float(style["max"]) else "ArrowRight"
+    slider.press(key)
+    changed = slider.input_value()
+    assert abs(abs(float(changed)-float(initial))-float(style["step"])) < 1e-6, (initial, changed, style)
+    slider.fill(initial)
+    expect(slider).to_have_value(initial)
+    for control in (slider, select):
+        original = control.evaluate("el => el.disabled")
+        try:
+            control.evaluate("el => { el.disabled = true; }")
+            expect(control).to_be_disabled()
+            expect(control).to_have_css("cursor", "not-allowed")
+            expect(control).to_have_css("opacity", "1")
+        finally:
+            control.evaluate("(el,value) => { el.disabled = value; }", original)
+    return {"slider":slider_selector,"native_step":style["step"],"restored":True,
+            "disabled_checked":True}
+
+
 def check_local_typography(page, numeric, technical):
     result = page.evaluate("""async () => {
         const faces = await Promise.all([
@@ -195,6 +227,9 @@ def main():
                     expect(grouping.first.locator("input")).to_be_visible()
                     report.setdefault("borderless_groups", []).append({"theme": mode, "groups": grouping.count(), "borderless": True})
                     save_count = len(saves)
+                    report.setdefault("appearance_controls", []).append({"theme":mode, **check_appearance_controls(page,"#ppButtonScale","#ppDensity")})
+                    expect(page.locator("#ppAutoSave")).not_to_be_checked()
+                    assert len(saves) == save_count
                     feedback = check_action_feedback(page, "#ppApply")
                     assert len(saves) == save_count
                     report.setdefault("action_feedback", []).append({"theme": mode, **feedback})
@@ -320,6 +355,7 @@ def main():
                         expect(section).to_have_css("background-color", "rgba(0, 0, 0, 0)")
                         expect(section).to_be_visible()
                     report.setdefault("borderless_groups", []).append({"theme": mode, "groups": grouping.count(), "borderless": True})
+                    report.setdefault("appearance_controls", []).append({"theme":mode, **check_appearance_controls(page,"#styleFontScale","#styleThemePreset")})
                     capture("style-dialog-preview", mode, 1440, {"body": inspect(page, "body")})
                     page.set_viewport_size({"width": 390, "height": 844})
                     expect(page.locator(".style-setting-row-range").first).to_have_css("grid-template-columns", re.compile(r"^[\d.]+px [\d.]+px$"))

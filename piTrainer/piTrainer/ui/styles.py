@@ -290,6 +290,17 @@ def build_stylesheet(density: str = "comfortable") -> str:
     QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus, QTextEdit:focus, QPlainTextEdit:focus, QTableWidget:focus, QTableView:focus, QListWidget:focus {
         border: 1px solid @COLOR_INFO@;
     }
+    /* VD13: preserve widget geometry and native editing behavior. */
+    QLineEdit:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled,
+    QComboBox:disabled, QTextEdit:disabled, QPlainTextEdit:disabled {
+        background: @COLOR_BG_PANEL_ALT@;
+        color: @COLOR_TEXT_MUTED@;
+        border-color: @COLOR_BORDER@;
+    }
+    QLineEdit:read-only {
+        background: @COLOR_BG_PANEL_ALT@;
+        color: @COLOR_TEXT_SECONDARY@;
+    }
     QPlainTextEdit {
         padding: 8px;
         font-family: __PITRAINER_MONO_STACK__;
@@ -472,7 +483,7 @@ def build_stylesheet(density: str = "comfortable") -> str:
     QSlider::groove:horizontal {
         height: 7px;
         background: @COLOR_SLIDER_TRACK@;
-        border: 1px solid @COLOR_BORDER_SUBTLE@;
+        border: 1px solid @COLOR_BORDER@;
         border-radius: 4px;
     }
     QSlider::sub-page:horizontal {
@@ -531,6 +542,20 @@ def build_stylesheet(density: str = "comfortable") -> str:
     }
     QCheckBox::indicator:focus {
         border: 2px dashed @COLOR_TEXT_PRIMARY@;
+    }
+    QCheckBox:disabled {
+        color: @COLOR_TEXT_MUTED@;
+    }
+    QCheckBox::indicator:disabled {
+        background: @COLOR_BG_PANEL_ALT@;
+        border: 2px solid @COLOR_BORDER@;
+    }
+    QCheckBox::indicator:checked:disabled {
+        /* Keep the checkmark contrast in each theme; the muted label and
+           neutral border distinguish disabled from the enabled indicator. */
+        background: @COLOR_INFO@;
+        border: 2px solid @COLOR_BORDER@;
+        image: url("__CHECKBOX_MARK__");
     }
 
     #controlStack {
