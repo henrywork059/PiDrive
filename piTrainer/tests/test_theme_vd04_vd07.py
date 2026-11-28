@@ -498,3 +498,17 @@ def test_status_inspector_tracks_current_message_without_stale_feedback():
         assert readiness.text() == "Needs input"
     finally:
         bar.close()
+
+
+def test_vd33_core_palette_consistency():
+    try:
+        for mode, expected in (
+            ("dark", ("#14171C", "#20252D", "#EDF1F7", "#A5AFBF", "#6495FF", "#363F4B")),
+            ("light", ("#F4F6FA", "#FFFFFF", "#20252D", "#566171", "#315FD1", "#CED5DF")),
+        ):
+            theme.set_theme(mode)
+            actual = tuple(theme.theme_color(key) for key in
+                           ("bg_app","bg_panel","text_primary","text_muted","primary","border_subtle"))
+            assert actual == expected
+    finally:
+        theme.set_theme("dark")

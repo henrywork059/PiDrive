@@ -1540,3 +1540,11 @@ body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) :is(#mdrvCameraFps,#
   font-family: "PiDrive Plex Mono", "IBM Plex Mono", ui-monospace, monospace !important;
   font-variant-numeric: tabular-nums;
 }
+
+/* VD33: contextual icons share the native 16px desktop target; preserve
+   the existing smaller relative footprint at constrained widths. */
+@media (min-width:1280px) and (forced-colors:none) {
+  :is(#mdrvRefresh,#mdrvRefreshFiles,#aiRefreshModels,#aiRefreshFiles,#mdrvOverlaySettingsOpen,#drivingCockpitToggle)::before {
+    width:16px;height:16px;flex-basis:16px;
+  }
+}

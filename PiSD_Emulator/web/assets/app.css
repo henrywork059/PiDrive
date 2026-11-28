@@ -61,3 +61,75 @@ footer {
 #pollStatus {color:var(--text);font-variant-numeric:tabular-nums}
 .workspace-path code,.event span {overflow-wrap:anywhere}
 .monitor-panel .state-chip {white-space:normal;text-align:center}
+
+/* VD1AD / VD33: coordinated outer emulator workspace. The embedded PiSD
+   page keeps its own settings. Simulation imagery, physics and isolation
+   state do not depend on this presentation preference. */
+@font-face {
+  font-family:"PiDrive Inter";src:url("fonts/InterVariable.woff2") format("woff2");
+  font-style:normal;font-weight:100 900;font-display:swap;
+}
+@font-face {
+  font-family:"PiDrive Plex Mono";src:url("fonts/IBMPlexMono-Regular.woff2") format("woff2");
+  font-style:normal;font-weight:400;font-display:swap;
+}
+:root {
+  --bg:#14171C;--panel:#20252D;--panel-2:#292F39;--line:#363F4B;
+  --text:#EDF1F7;--muted:#A5AFBF;--accent:#6495FF;--on-accent:#14171C;
+  --outline:#64748B;--field:#191D24;--good:#86EFAC;--good-surface:#20362A;
+  --warning:#FDE68A;--warning-surface:#3B321F;--danger:#FDA4AF;--focus:#FBBF24;
+  --mono:"PiDrive Plex Mono","IBM Plex Mono",ui-monospace,Consolas,monospace;
+  --orange:var(--accent);--teal:var(--good);--red:var(--danger);
+  font-family:"PiDrive Inter",Inter,system-ui,sans-serif;
+}
+:root[data-emulator-theme="light"] {
+  color-scheme:light;
+  --bg:#F4F6FA;--panel:#FFFFFF;--panel-2:#E7EBF1;--line:#CED5DF;
+  --text:#20252D;--muted:#566171;--accent:#315FD1;--on-accent:#FFFFFF;
+  --outline:#64748B;--field:#FFFFFF;--good:#166534;--good-surface:#E5F5E9;
+  --warning:#92400E;--warning-surface:#FFF1D6;--danger:#B91C2C;--focus:#315FD1;
+}
+@media (forced-colors:none) {
+  .topbar {background:var(--panel)}
+  .brand-mark,.button.primary {background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+  .pill,.state-chip.safe {background:var(--good-surface);color:var(--good);border-color:var(--good)}
+  .dot {background:var(--muted)}
+  .dot.online {background:var(--good);box-shadow:none}
+  .mode-badge,.runtime-links a,.web-footer a {color:var(--accent)}
+  .button,.viewport {background:var(--panel-2);color:var(--text);border-color:var(--outline)}
+  .button.primary {background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+  .button.danger,.error-text,.event.error span {color:var(--danger)}
+  .button:disabled,.viewport:disabled {opacity:1;background:var(--field);color:var(--muted);border-color:var(--line)}
+  .button:not(:disabled):hover,.viewport:not(:disabled):hover {box-shadow:inset 0 0 0 1px currentColor}
+  .button:not(:disabled):active,.viewport:not(:disabled):active {box-shadow:inset 0 0 0 2px currentColor}
+  input,select {background:var(--field);color:var(--text);border-color:var(--outline)}
+  .empty-state,.event time,.gpio-table-wrap th {color:var(--muted)}
+  .gpio-table-wrap td,.workspace-path code {color:var(--text);border-color:var(--line)}
+  .event.ok span {color:var(--good)}
+  .camera-frame,.canvas-wrap,.web-frame-wrap {background:#14171C;border-color:var(--line)}
+  .camera-frame .empty-state,.web-frame-wrap .empty-state {color:#A5AFBF}
+  .meter {background:var(--line)}
+  .meter i {background:var(--accent)}
+  footer {border-color:var(--line)}
+}
+.viewport.active,#wideWorkspaceToggle[aria-pressed="true"] {
+  text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:.2em;
+}
+:where(button,a[href],input,select):focus-visible {
+  outline:3px solid var(--focus);outline-offset:2px;
+}
+@media(forced-colors:active) {
+  :where(button,a[href],input,select):focus-visible {outline-color:Highlight}
+}
+@media(prefers-reduced-motion:reduce) {
+  .frame-shell,.meter i {transition:none}
+}
+.appearance-row {
+  display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:8px;margin:0 0 12px;color:var(--muted);font-size:11px;
+}
+.appearance-row select {min-width:110px}
+@media(max-width:760px) {
+  .appearance-row select,.viewport,.runtime-panel .button {min-height:44px;min-width:44px}
+}
+/* Keep protected camera imagery and current wide workspace geometry. */

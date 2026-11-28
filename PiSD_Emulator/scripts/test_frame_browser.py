@@ -219,6 +219,32 @@ class FrameTest(unittest.TestCase):
                         "right_wheel": page.locator("#rightWheel").inner_text(),
                     }
                     capture_evidence("after-stop")
+                    # Change only the outer workspace; preserve the same live iframe,
+                    # authorization and viewport. Actual font faces must load locally.
+                    original_src = page.locator("#pisdFrame").get_attribute("src")
+                    original_arm = frame.locator("#mdrvArm").is_checked()
+                    original_width = page.locator("#pisdFrame").bounding_box()["width"]
+                    for mode, bg, accent in (("light","rgb(244, 246, 250)","rgb(49, 95, 209)"),
+                                             ("dark","rgb(20, 23, 28)","rgb(100, 149, 255)")):
+                        page.locator("#emulatorTheme").select_option(mode)
+                        expect(page.locator("body")).to_have_css("background-color", bg)
+                        expect(page.locator("#startButton")).to_have_css("background-color", accent)
+                        assert page.evaluate("""async () => {
+                            const faces = await Promise.all([
+                                document.fonts.load('13px "PiDrive Inter"'),
+                                document.fonts.load('13px "PiDrive Plex Mono"')
+                            ]);
+                            return faces.every(list => list.length > 0 && list.every(f => f.status === 'loaded'));
+                        }""")
+                        assert page.locator("#pisdFrame").get_attribute("src") == original_src
+                        assert page.locator("#pisdFrame").bounding_box()["width"] == original_width
+                        assert frame.locator("#mdrvArm").is_checked() == original_arm
+                        self.assertEqual(runtime.status()["generation"], before_generation)
+                        self.assertFalse(runtime.status()["hardware_enabled"])
+                        expect(page.locator("#leftOutput")).to_have_text("0.00")
+                        expect(page.locator("#rightOutput")).to_have_text("0.00")
+                        capture_evidence("workspace-" + mode)
+                    self.assertEqual(len(settings_reads), quiet_start)
                     frame.locator("#drivingCockpitToggle").click()
                     expect(frame.locator("#drivingCockpitToggle")).to_have_attribute("aria-pressed", "false")
                     page.locator("#wideWorkspaceToggle").click()
@@ -231,6 +257,9 @@ class FrameTest(unittest.TestCase):
                     page.context.remove_listener("request", capture_settings_read)
                     for button in page.locator(".viewport[data-width]").all():
                         button.click()
+                        expect(button).to_have_attribute("aria-pressed", "true")
+                        expect(page.locator('.viewport[data-width][aria-pressed="true"]')).to_have_count(1)
+                        expect(button).to_have_css("text-decoration-line", "underline")
                         expect(frame.locator("#manualDriveShell")).to_be_visible()
                     frame.locator("#manualDriveShell").evaluate("(el) => el.dataset.beforeRestart = 'yes'")
                     generation = runtime.status()["generation"]
