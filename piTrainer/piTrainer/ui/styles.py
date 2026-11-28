@@ -219,6 +219,17 @@ def build_stylesheet(density: str = "comfortable") -> str:
         background: @COLOR_BG_PANEL_LIFT@;
         color: @COLOR_TEXT_SECONDARY@;
     }
+    /* Keep the existing secondary role while restoring distinct feedback
+       suppressed by its more specific default fill. */
+    QPushButton[role='secondary']:hover:enabled {
+        background: @COLOR_BG_OVERLAY@;
+        color: @COLOR_TEXT_PRIMARY@;
+        border-color: @COLOR_PRIMARY_HOVER@;
+    }
+    QPushButton[role='secondary']:pressed:enabled {
+        background: @COLOR_BG_INPUT_ALT@;
+        color: @COLOR_TEXT_PRIMARY@;
+    }
     QPushButton[role='amber'] {
         background: @COLOR_WARNING@;
         border-color: @COLOR_WARNING_BORDER@;

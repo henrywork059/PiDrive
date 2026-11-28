@@ -5,6 +5,7 @@ import argparse
 from contextlib import ExitStack
 import hashlib
 import json
+import re
 from pathlib import Path
 import tempfile
 from urllib.parse import urlsplit
@@ -57,6 +58,28 @@ def check_disabled_control(page, selector, surface, muted):
         return inspect(page, selector)
     finally:
         loc.evaluate("(el, value) => { el.disabled = value; }", original)
+
+
+def check_action_feedback(page, selector):
+    """Exercise a real pointer press, then cancel it outside the safe action."""
+    loc = page.locator(selector).first
+    expect(loc).to_be_enabled()
+    loc.scroll_into_view_if_needed()
+    loc.hover()
+    expect(loc).to_have_css("box-shadow", re.compile(r"0px 0px 0px 1px inset"))
+    hovered = loc.bounding_box()
+    hover_contrast = inspect(page, selector)
+    page.mouse.down()
+    try:
+        expect(loc).to_have_css("box-shadow", re.compile(r"0px 0px 0px 2px inset"))
+        pressed = loc.bounding_box()
+        assert hovered and pressed
+        assert (hovered["width"], hovered["height"]) == (pressed["width"], pressed["height"])
+        press_contrast = inspect(page, selector)
+    finally:
+        page.mouse.move(0, 0)
+        page.mouse.up()
+    return {"hover": hover_contrast, "pressed": press_contrast, "geometry_preserved": True}
 
 
 def main():
@@ -128,6 +151,13 @@ def main():
                             assert after["panel_presentation"][key] == value, key
                     persisted = json.loads((Path(tmp) / "runtime.json").read_text())
                     assert persisted["panel_presentation"]["theme"] == mode
+                    # Reopen the confirmed theme before exercising its safe action feedback.
+                    page.reload()
+                    expect(page.locator("body")).to_have_attribute("data-pisd-theme", mode)
+                    save_count = len(saves)
+                    feedback = check_action_feedback(page, "#ppApply")
+                    assert len(saves) == save_count
+                    report.setdefault("action_feedback", []).append({"theme": mode, **feedback})
                     report["persistence"].append({"theme": mode, "actual_backend_readback": True,
                                                   "persisted_json": True, "unrelated_manual_settings": True})
                     for width, height in ((1440, 900), (390, 844)):
@@ -198,6 +228,9 @@ def main():
                     expect(focus_target).to_have_css("outline-width", "3px")
                     expect(focus_target).to_have_css("outline-style", "solid")
                     expect(focus_target).to_have_css("outline-color", "rgb(49, 95, 209)" if mode == "light" else "rgb(251, 191, 36)")
+                    feedback = check_action_feedback(page, "#openStyleSettingsBtn")
+                    expect(page.locator("#styleSettingsModal")).to_be_hidden()
+                    report.setdefault("action_feedback", []).append({"theme": mode, **feedback})
                     disabled = check_disabled_control(
                         page, "#openStyleSettingsBtn",
                         "rgb(231, 235, 241)" if mode == "light" else "rgb(41, 47, 57)",

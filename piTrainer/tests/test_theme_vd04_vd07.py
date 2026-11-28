@@ -68,3 +68,40 @@ def test_role_button_disabled_rendering():
                     button.close()
     finally:
         theme.set_theme("dark")
+
+def test_secondary_button_pressed_rendering():
+    from PySide6.QtWidgets import QApplication, QPushButton
+
+    app = QApplication.instance() or QApplication([])
+    try:
+        for mode in ("dark", "light"):
+            theme.set_theme(mode)
+            button = QPushButton()
+            button.setProperty("role", "secondary")
+            button.setStyleSheet(build_stylesheet())
+            button.resize(160, 50)
+            clicks = []
+            button.clicked.connect(lambda: clicks.append(True))
+            button.show()
+
+            def fill():
+                app.processEvents()
+                image = button.grab().toImage()
+                return image.pixelColor(image.width() // 2, image.height() // 2).name().lower()
+
+            try:
+                size = button.size()
+                assert fill() in {theme.theme_color("bg_panel_lift").lower(),
+                                  theme.theme_color("bg_overlay").lower()}
+                button.setDown(True)
+                assert fill() == theme.theme_color("bg_input_alt").lower(), mode
+                assert button.size() == size
+                button.setDown(False)
+                assert fill() != theme.theme_color("bg_input_alt").lower(), mode
+                button.setEnabled(False)
+                assert fill() == theme.theme_color("bg_input").lower(), mode
+                assert not clicks
+            finally:
+                button.close()
+    finally:
+        theme.set_theme("dark")

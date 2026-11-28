@@ -1264,3 +1264,14 @@ body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) input[type=range], b
     transform: none !important;
   }
 }
+
+/* VD14: presentation-only actions get a distinct inset edge on hover and
+   press. No dimensions, role fills, STOP, or handler changes. */
+@media (forced-colors: none) {
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) :is(#ppApply,#ppSave,#ppReset):enabled:hover {
+    box-shadow: inset 0 0 0 1px currentColor !important;
+  }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) :is(#ppApply,#ppSave,#ppReset):enabled:active {
+    box-shadow: inset 0 0 0 2px currentColor !important;
+  }
+}
