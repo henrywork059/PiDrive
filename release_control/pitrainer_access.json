@@ -8,5 +8,5 @@
   ],
   "blocked_versions": [],
   "message": "This PiTrainer version is no longer enabled. Please update to PiTrainer v0.9.0 or later.",
-  "support_message": "Run git pull and rebuild the current PiTrainer EXE from the v0.9.0 code."
+  "support_message": "Use an approved PiTrainer build meeting the minimum version. Contact the project maintainer for the correct release or rebuild instructions."
 }
