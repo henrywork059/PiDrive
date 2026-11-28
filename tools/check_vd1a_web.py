@@ -98,6 +98,28 @@ def check_flat_readouts(page, selector):
     return {"selector":selector,"count":rows.count(),"visible":visible}
 
 
+def check_flat_sections(page, selector, heading_selector=None):
+    """Inspect actual workspace section chrome without activating controls."""
+    sections = page.locator(selector)
+    assert sections.count() > 0, selector
+    visible = 0
+    for section in sections.all():
+        expect(section).to_have_css("background-color", "rgba(0, 0, 0, 0)")
+        expect(section).to_have_css("border-left-color", "rgba(0, 0, 0, 0)")
+        if heading_selector:
+            heading = section.locator(heading_selector)
+            assert heading.count() == 1
+            expect(heading).to_have_css("box-shadow", re.compile(r"0px -1px 0px 0px inset"))
+        else:
+            expect(section).to_have_css("box-shadow", re.compile(r"0px -1px 0px 0px inset"))
+        if section.is_visible():
+            visible += 1
+            if heading_selector:
+                expect(heading).to_be_visible()
+            assert section.locator("input,select,button,textarea").count() > 0
+    return {"selector":selector,"count":sections.count(),"visible":visible}
+
+
 def check_selected_cue(locator, selected):
     expect(locator).to_have_attribute("aria-pressed", str(selected).lower())
     expect(locator).to_have_css("text-decoration-line", "underline" if selected else "none")
@@ -284,6 +306,12 @@ def main():
                                 checks["flat_metadata"] = check_flat_readouts(page,"#mdrvFileSummary > div")
                             if page.locator("#aiFileSummary").count():
                                 checks["flat_metadata"] = check_flat_readouts(page,"#aiFileSummary > div")
+                            if name == "settings":
+                                checks["flat_sections"] = check_flat_sections(page,
+                                    "#settingsPanelPresentationPanel,#settingsCameraPanel,#settingsAISettingsPanel", ".st-card-head")
+                            elif name in ("manual","ai"):
+                                checks["flat_sections"] = check_flat_sections(page,
+                                    "#manualDriveFilesPanel" if name == "manual" else "#aiFilesPanel", ".mdrv-panel-head")
                             capture(name, mode, width, checks)
                     # Preserve all original captures; add static synthetic scene evidence.
                     for width, height in ((1440, 900), (768, 1024), (390, 844), (844, 390)):
@@ -436,6 +464,8 @@ def main():
                                       "stop": inspect(page, "#estopToggle")}
                             checks["flat_metadata"] = check_flat_readouts(page,"#workspace div.record-meta-card.priority-low, #workspace div.record-meta-card.priority-medium")
                             checks["flat_secondary_metrics"] = check_flat_readouts(page,"#workspace div.metric-card.priority-low")
+                            checks["flat_sections"] = check_flat_sections(page,
+                                '#workspace .dock-panel:is([data-panel="model"],[data-panel="sessions"],[data-panel="camera"],[data-panel="motor"]) .panel-section:not(.panel-section-strong):not(.panel-section-footer)')
                             capture(tab, mode, width, checks)
                     # Camera cockpit uses an isolated synthetic decoded frame, not a live claim.
                     for width,height in ((1440,900),(768,1024),(390,844),(844,390)):

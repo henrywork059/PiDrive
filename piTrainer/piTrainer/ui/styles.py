@@ -404,9 +404,12 @@ def build_stylesheet(density: str = "comfortable") -> str:
         border: 1px solid @COLOR_BORDER_SUBTLE@;
         background: @COLOR_BG_PANEL@;
     }
+    /* VD1U: content tabs need only the top divider; preserve pane inset
+       and tab sizing, focus, selected colors and embedded widgets. */
     QTabWidget[role='contentTabs']::pane {
-        border: 1px solid @COLOR_BORDER_SUBTLE@;
-        border-radius: 8px;
+        border: 1px solid transparent;
+        border-top-color: @COLOR_BORDER_SUBTLE@;
+        border-radius: 0px;
         background: @COLOR_BG_SHELL@;
     }
     QTabWidget[role='contentTabs'] QTabBar::tab {

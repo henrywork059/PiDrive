@@ -269,3 +269,41 @@ def test_flat_form_group_preserves_children_and_title():
                 panel.close()
     finally:
         theme.set_theme("dark")
+
+
+def test_content_tabs_flat_pane_preserves_navigation_and_editor():
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QApplication, QLineEdit, QTabWidget, QVBoxLayout, QWidget
+
+    app = QApplication.instance() or QApplication([])
+    try:
+        for mode in ("dark", "light"):
+            theme.set_theme(mode)
+            tabs = QTabWidget()
+            tabs.setProperty("role", "contentTabs")
+            first, second = QWidget(), QWidget()
+            edit = QLineEdit("unchanged")
+            QVBoxLayout(first).addWidget(edit)
+            tabs.addTab(first, "Details")
+            tabs.addTab(second, "Preview")
+            tabs.setStyleSheet(build_stylesheet())
+            tabs.resize(500, 220)
+            tabs.show()
+            try:
+                app.processEvents()
+                assert edit.isVisible() and edit.isEnabled()
+                bar = tabs.tabBar()
+                before = [bar.tabRect(i).size() for i in range(2)]
+                bar.setFocus(Qt.FocusReason.TabFocusReason)
+                QTest.keyClick(bar, Qt.Key.Key_Right)
+                assert tabs.currentIndex() == 1
+                QTest.keyClick(bar, Qt.Key.Key_Left)
+                assert tabs.currentIndex() == 0
+                app.processEvents()
+                assert edit.isVisible() and edit.text() == "unchanged"
+                assert [bar.tabRect(i).size() for i in range(2)] == before
+            finally:
+                tabs.close()
+    finally:
+        theme.set_theme("dark")

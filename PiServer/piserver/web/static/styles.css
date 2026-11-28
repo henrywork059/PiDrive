@@ -4177,3 +4177,15 @@ html body #workspace .viewer-frame[data-camera-cockpit="on"] :is(#frameOverlay, 
     box-shadow: none !important;
   }
 }
+
+/* VD1U / VD16: inner ordinary sections use a flat hierarchy.
+   Outer dock, resize handles, strong operational sections, action footers
+   and preview sample remain unchanged; retain all configured dimensions. */
+@media (forced-colors: none) {
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #workspace .dock-panel:is([data-panel="model"],[data-panel="sessions"],[data-panel="camera"],[data-panel="motor"]) .panel-section:not(.panel-section-strong):not(.panel-section-footer) {
+    background: transparent !important;
+    border-color: transparent !important;
+    border-radius: 0 !important;
+    box-shadow: inset 0 -1px 0 var(--line) !important;
+  }
+}
