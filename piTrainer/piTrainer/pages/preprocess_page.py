@@ -172,6 +172,16 @@ class PreprocessPage(DockPage):
             count = len(self.state.dataset_df)
             description = 'All loaded rows'
         self.summary_panel.set_source_scope(description, count)
+        result = getattr(self, 'result_panel', None)
+        runner = getattr(self, 'task_runner', None)
+        if result is not None and not getattr(runner, 'active', False):
+            status = result.status_label.property('status')
+            if status == 'idle':
+                result.set_status_idle(
+                    f'Ready: {count} row(s) from {description}.' if count
+                    else 'Status: no rows in the selected preprocessing source.')
+            elif status == 'preview' and getattr(self, '_displayed_preview_identity', None) != self._source_identity():
+                result.set_status_warning('Previous preview is stale — source changed. Preview again before applying.')
 
     def _source_identity(self):
         mode = self.filter_panel.recipe().get('source_mode', self.filter_panel.SOURCE_ITEMS[0])
@@ -215,7 +225,7 @@ class PreprocessPage(DockPage):
             )
         else:
             self.result_panel.set_status_idle(
-                f"Ready: {len(default_source_df)} visible table row(s) from selected session(s)."
+                f"Ready: {len(default_source_df)} row(s) from selected preprocessing source."
             )
 
     def _set_recommended_defaults(self) -> dict[str, object]:
@@ -274,6 +284,7 @@ class PreprocessPage(DockPage):
             result_df, summary = result
             preview_text = format_preprocess_preview(summary, recipe)
             self.result_panel.set_preview_text(preview_text)
+            self._displayed_preview_identity = source_identity
             self.result_panel.set_status_preview(
                 f"Preview ready: {summary['rows_after']} active row(s), {summary['generated_rows']} generated. Not applied yet."
             )

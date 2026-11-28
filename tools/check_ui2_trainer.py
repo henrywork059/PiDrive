@@ -445,8 +445,10 @@ def main() -> None:
                     assert len(window.state.filtered_df) == 12
                     tabs.setCurrentIndex(1)
                     app.processEvents()
+                    assert "no rows" in preprocess.result_panel.status_label.text()
                     capture_populated("empty-scope", {"visible": 0, "active": 12,
-                        "source": preprocess.summary_panel.source_scope_label.text()})
+                        "source": preprocess.summary_panel.source_scope_label.text(),
+                        "readiness": preprocess.result_panel.status_label.text()})
                     preprocess.filter_panel.source_combo.setCurrentText("All loaded rows")
                     assert len(preprocess._source_df()) == 12
                     preprocess.filter_panel.source_combo.setCurrentText("Visible table rows")

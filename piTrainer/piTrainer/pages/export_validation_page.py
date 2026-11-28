@@ -41,6 +41,8 @@ class ExportValidationPage(DockPage):
         self.task_progress = TaskProgressPanel()
         self.actions_panel.layout().addWidget(self.task_progress)
         self.task_runner = BackgroundTaskRunner(self.task_progress, self)
+        self.config_panel.dataset_source_combo.currentTextChanged.connect(self.refresh_selected_scope)
+        self.config_panel.max_rows_spin.valueChanged.connect(self.refresh_selected_scope)
 
         self.build_default_layout()
         self.restore_layout()
@@ -89,7 +91,18 @@ class ExportValidationPage(DockPage):
             next_tooltip='Focus Run Check in 1 Run.',
         )
 
+    def refresh_selected_scope(self, *_args) -> None:
+        source = self.config_panel.dataset_source()
+        if source == 'Validation split':
+            frame = self.state.val_df
+        elif source == 'Training split':
+            frame = self.state.train_df
+        else:
+            frame = self.state.filtered_df
+        self.summary_panel.set_selected_scope(source, len(frame), self.config_panel.max_rows())
+
     def refresh_from_state(self) -> None:
+        self.refresh_selected_scope()
         self.summary_panel.set_model_state(
             tflite_path=self.config_panel.tflite_path(),
             dataset_rows={
