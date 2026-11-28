@@ -295,6 +295,11 @@ def build_stylesheet(density: str = "comfortable") -> str:
     QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus, QTextEdit:focus, QPlainTextEdit:focus, QTableWidget:focus, QTableView:focus, QListWidget:focus {
         border: 1px solid @COLOR_INFO@;
     }
+    /* VD1AA: retain the one-pixel border width; distinguish keyboard
+       table/list focus by pattern as well as the existing contrast color. */
+    QTableWidget:focus, QTableView:focus, QListWidget:focus {
+        border: 1px dashed @COLOR_INFO@;
+    }
     /* VD13: preserve widget geometry and native editing behavior. */
     QLineEdit:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled,
     QComboBox:disabled, QTextEdit:disabled, QPlainTextEdit:disabled {

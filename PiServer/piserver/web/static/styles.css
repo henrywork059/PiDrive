@@ -4234,3 +4234,22 @@ html body #workspace .viewer-frame[data-camera-cockpit="on"] .overlay-block-valu
     color: #fff0f0 !important;
   }
 }
+
+/* VD1AA: use the existing native buttons, not a new navigation mechanism. */
+@media (max-width: 760px) {
+  #pageTabs .tab-btn {
+    min-height: 44px !important;
+    min-width: 44px !important;
+    white-space: normal !important;
+  }
+  #workspace :is(button,input,select,a[href],[tabindex="0"]) {
+    scroll-margin-block-start: 10rem;
+    scroll-margin-block-end: 12px;
+  }
+}
+@media (forced-colors: active) {
+  :is(#cameraCockpitToggle,#estopToggle,#pageTabs .tab-btn):focus-visible {
+    outline: 3px solid Highlight !important;
+    outline-offset: 3px !important;
+  }
+}

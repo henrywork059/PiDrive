@@ -30,7 +30,7 @@ body[data-pisd-cockpit="immersive"] :is(#mdrvPreviewFrame, #aiPreviewFrame) > im
     max-width: none !important;
   }
   body.manual-drive-page[data-pisd-cockpit="immersive"] .mdrv-shell {
-    grid-template-columns: minmax(0, 1fr) minmax(320px, 24%) !important;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, calc(24vw - 4px)) !important;
   }
   body.ai-page[data-pisd-cockpit="immersive"] .ai-grid {
     grid-template-columns: repeat(12, minmax(0, 1fr)) !important;
@@ -206,4 +206,18 @@ body[data-pisd-cockpit="immersive"] :is(#mdrvPreviewFrame,#aiPreviewFrame) :is(.
 body[data-pisd-cockpit="immersive"] :is(#mdrvPreviewFrame,#aiPreviewFrame) .mdrv-overlay-hud em {
   overflow-wrap: anywhere;
   min-width: 0;
+}
+
+/* VD1AA: restore the strict responsive normal track explicitly at the
+   desktop cockpit breakpoint. Do not override tablet/phone rules.
+   No transition of track sizes during a presentation-only mode switch. */
+@media (min-width: 1280px) {
+  body.manual-drive-page:not([data-pisd-cockpit="immersive"]) .mdrv-shell {
+    grid-template-columns:
+      minmax(var(--pisd-layout-preview-min), 1fr)
+      minmax(var(--pisd-layout-control-min), min(var(--pisd-layout-control-ideal), var(--pisd-layout-control-max))) !important;
+  }
+  body.manual-drive-page .mdrv-shell {
+    transition-property: none !important;
+  }
 }

@@ -132,6 +132,27 @@ def check_density_field(page, selector):
     return {"selector":selector, **box}
 
 
+def check_keyboard_focus(page, selector, *, touch=False):
+    """Keyboard modality, no activation of operational controls."""
+    control = page.locator(selector).first
+    expect(control).to_be_visible()
+    control.scroll_into_view_if_needed()
+    page.keyboard.press("Tab")
+    control.focus()
+    assert control.evaluate("el => el.matches(':focus-visible')"), selector
+    expect(control).to_have_css("outline-style", "solid")
+    details = control.evaluate("""el => {
+        const s=getComputedStyle(el), r=el.getBoundingClientRect();
+        const hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);
+        return {outline:parseFloat(s.outlineWidth),width:r.width,height:r.height,
+                visible:!!hit&&(hit===el||el.contains(hit))};
+    }""")
+    assert details["outline"] >= 2 and details["visible"], (selector,details)
+    if touch:
+        assert details["width"] >= 44 and details["height"] >= 44, (selector,details)
+    return details
+
+
 def check_selected_cue(locator, selected):
     expect(locator).to_have_attribute("aria-pressed", str(selected).lower())
     expect(locator).to_have_css("text-decoration-line", "underline" if selected else "none")
@@ -385,7 +406,7 @@ def main():
                                     await document.getElementById('mdrvPreview').decode();
                                     await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
                                 }""")
-                                normal_grid = page.locator("#manualDriveShell").evaluate("el => ({columns:getComputedStyle(el).gridTemplateColumns,areas:getComputedStyle(el).gridTemplateAreas,width:el.clientWidth})")
+                                normal_grid = page.locator("#manualDriveShell").evaluate("el => {const s=getComputedStyle(el); return {columns:s.gridTemplateColumns,areas:s.gridTemplateAreas,width:el.clientWidth,controlWeight:s.getPropertyValue('--pisd-control-h-span').trim(),ideal:s.getPropertyValue('--pisd-layout-control-ideal').trim()}}")
                                 page.evaluate("""() => {
                                     window.__vd1wControls = ['mdrvStopTop','mdrvStopPad','mdrvStopBig',
                                         'mdrvArm','mdrvDragPad','mdrvSpeed','mdrvLiveCamera','mdrvCaptureFrame',
@@ -407,6 +428,8 @@ def main():
                             assert len(saves) == before_saves
                             stop_loc = page.locator(stop)
                             stop_loc.click(trial=True)
+                            report.setdefault("cockpit_keyboard_focus", []).append({"theme":mode,"page":name,"width":width,
+                                "stop":check_keyboard_focus(page,stop,touch=width<=900)})
                             stop_box = stop_loc.bounding_box()
                             assert stop_box and stop_box["y"] >= -1 and stop_box["y"] + stop_box["height"] <= height + 1
                             if width <= 900:
@@ -491,7 +514,7 @@ def main():
                             assert page.locator("body").get_attribute("data-pisd-cockpit") is None
                             if name == "manual":
                                 page.evaluate("() => new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))")
-                                restored = page.locator("#manualDriveShell").evaluate("el => ({columns:getComputedStyle(el).gridTemplateColumns,areas:getComputedStyle(el).gridTemplateAreas,width:el.clientWidth})")
+                                restored = page.locator("#manualDriveShell").evaluate("el => {const s=getComputedStyle(el); return {columns:s.gridTemplateColumns,areas:s.gridTemplateAreas,width:el.clientWidth,controlWeight:s.getPropertyValue('--pisd-control-h-span').trim(),ideal:s.getPropertyValue('--pisd-layout-control-ideal').trim()}}")
                                 report.setdefault("manual_restored_grid", []).append({"theme":mode,"width":width,"before":normal_grid,"after":restored})
                                 assert restored == normal_grid, (normal_grid, restored)
                                 assert page.evaluate("() => window.__vd1wControls.every(el => el && document.getElementById(el.id) === el)")
@@ -587,6 +610,9 @@ def main():
                             selected.click()
                             check_selected_cue(selected, True)
                             expect(page.locator("body")).to_have_attribute("data-page", tab)
+                            if width == 390:
+                                report.setdefault("mobile_navigation_focus", []).append({"theme":mode,"tab":tab,
+                                    **check_keyboard_focus(page,f'#pageTabs [data-page="{tab}"]',touch=True)})
                             for other in page.locator('#pageTabs .tab-btn[aria-pressed="false"]').all():
                                 check_selected_cue(other, False)
                             expect(selected).to_have_css("background-color", "rgb(49, 95, 209)" if mode == "light" else "rgb(100, 149, 255)")

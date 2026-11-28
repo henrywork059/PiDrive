@@ -386,3 +386,50 @@ def test_numeric_table_alignment_preserves_display_and_selection():
     finally:
         table.close()
         theme.set_theme("dark")
+
+
+def test_accessible_table_keyboard_focus_preserves_selection():
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QApplication, QLineEdit, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget
+
+    app = QApplication.instance() or QApplication([])
+    try:
+        for mode in ("dark", "light"):
+            theme.set_theme(mode)
+            window = QWidget()
+            layout = QVBoxLayout(window)
+            table = QTableWidget(2, 1)
+            table.setAccessibleName("Fixture comparison records")
+            table.setItem(0, 0, QTableWidgetItem("0.125"))
+            table.setItem(1, 0, QTableWidgetItem("0.250"))
+            editor = QLineEdit("unchanged")
+            layout.addWidget(table)
+            layout.addWidget(editor)
+            QWidget.setTabOrder(table, editor)
+            window.setStyleSheet(build_stylesheet("compact"))
+            window.resize(360, 260)
+            window.show()
+            window.activateWindow()
+            try:
+                app.processEvents()
+                table.setCurrentCell(0, 0)
+                table.setFocus(Qt.FocusReason.TabFocusReason)
+                app.processEvents()
+                assert table.hasFocus()
+                before = table.size()
+                QTest.keyClick(table, Qt.Key.Key_Down)
+                assert table.currentRow() == 1
+                assert table.currentItem().text() == "0.250"
+                assert table.size() == before
+                # Ctrl+Tab traverses out of Qt item views even when Tab edits cells.
+                QTest.keyClick(table, Qt.Key.Key_Tab, Qt.KeyboardModifier.ControlModifier)
+                app.processEvents()
+                assert editor.hasFocus()
+                assert editor.text() == "unchanged"
+                assert table.item(0, 0).text() == "0.125"
+                assert table.accessibleName() == "Fixture comparison records"
+            finally:
+                window.close()
+    finally:
+        theme.set_theme("dark")

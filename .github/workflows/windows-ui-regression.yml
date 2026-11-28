@@ -41,3 +41,14 @@ jobs:
             python -c "import sys,xml.etree.ElementTree as E; cases=E.parse(sys.argv[1]).findall('.//testcase'); assert cases and not any(c.find('skipped') is not None for c in cases)" "$env:RUNNER_TEMP/qt-regression.xml"
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
+
+      - name: Native Qt keyboard accessibility at simulated 125 percent scale
+        env:
+          QT_SCALE_FACTOR: '1.25'
+        run: |
+          python -c "from PySide6.QtWidgets import QApplication; a=QApplication([]); s=a.primaryScreen(); print(a.platformName(),s.devicePixelRatio(),s.availableGeometry()); assert a.platformName()=='windows' and s.devicePixelRatio()>=1.25"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pytest -q tests/test_shared_accessibility_r35.py tests/test_theme_vd04_vd07.py -k "test_disclosure_restores_focus_only_when_child_is_hidden or test_log_tab_and_progress_result_keyboard_access or test_accessible_table_keyboard_focus_preserves_selection" --junitxml="$env:RUNNER_TEMP/qt-scale-125.xml"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -c "import sys,xml.etree.ElementTree as E; cases=E.parse(sys.argv[1]).findall('.//testcase'); assert len(cases)==3 and not any(c.find('skipped') is not None for c in cases)" "$env:RUNNER_TEMP/qt-scale-125.xml"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

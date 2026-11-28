@@ -1473,3 +1473,27 @@ body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) #panelPresentationCo
     white-space: normal;
   }
 }
+
+/* VD1AA: keep focus within view below the existing sticky header.
+   No change to action order or keyboard/STOP handlers. */
+@media (max-width: 900px) {
+  :is(#manualDriveShell,#aiModeShell) :is(button, input, select, a[href], [tabindex="0"]) {
+    scroll-margin-block-start: 10rem;
+    scroll-margin-block-end: 12px;
+  }
+  body.manual-drive-page #mdrvStopTop,
+  body.ai-page #aiStopAll {
+    min-height: max(44px, calc(44px * var(--pisd-ui-button-scale,1))) !important;
+    min-block-size: max(44px, calc(44px * var(--pisd-ui-button-scale,1))) !important;
+    min-width: 44px !important;
+    transform: none !important;
+    white-space: normal !important;
+  }
+}
+@media (forced-colors: active) {
+  :is(#drivingCockpitToggle,#mdrvOverlayToggle,#aiOverlayToggle):focus-visible,
+  :is(#mdrvStopTop,#aiStopAll):focus-visible {
+    outline: 3px solid Highlight !important;
+    outline-offset: 3px !important;
+  }
+}
