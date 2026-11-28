@@ -279,6 +279,23 @@ def main():
                 assert keras[key] == lite[key], key
             report["prediction_delta"] = {key: float(np.max(np.abs(np.asarray(keras[key])-np.asarray(lite[key]))))
                                           for key in ("steering_pred","throttle_pred")}
+            # Exercise the actual comparison control and its historical snapshot binding.
+            if hasattr(check, "comparison_panel"):
+                check.result_tabs.setCurrentWidget(check.comparison_panel)
+                check.comparison_panel.compare_button.click()
+                wait(check, "conversion-comparison")
+                comparison = check.comparison_panel.comparison
+                assert comparison and comparison["available"]
+                assert comparison["rows_used"] == len(state.val_df)
+                assert comparison["steering_max"] == report["prediction_delta"]["steering_pred"]
+                assert comparison["speed_max"] == report["prediction_delta"]["throttle_pred"]
+                assert check.comparison_panel.table.rowCount() == len(state.val_df)
+                report["conversion_comparison"] = comparison
+                capture("conversion-comparison", 5)
+                validation.clear_results()
+                assert check.comparison_panel.comparison is None
+                assert check.comparison_panel.table.rowCount() == 0
+                report["comparison_invalidated_on_clear"] = True
             assert [digest(p) for p in files] == original
             report["source_metadata_unchanged"] = True
             report["model_files"] = [{"file": str(p.relative_to(output)), "sha256": digest(p), "bytes": p.stat().st_size}

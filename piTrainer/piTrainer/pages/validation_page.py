@@ -185,6 +185,9 @@ class ValidationPage(DockPage):
 
         def completed(result):
             self.last_result = result
+            check = getattr(self.main_window, 'export_validation_page', None)
+            if hasattr(check, 'invalidate_comparison'):
+                check.invalidate_comparison()
             receipt = result.get('validation_receipt')
             if receipt:
                 self.log_panel.append_line(f"Validation summary saved: {receipt['path']}")
@@ -216,6 +219,9 @@ class ValidationPage(DockPage):
 
     def clear_results(self) -> None:
         self.last_result = None
+        check = getattr(self.main_window, 'export_validation_page', None)
+        if hasattr(check, 'invalidate_comparison'):
+            check.invalidate_comparison()
         self.plot_panel.set_result(None)
         self.frame_review_panel.set_result(None)
         self.summary_panel.set_result_text('Validation results cleared.')
