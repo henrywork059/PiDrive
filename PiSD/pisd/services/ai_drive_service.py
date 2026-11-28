@@ -731,15 +731,21 @@ class AIDriveService:
                 # Manual override can happen while inference is running.  Re-check
                 # the drive gate immediately before touching motors so an active
                 # preview loop cannot win a race against manual pad ownership.
+                # The permission check and actuator commit must share one
+                # critical section. Otherwise override/STOP can revoke output
+                # after the check but before the stale inference writes.
                 with self._lock:
-                    drive_allowed = bool(self._running and self._mode == "drive" and self._drive_output_enabled)
-                if drive_allowed:
-                    motor_started = self.performance.start()
-                    left, right = motor_service.update(steering=safe["steering"], throttle=safe["throttle"], control_source="ai")
-                    self.performance.observe_elapsed("motor_apply", motor_started)
-                    motor_status = motor_service.status()
-                    left_intended = float(motor_status.get("last_intended_left", left) or 0.0)
-                    right_intended = float(motor_status.get("last_intended_right", right) or 0.0)
+                    drive_allowed = bool(
+                        self._running and self._mode == "drive" and self._drive_output_enabled
+                        and not self._stop_event.is_set() and not self._camera_frame_fault_latched
+                    )
+                    if drive_allowed:
+                        motor_started = self.performance.start()
+                        left, right = motor_service.update(steering=safe["steering"], throttle=safe["throttle"], control_source="ai")
+                        self.performance.observe_elapsed("motor_apply", motor_started)
+                        motor_status = motor_service.status()
+                        left_intended = float(motor_status.get("last_intended_left", left) or 0.0)
+                        right_intended = float(motor_status.get("last_intended_right", right) or 0.0)
             with self._lock:
                 self._last_raw = {"steering": float(raw_steering), "throttle": float(raw_throttle)}
                 self._last_mixed = {"steering": float(mixed["steering"]), "throttle": float(mixed["throttle"]), "manual_weight": float(mixed.get("manual_weight", 0.0)), "correction_gain": float(mixed.get("correction_gain", mixed.get("manual_weight", 0.0))), "manual_active": bool(mixed.get("manual_active", False))}

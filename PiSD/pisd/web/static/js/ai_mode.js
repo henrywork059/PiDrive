@@ -244,13 +244,14 @@
   }
 
   async function api(path, options = {}) {
-    const response = await fetch(path, {
+    const fetchOptions = {
       method: options.method || 'GET',
       headers: { 'Content-Type': 'application/json' },
       body: options.body ? JSON.stringify(options.body) : undefined,
       cache: 'no-store',
       keepalive: Boolean(options.keepalive),
-    });
+    };
+    const response = await (window.PiSDV17Transition?.request(path, fetchOptions) ?? fetch(path, fetchOptions));
     const data = await response.json().catch(() => ({ ok: false, message: `HTTP ${response.status}` }));
     if (!response.ok || data.ok === false) {
       const traceId = String(data?.correlation_id || '');

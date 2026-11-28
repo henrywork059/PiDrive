@@ -1042,7 +1042,7 @@
       options.headers['Content-Type'] = 'application/json';
       options.body = JSON.stringify(body);
     }
-    const response = await fetch(path, options);
+    const response = await (window.PiSDV17Transition?.request(path, options) ?? fetch(path, options));
     const contentType = response.headers.get('content-type') || '';
     const payload = contentType.includes('application/json') ? await response.json() : { ok: response.ok, code: response.ok ? 'PISD-OK-000' : 'PISD-API-002', message: await response.text() };
     setCode(codeTarget, payload.code);

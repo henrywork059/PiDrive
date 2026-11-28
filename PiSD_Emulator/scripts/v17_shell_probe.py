@@ -122,12 +122,29 @@ def capture_v17_shell(browser, runtime, origin, output, revision, outer_page):
                     raise
                 finally:
                     (output/"v17-m01-shell.json").write_text(json.dumps(report,indent=2),encoding="utf-8")
-            # The existing AI pagehide emits neutral correction and STOP.
-            # No new authority/config write, camera start or nonzero manual
-            # request may be caused by the mode link itself.
+            # M02: failed neutral acknowledgement must keep the current
+            # document locked. The retry must use the real backend STOP.
+            link=page.get_by_role("navigation",name="Driving cockpit mode").get_by_role("link",name="Manual",exact=True)
+            def fail_stop(route):
+                route.fulfill(status=503,content_type="application/json",body='{"ok":false,"message":"injected acknowledgement failure"}')
+            page.route("**/api/control/stop",fail_stop)
+            link.click()
+            expect(page.locator("body")).to_have_attribute("data-pisd-v17-transition","failed")
+            expect(page.locator("body")).to_have_attribute("data-pisd-v17","ai")
+            expect(page.locator("#aiEnableMotor")).to_be_disabled()
+            neutral()
+            page.unroute("**/api/control/stop",fail_stop)
+            # No authority/config write, camera start or nonzero manual
+            # request may be caused by mode selection.
             offset=len(requests)
-            page.get_by_role("navigation",name="Driving cockpit mode").get_by_role("link",name="Manual",exact=True).click()
+            with page.expect_response(lambda r:r.request.method=="POST" and urlsplit(r.url).path=="/api/control/stop" and r.ok) as ack:
+                link.click()
+            acknowledgement=ack.value.json()
+            assert acknowledgement["ok"] and acknowledgement["motor"]["manual_lease_active"] is False
+            assert not acknowledgement["ai"]["running"] and not acknowledgement["ai"]["drive_output_enabled"]
+            assert all(abs(acknowledgement["motor"][k])<=1e-6 for k in ("last_left","last_right","last_intended_left","last_intended_right"))
             expect(page.locator("body")).to_have_attribute("data-pisd-v17","manual")
+            report["cases"][-1]["m02_transition"]={"failed_ack_blocked":True,"confirmed_neutral_retry":True}
             page.wait_for_timeout(1500)
             for method,path,body in requests[offset:]:
                 if method=="POST":
