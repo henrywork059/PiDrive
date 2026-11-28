@@ -4,6 +4,7 @@ from pathlib import Path
 
 from .formatting import stylesheet_tokens
 from .theme import current_theme
+from .typography import technical_font_stack
 
 
 def build_stylesheet(density: str = "comfortable") -> str:
@@ -291,7 +292,7 @@ def build_stylesheet(density: str = "comfortable") -> str:
     }
     QPlainTextEdit {
         padding: 8px;
-        font-family: Consolas, 'Cascadia Mono', monospace;
+        font-family: __PITRAINER_MONO_STACK__;
         border-radius: 9px;
     }
     QTableWidget, QTableView {
@@ -735,4 +736,4 @@ def build_stylesheet(density: str = "comfortable") -> str:
     # Source checkout and PyInstaller onedir use the same module-relative asset.
     mark_name = 'checkbox_check_light.svg' if current_theme() == 'light' else 'checkbox_check.svg'
     mark = Path(__file__).resolve().with_name(mark_name).as_posix()
-    return css.replace('__CHECKBOX_MARK__', mark)
+    return css.replace('__CHECKBOX_MARK__', mark).replace('__PITRAINER_MONO_STACK__', technical_font_stack())

@@ -105,3 +105,38 @@ def test_secondary_button_pressed_rendering():
                 button.close()
     finally:
         theme.set_theme("dark")
+
+def test_local_typography_registration_and_fallback(tmp_path):
+    from PySide6.QtGui import QFont, QFontInfo, QRawFont
+    from PySide6.QtWidgets import QApplication, QPlainTextEdit
+    from piTrainer.ui.typography import apply_local_typography, technical_font_stack
+
+    app = QApplication.instance() or QApplication([])
+    original = QFont(app.font())
+    editor = None
+    try:
+        fallback = apply_local_typography(app, tmp_path)
+        assert not fallback["ui"]["family"] and not fallback["mono"]["family"]
+        assert app.font().family() == original.family()
+        assert technical_font_stack() == "Consolas, 'Cascadia Mono', monospace"
+        actual = apply_local_typography(app)
+        assert actual["ui"]["family"].startswith("Inter")
+        assert actual["mono"]["family"].startswith("IBM Plex Mono")
+        assert actual["ui"]["bytes"] == 879708
+        assert actual["mono"]["bytes"] == 173052
+        assert app.font().pointSizeF() == original.pointSizeF()
+        assert app.font().pixelSize() == original.pixelSize()
+        assert QFontInfo(app.font()).family().startswith("Inter")
+        editor = QPlainTextEdit("0123456789")
+        editor.setStyleSheet(build_stylesheet())
+        editor.show()
+        app.processEvents()
+        assert QFontInfo(editor.font()).family().startswith("IBM Plex Mono")
+        for font in (app.font(), editor.font()):
+            raw = QRawFont.fromFont(font)
+            assert raw.isValid() and all(raw.glyphIndexesForString("Data0123456789"))
+    finally:
+        if editor is not None:
+            editor.close()
+        apply_local_typography(app, tmp_path)
+        app.setFont(original)

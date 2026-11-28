@@ -82,6 +82,34 @@ def check_action_feedback(page, selector):
     return {"hover": hover_contrast, "pressed": press_contrast, "geometry_preserved": True}
 
 
+def check_local_typography(page, numeric, technical):
+    result = page.evaluate("""async () => {
+        const faces = await Promise.all([
+            document.fonts.load('400 16px "PiDrive Inter"'),
+            document.fonts.load('400 16px "PiDrive Plex Mono"')
+        ]);
+        await document.fonts.ready;
+        return faces.map(items => items.map(face => ({family: face.family, status: face.status})));
+    }""")
+    assert all(items and all(face["status"] == "loaded" for face in items) for items in result), result
+    expect(page.locator("body")).to_have_css("font-family", re.compile("PiDrive Inter"))
+    expect(page.locator(numeric).first).to_have_css("font-variant-numeric", "tabular-nums")
+    expect(page.locator(technical).first).to_have_css("font-family", re.compile("PiDrive Plex Mono"))
+    return result
+
+
+def check_narrow_targets(page, selectors):
+    boxes = []
+    for selector in selectors:
+        loc = page.locator(selector).first
+        expect(loc).to_be_visible()
+        box = loc.bounding_box()
+        assert box and box["height"] >= 44 and box["width"] >= 44, (selector, box)
+        assert box["x"] >= -1 and box["x"] + box["width"] <= page.viewport_size["width"] + 1, (selector, box)
+        boxes.append({"selector": selector, **box})
+    return boxes
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("component", choices=("PiSD", "PiServer"))
@@ -154,10 +182,15 @@ def main():
                     # Reopen the confirmed theme before exercising its safe action feedback.
                     page.reload()
                     expect(page.locator("body")).to_have_attribute("data-pisd-theme", mode)
+                    report.setdefault("local_typography", []).append({"theme": mode, "faces": check_local_typography(page, ".pp-range-value", ".pp-console")})
                     save_count = len(saves)
                     feedback = check_action_feedback(page, "#ppApply")
                     assert len(saves) == save_count
                     report.setdefault("action_feedback", []).append({"theme": mode, **feedback})
+                    page.set_viewport_size({"width": 390, "height": 844})
+                    expect(page.locator(".pp-control-grid")).to_have_css("grid-template-columns", re.compile(r"^[\d.]+px$"))
+                    report.setdefault("narrow_targets", []).append({"theme": mode, "boxes": check_narrow_targets(page, ("#ppReset", "#ppApply", "#ppSave"))})
+                    page.set_viewport_size({"width": 1440, "height": 900})
                     report["persistence"].append({"theme": mode, "actual_backend_readback": True,
                                                   "persisted_json": True, "unrelated_manual_settings": True})
                     for width, height in ((1440, 900), (390, 844)):
@@ -211,7 +244,12 @@ def main():
                     page.locator("#openStyleSettingsBtn").click()
                     page.locator("#styleThemePreset").select_option(mode)
                     expect(page.locator("body")).to_have_css("background-color", expected)
+                    report.setdefault("local_typography", []).append({"theme": mode, "faces": check_local_typography(page, "#styleFontScaleValue", "#styleFontScaleValue")})
                     capture("style-dialog-preview", mode, 1440, {"body": inspect(page, "body")})
+                    page.set_viewport_size({"width": 390, "height": 844})
+                    expect(page.locator(".style-setting-row-range").first).to_have_css("grid-template-columns", re.compile(r"^[\d.]+px [\d.]+px$"))
+                    report.setdefault("narrow_targets", []).append({"theme": mode, "boxes": check_narrow_targets(page, ("#saveStyleSettingsBtn", "#resetStyleSettingsBtn", "#closeStyleSettingsBtn"))})
+                    page.set_viewport_size({"width": 1440, "height": 900})
                     page.keyboard.press("Escape")
                     expect(page.locator("#styleSettingsModal")).to_be_hidden()
                     assert page.evaluate("() => localStorage.getItem('PiServerTheme:v1')") != mode

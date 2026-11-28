@@ -3943,10 +3943,42 @@ html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="ligh
 /* VD14: noncritical workspace and style actions retain their semantic
    colours; an inset edge distinguishes hover from transient press. */
 @media (forced-colors: none) {
-  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) :is(#openStyleSettingsBtn,#saveStyleSettingsBtn,#pageTabs .tab-btn):enabled:hover {
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) :is(#openStyleSettingsBtn,#saveStyleSettingsBtn,#resetStyleSettingsBtn,#closeStyleSettingsBtn,#pageTabs .tab-btn):enabled:hover {
     box-shadow: inset 0 0 0 1px currentColor !important;
   }
-  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) :is(#openStyleSettingsBtn,#saveStyleSettingsBtn,#pageTabs .tab-btn):enabled:active {
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) :is(#openStyleSettingsBtn,#saveStyleSettingsBtn,#resetStyleSettingsBtn,#closeStyleSettingsBtn,#pageTabs .tab-btn):enabled:active {
     box-shadow: inset 0 0 0 2px currentColor !important;
   }
+}
+
+/* VD1D: local licensed assets, native fallback when unavailable. */
+@font-face {
+  font-family: "PiDrive Inter";
+  src: url("fonts/InterVariable.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "PiDrive Plex Mono";
+  src: url("fonts/IBMPlexMono-Regular.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) body {
+  font-family: "PiDrive Inter", Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+}
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) :is(pre,code,.style-setting-value) {
+  font-family: "PiDrive Plex Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;
+}
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) :is(.style-setting-value,#metricApplied,#metricManual,#metricMaxThrottle,#metricSteerMix,#metricSteerBias,#metricWheels,#metricFps) {
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 600px) {
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .style-setting-row-range { grid-template-columns: minmax(0, 1fr) auto; column-gap: 8px; }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .style-setting-row-range label { grid-column: 1 / -1; overflow-wrap: anywhere; }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .style-setting-row-range input { min-inline-size: 0; }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .style-setting-row-range .style-setting-value { text-align: end; }
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) .style-modal-foot { flex-wrap: wrap; }
 }

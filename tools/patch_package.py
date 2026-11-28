@@ -68,6 +68,16 @@ def allowed(component, path):
         "piTrainer/piTrainer/ui/checkbox_check_light.svg",
     }:
         return True
+    # Exact reviewed VD1D font paths only, not arbitrary binary assets.
+    if path in {
+        "PiSD/pisd/web/static/fonts/InterVariable.woff2",
+        "PiSD/pisd/web/static/fonts/IBMPlexMono-Regular.woff2",
+        "PiServer/piserver/web/static/fonts/InterVariable.woff2",
+        "PiServer/piserver/web/static/fonts/IBMPlexMono-Regular.woff2",
+        "piTrainer/piTrainer/ui/fonts/InterVariable.ttf",
+        "piTrainer/piTrainer/ui/fonts/IBMPlexMono-Regular.ttf",
+    }:
+        return True
     return parts[1] in COMPONENTS[component][4] and Path(path).suffix in EXTENSIONS
 
 

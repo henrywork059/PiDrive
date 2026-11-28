@@ -50,6 +50,11 @@ def main() -> None:
                     QSettings.setPath(fmt, scope, temp)
             app = QApplication([])
             app.setStyle("Fusion")
+            typography = None
+            if (source / "piTrainer" / "ui" / "typography.py").is_file():
+                from piTrainer.ui.typography import apply_local_typography
+                typography = apply_local_typography(app)
+                assert typography["ui"]["family"] and typography["mono"]["family"], typography
             if args.theme is not None:
                 from piTrainer.ui.theme import apply_application_palette, save_theme, saved_theme, set_theme, theme_color
                 from piTrainer.ui.styles import build_stylesheet
@@ -82,7 +87,8 @@ def main() -> None:
                 manifest = {"revision": args.revision, "version": APP_VERSION,
                             "qt_version": qVersion(), "os": platform.system(),
                             "qt_platform": app.platformName(), "fixture": "empty-workspace",
-                            "captures": [], "readiness": [], "font_probe": font_probe}
+                            "captures": [], "readiness": [], "font_probe": font_probe,
+                            "local_typography": typography}
                 if args.theme is not None:
                     from piTrainer.ui.theme import appearance_settings, current_theme
                     assert current_theme() == args.theme

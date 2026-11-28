@@ -1275,3 +1275,41 @@ body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) input[type=range], b
     box-shadow: inset 0 0 0 2px currentColor !important;
   }
 }
+
+/* VD1D: local licensed assets, native fallback when unavailable. */
+@font-face {
+  font-family: "PiDrive Inter";
+  src: url("../fonts/InterVariable.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "PiDrive Plex Mono";
+  src: url("../fonts/IBMPlexMono-Regular.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) {
+  font-family: "PiDrive Inter", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+}
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) :is(pre,code,.pp-range-value) {
+  font-family: "PiDrive Plex Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;
+}
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) :is(.pp-range-value,#mdrvCameraFps,#mdrvIntentOut,#mdrvMotorOut,#mdrvOverlayDebugSteering,#mdrvOverlayDebugThrottle,#mdrvOverlayDebugLeft,#mdrvOverlayDebugRight,#mdrvPreviewAgeDebug,#mdrvPreviewFpsDebug) {
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 640px) {
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pp-control-grid { grid-template-columns: minmax(0, 1fr); }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pp-control-grid :is(label,input,select) { min-inline-size: 0; max-inline-size: 100%; }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pp-card-head { flex-wrap: wrap; overflow-wrap: anywhere; }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pp-actions { min-inline-size: 0; max-inline-size: 100%; }
+  body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pp-actions :is(button,a) {
+    min-block-size: 44px;
+    min-inline-size: 44px;
+    display: inline-flex;
+    align-items: center;
+    white-space: normal;
+  }
+}
