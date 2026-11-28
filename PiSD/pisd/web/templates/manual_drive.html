@@ -10,7 +10,9 @@
   <link rel="stylesheet" href="{{ static_asset('css/pisd_design_system.css') }}">
   <link rel="stylesheet" href="{{ static_asset('css/pisd_layout_system.css') }}">
   <link rel="stylesheet" href="{{ static_asset('css/operating_readiness.css') }}">
+  <link rel="stylesheet" href="{{ static_asset('css/driving_cockpit.css') }}">
   <script src="{{ static_asset('js/panel_presentation_global.js') }}" defer></script>
+  <script src="{{ static_asset('js/driving_cockpit.js') }}" defer></script>
 </head>
 <body class="manual-drive-page">
   <header class="mdrv-topbar">
@@ -71,6 +73,7 @@
       <div class="mdrv-panel-head">
         <div><p class="mdrv-label">Camera</p><h2>Live camera</h2></div>
         <div class="mdrv-camera-head-actions">
+          <button type="button" class="mdrv-button" id="drivingCockpitToggle" aria-pressed="false" aria-controls="mdrvPreviewFrame" title="Temporary camera-priority layout. Does not start camera, motors or AI.">Cockpit view</button>
           <button id="mdrvOverlayToggle" class="mdrv-button mdrv-overlay-toggle" type="button" aria-pressed="true" title="Show or hide the intended-path overlay drawn from current steering and throttle.">Overlay: On</button>
           <span id="mdrvRecordingIndicator" class="mdrv-recording-indicator" data-recording="off">REC off</span>
           <span id="mdrvRecordingCount" title="Frame count from the last confirmed recording status">Frames: unknown</span>

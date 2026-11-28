@@ -1,0 +1,84 @@
+/* VD1N: temporary camera-priority view. Retain original controls and order. */
+body[data-pisd-cockpit="immersive"] :is(#mdrvPreviewFrame, #aiPreviewFrame) {
+  --cockpit-ratio: var(--cockpit-camera-ratio, 1.77777778);
+  width: min(100%, calc(76svh * var(--cockpit-ratio))) !important;
+  margin-inline: auto !important;
+  aspect-ratio: var(--cockpit-ratio) !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  flex: 0 0 auto !important;
+  box-sizing: border-box !important;
+  container-type: inline-size;
+}
+body[data-pisd-cockpit="immersive"] :is(#mdrvPreviewFrame, #aiPreviewFrame) > img {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  object-fit: contain !important;
+}
+@media (min-width: 1280px) {
+  body.manual-drive-page[data-pisd-cockpit="immersive"] .mdrv-shell,
+  body.ai-page[data-pisd-cockpit="immersive"] .ai-shell {
+    width: calc(100% - 16px) !important;
+    max-width: none !important;
+  }
+  body.manual-drive-page[data-pisd-cockpit="immersive"] .mdrv-shell {
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 24%) !important;
+  }
+  body.ai-page[data-pisd-cockpit="immersive"] .ai-grid {
+    grid-template-columns: repeat(12, minmax(0, 1fr)) !important;
+  }
+  body.ai-page[data-pisd-cockpit="immersive"] :is(#aiPreviewPanel, #aiRunPanel) {
+    grid-column: 1 / span 9 !important;
+  }
+  body.ai-page[data-pisd-cockpit="immersive"] :is(#aiSafetyPanel, #aiModelPanel, #aiFilesPanel) {
+    grid-column: 10 / span 3 !important;
+  }
+}
+/* Local opaque backing: preserve state borders, text, freshness and paths. */
+@media (forced-colors: none) {
+  body[data-pisd-cockpit="immersive"] :is(#mdrvPreviewFrame, #aiPreviewFrame)
+    :is(.mdrv-overlay-hud, .mdrv-overlay-meter, .mdrv-overlay-wheel-row) {
+    background: #14171c !important;
+    color: #edf1f7 !important;
+    backdrop-filter: none !important;
+    border-radius: 6px !important;
+    box-shadow: none !important;
+  }
+  body[data-pisd-cockpit="immersive"] :is(#mdrvPreviewFrame, #aiPreviewFrame)
+    :is(.mdrv-overlay-hud, .mdrv-overlay-meter, .mdrv-overlay-wheel-row) :is(span, strong, em) {
+    color: #edf1f7 !important;
+  }
+}
+body[data-pisd-cockpit="immersive"] :is(#mdrvPreviewFrame, #aiPreviewFrame) .mdrv-overlay-hud {
+  max-width: 58%;
+  flex-wrap: wrap;
+  gap: .2rem .4rem;
+}
+body[data-pisd-cockpit="immersive"] :is(#mdrvPreviewFrame, #aiPreviewFrame) .mdrv-overlay-wheel-row {
+  max-width: 38%;
+  flex-wrap: wrap;
+  gap: .2rem .5rem;
+}
+@container (max-width: 520px) {
+  body[data-pisd-cockpit="immersive"] :is(#mdrvPreviewFrame, #aiPreviewFrame) .mdrv-overlay-hud {
+    max-width: calc(100% - .9rem);
+    left: .45rem;
+    top: .45rem;
+  }
+  body[data-pisd-cockpit="immersive"] :is(#mdrvPreviewFrame, #aiPreviewFrame) .mdrv-overlay-wheel-row {
+    max-width: calc(100% - .9rem);
+    right: .45rem;
+    top: 2.95rem;
+  }
+}
+@media (max-width: 900px) {
+  #drivingCockpitToggle {
+    min-height: 44px !important;
+    min-block-size: 44px !important;
+    white-space: normal !important;
+  }
+}

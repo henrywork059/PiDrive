@@ -221,6 +221,55 @@ def main():
                                     "rgb(231, 235, 241)" if mode == "light" else "rgb(41, 47, 57)",
                                     "rgb(86, 97, 113)" if mode == "light" else "rgb(165, 175, 191)")
                             capture(name, mode, width, checks)
+                    # Preserve all original captures; add static synthetic scene evidence.
+                    for width, height in ((1440, 900), (768, 1024), (390, 844), (844, 390)):
+                        page.set_viewport_size({"width": width, "height": height})
+                        for name, route, stop, frame, arm in (
+                            ("manual", "/manual-drive", "#mdrvStopTop", "#mdrvPreviewFrame", "#mdrvArm"),
+                            ("ai", "/ai-mode", "#aiStopAll", "#aiPreviewFrame", "#aiEnableMotor"),
+                        ):
+                            page.goto(ORIGIN + route, wait_until="domcontentloaded")
+                            expect(page.locator("body")).to_have_attribute("data-pisd-theme", mode)
+                            toggle = page.locator("#drivingCockpitToggle")
+                            expect(toggle).to_have_attribute("aria-pressed", "false")
+                            before_arm = page.locator(arm).is_checked()
+                            before_saves = len(saves)
+                            toggle.click()
+                            expect(toggle).to_have_attribute("aria-pressed", "true")
+                            expect(page.locator("body")).to_have_attribute("data-pisd-cockpit", "immersive")
+                            assert page.locator(arm).is_checked() == before_arm
+                            assert len(saves) == before_saves
+                            stop_loc = page.locator(stop)
+                            stop_loc.click(trial=True)
+                            stop_box = stop_loc.bounding_box()
+                            assert stop_box and stop_box["y"] >= -1 and stop_box["y"] + stop_box["height"] <= height + 1
+                            if width <= 900:
+                                assert stop_box["height"] >= 44
+                            for scene, fill in (("bright", "#ffffff"), ("dark", "#05080b"), ("complex", "#d3a04b")):
+                                geometry = page.locator(frame).evaluate("""async (frame, fill) => {
+                                  const image=frame.querySelector('img');
+                                  const svg='<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480"><rect width="640" height="480" fill="'+fill+'"/><path d="M0 480 L320 120 L640 480" fill="none" stroke="#607080" stroke-width="15"/></svg>';
+                                  image.src='data:image/svg+xml,'+encodeURIComponent(svg);
+                                  await image.decode();
+                                  await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+                                  const rect=el=>{const r=el.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height}};
+                                  return {image:rect(image), overlay:rect(frame.querySelector('.mdrv-drive-overlay')),
+                                          fit:getComputedStyle(image).objectFit, ratio:image.naturalWidth/image.naturalHeight,
+                                          state:frame.dataset.previewState,
+                                          backing:getComputedStyle(frame.querySelector('.mdrv-overlay-hud')).backgroundColor};
+                                }""", fill)
+                                assert geometry["fit"] == "contain", geometry
+                                assert abs(geometry["image"]["width"] / geometry["image"]["height"] - geometry["ratio"]) < .03, geometry
+                                for key in ("x", "y", "width", "height"):
+                                    assert abs(geometry["image"][key] - geometry["overlay"][key]) <= 2, geometry
+                                assert geometry["backing"] == "rgb(20, 23, 28)", geometry
+                                page.locator(frame).scroll_into_view_if_needed()
+                                capture(f"cockpit-{name}-{scene}-{height}", mode, width, {"geometry": geometry, "stop": stop_box})
+                            toggle.click()
+                            expect(toggle).to_have_attribute("aria-pressed", "false")
+                            assert page.locator("body").get_attribute("data-pisd-cockpit") is None
+                            assert page.locator(arm).is_checked() == before_arm
+                            assert len(saves) == before_saves
                 # Fresh browser context receives theme from the actual settings backend.
                 fresh = browser.new_context()
                 fresh.route("**/*", route_request)
