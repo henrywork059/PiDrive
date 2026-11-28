@@ -77,3 +77,23 @@ Milestones are functional checkpoints. This component does not increment a versi
 ## Next work item
 
 Run the live Flask app on a machine with PiSD requirements installed, test Manual Drive → MotorService → virtual vehicle → CameraService → actual PiSD preview, and record screenshots plus safe STOP evidence. Then implement Playwright browser coverage.
+
+## 2026-11-28 — E04/E05 functional candidate
+
+Main 7f8fcf5 includes #96 iframe restrictions, #102 storage feedback correction, and #104 stability fixes. Linux real browser manual-drive/STOP, settings quiet window and lifecycle already exercised; do not repeat those as unimplemented. This separate branch avoids overlapping #105 workspace presentation files. Added workspace-only recording/image replay and capture-failure injection at the real camera provider, scenario control page and real Keras service-level acceptance candidate. No boxes above are upgraded to complete until exact CI results and artifact/behavior review. Video replay, real AI page interactions, piTrainer import, other fault types, Windows live browser and broader release qualification remain open.
+
+### E04/E05 continuation — 2026-11-28
+
+Exact a0ab6514 passed all four workflows 46139136367, 46139136308, 46139136281, 46139136359. Direct logs: 13 adapter cases, 2 scenario cases and 1 actual Chromium case; six startup/explicit settings GETs and zero quiet/save/drive/STOP echoes. E04 scoped service-level AI/recording/image replay and E05 camera fault/rearm passed. Add local video replay, sticky virtual motor disconnect and actual AI-page/recording-download/relocated trainer service import candidate. New exact CI and rendered artifact audit pending. Other model/API/network/GPIO faults, cross-platform live qualification, custom environments and full E06 remain open. No change to #105 workspace files or stable acceptance.
+
+### E04/E05 third checkpoint — 2026-11-28
+
+Parent dd67c688 passed all four exact CI workflows. Independent artifact 15261113863 verified SHA256 5756edf8347b440d1f548074de0000f8751486b60cd71482a4082bfd7d21dff7, nested ZIP CRC and SHA, 12/12 frame hashes/label trace parity, four rendered screenshots and source sequences. E04 video, actual AI browser, relocated trainer loader passed scoped Linux gate; video/motor direct test logs passed but raw evidence absent in parent. New candidate adds raw video/motor evidence, model inference failure, heartbeat API failure, left/right virtual GPIO failure and real Chromium manual network loss. Faults sticky per runtime, no physical claims. E05 expanded candidate requires exact CI and artifact audit; E01/E02/E03/E06 outstanding broader acceptance remains.
+
+### E05 scoped qualification and E02/E03 candidate — 2026-11-28
+
+Parent c8da3455 expanded scenarios 46141315699 and frame-browser 46141315758 passed; Windows native 46141315719 passed; hardware-free 46141315726 passed (all four constituent jobs). Artifact 15261589676 SHA256 1373ca390fbbbefe721437e0c0c17508442ad5a044e50a2236e4ac7afc748476 independently verified: both ZIP CRCs, ten recording labels/records/images and sequence parity, five screenshots inspected, independently decoded AVI three frames pixel-identical to PNGs, model fault five hits and zero outputs at .356912 s, manual network loss zero outputs at .873668 s, API 503/expired lease and both GPIO faults 500/LOW, motor disconnect zero and restart zero. API sampled vehicle still braking at .2413 m/s; zero output is not instantaneous zero speed. E05 scoped Linux scenarios/evidence complete, not physical acceptance. New E02/E03 custom environment profiles and diagnostics history/charts/export candidate; browser-console collection, broader viewport/Windows live qualification and E06 remain open. No change to #105 workspace files.
+
+### E03 browser observer candidate
+
+Exact parent d5d3321b passed four workflows; environment/diagnostics artifact 15260999938 independently matched digest/CRC and scoped screenshots/JSON inspected. Add opt-in browser console severity/exception metadata capture with bounded redacted export and separate Linux/Windows real Chromium lifecycle and viewport evidence. No new boxes closed until exact candidate CI and artifact review. No physical claims.

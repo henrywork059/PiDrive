@@ -30,3 +30,23 @@ Status meanings: **Implemented, unverified** means code and a local unit/service
 - `python PiSD_Emulator/scripts/test_emulator.py` — 13 tests passed.
 - `python PiSD/PiSD.py --status-only` — expected to remain available without Flask; run after applying the patch.
 - Flask and browser dependencies were not present here, so live app/API/UI and screenshot acceptance remains open.
+
+## E04/E05 candidate reconciliation — 2026-11-28
+
+Requirements 1–5, 9, 12–14 have subsequent scoped Linux browser evidence from #96/#102/#104 (including origin rejection, virtual drive/STOP, multi-context settings and restart). Do not infer physical or Windows live browser acceptance. Requirements 6, 10 and 11 have a new real-model/recording/camera-fault integration test candidate; replay from recording labels and image folders is implemented, open-loop. Exact CI pending; no complete milestone claim. Existing acceptance requirements unchanged.
+
+### E04/E05 second checkpoint
+
+Requirement 6 (real Keras service loop), 10 (recording labels and ZIP), 11 (camera capture fault/latch/rearm) passed scoped Linux software gate at a0ab6514. Actual AI page and trainer import, video and motor disconnect are implemented or test-covered in the new candidate pending exact CI. No full E04/E05 acceptance yet.
+
+### Third checkpoint
+
+Parent dd67c688: requirements 6/10/11/12 expanded software evidence: real AI browser, actual downloadable ZIP imported through existing trainer loader, video replay and motor disconnect tests passed. Independent artifact matched 12 rows/images and four screenshots. New model/API/GPIO/transport scenarios pending exact CI; no complete native trainer GUI, full network outage, hardware or cross-platform release acceptance.
+
+### Fourth checkpoint
+
+E05 scoped Linux service fault and browser transport evidence independently verified at c8da3455. New E02/E03 stopped-runtime custom track/lighting/markings/obstacle profiles, persistence and bounded request/metric history/export are implementation candidates pending exact CI. No physical, native trainer GUI or Windows live emulator acceptance.
+
+### E03 browser observer candidate
+
+Exact parent d5d3321b passed all four workflows; custom environment/diagnostics artifact inspected. New standalone browser observer and cross-platform live browser tests extend requirements 2, 12, 13 and 17. Pending exact CI; no full native or physical qualification.
