@@ -10,7 +10,14 @@
       frame.style.setProperty("--cockpit-camera-ratio", String(image.naturalWidth / image.naturalHeight));
     }
   }
+  // This ratio is only a viewport-width hint; intrinsic image height owns
+  // overlay alignment. Handle src replacement as well as a delayed load event.
   image.addEventListener("load", updateAspect);
+  const sourceChanges = new MutationObserver(() => {
+    updateAspect();
+    if (typeof image.decode === "function") image.decode().then(updateAspect, () => {});
+  });
+  sourceChanges.observe(image, { attributes: true, attributeFilter: ["src", "srcset"] });
   toggle.addEventListener("click", () => {
     const enabled = toggle.getAttribute("aria-pressed") !== "true";
     updateAspect();

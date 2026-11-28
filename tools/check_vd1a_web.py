@@ -248,7 +248,8 @@ def main():
                             for scene, fill in (("bright", "#ffffff"), ("dark", "#05080b"), ("complex", "#d3a04b")):
                                 geometry = page.locator(frame).evaluate("""async (frame, fill) => {
                                   const image=frame.querySelector('img');
-                                  const svg='<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480"><rect width="640" height="480" fill="'+fill+'"/><path d="M0 480 L320 120 L640 480" fill="none" stroke="#607080" stroke-width="15"/></svg>';
+                                  const pattern=fill==='#d3a04b' ? '<path d="M0 0H320V240H0ZM320 240H640V480H320Z" fill="#193c56"/><path d="M0 80H640M0 160H640M0 320H640M0 400H640" stroke="#fff" stroke-width="12"/>' : '';
+                                  const svg='<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480"><rect width="640" height="480" fill="'+fill+'"/>'+pattern+'<path d="M0 480 L320 120 L640 480" fill="none" stroke="#607080" stroke-width="15"/></svg>';
                                   image.src='data:image/svg+xml,'+encodeURIComponent(svg);
                                   await image.decode();
                                   await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
@@ -256,15 +257,20 @@ def main():
                                   return {image:rect(image), overlay:rect(frame.querySelector('.mdrv-drive-overlay')),
                                           fit:getComputedStyle(image).objectFit, ratio:image.naturalWidth/image.naturalHeight,
                                           state:frame.dataset.previewState,
-                                          backing:getComputedStyle(frame.querySelector('.mdrv-overlay-hud')).backgroundColor};
+                                          backing:getComputedStyle(frame.querySelector('.mdrv-overlay-hud')).backgroundColor,
+                                          foreground:getComputedStyle(frame.querySelector('.mdrv-overlay-hud strong')).color,
+                                          computedAspect:getComputedStyle(frame).aspectRatio,
+                                          ratioHint:frame.style.getPropertyValue("--cockpit-camera-ratio")};
                                 }""", fill)
+                                # Retain failed geometry/screenshot evidence before asserting.
+                                page.locator(frame).scroll_into_view_if_needed()
+                                capture(f"cockpit-{name}-{scene}-{height}", mode, width, {"geometry": geometry, "stop": stop_box})
                                 assert geometry["fit"] == "contain", geometry
                                 assert abs(geometry["image"]["width"] / geometry["image"]["height"] - geometry["ratio"]) < .03, geometry
                                 for key in ("x", "y", "width", "height"):
                                     assert abs(geometry["image"][key] - geometry["overlay"][key]) <= 2, geometry
                                 assert geometry["backing"] == "rgb(20, 23, 28)", geometry
-                                page.locator(frame).scroll_into_view_if_needed()
-                                capture(f"cockpit-{name}-{scene}-{height}", mode, width, {"geometry": geometry, "stop": stop_box})
+                                assert contrast(geometry["foreground"], geometry["backing"]) >= 4.5, geometry
                             toggle.click()
                             expect(toggle).to_have_attribute("aria-pressed", "false")
                             assert page.locator("body").get_attribute("data-pisd-cockpit") is None

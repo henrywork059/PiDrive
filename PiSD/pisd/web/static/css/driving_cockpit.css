@@ -3,7 +3,9 @@ body[data-pisd-cockpit="immersive"] :is(#mdrvPreviewFrame, #aiPreviewFrame) {
   --cockpit-ratio: var(--cockpit-camera-ratio, 1.77777778);
   width: min(100%, calc(76svh * var(--cockpit-ratio))) !important;
   margin-inline: auto !important;
-  aspect-ratio: var(--cockpit-ratio) !important;
+  /* The decoded image, not a delayed load-event ratio, sets frame height. */
+  aspect-ratio: auto !important;
+  display: block !important;
   height: auto !important;
   min-height: 0 !important;
   max-height: none !important;
@@ -12,11 +14,13 @@ body[data-pisd-cockpit="immersive"] :is(#mdrvPreviewFrame, #aiPreviewFrame) {
   container-type: inline-size;
 }
 body[data-pisd-cockpit="immersive"] :is(#mdrvPreviewFrame, #aiPreviewFrame) > img {
-  position: absolute !important;
-  inset: 0 !important;
+  position: static !important;
+  display: block !important;
   width: 100% !important;
-  height: 100% !important;
+  height: auto !important;
   min-height: 0 !important;
+  max-height: none !important;
+  aspect-ratio: auto 16 / 9 !important;
   object-fit: contain !important;
 }
 @media (min-width: 1280px) {
