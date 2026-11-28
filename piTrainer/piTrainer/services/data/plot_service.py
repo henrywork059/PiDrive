@@ -5,6 +5,7 @@ from typing import Any
 import pandas as pd
 
 from ...ui.theme import theme_color
+from ...ui.plot_style import style_plot_axis, style_plot_legend
 
 
 # Retain only plot input columns, not a second copy of all record metadata.
@@ -68,7 +69,7 @@ def build_plot_summary(df: pd.DataFrame) -> dict[str, Any]:
 
 
 def render_plot(ax, df: pd.DataFrame, plot_type: str, session_name: str) -> None:
-    _style_axis(ax)
+    style_plot_axis(ax)
     if df.empty:
         ax.text(0.5, 0.5, 'No session data to plot', ha='center', va='center', color=theme_color('text_secondary'), transform=ax.transAxes)
         ax.set_xticks([])
@@ -114,16 +115,10 @@ def render_plot(ax, df: pd.DataFrame, plot_type: str, session_name: str) -> None
         steering = _numeric_series(df, 'steering')
         throttle = _numeric_series(df, 'throttle')
         ax.plot(x, steering, label='Steering', linewidth=1.8, color=theme_color('plot_steering'))
-        ax.plot(x, throttle, label='Speed', linewidth=1.6, color=theme_color('plot_speed'))
+        ax.plot(x, throttle, label='Speed', linewidth=1.6, linestyle='--', color=theme_color('plot_speed'))
         ax.set_xlabel('Frame index', color=theme_color('text_secondary'))
         ax.set_ylabel('Value', color=theme_color('text_secondary'))
-        legend = ax.legend(loc='upper right')
-        if legend is not None:
-            frame = legend.get_frame()
-            frame.set_facecolor(theme_color('plot_bg'))
-            frame.set_edgecolor(theme_color('border'))
-            for text in legend.get_texts():
-                text.set_color(theme_color('text_primary'))
+        style_plot_legend(ax, loc='upper right')
 
     ax.set_title(f'{plot_type} — {session_name}', color=theme_color('text_primary'))
 
@@ -131,10 +126,3 @@ def render_plot(ax, df: pd.DataFrame, plot_type: str, session_name: str) -> None
 def _numeric_series(df: pd.DataFrame, column: str) -> pd.Series:
     return pd.to_numeric(df.get(column, pd.Series(dtype=float)), errors='coerce').fillna(0.0)
 
-
-def _style_axis(ax) -> None:
-    ax.set_facecolor(theme_color('plot_axis'))
-    ax.tick_params(colors=theme_color('text_secondary'))
-    for spine in ax.spines.values():
-        spine.set_color(theme_color('border'))
-    ax.grid(True, color=theme_color('plot_grid'), alpha=0.35)

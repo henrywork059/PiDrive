@@ -377,6 +377,10 @@ def main():
                                 # Match image state on both sides of the layout comparison.
                                 original_source = page.locator("#mdrvPreview").get_attribute("src")
                                 page.evaluate("""async () => {
+                                    // Join the existing startup settings read (or explicitly
+                                    // synchronize through the public read-only loader).
+                                    // The cached theme alone does not prove weights are applied.
+                                    await window.PiSDPanelPresentation.loadFromBackend();
                                     await document.fonts.ready;
                                     await document.getElementById('mdrvPreview').decode();
                                     await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));

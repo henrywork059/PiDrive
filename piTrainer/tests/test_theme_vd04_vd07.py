@@ -326,3 +326,63 @@ def test_density_chrome_tokens_preserve_action_minimums():
         assert f"min-height: {profile.input_min}px;" in css
         assert "@TABLE_CELL_PAD@" not in css
         assert "@TOOLBAR_PAD@" not in css
+
+
+def test_shared_plot_style_retains_series_and_theme():
+    import pandas as pd
+    from matplotlib.figure import Figure
+    from matplotlib.colors import to_rgba
+    from piTrainer.services.data.plot_service import render_plot
+    from piTrainer.services.validation.validation_plot import render_validation_plot
+
+    df = pd.DataFrame({"steering": [-.5, .25, .75], "throttle": [.2, .4, .6]})
+    result = {"steering_true": [-.5, .25, .75], "throttle_true": [.2, .4, .6],
+              "steering_pred": [-.4, .2, .7], "throttle_pred": [.1, .4, .5],
+              "steering_error": [.1, -.05, -.05], "throttle_error": [-.1, 0, -.1]}
+    try:
+        for mode in ("dark", "light"):
+            theme.set_theme(mode)
+            ax = Figure().add_subplot(111)
+            render_plot(ax, df, "Steering + Speed Timeline", "All loaded sessions")
+            assert list(ax.lines[0].get_ydata()) == list(df.steering)
+            assert list(ax.lines[1].get_ydata()) == list(df.throttle)
+            assert ax.lines[0].get_linestyle() != ax.lines[1].get_linestyle()
+            assert ax.get_facecolor() == to_rgba(theme.theme_color("plot_axis"))
+            assert ax.figure.get_facecolor() == to_rgba(theme.theme_color("plot_bg"))
+            ax = Figure().add_subplot(111)
+            render_validation_plot(ax, result, "Sample Prediction Trace")
+            assert len(ax.lines) == 4
+            assert list(ax.lines[1].get_ydata()) == result["steering_pred"]
+            assert list(ax.lines[3].get_ydata()) == result["throttle_pred"]
+            assert ax.lines[0].get_linestyle() != ax.lines[1].get_linestyle()
+            assert ax.lines[2].get_linestyle() != ax.lines[3].get_linestyle()
+            assert ax.get_legend().get_texts()[0].get_color() == theme.theme_color("text_primary")
+    finally:
+        theme.set_theme("dark")
+
+
+def test_numeric_table_alignment_preserves_display_and_selection():
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QApplication, QTableWidget, QTableWidgetItem
+    from piTrainer.ui.typography import align_numeric_table_item
+
+    app = QApplication.instance() or QApplication([])
+    table = QTableWidget(1, 2)
+    try:
+        for mode in ("dark", "light"):
+            theme.set_theme(mode)
+            table.setStyleSheet(build_stylesheet())
+            value = QTableWidgetItem("5.960e-08")
+            value.setToolTip(value.text())
+            align_numeric_table_item(value)
+            table.setItem(0, 0, value)
+            table.setItem(0, 1, QTableWidgetItem("Unknown"))
+            table.setCurrentCell(0, 0)
+            assert value.text() == "5.960e-08"
+            assert value.toolTip() == value.text()
+            assert value.textAlignment() & Qt.AlignmentFlag.AlignRight
+            assert table.currentItem() is value
+            assert table.item(0, 1).text() == "Unknown"
+    finally:
+        table.close()
+        theme.set_theme("dark")

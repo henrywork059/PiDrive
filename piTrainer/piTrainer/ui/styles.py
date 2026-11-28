@@ -324,6 +324,11 @@ def build_stylesheet(density: str = "comfortable") -> str:
         background: @COLOR_SELECTION@;
         color: @COLOR_TEXT_ON_DARK@;
     }
+    /* Keep a non-color selected-cell cue without changing row geometry.
+       The record-preview warning selection retains its own stronger rules. */
+    QTableWidget::item:selected, QTableView::item:selected {
+        font-weight: 600;
+    }
     QTableView#recordPreviewTable {
         alternate-background-color: @COLOR_BG_PANEL_LIFT@;
         selection-background-color: @COLOR_WARNING@;

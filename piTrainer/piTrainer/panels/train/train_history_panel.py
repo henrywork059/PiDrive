@@ -7,6 +7,7 @@ from PySide6.QtWidgets import QApplication, QGroupBox, QLabel, QPushButton, QVBo
 
 from ...services.train.history_service import build_plot_series
 from ...ui.theme import theme_color
+from ...ui.plot_style import style_plot_axis, style_plot_legend
 
 
 class TrainHistoryPanel(QGroupBox):
@@ -91,21 +92,10 @@ class TrainHistoryPanel(QGroupBox):
         else:
             self._draw_empty()
 
-    def _style_axes(self, ax) -> None:
-        self.figure.patch.set_facecolor(theme_color("plot_bg"))
-        ax.set_facecolor(theme_color("plot_axis"))
-        ax.tick_params(colors=theme_color("text_secondary"))
-        ax.xaxis.label.set_color(theme_color("text_secondary"))
-        ax.yaxis.label.set_color(theme_color("text_secondary"))
-        ax.title.set_color(theme_color("text_primary"))
-        for spine in ax.spines.values():
-            spine.set_color(theme_color("border"))
-        ax.grid(color=theme_color("plot_grid"), alpha=0.55)
-
     def _draw_empty(self) -> None:
         self.figure.clear()
         ax = self.figure.add_subplot(111)
-        self._style_axes(ax)
+        style_plot_axis(ax)
         ax.set_title("No training history yet")
         ax.set_xlabel("Epoch")
         ax.set_ylabel("Loss / metric (dimensionless)")
@@ -114,16 +104,15 @@ class TrainHistoryPanel(QGroupBox):
     def _redraw(self) -> None:
         self.figure.clear()
         ax = self.figure.add_subplot(111)
-        self._style_axes(ax)
+        style_plot_axis(ax)
         palette = [theme_color("plot_steering"), theme_color("plot_speed"), theme_color("success"), theme_color("plot_reference"), theme_color("plot_error")]
         ax.set_prop_cycle(color=palette)
         for label, xs, ys in build_plot_series(self.history):
-            ax.plot(xs, ys, label=label, linewidth=2)
+            ax.plot(xs, ys, label=label, linewidth=2,
+                    linestyle='--' if label.startswith('val_') else '-')
         ax.set_xlabel("Epoch")
         ax.set_ylabel("Loss / metric (dimensionless)")
         ax.set_title("Training Curves")
         if ax.lines:
-            legend = ax.legend(facecolor=theme_color("plot_bg"), edgecolor=theme_color("border"))
-            for text in legend.get_texts():
-                text.set_color(theme_color("text_secondary"))
+            style_plot_legend(ax)
         self.canvas.draw_idle()

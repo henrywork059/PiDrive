@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
+
+from ...ui.typography import align_numeric_table_item
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -115,6 +118,9 @@ class TrainComparisonPanel(QGroupBox):
                 item.setToolTip(str(value))
                 if col:
                     item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+                    # Do not reinterpret paths, identifiers, Unknown or mixed units.
+                    if re.fullmatch(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?", str(value)):
+                        align_numeric_table_item(item)
                 self.table.setItem(index, col, item)
         self.table.resizeRowsToContents()
 

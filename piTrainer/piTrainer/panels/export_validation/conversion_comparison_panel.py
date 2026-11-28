@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
+from ...ui.typography import align_numeric_table_item
 from PySide6.QtWidgets import (QAbstractItemView, QGroupBox, QLabel, QPushButton,
                                QTableWidget, QTableWidgetItem, QVBoxLayout)
 
@@ -73,6 +74,8 @@ class ConversionComparisonPanel(QGroupBox):
             for col, value in enumerate(values):
                 item = QTableWidgetItem(str(value))
                 item.setToolTip(str(value))
+                if col == 0 or col >= 4:
+                    align_numeric_table_item(item)
                 self.table.setItem(i, col, item)
         self.table.resizeColumnsToContents()
         # Keep long identifiers from consuming the whole narrow viewport.

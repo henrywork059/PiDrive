@@ -39,3 +39,15 @@ def technical_font_stack():
     if _MONO_FAMILY:
         return '"' + _MONO_FAMILY + '", ' + _FALLBACK_MONO
     return _FALLBACK_MONO
+
+
+def align_numeric_table_item(item):
+    """Right-align an explicitly numeric display cell without changing its text."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QFontDatabase
+
+    font = item.font()
+    family = _MONO_FAMILY or QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont).family()
+    font.setFamily(family)
+    item.setFont(font)
+    item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
