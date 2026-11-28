@@ -87,3 +87,7 @@ Add exact-revision browser matrix on both existing observer OS jobs: three auxil
 4. Authorize merge and eventual stable promotion separately only after applicable gates pass. Candidate 1.0.0 and existing stable rollback baselines remain unchanged.
 
 No additional roadmap development, stable promotion, tag, release or physical deployment in VD36. If CI remains in progress, stop with explicit pending disposition and continue qualification rather than inventing a PASS.
+
+## Exact VD36 qualification repair
+
+At 3d510bbb3bf9b2b5bdcb0ae259ce5d3de4979a5f, observer run 46161609081 failed on both platforms after all 18 screenshot assertions: final Flask test client used default localhost rather than the trusted 127.0.0.1:port host and received 403 (KeyError hardware_enabled). Test now explicitly checks the denied default host and valid loopback response (HTTP 200, hardware/GPIO disabled, runtime stopped and emulator mode). The actual origin guard is unchanged. Release workflow 46161609160 source archive job 141029944082 rejected the first WOFF2 file because its pre-visual extension list did not recognize the six reviewed font binaries. Add only six exact path/blob bindings and require the matching original license blob for each; no generic binary extension or path exemption, credential scanning and all existing exclusions retained. Runtime, appearance, version, configs and prior evidence unchanged. Replacement exact CI and artifacts are required; no final acceptance claim.

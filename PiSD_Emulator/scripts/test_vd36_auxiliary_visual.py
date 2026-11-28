@@ -101,9 +101,16 @@ class AuxiliaryVisualTests(unittest.TestCase):
                     finally:
                         browser.close()
                 # Verify physical authority remains disabled using actual controller.
-                response=controller.test_client().get("/api/status")
-                self.assertFalse(response.get_json()["hardware_enabled"])
-                self.assertFalse(response.get_json()["running"])
+                client = controller.test_client()
+                denied = client.get("/api/status")
+                self.assertEqual(denied.status_code, 403)
+                response = client.get("/api/status", base_url=url)
+                self.assertEqual(response.status_code, 200)
+                status = response.get_json()
+                self.assertIs(status["hardware_enabled"], False)
+                self.assertIs(status["gpio_access"], False)
+                self.assertIs(status["running"], False)
+                self.assertEqual(status["runtime_mode"], "emulator")
             finally:
                 runtime.close();server.shutdown();server.server_close();thread.join(timeout=2)
         (evidence/"manifest.json").write_text(json.dumps({"revision":revision,"hardware_enabled":False,"runtime_started":False,"theme_api_echoes":0,"captures":captures},indent=2),encoding="utf-8")
