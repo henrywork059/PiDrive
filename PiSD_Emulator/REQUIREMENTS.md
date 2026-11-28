@@ -46,3 +46,7 @@ Parent dd67c688: requirements 6/10/11/12 expanded software evidence: real AI bro
 ### Fourth checkpoint
 
 E05 scoped Linux service fault and browser transport evidence independently verified at c8da3455. New E02/E03 stopped-runtime custom track/lighting/markings/obstacle profiles, persistence and bounded request/metric history/export are implementation candidates pending exact CI. No physical, native trainer GUI or Windows live emulator acceptance.
+
+### E03 browser observer candidate
+
+Exact parent d5d3321b passed all four workflows; custom environment/diagnostics artifact inspected. New standalone browser observer and cross-platform live browser tests extend requirements 2, 12, 13 and 17. Pending exact CI; no full native or physical qualification.
