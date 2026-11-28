@@ -1,5 +1,6 @@
 """Real emulator service integration: Keras, recording, replay and stale-camera latch."""
 import io
+import hashlib
 import json
 import os
 import socket
@@ -84,10 +85,13 @@ class ScenarioTests(unittest.TestCase):
             settings = SimpleNamespace(width=80,height=60,brightness=0,contrast=1,saturation=1,hflip=False,vflip=False)
             replay = open_replay(root, "replay/clip.avi", False)
             self.assertIsInstance(replay, VideoReplay)
+            decoded = []
             try:
                 self.assertEqual(replay.status()["frame_count"], 3)
                 for i in range(3):
-                    self.assertEqual(int(np.argmax(replay.render(settings)[30,40])), i)
+                    image = replay.render(settings)
+                    self.assertEqual(int(np.argmax(image[30,40])), i)
+                    decoded.append(image.copy())
                 with self.assertRaisesRegex(RuntimeError, "exhausted"):
                     replay.render(settings)
                 self.assertIsNone(replay.capture)
@@ -97,7 +101,8 @@ class ScenarioTests(unittest.TestCase):
                 replay.close()
             loop = open_replay(root, "replay/clip.avi", True)
             try:
-                self.assertEqual([int(np.argmax(loop.render(settings)[30,40])) for _ in range(4)], [0,1,2,0])
+                loop_order = [int(np.argmax(loop.render(settings)[30,40])) for _ in range(4)]
+                self.assertEqual(loop_order, [0,1,2,0])
             finally:
                 loop.close()
             for invalid in (str(path), "replay/../clip.avi", "recordings/clip.avi"):
@@ -122,6 +127,7 @@ class ScenarioTests(unittest.TestCase):
                 wait(lambda: not zero(runtime))
                 self.assertEqual(post("/api/scenarios/motor-disconnect", {"confirm":False}).status_code, 400)
                 self.assertEqual(post("/api/scenarios/motor-disconnect", {"confirm":True}, headers={"Origin":"http://evil.test"}).status_code, 403)
+                before_disconnect = runtime.status()["engine"]
                 self.assertEqual(post("/api/scenarios/motor-disconnect", {"confirm":True}).status_code, 200)
                 self.assertTrue(zero(runtime))
                 for _ in range(3):
@@ -129,6 +135,9 @@ class ScenarioTests(unittest.TestCase):
                     self.assertTrue(zero(runtime))
                 self.assertIn("Injected virtual motor disconnect", motor.status()["last_error"])
                 wait(lambda: abs(runtime.engine.snapshot()["vehicle"]["speed_mps"]) < .01)
+                after_disconnect = runtime.status()["engine"]
+                motor_error = motor.status()["last_error"]
+                replay_status = runtime.camera_input_status()
                 motor.stop()
                 self.assertTrue(runtime.status()["motor_disconnected"])
                 runtime.stop()
@@ -137,6 +146,18 @@ class ScenarioTests(unittest.TestCase):
                 runtime.start()
                 self.assertTrue(zero(runtime))
                 self.assertFalse(runtime.status()["motor_disconnected"])
+                evidence = Path(os.environ.get("PISD_EMULATOR_EVIDENCE", "emulator-scenario-evidence"))
+                evidence.mkdir(parents=True, exist_ok=True)
+                (evidence/"video-fixture.avi").write_bytes(path.read_bytes())
+                for index, frame in enumerate(decoded):
+                    Image.fromarray(frame[:,:,::-1]).save(evidence/f"video-decoded-{index}.png")
+                (evidence/"video-motor-report.json").write_text(json.dumps({
+                    "video_sha256":hashlib.sha256(path.read_bytes()).hexdigest(),
+                    "decoded_bgr_sha256":[hashlib.sha256(frame.tobytes()).hexdigest() for frame in decoded],
+                    "loop_order":loop_order, "replay_status":replay_status,
+                    "before_disconnect":before_disconnect, "after_disconnect":after_disconnect,
+                    "motor_error":motor_error, "restart_zero":zero(runtime)
+                },indent=2),encoding="utf-8")
             finally:
                 runtime.close()
 

@@ -38,3 +38,7 @@ Requirements 1–5, 9, 12–14 have subsequent scoped Linux browser evidence fro
 ### E04/E05 second checkpoint
 
 Requirement 6 (real Keras service loop), 10 (recording labels and ZIP), 11 (camera capture fault/latch/rearm) passed scoped Linux software gate at a0ab6514. Actual AI page and trainer import, video and motor disconnect are implemented or test-covered in the new candidate pending exact CI. No full E04/E05 acceptance yet.
+
+### Third checkpoint
+
+Parent dd67c688: requirements 6/10/11/12 expanded software evidence: real AI browser, actual downloadable ZIP imported through existing trainer loader, video replay and motor disconnect tests passed. Independent artifact matched 12 rows/images and four screenshots. New model/API/GPIO/transport scenarios pending exact CI; no complete native trainer GUI, full network outage, hardware or cross-platform release acceptance.

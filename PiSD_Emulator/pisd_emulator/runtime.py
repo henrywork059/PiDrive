@@ -14,6 +14,7 @@ from typing import Any
 from .engine import TRACKS, VehicleEngine
 from .renderer import RoadRenderer
 from .replay import ImageReplay, VideoReplay, open_replay
+from .faults import ServiceFaults
 
 
 def default_workspace() -> Path:
@@ -46,6 +47,7 @@ class PiSDRuntime:
         self._replay: ImageReplay | VideoReplay | None = None
         self._motor_fault_lock = threading.RLock()
         self._motor_disconnected = False
+        self._service_faults = ServiceFaults()
         self._camera_fault = False
         self._server: Any | None = None
         self._server_thread: threading.Thread | None = None
@@ -117,6 +119,7 @@ class PiSDRuntime:
                     runtime_root=self.workspace,
                     emulator_frame_port=self.control_port,
                 )
+                self._service_faults.install(app)
                 with self._camera_input_lock:
                     if self._replay is not None:
                         self._replay.reset()
@@ -175,7 +178,7 @@ class PiSDRuntime:
             server, thread, app = self._server, self._server_thread, self._app
         if app is not None:
             services = app.config.get("pisd_services", {})
-            for name, method in (("recording", "close"), ("ai_drive", "close"), ("camera", "stop"), ("motor", "stop")):
+            for name, method in (("recording", "close"), ("ai_drive", "close"), ("camera", "stop"), ("motor", "close")):
                 service = services.get(name)
                 try:
                     callback = getattr(service, method, None)
@@ -202,6 +205,7 @@ class PiSDRuntime:
                 self._replay.close()
         with self._motor_fault_lock:
             self._motor_disconnected = False
+            self._service_faults = ServiceFaults()
         with self._state_lock:
             self._server = None
             self._server_thread = None
@@ -318,19 +322,33 @@ class PiSDRuntime:
             self._record_event("warning", "Virtual motor disconnected; stop the runtime to recover.")
             return self.status()
 
+    def inject_service_fault(self, kind: str) -> dict[str, Any]:
+        if kind not in ServiceFaults.KINDS:
+            raise ValueError("Unknown service fault.")
+        with self._lock:
+            if not self._running:
+                raise ValueError("Start PiSD before injecting a service fault.")
+            with self._motor_fault_lock:
+                self._service_faults.activate(kind)
+                if kind.startswith("gpio_"):
+                    self.engine.disconnect_motor_outputs()
+            self._record_event("warning", f"Injected {kind}; stop runtime to recover.")
+            return self.status()
+
     def motor_fault_status(self) -> bool:
         with self._motor_fault_lock:
             return self._motor_disconnected
 
     def set_motor_outputs(self, payload: dict[str, Any]) -> None:
         with self._motor_fault_lock:
-            if self._motor_disconnected:
+            gpio_fault = self._service_faults.gpio_active()
+            if self._motor_disconnected or gpio_fault:
                 self.engine.disconnect_motor_outputs()
                 keys = ("left_intended", "right_intended", "left_hardware", "right_hardware")
                 if any(abs(float(payload.get(key, 0))) > 1e-6 for key in keys):
                     # Existing MotorService records the adapter failure; its
                     # requested values are not proof of applied virtual output.
-                    raise RuntimeError("Injected virtual motor disconnect.")
+                    raise RuntimeError("Injected virtual GPIO output failure." if gpio_fault else "Injected virtual motor disconnect.")
                 return
             self.engine.set_motor_outputs(payload)
 
@@ -359,6 +377,7 @@ class PiSDRuntime:
             "engine": self.engine.snapshot(),
             "camera_input": self.camera_input_status(),
             "motor_disconnected": self.motor_fault_status(),
+            "service_faults": self._service_faults.status(),
             "events": events,
         }
 

@@ -77,6 +77,16 @@ def create_control_app(runtime: PiSDRuntime) -> Flask:
         except ValueError as exc:
             return jsonify(ok=False, error=str(exc)), 400
 
+    @app.post("/api/scenarios/service-fault")
+    def service_fault():
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict) or data.get("confirm") is not True or not isinstance(data.get("kind"), str):
+            return jsonify(ok=False, error="Supply fault kind and explicit confirm=true."), 400
+        try:
+            return jsonify(runtime.inject_service_fault(data["kind"]))
+        except ValueError as exc:
+            return jsonify(ok=False, error=str(exc)), 400
+
     @app.get("/api/status")
     def status():
         return jsonify(runtime.status())

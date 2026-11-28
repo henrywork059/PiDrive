@@ -28,6 +28,7 @@ jobs:
       - run: python PiSD_Emulator/scripts/test_emulator.py
       - run: python PiSD_Emulator/scripts/test_scenarios.py
       - run: python PiSD_Emulator/scripts/test_ai_browser_scenarios.py
+      - run: python PiSD_Emulator/scripts/test_service_faults.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:

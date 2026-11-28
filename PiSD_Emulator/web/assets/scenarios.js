@@ -2,11 +2,12 @@ const el = id => document.getElementById(id);
 let busy = false;
 function render(data) {
   const input = data.camera_input || {};
-  el("status").textContent = JSON.stringify({running: data.running, camera_input: input, hardware_enabled: data.hardware_enabled, motor_disconnected: data.motor_disconnected}, null, 2);
+  el("status").textContent = JSON.stringify({running: data.running, camera_input: input, hardware_enabled: data.hardware_enabled, motor_disconnected: data.motor_disconnected, service_faults: data.service_faults}, null, 2);
   el("replay").disabled = el("generated").disabled = data.running;
   el("fault").disabled = !data.running || input.capture_fault;
   el("clear").disabled = !input.capture_fault;
   el("motorDisconnect").disabled = !data.running || data.motor_disconnected;
+  el("serviceInject").disabled = !data.running;
 }
 async function action(path, body) {
   if (busy) return;
@@ -25,5 +26,6 @@ el("generated").onclick = () => action("/api/scenarios/replay", {source: null});
 el("fault").onclick = () => action("/api/scenarios/camera-fault", {active: true});
 el("clear").onclick = () => action("/api/scenarios/camera-fault", {active: false});
 el("motorDisconnect").onclick = () => { if (window.confirm("Disconnect virtual motors until PiSD stops?")) action("/api/scenarios/motor-disconnect", {confirm: true}); };
+el("serviceInject").onclick = () => { if (window.confirm("Inject selected service fault until PiSD stops?")) action("/api/scenarios/service-fault", {kind: el("serviceKind").value, confirm: true}); };
 el("refresh").onclick = () => action("/api/status");
 action("/api/status");
