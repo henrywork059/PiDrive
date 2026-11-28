@@ -421,6 +421,9 @@ def main():
                                         'aiLive','aiSaveSnapshot','aiRecordToggle','aiStopCamera',
                                         'aiManualDriveTab','aiAssistTab','aiCorrectionTab','aiLimiterTab'].map(id=>document.getElementById(id));
                                 }""")
+                            # Icon is decorative; the same text-labelled native toggle remains.
+                            assert toggle.inner_text().strip() == "Cockpit view"
+                            assert toggle.evaluate("el => getComputedStyle(el,'::before').maskImage").startswith('url("data:image/svg+xml,')
                             toggle.click()
                             check_selected_cue(toggle, True)
                             expect(page.locator("body")).to_have_attribute("data-pisd-cockpit", "immersive")
@@ -592,6 +595,8 @@ def main():
                     expect(focus_target).to_have_css("outline-width", "3px")
                     expect(focus_target).to_have_css("outline-style", "solid")
                     expect(focus_target).to_have_css("outline-color", "rgb(49, 95, 209)" if mode == "light" else "rgb(251, 191, 36)")
+                    assert page.locator("#openStyleSettingsBtn").inner_text().strip() == "Style settings"
+                    assert page.locator("#openStyleSettingsBtn").evaluate("el => getComputedStyle(el,'::before').maskImage").startswith('url("data:image/svg+xml,')
                     feedback = check_action_feedback(page, "#openStyleSettingsBtn")
                     expect(page.locator("#styleSettingsModal")).to_be_hidden()
                     report.setdefault("action_feedback", []).append({"theme": mode, **feedback})

@@ -146,6 +146,8 @@ class FrameTest(unittest.TestCase):
                     before_width = page.locator("#pisdFrame").bounding_box()["width"]
                     before_generation = runtime.status()["generation"]
                     before_arm = frame.locator("#mdrvArm").is_checked()
+                    expect(page.locator("#wideWorkspaceToggle")).to_have_text("Wide workspace")
+                    assert page.locator("#wideWorkspaceToggle").evaluate("el => getComputedStyle(el,'::before').maskImage").startswith('url("data:image/svg+xml,')
                     page.locator("#wideWorkspaceToggle").click()
                     expect(page.locator("#wideWorkspaceToggle")).to_have_attribute("aria-pressed", "true")
                     eventually(lambda: page.locator("#pisdFrame").bounding_box()["width"] > before_width)

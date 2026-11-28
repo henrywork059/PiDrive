@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt
 from ...ui.typography import align_numeric_table_item
+from ...ui.context_icons import set_context_icon
 from PySide6.QtWidgets import (QAbstractItemView, QGroupBox, QLabel, QPushButton,
                                QTableWidget, QTableWidgetItem, QVBoxLayout)
 
@@ -11,6 +12,7 @@ class ConversionComparisonPanel(QGroupBox):
         super().__init__("Conversion comparison")
         self.comparison = None
         self.compare_button = QPushButton("Compare last completed results")
+        set_context_icon(self.compare_button, "compare")
         self.compare_button.setAccessibleName("Compare last completed Keras and TFLite predictions")
         self.compare_button.clicked.connect(callback)
         self.summary_label = QLabel()
@@ -22,6 +24,8 @@ class ConversionComparisonPanel(QGroupBox):
         self.table.setHorizontalHeaderLabels(["Row", "Session", "Frame", "Flip",
                                                "Keras steer", "TFLite steer", "|Δ steer|", "Keras speed", "TFLite speed", "|Δ speed|"])
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        # Read-only rows use arrows; Tab traverses to the next control.
+        self.table.setTabKeyNavigation(False)
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table.setAlternatingRowColors(True)
         self.table.setMinimumHeight(150)

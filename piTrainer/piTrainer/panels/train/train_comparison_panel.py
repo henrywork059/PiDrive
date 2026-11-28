@@ -5,6 +5,7 @@ from pathlib import Path
 import re
 
 from ...ui.typography import align_numeric_table_item
+from ...ui.context_icons import set_context_icon
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -27,8 +28,10 @@ class TrainComparisonPanel(QGroupBox):
         self.run_a.setToolTip("First training run (stable run ID)")
         self.run_b.setToolTip("Second training run (stable run ID)")
         self.refresh_btn = QPushButton("Refresh Runs")
+        set_context_icon(self.refresh_btn, "refresh")
         self.refresh_btn.clicked.connect(refresh_callback)
         self.inspect_btn = QPushButton("Inspect Model")
+        set_context_icon(self.inspect_btn, "search")
         self.inspect_btn.clicked.connect(self.inspect_model)
         self.info = QLabel("No saved training run summaries found.")
         self.info.setWordWrap(True)

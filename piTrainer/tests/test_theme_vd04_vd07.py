@@ -399,7 +399,12 @@ def test_accessible_table_keyboard_focus_preserves_selection():
             theme.set_theme(mode)
             window = QWidget()
             layout = QVBoxLayout(window)
-            table = QTableWidget(2, 1)
+            from piTrainer.panels.export_validation.conversion_comparison_panel import ConversionComparisonPanel
+            panel = ConversionComparisonPanel(lambda: None)
+            table = panel.table
+            table.setRowCount(2)
+            table.setColumnCount(1)
+            assert not table.tabKeyNavigation()
             table.setAccessibleName("Fixture comparison records")
             table.setItem(0, 0, QTableWidgetItem("0.125"))
             table.setItem(1, 0, QTableWidgetItem("0.250"))
@@ -422,8 +427,8 @@ def test_accessible_table_keyboard_focus_preserves_selection():
                 assert table.currentRow() == 1
                 assert table.currentItem().text() == "0.250"
                 assert table.size() == before
-                # Ctrl+Tab traverses out of Qt item views even when Tab edits cells.
-                QTest.keyClick(table, Qt.Key.Key_Tab, Qt.KeyboardModifier.ControlModifier)
+                # The actual read-only comparison table uses standard Tab traversal.
+                QTest.keyClick(table, Qt.Key.Key_Tab)
                 app.processEvents()
                 assert editor.hasFocus()
                 assert editor.text() == "unchanged"
@@ -431,5 +436,39 @@ def test_accessible_table_keyboard_focus_preserves_selection():
                 assert table.accessibleName() == "Fixture comparison records"
             finally:
                 window.close()
+    finally:
+        theme.set_theme("dark")
+
+
+def test_contextual_icons_keep_text_and_native_button_action():
+    from PySide6.QtCore import Qt, QSize
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QApplication, QPushButton
+    from piTrainer.ui.context_icons import set_context_icon
+    app = QApplication.instance() or QApplication([])
+    try:
+        for mode in ("dark", "light"):
+            theme.set_theme(mode)
+            for name in ("refresh", "search", "compare"):
+                button = QPushButton("Context action")
+                button.setAccessibleName("Named action")
+                calls = []
+                button.clicked.connect(lambda: calls.append(True))
+                set_context_icon(button, name)
+                pixmap = button.icon().pixmap(QSize(16, 16))
+                assert not pixmap.isNull()
+                image = pixmap.toImage()
+                assert any(image.pixelColor(x,y).alpha() > 0 for x in range(image.width()) for y in range(image.height()))
+                assert button.text() == "Context action"
+                assert button.accessibleName() == "Named action"
+                button.show()
+                try:
+                    QTest.keyClick(button, Qt.Key.Key_Space)
+                    assert calls == [True]
+                    button.setEnabled(False)
+                    QTest.keyClick(button, Qt.Key.Key_Space)
+                    assert calls == [True]
+                finally:
+                    button.close()
     finally:
         theme.set_theme("dark")
