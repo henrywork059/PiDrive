@@ -1,6 +1,6 @@
-/* V17 M01: presentation only. Reuse the original DOM and controller.
- * No fetch, settings write, authority change, or additional polling.
- * Mode links use ordinary document navigation, not concurrent controllers.
+/* V17 shared shell. Reuse the original DOM and controller.
+ * Navigation waits for the existing backend STOP acknowledgement.
+ * No automatic arm, settings write, additional polling or new authority.
  */
 (() => {
   "use strict";
@@ -28,8 +28,36 @@
   panel.prepend(readiness);
   const classicToggle = byId("drivingCockpitToggle");
   if (classicToggle) classicToggle.hidden = true; // reversible via Classic layout
-  const active = document.querySelector('#v17ModeNav [aria-current="page"]');
-  active?.addEventListener("click", event => event.preventDefault());
+  const nav = byId("v17ModeNav");
+  const arm = byId(manual ? "mdrvArm" : "aiEnableMotor");
+  const feedback = document.createElement("span");
+  feedback.setAttribute("role", "status");
+  feedback.setAttribute("aria-live", "polite");
+  feedback.hidden = true;
+  feedback.style.flexBasis = "100%";
+  nav.append(feedback);
+  const transition = window.PiSDV17TransitionFactory.create({
+    fetchImpl: (...args) => window.fetch(...args),
+    disarm: () => {
+      if (arm) { arm.checked = false; arm.disabled = true; }
+      document.body.dataset.pisdV17Transition = "locked";
+    },
+    status: (state, message) => {
+      document.body.dataset.pisdV17Transition = state;
+      nav.setAttribute("aria-busy", String(state === "pending"));
+      feedback.hidden = false;
+      feedback.textContent = message;
+    },
+    navigate: url => window.location.assign(url),
+  });
+  window.PiSDV17Transition = transition;
+  for (const link of [...nav.querySelectorAll("a"), ...header.querySelectorAll("a.pisd-front-link")]) {
+    link.addEventListener("click", event => {
+      event.preventDefault();
+      if (link.getAttribute("aria-current") === "page") return;
+      void transition.switchTo(link.href);
+    });
+  }
 
   // The existing cockpit aspect observer continues to own decoded ratio.
   // Only the header measurement is new, so large text and narrow widths

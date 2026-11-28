@@ -103,6 +103,69 @@ class AICameraFreshnessTests(unittest.TestCase):
         self.assertFalse(still_stopped.get("ok"))
         self.assertEqual(len(motor.commands), 1)
 
+    def test_m02_stop_event_blocks_late_prediction_commit(self):
+        service = self.make_service()
+        motor = CapturingMotor()
+        service._ensure_model_ready_for_run = lambda: None
+        def prediction(_):
+            # STOP arrived during inference, before the actuator commit.
+            service._stop_event.set()
+            return (0.4, 0.3)
+        service._predict_from_jpeg = prediction
+        service._running = True
+        service._mode = "drive"
+        service._drive_output_enabled = True
+        result = service.predict_once(StaticCamera(), motor, drive=True)
+        self.assertTrue(result.get("ok"), result)
+        self.assertEqual(motor.commands, [])
+
+    def test_m02_commit_is_serialized_with_override(self):
+        import threading
+        service = self.make_service()
+        service._ensure_model_ready_for_run = lambda: None
+        service._predict_from_jpeg = lambda _: (0.4, 0.3)
+        service._running = True
+        service._mode = "drive"
+        service._drive_output_enabled = True
+        entered = threading.Event()
+        release = threading.Event()
+        override_started = threading.Event()
+        override_done = threading.Event()
+        motor = CapturingMotor()
+        original = motor.update
+        def update(**kwargs):
+            entered.set()
+            if not release.wait(3):
+                raise RuntimeError("test barrier timeout")
+            return original(**kwargs)
+        motor.update = update
+        results = []
+        prediction = threading.Thread(target=lambda: results.append(service.predict_once(StaticCamera(), motor, drive=True)))
+        def override():
+            override_started.set()
+            service.keep_preview_for_manual_override(motor, stop_motors=True)
+            override_done.set()
+        other = threading.Thread(target=override)
+        prediction.start()
+        try:
+            self.assertTrue(entered.wait(2))
+            other.start()
+            self.assertTrue(override_started.wait(2))
+            self.assertFalse(override_done.wait(0.1), "override escaped the commit lock")
+        finally:
+            release.set()
+            prediction.join(4)
+            if other.ident is not None:
+                other.join(4)
+        self.assertFalse(prediction.is_alive())
+        self.assertFalse(other.is_alive())
+        self.assertTrue(override_done.is_set())
+        self.assertTrue(results[0].get("ok"), results)
+        self.assertEqual(len(motor.commands), 1)
+        self.assertFalse(service.status()["drive_output_enabled"])
+        service.predict_once(StaticCamera(), motor, drive=True)
+        self.assertEqual(len(motor.commands), 1)
+
     def test_explicit_restart_state_reset_allows_new_grace_window(self):
         service = self.make_service()
         service._assert_fresh_frame_seq(3, now_monotonic=10.0)
