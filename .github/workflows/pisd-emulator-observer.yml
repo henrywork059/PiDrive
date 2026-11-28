@@ -28,6 +28,7 @@ jobs:
         run: python -m playwright install chromium
       - run: python -m compileall -q PiSD/pisd PiSD_Emulator
       - run: python PiSD_Emulator/scripts/test_browser_observer.py
+      - run: python PiSD_Emulator/scripts/test_vd36_auxiliary_visual.py
       - if: runner.os == 'Windows'
         run: python PiSD_Emulator/scripts/test_frame_browser.py
       - uses: actions/upload-artifact@v4
@@ -36,3 +37,9 @@ jobs:
           name: emulator-browser-observer-${{ matrix.os }}
           path: emulator-browser-observer-evidence/
           if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vd36-auxiliary-visual-${{ matrix.os }}
+          path: vd36-auxiliary-evidence/
+          if-no-files-found: error
