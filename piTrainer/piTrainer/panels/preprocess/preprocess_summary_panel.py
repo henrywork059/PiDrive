@@ -11,15 +11,24 @@ class PreprocessSummaryPanel(QGroupBox):
         self.info_label = QLabel('Load sessions on Data to start preprocessing.')
         self.info_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
         self.info_label.setWordWrap(True)
+        self.source_scope_label = QLabel('Preprocessing source: no rows')
+        self.source_scope_label.setObjectName('preprocessSourceScope')
+        self.source_scope_label.setTextFormat(Qt.PlainText)
+        self.source_scope_label.setWordWrap(True)
         self.preview_label = QLabel('No preview yet.')
         self.preview_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
         self.preview_label.setWordWrap(True)
         self.preview_label.setProperty('role', 'muted')
 
         layout = QVBoxLayout(self)
+        layout.addWidget(self.source_scope_label)
         layout.addWidget(self.info_label)
         layout.addWidget(self.preview_label)
         layout.addStretch(1)
+
+    def set_source_scope(self, description: str, count: int) -> None:
+        suffix = ' — change the Data filter or choose All loaded rows explicitly.' if count == 0 else ''
+        self.source_scope_label.setText(f'Preprocessing source: {description} | {count} row(s){suffix}')
 
     def set_summary(
         self,

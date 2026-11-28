@@ -372,6 +372,103 @@ def main() -> None:
                             or not all(data[k] for k in ("next", "previous", "geometry_unchanged",
                                                        "session_height_preserved", "state_unchanged"))):
                             geometry_errors.append(data)
+                # Keep all historical empty-workspace captures and add actual
+                # on-disk image/label fixtures for populated Data/Preprocess.
+                if hasattr(window.preprocess_page, "refresh_source_scope"):
+                    from PIL import Image, ImageDraw
+                    from piTrainer.services.preprocess.preprocess_service import apply_preprocessing_recipe
+                    from piTrainer.services.data.record_loader_service import load_records_dataframe, build_filtered_dataframe
+                    root = Path(temp) / "vd1j-recordings"
+                    sessions = ["2026-11-24/manual_a", "2026-11-25/manual_b"]
+                    metadata = []
+                    for si, name in enumerate(sessions):
+                        folder = root / name
+                        (folder / "frames").mkdir(parents=True)
+                        rows = []
+                        for j in range(6):
+                            image = Image.new("RGB", (320, 240), (43, 61, 80))
+                            draw = ImageDraw.Draw(image)
+                            draw.polygon([(0, 239), (125, 85), (195, 85), (319, 239)], fill=(105, 110, 115))
+                            draw.line([(160, 96), (160 + (j - 2)*18, 239)], fill=(245, 220, 90), width=4)
+                            draw.text((12, 12), f"Synthetic session {si+1} frame {j}", fill="white")
+                            image.save(folder / "frames" / f"{j}.jpg")
+                            rows.append({"frame_id": f"f{j}", "frame": f"frames/{j}.jpg",
+                                         "timestamp_utc": f"2026-11-{24+si}T00:00:0{j}Z",
+                                         "steering": (j - 3 + si)/5, "throttle": .4 + j*.05,
+                                         "mode": "manual"})
+                        labels = folder / "labels.jsonl"
+                        labels.write_text("".join(json.dumps(row)+"\n" for row in rows), encoding="utf-8")
+                        metadata.append(labels)
+                    hashes = [hashlib.sha256(p.read_bytes()).hexdigest() for p in metadata]
+                    data_page = window.data_page
+                    preprocess = window.preprocess_page
+                    tabs.setCurrentIndex(0)
+                    window.state.records_root = str(root)
+                    data_page.session_source_panel.path_edit.setText(str(root))
+                    data_page.refresh_sessions()
+                    data_page.session_source_panel.set_selected_sessions(sessions)
+                    data_page.load_selected_sessions()
+                    app.processEvents()
+                    expected_rows = build_filtered_dataframe(load_records_dataframe(root, sessions), False)
+                    assert len(expected_rows) == len(window.state.filtered_df) == 12
+                    pd.testing.assert_frame_equal(window.state.filtered_df, expected_rows)
+                    records = data_page.preview_panel
+                    assert len(records.df) == 12
+                    records.model.sort(records.model.columns.index("steering"), Qt.DescendingOrder)
+                    target_record = records.df.iloc[0].to_dict()
+                    assert records.select_record_identity(records.record_identity(target_record))
+                    app.processEvents()
+                    QTest.qWait(250)
+                    assert records.record_identity(data_page.image_preview_panel.current_record) == records.record_identity(target_record)
+                    assert data_page.image_preview_panel.image_label.pixmap() is not None
+                    assert not data_page.image_preview_panel.image_label.pixmap().isNull()
+                    assert records.select_adjacent_record(1)
+                    QTest.qWait(250)
+                    assert records.record_identity(data_page.image_preview_panel.current_record) == records.record_identity(records.selected_record())
+                    manifest["populated_review"] = []
+                    def capture_populated(name, details):
+                        target = output / f"populated-{name}.png"
+                        pixmap = window.grab()
+                        assert not pixmap.isNull() and pixmap.save(str(target), "PNG")
+                        manifest["populated_review"].append(dict(details, file=target.name,
+                            sha256=hashlib.sha256(target.read_bytes()).hexdigest()))
+                    capture_populated("data", {"loaded": 12, "visible": len(records.df),
+                        "selected_identity": list(records.record_identity(records.selected_record())),
+                        "summary": records.summary_label.text(), "actual_image": True})
+                    data_page.filter_panel.text_edit.setText("manual_b")
+                    data_page.apply_preview_filter()
+                    assert len(records.df) == 6 and len(data_page.plot_panel.df) == 6
+                    assert len(preprocess._source_df()) == 6
+                    data_page.filter_panel.text_edit.setText("no-matching-records")
+                    data_page.apply_preview_filter()
+                    assert records.df.empty and preprocess._source_df().empty
+                    assert len(window.state.filtered_df) == 12
+                    tabs.setCurrentIndex(1)
+                    app.processEvents()
+                    capture_populated("empty-scope", {"visible": 0, "active": 12,
+                        "source": preprocess.summary_panel.source_scope_label.text()})
+                    preprocess.filter_panel.source_combo.setCurrentText("All loaded rows")
+                    assert len(preprocess._source_df()) == 12
+                    preprocess.filter_panel.source_combo.setCurrentText("Visible table rows")
+                    assert preprocess._source_df().empty
+                    data_page.filter_panel.text_edit.setText("manual_b")
+                    data_page.apply_preview_filter()
+                    source_df = preprocess._source_df()
+                    recipe = preprocess.current_recipe()
+                    transformed, summary = apply_preprocessing_recipe(source_df, recipe)
+                    assert len(source_df) == 6
+                    preprocess.preview_recipe()
+                    deadline = time.monotonic() + 20
+                    while preprocess.task_runner.active and time.monotonic() < deadline:
+                        QTest.qWait(50)
+                    assert not preprocess.task_runner.active
+                    assert len(window.state.filtered_df) == 12
+                    assert window.state.model is None
+                    assert "Not applied yet" in preprocess.result_panel.status_label.text()
+                    capture_populated("preprocess", {"source_rows": len(source_df),
+                        "expected_output_rows": len(transformed), "preview_summary": summary,
+                        "active_unchanged": True})
+                    assert [hashlib.sha256(p.read_bytes()).hexdigest() for p in metadata] == hashes
                 manifest["geometry_errors"] = geometry_errors
                 (output / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
                 assert not geometry_errors, geometry_errors

@@ -71,6 +71,35 @@ class NativeReviewTests(unittest.TestCase):
         table.set_dataframe(frame.iloc[:0])
         self.assertIn('Select a frame',image.comparison_label.text())
 
+    def test_visible_preprocess_scope_and_sorted_position(self):
+        from piTrainer.pages.preprocess_page import PreprocessPage
+        from piTrainer.panels.preprocess.preprocess_filter_panel import PreprocessFilterPanel
+        from piTrainer.app_state import AppState
+        state = AppState()
+        rows = [dict(session='A', frame_id='f1', ts='1', abs_image='a.jpg', steering=.5, throttle=.2),
+                dict(session='B', frame_id='f1', ts='2', abs_image='b.jpg', steering=-.5, throttle=.2)]
+        state.dataset_df = pd.DataFrame(rows)
+        state.filtered_df = state.dataset_df.copy()
+        table = PreviewPanel()
+        self.addCleanup(table.close)
+        table.set_dataframe(state.dataset_df)
+        filters = PreprocessFilterPanel(state)
+        self.addCleanup(filters.close)
+        harness = SimpleNamespace(state=state, filter_panel=filters,
+            main_window=SimpleNamespace(data_page=SimpleNamespace(preview_panel=table)))
+        table.select_record_identity(table.record_identity(rows[0]))
+        table.model.sort(table.model.columns.index('steering'), Qt.AscendingOrder)
+        self.assertIn('row 2/2', table.summary_label.text())
+        self.assertEqual(table.selected_record()['session'], 'A')
+        before = PreprocessPage._source_identity(harness)
+        table.update_record_values(table.record_identity(rows[0]), {'steering': .6})
+        self.assertNotEqual(before, PreprocessPage._source_identity(harness))
+        table.set_dataframe(state.dataset_df.iloc[:0])
+        self.assertTrue(PreprocessPage._source_df(harness).empty)
+        self.assertEqual(len(state.filtered_df), 2)
+        filters.source_combo.setCurrentText('All loaded rows')
+        self.assertEqual(len(PreprocessPage._source_df(harness)), 2)
+
     def test_live_bulk_preview_is_read_only_and_tracks_selection(self):
         actions = []
         panel = BulkEditPanel(actions.append, actions.append)

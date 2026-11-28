@@ -40,6 +40,7 @@ class PreprocessPage(DockPage):
 
         self.summary_panel = PreprocessSummaryPanel()
         self.filter_panel = PreprocessFilterPanel(self.state)
+        self.filter_panel.source_combo.currentTextChanged.connect(self.refresh_source_scope)
         self.config_panel = PreprocessConfigPanel(self.state)
         self.actions_panel = PreprocessActionsPanel(
             preview_callback=self.preview_recipe,
@@ -148,10 +149,38 @@ class PreprocessPage(DockPage):
             data_page = getattr(self.main_window, 'data_page', None)
             preview_panel = getattr(data_page, 'preview_panel', None) if data_page is not None else None
             visible_df = getattr(preview_panel, 'df', None) if preview_panel is not None else None
-            if isinstance(visible_df, pd.DataFrame) and not visible_df.empty:
+            if isinstance(visible_df, pd.DataFrame):
+                # An empty filtered table is a real, intentional scope.
+                # Never substitute broader active rows for zero visible rows.
                 return visible_df.copy()
             return self.state.filtered_df.copy()
         return self.state.dataset_df.copy()
+
+    def refresh_source_scope(self, *_args) -> None:
+        mode = self.filter_panel.recipe().get('source_mode', self.filter_panel.SOURCE_ITEMS[0])
+        visible = self.filter_panel.is_visible_source_mode(mode)
+        page = getattr(self.main_window, 'data_page', None)
+        panel = getattr(page, 'preview_panel', None)
+        frame = getattr(panel, 'df', None)
+        if visible and isinstance(frame, pd.DataFrame):
+            count = len(frame)
+            description = 'Visible Data rows'
+        elif visible:
+            count = len(self.state.filtered_df)
+            description = 'Active rows (Data table unavailable)'
+        else:
+            count = len(self.state.dataset_df)
+            description = 'All loaded rows'
+        self.summary_panel.set_source_scope(description, count)
+
+    def _source_identity(self):
+        mode = self.filter_panel.recipe().get('source_mode', self.filter_panel.SOURCE_ITEMS[0])
+        panel = getattr(getattr(self.main_window, 'data_page', None), 'preview_panel', None)
+        visible_token = None
+        if self.filter_panel.is_visible_source_mode(mode) and panel is not None:
+            visible_token = (id(panel.df), getattr(panel, 'review_revision', 0))
+        return (id(self.state.dataset_df), id(self.state.filtered_df),
+                tuple(self.state.selected_sessions), mode, visible_token)
 
     def current_recipe(self) -> dict[str, object]:
         recipe = {}
@@ -176,9 +205,10 @@ class PreprocessPage(DockPage):
                 title='Current active training dataset',
             )
         )
+        self.refresh_source_scope()
         default_source_df = self._source_df()
         if default_source_df.empty:
-            self.result_panel.set_status_idle('Status: load selected sessions first.')
+            self.result_panel.set_status_idle('Status: no rows in the selected preprocessing source.')
         elif self._preprocess_applied:
             self.result_panel.set_status_done(
                 f"✓ PREPROCESS DONE — {len(self.state.filtered_df)} active row(s) ready for training."
@@ -232,14 +262,14 @@ class PreprocessPage(DockPage):
         self._preprocess_applied = False
         source_df = self._source_df().copy(deep=True)
         recipe = self.current_recipe()
-        source_identity = (id(self.state.dataset_df), id(self.state.filtered_df), tuple(self.state.selected_sessions))
+        source_identity = self._source_identity()
 
         def work(report):
             report('Calculating preprocessing preview', None)
             return apply_preprocessing_recipe(source_df, recipe)
 
         def completed(result):
-            if source_identity != (id(self.state.dataset_df), id(self.state.filtered_df), tuple(self.state.selected_sessions)):
+            if source_identity != self._source_identity():
                 raise RuntimeError('Dataset changed during preview; discard the stale result and preview again.')
             result_df, summary = result
             preview_text = format_preprocess_preview(summary, recipe)
@@ -286,7 +316,7 @@ class PreprocessPage(DockPage):
             return
         recipe = self.current_recipe()
         source_snapshot = source_df.copy(deep=True)
-        source_identity = (id(self.state.dataset_df), id(self.state.filtered_df), tuple(self.state.selected_sessions))
+        source_identity = self._source_identity()
         receipt_root = self.state.out_dir_path
         self.result_panel.set_status_running('Applying preprocessing recipe...')
         self.task_progress.begin('Preprocess')
@@ -296,7 +326,7 @@ class PreprocessPage(DockPage):
             return apply_preprocessing_recipe(source_snapshot, recipe)
 
         def completed(result):
-            if (source_identity != (id(self.state.dataset_df), id(self.state.filtered_df), tuple(self.state.selected_sessions))
+            if (source_identity != self._source_identity()
                     or receipt_root != self.state.out_dir_path):
                 raise RuntimeError('Dataset changed during preprocessing; results discarded. Run preprocessing again.')
             result_df, summary = result
