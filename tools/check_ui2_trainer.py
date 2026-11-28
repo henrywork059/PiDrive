@@ -36,8 +36,8 @@ def main() -> None:
         os.environ["XDG_CONFIG_HOME"] = temp
         os.environ["XDG_DATA_HOME"] = temp
         try:
-            from PySide6.QtCore import QSettings, Qt, qVersion
-            from PySide6.QtGui import QFontInfo, QRawFont
+            from PySide6.QtCore import QSettings, Qt, QRect, qVersion
+            from PySide6.QtGui import QFontInfo, QRawFont, QRegion
             from PySide6.QtTest import QTest
             from PySide6.QtWidgets import QApplication
             import pandas as pd
@@ -163,6 +163,29 @@ def main() -> None:
                     tabs.setCurrentIndex(0)
                     app.processEvents()
 
+                panel = window.data_page.session_source_panel
+                new_action = panel.load_btn.objectName() == "sessionLoadPrimaryAction"
+                geometry_errors = []
+                manifest["data_action_geometry"] = []
+
+                def check_load_action(profile):
+                    button = panel.load_btn
+                    rect = QRect(button.mapTo(window, button.rect().topLeft()), button.size())
+                    hit = window.childAt(rect.center())
+                    visible = QRegion(button.rect()).subtracted(button.visibleRegion()).isEmpty()
+                    reachable = (button.isVisible() and window.rect().contains(rect)
+                                 and visible and (hit is button or
+                                 (hit is not None and button.isAncestorOf(hit))))
+                    data = {"profile": profile, "window": [window.width(), window.height()],
+                            "rect": [rect.x(), rect.y(), rect.width(), rect.height()],
+                            "fully_reachable": reachable,
+                            "list_height": panel.list_widget.height(),
+                            "saved_list_height": panel._current_session_list_height(),
+                            "density": window._ui_density}
+                    manifest["data_action_geometry"].append(data)
+                    if not reachable:
+                        geometry_errors.append(data)
+
                 for width, height in ((1024, 768), (1440, 900)):
                     window.resize(width, height)
                     tabs.setCurrentIndex(0)
@@ -177,6 +200,8 @@ def main() -> None:
                         assert tabs.currentWidget().isVisible()
                         QTest.qWait(100)
                         visible_status = check_visible_status()
+                        if i == 0 and new_action:
+                            check_load_action(f"requested-{width}x{height}")
                         pixmap = window.grab()
                         target = output / f"{width}-{i+1}.png"
                         assert not pixmap.isNull() and pixmap.save(str(target), "PNG")
@@ -194,7 +219,39 @@ def main() -> None:
                     QTest.keyClick(bar, Qt.Key_Left)
                     assert tabs.currentIndex() == 4
                 assert len(manifest["captures"]) == 12
+                # Native Windows runners can have a smaller physical desktop.
+                # Keep both historical requested profiles unchanged; separately
+                # qualify an honestly labelled client size that fits the screen.
+                if new_action and sys.platform == "win32":
+                    tabs.setCurrentIndex(0)
+                    app.processEvents()
+                    screen = window.screen().availableGeometry()
+                    chrome_w = max(0, window.frameGeometry().width() - window.width())
+                    chrome_h = max(0, window.frameGeometry().height() - window.height())
+                    fit = [min(1024, screen.width() - chrome_w - 8),
+                           min(768, screen.height() - chrome_h - 8)]
+                    window.resize(*fit)
+                    window.move(screen.x() + 4, screen.y() + 4)
+                    app.processEvents()
+                    QTest.qWait(150)
+                    frame = window.frameGeometry()
+                    actual = [window.width(), window.height()]
+                    geometry_met = actual == fit and screen.contains(frame)
+                    check_load_action("native-screen-fit")
+                    pixmap = window.grab()
+                    target = output / "native-screen-fit-data.png"
+                    assert not pixmap.isNull() and pixmap.save(str(target), "PNG")
+                    manifest["native_screen_fit"] = {
+                        "requested_client": fit, "actual_client": actual,
+                        "available_screen": [screen.width(), screen.height()],
+                        "frame": [frame.x(), frame.y(), frame.width(), frame.height()],
+                        "geometry_met": geometry_met, "file": target.name,
+                        "sha256": hashlib.sha256(target.read_bytes()).hexdigest()}
+                    if not geometry_met:
+                        geometry_errors.append(manifest["native_screen_fit"])
+                manifest["geometry_errors"] = geometry_errors
                 (output / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+                assert not geometry_errors, geometry_errors
                 print(f"Captured {len(manifest['captures'])} native Qt widget images; readiness and tab navigation verified")
             finally:
                 window.close()

@@ -188,9 +188,10 @@ def get_density_profile(density: str = "comfortable") -> DensityProfile:
     return DENSITY_PROFILES.get(density, DENSITY_PROFILES["comfortable"])
 
 
-def density_for_width(width: int) -> str:
+def density_for_width(width: int, height: int | None = None) -> str:
+    """Preserve width profiles; short windows also use compact chrome."""
     width = max(1, int(width))
-    if width < 1180:
+    if width < 1180 or (height is not None and height < 760):
         return "compact"
     if width > 1680:
         return "spacious"

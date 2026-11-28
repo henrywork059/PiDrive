@@ -252,7 +252,7 @@ class MainWindow(QMainWindow):
 
     def _apply_responsive_density(self) -> None:
         width = max(1, int(self.width()))
-        density = density_for_width(width)
+        density = density_for_width(width, height=self.height())
         if density == self._ui_density:
             apply_standard_widget_format(self, density=density)
             return

@@ -188,6 +188,12 @@ def main():
                     page.reload()
                     expect(page.locator("body")).to_have_attribute("data-pisd-theme", mode)
                     report.setdefault("local_typography", []).append({"theme": mode, "faces": check_local_typography(page, ".pp-range-value", ".pp-console")})
+                    grouping = page.locator('#panelPresentationControls .pp-control-grid label:has(input[name$="Weight"])')
+                    assert grouping.count() > 0
+                    expect(grouping.first).to_have_css("border-top-width", "0px")
+                    expect(grouping.first).to_have_css("background-color", "rgba(0, 0, 0, 0)")
+                    expect(grouping.first.locator("input")).to_be_visible()
+                    report.setdefault("borderless_groups", []).append({"theme": mode, "groups": grouping.count(), "borderless": True})
                     save_count = len(saves)
                     feedback = check_action_feedback(page, "#ppApply")
                     assert len(saves) == save_count
@@ -252,6 +258,13 @@ def main():
                     page.locator("#styleThemePreset").select_option(mode)
                     expect(page.locator("body")).to_have_css("background-color", expected)
                     report.setdefault("local_typography", []).append({"theme": mode, "faces": check_local_typography(page, "#styleFontScaleValue", "#styleFontScaleValue")})
+                    grouping = page.locator("#styleSettingsModal .style-settings-grid > .style-settings-section")
+                    assert grouping.count() == 2
+                    for section in grouping.all():
+                        expect(section).to_have_css("border-top-width", "0px")
+                        expect(section).to_have_css("background-color", "rgba(0, 0, 0, 0)")
+                        expect(section).to_be_visible()
+                    report.setdefault("borderless_groups", []).append({"theme": mode, "groups": grouping.count(), "borderless": True})
                     capture("style-dialog-preview", mode, 1440, {"body": inspect(page, "body")})
                     page.set_viewport_size({"width": 390, "height": 844})
                     expect(page.locator(".style-setting-row-range").first).to_have_css("grid-template-columns", re.compile(r"^[\d.]+px [\d.]+px$"))

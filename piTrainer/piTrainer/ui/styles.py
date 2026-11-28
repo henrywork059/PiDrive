@@ -730,6 +730,38 @@ def build_stylesheet(density: str = "comfortable") -> str:
     QAbstractScrollArea::corner {
         background: @COLOR_SCROLL_TRACK@;
     }
+    /* VD1F: flat Data workspace chrome. Keep semantic button, focus,
+       disclosure, table, splitter and input styling unchanged. */
+    QFrame#data_workflow_controls_panel,
+    QFrame#data_record_review_panel,
+    QFrame#data_image_preview_panel {
+        border: none;
+        border-radius: 0px;
+    }
+    QFrame#data_workflow_controls_panel QLabel#splitterPanelTitle,
+    QFrame#data_record_review_panel QLabel#splitterPanelTitle,
+    QFrame#data_image_preview_panel QLabel#splitterPanelTitle {
+        background: transparent;
+        border: none;
+        border-bottom: 1px solid @COLOR_BORDER_SUBTLE@;
+        border-radius: 0px;
+        padding: 4px 6px;
+        font-weight: 750;
+    }
+    QFrame#data_workflow_controls_panel QTabWidget[role='workflowTabs']::pane,
+    QFrame#data_record_review_panel QTabWidget[role='workflowTabs']::pane {
+        border: none;
+        border-radius: 0px;
+    }
+    QFrame#data_workflow_controls_panel QFrame#collapsibleSectionBody {
+        border: none;
+        border-radius: 0px;
+    }
+    QGroupBox#sessionSourcePanel {
+        border: none;
+        border-radius: 0px;
+        padding: 6px 3px 3px 3px;
+    }
     """
     for key, value in values.items():
         css = css.replace(f"@{key}@", str(value))

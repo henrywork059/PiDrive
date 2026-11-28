@@ -4018,3 +4018,22 @@ html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="ligh
     min-width: 44px !important;
   }
 }
+
+/* VD1F: the editor groups need no nested card frames. Keep preview surfaces
+   and the configurable workspace itself unchanged. */
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #styleSettingsModal .style-settings-grid > .style-settings-section {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #styleSettingsModal .style-settings-grid .style-settings-section-head {
+  background: transparent !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+@media (max-width: 600px) {
+  html.theme-ops-flat:is([data-pidrive-theme="obsidian"],[data-pidrive-theme="light"]) #styleSettingsModal .style-settings-grid > .style-settings-section {
+    padding-inline: 4px;
+  }
+}

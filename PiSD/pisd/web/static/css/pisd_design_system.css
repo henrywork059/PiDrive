@@ -1317,3 +1317,13 @@ body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) :is(.pp-range-value,
     white-space: normal;
   }
 }
+
+/* VD1F: flatten decorative grouping only, not the configurable workspace
+   panels, sliders, focus rings, status semantics or preview samples. */
+body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) #panelPresentationControls .pp-control-grid label:has(input[name$="Weight"]) {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: .25rem 0;
+}
