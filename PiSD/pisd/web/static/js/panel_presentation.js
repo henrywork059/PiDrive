@@ -25,23 +25,39 @@
     if (outputCode) { outputCode.textContent = code; outputCode.dataset.state = String(code).startsWith('PISD-OK') ? 'ok' : 'error'; }
   }
 
+  // Native range controls can round a saved value to their step grid.
+  // Keep the loaded settings intact unless the user actually edits a field.
+  let filledSettings = {};
+  const filledValues = new Map();
+  const editedFields = new Set();
+
+  function fieldValue(element) {
+    return element.type === 'checkbox' ? String(element.checked) : String(element.value);
+  }
+
   function collect() {
-    const data = {};
+    const data = { ...filledSettings };
     for (const element of form.elements) {
       if (!element.name) continue;
-      if (element.type === 'checkbox') data[element.name] = element.checked ? 'true' : 'false';
-      else data[element.name] = String(element.value);
+      const value = fieldValue(element);
+      if (editedFields.has(element.name) || filledValues.get(element.name) !== value) {
+        data[element.name] = value;
+      }
     }
     return api.normalize(data);
   }
 
   function fill(settings) {
     const normalized = api.normalize(settings);
+    filledSettings = { ...normalized };
+    filledValues.clear();
+    editedFields.clear();
     for (const [key, value] of Object.entries(normalized)) {
       const field = form.elements[key];
       if (!field) continue;
       if (field.type === 'checkbox') field.checked = String(value) === 'true';
       else field.value = value;
+      filledValues.set(key, fieldValue(field));
     }
     updateRangeReadouts();
     return normalized;
@@ -80,7 +96,11 @@
     let settings = api.read();
     try { const response = await fetch('/api/settings', { cache: 'no-store' }); const payload = await response.json(); if (payload.settings?.panel_presentation) settings = payload.settings.panel_presentation; } catch (_err) {}
     settings = fill(settings); api.apply(settings); log(settings);
-    form.addEventListener('input', () => { updateRangeReadouts(); applyOrAutosave(); });
+    form.addEventListener('input', event => {
+      if (event.target.name) editedFields.add(event.target.name);
+      updateRangeReadouts();
+      applyOrAutosave();
+    });
     $('ppApply')?.addEventListener('click', event => { event.preventDefault(); applyFromForm(); });
     $('ppSave')?.addEventListener('click', event => { event.preventDefault(); saveFromForm(); });
     $('ppReset')?.addEventListener('click', event => { event.preventDefault(); reset(); });

@@ -127,7 +127,7 @@ test('all eleven active style sliders retain native labels and visible readouts'
   }
 });
 test('style slider accessible units and visible readout follow actual clamped native value',()=>{
-  const start=app.indexOf('function updateStyleRangeReadout(');
+  const start=app.indexOf('function collectStyleOverridesFromInputs(');
   const end=app.indexOf('function previewStyleOverridesFromInputs(',start);
   assert.ok(start>=0 && end>start);
   const fields=[
@@ -143,9 +143,10 @@ test('style slider accessible units and visible readout follow actual clamped na
   const values={font:range(70,115,80),gap:range(0,20,4),fontValue:{},gapValue:{}};
   const resolved={'--font-scale':'130%','--gap':'-2px'};
   const api=new Function('document','styleSettingsFields','readResolvedStyleVars','parseNumericStyleValue',
-    app.slice(start,end)+'\nreturn {syncStyleInputsFromCurrentVars,syncStyleValueLabelsFromInputs};')(
+    app.slice(start,end)+'\nreturn {syncStyleInputsFromCurrentVars,syncStyleValueLabelsFromInputs,changedStyleOverrides};')(
     {getElementById:id=>values[id]},fields,()=>resolved,(raw,fallback)=>parseFloat(raw)||fallback);
   api.syncStyleInputsFromCurrentVars();
+  assert.deepEqual(api.changedStyleOverrides(),{});
   assert.equal(values.font.value,'115');
   assert.equal(values.fontValue.textContent,'115%');
   assert.equal(values.font.attributes['aria-valuetext'],'115 percent');
@@ -154,6 +155,7 @@ test('style slider accessible units and visible readout follow actual clamped na
   assert.equal(values.gap.attributes['aria-valuetext'],'0 pixels');
   values.font.value='91'; values.gap.value='7';
   api.syncStyleValueLabelsFromInputs();
+  assert.deepEqual(api.changedStyleOverrides(),{'--font-scale':'91%','--font-scale-factor':'0.91','--gap':'7px'});
   assert.equal(values.fontValue.textContent,'91%');
   assert.equal(values.font.attributes['aria-valuetext'],'91 percent');
   assert.equal(values.gapValue.textContent,'7px');

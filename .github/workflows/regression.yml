@@ -54,8 +54,14 @@ jobs:
       - name: Install Qt runtime libraries for desktop smoke tests
         if: ${{ matrix.component == 'piTrainer' }}
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libegl1 libgl1 libxkbcommon0 libdbus-1-3 libxcb-cursor0
+          # Qt dependencies are Ubuntu packages; unrelated third-party feeds
+          # must not block this install. Keep normal apt signature verification.
+          apt_sources=()
+          if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
+            apt_sources=(-o Dir::Etc::sourcelist=/etc/apt/sources.list.d/ubuntu.sources -o Dir::Etc::sourceparts=-)
+          fi
+          sudo apt-get "${apt_sources[@]}" -o Acquire::Retries=3 update
+          sudo apt-get "${apt_sources[@]}" -o Acquire::Retries=3 install -y libegl1 libgl1 libxkbcommon0 libdbus-1-3 libxcb-cursor0
       - name: Compile component Python and shared browser fixtures
         run: python -m compileall -q . ../tools/check_browser_ui.py ../tools/check_r35_setup.py ../tools/check_r36_responsive.py
       - name: Install test-only dependencies

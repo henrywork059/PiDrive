@@ -1,0 +1,3 @@
+# Stability update — piTrainer 1.0.0 candidate CI
+
+Base: 6d028b77c0e94ae16c43f16e72d02a9cfcbfb5fd. Run 46042728217 job 140654263638 failed apt update: unrelated Microsoft Ubuntu 26.04 feed returned HTTP 403; downstream real interpreter report was not generated. Scope Qt package apt update/install to existing Ubuntu deb822 source when present, retaining authenticated package checks, normal fallback and retries; preserve exact package list, runner, native tests, interpreter benchmark and required artifact. No trainer runtime, data, export, theme, configuration or version marker changes. Reviewed 1.0.0, 0.11.36/35/34 and VD1A notes. Workflow source inspected; actual install and full CI pending. No claims of performance or physical acceptance.
