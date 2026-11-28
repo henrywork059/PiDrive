@@ -1306,8 +1306,12 @@ body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) :is(.pp-range-value,
   body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pp-card-head { flex-wrap: wrap; overflow-wrap: anywhere; }
   body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pp-actions { min-inline-size: 0; max-inline-size: 100%; }
   body:is([data-pisd-theme="dark"],[data-pisd-theme="light"]) .pp-actions :is(button,a) {
-    min-block-size: 44px;
-    min-inline-size: 44px;
+    /* Shared physical min-height is important; override it only here. */
+    min-height: 44px !important;
+    min-width: 44px !important;
+    min-block-size: 44px !important;
+    min-inline-size: 44px !important;
+    flex-shrink: 0;
     display: inline-flex;
     align-items: center;
     white-space: normal;

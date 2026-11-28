@@ -103,10 +103,15 @@ def check_narrow_targets(page, selectors):
     for selector in selectors:
         loc = page.locator(selector).first
         expect(loc).to_be_visible()
+        loc.scroll_into_view_if_needed()
         box = loc.bounding_box()
         assert box and box["height"] >= 44 and box["width"] >= 44, (selector, box)
         assert box["x"] >= -1 and box["x"] + box["width"] <= page.viewport_size["width"] + 1, (selector, box)
-        boxes.append({"selector": selector, **box})
+        assert box["y"] >= -1 and box["y"] + box["height"] <= page.viewport_size["height"] + 1, (selector, box)
+        # Trial performs Playwright's real hit-target/actionability checks
+        # without triggering a setting mutation, reset or navigation.
+        loc.click(trial=True)
+        boxes.append({"selector": selector, **box, "hit_target_verified": True})
     return boxes
 
 
@@ -190,6 +195,8 @@ def main():
                     page.set_viewport_size({"width": 390, "height": 844})
                     expect(page.locator(".pp-control-grid")).to_have_css("grid-template-columns", re.compile(r"^[\d.]+px$"))
                     report.setdefault("narrow_targets", []).append({"theme": mode, "boxes": check_narrow_targets(page, ("#ppReset", "#ppApply", "#ppSave"))})
+                    assert len(saves) == save_count
+                    capture("presentation-targets", mode, 390, {"body": inspect(page, "body")})
                     page.set_viewport_size({"width": 1440, "height": 900})
                     report["persistence"].append({"theme": mode, "actual_backend_readback": True,
                                                   "persisted_json": True, "unrelated_manual_settings": True})
@@ -249,6 +256,8 @@ def main():
                     page.set_viewport_size({"width": 390, "height": 844})
                     expect(page.locator(".style-setting-row-range").first).to_have_css("grid-template-columns", re.compile(r"^[\d.]+px [\d.]+px$"))
                     report.setdefault("narrow_targets", []).append({"theme": mode, "boxes": check_narrow_targets(page, ("#saveStyleSettingsBtn", "#resetStyleSettingsBtn", "#closeStyleSettingsBtn"))})
+                    expect(page.locator("#styleSettingsModal")).to_be_visible()
+                    capture("style-dialog-targets", mode, 390, {"body": inspect(page, "body")})
                     page.set_viewport_size({"width": 1440, "height": 900})
                     page.keyboard.press("Escape")
                     expect(page.locator("#styleSettingsModal")).to_be_hidden()
