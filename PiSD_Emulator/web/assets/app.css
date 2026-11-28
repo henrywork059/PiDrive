@@ -133,3 +133,12 @@ footer {
   .appearance-row select,.viewport,.runtime-panel .button {min-height:44px;min-width:44px}
 }
 /* Keep protected camera imagery and current wide workspace geometry. */
+
+/* VD1AE follow-up: the offline iframe shell retained its original white
+   backing while the dark theme supplied a light foreground. Use theme
+   surfaces for the outer placeholder only; never style the loaded PiSD
+   document or change frame dimensions, camera matte, or runtime state. */
+@media (forced-colors: none) {
+  #frameShell {background:var(--panel)}
+  #frameEmpty {color:var(--text);background:var(--panel)}
+}

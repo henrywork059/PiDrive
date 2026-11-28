@@ -20,9 +20,9 @@ The following ZIP bytes were read locally, CRC-tested, PNG inventories decoded/c
 | 15267055060 | VD1AD Windows trainer | 192 | 96 | fb5485e000470628c8b3a92b95d4bc810a210a79af9727e7dd610bcf425c241a |
 | 15266203870 | VD1AD failed emulator | 2 | 2 | 6a4cf4adca9941f1b6c3669ecc469a60f8d92c1369df42a4c54e2050da183e7c |
 | 15264805921 | VD1AC emulator reference | 2 | 2 | f9e9c49c2e21b157437d6425849bde516ce664835b1caf1dd3c5c9279567ffe1 |
-| 15265394583 | VD1AD trained workflow | 6 | none provided in captures array | c4e1bb169ef144c8205b2419292fc7b34527058282f26029252c37896496adb9 |
+| 15265394583 | VD1AD trained workflow | 6 | 6 | c4e1bb169ef144c8205b2419292fc7b34527058282f26029252c37896496adb9 |
 
-All nine CRC checks clean, 276/276 manifest hashes match (including 2 from reference emulator). Also downloaded and verified CRC and archive digests of last green PiSD 15263968172, PiServer 15264855755, Ubuntu 15264387361, Windows 15263798480. Those are intermediate reference, not substitution for VD1AD.
+All nine CRC checks clean. The VD1AD matrix/cockpit subtotal is 276/276 (82 PiSD + 48 PiServer + 48 Linux trainer + 96 Windows trainer + 2 failed emulator). Reopened the trained-workflow report.json during the follow-up and verified its six additional capture hashes: 282/282 VD1AD candidate captures. With two separately verified VD1AC emulator reference captures, the total is 284/284. This supersedes the ambiguous original count; pinned web baseline archives have no per-capture hashes. Also downloaded and verified CRC and archive digests of last green PiSD 15263968172, PiServer 15264855755, Ubuntu 15264387361, Windows 15263798480. Those are intermediate reference, not substitution for VD1AD.
 
 ## Paired comparisons and observed findings
 
@@ -35,3 +35,29 @@ All nine CRC checks clean, 276/276 manifest hashes match (including 2 from refer
 ## Qualification blockers
 
 VD34 remains partial. Exact repair CI and screenshot reinspection needed, including light emulator, full-resolution review of outstanding matched web/trainer captures, 125% native requested-size matrix, physical DPI/screen-reader, live hardware and concurrent emulator scenario pages. Do not infer visual acceptance from successful CI. No baseline change, merge, version, configuration or safety/runtime handler changes. This audit did not locally run the new application code.
+
+## VD1AE follow-up — repaired evidence, exact revision 4ebb89315f9bd2d19e13ba1878378b59ab5f2f82
+
+All requested CI completed successfully: 46153327145 Windows native job 141004479104; 46153327140 Linux and Windows visual jobs 141004478843 and 141004479016; 46153327141 emulator job 141004478733; 46153327139 all four jobs (trainer 141004479114, PiServer 141004479338, PiSD 141004479368, compatibility 141004479414). No failed CI job remains at that revision.
+
+Downloaded the six exact repaired archives and both pinned web baselines; independently read ZIP bytes, verified SHA-256 against GitHub digest, CRC, decoded every PNG and recomputed every manifest capture digest. Reopened the previous trained-workflow and emulator reference archives for the count correction above.
+
+| Artifact ID | Scope | PNGs | Capture hashes matched | SHA-256 |
+|---|---|---:|---:|---|
+| 15266288995 | PiSD | 165 | 82 | 3a9b7911498b07f44fed30b219129cc926b019562de7b37d2c7d1d11d9f46893 |
+| 15266313227 | PiServer | 74 | 48 | d5d7a21a203acaf5c6172c85258a3feb3ed3ff3fb6c39adc2a19e2a5de67441c |
+| 15266816573 | Linux trainer | 93 | 48 | bea60d52d7bf24cf814b64a08774de0fa3f4725d89becb4f87a74c3268ab7634 |
+| 15266313440 | Windows trainer | 192 | 96 | 4bc9330463419bf10374e369e380594a91324c0e258607e3a4b77182ef09a70d |
+| 15267115275 | Emulator | 10 | 10 | eefe0b0879e0d93f481485f76945bc158891153f97f045da227f93feccb14991 |
+| 15266254437 | Trained workflow | 6 | 6 | 42e8b4f033ed18366ca2e69dbea7f6eade57515202d6fbe7d3c0bd0bf3a1bf93 |
+
+540 candidate PNGs decoded; 290/290 declared capture hashes matched (284 matrix/cockpit + 6 trained workflow). The 250 other PNGs have no verified captures[].sha256 entry; do not conflate archive integrity with per-capture manifest binding. Rechecked pinned 105 PNGs, identical pinned archive hashes as above. All 105 relative paths match: 43 same-sized changed (31 PiSD/12 PiServer), 62 different sizes (52/10), zero identical; all pairs compared without resizing. Native Linux and Windows actual original-size manifests: 12 baseline files each, each matched against after/dark/light = 36 pairs per OS, 72/72 equal dimensions. Linux offscreen 48/48 requested geometry, Windows native-display 48/48 with zero geometry errors. Native display mode 1680x1050, Qt available 1680x1002 DPR 1, restore result 0. Simulated 125% probe 1344x802 DPR 1.25 remains blocked for the original-size visual matrix. Do not equate successful keyboard stress with physical DPI.
+
+- Independently inspected actual contact sheets for repaired PiSD Motor Tuning dark/light desktop/mobile before/after, PiSD dark desktop and mobile, PiServer Obsidian desktop, Windows native 1024 baseline and dark six-stage sheets, and the new emulator dark/light offline 390/768/1440 plus live wide-workspace screenshots. These supplement the prior turn's representative visual review. All 130 themed web captures and native stage groups have been organized into local contact sheets; generation of a contact sheet is not proof of manual inspection of every image. Full-resolution exhaustive manual review remains incomplete.
+- Motor Tuning computed list contrast now 15.396631568944803 light and 13.582837857185277 dark, both 390 and 1440 widths. Actual screenshots show the previously faint bullets are readable. PiSD 48 cockpit geometries maximum 0px alignment discrepancy, narrow STOP min height 44px; PiServer 24 geometries maximum 0.6649305555555429px. Both page_errors arrays empty.
+- Emulator repaired CI and actual 10 screenshots verify 6 offline viewport/theme cases and 2 new live themes plus original live-cockpit/after-stop. Exact manifest: virtual-only hardware_enabled false, generation 1, iframe widths 612.671875 -> 926.578125, authorization false before/after wide toggle, decoded 426x240 image and overlay identical [20.609375,652.765625,574.234375,323.5], contain fit, STOP left/right intent 0.0, readback both 0.00 and wheel speeds 0.00 m/s, settings GET echoes 0. Light and dark live switch preserves embedded PiSD appearance independently.
+- Newly confirmed visual defect on all three dark offline outer emulator screenshots: white legacy frame-shell background behind a pale prompt. CSS source .frame-shell background #f6f6f4, while dark workspace inherited pale text from earlier overlay rules. Repair ONLY outer shell/empty prompt to current panel/text tokens under forced-colors:none; keep iframe CSS and display/state handlers untouched. Test the real offline visible prompt, hidden iframe and exact foreground/background in each existing 6-case viewport/theme loop. Expected palette contrast 13.58:1 dark and 15.40:1 light; measured proof awaits new CI. Mobile screenshot also shows the existing iframe-first scroll ordering and long blank workspace before runtime controls; document as an existing usability limitation, not a verified new regression, do not reorder saved/working layout in this repair. No other confirmed defect in reviewed samples.
+
+Trained-workflow report complete true, synthetic recordings and actual CPU training, deployment_authorized false. Screenshot hashes verified; no claim of physical qualification or exhaustive new functional acceptance.
+
+**Disposition:** requested repaired revision CI all green; original two failures verified resolved. Newly observed placeholder defect patched forward; exact new CI and new dark/offline screenshots must qualify it. VD34 remains partial rather than falsely complete. Remaining manual full-resolution review, 125% requested-size native visual matrix, screen-reader, physical hardware/display, and concurrent emulator scenario pages remain separate evidence gaps. No configuration changes, baseline replacement, runtime handler changes, merges, versions or promotion.

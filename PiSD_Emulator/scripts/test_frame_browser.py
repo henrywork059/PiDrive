@@ -94,6 +94,13 @@ class FrameTest(unittest.TestCase):
                         for width, height in ((390,844),(768,1024),(1440,900)):
                             page.set_viewport_size({"width":width,"height":height})
                             expect(page.locator("#startButton")).to_be_enabled()
+                            expect(page.locator("#frameEmpty")).to_be_visible()
+                            expect(page.locator("#pisdFrame")).to_be_hidden()
+                            surface = "rgb(255, 255, 255)" if mode == "light" else "rgb(32, 37, 45)"
+                            foreground = "rgb(32, 37, 45)" if mode == "light" else "rgb(237, 241, 247)"
+                            expect(page.locator("#frameShell")).to_have_css("background-color", surface)
+                            expect(page.locator("#frameEmpty")).to_have_css("background-color", surface)
+                            expect(page.locator("#frameEmpty")).to_have_css("color", foreground)
                             self.assertFalse(runtime.status()["hardware_enabled"])
                             evidence_dir = os.environ.get("PISD_EMULATOR_EVIDENCE_DIR")
                             if evidence_dir:
