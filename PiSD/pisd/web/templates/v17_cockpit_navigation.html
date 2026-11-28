@@ -1,0 +1,5 @@
+<nav id="v17ModeNav" class="v17-mode-nav" aria-label="Driving cockpit mode">
+  <a class="v17-mode-link" href="{{ url_for('v17_drive', mode='manual') }}"{% if v17_mode == 'manual' %} aria-current="page"{% endif %}>Manual</a>
+  <a class="v17-mode-link" href="{{ url_for('v17_drive', mode='ai') }}"{% if v17_mode == 'ai' %} aria-current="page"{% endif %}>AI</a>
+  <a class="v17-legacy-link" href="{{ url_for('manual_drive' if v17_mode == 'manual' else 'ai_mode') }}">Classic layout</a>
+</nav>

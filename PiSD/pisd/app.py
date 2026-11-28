@@ -297,6 +297,19 @@ def create_app(
             manifest=test_gui_manifest(),
         )
 
+    @app.get("/drive")
+    def v17_drive():
+        # Opt-in presentation only. The original route/controller and all
+        # existing authorization, safety and mutation contracts stay intact.
+        mode = request.args.get("mode", "manual")
+        if mode not in ("manual", "ai"):
+            return "Unknown driving mode.", 400
+        return render_template(
+            "v17_cockpit.html",
+            v17_mode=mode,
+            initial_status=build_status(),
+        )
+
     @app.get("/manual-drive")
     def manual_drive():
         return render_template(

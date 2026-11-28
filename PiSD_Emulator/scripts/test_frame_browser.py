@@ -21,6 +21,7 @@ from pisd.app import create_app
 from pisd_emulator.runtime import PiSDRuntime
 from pisd_emulator.control_app import create_control_app
 from v17_baseline_probe import capture_v17_baseline
+from v17_shell_probe import capture_v17_shell
 
 
 def free_port():
@@ -332,6 +333,8 @@ class FrameTest(unittest.TestCase):
                     if evidence_dir:
                         capture_v17_baseline(browser, runtime, pisd, evidence_dir,
                                              os.environ.get("PISD_EMULATOR_EVIDENCE_REVISION"))
+                        capture_v17_shell(browser, runtime, pisd, evidence_dir,
+                                          os.environ.get("PISD_EMULATOR_EVIDENCE_REVISION"))
                 finally:
                     browser.close()
             runtime.close()

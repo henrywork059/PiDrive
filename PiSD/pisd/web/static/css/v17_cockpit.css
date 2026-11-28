@@ -1,0 +1,155 @@
+/* V17 M01 opt-in shell. Existing layout rules are untouched on classic routes.
+   Real image dimensions own overlay coordinates; do not set overlay geometry. */
+body[data-pisd-v17][data-pisd-theme="dark"] {
+  --vd-bg: #17191D;
+  --vd-panel: #20252B;
+  --v17-accent: #57FFED;
+  --v17-stop: #B82D39;
+}
+body[data-pisd-v17] .mdrv-topbar {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 6px 12px !important;
+  position: sticky !important;
+  top: 0;
+  z-index: 20;
+}
+body[data-pisd-v17] .mdrv-title-block { flex: 0 1 auto; }
+body[data-pisd-v17] .mdrv-topbar .mdrv-actions { min-width: 0; flex-wrap: wrap; }
+body[data-pisd-v17] .v17-mode-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+body[data-pisd-v17] .v17-mode-nav a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 12px;
+  border-radius: 8px;
+  color: inherit;
+  text-decoration: none;
+  font-weight: 650;
+  border: 1px solid currentColor;
+}
+body[data-pisd-v17] .v17-mode-nav a[aria-current="page"] {
+  color: var(--v17-accent, var(--vd-accent, currentColor));
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  font-weight: 800;
+}
+body[data-pisd-v17] .v17-mode-nav a:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+body[data-pisd-v17] :is(#mdrvStopTop,#aiStopAll) {
+  min-width: 44px !important;
+  min-height: 44px !important;
+  transform: none !important;
+}
+body[data-pisd-v17][data-pisd-theme="dark"] :is(#mdrvStopTop,#aiStopAll) {
+  background: var(--v17-stop) !important;
+  color: #fff !important;
+}
+body[data-pisd-v17][data-pisd-v17-ready="true"] :is(#manualDriveShell,#aiModeShell) {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  width: calc(100% - 16px) !important;
+  max-width: none !important;
+  gap: var(--pisd-layout-gap, 10px) !important;
+  margin-inline: auto !important;
+}
+body[data-pisd-v17][data-pisd-v17-ready="true"] :is(#manualDriveShell,#aiModeShell) > * {
+  order: 0 !important;
+  width: 100% !important;
+  min-width: 0 !important;
+}
+body[data-pisd-v17][data-pisd-v17-ready="true"] :is(#manualDriveCameraPanel,#aiPreviewPanel) {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  align-self: stretch !important;
+  min-height: 0 !important;
+  gap: 6px !important;
+}
+body[data-pisd-v17][data-pisd-v17-ready="true"] :is(#mdrvPreviewFrame,#aiPreviewFrame) {
+  --v17-ratio: var(--cockpit-camera-ratio, 1.77777778);
+  width: min(100%, calc(max(160px, 100svh - var(--v17-header-height, 100px) - 76px) * var(--v17-ratio))) !important;
+  margin-inline: auto !important;
+  aspect-ratio: auto !important;
+  display: block !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  flex: 0 0 auto !important;
+  box-sizing: border-box !important;
+  container-type: inline-size;
+}
+body[data-pisd-v17][data-pisd-v17-ready="true"] :is(#mdrvPreviewFrame,#aiPreviewFrame) > img {
+  position: static !important;
+  display: block !important;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  aspect-ratio: auto 16 / 9 !important;
+  object-fit: contain !important;
+}
+body[data-pisd-v17] #drivingCockpitToggle[hidden] { display: none !important; }
+body[data-pisd-v17] .v17-readiness { min-width: 0; overflow-wrap: anywhere; }
+body[data-pisd-v17] .v17-readiness .pisd-readiness-reason {
+  display: flex !important;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  align-items: baseline;
+}
+body[data-pisd-v17] .v17-readiness .pisd-readiness-reason strong { min-width: 0; overflow-wrap: anywhere; }
+body[data-pisd-v17][data-pisd-v17-ready="true"] .ai-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)) !important;
+  grid-template-areas: none !important;
+  grid-auto-flow: row !important;
+}
+body[data-pisd-v17][data-pisd-v17-ready="true"] .ai-grid > * {
+  grid-area: auto !important;
+  grid-column: auto !important;
+  grid-row: auto !important;
+  order: 0 !important;
+  min-width: 0 !important;
+}
+/* Keep the existing opaque readable HUD treatment, without modifying paths. */
+@media (forced-colors: none) {
+  body[data-pisd-v17] :is(#mdrvPreviewFrame,#aiPreviewFrame) :is(.mdrv-overlay-hud,.mdrv-overlay-meter,.mdrv-overlay-wheel-row) {
+    background: #14171c !important;
+    color: #edf1f7 !important;
+    backdrop-filter: none !important;
+    border-radius: 6px !important;
+  }
+  body[data-pisd-v17] :is(#mdrvPreviewFrame,#aiPreviewFrame) :is(.mdrv-overlay-hud,.mdrv-overlay-meter,.mdrv-overlay-wheel-row) :is(span,strong,em) { color: #edf1f7 !important; }
+}
+body[data-pisd-v17] :is(#mdrvPreviewFrame,#aiPreviewFrame) .mdrv-overlay-hud { max-width: 58%; flex-wrap: wrap; }
+body[data-pisd-v17] :is(#mdrvPreviewFrame,#aiPreviewFrame) .mdrv-overlay-wheel-row { max-width: 38%; flex-wrap: wrap; }
+@container (max-width: 520px) {
+  body[data-pisd-v17] :is(#mdrvPreviewFrame,#aiPreviewFrame) .mdrv-overlay-hud { max-width: calc(100% - .9rem); left: .45rem; top: .45rem; }
+  body[data-pisd-v17] :is(#mdrvPreviewFrame,#aiPreviewFrame) .mdrv-overlay-wheel-row { max-width: calc(100% - .9rem); right: .45rem; top: 2.95rem; }
+}
+@media (max-width: 900px) {
+  body[data-pisd-v17] .v17-mode-nav { flex: 1 1 auto; }
+  body[data-pisd-v17] :is(.mdrv-camera-head-actions,.mdrv-preview-top-actions,.ai-preview-run-actions) { flex-wrap: wrap !important; min-width: 0; }
+  body[data-pisd-v17] :is(.mdrv-camera-head-actions,.mdrv-preview-top-actions,.ai-preview-run-actions) button {
+    min-width: 44px !important;
+    min-height: 44px !important;
+    transform: none !important;
+    white-space: normal !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  body[data-pisd-v17] .v17-mode-nav a { transition: none !important; }
+}

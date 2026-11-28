@@ -1,0 +1,2 @@
+{# M01: exactly one existing controller/document. Never include both modes. #}
+{% if v17_mode == 'manual' %}{% include 'manual_drive.html' %}{% else %}{% include 'ai_mode.html' %}{% endif %}
